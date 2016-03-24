@@ -35,6 +35,9 @@ public:
     llvm_unreachable("CustomError doesn't support ECError conversion");
   }
 
+  // Used by ErrorInfo::classID.
+  static char ID;
+
 protected:
   // This error is subclassed below, but we can't use inheriting constructors
   // yet, so we can't propagate the constructors through ErrorInfo. Instead
@@ -45,7 +48,7 @@ protected:
   int Info;
 };
 
-template <> char ErrorInfo<CustomError>::ID = 0;
+char CustomError::ID = 0;
 
 // Custom error class with a custom base class and some additional random
 // 'info'.
@@ -68,11 +71,38 @@ public:
     llvm_unreachable("CustomSubError doesn't support ECError conversion");
   }
 
+  // Used by ErrorInfo::classID.
+  static char ID;
+
 protected:
   int ExtraInfo;
 };
 
-template <> char ErrorInfo<CustomSubError, CustomError>::ID = 0;
+// Verify that success values that are checked (i.e. cast to 'bool') are
+// destructed without error, and that unchecked success values cause an
+// abort.
+TEST(Error, CheckSuccess) {
+  // Test checked success.
+  {
+    Error E;
+    EXPECT_FALSE(E) << "Unexpected error while testing Error 'Success'";
+  }
+
+// Test unchecked success.
+// Test runs in debug mode only.
+#ifdef GTEST_HAS_DEATH_TEST
+#ifndef NDEBUG
+  {
+    auto DropUncheckedSuccess = []() { Error E; };
+    EXPECT_DEATH(DropUncheckedSuccess(),
+                 "Program aborted due to an unhandled Error:")
+        << "Unchecked Error Succes value did not cause abort()";
+  }
+#endif
+#endif
+}
+
+char CustomSubError::ID = 0;
 
 static Error handleCustomError(const CustomError &CE) { return Error(); }
 
