@@ -20,7 +20,7 @@ namespace {
 
   enum class ErrorErrorCode : int {
     MultipleErrors = 1,
-    UnconvertibleError
+    InconvertibleError
   };
 
   class ErrorErrorCategory : public std::error_category {
@@ -31,8 +31,8 @@ namespace {
       switch (static_cast<ErrorErrorCode>(condition)) {
       case ErrorErrorCode::MultipleErrors:
         return "Multiple errors";
-      case ErrorErrorCode::UnconvertibleError:
-        return "Unconvertible error value. An error has occurred that could "
+      case ErrorErrorCode::InconvertibleError:
+        return "Inconvertible error value. An error has occurred that could "
                "not be converted to a known std::error_code. Please file a "
                "bug.";
       }
@@ -58,8 +58,8 @@ std::error_code ErrorList::convertToErrorCode() const {
                          *ErrorErrorCat);
 }
 
-std::error_code unconvertibleErrorCode() {
-  return std::error_code(static_cast<int>(ErrorErrorCode::UnconvertibleError),
+std::error_code inconvertibleErrorCode() {
+  return std::error_code(static_cast<int>(ErrorErrorCode::InconvertibleError),
                          *ErrorErrorCat);
 }
 
@@ -74,7 +74,7 @@ std::error_code errorToErrorCode(Error Err) {
   handleAllErrors(std::move(Err), [&](const ErrorInfoBase &EI) {
     EC = EI.convertToErrorCode();
   });
-  if (EC == unconvertibleErrorCode())
+  if (EC == inconvertibleErrorCode())
     report_fatal_error(EC.message());
   return EC;
 }
