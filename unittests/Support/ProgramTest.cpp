@@ -196,7 +196,7 @@ TEST(ProgramTest, TestExecuteNoWait) {
   // LoopCount should only be incremented once.
   while (true) {
     ++LoopCount;
-    ProcessInfo WaitResult = Wait(PI1, 0, true, &Error);
+    ProcessInfo WaitResult = llvm::sys::Wait(PI1, 0, true, &Error);
     ASSERT_TRUE(Error.empty());
     if (WaitResult.Pid == PI1.Pid)
       break;
@@ -213,7 +213,7 @@ TEST(ProgramTest, TestExecuteNoWait) {
   // cse, LoopCount should be greater than 1 (more than one increment occurs).
   while (true) {
     ++LoopCount;
-    ProcessInfo WaitResult = Wait(PI2, 0, false, &Error);
+    ProcessInfo WaitResult = llvm::sys::Wait(PI2, 0, false, &Error);
     ASSERT_TRUE(Error.empty());
     if (WaitResult.Pid == PI2.Pid)
       break;
