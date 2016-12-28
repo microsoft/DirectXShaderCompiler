@@ -1,0 +1,13 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+add_llvm_library(LLVMRuntimeDyld
+  RTDyldMemoryManager.cpp
+  RuntimeDyld.cpp
+  RuntimeDyldChecker.cpp
+  RuntimeDyldCOFF.cpp
+  RuntimeDyldELF.cpp
+  RuntimeDyldMachO.cpp
+
+  DEPENDS
+  intrinsics_gen
+  )

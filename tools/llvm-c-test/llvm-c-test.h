@@ -1,0 +1,38 @@
+/*===-- llvm-c-test.h - tool for testing libLLVM and llvm-c API -----------===*\
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// llvm-c-test.h                                                             //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// Licensed under the MIT license. See COPYRIGHT in the project root for     //
+// full license information.                                                 //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////#ifndef LLVM_C_TEST_H
+#define LLVM_C_TEST_H
+
+// helpers.c
+void tokenize_stdin(void (*cb)(char **tokens, int ntokens));
+
+// module.c
+int module_dump(void);
+int module_list_functions(void);
+int module_list_globals(void);
+
+// calc.c
+int calc(void);
+
+// disassemble.c
+int disassemble(void);
+
+// metadata.c
+int add_named_metadata_operand(void);
+int set_metadata(void);
+
+// object.c
+int object_list_sections(void);
+int object_list_symbols(void);
+
+// targets.c
+int targets_list(void);
+
+#endif
+

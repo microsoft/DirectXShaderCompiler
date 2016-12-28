@@ -1,0 +1,60 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+add_subdirectory(Rewrite)
+
+set(LLVM_LINK_COMPONENTS
+  BitReader
+  Option
+  Support
+  )
+
+# HLSL Change - add ignored sources
+set(HLSL_IGNORE_SOURCES ChainedIncludesSource.cpp)
+
+add_clang_library(clangFrontend
+  ASTConsumers.cpp
+  ASTMerge.cpp
+  ASTUnit.cpp
+  CacheTokens.cpp
+  ChainedDiagnosticConsumer.cpp
+  # ChainedIncludesSource.cpp      # HLSL Change
+  CodeGenOptions.cpp
+  CompilerInstance.cpp
+  CompilerInvocation.cpp
+  CreateInvocationFromCommandLine.cpp
+  DependencyFile.cpp
+  DependencyGraph.cpp
+  DiagnosticRenderer.cpp
+  FrontendAction.cpp
+  FrontendActions.cpp
+  FrontendOptions.cpp
+  HeaderIncludeGen.cpp
+  InitHeaderSearch.cpp
+  InitPreprocessor.cpp
+  LangStandards.cpp
+  LayoutOverrideSource.cpp
+  LogDiagnosticPrinter.cpp
+  ModuleDependencyCollector.cpp
+  MultiplexConsumer.cpp
+  PCHContainerOperations.cpp
+  PrintPreprocessedOutput.cpp
+  SerializedDiagnosticPrinter.cpp
+  SerializedDiagnosticReader.cpp
+  TextDiagnostic.cpp
+  TextDiagnosticBuffer.cpp
+  TextDiagnosticPrinter.cpp
+  VerifyDiagnosticConsumer.cpp
+
+  DEPENDS
+  ClangDriverOptions
+
+  LINK_LIBS
+  clangAST
+  clangBasic
+  clangDriver
+  clangEdit
+  clangLex
+  clangParse
+  clangSema
+#  clangSerialization # HLSL Change
+  )

@@ -1,0 +1,51 @@
+//===-- DiffLog.h - Difference Log Builder and accessories ------*- C++ -*-===//
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// DiffLog.cpp                                                               //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// Licensed under the MIT license. See COPYRIGHT in the project root for     //
+// full license information.                                                 //
+//                                                                           //
+// This header defines the interface to the LLVM difference log builder.     //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+#include "DiffLog.h"
+#include "DiffConsumer.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Instructions.h"
+
+using namespace llvm;
+
+LogBuilder::~LogBuilder() {
+  consumer.logf(*this);
+}
+
+StringRef LogBuilder::getFormat() const { return Format; }
+
+unsigned LogBuilder::getNumArguments() const { return Arguments.size(); }
+Value *LogBuilder::getArgument(unsigned I) const { return Arguments[I]; }
+
+DiffLogBuilder::~DiffLogBuilder() { consumer.logd(*this); }
+
+void DiffLogBuilder::addMatch(Instruction *L, Instruction *R) {
+  Diff.push_back(DiffRecord(L, R));
+}
+void DiffLogBuilder::addLeft(Instruction *L) {
+  // HACK: VS 2010 has a bug in the stdlib that requires this.
+  Diff.push_back(DiffRecord(L, DiffRecord::second_type(nullptr)));
+}
+void DiffLogBuilder::addRight(Instruction *R) {
+  // HACK: VS 2010 has a bug in the stdlib that requires this.
+  Diff.push_back(DiffRecord(DiffRecord::first_type(nullptr), R));
+}
+
+unsigned DiffLogBuilder::getNumLines() const { return Diff.size(); }
+
+DiffChange DiffLogBuilder::getLineKind(unsigned I) const {
+  return (Diff[I].first ? (Diff[I].second ? DC_match : DC_left)
+                        : DC_right);
+}
+Instruction *DiffLogBuilder::getLeft(unsigned I) const { return Diff[I].first; }
+Instruction *DiffLogBuilder::getRight(unsigned I) const { return Diff[I].second; }

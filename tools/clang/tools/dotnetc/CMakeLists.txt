@@ -1,0 +1,23 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} )
+file(TO_NATIVE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" DOS_STYLE_OUTPUT_DIRECTORY)
+file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" DOS_STYLE_SOURCE_DIR)
+
+if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+  set ( DOTNET_PLATFORM_TARGET "x64" )
+elseif (CMAKE_GENERATOR STREQUAL "Visual Studio 12" )
+  set ( DOTNET_PLATFORM_TARGET "x86" )
+else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+  set ( DOTNET_PLATFORM_TARGET "AnyCPU" )
+endif (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+
+configure_file(dndxc.csproj.txt dndxc.csproj)
+
+include_external_msproject(
+    dndxc ${CMAKE_CURRENT_BINARY_DIR}/dndxc.csproj
+    TYPE FAE04EC0-301F-11D3-BF4B-00C04F79EFBC)
+
+set_target_properties(dndxc
+   PROPERTIES
+   FOLDER "Clang executables")

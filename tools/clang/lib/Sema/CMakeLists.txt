@@ -1,0 +1,62 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+set(LLVM_LINK_COMPONENTS
+  Support
+  )
+
+add_clang_library(clangSema
+  AnalysisBasedWarnings.cpp
+  AttributeList.cpp
+  CodeCompleteConsumer.cpp
+  DeclSpec.cpp
+  DelayedDiagnostic.cpp
+  IdentifierResolver.cpp
+  JumpDiagnostics.cpp
+  MultiplexExternalSemaSource.cpp
+  Scope.cpp
+  ScopeInfo.cpp
+  Sema.cpp
+  SemaAccess.cpp
+  SemaAttr.cpp
+  SemaCXXScopeSpec.cpp
+  SemaCast.cpp
+  SemaChecking.cpp
+  SemaCodeComplete.cpp
+  SemaConsumer.cpp
+  SemaCUDA.cpp
+  SemaDecl.cpp
+  SemaDeclAttr.cpp
+  SemaDeclCXX.cpp
+  SemaDeclObjC.cpp
+  SemaExceptionSpec.cpp
+  SemaExpr.cpp
+  SemaExprCXX.cpp
+  SemaExprMember.cpp
+  SemaExprObjC.cpp
+  SemaFixItUtils.cpp
+  SemaHLSL.cpp # HLSL Change
+  SemaInit.cpp
+  SemaLambda.cpp
+  SemaLookup.cpp
+  SemaObjCProperty.cpp
+  SemaOpenMP.cpp
+  SemaOverload.cpp
+  SemaPseudoObject.cpp
+  SemaStmt.cpp
+  SemaStmtAsm.cpp
+  SemaStmtAttr.cpp
+  SemaTemplate.cpp
+  SemaTemplateDeduction.cpp
+  SemaTemplateInstantiate.cpp
+  SemaTemplateInstantiateDecl.cpp
+  SemaTemplateVariadic.cpp
+  SemaType.cpp
+  TypeLocBuilder.cpp
+
+  LINK_LIBS
+  clangAST
+  clangAnalysis
+  clangBasic
+  clangEdit
+  clangLex
+  )

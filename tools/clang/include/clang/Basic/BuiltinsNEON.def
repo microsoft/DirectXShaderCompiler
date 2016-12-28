@@ -1,0 +1,19 @@
+//===--- BuiltinsNEON.def - NEON Builtin function database ------*- C++ -*-===//
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// BuiltinsNEON.def                                                          //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// Licensed under the MIT license. See COPYRIGHT in the project root for     //
+// full license information.                                                 //
+//                                                                           //
+// This file defines the NEON-specific builtin function database.  Users of  //
+// this file must define the BUILTIN macro to make use of this information.  //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+// The format of this database matches clang/Basic/Builtins.def.             //
+
+#define GET_NEON_BUILTINS
+#include "clang/Basic/arm_neon.inc"
+#undef GET_NEON_BUILTINS
+
+#undef BUILTIN

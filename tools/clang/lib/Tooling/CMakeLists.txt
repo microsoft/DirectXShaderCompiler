@@ -1,0 +1,26 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+set(LLVM_LINK_COMPONENTS support)
+
+add_subdirectory(Core)
+
+add_clang_library(clangTooling
+  ArgumentsAdjusters.cpp
+  CommonOptionsParser.cpp
+  CompilationDatabase.cpp
+  FileMatchTrie.cpp
+  JSONCompilationDatabase.cpp
+  Refactoring.cpp
+  RefactoringCallbacks.cpp
+  Tooling.cpp
+
+  LINK_LIBS
+  clangAST
+  clangASTMatchers
+  clangBasic
+  clangDriver
+  clangFrontend
+  clangLex
+  clangRewrite
+  clangToolingCore
+  )

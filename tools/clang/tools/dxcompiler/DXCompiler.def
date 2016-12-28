@@ -1,0 +1,4 @@
+LIBRARY dxcompiler
+
+EXPORTS
+    DxcCreateInstance

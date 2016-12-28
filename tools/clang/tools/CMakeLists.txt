@@ -1,0 +1,37 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+# add_subdirectory(diagtool)        # HLSL Change
+add_subdirectory(driver)
+# add_subdirectory(clang-format)    # HLSL Change
+# add_subdirectory(clang-format-vs) # HLSL Change
+# add_subdirectory(clang-fuzzer)    # HLSL Change
+
+# add_subdirectory(c-index-test)    # HLSL Change
+add_subdirectory(libclang)
+
+if(0 AND CLANG_ENABLE_ARCMT)        # HLSL Change
+  add_subdirectory(arcmt-test)
+  add_subdirectory(c-arcmt-test)
+endif()
+
+if(CLANG_ENABLE_STATIC_ANALYZER)
+  add_subdirectory(clang-check)
+endif()
+
+# We support checking out the clang-tools-extra repository into the 'extra'
+# subdirectory. It contains tools developed as part of the Clang/LLVM project
+# on top of the Clang tooling platform. We keep them in a separate repository
+# to keep the primary Clang repository small and focused.
+# It also may be included by LLVM_EXTERNAL_CLANG_TOOLS_EXTRA_SOURCE_DIR.
+add_llvm_external_project(clang-tools-extra extra)
+
+# HLSL Change Starts
+add_subdirectory(d3dcomp)
+add_subdirectory(dxcompiler)
+add_subdirectory(dxa)
+add_subdirectory(dxc)
+add_subdirectory(dxopt)
+add_subdirectory(dxr)
+add_subdirectory(dxv)
+add_subdirectory(dotnetc)
+# HLSL Change Ends

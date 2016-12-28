@@ -1,0 +1,2400 @@
+=============================
+DirectX Intermediate Language
+=============================
+
+.. contents::
+   :local:
+   :depth: 2
+
+Introduction
+============
+
+This document presents the design of the DirectX Intermediate Language (DXIL) for GPU shaders. DXIL is intended to support a direct mapping of the HLSL programming language into Low-Level Virtual Machine Intermediate Representation (LLVM IR), suitable for consumption in GPU drivers. This version of the specification is based on LLVM 3.7 in the use of metadata syntax.
+
+We distinguish between DXIL, which is a low-level IR for GPU driver compilers, and DXIR, which is a high-level IR, more suitable for emission by IR producers, such as Clang. DXIR is transformed to DXIL by the optimizer. DXIR accepts high-level constructs, such as user-defined types, multi-dimensional arrays, matrices, and vectors. These, however, are not suitable for fast JIT-ing in the driver compilers, and so are lowered by the optimizer, such that DXIL works on simpler abstractions. Both DXIL and DXIR are derived from LLVM IR. This document does not describe DXIR.
+
+LLVM is quickly becoming a de facto standard in modern compilation technology. The LLVM framework offers several distinct features, such as a vibrant ecosystem, complete compilation framework, modular design, and reasonable documentation. We can leverage these to achieve two important objectives.
+
+First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion the current HLSL IL, called DXBC IL in this document, and DXIL.
+
+Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL and DXIR to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL verifier to check consistency of generated DXIL.
+
+The following diagram shows how some of these components tie together::
+
+  HLSL   Other shading langs  DSL          DXBC IL
+  +      +                    +            +
+  |      |                    |            |
+  v      v                    v            v
+  Clang  Clang                Other Tools  dxbc2dxil
+  +      +                    +            +
+  |      |                    |            |
+  v      v                    v            |
+  +------+--------------------+---------+  |
+  |          High level IR (DXIR)       |  |
+  +-------------------------------------+  |
+                    |                      |
+                    |                      |
+                    v                      |
+                Optimizer <-----+ Linker   |
+                +      ^             +     |
+                |      |             |     |
+                |      |             |     |
+   +------------v------+-------------v-----v-------+
+   |              Low|level IR (DXIL)              |
+   +------------+----------------------+-----------+
+                |                      |
+                v                      v
+        Driver Compiler             Verifier
+
+The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes DXIR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Verifier* element is a public component that verifies DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
+
+DXIL does not support the following HLSL features that were present in prior implementations.
+
+* Shader models 9 and below. Microsoft may implement 10level9 shader models via DXIL capability tiers.
+* Effects.
+* HLSL interfaces.
+* Shader compression/decompression.
+* Partial precision. Half data type should be used instead.
+* min10float type. Half data type should be used instead.
+* HLSL *uniform* parameter qualifier.
+* Current fxc legacy compatibility mode for old shader models (e.g., c-register binding).
+* PDB. Debug Information annotations are used instead.
+* Compute shader model cs_4_0.
+* DXBC label, call, fcall constructs.
+
+The following principles are used to ease reuse with LLVM components and aid extensibility.
+
+* DXIL uses a subset of LLVM IR constructs that makes sense for HLSL.
+* No modifications to the core LLVM IR; i.e., no new instructions or fundamental types.
+* Additional information is conveyed via metadata, LLVM intrinsics or external functions.
+* Name prefixes: 'llvm.dx.', 'llvm.dxil.', 'llvm.dxir.', 'dx.', 'dxil.', and 'dxir.' are reserved.
+
+LLVM IR has three equivalent forms: human-readable, binary (bitcode), and in-memory. DXIL is a binary format and is based on a subset of LLVM IR bitcode format. The document uses only human-readable form to describe DXIL.
+
+Versioning
+==========
+
+There are three versioning mechanisms in DXIL shaders: shader model, DXIL version, and LLVM bitcode version.
+
+At a high-level, the shader model describes the target execution model and environment; DXIL provides a mechanism to express programs (including rules around expressing data types and operations); and LLVM bitcode provides a way to encode a DXIL program.
+
+Shader Model
+------------
+
+The shader model in DXIL is similar to DXBC shader model. A shader model specifies the execution model, the set of capabilities that shader instructions can use and the constraints that a shader program must adhere to.
+
+The shader model is specified as a named metadata in DXIL::
+
+  !dx.shaderModel = !{ !0 }
+  !0 = !{ !"<shadelModelName>", i32 <major>, i32 <minor> }
+
+The following values of <shaderModelName>_<major>_<minor> are supported:
+
+==================== ===================================== ===========
+Target               Legacy Models                         DXIL Models
+==================== ===================================== ===========
+Vertex shader (VS)   vs_4_0, vs_4_1, vs_5_0, vs_5_1        vs_6_0
+Hull shader (HS)     hs_5_0, hs_5_1                        hs_6_0
+Domain shader (DS)   ds_5_0, ds_5_1                        ds_6_0
+Geometry shader (GS) gs_4_0, gs_4_1, gs_5_0, gs_5_1        gs_6_0
+Pixel shader (PS)    ps_4_0, ps_4_1, ps_5_0, ps_5_1        ps_6_0
+Compute shader (CS)  cs_5_0 (cs_4_0 is mapped onto cs_5_0) cs_6_0
+Shader library       no support                            no support
+==================== ===================================== ===========
+
+The DXIL verifier ensures that DXIL conforms to the specified shader model.
+
+For shader models prior to 6.0, only the rules applicable to the DXIL representation are valid. For example, the limits on maximum number of resources is honored, but the limits on registers aren't because DXIL does not have a representation for registers.
+
+DXIL version
+------------
+
+The primary mechanism to evolve HLSL capabilities is through shader models. However, DXIL version is reserved for additional flexibility of future extensions. The only currently defined version is 1.0.
+
+DXIL version has major and minor versions that are specified as named metadata::
+
+  !dx.version = !{ !0 }
+  !0 = !{ i32 <major>, i32 <minor> }
+
+DXIL version must be declared exactly once per LLVM module (translation unit) and is valid for the entire module.
+
+DXIL will evolve in a manner that retains backward compatibility.
+
+LLVM Bitcode version
+--------------------
+
+The current version of DXIL is based on LLVM bitcode v3.7. This encoding is necessarily implied by something outside the DXIL module.
+
+General Issues
+==============
+
+An important goal is to enable HLSL to be closer to a strict subset of C/C++. This has implications for DXIL design and future hardware feature requests outlined below.
+
+Terminology
+-----------
+Resource refers to one of the following:
+
+* SRV - shader resource view (read-only)
+* UAV - unordered access view (read-write)
+* CBV - constant buffer view (read-only)
+* Sampler
+
+Intrinsics typically refer to operations missing in the core LLVM IR. DXIL represents HLSL built-in functions (also called intrinsics) not as LLVM intrinsics, but rather as external function calls.
+
+
+DXIL abstraction level
+----------------------
+
+DXIL has level of abstraction similar to a 'scalarized' DXBC. DXIL is lower level IR than DXIR emitted by the front-end to be amenable to fast and robust JIT-ing in driver compilers.
+
+In particular, the following passes are performed to lower the HLSL/DXIR abstractions down to DXIL:
+
+* optimize function parameter copies
+* inline functions
+* allocate and transform shader signatures
+* lower matrices, optimizing intermediate storage
+* linearize multi-dimensional arrays and user-defined type accesses
+* scalarize vectors
+
+Scalar IR
+---------
+DXIL operations work with scalar quantities. Several scalar quantities may be grouped together in a struct to represent several return values, which is used for memory operations, e.g., load/store, sample, etc., that benefit from access coalescing.
+
+Metadata, resource declarations, and debugging info may contain vectors to more closely convey source code shape to tools and debuggers.
+
+Future versions of IR may contain vectors or grouping hints for less-than-32-bit quantities, such as half and i16.
+
+Memory accesses
+---------------
+
+DXIL conceptually aligns with DXBC in how different memory types are accessed. Out-of-bounds behavior and various restrictions are preserved.
+
+Indexable thread-local and groupshared variables are represented as variables and accessed via LLVM C-like pointers.
+
+Swizzled resources, such as textures, have opaque memory layouts from a DXIL point of view. Accesses to these resources are done via intrinsics.
+
+There are two layouts for constant buffer memory: (1) legacy, matching DXBC's layout and (2) linear layout. SM6 DXIL uses intrinsics to read cbuffer for either layout.
+
+Shader signatures require packing and are located in a special type of memory that cannot be viewed as linear. Accesses to signature values are done via special intrinsics in DXIL. If a signature parameter needs to be passed to a function, a copy is created first in threadlocal memory and the copy is passed to the function.
+
+Typed buffers represent memory with in-flight data conversion. Typed buffer load/store/atomics are done via special functions in DXIL with element-granularity indexing.
+
+The following pointer types are supported:
+
+* Non-indexable thread-local variables.
+* Indexable thread-local variables (DXBC x-registers).
+* Groupshared variables (DXBC g-registers).
+* Device memory pointer.
+* Constant-buffer-like memory pointer.
+
+The type of DXIL pointer is differentiated by LLVM addrspace construct. The HLSL compiler will make the best effort to infer the exact pointer addrspace such that a driver compiler can issue the most efficient instruction.
+
+A pointer can come into being in a number of ways:
+
+* Global Variables.
+* AllocaInst.
+* Synthesized as a result of some pointer arithmetic.
+
+DXIL uses 32-bit pointers in its representation.
+
+Out-of-bounds behavior
+----------------------
+
+Indexable thread-local accesses are done via LLVM pointer and have C-like OOB semantics.
+Groupshared accesses are done via LLVM pointer too. The origin of a groupshared pointer must be a single TGSM allocation.
+If a groupshared pointer uses in-bound GEP instruction, it should not OOB. The behavior for an OOB access for in-bound pointer is undefined.
+For groupshared pointer from regular GEP, OOB will has same behavior as DXBC. Loads return 0 for OOB accesses; OOB stores are silently dropped.
+
+Resource accesses keeps the same out-of-bounds behavior as DXBC. Loads return 0 for OOB accesses; OOB stores are silently dropped.
+
+OOB pointer accesses in SM6.0 and later have undefined (C-like) behavior. LLVM memory optimization passes can be used to optimize such accesses. Where out-of-bound behavior is desired, intrinsic functions are used to access memory.
+
+Memory access granularity
+-------------------------
+
+Intrinsic and resource accesses may imply a wider access than requested by an instruction. DXIL defines memory accesses for i1, i16, i32, i64, f16, f32, f64 on thread local memory, and i32, f32, f64 for memory I/O (that is, groupshared memory and memory accessed via resources such as CBs, UAVs and SRVs).
+
+
+Number of virtual values
+------------------------
+
+There is no limit on the number of virtual values in DXIL. The IR is guaranteed to be in an SSA form. For optimized shaders, the optimizer will run -mem2reg LLVM pass as well as perform other memory to register promotions if profitable.
+
+Control-flow restrictions
+-------------------------
+
+The DXIL control-flow graph must be reducible, as checked by T1-T2 test. DXIL does not preserve structured control flow of DXBC. Preserving structured control-flow property would impose significant burden on third-party tools optimizing to DXIL via LLVM, reducing appeal of DXIL.
+
+DXIL allows fall-through for switch label blocks. This is a difference from DXBC, in which the fall-through is prohibited.
+
+DXIL will not support the DXBC label and call instructions; LLVM functions can be used instead (see below). The primary uses for these are (1) HLSL interfaces, which are not supported, and (2) outlining of case-bodies in a switch statement annotated with [call], which is not a scenario of interest.
+
+Functions
+---------
+
+Instead of DXBC labels/calls, DXIL supports functions and call instructions. Recursion is not allowed; DXIL validator enforces this.
+
+The functions are regular LLVM functions. Parameters can be passed by-value or by-reference. The functions are to facilitate separate compilation for big, complex shaders. However, driver compilers are free to inline functions as they see fit.
+
+Identifiers
+-----------
+
+DXIL identifiers must conform to LLVM IR identifier rules.
+
+Identifier mangling rules are the ones used by Clang 3.7 with the HLSL target.
+
+The following identifier prefixes are reserved:
+
+* dx.*, dxil.*, dxir.*
+* llvm.dx.*, llvm.dxil.*, llvm.dxir.*
+
+Address Width
+-------------
+
+DXIL will use only 32-bit addresses for pointers. Byte offsets are also 32-bit.
+
+Shader restrictions
+-------------------
+
+There is no support for the following in DXIL:
+
+* recursion
+* exceptions
+* indirect function calls and dynamic dispatch
+
+Entry points
+------------
+
+The dx.entryPoints metadata specifies a list of entry point records, one for each entry point. Libraries could specify more than one entry point per module but currently exist outside the DXIL specification; the other shader models must specify exactly one entry point.
+
+For example::
+
+ define void @"\01?myfunc1@@YAXXZ"() #0 { ... }
+ define float @"\01?myfunc2@@YAMXZ"() #0 { ... }
+
+ !dx.entryPoints = !{ !1, !2 }
+
+ !1 = !{ void  ()* @"\01?myfunc1@@YAXXZ", !"myfunc1", !3, null, null }
+ !2 = !{ float ()* @"\01?myfunc2@@YAMXZ", !"myfunc2", !5, !6, !7 }
+
+Each entry point metadata record specifies:
+
+* reference to the entry point function global symbol
+* unmangled name
+* list of signatures
+* list of resources
+* list of tag-value pairs of shader capabilities and other properties
+
+A 'null' value specifies absence of a particular node.
+
+Shader capabilities are properties that are additional to properties dictated by shader model. The list is organized as pairs of i32 tag, followed immediately by the value itself.
+
+Hull shader representation
+--------------------------
+
+The hull shader is represented as two functions, related via metadata: (1) control point phase function, which is the entry point of the hull shader, and (2) patch constant phase function.
+
+For example::
+
+ !dx.entryPoints = !{ !1 }
+ !1 = !{ void ()* @"ControlPointFunc", ..., !2 }  ; shader entry record
+ !2 = !{ !"HS", !3 }
+ !3 = !{ void ()* @"PatchConstFunc", ... }        ; additional hull shader state
+
+The patch constant function represents original HLSL computation, and is not separated into fork and join phases, as it is the case in DXBC. The driver compiler may perform such separation if this is profitable for the target GPU.
+
+In DXBC to DXIL conversion, the original patch constant function cannot be recovered during DXBC-to-DXIL conversion. Instead, instructions of each fork and join phases are 'wrapped' by a loop that iterates the corresponding number of phase-instance-count iterations. Thus, fork/join instance ID becomes the loop induction variable. LoadPatchConstant intrinsic (see below) represents load from DXBC vpc register.
+
+The following table summarizes the names of intrinsic functions to load inputs and store outputs of hull and domain shaders. CP stands for Control Point, PC - for Patch Constant.
+
+=================== ==================== ====================== ======================
+Operation           Control Point (Hull) Patch Constant         Domain
+=================== ==================== ====================== ======================
+Store Input CP
+Load Input CP       LoadInput            LoadInput
+Store Output CP     StoreOutput
+Load Output CP                           LoadOutputControlPoint LoadOutputControlPoint
+Store PC                                 StorePatchConstant
+Load PC                                  LoadPatchConstant      LoadPatchConstant
+Store Output Vertex StoreOutput
+=================== ==================== ====================== ======================
+
+LoadPatchConstant function in PC stage is generated only by DXBC-to-DXIL converter, to access DXBC vpc registers. HLSL compiler produces IR that references LLVM IR values directly.
+
+Type System
+===========
+
+Most of LLVM type system constructs are legal in DXIL.
+
+Primitive Types
+---------------
+
+The following types are supported:
+
+* void
+* metadata
+* i1, i8, i16, i32, i64
+* half, float, double
+
+SM6.0 assumes native hardware support for i32 and float types.
+
+i8 is supported only in a few intrinsics to signify masks, enumeration constant values, or in metadata. It's not supported for memory access or computation by the shader.
+
+HLSL min12int, min16int and min16uint data types are mapped to i16.
+
+half and i16 are treated as corresponding DXBC min-presicion types (min16float, min16int/min16uint) in SM6.0.
+
+The HLSL compiler optimizer treats half, i16 and i8 data as data types natively supported by the hardware; i.e., saturation, range clipping, INF/NaN are done according to the IEEE standard. Such semantics allow the optimizer to reuse LLVM optimization passes.
+
+Hardware support for doubles in optional and is guarded by RequiresHardwareDouble CAP bit.
+
+Hardware support for i64 is optional and is guarded by a CAP bit.
+
+Vectors
+-------
+
+HLSL vectors are scalarized. They do not participate in computation; however, they may be present in declarations to convey original variable layout to tools, debuggers, and reflection.
+
+Future DXIL may add support for <2 x half> and <2 x i16> vectors or hints for packing related half and i16 quantities.
+
+Matrices
+--------
+
+Matrices are lowered to vectors, and are not referenced by instructions. They may be present in declarations to convey original variable layout to tools, debuggers, and reflection.
+
+Arrays
+------
+
+Instructions may reference only 1D arrays of primitive types. However, complex arrays, e.g., multidimensional arrays or user-defined types, may be present to convey original variable layout to tools, debuggers, and reflection.
+
+User-defined types
+------------------
+
+Original HLSL UDTs are lowered and are not referenced by instructions. However, they may be present in declarations to convey original variable layout to tools, debuggers, and reflection. Some resource operations return 'grouping' UDTs that group several return values; such UDTs are immediately 'decomposed' into components that are then consumed by other instructions.
+
+Type conversions
+----------------
+
+Explicit conversions between types are supported via LLVM instructions.
+
+Precise qualifier
+-----------------
+
+HLSL precise type qualifier requires that all operations contributing to the value be IEEE compliant with respect to optimizations.
+
+Each relevant instruction that contributes to such a value is annotated with dx.precise metadata that indicates that it is illegal for the driver compiler to perform IEEE-unsafe optimizations.
+
+The default mode for DXIL is that operations are not precise; i.e., each operation is 'fast' (this is reverse of LLVM IR default mode). There is a way to change the default behavior for the entire shader via AllOperationsPrecise shader property. 
+
+Type annotations
+----------------
+
+User-defined types are annotated in DXIL to 'attach' additional properties to structure fields. For example, DXIL may contain type annotations for reflection purposes::
+
+ ; namespace MyNamespace1
+ ; {
+ ;   struct MyType1
+ ;   {
+ ;     float field1;
+ ;     int2 field2;
+ ;   };
+ ; }
+
+ %struct.MyNamespace1.MyType1 = type { float, <2 x i32> }
+ !struct.MyNamespace1.MyType1 = !{ !1, !2 }
+ !1 = !{ !"field1", null }
+ !2 = !{ !"field2", null }
+
+ ; struct MyType2
+ ; {
+ ;    MyType1 array_field[2];
+ ;    float4 float4_field;
+ ; };
+
+ %struct.MyType2 = type { [2 x %struct.MyType1], <4 x float> }
+ !struct.MyType2 = !{ !3, !4 }
+ !3 = !{ !"array_field", null }
+ !4 = !{ !"float4_field", null }
+
+The type/field annotation metadata hierarchy recursively mimics LLVM type hierarchy.
+
+Each field-annotation record has an optional named-value pair list for infrequent annotations and for future extensions. The lists are null in the example above.
+
+Note that Clang emits '::' to separate namespaces, if any, in type names. We modify Clang to use '.' instead, because it is illegal to use ':' in metadata names.
+
+Shader Properties and Capabilities
+==================================
+
+Additional shader properties are specified via tag-value pair list, which is the last element in the entry function description record.
+
+Shader Flags
+------------
+
+Shaders have additional flags that covey their capabilities via tag-value pair with tag kDxilShaderFlagsTag (0), followed by an i64 bitmask integer. The bits have the following meaning:
+
+=== =====================================================================
+Bit Description
+=== =====================================================================
+0   Disable shader optimizations
+1   Disable math refactoring
+2   Shader uses doubles
+3   Force early depth stencil
+4   Enable raw and structured buffers
+5   Shader uses min-precision, expressed as half and i16
+6   Shader uses double extension intrinsics
+7   Shader uses MSAD
+8   All resources must be bound for the duration of shader execution
+9   Enable view port and RT array index from any stage feeding rasterizer
+10  Shader uses inner coverage
+11  Shader uses stencil
+12  Shader uses intrinsics that access tiled resources
+13  Shader uses relaxed typed UAV load formats
+14  Shader uses Level9 comparison filtering
+15  Shader uses up to 64 UAVs
+16  Shader uses UAVs
+17  Shader uses CS4 raw and structured buffers
+18  Shader uses Rasterizer Ordered Views
+19  Shader uses wave intrinsics
+20  Shader uses int64 instructions
+=== =====================================================================
+
+Geometry Shader
+---------------
+
+Geometry shader properties are specified via tag-value pair with tag kDxilGSStateTag (1), followed by a list of GS properties. The format of this list is the following.
+
+=== ==== ===============================================================
+Idx Type Description
+=== ==== ===============================================================
+0   i32  Input primitive (InputPrimitive enum value).
+1   i32  Max vertex count.
+2   i32  Primitive topology for stream 0 (PrimitiveTopology enum value).
+3   i32  Primitive topology for stream 1 (PrimitiveTopology enum value).
+4   i32  Primitive topology for stream 2 (PrimitiveTopology enum value).
+5   i32  Primitive topology for stream 3 (PrimitiveTopology enum value).
+=== ==== ===============================================================
+
+Domain Shader
+-------------
+
+Domain shader properties are specified via tag-value pair with tag kDxilDSStateTag (2), followed by a list of DS properties. The format of this list is the following.
+
+=== ==== ===============================================================
+Idx Type Description
+=== ==== ===============================================================
+0   i32  Tessellator domain (TessellatorDomain enum value).
+1   i32  Input control point count.
+=== ==== ===============================================================
+
+Hull Shader
+-----------
+
+Hull shader properties are specified via tag-value pair with tag kDxilHSStateTag (3), followed by a list of HS properties. The format of this list is the following.
+
+=== ======= =====================================================================
+Idx Type    Description
+=== ======= =====================================================================
+0   MDValue Patch constant function (global symbol).
+1   i32     Input control point count.
+2   i32     Output control point count.
+3   i32     Tessellator domain (TessellatorDomain enum value).
+4   i32     Tessellator partitioning (TessellatorPartitioning enum value).
+5   i32     Tessellator output primitive (TessellatorOutputPrimitive enum value).
+6   float   Max tessellation factor.
+=== ======= =====================================================================
+
+Compute Shader
+--------------
+
+Compute shader has the following tag-value properties.
+
+===================== ======================== =============================================
+Tag	                  Value                    Description
+===================== ======================== =============================================
+kDxilNumThreadsTag(4) MD list: (i32, i32, i32) Number of threads (X,Y,Z) for compute shader.
+===================== ======================== =============================================
+
+Shader Parameters and Signatures
+================================
+
+This section formalizes how HLSL shader input and output parameters are expressed in DXIL.
+
+HLSL signatures and semantics
+-----------------------------
+
+Formal parameters of a shader entry function in HLSL specify how the shader interacts with the graphics pipeline. Input parameters, referred to as an input signature, specify values received by the shader. Output parameters, referred to as an output signature, specify values produced by the shader. The shader compiler maps HLSL input and output signatures into DXIL specifications that conform to hardware constraints outlined in the Direct3D Functional Specification. DXIL specifications are also called signatures.
+
+Signature mapping is a complex process, as there are many constraints. All signature parameters must fit into a finite space of N 4x32-bit registers. For efficiency reasons, parameters are packed together in a way that does not violate specification constraints. The process is called signature packing. Most signatures are tightly packed; however, the VS input signature is not packed, as the values are coming from the Input Assembler (IA) stage rather than the graphics pipeline. Alternately, the PS output signature is allocated to align the SV_Target semantic index with the output register index.
+
+Each HLSL signature parameter is defined via C-like type, interpolation mode, and semantic name and index. The type defines parameter shape, which may be quite complex. Interpolation mode adds to the packing constraints, namely that parameters packed together must have compatible interpolation modes. Semantics are extra names associated with parameters for the following purposes: (1) to specify whether a parameter is as a special System Value (SV) or not, (2) to link parameters to IA or StreamOut API streams, and (3) to aid debugging. Semantic index is used to disambiguate parameters that use the same semantic name, or span multiple rows of the register space.
+
+SV semantics add specific meanings and constraints to associated parameters. A parameter may be supplied by the hardware, and is then known as a System Generated Value (SGV). Alternatively, a parameter may be interpreted by the hardware and is then known as System Interpreted Value (SIV).  SGVs and SIVs are pipeline-stage dependent; moreover, some participate in signature packing and some do not. Non-SV semantics always participate in signature packing.
+
+Most System Generated Values (SGV) are loaded using special Dxil intrinsic functions, rather than loading the input from a signature.  These usually will not be present in the signature at all.  Their presence may be detected by the declaration and use of the special instrinsic function itself.  The exceptions to this are notible.  In one case they are present and loaded from the signature instead of a special intrinsic because they must be part of the packed signature potentially passed from the prior stage, allowing the prior stage to override these values, such as for SV_PrimitiveID and SV_IsFrontFace that may be written in the the Geometry Shader.  In another case, they identify signature elements that still contribute to DXBC signature for informational purposes, but will only use the special intrinsic function to read the value, such as for SV_PrimitiveID for GS input and SampleIndex for PS input.
+
+The classification of behavior for various system values in various signature locations is described in a table organized by SemanticKind and SigPointKind.  The SigPointKind is a new classification that uniquely identifies each set of parameters that may be input or output for each entry point.  For each combination of SemanticKind and SigPointKind, there is a SemanticInterpretationKind that defines the class of treatment for that location.
+
+Each SigPointKind also has a corresponding element allocation (or packing) behavior called PackingKind.  Some SigPointKinds do not result in a signature at all, which corresponds to the packing kind of PackingKind::None.
+
+Signature Points are enumerated as follows in the SigPointKind enum::
+
+.. <py>import hctdb_instrhelp</py>
+.. <py::lines('SIGPOINT-RST')>hctdb_instrhelp.get_sigpoint_rst()</py>
+.. SIGPOINT-RST:BEGIN
+
+== ======== ======= ========== ============== ============= ============================================================================
+ID SigPoint Related ShaderKind PackingKind    SignatureKind Description
+== ======== ======= ========== ============== ============= ============================================================================
+0  VSIn     Invalid Vertex     InputAssembler Input         Ordinary Vertex Shader input from Input Assembler
+1  VSOut    Invalid Vertex     Vertex         Output        Ordinary Vertex Shader output that may feed Rasterizer
+2  PCIn     HSCPIn  Hull       None           Invalid       Patch Constant function non-patch inputs
+3  HSIn     HSCPIn  Hull       None           Invalid       Hull Shader function non-patch inputs
+4  HSCPIn   Invalid Hull       Vertex         Input         Hull Shader patch inputs - Control Points
+5  HSCPOut  Invalid Hull       Vertex         Output        Hull Shader function output - Control Point
+6  PCOut    Invalid Hull       PatchConstant  PatchConstant Patch Constant function output - Patch Constant data passed to Domain Shader
+7  DSIn     Invalid Domain     PatchConstant  PatchConstant Domain Shader regular input - Patch Constant data plus system values
+8  DSCPIn   Invalid Domain     Vertex         Input         Domain Shader patch input - Control Points
+9  DSOut    Invalid Domain     Vertex         Output        Domain Shader output - vertex data that may feed Rasterizer
+10 GSVIn    Invalid Geometry   Vertex         Input         Geometry Shader vertex input - qualified with primitive type
+11 GSIn     GSVIn   Geometry   None           Invalid       Geometry Shader non-vertex inputs (system values)
+12 GSOut    Invalid Geometry   Vertex         Output        Geometry Shader output - vertex data that may feed Rasterizer
+13 PSIn     Invalid Pixel      Vertex         Input         Pixel Shader input
+14 PSOut    Invalid Pixel      Target         Output        Pixel Shader output
+15 CSIn     Invalid Compute    None           Invalid       Compute Shader input
+== ======== ======= ========== ============== ============= ============================================================================
+
+.. SIGPOINT-RST:END
+
+Semantic Interpretations are as follows (SemanticInterpretationKind)::
+
+.. <py>import hctdb_instrhelp</py>
+.. <py::lines('SEMINT-RST')>hctdb_instrhelp.get_sem_interpretation_enum_rst()</py>
+.. SEMINT-RST:BEGIN
+
+== ========== =============================================================
+ID Name       Description
+== ========== =============================================================
+0  NA         Not Available
+1  SV         Normal System Value
+2  SGV        System Generated Value (sorted last)
+3  Arb        Treated as Arbitrary
+4  NotInSig   Not included in signature (intrinsic access)
+5  NotPacked  Included in signature, but does not contribute to packing
+6  Target     Special handling for SV_Target
+7  TessFactor Special handling for tessellation factors
+8  Shadow     Shadow element must be added to a signature for compatibility
+== ========== =============================================================
+
+.. SEMINT-RST:END
+
+Semantic Interpretations for each SemanticKind at each SigPointKind are as follows::
+
+.. <py>import hctdb_instrhelp</py>
+.. <py::lines('SEMINT-TABLE-RST')>hctdb_instrhelp.get_sem_interpretation_table_rst()</py>
+.. SEMINT-TABLE-RST:BEGIN
+
+====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
+Semantic               VSIn VSOut PCIn     HSIn     HSCPIn HSCPOut PCOut      DSIn       DSCPIn DSOut GSVIn GSIn     GSOut PSIn         PSOut         CSIn
+====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
+Arbitrary              Arb  Arb   NA       NA       Arb    Arb     Arb        Arb        Arb    Arb   Arb   NA       Arb   Arb          NA            NA
+VertexID               SV   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NA
+InstanceID             SV   Arb   NA       NA       Arb    Arb     NA         NA         Arb    Arb   Arb   NA       Arb   Arb          NA            NA
+Position               Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
+RenderTargetArrayIndex Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
+ViewPortArrayIndex     Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
+ClipDistance           Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
+CullDistance           Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
+OutputControlPointID   NA   NA    NA       NotInSig NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NA
+DomainLocation         NA   NA    NA       NA       NA     NA      NA         NotInSig   NA     NA    NA    NA       NA    NA           NA            NA
+PrimitiveID            NA   NA    NotInSig NotInSig NA     NA      NA         NotInSig   NA     NA    NA    Shadow   SGV   SGV          NA            NA
+GSInstanceID           NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NotInSig NA    NA           NA            NA
+SampleIndex            NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    Shadow _41   NA            NA
+IsFrontFace            NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       SGV   SGV          NA            NA
+Coverage               NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NotInSig _50 NotPacked _41 NA
+InnerCoverage          NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NotInSig _50 NA            NA
+Target                 NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           Target        NA
+Depth                  NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked     NA
+DepthLessEqual         NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
+DepthGreaterEqual      NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
+StencilRef             NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
+DispatchThreadID       NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
+GroupID                NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
+GroupIndex             NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
+GroupThreadID          NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
+TessFactor             NA   NA    NA       NA       NA     NA      TessFactor TessFactor NA     NA    NA    NA       NA    NA           NA            NA
+InsideTessFactor       NA   NA    NA       NA       NA     NA      TessFactor TessFactor NA     NA    NA    NA       NA    NA           NA            NA
+====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
+
+.. SEMINT-TABLE-RST:END
+
+Below is a vertex shader example that is used for illustration throughout this section::
+
+ struct Foo {
+   float a;
+   float b[2];
+ };
+
+ struct VSIn {
+   uint    vid     : SV_VertexID;
+   float3  pos     : Position;
+   Foo     foo[3]  : SemIn1;
+   float   f       : SemIn10;
+ };
+
+ struct VSOut
+ {
+   float   f       : SemOut1;
+   Foo     foo[3]  : SemOut2;
+   float4  pos     : SV_Position;
+ };
+
+ void main(in  VSIn  In, 	// input  signature
+           out VSOut Out)	// output signature
+ {
+   ...
+ }
+
+Signature packing must be efficient. It should use as few registers as possible, and the packing algorithm should run in reasonable time. The complication is that the problem is NP complete, and the algorithm needs to resort to using a heuristic.
+
+While the details of the packing algorithm are not important at the moment, it is important to outline some concepts related to how a packed signature is represented in DXIL. Packing is further complicated by the complexity of parameter shapes induced by the C/C++ type system. In the example above, fields of Out.foo array field are actually arrays themselves, strided in memory. Allocating such strided shapes efficiently is hard. To simplify packing, the first step is to break user-defined (struct) parameters into constituent components and to make strided arrays contiguous. This preparation step enables the algorithm to operate on dense rectangular shapes, which we call signature elements. The output signature in the example above has the following elements: float Out_f, float Out_foo_a[3], float Out_foo_b[2][3], and float4 pos. Each element is characterized by the number of rows and columns. These are 1x1, 3x1, 6x1, and 1x4, respectively. The packing algorithm reduces to fitting these elements into Nx4 register space, satisfying all packing-compatibility constraints.
+
+Signature element record
+------------------------
+Each signature element is represented in DXIL as a metadata record.
+
+For above example output signature, the element records are as follows::
+
+ ;  element ID, semantic name, etype, sv, s.idx, interp,  rows, cols, start row, col, ext. list
+ !20 = !{i32 6, !"SemOut",      i8 0, i8 0, !40,   i8 2, i32 1, i8 1, i32 1,    i8 2, null}
+ !21 = !{i32 7, !"SemOut",      i8 0, i8 0, !41,   i8 2, i32 3, i8 1, i32 1,    i8 1, null}
+ !22 = !{i32 8, !"SemOut",      i8 0, i8 0, !42,   i8 2, i32 6, i8 1, i32 1,    i8 0, null}
+ !23 = !{i32 9, !"SV_Position", i8 0, i8 3, !43,   i8 2, i32 1, i8 4, i32 0,    i8 0, null}
+
+A record contains the following fields.
+
+=== =============== ===============================================================================
+Idx Type            Description
+=== =============== ===============================================================================
+0   i32             Unique signature element record ID, used to identify the element in operations.
+1   String metadata Semantic name.
+2   i8              ComponentType (enum value).
+3   i8              SemanticKind (enum value).
+4   Metadata        Metadata list that enumerates all semantic indexes of the flattened parameter.
+5   i8              InterpolationMode (enum value).
+6   i32             Number of element rows.
+7   i8              Number of element columns.
+8   i32             Starting row of element packing location.
+9   i8              Starting column of element packing location.
+10  Metadata        Metadata list of additional tag-value pairs; can be 'null' or empty.
+=== =============== ===============================================================================
+
+Semantic name system values always start with 'S', 'V', '_' , and it is illegal to start a user semantic with this prefix. Non-SVs can be ignored by drivers. Debug layers may use these to help validate signature compatibility between stages.
+
+The last metadata list is used to specify additional properties and future extensions.
+
+Signature record metadata
+-------------------------
+
+A shader typically has two signatures: input and output, while domain shader has an additional patch constant signature. The signatures are composed of signature element records and are attached to the shader entry metadata. The examples below clarify metadata details.
+
+Vertex shader HLSL
+~~~~~~~~~~~~~~~~~~
+
+Here is the HLSL of the above vertex shader. The semantic index assignment is explained in section below::
+
+ struct Foo
+ {
+   float a;
+   float b[2];
+ };
+
+ struct VSIn
+ {
+   uint    vid     : SV_VertexID;
+   float3  pos     : Position;
+   Foo     foo[3]  : SemIn1;
+     // semantic index assignment:
+     // foo[0].a     : SemIn1
+     // foo[0].b[0]  : SemIn2
+     // foo[0].b[1]  : SemIn3
+     // foo[1].a     : SemIn4
+     // foo[1].b[0]  : SemIn5
+     // foo[1].b[1]  : SemIn6
+     // foo[2].a     : SemIn7
+     // foo[2].b[0]  : SemIn8
+     // foo[2].b[1]  : SemIn9
+   float   f       : SemIn10;
+ };
+
+ struct VSOut
+ {
+   float   f       : SemOut1;
+   Foo     foo[3]  : SemOut2;
+     // semantic index assignment:
+     // foo[0].a     : SemOut2
+     // foo[0].b[0]  : SemOut3
+     // foo[0].b[1]  : SemOut4
+     // foo[1].a     : SemOut5
+     // foo[1].b[0]  : SemOut6
+     // foo[1].b[1]  : SemOut7
+     // foo[2].a     : SemOut8
+     // foo[2].b[0]  : SemOut9
+     // foo[2].b[1]  : SemOut10
+   float4  pos     : SV_Position;
+ };
+
+ void main(in  VSIn  In, 	// input  signature
+           out VSOut Out)	// output signature
+ {
+   ...
+ }
+
+The input signature is packed to be compatible with the IA stage. A packing algorithm must assign the following starting positions to the input signature elements:
+
+=================== ==== ======= ========= ===========
+Input element       Rows Columns Start row Start column
+=================== ==== ======= ========= ===========
+uint VSIn.vid       1    1       0         0
+float3 VSIn.pos     1    3       1         0
+float VSIn.foo.a[3] 3    1       2         0
+float VSIn.foo.b[6] 6    1       5         0
+float VSIn.f        1    1       11        0
+=================== ==== ======= ========= ===========
+
+A reasonable packing algorithm would assign the following starting positions to the output signature elements:
+
+==================== ==== ======= ========= ===========
+Input element        Rows Columns Start row Start column
+==================== ==== ======= ========= ===========
+uint VSOut.f         1    1       1         2
+float VSOut.foo.a[3] 3    1       1         1
+float VSOut.foo.b[6] 6    1       1         0
+float VSOut.pos      1    4       0         0
+==================== ==== ======= ========= ===========
+
+Semantic index assignment
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Semantic index assignment in DXIL is exactly the same as for DXBC. Semantic index assignment, abbreviated s.idx above, is a consecutive enumeration of all fields under the same semantic name as if the signature were packed for the IA stage. That is, given a complex signature element, e.g., VSOut's foo[3] with semantic name SemOut and starting index 2, the element is flattened into individual fields: foo[0].a, foo[0].b[0], ..., foo[2].b[1], and the fields receive consecutive semantic indexes 2, 3, ..., 10, respectively. Semantic-index pairs are used to set up the IA stage and to capture values of individual signature registers via the StreamOut API.
+
+DXIL for VS signatures
+~~~~~~~~~~~~~~~~~~~~~~
+
+The corresponding DXIL metadata is presented below::
+
+ !dx.entryPoints = !{ !1 }
+ !1 = !{ void @main(), !"main", !2, null, null }
+ ; Signatures: In,   Out,  Patch Constant (optional)
+ !2 = !{       !3,   !4,   null }
+
+ ; Input signature (packed accordiong to IA rules)
+ !3 = !{ !10, !11, !12, !13, !14 }
+ ; element idx, semantic name, etype, sv, s.idx, interp,  rows, cols, start row, col, ext. list
+ !10 = !{i32 1, !"SV_VertexID", i8 0, i8 1, !30,  i32 0, i32 1, i8 1, i32 0,    i8 0, null}
+ !11 = !{i32 2, !"Position",    i8 0, i8 0, !30,  i32 0, i32 1, i8 3, i32 1,    i8 0, null}
+ !12 = !{i32 3, !"SemIn",       i8 0, i8 0, !32,  i32 0, i32 3, i8 1, i32 2,    i8 0, null}
+ !13 = !{i32 4, !"SemIn",       i8 0, i8 0, !33,  i32 0, i32 6, i8 1, i32 5,    i8 0, null}
+ !14 = !{i32 5, !"SemIn",       i8 0, i8 0, !34,  i32 0, i32 1, i8 1, i32 11,   i8 0, null}
+ ; semantic index assignment:
+ !30 = !{ i32 0 }
+ !32 = !{ i32 1, i32 4, i32 7 }
+ !33 = !{ i32 2, i32 3, i32 5, i32 6, i32 8, i32 9 }
+ !34 = !{ i32 10 }
+
+ ; Output signature (tightly packed according to pipeline stage packing rules)
+ !4 = !{ !20, !21, !22, !23 }
+ ;  element ID, semantic name, etype, sv, s.idx, interp,  rows, cols, start row, col, ext. list
+ !20 = !{i32 6, !"SemOut",      i8 0, i8 0, !40,  i32 2, i32 1, i8 1, i32 1,    i8 2, null}
+ !21 = !{i32 7, !"SemOut",      i8 0, i8 0, !41,  i32 2, i32 3, i8 1, i32 1,    i8 1, null}
+ !22 = !{i32 8, !"SemOut",      i8 0, i8 0, !42,  i32 2, i32 6, i8 1, i32 1,    i8 0, null}
+ !23 = !{i32 9, !"SV_Position", i8 0, i8 3, !43,  i32 2, i32 1, i8 4, i32 0,    i8 0, null}
+ ; semantic index assignment:
+ !40 = !{ i32 1 }
+ !41 = !{ i32 2, i32 5, i32 8 }
+ !42 = !{ i32 3, i32 4, i32 6, i32 7, i32 9, i32 10 }
+ !43 = !{ i32 0 }
+
+Hull shader example
+~~~~~~~~~~~~~~~~~~~
+A hull shader (HS) is defined by two entry point functions: control point (CP) function to compute control points, and patch constant (PC) function to compute patch constant data, including the tessellation factors. The inputs to both functions are the input control points for an entire patch, and therefore each element may be indexed by row and, in addition, is indexed by vertex.
+
+Here is an HS example entry point metadata and signature list::
+
+ ; !105 is extended parameter list containing reference to HS State:
+ !101 = !{ void @HSMain(), !"HSMain", !102, null, !105 }
+ ; Signatures: In,   Out,  Patch Constant
+ !102 = !{     !103, !104, !204 }
+
+The entry point record specifies: (1) CP function HSMain as the main symbol, and (2) PC function via optional metadata node !105.
+
+CP-input signature describing one input control point::
+
+ !103 = !{ !110, !111 }
+ ;  element ID, semantic name, etype, sv, s.idx, interp,  rows, cols, start row, col, ext. list
+ !110= !{i32 1, !"SV_Position", i8 0, i8 3, !130, i32 0, i32 1, i8 4, i32 0,    i8 0, null}
+ !111= !{i32 2, !"array",       i8 0, i8 0, !131, i32 0, i32 4, i8 3, i32 1,    i8 0, null}
+ ; semantic indexing for flattened elements:
+ !130 = !{ i32 0 }
+ !131 = !{ i32 0, i32 1, i32 2, i32 3 }
+
+Note that SV_OutputControlPointID and SV_PrimitiveID input elements are SGVs loaded through special Dxil intrinsics, and are not present in the signature at all.  These have a semantic interpretation of SemanticInterpretationKind::NotInSig.
+
+CP-output signature describing one output control point::
+
+ !104 = !{ !120, !121 }
+ ;  element ID, semantic name, etype, sv, s.idx, interp,  rows, cols, start row, col, ext. list
+ !120= !{i32 3, !"SV_Position", i8 0, i8 3, !130, i32 0, i32 1, i8 4, i32 0,    i8 0, null}
+ !121= !{i32 4, !"array",       i8 0, i8 0, !131, i32 0, i32 4, i8 3, i32 1,    i8 0, null}
+
+Hull shaders require an extended parameter that defines extra state::
+
+ ; extended parameter HS State
+ !105 = !{ i32 3, !201 }
+
+ ; HS State record defines patch constant function and other properties
+ ; Patch Constant Function, in CP count, out CP count, tess domain, tess part, out prim, max tess factor
+ !201 = !{  void @PCMain(), 4,           4,            3,           1,         3,        16.0 }
+
+PC-output signature::
+
+ !204 = !{ !220, !221, !222 }
+ ;  element ID, semantic name,         etype,   sv, s.idx,  interp, rows, cols, start row, col, ext. list
+ !220= !{i32 3, !"SV_TessFactor",       i8 0, i8 25, !130,  i32 0, i32 4, i8 1, i32 0, i8 3, null}
+ !221= !{i32 4, !"SV_InsideTessFactor", i8 0, i8 26, !231,  i32 0, i32 2, i8 1, i32 4, i8 3, null}
+ !222= !{i32 5, !"array",               i8 0, i8 0,  !131,  i32 0, i32 4, i8 3, i32 0, i8 0, null}
+ ; semantic indexing for flattened elements:
+ !231 = !{ i32 0, i32 1 }
+
+Accessing signature value in operations
+---------------------------------------
+
+There are no function parameters or variables that correspond to signature elements. Instead loadInput and storeOutput functions are used to access signature element values in operations. The accesses are scalar.
+
+These are the operation signatures::
+
+ ; overloads: SM5.1: f16|f32|i16|i32,  SM6.0: f16|f32|f64|i8|i16|i32|i64
+ declare float @dx.op.loadInput.f32(
+     i32,                            ; opcode
+     i32,                            ; input ID
+     i32,                            ; row (relative to start row of input ID)
+     i8,                             ; column (relative to start column of input ID), constant in [0,3]
+     i32)                            ; vertex index
+
+ ; overloads: SM5.1: f16|f32|i16|i32,  SM6.0: f16|f32|f64|i8|i16|i32|i64
+ declare void @dx.op.storeOutput.f32(
+     i32,                            ; opcode
+     i32,                            ; output ID
+     i32,                            ; row (relative to start row of output ID)
+     i8,                             ; column (relative to start column of output ID), constant in [0,3]
+     float)                          ; value to store
+
+LoadInput/storeOutput takes input/output element ID, which is the unique ID of a signature element metadata record. The row parameter is the array element row index from the start of the element; the register index is obtained by adding the start row of the element and the row parameter value. Similarly, the column parameter is relative column index; the packed register component is obtained by adding the start component of the element (packed col) and the column value. Several overloads exist to access elements of different primitive types. LoadInput takes an additional vertex index parameter that represents vertex index for DS CP-inputs and GS inputs; vertex index must be undef in other cases.
+
+Signature packing
+-----------------
+
+Signature elements must be packed into a space of N 4-32-bit registers according to runtime constraints. DXIL contains packed signatures. The packing algorithm is more aggressive than that for DX11. However, DXIL packing is only a suggestion to the driver implementation. Driver compilers can rearrange signature elements as they see fit, while preserving compatibility of connected pipeline stages. DXIL is designed in such a way that it is easy to 'relocate' signature elements - loadInput/storeOutput row and column indices do not need to change since they are relative to the start row/column for each element.
+
+Signature packing types
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Two pipeline stages can connect in four different ways, resulting in four packing types.
+
+1. Input Assembly: VS input only
+   * Elements all map to unique registers, they may not be packed together.
+   * Interpolation mode is not used.
+2. Connects to Rasterizer: VS output, HS CP-input/output and PC-input, DS CP-input/output, GS input/output, PS input
+   * Elements can be packed according to constraints.
+   * Interpolation mode is used and must be consistent between connecting signatures.
+   * While HS CP-output and DS CP-input signatures do not go through the rasterizer, they are still treated as such. The reason is the pass-through HS case, in which HS CP-input and HS CP-output must have identical packing for efficiency.
+3. Patch Constant: HS PC-output, DS PC-input
+   * SV_TessFactor and SV_InsideTessFactor are the only SVs relevant here, and this is the only location where they are legal. These have special packing considerations.
+   * Interpolation mode is not used.
+4. Pixel Shader Output: PS output only
+   * Only SV_Target maps to output register space.
+   * No packing is performed, semantic index corresponds to render target index.
+
+Packing constraints
+~~~~~~~~~~~~~~~~~~~
+
+The packing algorithm is stricter and more aggressive in DXIL than in DXBC, although still compatible. In particular, array signature elements are not broken up into scalars, even if each array access can be disambiguated to a literal index. DXIL and DXBC signature packing are not identical, so linking them together into a single pipeline is not supported across compiler generations.
+
+The row dimension of a signature element represents an index range. If constraints permit, two adjacent or overlapping index ranges are coalesced into a single index range.
+
+Packing constraints are as follows:
+
+1. A register must have only one interpolation mode for all 4 components.
+2. Register components containing SVs must be to the right of components containing non-SVs.
+3. SV_ClipDistance and SV_CullDistance have additional constraints:
+   a. May be packed together
+   b. Must occupy a maximum of 2 registers (8-components)
+   c. SV_ClipDistance must have linear interpolation mode
+4. Registers containing SVs may not be within an index range, with the exception of Tessellation Factors (TessFactors).
+5. If an index range R1 overlaps with a TessFactor index range R2, R1 must be contained within R2. As a consequence, outside and inside TessFactors occupy disjoint index ranges when packed.
+6. Non-TessFactor index ranges are combined into a larger range, if they overlap.
+7. SGVs must be packed after all non-SGVs have been packed. If there are several SGVs, they are packed in the order of HLSL declaration.
+
+Packing for SGVs
+~~~~~~~~~~~~~~~~
+
+Non-SGV portions of two connecting signatures must match; however, SGV portions don't have to. An example would be a PS declaring SV_PrimitiveID as an input. If VS connects to PS, PS's SV_PrimitiveID value is synthesized by hardware; moreover, it is illegal to output SV_PrimitiveID from a VS. If GS connects PS, GS may declare SV_PrimitiveID as its output.
+
+Unfortunately, SGV specification creates a complication for separate compilation of connecting shaders. For example, GS outputs SV_PrimitiveID, and PS inputs SV_IsFrontFace and SV_PrimitiveID in this order. The positions of SV_PrimitiveID are incompatible in GS and PS signatures. Not much can be done about this ambiguity in SM5.0 and earlier; the programmers will have to rely on SDKLayers to catch potential mismatch.
+
+SM5.1 and later shaders work on D3D12+ runtime that uses PSO objects to describe pipeline state. Therefore, a driver compiler has access to both connecting shaders during compilation, even though the HLSL compiler does not. The driver compiler can resolve SGV ambiguity in signatures easily. For SM5.1 and later, the HLSL compiler will ensure that declared SGVs fit into packed signature; however, it will set SGV's start row-column location to (-1, 0) such that the driver compiler must resolve SGV placement during PSO compilation.
+
+Shader Resources
+================
+
+All global resources referenced by entry points of an LLVM module are described via named metadata dx.resources, which consists of four metadata lists of resource records::
+
+  !dx.resources = !{ !1, !2, !3, !4 }
+
+Resource lists are as follows.
+
+=== ======== ==============================
+Idx Type     Description
+=== ======== ==============================
+0   Metadata SRVs - shader resource views.
+1   Metadata UAVs - unordered access views.
+2   Metadata CBVs - constant buffer views.
+3   Metadata Samplers.
+=== ======== ==============================
+
+Metadata resource records
+-------------------------
+
+Each resource list contains resource records. Each resource record contains fields that are common for each resource type, followed by fields specific to each resource type, followed by a metadata list of tag/value pairs, which can be used to specify additional properties or future extensions and may be null or empty.
+
+Common fields:
+
+=== =============== ==========================================================================================
+Idx Type            Description
+=== =============== ==========================================================================================
+0   i32             Unique resource record ID, used to identify the resource record in createHandle operation.
+1   Pointer         Pointer to a global constant symbol with the original shape of resource and element type.
+2   Metadata string Name of resource variable.
+3   i32             Bind space ID of the root signature range that corresponds to this resource.
+4   i32             Bind lower bound of the root signature range that corresponds to this resource.
+5   i32             Range size of the root signature range that corresponds to this resource.
+=== =============== ==========================================================================================
+
+When the shader has reflection information, the name is the original, unmangled HLSL name. If reflection is stripped, the name is empty string.
+
+SRV-specific fields:
+
+=== =============== ==========================================================================================
+Idx Type            Description
+=== =============== ==========================================================================================
+6   i32             SRV resource shape (enum value).
+7   i32             SRV sample count.
+8   Metadata        Metadata list of additional tag-value pairs.
+=== =============== ==========================================================================================
+
+SRV-specific tag/value pairs:
+
+=== === ==== =================================================== ============================================
+Idx Tag Type Resource Type                                       Description
+=== === ==== =================================================== ============================================
+0   0   i32  Any resource, except RawBuffer and StructuredBuffer Element type.
+1   1   i32  StructuredBuffer                                    Element stride or StructureBuffer, in bytes.
+=== === ==== =================================================== ============================================
+
+The symbol names for the are kDxilTypedBufferElementTypeTag (0) and kDxilStructuredBufferElementStrideTag (1).
+
+UAV-specific fields:
+
+=== =============== ==========================================================================================
+Idx Type            Description
+=== =============== ==========================================================================================
+6   i32             UAV resource shape (enum value).
+7   i1              1 - globally-coherent UAV; 0 - otherwise.
+8   i1              1 - UAV has counter; 0 - otherwise.
+9   i1              1 - UAV is ROV (rasterizer ordered view); 0 - otherwise.
+10  Metadata        Metadata list of additional tag-value pairs.
+=== =============== ==========================================================================================
+
+UAV-specific tag/value pairs:
+
+=== === ==== ====================================================== ============================================
+Idx Tag Type Resource Type                                          Description
+=== === ==== ====================================================== ============================================
+0   0   i32  RW resource, except RWRawBuffer and RWStructuredBuffer Element type.
+1   1   i32  RWStructuredBuffer                                     Element stride or StructureBuffer, in bytes.
+=== === ==== ====================================================== ============================================
+
+The symbol names for the are kDxilTypedBufferElementTypeTag (0) and kDxilStructuredBufferElementStrideTag (1).
+
+CBV-specific fields:
+
+=== =============== ==========================================================================================
+Idx Type            Description
+=== =============== ==========================================================================================
+6   i32             Constant buffer size in bytes.
+7   Metadata        Metadata list of additional tag-value pairs.
+=== =============== ==========================================================================================
+
+Sampler-specific fields:
+
+=== =============== ==========================================================================================
+Idx Type            Description
+=== =============== ==========================================================================================
+6   i32             Sampler type (enum value).
+7   Metadata        Metadata list of additional tag-value pairs.
+=== =============== ==========================================================================================
+
+The following example demonstrates SRV metadata::
+
+ ; Original HLSL
+ ; Texture2D<float4> MyTexture2D : register(t0, space0);
+ ; StructuredBuffer<NS1::MyType1> MyBuffer[2][3] : register(t1, space0);
+
+ !1 = !{ !2, !3 }
+
+ ; Scalar resource: Texture2D<float4> MyTexture2D.
+ %dx.types.ResElem.v4f32 = type { <4 x float> }
+ @MyTexture2D = external addrspace(1) constant %dx.types.ResElem.v4f32, align 16
+ !2 = !{ i32 0, %dx.types.ResElem.v4f32 addrspace(1)* @MyTexture2D, !"MyTexture2D",
+         i32 0, i32 0, i32 1, i32 2, i32 0, null }
+
+ ; Array resource: StructuredBuffer<MyType1> MyBuffer[2][3].
+ %struct.NS1.MyType1 = type { float, <2 x i32> }
+ %dx.types.ResElem.NS1.MyType1 = type { %struct.NS1.MyType1 }
+ @MyBuffer = external addrspace(1) constant [2x [3 x %dx.types.ResElem.NS1.MyType1]], align 16
+ !3 = !{ i32 1, [2 x [3 x %dx.types.ResElem.NS1.MyType1]] addrspace(1)* @MyBuffer, !"MyBuffer",
+         i32 0, i32 1, i32 6, i32 11, i32 0, null }
+
+The type name of the variable is constructed by appending the element name (primitive, vector or UDT name) to dx.types.ResElem prefix. The type configuration of the resource range variable conveys (1) resource range shape and (2) resource element type.
+
+
+Reflection information
+----------------------
+
+Resource reflection data is conveyed via the resource's metadata record and global, external variable. The metadata record contains the original HLSL name, root signature range information, and the reference to the global resource variable declaration. The resource variable declaration conveys resource range shape, resource type and resource element type.
+
+The following disassembly provides an example::
+
+ ; Scalar resource: Texture2D<float4> MyTexture2D.
+ %dx.types.ResElem.v4f32 = type { <4 x float> }
+ @MyTexture2D = external addrspace(1) constant %dx.types.ResElem.v4f32, align 16
+ !0 = !{ i32 0, %dx.types.ResElem.v4f32 addrspace(1)* @MyTexture2D, !"MyTexture2D",
+         i32 0, i32 3, i32 1, i32 2, i32 0, null }
+
+ ; struct MyType2 { float4 field1; int2 field2; };
+ ; Constant buffer: ConstantBuffer<MyType2> MyCBuffer1[][3] : register(b5, space7)
+ %struct.MyType2 = type { <4 x float>, <2 x i32> }
+ ; Type reflection information (optional)
+ !struct.MyType2 = !{ !1, !2 }
+ !1 = !{ !"field1", null }
+ !2 = !{ !"field2", null }
+
+ %dx.types.ResElem.MyType1 = type { %struct.MyType2 }
+
+ @MyCBuffer1 = external addrspace(1) constant [0 x [3 x %dx.types.ResElem.MyType2]], align 16
+
+ !3 = !{ i32 0, [0 x [3 x %dx.types.ResElem.MyType1]] addrspace(1)* @MyCBuffer1, !"MyCBuffer1",
+         i32 7, i32 5, i32 -1, null }
+
+The reflection information can be removed from DXIL by obfuscating the resource HLSL name and resource variable name as well as removing reflection type annotations, if any.
+
+Structure of resource operation
+-------------------------------
+
+Operations involving shader resources and samplers are expressed via external function calls.
+
+Below is an example for the sample method::
+
+ %dx.types.ResRet.f32 = type { float, float, float, float, i32 }
+
+ declare %dx.types.ResRet.f32 @dx.op.sample.f32(
+     i32,                      ; opcode
+     %dx.types.ResHandle,      ; texture handle
+     %dx.types.SamplerHandle,  ; sampler handle
+     float,                    ; coordinate c0
+     float,                    ; coordinate c1
+     float,                    ; coordinate c2
+     float,                    ; coordinate c3
+     i32,                      ; offset o0
+     i32,                      ; offset o1
+     i32,                      ; offset o2
+     float)                    ; clamp
+
+The method always returns five scalar values that are aggregated in dx.types.ResRet.f32 type and extracted into scalars via LLVM's extractelement right after the call. The first four elements are sample values and the last field is the status of operation for tiled resources. Some return values may be unused, which is easily determined from the SSA form. The driver compiler is free to specialize the sample instruction to the most efficient form depending on which return values are used in computation.
+
+If applicable, each intrinsic is overloaded on return type, e.g.::
+
+  %dx.types.ResRet.f32 = type { float, float, float, float, i32 }
+  %dx.types.ResRet.f16 = type { half, half, half, half, i32 }
+
+  declare %dx.types.ResRet.f32 @dx.op.sample.f32(...)
+  declare %dx.types.ResRet.f16 @dx.op.sample.f16(...)
+
+Wherever applicable, the return type indicates the "precision" at which the operation is executed. For example, sample intrinsic that returns half data is allowed to be executed at half precision, assuming hardware supports this; however, if the return type is float, the sample operation must be executed in float precision. If lower-precision is not supported by hardware, it is allowed to execute a higher-precision variant of the operation.
+
+The opcode parameter uniquely identifies the sample operation. More details can be found in the Instructions section. The value of opcode is the same for all overloads of an operation.
+
+Some resource operations are "polymorphic" with respect to resource types, e.g., dx.op.sample.f32 operates on several resource types: Texture1D[Array], Texture2D[Array], Texture3D, TextureCUBE[Array].
+
+Each resource/sampler is represented by a pair of i32 values. The first value is a unique (virtual) resource range ID, which corresponds to HLSL declaration of a resource/sampler. Range ID must be a constant for SM5.1 and below. The second integer is a 0-based index within the range. The index must be constant for SM5.0 and below.
+
+Both indices can be dynamic for SM6 and later to provide flexibility in usage of resources/samplers in control flow, e.g.::
+
+  Texture2D<float4> a[8], b[8];
+  ...
+  Texture2D<float4> c;
+  if(cond)	// arbitrary expression
+    c = a[idx1];
+  else
+    c = b[idx2];
+  ... = c.Sample(...);
+
+Resources/samplers used in such a way must reside in descriptor tables (cannot be root descriptors); this will be validated during shader and root signature setup.
+
+The DXIL verifier will ensure that all leaf-ranges (a and b above) of such a resource/sampler live-range have the same resource/sampler type and element type. If applicable, this constraint may be relaxed in the future. In particular, it is logical from HLSL programmer point of view to issue loads on compatible resource types, e.g., Texture2D, RWTexture2D, ROVTexture2D::
+
+  Texture2D<float4> a[8];
+  RWTexture2D<float4> b[6];
+  ...
+  Texture2D<float4> c;
+  if(cond)	// arbitrary expression
+   c = a[idx1];
+  else
+   c = b[idx2];
+  ... = c.Load(...);
+
+LLVM's undef value is used for unused input parameters. For example, coordinates c2 and c3 in an dx.op.sample.f32 call for Texture2D are undef, as only two coordinates c0 and c1 are required.
+
+If the clamp parameter is unused, its default value is 0.0f.
+
+Resource operations are not overloaded on input parameter types. For example, dx.op.sample.f32 operation does not have an overload where coordinates have half, rather than float, data type. Instead, the precision of input arguments can be inferred from the IR via a straightforward lookup along an SSA edge, e.g.::
+
+  %c0 = fpext half %0 to float
+  %res = call %dx.types.ResRet.f32 @dx.op.sample.f32(..., %c0, ...)
+
+SSA form makes it easy to infer that value %0 of type half got promoted to float. The driver compiler can tailor the instruction to the most efficient form for the target hardware.
+
+Resource operations
+-------------------
+
+The section lists resource access operations. The specification is given for float return type, if applicable. The list of all overloads can be found in the appendix on intrinsic operations.
+
+Some general rules to interpret resource operations:
+
+* The number of active (meaningful) return components is determined by resource element type. Other return values must be unused; validator ensures this.
+* GPU instruction needs status only if the status return value is used in the program, which is determined through SSA.
+* Overload suffixes are specified for each resource operation.
+* Type of resource determines which inputs must be defined. Unused inputs are passed typed LLVM 'undef' values. This is checked by the DXIL validator.
+* Offset input parameters are i8 constants in [-8,+7] range; default offset is 0.
+
+Resource operation return types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Many resource operations return several scalar values as well as status for tiled resource access. The return values are grouped into a helper structure type, as this is LLVM's way to return several values from the operation. After an operation, helper types are immediately decomposed into scalars, which are used in further computation.
+
+The defined helper types are listed below::
+
+  %dx.types.ResRet.i8  = type { i8, i8, i8, i8, i32 }
+  %dx.types.ResRet.i16 = type { i16, i16, i16, i16, i32 }
+  %dx.types.ResRet.i32 = type { i32, i32, i32, i32, i32 }
+  %dx.types.ResRet.i64 = type { i64, i64, i64, i64, i32 }
+  %dx.types.ResRet.f16 = type { half, half, half, half, i32 }
+  %dx.types.ResRet.f32 = type { float, float, float, float, i32 }
+  %dx.types.ResRet.f64 = type { double, double, double, double, i32 }
+
+  %dx.types.Dimensions = type { i32, i32, i32, i32 }
+  %dx.types.SamplePos  = type { float, float }
+
+Resource handles
+~~~~~~~~~~~~~~~~
+
+Resources are identified via handles passed to resource operations. Handles are represented via opaque type::
+
+  %dx.types.Handle     = type { i8 * }
+
+The handles are created out of resource range ID and index into the range::
+
+  declare %dx.types.Handle @dx.op.createHandle(
+      i32,                  ; opcode
+      i8,                   ; resource class: SRV=0, UAV=1, CBV=2, Sampler=3
+      i32,                  ; resource range ID (constant)
+      i32,                  ; index into the range
+      i1)                   ; non-uniform resource index: false or true
+
+Resource class is a constant that indicates which metadata list (SRV, UAV, CBV, Sampler) to use for property queries.
+
+Resource range ID is an i32 constant, which is the position of the metadata record in the corresponding metadata list. Range IDs start with 0 and are contiguous within each list.
+
+Index is an i32 value that may be a constant or a value computed by the shader.
+
+CBufferLoadLegacy
+~~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+  
+  ; overloads: SM5.1: f32|i32|f64,  future SM: possibly deprecated
+  %dx.types.CBufRet.f32 = type { float, float, float, float }
+  declare %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32)	                ; 0-based row index (row = 16-byte DXBC register)
+
+Valid resource types: ConstantBuffer. Valid shader model: SM5.1 and earlier.
+
+The operation loads four 32-bit values from a constant buffer, which has legacy, 16-byte layout. Values are extracted via "extractvalue" instruction; unused values may be optimized away by the driver compiler. The operation respects SM5.1 and earlier OOB behavior for cbuffers.
+
+CBufferLoad
+~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32|f64,  SM6.0: f16|f32|f64|i16|i32|i64
+  declare float @dx.op.cbufferLoad.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32,	                ; byte offset from the start of the buffer memory
+      i32)                  ; read alignment
+
+Valid resource types: ConstantBuffer.
+
+The operation loads a value from a constant buffer, which has linear layout, using 1D index: byte offset from the beginning of the buffer memory. The operation respects SM5.1 and earlier OOB behavior for cbuffers.
+
+Read alignment is a constant value identifying what the byte offset alignment is. If the actual byte offset does not have this alignment, the results of this operation are undefined.
+
+GetDimensions
+~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  declare %dx.types.Dimensions @dx.op.getDimensions(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32)                  ; MIP level
+
+This table describes the return component meanings for each resource type { c0, c1, c2, c3 }.
+
+==================== ===== ========== ========== ==========
+Valid resource types c0    c1         c2         c3
+==================== ===== ========== ========== ==========
+[RW]Texture1D        width undef      undef      MIP levels
+[RW]Texture1DArray   width array size undef      MIP levels
+[RW]Texture2D        width height     undef      MIP levels
+[RW]Texture2DArray   width height     array size MIP levels
+[RW]Texture3D        width height     depth      MIP levels
+[RW]Texture2DMS      width height     undef      samples
+[RW]Texture2DMSArray width height     array size samples
+TextureCUBE          width height     undef      MIP levels
+TextureCUBEArray     width height     array size MIP levels
+[RW]TypedBuffer      width undef      undef      undef
+[RW]RawBuffer        width undef      undef      undef
+[RW]StructuredBuffer width undef      undef      undef
+==================== ===== ========== ========== ==========
+
+MIP levels is always undef for RW resources.  Undef means the component will not be used.  The validator will verify this.
+There is no GetDimensions that returns float values.
+
+Sample
+~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32,  SM6.0: f16|f32
+  declare %dx.types.ResRet.f32 @dx.op.sample.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0
+      float,                ; coordinate c1
+      float,                ; coordinate c2
+      float,                ; coordinate c3
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32,                  ; offset o2
+      float)                ; clamp
+
+=================== ================================ ===================
+Valid resource type # of active coordinates          # of active offsets
+=================== ================================ ===================
+Texture1D           1 (c0)                           1 (o0)
+Texture1DArray      2 (c0, c1 = array slice)         1 (o0)
+Texture2D           2 (c0, c1)                       2 (o0, o1)
+Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
+Texture3D           3 (c0, c1, c2)                   3 (o0, o1, o2)
+TextureCUBE         3 (c0, c1, c2)                   3 (o0, o1, o2)
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 3 (o0, o1, o2)
+=================== ================================ ===================
+
+SampleBias
+~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32,  SM6.0: f16|f32
+  declare %dx.types.ResRet.f32 @dx.op.sampleBias.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0
+      float,                ; coordinate c1
+      float,                ; coordinate c2
+      float,                ; coordinate c3
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32,                  ; offset o2
+      float,                ; bias: in [-16.f,15.99f]
+      float)                ; clamp
+
+Valid resource types and active components/offsets are the same as for the sample operation.
+
+SampleLevel
+~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32,  SM6.0: f16|f32
+  declare %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0
+      float,                ; coordinate c1
+      float,                ; coordinate c2
+      float,                ; coordinate c3
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32,                  ; offset o2
+      float)                ; LOD
+
+Valid resource types and active components/offsets are the same as for the sample operation.
+
+SampleGrad
+~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32,  SM6.0: f16|f32
+  declare %dx.types.ResRet.f32 @dx.op.sampleGrad.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0
+      float,                ; coordinate c1
+      float,                ; coordinate c2
+      float,                ; coordinate c3
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32,                  ; offset o2
+      float,                ; ddx0
+      float,                ; ddx1
+      float,                ; ddx2
+      float,                ; ddy0
+      float,                ; ddy1
+      float,                ; ddy2
+      float)                ; clamp
+
+Valid resource types and active components and offsets are the same as for the sample operation. Valid active ddx and ddy are   the same as offsets.
+
+SampleCmp
+~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32,  SM6.0: f16|f32
+  declare %dx.types.ResRet.f32 @dx.op.sampleCmp.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0
+      float,                ; coordinate c1
+      float,                ; coordinate c2
+      float,                ; coordinate c3
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32,                  ; offset o2
+      float,                ; compare value
+      float)                ; clamp
+
+=================== ================================ ===================
+Valid resource type # of active coordinates          # of active offsets
+=================== ================================ ===================
+Texture1D           1 (c0)                           1 (o0)
+Texture1DArray      2 (c0, c1 = array slice)         1 (o0)
+Texture2D           2 (c0, c1)                       2 (o0, o1)
+Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
+TextureCUBE         3 (c0, c1, c2)                   3 (o0, o1, o2)
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 3 (o0, o1, o2)
+=================== ================================ ===================
+
+SampleCmpLevelZero
+~~~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32,  SM6.0: f16|f32
+  declare %dx.types.ResRet.f32 @dx.op.sampleCmpLevelZero.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0
+      float,                ; coordinate c1
+      float,                ; coordinate c2
+      float,                ; coordinate c3
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32,                  ; offset o2
+      float)                ; compare value
+
+Valid resource types and active components/offsets are the same as for the sampleCmp operation.
+
+TextureLoad
+~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32,  SM6.0: f16|f32|i16|i32
+  declare %dx.types.ResRet.f32 @dx.op.textureLoad.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      i32,                  ; MIP level; sample for Texture2DMS
+      i32,                  ; coordinate c0
+      i32,                  ; coordinate c1
+      i32,                  ; coordinate c2
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32)                  ; offset o2
+
+=================== ========= ============================ ===================
+Valid resource type MIP level # of active coordinates      # of active offsets
+=================== ========= ============================ ===================
+Texture1D           yes       1 (c0)                       1 (o0)
+RWTexture1D         undef     1 (c0)                       undef
+Texture1DArray      yes       2 (c0, c1 = array slice)     1 (o0)
+RWTexture1DArray    undef     2 (c0, c1 = array slice)     undef
+Texture2D           yes       2 (c0, c1)                   2 (o0, o1)
+RWTexture2D         undef     2 (c0, c1)                   undef
+Texture2DArray      yes       3 (c0, c1, c2 = array slice) 2 (o0, o1)
+RWTexture2DArray    undef     3 (c0, c1, c2 = array slice) undef
+Texture3D           yes       3 (c0, c1, c2)               3 (o0, o1, o2)
+RWTexture3D         undef     3 (c0, c1, c2)               undef
+=================== ========= ============================ ===================
+
+For Texture2DMS:
+
+=================== ============ =================================
+Valid resource type Sample index # of active coordinate components
+=================== ============ =================================
+Texture2DMS         yes          2 (c0, c1)
+Texture2DMSArray    yes          3 (c0, c1, c2 = array slice)
+=================== ============ =================================
+
+TextureStore
+~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32,  SM6.0: f16|f32|i16|i32
+  ; returns: status
+  declare void @dx.op.textureStore.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      i32,                  ; coordinate c0
+      i32,                  ; coordinate c1
+      i32,                  ; coordinate c2
+      float,                ; value v0
+      float,                ; value v1
+      float,                ; value v2
+      float,                ; value v3
+      i8)                   ; write mask
+
+The write mask indicates which components are written (x - 1, y - 2, z - 4, w - 8), similar to DXBC. The mask must cover all resource components.
+
+=================== =================================
+Valid resource type # of active coordinate components
+=================== =================================
+RWTexture1D         1 (c0)
+RWTexture1DArray    2 (c0, c1 = array slice)
+RWTexture2D         2 (c0, c1)
+RWTexture2DArray    3 (c0, c1, c2 = array slice)
+RWTexture3D         3 (c0, c1, c2)
+=================== =================================
+
+CalculateLOD
+~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; returns: LOD
+  declare float @dx.op.calculateLOD.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0, [0.0, 1.0]
+      float,                ; coordinate c1, [0.0, 1.0]
+      float,                ; coordinate c2, [0.0, 1.0]
+      i1)                   ; true - clamped; false - unclamped
+
+============================= =======================
+Valid resource type           # of active coordinates
+============================= =======================
+Texture1D, Texture1DArray     1 (c0)
+Texture2D, Texture2DArray     2 (c0, c1)
+Texture3D                     3 (c0, c1, c2)
+TextureCUBE, TextureCUBEArray 3 (c0, c1, c2)
+============================= =======================
+
+TextureGather
+~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32,  SM6.0: f16|f32|i16|i32
+  declare %dx.types.ResRet.f32 @dx.op.textureGather.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0
+      float,                ; coordinate c1
+      float,                ; coordinate c2
+      float,                ; coordinate c3
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32)                  ; channel, constant in {0=red,1=green,2=blue,3=alpha}
+
+=================== ================================ ===================
+Valid resource type # of active coordinates          # of active offsets
+=================== ================================ ===================
+Texture2D           2 (c0, c1)                       2 (o0, o1)
+Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
+TextureCUBE         3 (c0, c1, c2)                   0
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0
+=================== ================================ ===================
+
+TextureGatherCmp
+~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32,  SM6.0: f16|f32|i16|i32
+  declare %dx.types.ResRet.f32 @dx.op.textureGatherCmp.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      %dx.types.Handle,     ; sampler handle
+      float,                ; coordinate c0
+      float,                ; coordinate c1
+      float,                ; coordinate c2
+      float,                ; coordinate c3
+      i32,                  ; offset o0
+      i32,                  ; offset o1
+      i32,                  ; channel, constant in {0=red,1=green,2=blue,3=alpha}
+      float)                ; compare value
+
+Valid resource types and active components/offsets are the same as for the textureGather operation.
+
+Texture2DMSGetSamplePosition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  declare %dx.types.SamplePos @dx.op.texture2DMSGetSamplePosition(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; texture handle
+      i32)                  ; sample ID
+
+Returns sample position of a texture.
+
+RenderTargetGetSamplePosition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  declare %dx.types.SamplePos @dx.op.renderTargetGetSamplePosition(
+      i32,                  ; opcode
+      i32)                  ; sample ID
+
+Returns sample position of a render target.
+
+RenderTargetGetSampleCount
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  declare i32 @dx.op.renderTargetGetSampleCount(
+      i32)                  ; opcode
+
+Returns sample count of a render target.
+
+BufferLoad
+~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32
+  declare %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32,                  ; coordinate c0
+      i32)                  ; coordinate c1
+
+The call respects SM5.1 OOB and alignment rules.
+
+=================== =====================================================
+Valid resource type # of active coordinates
+=================== =====================================================
+[RW]TypedBuffer     1 (c0 in elements)
+[RW]RawBuffer       1 (c0 in bytes)
+[RW]TypedBuffer     2 (c0 in elements, c1 = byte offset into the element)
+=================== =====================================================
+
+BufferStore
+~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: f32|i32,  SM6.0: f32|i32
+  ; returns: status
+  declare void @dx.op.bufferStore.f32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32,                  ; coordinate c0
+      i32,                  ; coordinate c1
+      float,                ; value v0
+      float,                ; value v1
+      float,                ; value v2
+      float,                ; value v3
+      i8)                   ; write mask
+
+The call respects SM5.1 OOB and alignment rules.
+
+The write mask indicates which components are written (x - 1, y - 2, z - 4, w - 8), similar to DXBC. For RWTypedBuffer, the mask must cover all resource components. For RWRawBuffer and RWStructuredBuffer, valid masks are: x, xy, xyz, xyzw.
+
+=================== =====================================================
+Valid resource type # of active coordinates
+=================== =====================================================
+RWTypedBuffer       1 (c0 in elements)
+RWRawBuffer         1 (c0 in bytes)
+RWStructuredBuffer  2 (c0 in elements, c1 = byte offset into the element)
+=================== =====================================================
+
+BufferUpdateCounter
+~~~~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; opcodes: bufferUpdateCounter
+  declare void @dx.op.bufferUpdateCounter(
+      i32,                  ; opcode
+      %dx.types.ResHandle,  ; buffer handle
+      i8)                   ; 1 - increment, -1 - decrement
+
+Valid resource type: RWRawBuffer.
+
+AtomicBinOp
+~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: i32,  SM6.0: i32
+  ; returns: original value in memory before the operation
+  declare i32 @dx.op.atomicBinOp.i32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32,                  ; binary operation code: EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
+      i32,                  ; coordinate c0
+      i32,                  ; coordinate c1
+      i32,                  ; coordinate c2
+      i32)                  ; new value
+
+The call respects SM5.1 OOB and alignment rules.
+
+=================== =====================================================
+Valid resource type # of active coordinates
+=================== =====================================================
+RWTexture1D         1 (c0)
+RWTexture1DArray    2 (c0, c1 = array slice)
+RWTexture2D         2 (c0, c1)
+RWTexture2DArray    3 (c0, c1, c2 = array slice)
+RWTexture3D         3 (c0, c1, c2)
+RWTypedBuffer       1 (c0 in elements)
+RWRawBuffer         1 (c0 in bytes)
+RWStructuredBuffer  2 (c0 in elements, c1 - byte offset into the element)
+=================== =====================================================
+
+AtomicBinOp subsumes corresponding DXBC atomic operations that do not return the old value in memory. The driver compiler is free to specialize the corresponding GPU instruction if the return value is unused.
+
+AtomicCompareExchange
+~~~~~~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  ; overloads: SM5.1: i32,  SM6.0: i32
+  ; returns: original value in memory before the operation
+  declare i32 @dx.op.atomicBinOp.i32(
+      i32,                  ; opcode
+      %dx.types.Handle,     ; resource handle
+      i32,                  ; coordinate c0
+      i32,                  ; coordinate c1
+      i32,                  ; coordinate c2
+      i32,                  ; comparison value
+      i32)                  ; new value
+
+The call respects SM5.1 OOB and alignment rules.
+
+=================== =====================================================
+Valid resource type # of active coordinates
+=================== =====================================================
+RWTexture1D         1 (c0)
+RWTexture1DArray    2 (c0, c1 = array slice)
+RWTexture2D         2 (c0, c1)
+RWTexture2DArray    3 (c0, c1, c2 = array slice)
+RWTexture3D         3 (c0, c1, c2)
+RWTypedBuffer       1 (c0 in elements)
+RWRawBuffer         1 (c0 in bytes)
+RWStructuredBuffer  2 (c0 in elements, c1 - byte offset into the element)
+=================== =====================================================
+
+AtomicCompareExchange subsumes DXBC's atomic compare store. The driver compiler is free to specialize the corresponding GPU instruction if the return value is unused.
+
+GetBufferBasePtr (SM6.0)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following signature shows the operation syntax::
+
+  Returns i8* pointer to the base of [RW]RawBuffer instance.
+  declare i8 addrspace(ASmemory) * @dx.op.getBufferBasePtr.pASmemory (
+      i32,                ; opcode
+      %dx.types.Handle)   ; resource handle
+  Returns i8* pointer to the base of ConstantBuffer instance.
+  declare i8 addrspace(AScbuffer) * @dx.op.getBufferBasePtr.pAScbuffer(
+      i32,                ; opcode
+      %dx.types.Handle)   ; resource handle
+
+Given SM5.1 resource handle, return base pointer to perform pointer-based accesses to the resource memory.
+
+Note: the functionality is requested for SM6.0 to support pointer-based accesses to SM5.1 resources with raw linear memory (raw buffer and cbuffer) in HLSL next. This would be one of the way how a valid pointer is produced in the shader, and would let new-style, pointer-based code access SM5.1 resources with linear memory view.
+
+Atomic operations via pointer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Groupshared memory atomic operations are done via LLVM atomic instructions atomicrmw and cmpxchg. The instructions accept only i32 addrspace(ASgs) * pointers, where ASgs is the addrspace number of groupshared variables. Atomicrmw instruction does not support 'sub' and 'nand' operations. These constraints may be revisited in the future. OOB behavior is undefined.
+SM6.0 will enable similar mechanism for atomic operations performed on device memory (raw buffer).
+
+Samplers
+--------
+
+There are no intrinsics for samplers. Sampler reflection data is represented similar to other resources.
+
+Immediate Constant Buffer
+-------------------------
+There is no immediate constant buffer in DXIL. Instead, indexable constants are represented via LLVM global initialized constants in address space ASicb.
+
+Texture Buffers
+---------------
+A texture buffer is mapped to RawBuffer. Texture buffer variable declarations are present for reflection purposes only.
+
+Groupshared memory
+------------------
+Groupshared memory (DXBC g-registers) is linear in DXIL. Groupshared variables are declared via global variables in addrspace(ASgs). The optimizer will not group variables; the driver compiler can do this if desired. Accesses to groupshared variables occur via pointer load/store instructions (see below).
+
+Indexable threadlocal memory
+----------------------------
+Indexable threadlocal memory (DXBC x-registers) is linear in DXIL. Threadlocal variables are "declared" via alloca instructions. Threadlocal variables are assumed to reside in addrspace(0). The variables are not allocated into some memory pool; the driver compiler can do this, if desired. Accesses to threadlocal variables occur via pointer load/store instructions (see below).
+
+Load/Store/Atomics via pointer in future SM
+-------------------------------------------
+HLSL offers several abstractions with linear memory: buffers, cbuffers, groupshared and indexable threadlocal memory, that are conceptually similar, but have different HLSL syntax and some differences in behavior, which are exposed to HLSL developers. The plan is to introduce pointers into HLSL to unify access syntax to such linear-memory resources such that they appear conceptually the same to HLSL programmers.
+
+Each resource memory type is expressed by a unique LLVM address space. The following table shows memory types and their address spaces:
+
+========================================= =====================================
+Memory type                               Address space number n - addrspace(n)
+========================================= =====================================
+code, local, indexable threadlocal memory AS_default = 0
+device memory ([RW]RawBuffer)             AS_memory = 1
+cbuffer-like memory (ConstantBuffer)      AS_cbuffer = 2
+groupshared memory                        AS_groupshared = 3
+========================================= =====================================
+
+Pointers can be produced in the shader in a variety of ways (see Memory accesses section). Note that if GetBaseBufferPtr was used on [RW]RawBuffer or ConstantBuffer to produce a pointer, the base pointer is stateless; i.e., it "loses its connection" to the underlying resource and is treated as a stateless pointer into a particular memory type.
+
+Additional resource properties
+------------------------------
+TODO: enumerate all additional resource range properties, e.g., ROV, Texture2DMS, globally coherent, UAV counter, sampler mode, CB: immediate/dynamic indexed.
+
+Operations
+==========
+DXIL operations are represented in two ways: using LLVM instructions and using LLVM external functions. The reference list of operations as well as their overloads can be found in the attached Excel spreadsheet "DXIL Operations".
+
+Operations via instructions
+---------------------------
+
+DXIL uses a subset of core LLVM IR instructions that make sense for HLSL, where the meaning of the LLVM IR operation matches the meaning of the HLSL operation.
+
+The following LLVM instructions are valid in a DXIL program, with the specified operand types where applicable. The legend for overload types (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong.
+
+.. <py>import hctdb_instrhelp</py>
+.. <py::lines('INSTR-RST')>hctdb_instrhelp.get_instrs_rst()</py>
+.. INSTR-RST:BEGIN
+
+============= ======================================================================= =================
+Instruction   Action                                                                  Operand overloads
+============= ======================================================================= =================
+Ret           returns a value (possibly void), from a function.                       vhfd1wil
+Br            branches (conditional or unconditional)
+Switch        performs a multiway switch
+Add           returns the sum of its two operands                                     wil
+FAdd          returns the sum of its two operands                                     hfd
+Sub           returns the difference of its two operands                              wil
+FSub          returns the difference of its two operands                              hfd
+Mul           returns the product of its two operands                                 wil
+FMul          returns the product of its two operands                                 hfd
+UDiv          returns the quotient of its two unsigned operands                       wil
+SDiv          returns the quotient of its two signed operands                         wil
+FDiv          returns the quotient of its two operands                                hfd
+URem          returns the remainder from the unsigned division of its two operands    wil
+SRem          returns the remainder from the signed division of its two operands      wil
+FRem          returns the remainder from the division of its two operands             hfd
+Shl           shifts left (logical)                                                   wil
+LShr          shifts right (logical), with zero bit fill                              wil
+AShr          shifts right (arithmetic), with 'a' operand sign bit fill               wil
+And           returns a  bitwise logical and of its two operands                      1wil
+Or            returns a bitwise logical or of its two operands                        1wil
+Xor           returns a bitwise logical xor of its two operands                       1wil
+Alloca        allocates memory on the stack frame of the currently executing function
+Load          reads from memory
+Store         writes to memory
+GetElementPtr gets the address of a subelement of an aggregate value
+AtomicCmpXchg atomically modifies memory
+AtomicRMW     atomically modifies memory
+Trunc         truncates an integer                                                    1wil
+ZExt          zero extends an integer                                                 1wil
+SExt          sign extends an integer                                                 1wil
+FPToUI        converts a floating point to UInt                                       hfd1wil
+FPToSI        converts a floating point to SInt                                       hfd1wil
+UIToFP        converts a UInt to floating point                                       hfd1wil
+SIToFP        converts a SInt to floating point                                       hfd1wil
+FPTrunc       truncates a floating point                                              hfd
+FPExt         extends a floating point                                                hfd
+BitCast       performs a bit-preserving type cast                                     hfd1wil
+AddrSpaceCast casts a value addrspace
+ICmp          compares integers                                                       1wil
+FCmp          compares floating points                                                hfd
+PHI           is a PHI node instruction
+Call          calls a function
+Select        selects an instruction
+ExtractValue  extracts from aggregate
+InsertValue   inserts into aggregate
+============= ======================================================================= =================
+
+
+.. INSTR-RST:END
+
+Operations via external functions
+---------------------------------
+Operations missing in core LLVM IR, such as abs, fma, discard, etc., are represented by external functions, whose name is prefixed with dx.op.
+
+The very first parameter of each such external function is the opcode of the operation, which is an i32 constant. For example, dx.op.unary computes a unary function T res = opcode(T input). Opcode defines which unary function to perform.
+
+Opcodes are defined on a dense range and will be provided as enum in a header file. The opcode parameter is introduced for efficiency reasons: grouping of operations to reduce the total number of overloads and more efficient property lookup, e.g., via an array of operation properties rather than a hash table.
+
+.. <py::lines('OPCODES-RST')>hctdb_instrhelp.get_opcodes_rst()</py>
+.. OPCODES-RST:BEGIN
+
+=== ============================= ================================================================================================================
+ID  Name                          Description
+=== ============================= ================================================================================================================
+0   TempRegLoad                   helper load operation
+1   TempRegStore                  helper store operation
+2   MinPrecXRegLoad               helper load operation for minprecision
+3   MinPrecXRegStore              helper store operation for minprecision
+4   LoadInput                     loads the value from shader input
+5   StoreOutput                   stores the value to shader output
+6   FAbs                          returns the absolute value of the input value.
+7   Saturate                      clamps the result of a single or double precision floating point value to [0.0f...1.0f]
+8   IsNaN                         returns the IsNaN
+9   IsInf                         returns the IsInf
+10  IsFinite                      returns the IsFinite
+11  IsNormal                      returns the IsNormal
+12  Cos                           returns cosine(theta) for theta in radians.
+13  Sin                           returns the Sin
+14  Tan                           returns the Tan
+15  Acos                          returns the Acos
+16  Asin                          returns the Asin
+17  Atan                          returns the Atan
+18  Hcos                          returns the Hcos
+19  Hsin                          returns the Hsin
+20  Exp                           returns the Exp
+21  Frc                           returns the Frc
+22  Log                           returns the Log
+23  Sqrt                          returns the Sqrt
+24  Rsqrt                         returns the Rsqrt
+25  Round_ne                      returns the Round_ne
+26  Round_ni                      returns the Round_ni
+27  Round_pi                      returns the Round_pi
+28  Round_z                       returns the Round_z
+29  Bfrev                         returns the reverse bit pattern of the input value
+30  Countbits                     returns the Countbits
+31  FirstbitLo                    returns the FirstbitLo
+32  FirstbitHi                    returns src != 0? (BitWidth-1 - FirstbitHi) : -1
+33  FirstbitSHi                   returns src != 0? (BitWidth-1 - FirstbitSHi) : -1
+34  FMax                          returns the FMax of the input values
+35  FMin                          returns the FMin of the input values
+36  IMax                          returns the IMax of the input values
+37  IMin                          returns the IMin of the input values
+38  UMax                          returns the UMax of the input values
+39  UMin                          returns the UMin of the input values
+40  IMul                          returns the IMul of the input values
+41  UMul                          returns the UMul of the input values
+42  UDiv                          returns the UDiv of the input values
+43  IAddc                         returns the IAddc of the input values
+44  UAddc                         returns the UAddc of the input values
+45  ISubc                         returns the ISubc of the input values
+46  USubc                         returns the USubc of the input values
+47  FMad                          performs a fused multiply add (FMA) of the form a * b + c
+48  Fma                           performs a fused multiply add (FMA) of the form a * b + c
+49  IMad                          performs an integral IMad
+50  UMad                          performs an integral UMad
+51  Msad                          performs an integral Msad
+52  Ibfe                          performs an integral Ibfe
+53  Ubfe                          performs an integral Ubfe
+54  Bfi                           given a bit range from the LSB of a number, places that number of bits in another number at any offset
+55  Dot2                          two-dimensional vector dot-product
+56  Dot3                          three-dimensional vector dot-product
+57  Dot4                          four-dimensional vector dot-product
+58  CreateHandle                  creates the handle to a resource
+59  CBufferLoad                   loads a value from a constant buffer resource
+60  CBufferLoadLegacy             loads a value from a constant buffer resource
+61  Sample                        samples a texture
+62  SampleBias                    samples a texture after applying the input bias to the mipmap level
+63  SampleLevel                   samples a texture using a mipmap-level offset
+64  SampleGrad                    samples a texture using a gradient to influence the way the sample location is calculated
+65  SampleCmp                     samples a texture and compares a single component against the specified comparison value
+66  SampleCmpLevelZero            samples a texture and compares a single component against the specified comparison value
+67  TextureLoad                   reads texel data without any filtering or sampling
+68  TextureStore                  reads texel data without any filtering or sampling
+69  BufferLoad                    reads from a TypedBuffer
+70  BufferStore                   writes to a RWTypedBuffer
+71  BufferUpdateCounter           atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
+72  CheckAccessFullyMapped        determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
+73  GetDimensions                 gets texture size information
+74  TextureGather                 gathers the four texels that would be used in a bi-linear filtering operation
+75  TextureGatherCmp              same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+76  ToDelete5                     reserved
+77  ToDelete6                     reserved
+78  Texture2DMSGetSamplePosition  gets the position of the specified sample
+79  RenderTargetGetSamplePosition gets the position of the specified sample
+80  RenderTargetGetSampleCount    gets the number of samples for a render target
+81  AtomicBinOp                   performs an atomic operation on two operands
+82  AtomicCompareExchange         atomic compare and exchange to memory
+83  Barrier                       inserts a memory barrier in the shader
+84  CalculateLOD                  calculates the level of detail
+85  Discard                       discard the current pixel
+86  DerivCoarseX                  computes the rate of change of components per stamp
+87  DerivCoarseY                  computes the rate of change of components per stamp
+88  DerivFineX                    computes the rate of change of components per pixel
+89  DerivFineY                    computes the rate of change of components per pixel
+90  EvalSnapped                   evaluates an input attribute at pixel center with an offset
+91  EvalSampleIndex               evaluates an input attribute at a sample location
+92  EvalCentroid                  evaluates an input attribute at pixel center
+93  ThreadId                      reads the thread ID
+94  GroupId                       reads the group ID (SV_GroupID)
+95  ThreadIdInGroup               reads the thread ID within the group (SV_GroupThreadID)
+96  FlattenedThreadIdInGroup      provides a flattened index for a given thread within a given group (SV_GroupIndex)
+97  EmitStream                    emits a vertex to a given stream
+98  CutStream                     completes the current primitive topology at the specified stream
+99  EmitThenCutStream             equivalent to an EmitStream followed by a CutStream
+100 MakeDouble                    creates a double value
+101 ToDelete1                     reserved
+102 ToDelete2                     reserved
+103 SplitDouble                   splits a double into low and high parts
+104 ToDelete3                     reserved
+105 ToDelete4                     reserved
+106 LoadOutputControlPoint        LoadOutputControlPoint
+107 LoadPatchConstant             LoadPatchConstant
+108 DomainLocation                DomainLocation
+109 StorePatchConstant            StorePatchConstant
+110 OutputControlPointID          OutputControlPointID
+111 PrimitiveID                   PrimitiveID
+112 CycleCounterLegacy            CycleCounterLegacy
+113 Htan                          returns the hyperbolic tangent of the specified value
+114 WaveCaptureReserved           reserved
+115 WaveIsFirstLane               returns 1 for the first lane in the wave
+116 WaveGetLaneIndex              returns the index of the current lane in the wave
+117 WaveGetLaneCount              returns the number of lanes in the wave
+118 WaveIsHelperLaneReserved      reserved
+119 WaveAnyTrue                   returns 1 if any of the lane evaluates the value to true
+120 WaveAllTrue                   returns 1 if all the lanes evaluate the value to true
+121 WaveActiveAllEqual            returns 1 if all the lanes have the same value
+122 WaveActiveBallot              returns a struct with a bit set for each lane where the condition is true
+123 WaveReadLaneAt                returns the value from the specified lane
+124 WaveReadLaneFirst             returns the value from the first lane
+125 WaveActiveOp                  returns the result the operation across waves
+126 WaveActiveBit                 returns the result of the operation across all lanes
+127 WavePrefixOp                  returns the result of the operation on prior lanes
+128 WaveGetOrderedIndex           reserved
+129 GlobalOrderedCountIncReserved reserved
+130 QuadReadLaneAt                reads from a lane in the quad
+131 QuadOp                        returns the result of a quad-level operation
+132 BitcastI16toF16               bitcast between different sizes
+133 BitcastF16toI16               bitcast between different sizes
+134 BitcastI32toF32               bitcast between different sizes
+135 BitcastF32toI32               bitcast between different sizes
+136 BitcastI64toF64               bitcast between different sizes
+137 BitcastF64toI64               bitcast between different sizes
+138 GSInstanceID                  GSInstanceID
+139 LegacyF32ToF16                legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
+140 LegacyF16ToF32                legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
+141 LegacyDoubleToFloat           legacy fuction to convert double to float
+142 LegacyDoubleToSInt32          legacy fuction to convert double to int32
+143 LegacyDoubleToUInt32          legacy fuction to convert double to uint32
+144 WaveAllBitCount               returns the count of bits set to 1 across the wave
+145 WavePrefixBitCount            returns the count of bits set to 1 on prior lanes
+146 SampleIndex                   returns the sample index in a sample-frequency pixel shader
+147 Coverage                      returns the coverage mask input in a pixel shader
+148 InnerCoverage                 returns underestimated coverage input from conservative rasterization in a pixel shader
+=== ============================= ================================================================================================================
+
+
+Cos
+~~~
+
+Theta values can be any IEEE 32-bit floating point values.
+
+The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
+
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| cos(src) |  NaN | [-1 to +1] |      -0 | -0 | +0 |      +0 | [-1 to +1] |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+FAbs
+~~~~
+
+The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF values.
+Applying FAbs on NaN preserves NaN, although the particular NaN bit pattern that results is not defined.
+
+Saturate
+~~~~~~~~
+
+The Saturate instruction performs the following operation on its input value:
+
+min(1.0f, max(0.0f, value))
+
+where min() and max() in the above expression behave in the way Min and Max behave.
+
+Saturate(NaN) returns 0, by the rules for min and max.
+
+Sin
+~~~
+
+Theta values can be any IEEE 32-bit floating point values.
+
+The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| sin(src) |  NaN | [-1 to +1] |      +1 | +1 | +1 |      +1 | [-1 to +1] |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+.. OPCODES-RST:END
+
+
+Custom instructions
+-------------------
+Instructions for third-party extensions will be specially-prefixed external function calls, identified by a declared extension-set-prefix. Additional metadata will be included to provide hints about uniformity, pure or const guarantees, alignment, etc.
+
+Validation Rules
+================
+
+The following rules are verified by the *Validator* component and thus can be relied upon by downstream consumers.
+
+The set of validation rules that are known to hold for a DXIL program is identifier by the 'dx.valver' named metadata node, which consists of a two-element tuple of constant int values, a major and minor version. Minor version numbers are increments as rules are added to a prior table or as the implementation fixes issues.
+
+.. <py::lines('VALRULES-RST')>hctdb_instrhelp.get_valrules_rst()</py>
+.. VALRULES-RST:BEGIN
+
+========================================= =======================================================================================================================================================================================================================================================================================================
+Rule Code                                 Description
+========================================= =======================================================================================================================================================================================================================================================================================================
+BITCODE.VALID                             TODO - Module must be bitcode-valid
+DECL.DXILFNEXTERN                         External function must be a DXIL function
+DECL.DXILNSRESERVED                       The DXIL reserved prefixes must only be used by built-in functions and types
+DECL.FNFLATTENPARAM                       Function parameters must not use struct types
+DECL.FNISCALLED                           Functions can only be used by call instructions
+DECL.NOTUSEDEXTERNAL                      External declaration should not be used
+DECL.USEDEXTERNALFUNCTION                 External function must be used
+DECL.USEDINTERNAL                         Internal declaration must be used
+FLOW.BRANCHLIMIT                          TODO - Flow control blocks can nest up to 64 deep per subroutine (and main)
+FLOW.CALLLIMIT                            Subroutines can nest up to 32 levels deep
+FLOW.DEADLOOP                             Loop must have break
+FLOW.NORECUSION                           Recursion is not permitted
+FLOW.REDUCIBLE                            Execution flow must be reducible
+INSTR.ALLOWED                             TODO - Instructions must be of an allowed type
+INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute Shader must only sync UAV (sync_uglobal)
+INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
+INSTR.BARRIERMODEUSELESSUGROUP            sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
+INSTR.BUFFERUPDATECOUNTERONUAV            BufferUpdateCounter valid only on UAV
+INSTR.CALLOLOAD                           Call to DXIL intrinsic must match overload signature
+INSTR.CBUFFERCLASSFORCBUFFERHANDLE        Expect Cbuffer for CBufferLoad handle
+INSTR.CBUFFEROUTOFBOUND                   Cbuffer access out of bound
+INSTR.COORDINATECOUNTFORRAWTYPEDBUF       raw/typed buffer don't need 2 coordinates
+INSTR.COORDINATECOUNTFORSTRUCTBUF         structured buffer require 2 coordinates
+INSTR.DETERMINATEDERIVATIVE               gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)
+INSTR.DXILSTRUCTUSER                      Dxil struct types should only used by ExtractValue
+INSTR.DXILSTRUCTUSEROUTOFBOUND            Index out of bound when extract value from dxil struct types
+INSTR.ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS
+INSTR.ERR_ATTRIBUTE_PARAM_SIDE_EFFECT     TODO - expressions with side effects are illegal as attribute parameters for root signature
+INSTR.ERR_CANT_PULL_POSITION              TODO - %0 does not support pull-model evaluation of position
+INSTR.ERR_GUARANTEED_RACE_CONDITION_GSM   TODO - race condition writing to shared memory detected, consider making this write conditional.
+INSTR.ERR_GUARANTEED_RACE_CONDITION_UAV   TODO - race condition writing to shared resource detected, consider making this write conditional.
+INSTR.ERR_LOOP_CONDITION_OUT_OF_BOUNDS    TODO - cannot unroll loop with an out-of-bounds array reference in the condition
+INSTR.ERR_NON_LITERAL_RESOURCE            TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.
+INSTR.ERR_NON_LITERAL_STREAM              TODO - stream parameter must come from a literal expression
+INSTR.ERR_RESOURCE_UNINITIALIZED          TODO - Resource being indexed is uninitialized.
+INSTR.ERR_TEXTURE_OFFSET                  TODO - texture access must have literal offset and multisample index
+INSTR.ERR_TEXTURE_TYPE                    TODO - return type of texture too large. Cannot exceed 4 components
+INSTR.EVALINTERPOLATIONMODE               Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
+INSTR.FAILTORESLOVETGSMPOINTER            TGSM pointers must originate from an unambiguous TGSM global variable.
+INSTR.HANDLENOTFROMCREATEHANDLE           Resource handle should returned by createHandle
+INSTR.IMMBIASFORSAMPLEB                   bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
+INSTR.INBOUNDSACCESS                      TODO - Access to out-of-bounds memory is disallowed
+INSTR.MINPRECISIONNOTPRECISE              Instructions marked precise may not refer to minprecision values
+INSTR.MIPLEVELFORGETDIMENSION             Use mip level on buffer when GetDimensions
+INSTR.MIPONUAVLOAD                        uav load don't support mipLevel/sampleIndex
+INSTR.NOIDIVBYZERO                        TODO - No signed integer division by zero
+INSTR.NOINDEFINITEACOS                    TODO - No indefinite arccosine
+INSTR.NOINDEFINITEASIN                    TODO - No indefinite arcsine
+INSTR.NOINDEFINITEDSXY                    TODO - No indefinite derivative calculation
+INSTR.NOINDEFINITELOG                     TODO - No indefinite logarithm
+INSTR.NOPTRCAST                           TODO - Cast between pointer types disallowed
+INSTR.NOREADINGUNINITIALIZED              Instructions should not read uninitialized value
+INSTR.NOUDIVBYZERO                        TODO - No unsigned integer division by zero
+INSTR.OFFSETONUAVLOAD                     uav load don't support offset
+INSTR.OLOAD                               DXIL intrinsic overload must be valid
+INSTR.ONLYONEALLOCCONSUME                 RWStructuredBuffers may increment or decrement their counters, but not both.
+INSTR.OPCODE                              TODO - DXIL intrinsic must have a valid constant opcode
+INSTR.OPCODERESERVED                      TODO - Instructions must not reference reserved opcodes
+INSTR.OPCODERESTYPE                       TODO - DXIL intrinsic operating on a resource must be of the correct type
+INSTR.OPCONST                             TODO - DXIL intrinsic requires an immediate constant operand
+INSTR.OPCONSTRANGE                        TODO - Constant values must be in-range for operation
+INSTR.OPERANDRANGE                        TODO - DXIL intrinsic operand must be within defined range
+INSTR.PTRAREA                             TODO - Pointer must refer to a defined area
+INSTR.RESID                               TODO - DXIL instruction must refer to valid resource IDs
+INSTR.RESOURCECLASSFORLOAD                load can only run on UAV/SRV resource
+INSTR.RESOURCECLASSFORSAMPLERGATHER       sample, lod and gather should on srv resource.
+INSTR.RESOURCECLASSFORUAVSTORE            store should on uav resource.
+INSTR.RESOURCECOORDINATEMISS              coord uninitialized
+INSTR.RESOURCECOORDINATETOOMANY           out of bound coord must be undef
+INSTR.RESOURCEKINDFORBUFFERLOADSTORE      buffer load/store only works on Raw/Typed/StructuredBuffer
+INSTR.RESOURCEKINDFORCALCLOD              lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray
+INSTR.RESOURCEKINDFORGATHER               gather requires resource declared as texture/2D/Cube/2DArray/CubeArray
+INSTR.RESOURCEKINDFORGETDIM               Invalid resource kind on GetDimensions
+INSTR.RESOURCEKINDFORSAMPLE               sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray
+INSTR.RESOURCEKINDFORSAMPLEC              samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
+INSTR.RESOURCEKINDFORTEXTURELOAD          texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray
+INSTR.RESOURCEKINDFORTEXTURESTORE         texture store only works on Texture1D/1DArray/2D/2DArray/3D
+INSTR.RESOURCEOFFSETMISS                  offset uninitialized
+INSTR.RESOURCEOFFSETTOOMANY               out of bound offset must be undef
+INSTR.SAMPLECOMPTYPE                      sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.
+INSTR.SAMPLEINDEXFORLOAD2DMS              load on Texture2DMS/2DMSArray require sampleIndex
+INSTR.SAMPLERMODEFORLOD                   lod instruction requires sampler declared in default mode
+INSTR.SAMPLERMODEFORSAMPLE                sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
+INSTR.SAMPLERMODEFORSAMPLEC               sample_c_*/gather_c instructions require sampler declared in comparison mode
+INSTR.TEXTURELOD                          TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube
+INSTR.TEXTUREOPARGS                       TODO - Instructions that depend on texture type must match operands
+INSTR.TYPECAST                            TODO - Type cast must be valid
+INSTR.UNDEFRESULTFORGETDIMENSION          GetDimensions used undef dimension %0 on %1
+INSTR.WAR_GRADIENT_IN_VARYING_FLOW        TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value
+INSTR.WRITEMASKFORTYPEDUAVSTORE           store on typed uav must write to all four components of the UAV
+INSTR.WRITEMASKMATCHVALUEFORUAVSTORE      uav store write mask must match store value mask, write mask is %0 and store value mask is %1
+META.BRANCHFLATTEN                        Can't use branch and flatten attributes together
+META.DENSERESIDS                          Resource identifiers must be zero-based and dense
+META.ENTRYFUNCTION                        entrypoint not found
+META.FLAGSUSAGE                           Flags must match usage
+META.FORCECASEONSWITCH                    Attribute forcecase only works for switch
+META.FUNCTIONANNOTATION                   Cannot find function annotation for %0
+META.GLCNOTONAPPENDCONSUME                globallycoherent cannot be used with append/consume buffers
+META.INTEGERINTERPMODE                    signature %0 specifies invalid interpolation mode for integer component type.
+META.INTERPMODEINONEROW                   Interpolation mode cannot vary for different cols of a row. Vary at %0 row %1
+META.INTERPMODEVALID                      Interpolation mode must be valid
+META.INVALIDCONTROLFLOWHINT               Invalid control flow hint
+META.KNOWN                                Named metadata should be known
+META.MAXTESSFACTOR                        Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
+META.NOREGISTEROVERLAP                    TODO - User-defined variable locations cannot overlap
+META.NOSEMANTICOVERLAP                    Semantics must not overlap
+META.REQUIRED                             TODO - Required metadata missing
+META.SEMAKINDVALID                        Semantic kind must be valid
+META.SEMANTICCOMPTYPE                     %0 must be %1
+META.SEMANTICLEN                          TODO - Semantic length must be at least 1 and at most 64
+META.SIGNATURECOMPTYPE                    signature %0 specifies unrecognized or invalid component type
+META.SIGNATUREOUTOFRANGE                  signature %0 is out of range at row %1 col %2 size %3.
+META.SIGNATUREOVERLAP                     signature %0 use overlaped address at row %1 col %2 size %3.
+META.STRUCTBUFALIGNMENT                   TODO - structured buffer element size must be a multiple of %u bytes in %s (actual size %u bytes)
+META.STRUCTBUFALIGNMENTOUTOFBOUND         TODO - structured buffer elements cannot be larger than %u bytes in %s (actual size %u bytes)
+META.TARGET                               Target triple must be 'dxil-ms-dx'
+META.TESSELLATOROUTPUTPRIMITIVE           Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
+META.TESSELLATORPARTITION                 Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
+META.USED                                 TODO - All metadata must be used
+META.VALIDSAMPLERMODE                     Invalid sampler mode on sampler
+META.VALUERANGE                           Metadata value must be within range
+META.WELLFORMED                           TODO - Metadata must be well-formed in operand count and types
+SM.APPENDANDCONSUMEONSAMEUAV              BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
+SM.CBUFFERELEMENTOVERFLOW                 CBuffer elements must not overflow
+SM.CBUFFEROFFSETOVERLAP                   CBuffer offsets must not overlap
+SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT        D3D12 constant/texture buffer template element can only be a struct
+SM.COMPLETEPOSITION                       Not all elements of SV_Position were written
+SM.COUNTERONLYONSTRUCTBUF                 BufferUpdateCounter valid only on structured buffers
+SM.CSNORETURN                             Compute shaders can't return values, outputs must be written in writable resources (UAVs).
+SM.DOMAINLOCATIONIDXOOB                   DomainLocation component index out of bounds for the domain.
+SM.DSINPUTCONTROLPOINTCOUNTRANGE          DS input control point count must be [0..%0].  %1 specified
+SM.ERR_BIND_RESOURCE_RANGE_OVERFLOW       TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
+SM.ERR_DUPLICATE_CBUFFER_BANK             TODO - ERR_DUPLICATE_CBUFFER_BANK
+SM.ERR_GEN_SEMANTIC_TOO_LONG              TODO - Semantic length is limited to 64 characters
+SM.ERR_MAX_CBUFFER_EXCEEDED               TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)
+SM.ERR_MAX_CONST_EXCEEDED                 TODO - ERR_MAX_CONST_EXCEEDED
+SM.ERR_MAX_SAMPLER_EXCEEDED               TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)
+SM.ERR_MAX_TEXTURE_EXCEEDED               TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)
+SM.ERR_UNABLE_TO_BIND_RESOURCE            TODO - ERR_UNABLE_TO_BIND_RESOURCE
+SM.ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE  TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE
+SM.GSINSTANCECOUNTRANGE                   GS instance count must be [1..%0].  %1 specified
+SM.GSOUTPUTLIMIT                          TODO - A geometry shader can output a maximum of 1024 32-bit values (including the size of the input data and the size of the data created by the shader)
+SM.GSOUTPUTVERTEXCOUNTRANGE               GS output vertex count must be [0..%0].  %1 specified
+SM.GSTOTALOUTPUTVERTEXDATARANGE           TODO: Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
+SM.GSVALIDINPUTPRIMITIVE                  GS input primitive unrecognized
+SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY         GS output primitive topology unrecognized
+SM.HSINPUTCONTROLPOINTCOUNTRANGE          HS input control point count must be [1..%0].  %1 specified
+SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH     For pass thru hull shader, input control point count must match output control point count
+SM.ICBLIMIT                               TODO - Constant buffers must contain at least one element, but no more than 4096 values
+SM.IDXTMPLIMIT                            TODO - Indexable temporaries must containt at least one element, but no more than 4096 values
+SM.INSIDETESSFACTORSIZEMATCHDOMAIN        InsideTessFactor size mismatch the domain.
+SM.INVALIDRESOURCECOMPTYPE                Invalid resource return type
+SM.INVALIDRESOURCEKIND                    Invalid resources kind
+SM.INVALIDTEXTUREKINDONUAV                Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
+SM.ISOLINEOUTPUTPRIMITIVEMISMATCH         Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
+SM.LIVELIMIT                              TODO - The total number of temporary and indexable-temporary registers (32-bit four-component values) must be less than or equal to 4096
+SM.MAXTGSMSIZE                            Total Thread Group Shared Memory storage is %0, exceeded %1
+SM.MAXTHEADGROUP                          Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
+SM.MULTISTREAMMUSTBEPOINT                 When multiple GS output streams are used they must be pointlists
+SM.NAME                                   Target shader model name must be known
+SM.NOINTERPMODE                           Interpolation mode must be undefined for VS input/PS output/patch constant.
+SM.NOPSOUTPUTIDX                          TODO - Pixel shader output registers are not indexable.
+SM.OPCODE                                 Opcode must be defined in target shader model
+SM.OPCODEININVALIDFUNCTION                Invalid DXIL opcode usage like StorePatchConstant in patch constant function
+SM.OPERAND                                Operand must be defined in target shader model
+SM.OUTPUTCONTROLPOINTCOUNTRANGE           output control point count must be [0..%0].  %1 specified
+SM.OUTPUTCONTROLPOINTSTOTALSCALARS        Total number of scalars across all HS output control points must not exceed
+SM.PATCHCONSTANTONLYFORHSDS               patch constant signature only valid in HS and DS
+SM.PSCONSISTENTINTERP                     Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
+SM.PSCOVERAGEANDINNERCOVERAGE             InnerCoverage and Coverage are mutually exclusive.
+SM.PSINPUTINT                             TODO - Pixel shader input values must use the same interpolation mode
+SM.PSOUTPUTSEMANTIC                       Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
+SM.RESLIMIT                               TODO - Resource limit exceeded for target shader model
+SM.RESOURCERANGEOVERLAP                   Resource ranges must not overlap
+SM.ROVONLYINPS                            RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
+SM.SAMPLECOUNTONLYON2DMS                  Only Texture2DMS/2DMSArray could has sample count
+SM.SEMANTIC                               Semantic must be defined in target shader model
+SM.STREAMINDEXRANGE                       Stream index (%0) must between 0 and %1
+SM.STRUCTBUFMUSTBE4BYTESALIGN             Structured buffer stride should 4 byte align
+SM.TESSFACTORFORDOMAIN                    Required TessFactor for domain not found declared anywhere in Patch Constant data
+SM.TESSFACTORSIZEMATCHDOMAIN              TessFactor size mismatch the domain.
+SM.THREADGROUPCHANNELRANGE                Declared Thread Group %0 size %1 outside valid range [%2..%3]
+SM.TRIOUTPUTPRIMITIVEMISMATCH             Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
+SM.UNDEFINEDOUTPUT                        Not all elements of output %0 were written
+SM.VALIDDOMAIN                            Invalid Tessellator Domain specified. Must be isoline, tri or quad
+TYPES.DEFINED                             Type must be defined based on DXIL primitives
+TYPES.INTWIDTH                            Int type must be of valid width
+TYPES.NOVECTOR                            Vector types must not be present
+UNI.NOWAVESENSITIVEGRADIENT               Gradient operations are not affected by wave-sensitive data or control flow.
+========================================= =======================================================================================================================================================================================================================================================================================================
+
+.. VALRULES-RST:END
+
+
+Modules and Linking
+===================
+
+HLSL has linking capabilities to enable third-party libraries. The linking step happens before shader DXIL is given to the driver compilers.
+
+Additional Notes
+================
+
+These additional notes are not normative for DXIL, and are included for the convenience of implementers.
+
+Other Versioned Components
+--------------------------
+
+In addition to shader model, DXIL and bitcode representation versions, two other interesting versioned components are discussed: the supporting operating system and runtime, and the HLSL language.
+
+Support is provided in the Microsoft Windows family of operating systems, when running on the D3D12 runtime.
+
+The HLSL language is versioned independently of DXIL, and currently follows an 'HLSL <year>' naming scheme. HLSL 2015 is the dialect supported by the d3dcompiler_47 library; a limited form of support is provided in the open source HLSL on LLVM project. HLSL 2016 is the version supported by the current HLSL on LLVM project, which removes some features (primarily effect framework syntax, backquote operator) and adds new ones (wave intrinsics and basic i64 support).
+
+DXIL Container Format
+---------------------
+
+DXIL is typically encapsulated in a DXIL container. A DXIL container is composed of a header, a sequence of part lengths, and a sequence of parts.
+
+The following C declaration describes this structure::
+
+  struct DxilContainerHeader {
+    uint32_t  HeaderFourCC;
+    uint8_t   Digest[DxilContainerHashSize];
+    uint16_t  MajorVersion;
+    uint16_t  MinorVersion;
+    uint32_t  ContainerSizeInBytes; // From start of this header
+    uint32_t  PartCount;
+    // Structure is followed by uint32_t PartOffset[PartCount];
+    // The offset is to a DxilPartHeader.
+  };
+
+Each part has a standard header, followed by a part-specify body::
+
+  struct DxilPartHeader {
+    uint32_t  PartFourCC; // Four char code for part type.
+    uint32_t  PartSize;   // Byte count for PartData.
+    // Structure is followed by uint8_t PartData[PartSize].
+  };
+
+The DXIL program is found in a part with the following body::
+
+  struct DxilProgramHeader {
+    uint32_t          ProgramVersion;   /// Major and minor version of shader, including type.
+    uint32_t          SizeInUint32;     /// Size in uint32_t units including this header.
+    uint32_t DxilMagic;       // 0x4C495844, ASCII "DXIL".
+    uint32_t DxilVersion;     // DXIL version.
+    uint32_t BitcodeOffset;   // Offset to LLVM bitcode (from DxilMagic).
+    uint32_t BitcodeSize;     // Size of LLVM bitcode.
+    // Followed by uint8_t[BitcodeHeader.BitcodeSize] after possible gap from BitcodeOffset
+  };
+
+The bitcode payload is defined as per bitcode encoding.
+
+Future Directions
+-----------------
+
+This section provides background on future directions for DXIL that may or may not materialize. They imply a new version of DXIL.
+
+It's desirable to support generic pointers, pointing to one of other kinds of pointers. If the compiler fails to disambiguate, memory access is done via a generic pointer; the HLSL compiler will warn the user about each access that it cannot disambiguate. Not supported for SM6.
+
+HLSL will eventually support more primitive types such as i8, i16, i32, i64, half, float, double, as well as declspec(align(n)) and #pragma pack(n) directives. SM6.0 will eventually require byte-granularity access support in hardware, especially writes. Not supported for SM6.
+
+There will be a Requires32BitAlignedAccesses CAP flag. If absent, this would indicate that the shader requires writes that (1) do not write full four bytes, or (2) are not aligned on four-byte boundary. If hardware does not natively support these, the shader is rejected. Programmers can work around this hardware limitation by manually aligning smaller data on four-byte boundary in HLSL.
+
+When libraries are supported as first-class DXIL constructs, "lib_*" shader models can specify more than one entry point per module; the other shader models must specify exactly one entry point.
+
+The target machine specification for HLSL might specify a 64-bit pointer side with 64-bit offsets.
+
+Hardware support for generic pointer is essential for HLSL next as a fallback mechanism for cases when compiler cannot disambiguate pointer's address space.
+
+Future DXIL will change how half and i16 are treated:
+* i16 will have to be supported natively either in hardware or via emulation,
+* half's behavior will depend on the value of RequiresHardwareHalf CAP; if it's not set, half can be treated as min-precision type (min16float); i.e., computation may be done with values implicitly promoted to floats; if it's set and hardware does not support half type natively, the driver compiler can either emulate exact IEEE half behavior or fail shader creation.
+
+Pending Specification Work
+==========================
+
+The following work on this specification is still pending:
+
+* Consider moving some additional tables and lists into hctdb and cross-reference.
+* Complete the extended documentation for instructions.
+

@@ -1,0 +1,10 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/.. )
+
+add_llvm_library(LLVMIntelJITEvents
+  IntelJITEventListener.cpp
+  jitprofiling.c
+
+  LINK_LIBS pthread ${CMAKE_DL_LIBS}
+)

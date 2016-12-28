@@ -1,0 +1,160 @@
+@echo off
+
+if "%1"=="/?" goto :showhelp
+if "%1"=="-?" goto :showhelp
+if "%1"=="-help" goto :showhelp
+if "%1"=="--help" goto :showhelp
+
+rem Default build arch is x86
+if "%BUILD_ARCH%"=="" (
+  set BUILD_ARCH=Win32
+)
+
+if "%1"=="-x86" (
+  set BUILD_ARCH=Win32
+) else if "%1"=="-Win32" (
+  set BUILD_ARCH=Win32
+) else if "%1"=="-x64" (
+  set BUILD_ARCH=x64
+) else if "%1"=="-amd64" (
+  set BUILD_ARCH=x64
+) else if "%1"=="-arm" (
+  set BUILD_ARCH=ARM
+) else (
+  goto :donearch
+)
+shift /1
+
+:donearch
+echo Default architecture - set BUILD_ARCH=%BUILD_ARCH%
+
+if "%1"=="" (
+  echo Source directory missing.
+  goto :showhelp
+)
+if "%2"=="" (
+  echo Build directory missing.
+  goto :showhelp
+)
+
+if not exist "%1\utils\hct\hctstart.cmd" (
+  echo %1 does not look like a directory with sources - cannot find %1\utils\hct\hctstart.cmd
+  exit /b 1
+)
+
+set HLSL_SRC_DIR=%1
+set HLSL_BLD_DIR=%2
+echo HLSL source directory set to HLSL_SRC_DIR=%HLSL_SRC_DIR%
+echo HLSL source directory set to HLSL_BLD_DIR=%HLSL_BLD_DIR%
+echo.
+echo You can recreate the environment with this command.
+echo %0 %*
+echo.
+
+echo Setting up macros for this console - run hcthelp for a reference.
+echo.
+doskey hctbld=pushd %HLSL_BLD_DIR%
+doskey hctbuild=%HLSL_SRC_DIR%\utils\hct\hctbuild.cmd $*
+doskey hctcheckin=%HLSL_SRC_DIR%\utils\hct\hctcheckin.cmd $*
+doskey hctclean=%HLSL_SRC_DIR%\utils\hct\hctclean.cmd $*
+doskey hcthelp=%HLSL_SRC_DIR%\utils\hct\hcthelp.cmd $*
+doskey hctshortcut=cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctshortcut.js $*
+doskey hctspeak=cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctspeak.js $*
+doskey hctsrc=pushd %HLSL_SRC_DIR%
+doskey hcttest=%HLSL_SRC_DIR%\utils\hct\hcttest.cmd $*
+doskey hcttools=pushd %HLSL_SRC_DIR%\utils\hct
+doskey hcttodo=cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hcttodo.js $*
+doskey hctvs=%HLSL_SRC_DIR%\utils\hct\hctvs.cmd $*
+
+call :checksdk
+
+where cmake.exe 1>nul 2>nul
+if errorlevel 1 (
+  call :findcmake
+)
+
+where te.exe 1>nul 2>nul
+if errorlevel 1 (
+  call :findte
+)
+
+where git.exe 1>nul 2>nul
+if errorlevel 1 (
+  call :findgit
+)
+
+pushd %HLSL_SRC_DIR%
+
+goto :eof
+
+:showhelp
+echo hctstart - Start the HLSL console tools environment.
+echo.
+echo This script sets up the sources and binary environment variables
+echo and installs convenience console aliases. See hcthelp for a reference.
+echo.
+echo Usage:
+echo  hctstart [-x86 or -x64] [path-to-sources] [path-to-build]
+echo.
+goto :eof
+
+:findcmake
+if errorlevel 1 if exist "%programfiles%\CMake\bin" set path=%path%;%programfiles%\CMake\bin
+if errorlevel 1 if exist "%programfiles(x86)%\CMake\bin" set path=%path%;%programfiles(x86)%\CMake\bin
+if errorlevel 1 if exist "%programfiles%\CMake 2.8\bin" set path=%path%;%programfiles%\CMake 2.8\bin
+if exist "%programfiles(x86)%\CMake 2.8\bin" set path=%path%;%programfiles(x86)%\CMake 2.8\bin
+where cmake.exe 1>nul 2>nul
+if errorlevel 1 (
+  echo Unable to find cmake on path - you will have to add this before building.
+  echo cmake 2.8.12.2 is available from https://cmake.org/files/v2.8/cmake-2.8.12.2-win32-x86.exe
+  exit /b 1
+)
+echo Path adjusted to include cmake.
+goto :eof
+
+:findte
+if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles%\windows kits\10\Testing\Runtimes\TAEF
+if exist "%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF
+if exist "%programfiles%\windows kits\8.1\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles%\windows kits\8.1\Testing\Runtimes\TAEF
+if exist "%programfiles(x86)%\windows kits\8.1\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles(x86)%\windows kits\8.1\Testing\Runtimes\TAEF
+where te.exe 1>nul 2>nul
+if errorlevel 1 (
+  echo Unable to find TAEF te.exe on path - you will have to add this before running tests.
+  echo WDK includes TAEF and is available from https://msdn.microsoft.com/en-us/windows/hardware/dn913721.aspx
+  echo Please see the README.md instructions in the project root.
+  exit /b 1
+)
+echo Path adjusted to include TAEF te.exe.
+goto :eof
+
+:findgit
+if exist "C:\Program Files (x86)\Git\cmd\git.exe" set path=%path%;C:\Program Files (x86)\Git\cmd
+if exist "C:\Program Files\Git\cmd\git.exe" set path=%path%;C:\Program Files\Git\cmd
+if exist "%LOCALAPPDATA%\Programs\Git\cmd\git.exe" set path=%path%;%LOCALAPPDATA%\Programs\Git\cmd
+where git 1>nul 2>nul
+if errorlevel 1 (
+  echo Unable to find git. Having git is convenient but not necessary to build and test.
+)
+echo Path adjusted to include git.
+goto :eof
+
+:checksdk
+setlocal
+reg query "HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots" /v KitsRoot10 1>nul
+if errorlevel 1 (
+  echo Unable to find Windows 10 SDK.
+  echo Please see the README.md instructions in the project root.
+  exit /b 1
+)
+for /f "tokens=2* delims= " %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots" /v KitsRoot10') do set kit_root=%%B
+if not exist "%kit_root%" (
+  echo Windows 10 SDK was installed but is not accessible.
+  exit /b 1
+)
+if not exist "%kit_root%\include\10.0.10240.0" (
+  echo Unable to find include files for Windows 10 SDK 10.0.10240.0.
+  echo Please see the README.md instructions in the project root.
+)
+endlocal
+
+goto :eof

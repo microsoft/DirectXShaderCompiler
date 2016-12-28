@@ -1,0 +1,49 @@
+# Extended documenation for DXIL instructions.
+#
+# File format:
+# * Inst: [instruction name] - [brief description]
+# further remarks
+#
+# Keep these ordered alphabetically for ease of maintenance.
+
+* Inst: Cos - returns cosine(theta) for theta in radians.
+
+Theta values can be any IEEE 32-bit floating point values.
+
+The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
+
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| cos(src) |  NaN | [-1 to +1] |      -0 | -0 | +0 |      +0 | [-1 to +1] |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+
+* Inst: FAbs - returns the absolute value of the input value.
+
+The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF values.
+Applying FAbs on NaN preserves NaN, although the particular NaN bit pattern that results is not defined.
+
+* Inst: Saturate - clamps the result of a single or double precision floating point value to [0.0f...1.0f]
+
+The Saturate instruction performs the following operation on its input value:
+
+min(1.0f, max(0.0f, value))
+
+where min() and max() in the above expression behave in the way Min and Max behave.
+
+Saturate(NaN) returns 0, by the rules for min and max.
+
+* Inst: Sin - returns sine(theta) for theta in radians.
+
+Theta values can be any IEEE 32-bit floating point values.
+
+The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| sin(src) |  NaN | [-1 to +1] |      +1 | +1 | +1 |      +1 | [-1 to +1] |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+

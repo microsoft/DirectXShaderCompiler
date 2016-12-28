@@ -1,0 +1,16 @@
+// RUN: %dxc -E main -T ps_5_0 %s
+
+cbuffer Foo
+{
+  float4 g1[16];
+};
+
+cbuffer Bar
+{
+  uint3 idx[8];
+};
+
+float4 main(int2 a : A) : SV_TARGET
+{
+  return g1[idx[a.x].z].wyyy;
+}

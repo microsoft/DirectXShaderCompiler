@@ -1,0 +1,25 @@
+// RUN: %dxc -E main -T ps_5_0 %s
+
+// TODO: create execution test.
+
+static float4 f0 = {5,6,7,8};
+static float4 f1 = 0;
+static float4 f2 = {0,0,0,0};
+
+static float4x4 m0 = { 15,16,17,18,
+                       15,16,17,18,
+                       15,16,17,18,
+                       15,16,17,18 };
+
+static float2x2 m2[4] = { 25,26,27,28,
+                       25,26,27,28,
+                       25,26,27,28,
+                       25,26,27,28 };
+
+
+uint i;
+
+float4 main() : SV_TARGET {
+  m2[i][1][i] = m0[i][i];
+  return f2 + f1 + f0[i] + m2[1]._m00_m01_m00_m10 + m0[i];
+}

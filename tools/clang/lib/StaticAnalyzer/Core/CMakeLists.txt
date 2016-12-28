@@ -1,0 +1,51 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+set(LLVM_LINK_COMPONENTS support)
+
+add_clang_library(clangStaticAnalyzerCore
+  APSIntType.cpp
+  AnalysisManager.cpp
+  AnalyzerOptions.cpp
+  BasicValueFactory.cpp
+  BlockCounter.cpp
+  BugReporter.cpp
+  BugReporterVisitors.cpp
+  CallEvent.cpp
+  Checker.cpp
+  CheckerContext.cpp
+  CheckerHelpers.cpp
+  CheckerManager.cpp
+  CheckerRegistry.cpp
+  CommonBugCategories.cpp
+  ConstraintManager.cpp
+  CoreEngine.cpp
+  Environment.cpp
+  ExplodedGraph.cpp
+  ExprEngine.cpp
+  ExprEngineC.cpp
+  ExprEngineCXX.cpp
+  ExprEngineCallAndReturn.cpp
+  ExprEngineObjC.cpp
+  FunctionSummary.cpp
+  HTMLDiagnostics.cpp
+  MemRegion.cpp
+  PathDiagnostic.cpp
+  PlistDiagnostics.cpp
+  ProgramState.cpp
+  RangeConstraintManager.cpp
+  RegionStore.cpp
+  SValBuilder.cpp
+  SVals.cpp
+  SimpleConstraintManager.cpp
+  SimpleSValBuilder.cpp
+  Store.cpp
+  SubEngine.cpp
+  SymbolManager.cpp
+
+  LINK_LIBS
+  clangAST
+  clangAnalysis
+  clangBasic
+  clangLex
+  clangRewrite
+  )

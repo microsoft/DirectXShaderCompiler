@@ -1,0 +1,72 @@
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// DxilResource.h                                                            //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// Licensed under the MIT license. See COPYRIGHT in the project root for     //
+// full license information.                                                 //
+//                                                                           //
+// Representation of HLSL SRVs and UAVs.                                     //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include "DxilConstants.h"
+#include "dxc/HLSL/DxilResourceBase.h"
+#include "dxc/HLSL/DxilCompType.h"
+
+
+namespace hlsl {
+
+/// Use this class to represent an HLSL resource (SRV/UAV).
+class DxilResource : public DxilResourceBase {
+public:
+  /// Total number of coordinates necessary to access resource.
+  static unsigned GetNumCoords(Kind ResourceKind);
+  /// Total number of resource dimensions (Only width and height for cube).
+  static unsigned GetNumDimensions(Kind ResourceKind);
+  /// Total number of resource dimensions for CalcLOD (no array).
+  static unsigned GetNumDimensionsForCalcLOD(Kind ResourceKind);
+  /// Total number of offsets (in [-8,7]) necessary to access resource.
+  static unsigned GetNumOffsets(Kind ResourceKind);
+
+  DxilResource();
+
+  CompType GetCompType() const;
+  void SetCompType(const CompType CT);
+
+  llvm::Type *GetRetType() const;
+
+  unsigned GetSampleCount() const;
+  void SetSampleCount(unsigned SampleCount);
+
+  unsigned GetElementStride() const;
+  void SetElementStride(unsigned ElemStride);
+
+  bool IsGloballyCoherent() const;
+  void SetGloballyCoherent(bool b);
+  bool HasCounter() const;
+  void SetHasCounter(bool b);
+
+  bool IsRO() const;
+  bool IsRW() const;
+  void SetRW(bool bRW);
+  bool IsROV() const;
+  void SetROV(bool bROV);
+
+  bool IsAnyTexture() const;
+  bool IsStructuredBuffer() const;
+  bool IsTypedBuffer() const;
+  bool IsRawBuffer() const;
+  bool IsTBuffer() const;
+
+private:
+  unsigned m_SampleCount;
+  unsigned m_ElementStride; // in bytes
+  CompType m_CompType;
+  bool m_bGloballyCoherent;
+  bool m_bHasCounter;
+  bool m_bROV;
+};
+
+} // namespace hlsl

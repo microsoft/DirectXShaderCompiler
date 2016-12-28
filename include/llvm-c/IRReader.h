@@ -1,0 +1,39 @@
+/*===-- llvm-c/IRReader.h - IR Reader C Interface -----------------*- C -*-===*\
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// IRReader.h                                                                //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// Licensed under the MIT license. See COPYRIGHT in the project root for     //
+// full license information.                                                 //
+//                                                                           //
+// This file defines the C interface to the IR Reader.                       //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+#ifndef LLVM_C_IRREADER_H
+#define LLVM_C_IRREADER_H
+
+#include "llvm-c/Core.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * Read LLVM IR from a memory buffer and convert it into an in-memory Module
+ * object. Returns 0 on success.
+ * Optionally returns a human-readable description of any errors that
+ * occurred during parsing IR. OutMessage must be disposed with
+ * LLVMDisposeMessage.
+ *
+ * @see llvm::ParseIR()
+ */
+LLVMBool LLVMParseIRInContext(LLVMContextRef ContextRef,
+                              LLVMMemoryBufferRef MemBuf, LLVMModuleRef *OutM,
+                              char **OutMessage);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

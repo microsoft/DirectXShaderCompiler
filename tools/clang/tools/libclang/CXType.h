@@ -1,0 +1,28 @@
+//===- CXTypes.h - Routines for manipulating CXTypes ----------------------===//
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// CXType.h                                                                  //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// Licensed under the MIT license. See COPYRIGHT in the project root for     //
+// full license information.                                                 //
+//                                                                           //
+// This file defines routines for manipulating CXCursors.                    //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+#ifndef LLVM_CLANG_TOOLS_LIBCLANG_CXTYPE_H
+#define LLVM_CLANG_TOOLS_LIBCLANG_CXTYPE_H
+
+#include "clang-c/Index.h"
+#include "clang/AST/Type.h"
+
+namespace clang {
+  
+class ASTUnit;
+  
+namespace cxtype {
+  
+CXType MakeCXType(QualType T, CXTranslationUnit TU);
+  
+}} // end namespace clang::cxtype
+#endif

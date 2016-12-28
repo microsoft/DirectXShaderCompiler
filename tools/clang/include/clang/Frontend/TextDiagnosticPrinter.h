@@ -1,0 +1,57 @@
+//===--- TextDiagnosticPrinter.h - Text Diagnostic Client -------*- C++ -*-===//
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// TextDiagnosticPrinter.h                                                   //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// Licensed under the MIT license. See COPYRIGHT in the project root for     //
+// full license information.                                                 //
+//                                                                           //
+// This is a concrete diagnostic client, which prints the diagnostics to     //
+// standard error.                                                           //
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#ifndef LLVM_CLANG_FRONTEND_TEXTDIAGNOSTICPRINTER_H
+#define LLVM_CLANG_FRONTEND_TEXTDIAGNOSTICPRINTER_H
+
+#include "clang/Basic/Diagnostic.h"
+#include "clang/Basic/LLVM.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include <memory>
+
+namespace clang {
+class DiagnosticOptions;
+class LangOptions;
+class TextDiagnostic;
+
+class TextDiagnosticPrinter : public DiagnosticConsumer {
+  raw_ostream &OS;
+  IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts;
+
+  /// \brief Handle to the currently active text diagnostic emitter.
+  std::unique_ptr<TextDiagnostic> TextDiag;
+
+  /// A string to prefix to error messages.
+  std::string Prefix;
+
+  unsigned OwnsOutputStream : 1;
+
+public:
+  TextDiagnosticPrinter(raw_ostream &os, DiagnosticOptions *diags,
+                        bool OwnsOutputStream = false);
+  ~TextDiagnosticPrinter() override;
+
+  /// setPrefix - Set the diagnostic printer prefix string, which will be
+  /// printed at the start of any diagnostics. If empty, no prefix string is
+  /// used.
+  void setPrefix(std::string Value) { Prefix = Value; }
+
+  void BeginSourceFile(const LangOptions &LO, const Preprocessor *PP) override;
+  void EndSourceFile() override;
+  void HandleDiagnostic(DiagnosticsEngine::Level Level,
+                        const Diagnostic &Info) override;
+};
+
+} // end namespace clang
+
+#endif

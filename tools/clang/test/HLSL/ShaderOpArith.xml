@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<ShaderOpSet xmlns="http://schemas.microsoft.com/test/ShaderOp">
+  <ShaderOp Name="WriteFloat4" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+
+    <Resource Name="Buffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
+
+    <RootValues>
+      <RootValue Index="0" ResName="Buffer" />
+    </RootValues>
+
+    <Shader Name="CS" Target="cs_5_1">
+      <![CDATA[
+    RWStructuredBuffer<float4> g_buf : register(u0);
+    [numthreads(8,8,1)]
+    void main(uint GI : SV_GroupIndex) {
+      g_buf[GI] = GI;
+    };
+    ]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="OOB" PS="PS" VS="VS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), CBV(b0), DescriptorTable(SRV(t0,numDescriptors=2))</RootSignature>
+    <Resource Name="CB0" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" TransitionTo="VERTEX_AND_CONSTANT_BUFFER">
+      1.0f, 0.0f, 100.0f
+    </Resource>
+    <Resource Name="T0" Dimension="TEXTURE1D" InitialResourceState="COPY_DEST" Init="FromBytes" Format="R32_FLOAT">
+      1.0f, 0.5f, 1.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f
+    </Resource>
+    <Resource Name='VBuffer' Dimension='BUFFER' Flags='ALLOW_UNORDERED_ACCESS' InitialResourceState='COPY_DEST' Init='FromBytes'>
+      1.0f  1.0f 0, 1.0f -1.0f 0.0f, -1.0f -1.0f 0,
+      -1.0f  1.0f 0, 1.0f  1.0f 0.0f, -1.0f -1.0f 0,
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="320" Height="200" Format="R8G8B8A8_UNORM" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <RootValues>
+      <RootValue ResName="CB0" />
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name='ResHeap' Type='CBV_SRV_UAV'>
+      <Descriptor Name='T0' Kind='SRV' ResName='T0' />
+    </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName='POSITION' Format='R32G32B32_FLOAT' AlignedByteOffset='0' />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget" />
+    </RenderTargets>
+    <Shader Name='VS' Target='vs_6_0' EntryPoint='VSMain' Text="@PS" />
+    <Shader Name='PS' Target='ps_6_0' EntryPoint='PSMain'>
+      <![CDATA[
+        // Resources that are not local scalars (and thus are bound):
+        // - array in cbuffer
+        // - array in local
+        // - array in groupshared
+        // - array in signature element
+        // - resource access operations:
+        //  - sampling
+        //  - loading
+        //  - storing
+        //
+        // In all cases, for HLSL, out-of-bound reads yield zero, and
+        // out-of-bound writes are no-ops.
+        cbuffer C {
+          float c_arr;
+          float zero_idx;
+          float oob_idx;
+        };
+        // Texture1D<float> g_t1d: register(t0); // alternate binding
+        Buffer<float> g_t1d: register(t0);
+        struct PSInput {
+         float4 position : SV_POSITION;
+        };
+        PSInput VSMain(float4 position: POSITION) {
+         PSInput result;
+         result.position = position;
+         return result;
+        }
+        float4 PSMain(PSInput input) : SV_TARGET {
+         float x = input.position.x;
+         float p0 = g_t1d.Load(zero_idx);
+         float p1 = g_t1d.Load(oob_idx);
+         float r = 0;
+         // every color should be pure red (saturated red channel, zero'ed green channel).
+         return float4(p0, p1, 0, 1);
+        }
+      ]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name='Saturate' PS='PS' VS='VS'>
+    <RootSignature>
+      RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(UAV(u0), CBV(b0))
+    </RootSignature>
+    <Resource Name='VBuffer' Dimension='BUFFER' Flags='ALLOW_UNORDERED_ACCESS' InitialResourceState='COPY_DEST' Init='FromBytes'>
+      1.0f  1.0f 0, 1.0f -1.0f 0.0f, -1.0f -1.0f 0,
+      -1.0f  1.0f 0, 1.0f  1.0f 0.0f, -1.0f -1.0f 0,
+    </Resource>
+    <Resource Name='CB0' Dimension='BUFFER' Width="256" InitialResourceState='COPY_DEST' Init='FromBytes'>
+      -inf, -1.5f, -denorm, -0, 0, denorm, 1.5f, inf, nan
+    </Resource>
+    <Resource Name="U0" Dimension="BUFFER" Width="1280"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R8G8B8A8_UNORM" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <DescriptorHeap Name='RtvHeap' NumDescriptors='1' Type='RTV'>
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name='ResHeap' Type='CBV_SRV_UAV'>
+      <!-- Create a descriptor for a RWStructuredBuffer. The underlying resource must be of type DXGI_FORMAT_UNKNOWN. -->
+      <Descriptor Name='U0' Kind='UAV' ResName='U0'
+                  NumElements="320" StructureByteStride="4" />
+      <Descriptor Name='CB0' Kind='CBV' ResName='CB0' />
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName='POSITION' Format='R32G32B32_FLOAT' AlignedByteOffset='0' />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget" />
+    </RenderTargets>
+    <Shader Name='VS' Target='vs_6_0' EntryPoint='VSMain' Text='@PS'/>
+    <Shader Name='PS' Target='ps_6_0' EntryPoint='PSMain'>
+      <![CDATA[
+      struct c_floats_t {
+       float c_neg_inf;
+       float c_neg_f;
+       float c_neg_denorm;
+       float c_neg_zero;
+       float c_zero;
+       float c_denorm;
+       float c_f;
+       float c_inf;
+       float c_nan;
+      };
+      RWStructuredBuffer<float> g_buf : register(u0);
+      c_floats_t g_cf : register(b0);
+      struct PSInput {
+       float4 position : SV_POSITION;
+       float4 color : COLOR;
+      };
+      PSInput VSMain(float4 position: POSITION) {
+       PSInput result;
+       result.position = position;
+       result.color = 1;
+       return result;
+      }
+      float4 PSMain(PSInput input) : SV_TARGET {
+       uint x = (uint)input.position.x;
+       float val;
+       switch (x) {
+       case 0:  val = saturate(g_cf.c_neg_inf); break;
+       case 1:  val = saturate(g_cf.c_neg_f); break;
+       case 2:  val = saturate(g_cf.c_neg_denorm); break;
+       case 3:  val = saturate(g_cf.c_neg_zero); break;
+       case 4:  val = saturate(g_cf.c_zero); break;
+       case 5:  val = saturate(g_cf.c_denorm); break;
+       case 6:  val = saturate(g_cf.c_f); break;
+       case 7:  val = saturate(g_cf.c_inf); break;
+       case 8:  val = saturate(g_cf.c_nan); break;
+       default: val = x; break;
+       }
+       g_buf[x] = val;
+       float r = 1;
+       return float4(r, 0, 0, 1);
+      }]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="SinCos" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SPrimitives" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SPrimitives" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+      struct SPrimitives {
+        float f_float;
+        float f_float2;
+        float f_float_o;
+        float f_float2_o;
+      };
+    RWStructuredBuffer<SPrimitives> g_buf : register(u0);
+    [numthreads(8,8,1)]
+    void main(uint GI : SV_GroupIndex) {
+      SPrimitives l = g_buf[GI];
+      l.f_float_o = sin(l.f_float);
+      l.f_float2_o = cos(l.f_float2);
+      g_buf[GI] = l;
+    };
+    ]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="Triangle" PS="PS" VS="VS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
+
+    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes">
+      { {   0.0f,  0.25f , 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+      { {  0.25f, -0.25f , 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+      { { -0.25f, -0.25f , 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="320" Height="200" Format="R8G8B8A8_UNORM" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="COLOR" Format="R32G32B32A32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget" />
+    </RenderTargets>
+
+    <Shader Name="VS" Target="vs_6_0">
+      <![CDATA[
+    struct PSInput {
+      float4 position : SV_POSITION;
+      float4 color : COLOR;
+    };
+    PSInput main(float4 position : POSITION, float4 color : COLOR) {
+      PSInput result;
+      float ratio = 320.0 / 200.0;
+      result.position = position;
+      result.position.y *= ratio;
+      result.color = color;
+      return result;
+    }
+    ]]>
+    </Shader>
+    <Shader Name="PS" Target="ps_6_0">
+      <![CDATA[
+    struct PSInput {
+      float4 position : SV_POSITION;
+      float4 color : COLOR;
+    };
+    float4 main(PSInput input) : SV_TARGET {
+      return 1;
+    }
+    ]]>
+    </Shader>
+  </ShaderOp>
+  <!--
+  TODO: Dynamically index into tables
+  -->
+</ShaderOpSet>
