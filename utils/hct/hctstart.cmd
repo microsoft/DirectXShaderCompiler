@@ -67,10 +67,19 @@ doskey hcttodo=cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hcttodo.js $*
 doskey hctvs=%HLSL_SRC_DIR%\utils\hct\hctvs.cmd $*
 
 call :checksdk
+if errorlevel 1 (
+  echo Windows SDK not properly installed. Build enviornment could not be setup correctly.
+  exit /b 1
+)
 
 where cmake.exe 1>nul 2>nul
 if errorlevel 1 (
   call :findcmake
+)
+
+call :checkcmake
+if errorlevel 1 (
+  echo WARNING: cmake version is not supported. Your build may fail.
 )
 
 where te.exe 1>nul 2>nul
@@ -151,10 +160,24 @@ if not exist "%kit_root%" (
   echo Windows 10 SDK was installed but is not accessible.
   exit /b 1
 )
-if not exist "%kit_root%\include\10.0.10240.0" (
+if not exist  "%kit_root%\include\10.0.10240.0\um\d3d12.h" (
   echo Unable to find include files for Windows 10 SDK 10.0.10240.0.
+  echo   file "%kit_root%\include\10.0.10240.0\um\d3d12.h" does not exist
   echo Please see the README.md instructions in the project root.
+  exit /b 1
 )
+goto :eof
+endlocal
+
+:checkcmake
+setlocal
+cmake --version | findstr 3.4.3 1>nul 2>nul
+if errorlevel 1 (
+  echo CMake 3.4 is the currently supported version - your installed cmake is not supported.
+  echo See README.md at the root for an explanation of dependencies.
+  exit /b 1
+)
+goto :eof
 endlocal
 
 goto :eof
