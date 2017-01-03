@@ -186,7 +186,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
   // Don't do any lowering if we're targeting high-level.
   if (HLSLHighLevel) {
     MPM.add(createHLEmitMetadataPass());
@@ -208,7 +208,7 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, legacy::PassManagerBas
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
 
-  MPM.add(createDxilGenerationPass(NoOpt));
+  MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
 
   MPM.add(createSimplifyInstPass());
 
@@ -257,7 +257,7 @@ void PassManagerBuilder::populateModulePassManager(
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
     // HLSL Change Begins.
-    addHLSLPasses(HLSLHighLevel, true/*NoOpt*/, MPM); // HLSL Change
+    addHLSLPasses(HLSLHighLevel, true/*NoOpt*/, HLSLExtensionsCodeGen, MPM); // HLSL Change
     if (!HLSLHighLevel) {
       MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
       MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
@@ -277,7 +277,7 @@ void PassManagerBuilder::populateModulePassManager(
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, false/*NoOpt*/, MPM); // HLSL Change
+  addHLSLPasses(HLSLHighLevel, false/*NoOpt*/, HLSLExtensionsCodeGen, MPM); // HLSL Change
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.

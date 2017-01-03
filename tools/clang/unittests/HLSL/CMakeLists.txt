@@ -10,6 +10,10 @@ set( LLVM_LINK_COMPONENTS
   dxcsupport
   hlsl
   option
+  Analysis
+  Core
+  IPA
+  IPO
   )
 
 add_clang_library(clang-hlsl-tests SHARED
@@ -20,6 +24,7 @@ add_clang_library(clang-hlsl-tests SHARED
   DxilContainerTest.cpp
   DXIsenseTest.cpp
   ExecutionTest.cpp
+  ExtensionTest.cpp
   FileCheckerTest.cpp
   FileCheckForTest.cpp
   FunctionTest.cpp

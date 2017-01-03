@@ -26,6 +26,7 @@ namespace hlsl {
 
 enum class HLOpcodeGroup {
   NotHL,
+  HLExtIntrinsic,
   HLIntrinsic,
   HLCast,
   HLInit,
@@ -109,11 +110,13 @@ enum class HLMatLoadStoreOpcode {
 
 extern const char * const HLPrefix;
 
-bool IsHLOp(llvm::Function *F);
-HLOpcodeGroup GetHLOpcodeGroupByAttr(llvm::Function *F);
+HLOpcodeGroup GetHLOpcodeGroup(llvm::Function *F);
 HLOpcodeGroup GetHLOpcodeGroupByName(llvm::Function *F);
+llvm::StringRef GetHLOpcodeGroupNameByAttr(llvm::Function *F);
+llvm::StringRef GetHLLowerStrategy(llvm::Function *F);
 unsigned  GetHLOpcode(llvm::CallInst *CI);
 unsigned  GetRowMajorOpcode(HLOpcodeGroup group, unsigned opcode);
+void SetHLLowerStrategy(llvm::Function *F, llvm::StringRef S);
 
 // For intrinsic opcode.
 bool HasUnsignedOpcode(unsigned opcode);
@@ -323,6 +326,12 @@ const unsigned kWaveAllEqualValueOpIdx = 1;
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,
                                       llvm::FunctionType *funcTy,
                                       HLOpcodeGroup group, unsigned opcode);
+llvm::Function *GetOrCreateHLFunction(llvm::Module &M,
+                                      llvm::FunctionType *funcTy,
+                                      HLOpcodeGroup group,
+                                      llvm::StringRef *groupName,
+                                      llvm::StringRef *fnName,
+                                      unsigned opcode);
 
 llvm::Function *GetOrCreateHLFunctionWithBody(llvm::Module &M,
                                               llvm::FunctionType *funcTy,

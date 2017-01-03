@@ -28,6 +28,7 @@ add_llvm_library(LLVMHLSL
   HLModule.cpp
   HLOperations.cpp
   HLOperationLower.cpp
+  HLOperationLowerExtension.cpp
   HLResource.cpp
   ReducibilityAnalysis.cpp
   WaveSensitivityAnalysis.cpp

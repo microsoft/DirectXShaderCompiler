@@ -35,6 +35,7 @@
 #include "clang/Parse/ParseHLSL.h"      // root sig would be in Parser if part of lang
 #include "dxc/Support/WinIncludes.h"    // stream support
 #include "dxc/dxcapi.h"                 // stream support
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -987,6 +988,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       } break;
       }
     }
+
+    StringRef lower;
+    if (hlsl::GetIntrinsicLowering(FD, lower))
+      hlsl::SetHLLowerStrategy(F, lower);
+
     // Don't need to add FunctionQual for intrinsic function.
     return;
   }
@@ -2756,7 +2762,13 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
       opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
       break;
     }
-  } else {
+  }
+  else if (group == HLOpcodeGroup::HLExtIntrinsic) {
+    llvm::StringRef fnName = F->getName();
+    llvm::StringRef groupName = GetHLOpcodeGroupNameByAttr(F);
+    opFunc = GetOrCreateHLFunction(M, funcTy, group, &groupName, &fnName, opcode);
+  }
+  else {
     opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
   }
 
@@ -2793,7 +2805,7 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
     }
   }
 
-  HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByAttr(F);
+  HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
 
   if (group == HLOpcodeGroup::HLSubscript &&
       opcode == static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)) {
@@ -2867,6 +2879,9 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
       llvm::FunctionType::get(RetTy, paramTyList, false);
 
   Function *opFunc = CreateOpFunction(M, F, funcTy, group, opcode);
+  StringRef lower = hlsl::GetHLLowerStrategy(F);
+  if (!lower.empty())
+    hlsl::SetHLLowerStrategy(opFunc, lower);
 
   for (auto user = F->user_begin(); user != F->user_end();) {
     // User must be a call.
@@ -3651,6 +3666,22 @@ void CGMSHLSLRuntime::FinishCodeGen() {
 
   // Do simple transform to make later lower pass easier.
   SimpleTransformForHLDXIR(m_pHLModule->GetModule());
+
+  // Add semantic defines for extensions if any are available.
+  if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
+    HLSLExtensionsCodegenHelper::SemanticDefineErrorList errors =
+      CGM.getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(m_pHLModule->GetModule());
+
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    for (const HLSLExtensionsCodegenHelper::SemanticDefineError& error : errors) {
+      DiagnosticsEngine::Level level = DiagnosticsEngine::Error;
+      if (error.IsWarning())
+        level = DiagnosticsEngine::Warning;
+      unsigned DiagID = Diags.getCustomDiagID(level, "%0");
+      Diags.Report(SourceLocation::getFromRawEncoding(error.Location()), DiagID) << error.Message();
+    }
+  }
+
 }
 
 RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
@@ -3666,7 +3697,7 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
   if (RV.isScalar() && RV.getScalarVal() != nullptr) {
     if (CallInst *CI = dyn_cast<CallInst>(RV.getScalarVal())) {
       Function *F = CI->getCalledFunction();
-      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByAttr(F);
+      HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
       if (group == HLOpcodeGroup::HLIntrinsic) {
         bool allOperandImm = true;
         for (auto &operand : CI->arg_operands()) {

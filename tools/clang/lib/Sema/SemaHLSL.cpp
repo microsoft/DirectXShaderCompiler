@@ -1472,7 +1472,7 @@ static bool IsBuiltinTable(LPCSTR tableName) {
 }
 
 static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
-                              LPCSTR tableName,
+                              LPCSTR tableName, LPCSTR lowering,
                               const HLSL_INTRINSIC *pIntrinsic) {
   unsigned opcode = (unsigned)pIntrinsic->Op;
   if (HasUnsignedOpcode(opcode)) {
@@ -1494,7 +1494,7 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
       opcode = hlsl::GetUnsignedOpcode(opcode);
     }
   }
-  FD->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, tableName, opcode));
+  FD->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, tableName, lowering, opcode));
   if (pIntrinsic->bReadNone)
     FD->addAttr(ConstAttr::CreateImplicit(context));
   if (pIntrinsic->bReadOnly)
@@ -1504,7 +1504,7 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
 static
 FunctionDecl *AddHLSLIntrinsicFunction(
     ASTContext &context, _In_ NamespaceDecl *NS,
-    LPCSTR tableName,
+    LPCSTR tableName, LPCSTR lowering,
     _In_ const HLSL_INTRINSIC *pIntrinsic,
     _In_count_(functionArgTypeCount) QualType *functionArgQualTypes,
     _In_range_(0, g_MaxIntrinsicParamCount - 1) size_t functionArgTypeCount) {
@@ -1551,7 +1551,7 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   // put under hlsl namespace
   functionDecl->setDeclContext(NS);
   // Add intrinsic attribute
-  AddHLSLIntrinsicAttr(functionDecl, context, tableName, pIntrinsic);
+  AddHLSLIntrinsicAttr(functionDecl, context, tableName, lowering, pIntrinsic);
 
   ParmVarDecl *paramDecls[g_MaxIntrinsicParamCount];
   for (size_t i = 1; i < functionArgTypeCount; i++) {
@@ -2140,6 +2140,15 @@ public:
     return tableName;
   }
 
+  LPCSTR GetLoweringStrategy()
+  {
+    LPCSTR lowering = nullptr;
+    if (FAILED(_tables[_tableIndex]->GetLoweringStrategy(_tableIntrinsic->Op, &lowering))) {
+      return nullptr;
+    }
+    return lowering;
+  }
+
   IntrinsicTableDefIter& operator++()
   {
     MoveToNext();
@@ -2186,6 +2195,11 @@ public:
     return (_current != _end) ? kBuiltinIntrinsicTableName : _tableIter.GetTableName();
   }
 
+  LPCSTR GetLoweringStrategy()
+  {
+    return (_current != _end) ? "" : _tableIter.GetLoweringStrategy();
+  }
+
   IntrinsicDefIter& operator++()
   {
     if (_current != _end) {
@@ -2206,7 +2220,7 @@ public:
 
 static void AddHLSLSubscriptAttr(Decl *D, ASTContext &context, HLSubscriptOpcode opcode) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
-  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, static_cast<unsigned>(opcode)));
+  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(opcode)));
 }
 
 class HLSLExternalSource : public ExternalSemaSource {
@@ -3350,6 +3364,7 @@ public:
       // of the types we need.
       const HLSL_INTRINSIC* pIntrinsic = *cursor;
       LPCSTR tableName = cursor.GetTableName();
+      LPCSTR lowering = cursor.GetLoweringStrategy();
       DXASSERT(
         pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
@@ -3369,7 +3384,7 @@ public:
       if (insertedNewValue)
       {
         DXASSERT(tableName, "otherwise IDxcIntrinsicTable::GetTableName() failed");
-        intrinsicFuncDecl = AddHLSLIntrinsicFunction(*m_context, m_hlslNSDecl, tableName, pIntrinsic, functionArgTypes, functionArgTypeCount);
+        intrinsicFuncDecl = AddHLSLIntrinsicFunction(*m_context, m_hlslNSDecl, tableName, lowering, pIntrinsic, functionArgTypes, functionArgTypeCount);
         insertResult.first->setFunctionDecl(intrinsicFuncDecl);
       }
       else
@@ -3943,7 +3958,7 @@ public:
       SC_Extern, InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
 
     // Add intrinsic attr
-    AddHLSLIntrinsicAttr(method, *m_context, tableName, intrinsic);
+    AddHLSLIntrinsicAttr(method, *m_context, tableName, "", intrinsic);
 
     // Record this function template specialization.
     TemplateArgumentList *argListCopy = TemplateArgumentList::CreateCopy(

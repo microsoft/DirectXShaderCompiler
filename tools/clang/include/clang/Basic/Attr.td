@@ -705,7 +705,7 @@ def HLSLMaxVertexCount: InheritableAttr {
 }
 def HLSLIntrinsic: InheritableAttr {
   let Spellings = [CXX11<"", "intrinsic", 2015>];
-  let Args = [StringArgument<"group">, IntArgument<"opcode">];
+  let Args = [StringArgument<"group">, StringArgument<"lowering">, IntArgument<"opcode">];
   let Documentation = [Undocumented];
 }
 def HLSLPrecise : InheritableAttr {
