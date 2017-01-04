@@ -173,7 +173,7 @@ endlocal
 setlocal
 cmake --version | findstr 3.4.3 1>nul 2>nul
 if errorlevel 1 (
-  echo CMake 3.4 is the currently supported version - your installed cmake is not supported.
+  echo CMake 3.4.3 is the currently supported version - your installed cmake is not supported.
   echo See README.md at the root for an explanation of dependencies.
   exit /b 1
 )
