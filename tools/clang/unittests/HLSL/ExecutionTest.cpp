@@ -1820,7 +1820,7 @@ RunShaderOpTest(dxc::DxcDllSupport &support, IStream *pStream, LPCSTR pName,
     if (ShaderOpSet->ShaderOps.size() != 1) {
       VERIFY_FAIL(L"Expected a single shader operation.");
     }
-    pShaderOp = &ShaderOpSet->ShaderOps[0];
+    pShaderOp = ShaderOpSet->ShaderOps[0].get();
   }
   else {
     pShaderOp = ShaderOpSet->GetShaderOp(pName);
@@ -1832,7 +1832,7 @@ RunShaderOpTest(dxc::DxcDllSupport &support, IStream *pStream, LPCSTR pName,
     const char sep = ':';
     for (auto &pAvailOp : ShaderOpSet->ShaderOps) {
       msg += sep;
-      msg += pAvailOp.Name ? pAvailOp.Name : "[n/a]";
+      msg += pAvailOp->Name ? pAvailOp->Name : "[n/a]";
     }
     CA2W msgWide(msg.c_str());
     VERIFY_FAIL(msgWide.m_psz);
@@ -2133,7 +2133,7 @@ extern "C" {
           pOutputStrFn(pStrCtx, L"Expected a single shader operation.\r\n");
           return E_FAIL;
         }
-        pShaderOp = &ShaderOpSet->ShaderOps[0];
+        pShaderOp = ShaderOpSet->ShaderOps[0].get();
       }
       else {
         pShaderOp = ShaderOpSet->GetShaderOp(pName);
@@ -2145,7 +2145,7 @@ extern "C" {
         const char sep = ':';
         for (auto &pAvailOp : ShaderOpSet->ShaderOps) {
           msg += sep;
-          msg += pAvailOp.Name ? pAvailOp.Name : "[n/a]";
+          msg += pAvailOp->Name ? pAvailOp->Name : "[n/a]";
         }
         CA2W msgWide(msg.c_str());
         pOutputStrFn(pStrCtx, msgWide);
