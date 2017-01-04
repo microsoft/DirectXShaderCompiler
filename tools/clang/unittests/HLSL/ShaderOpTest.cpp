@@ -1718,9 +1718,9 @@ void ShaderOpParser::ParseShaderOpSet(IXmlReader *pReader, ShaderOpSet *pShaderO
       LPCWSTR pLocalName;
       CHECK_HR(pReader->GetLocalName(&pLocalName, nullptr));
       if (0 == wcscmp(pLocalName, L"ShaderOp")) {
-        ShaderOp S;
-        pShaderOpSet->ShaderOps.push_back(S);
-        ParseShaderOp(pReader, &pShaderOpSet->ShaderOps.back());
+        std::unique_ptr<ShaderOp> S = std::make_unique<ShaderOp>();
+        ParseShaderOp(pReader, S.get());
+        pShaderOpSet->ShaderOps.push_back(*S.release());
       }
     }
     else if (nt == XmlNodeType_EndElement) {
