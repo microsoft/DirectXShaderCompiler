@@ -36,7 +36,7 @@ enum class ValidationRule : unsigned {
   DeclUsedInternal, // Internal declaration must be used
 
   // Instruction
-  InstrAllowed, // TODO - Instructions must be of an allowed type
+  InstrAllowed, // Instructions must be of an allowed type
   InstrBarrierModeForNonCS, // sync in a non-Compute Shader must only sync UAV (sync_uglobal)
   InstrBarrierModeNoMemory, // sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. 
   InstrBarrierModeUselessUGroup, // sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
@@ -44,6 +44,7 @@ enum class ValidationRule : unsigned {
   InstrCBufferClassForCBufferHandle, // Expect Cbuffer for CBufferLoad handle
   InstrCBufferOutOfBound, // Cbuffer access out of bound
   InstrCallOload, // Call to DXIL intrinsic must match overload signature
+  InstrCannotPullPosition, // pull-model evaluation of position disallowed
   InstrCoordinateCountForRawTypedBuf, // raw/typed buffer don't need 2 coordinates
   InstrCoordinateCountForStructBuf, // structured buffer require 2 coordinates
   InstrDeterminateDerivative, // gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)
@@ -51,7 +52,6 @@ enum class ValidationRule : unsigned {
   InstrDxilStructUserOutOfBound, // Index out of bound when extract value from dxil struct types
   InstrERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS, // TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS
   InstrERR_ATTRIBUTE_PARAM_SIDE_EFFECT, // TODO - expressions with side effects are illegal as attribute parameters for root signature
-  InstrERR_CANT_PULL_POSITION, // TODO - %0 does not support pull-model evaluation of position
   InstrERR_GUARANTEED_RACE_CONDITION_GSM, // TODO - race condition writing to shared memory detected, consider making this write conditional.
   InstrERR_GUARANTEED_RACE_CONDITION_UAV, // TODO - race condition writing to shared resource detected, consider making this write conditional.
   InstrERR_LOOP_CONDITION_OUT_OF_BOUNDS, // TODO - cannot unroll loop with an out-of-bounds array reference in the condition
@@ -79,10 +79,9 @@ enum class ValidationRule : unsigned {
   InstrOffsetOnUAVLoad, // uav load don't support offset
   InstrOload, // DXIL intrinsic overload must be valid
   InstrOnlyOneAllocConsume, // RWStructuredBuffers may increment or decrement their counters, but not both.
-  InstrOpCode, // TODO - DXIL intrinsic must have a valid constant opcode
   InstrOpCodeResType, // TODO - DXIL intrinsic operating on a resource must be of the correct type
-  InstrOpCodeReserved, // TODO - Instructions must not reference reserved opcodes
-  InstrOpConst, // TODO - DXIL intrinsic requires an immediate constant operand
+  InstrOpCodeReserved, // Instructions must not reference reserved opcodes
+  InstrOpConst, // DXIL intrinsic requires an immediate constant operand
   InstrOpConstRange, // TODO - Constant values must be in-range for operation
   InstrOperandRange, // TODO - DXIL intrinsic operand must be within defined range
   InstrPtrArea, // TODO - Pointer must refer to a defined area
@@ -129,17 +128,16 @@ enum class ValidationRule : unsigned {
   MetaInvalidControlFlowHint, // Invalid control flow hint
   MetaKnown, // Named metadata should be known
   MetaMaxTessFactor, // Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
-  MetaNoRegisterOverlap, // TODO - User-defined variable locations cannot overlap
   MetaNoSemanticOverlap, // Semantics must not overlap
   MetaRequired, // TODO - Required metadata missing
   MetaSemaKindValid, // Semantic kind must be valid
   MetaSemanticCompType, // %0 must be %1
-  MetaSemanticLen, // TODO - Semantic length must be at least 1 and at most 64
+  MetaSemanticLen, // Semantic length must be at least 1 and at most 64
   MetaSignatureCompType, // signature %0 specifies unrecognized or invalid component type
   MetaSignatureOutOfRange, // signature %0 is out of range at row %1 col %2 size %3.
   MetaSignatureOverlap, // signature %0 use overlaped address at row %1 col %2 size %3.
-  MetaStructBufAlignment, // TODO - structured buffer element size must be a multiple of %u bytes in %s (actual size %u bytes)
-  MetaStructBufAlignmentOutOfBound, // TODO - structured buffer elements cannot be larger than %u bytes in %s (actual size %u bytes)
+  MetaStructBufAlignment, // StructuredBuffer stride not aligned
+  MetaStructBufAlignmentOutOfBound, // StructuredBuffer stride out of bounds
   MetaTarget, // Target triple must be 'dxil-ms-dx'
   MetaTessellatorOutputPrimitive, // Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
   MetaTessellatorPartition, // Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
@@ -167,7 +165,6 @@ enum class ValidationRule : unsigned {
   SmDomainLocationIdxOOB, // DomainLocation component index out of bounds for the domain.
   SmERR_BIND_RESOURCE_RANGE_OVERFLOW, // TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
   SmERR_DUPLICATE_CBUFFER_BANK, // TODO - ERR_DUPLICATE_CBUFFER_BANK
-  SmERR_GEN_SEMANTIC_TOO_LONG, // TODO - Semantic length is limited to 64 characters
   SmERR_MAX_CBUFFER_EXCEEDED, // TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)
   SmERR_MAX_CONST_EXCEEDED, // TODO - ERR_MAX_CONST_EXCEEDED
   SmERR_MAX_SAMPLER_EXCEEDED, // TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)
@@ -212,7 +209,6 @@ enum class ValidationRule : unsigned {
   SmSampleCountOnlyOn2DMS, // Only Texture2DMS/2DMSArray could has sample count
   SmSemantic, // Semantic must be defined in target shader model
   SmStreamIndexRange, // Stream index (%0) must between 0 and %1
-  SmStructBufMustBe4BytesAlign, // Structured buffer stride should 4 byte align
   SmTessFactorForDomain, // Required TessFactor for domain not found declared anywhere in Patch Constant data
   SmTessFactorSizeMatchDomain, // TessFactor size mismatch the domain.
   SmThreadGroupChannelRange, // Declared Thread Group %0 size %1 outside valid range [%2..%3]

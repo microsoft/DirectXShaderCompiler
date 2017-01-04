@@ -2129,12 +2129,13 @@ FLOW.CALLLIMIT                            Subroutines can nest up to 32 levels d
 FLOW.DEADLOOP                             Loop must have break
 FLOW.NORECUSION                           Recursion is not permitted
 FLOW.REDUCIBLE                            Execution flow must be reducible
-INSTR.ALLOWED                             TODO - Instructions must be of an allowed type
+INSTR.ALLOWED                             Instructions must be of an allowed type
 INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute Shader must only sync UAV (sync_uglobal)
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
 INSTR.BARRIERMODEUSELESSUGROUP            sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
 INSTR.BUFFERUPDATECOUNTERONUAV            BufferUpdateCounter valid only on UAV
 INSTR.CALLOLOAD                           Call to DXIL intrinsic must match overload signature
+INSTR.CANNOTPULLPOSITION                  pull-model evaluation of position disallowed
 INSTR.CBUFFERCLASSFORCBUFFERHANDLE        Expect Cbuffer for CBufferLoad handle
 INSTR.CBUFFEROUTOFBOUND                   Cbuffer access out of bound
 INSTR.COORDINATECOUNTFORRAWTYPEDBUF       raw/typed buffer don't need 2 coordinates
@@ -2144,7 +2145,6 @@ INSTR.DXILSTRUCTUSER                      Dxil struct types should only used by 
 INSTR.DXILSTRUCTUSEROUTOFBOUND            Index out of bound when extract value from dxil struct types
 INSTR.ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS
 INSTR.ERR_ATTRIBUTE_PARAM_SIDE_EFFECT     TODO - expressions with side effects are illegal as attribute parameters for root signature
-INSTR.ERR_CANT_PULL_POSITION              TODO - %0 does not support pull-model evaluation of position
 INSTR.ERR_GUARANTEED_RACE_CONDITION_GSM   TODO - race condition writing to shared memory detected, consider making this write conditional.
 INSTR.ERR_GUARANTEED_RACE_CONDITION_UAV   TODO - race condition writing to shared resource detected, consider making this write conditional.
 INSTR.ERR_LOOP_CONDITION_OUT_OF_BOUNDS    TODO - cannot unroll loop with an out-of-bounds array reference in the condition
@@ -2172,10 +2172,9 @@ INSTR.NOUDIVBYZERO                        TODO - No unsigned integer division by
 INSTR.OFFSETONUAVLOAD                     uav load don't support offset
 INSTR.OLOAD                               DXIL intrinsic overload must be valid
 INSTR.ONLYONEALLOCCONSUME                 RWStructuredBuffers may increment or decrement their counters, but not both.
-INSTR.OPCODE                              TODO - DXIL intrinsic must have a valid constant opcode
-INSTR.OPCODERESERVED                      TODO - Instructions must not reference reserved opcodes
+INSTR.OPCODERESERVED                      Instructions must not reference reserved opcodes
 INSTR.OPCODERESTYPE                       TODO - DXIL intrinsic operating on a resource must be of the correct type
-INSTR.OPCONST                             TODO - DXIL intrinsic requires an immediate constant operand
+INSTR.OPCONST                             DXIL intrinsic requires an immediate constant operand
 INSTR.OPCONSTRANGE                        TODO - Constant values must be in-range for operation
 INSTR.OPERANDRANGE                        TODO - DXIL intrinsic operand must be within defined range
 INSTR.PTRAREA                             TODO - Pointer must refer to a defined area
@@ -2220,17 +2219,16 @@ META.INTERPMODEVALID                      Interpolation mode must be valid
 META.INVALIDCONTROLFLOWHINT               Invalid control flow hint
 META.KNOWN                                Named metadata should be known
 META.MAXTESSFACTOR                        Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
-META.NOREGISTEROVERLAP                    TODO - User-defined variable locations cannot overlap
 META.NOSEMANTICOVERLAP                    Semantics must not overlap
 META.REQUIRED                             TODO - Required metadata missing
 META.SEMAKINDVALID                        Semantic kind must be valid
 META.SEMANTICCOMPTYPE                     %0 must be %1
-META.SEMANTICLEN                          TODO - Semantic length must be at least 1 and at most 64
+META.SEMANTICLEN                          Semantic length must be at least 1 and at most 64
 META.SIGNATURECOMPTYPE                    signature %0 specifies unrecognized or invalid component type
 META.SIGNATUREOUTOFRANGE                  signature %0 is out of range at row %1 col %2 size %3.
 META.SIGNATUREOVERLAP                     signature %0 use overlaped address at row %1 col %2 size %3.
-META.STRUCTBUFALIGNMENT                   TODO - structured buffer element size must be a multiple of %u bytes in %s (actual size %u bytes)
-META.STRUCTBUFALIGNMENTOUTOFBOUND         TODO - structured buffer elements cannot be larger than %u bytes in %s (actual size %u bytes)
+META.STRUCTBUFALIGNMENT                   StructuredBuffer stride not aligned
+META.STRUCTBUFALIGNMENTOUTOFBOUND         StructuredBuffer stride out of bounds
 META.TARGET                               Target triple must be 'dxil-ms-dx'
 META.TESSELLATOROUTPUTPRIMITIVE           Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
 META.TESSELLATORPARTITION                 Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
@@ -2249,7 +2247,6 @@ SM.DOMAINLOCATIONIDXOOB                   DomainLocation component index out of 
 SM.DSINPUTCONTROLPOINTCOUNTRANGE          DS input control point count must be [0..%0].  %1 specified
 SM.ERR_BIND_RESOURCE_RANGE_OVERFLOW       TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
 SM.ERR_DUPLICATE_CBUFFER_BANK             TODO - ERR_DUPLICATE_CBUFFER_BANK
-SM.ERR_GEN_SEMANTIC_TOO_LONG              TODO - Semantic length is limited to 64 characters
 SM.ERR_MAX_CBUFFER_EXCEEDED               TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)
 SM.ERR_MAX_CONST_EXCEEDED                 TODO - ERR_MAX_CONST_EXCEEDED
 SM.ERR_MAX_SAMPLER_EXCEEDED               TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)
@@ -2294,7 +2291,6 @@ SM.ROVONLYINPS                            RasterizerOrdered objects are only all
 SM.SAMPLECOUNTONLYON2DMS                  Only Texture2DMS/2DMSArray could has sample count
 SM.SEMANTIC                               Semantic must be defined in target shader model
 SM.STREAMINDEXRANGE                       Stream index (%0) must between 0 and %1
-SM.STRUCTBUFMUSTBE4BYTESALIGN             Structured buffer stride should 4 byte align
 SM.TESSFACTORFORDOMAIN                    Required TessFactor for domain not found declared anywhere in Patch Constant data
 SM.TESSFACTORSIZEMATCHDOMAIN              TessFactor size mismatch the domain.
 SM.THREADGROUPCHANNELRANGE                Declared Thread Group %0 size %1 outside valid range [%2..%3]

@@ -541,10 +541,7 @@ void DxilGenerationPass::ProcessArgument(Function *func,
   // If this was an inout param, do the output side first
   if (isInout) {
     DXASSERT(!isPatchConstantFunction,
-             "Patch Constant function should not have inout param"); // TODO:
-                                                                     // validate
-                                                                     // in front
-                                                                     // end
+             "Patch Constant function should not have inout param");
     m_inoutArgSet.insert(&arg);
     ProcessArgument(func, funcAnnotation, arg, isPatchConstantFunction,
                     /*forceOut*/ true, hasClipPlane);

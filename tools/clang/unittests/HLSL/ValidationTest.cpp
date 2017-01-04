@@ -60,6 +60,14 @@ public:
   TEST_METHOD(ControlFlowHint)
   TEST_METHOD(ControlFlowHint1)
   TEST_METHOD(ControlFlowHint2)
+  TEST_METHOD(SemanticLength1)
+  TEST_METHOD(SemanticLength64)
+  TEST_METHOD(PullModelPosition)
+  TEST_METHOD(StructBufStrideAlign)
+  TEST_METHOD(StructBufStrideOutOfBound)
+  TEST_METHOD(StructBufGlobalCoherentAndCounter)
+  TEST_METHOD(StructBufLoadCoordinates)
+  TEST_METHOD(StructBufStoreCoordinates)
 
   TEST_METHOD(WhenInstrDisallowedThenFail);
   TEST_METHOD(WhenDepthNotFloatThenFail);
@@ -88,7 +96,6 @@ public:
   TEST_METHOD(SimpleHs4Fail);
   TEST_METHOD(SimpleDs1Fail);
   TEST_METHOD(SimpleGs1Fail);
-  TEST_METHOD(StructBuf1Fail);
   TEST_METHOD(UavBarrierFail);
   TEST_METHOD(UndefValueFail);
   TEST_METHOD(UpdateCounterFail);
@@ -443,9 +450,6 @@ TEST_F(ValidationTest, SimpleDs1Fail) {
 TEST_F(ValidationTest, SimpleGs1Fail) {
   TestCheck(L"dxil_validation\\SimpleGs1.ll");
 }
-TEST_F(ValidationTest, StructBuf1Fail) {
-  TestCheck(L"dxil_validation\\struct_buf1.ll");
-}
 TEST_F(ValidationTest, UavBarrierFail) {
   TestCheck(L"dxil_validation\\uavBarrier.ll");
 }
@@ -595,6 +599,70 @@ TEST_F(ValidationTest, ControlFlowHint2) {
       "!\"dx.controlflow.hints\", i32 1",
       "!\"dx.controlflow.hints\", i32 3",
       "Invalid control flow hint");
+}
+
+TEST_F(ValidationTest, SemanticLength1) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\binary1.hlsl", "ps_6_0",
+      "!\"C\"",
+      "!\"\"",
+      "Semantic length must be at least 1 and at most 64");
+}
+
+TEST_F(ValidationTest, SemanticLength64) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\binary1.hlsl", "ps_6_0",
+      "!\"C\"",
+      "!\"CSESESESESESESESESESESESESESESESESESESESESESESESESESESESESESESESE\"",
+      "Semantic length must be at least 1 and at most 64");
+}
+
+TEST_F(ValidationTest, PullModelPosition) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\eval.hlsl", "ps_5_0",
+      "!\"A\", i8 9, i8 0",
+      "!\"SV_Position\", i8 9, i8 3",
+      "does not support pull-model evaluation of position");
+}
+
+TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false",
+      "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 true, i1 true",
+      "globallycoherent cannot be used with append/consume buffers'buf2'");
+}
+
+TEST_F(ValidationTest, StructBufStrideAlign) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      "!7 = !{i32 1, i32 52}",
+      "!7 = !{i32 1, i32 50}",
+      "structured buffer element size must be a multiple of 4 bytes (actual size 50 bytes)");
+}
+
+TEST_F(ValidationTest, StructBufStrideOutOfBound) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      "!7 = !{i32 1, i32 52}",
+      "!7 = !{i32 1, i32 2052}",
+      "structured buffer elements cannot be larger than 2048 bytes (actual size 2052 bytes)");
+}
+
+TEST_F(ValidationTest, StructBufLoadCoordinates) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      "bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
+      "bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
+      "structured buffer require 2 coordinates");
+}
+
+TEST_F(ValidationTest, StructBufStoreCoordinates) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
+      "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
+      "structured buffer require 2 coordinates");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {

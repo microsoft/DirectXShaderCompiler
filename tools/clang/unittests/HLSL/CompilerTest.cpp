@@ -330,6 +330,7 @@ public:
   TEST_METHOD(CodeGenEmptyStruct)
   TEST_METHOD(CodeGenEarlyDepthStencil)
   TEST_METHOD(CodeGenEval)
+  TEST_METHOD(CodeGenEvalPos)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
   TEST_METHOD(CodeGenFloatMaxtessfactor)
@@ -464,6 +465,8 @@ public:
   TEST_METHOD(CodeGenSimpleHS4)
   TEST_METHOD(CodeGenSimpleHS5)
   TEST_METHOD(CodeGenSimpleHS6)
+  TEST_METHOD(CodeGenSimpleHS7)
+  TEST_METHOD(CodeGenSimpleHS8)
   TEST_METHOD(CodeGenSMFail)
   TEST_METHOD(CodeGenSrv_Ms_Load1)
   TEST_METHOD(CodeGenSrv_Ms_Load2)
@@ -1801,6 +1804,10 @@ TEST_F(CompilerTest, CodeGenEval) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\eval.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenEvalPos) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\evalPos.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenFirstbitHi) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitHi.hlsl");
 }
@@ -2318,6 +2325,14 @@ TEST_F(CompilerTest, CodeGenSimpleHS5) {
 
 TEST_F(CompilerTest, CodeGenSimpleHS6) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleHS7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleHS8) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleHS8.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSMFail) {
