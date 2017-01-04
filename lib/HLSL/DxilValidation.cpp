@@ -55,11 +55,10 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaUsed: return "TODO - All metadata must be used";
     case hlsl::ValidationRule::MetaTarget: return "Unknown target triple '%0'";
     case hlsl::ValidationRule::MetaWellFormed: return "TODO - Metadata must be well-formed in operand count and types";
-    case hlsl::ValidationRule::MetaSemanticLen: return "TODO - Semantic length must be at least 1 and at most 64";
+    case hlsl::ValidationRule::MetaSemanticLen: return "Semantic length must be at least 1 and at most 64";
     case hlsl::ValidationRule::MetaInterpModeValid: return "Invalid interpolation mode for '%0'";
     case hlsl::ValidationRule::MetaSemaKindValid: return "Semantic kind for '%0' is invalid";
     case hlsl::ValidationRule::MetaNoSemanticOverlap: return "Semantic '%0' overlap at %1";
-    case hlsl::ValidationRule::MetaNoRegisterOverlap: return "TODO - User-defined variable locations cannot overlap";
     case hlsl::ValidationRule::MetaValueRange: return "Metadata value must be within range";
     case hlsl::ValidationRule::MetaFlagsUsage: return "Flags must match usage";
     case hlsl::ValidationRule::MetaDenseResIDs: return "Resource identifiers must be zero-based and dense";
@@ -75,21 +74,20 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaValidSamplerMode: return "Invalid sampler mode on sampler ";
     case hlsl::ValidationRule::MetaFunctionAnnotation: return "Cannot find function annotation for %0";
     case hlsl::ValidationRule::MetaGlcNotOnAppendConsume: return "globallycoherent cannot be used with append/consume buffers";
-    case hlsl::ValidationRule::MetaStructBufAlignment: return "TODO - structured buffer element size must be a multiple of %u bytes in %s (actual size %u bytes)";
-    case hlsl::ValidationRule::MetaStructBufAlignmentOutOfBound: return "TODO - structured buffer elements cannot be larger than %u bytes in %s (actual size %u bytes)";
+    case hlsl::ValidationRule::MetaStructBufAlignment: return "structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes)";
+    case hlsl::ValidationRule::MetaStructBufAlignmentOutOfBound: return "structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes)";
     case hlsl::ValidationRule::MetaEntryFunction: return "entrypoint not found";
     case hlsl::ValidationRule::MetaInvalidControlFlowHint: return "Invalid control flow hint";
     case hlsl::ValidationRule::MetaBranchFlatten: return "Can't use branch and flatten attributes together";
     case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch";
-    case hlsl::ValidationRule::InstrOpCode: return "TODO - DXIL intrinsic must have a valid constant opcode";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
     case hlsl::ValidationRule::InstrResID: return "TODO - DXIL instruction must refer to valid resource IDs";
     case hlsl::ValidationRule::InstrTypeCast: return "TODO - Type cast must be valid";
     case hlsl::ValidationRule::InstrPtrArea: return "TODO - Pointer must refer to a defined area";
     case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant";
-    case hlsl::ValidationRule::InstrAllowed: return "TODO - Instructions must be of an allowed type";
-    case hlsl::ValidationRule::InstrOpCodeReserved: return "TODO - Instructions must not reference reserved opcodes";
+    case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type";
+    case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes";
     case hlsl::ValidationRule::InstrTextureOpArgs: return "TODO - Instructions that depend on texture type must match operands";
     case hlsl::ValidationRule::InstrTextureLod: return "TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube";
     case hlsl::ValidationRule::InstrOpCodeResType: return "TODO - DXIL intrinsic operating on a resource must be of the correct type";
@@ -114,7 +112,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrDeterminateDerivative: return "gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)";
     case hlsl::ValidationRule::InstrERR_NON_LITERAL_RESOURCE: return "TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.";
     case hlsl::ValidationRule::InstrERR_NON_LITERAL_STREAM: return "TODO - stream parameter must come from a literal expression";
-    case hlsl::ValidationRule::InstrERR_CANT_PULL_POSITION: return "TODO - %0 does not support pull-model evaluation of position";
+    case hlsl::ValidationRule::InstrCannotPullPosition: return "%0 does not support pull-model evaluation of position";
     case hlsl::ValidationRule::InstrERR_LOOP_CONDITION_OUT_OF_BOUNDS: return "TODO - cannot unroll loop with an out-of-bounds array reference in the condition";
     case hlsl::ValidationRule::InstrERR_ATTRIBUTE_PARAM_SIDE_EFFECT: return "TODO - expressions with side effects are illegal as attribute parameters for root signature";
     case hlsl::ValidationRule::InstrERR_RESOURCE_UNINITIALIZED: return "TODO - Resource being indexed is uninitialized.";
@@ -205,7 +203,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmInvalidResourceCompType: return "Invalid resource return type";
     case hlsl::ValidationRule::SmSampleCountOnlyOn2DMS: return "Only Texture2DMS/2DMSArray could has sample count";
     case hlsl::ValidationRule::SmCounterOnlyOnStructBuf: return "BufferUpdateCounter valid only on structured buffers";
-    case hlsl::ValidationRule::SmStructBufMustBe4BytesAlign: return "Structured buffer stride should 4 byte align";
     case hlsl::ValidationRule::SmGSTotalOutputVertexDataRange: return "TODO: Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3";
     case hlsl::ValidationRule::SmMultiStreamMustBePoint: return "Multiple GS output streams are used but '%0' is not pointlist";
     case hlsl::ValidationRule::SmCompletePosition: return "Not all elements of SV_Position were written";
@@ -216,7 +213,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmERR_MAX_SAMPLER_EXCEEDED: return "TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)";
     case hlsl::ValidationRule::SmERR_MAX_TEXTURE_EXCEEDED: return "TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)";
     case hlsl::ValidationRule::SmERR_MAX_CBUFFER_EXCEEDED: return "TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)";
-    case hlsl::ValidationRule::SmERR_GEN_SEMANTIC_TOO_LONG: return "TODO - Semantic length is limited to 64 characters";
     case hlsl::ValidationRule::SmERR_DUPLICATE_CBUFFER_BANK: return "TODO - ERR_DUPLICATE_CBUFFER_BANK";
     case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_RESOURCE";
     case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE";
@@ -339,7 +335,10 @@ struct ValidationContext {
       if (pArg == nullptr)
         pArg = "<null>";
 
-      unsigned offset = ruleText.find(argIdx);
+      std::string::size_type offset = ruleText.find(argIdx);
+      if (offset == std::string::npos)
+        continue;
+
       unsigned size = argIdx.size();
       ruleText.replace(offset, size, args[i]);
     }
@@ -361,6 +360,17 @@ struct ValidationContext {
 
   void EmitResourceError(const hlsl::DxilResourceBase *Res, ValidationRule rule) {
     DiagPrinter << GetValidationRuleText(rule);
+    DiagPrinter << '\'' << Res->GetGlobalName() << '\'';
+    DiagPrinter << '\n';
+    Failed = true;
+  }
+
+  void EmitResourceFormatError(const hlsl::DxilResourceBase *Res,
+                               ValidationRule rule,
+                               ArrayRef<const char *> args) {
+    std::string ruleText = GetValidationRuleText(rule);
+    FormatRuleText(ruleText, args);
+    DiagPrinter << ruleText;
     DiagPrinter << '\'' << Res->GetGlobalName() << '\'';
     DiagPrinter << '\n';
     Failed = true;
@@ -1170,6 +1180,11 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrEvalInterpolationMode, {pSE->GetName()});
         break;
+      }
+      if (pSE->GetSemantic()->GetKind() == DXIL::SemanticKind::Position) {
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrCannotPullPosition,
+            {ValCtx.DxilMod.GetShaderModel()->GetName()});
       }
     }
   } break;
@@ -2394,10 +2409,18 @@ static void ValidateResource(hlsl::DxilResource &res,
   }
 
   if (res.IsStructuredBuffer()) {
-    bool alignedTo4Bytes = (res.GetElementStride() & 3) == 0;
+    unsigned stride = res.GetElementStride();
+    bool alignedTo4Bytes = (stride & 3) == 0;
     if (!alignedTo4Bytes) {
-      ValCtx.EmitResourceError(&res,
-                               ValidationRule::SmStructBufMustBe4BytesAlign);
+      ValCtx.EmitResourceFormatError(
+          &res, ValidationRule::MetaStructBufAlignment,
+          {std::to_string(4).c_str(), std::to_string(stride).c_str()});
+    }
+    if (stride > DXIL::kMaxStructBufferStride) {
+      ValCtx.EmitResourceFormatError(
+          &res, ValidationRule::MetaStructBufAlignmentOutOfBound,
+          {std::to_string(DXIL::kMaxStructBufferStride).c_str(),
+           std::to_string(stride).c_str()});
     }
   }
 }
@@ -2595,6 +2618,11 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   DXIL::SemanticKind semanticKind = SE.GetSemantic()->GetKind();
   CompType::Kind compKind = SE.GetCompType().GetKind();
   DXIL::InterpolationMode Mode = SE.GetInterpolationMode()->GetKind();
+
+  StringRef Name = SE.GetName();
+  if (Name.size() < 1 || Name.size() > 64) {
+    ValCtx.EmitSignatureError(&SE, ValidationRule::MetaSemanticLen);
+  }
 
   switch (compKind) {
   case CompType::Kind::U64:
