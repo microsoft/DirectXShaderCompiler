@@ -9,15 +9,15 @@
 // CHECK: xy
 
 // Make sure used match output mask.
+// CHECK: SV_Position
+// CHECK: xyzw
+// CHECK: xyzw
 // CHECK: NORMAL
 // CHECK: xyz
 // CHECK: xyz
 // CHECK: TEXCOORD
 // CHECK: xy
 // CHECK: xy
-// CHECK: SV_Position
-// CHECK: xyzw
-// CHECK: xyzw
 
 // CHECK: OutputPositionPresent=1
 // CHECK: dx.op.createHandle(i32 58, i8 2, i32 0, i32 5, i1 false)

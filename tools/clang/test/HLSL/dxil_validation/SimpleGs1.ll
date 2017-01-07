@@ -4,7 +4,7 @@
 ; CHECK: GS instance count must be [1..32].  33 specified
 ; CHECK: GS output primitive topology unrecognized
 ; CHECK: GS input primitive unrecognized
-; CHECK: Stream index (5) must between 0 and 4
+; CHECK: Stream index (5) must between 0 and 3
 
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"
