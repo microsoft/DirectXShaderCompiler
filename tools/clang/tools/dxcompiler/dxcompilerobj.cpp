@@ -1824,6 +1824,15 @@ private:
     DXASSERT(!opts.HLSL2015, "else ReadDxcOpts didn't fail for non-isense");
     finished = false;
   }
+
+  void WrapModuleInDxilContainer(IMalloc *pMalloc, llvm::Module *llvmModule, AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
+    CComPtr<AbstractMemoryStream> pContainerStream;
+    IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+      SerializeDxilContainerForModule(llvmModule, pModuleBitcode, pContainerStream);
+
+    pDxilContainerBlob.Release();
+    IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
+  }
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
@@ -2009,14 +2018,13 @@ public:
         bool compileOK = !compiler.getDiagnostics().hasErrorOccurred();
         if (compileOK) {
           HRESULT valHR = S_OK;
+          std::unique_ptr<llvm::Module> llvmModule = action.takeModule();
+          if (!opts.CodeGenHighLevel)
+            WrapModuleInDxilContainer(pMalloc, llvmModule.get(), pOutputStream, pOutputBlob);
           if (needsValidation) {
             outStream.flush();
 
-            CComPtr<AbstractMemoryStream> pFinalStream;
-            IFT(CreateMemoryStream(pMalloc, &pFinalStream));
-
             llvm::Module *pDebugModule, *pOrigModule;
-            std::unique_ptr<llvm::Module> llvmModule = action.takeModule();
             std::unique_ptr<llvm::Module> llvmClonedModule;
             if (internalValidator && opts.DebugInfo) {
               // If using the internal validator, we'll use the modules directly.
@@ -2024,31 +2032,23 @@ public:
               // destroying this.
               llvmClonedModule.reset(llvm::CloneModule(llvmModule.get()));
               pDebugModule = llvmClonedModule.get();
-              SerializeDxilContainerForModule(llvmModule.get(), pOutputStream, pFinalStream);
               pOrigModule = llvmModule.get();
             }
             else {
               pOrigModule = llvmModule.get();
               pDebugModule = nullptr;
-              SerializeDxilContainerForModule(llvmModule.get(), pOutputStream, pFinalStream);
             }
-            pOutputBlob.Release();
-            IFT(pFinalStream.QueryInterface(&pOutputBlob));
-
-            CComPtr<IDxcBlob> pFinalStreamBlob;
-            CComPtr<IDxcOperationResult> pValResult;
-            IFT(pFinalStream.QueryInterface(&pFinalStreamBlob));
 
             // Important: in-place edit is required so the blob is reused and thus
             // dxil.dll can be released.
             if (internalValidator) {
               IFT(RunInternalValidator(
-                pValidator, pOrigModule, pDebugModule, pFinalStreamBlob,
+                pValidator, pOrigModule, pDebugModule, pOutputBlob,
                 DxcValidatorFlags_InPlaceEdit, &pValResult));
             }
             else {
               IFT(pValidator->Validate(
-                pFinalStreamBlob, DxcValidatorFlags_InPlaceEdit, &pValResult));
+                pOutputBlob, DxcValidatorFlags_InPlaceEdit, &pValResult));
             }
             IFT(pValResult->GetStatus(&valHR));
             if (FAILED(valHR)) {
