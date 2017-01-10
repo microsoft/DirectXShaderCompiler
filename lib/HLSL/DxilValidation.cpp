@@ -80,6 +80,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaInvalidControlFlowHint: return "Invalid control flow hint";
     case hlsl::ValidationRule::MetaBranchFlatten: return "Can't use branch and flatten attributes together";
     case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch";
+    case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
     case hlsl::ValidationRule::InstrResID: return "TODO - DXIL instruction must refer to valid resource IDs";
@@ -106,8 +107,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS: return "TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS";
     case hlsl::ValidationRule::InstrMinPrecisionNotPrecise: return "Instructions marked precise may not refer to minprecision values";
     case hlsl::ValidationRule::InstrOnlyOneAllocConsume: return "RWStructuredBuffers may increment or decrement their counters, but not both.";
-    case hlsl::ValidationRule::InstrERR_TEXTURE_TYPE: return "TODO - return type of texture too large. Cannot exceed 4 components";
-    case hlsl::ValidationRule::InstrERR_TEXTURE_OFFSET: return "TODO - texture access must have literal offset and multisample index";
+    case hlsl::ValidationRule::InstrTextureOffset: return "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7";
     case hlsl::ValidationRule::InstrWAR_GRADIENT_IN_VARYING_FLOW: return "TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value";
     case hlsl::ValidationRule::InstrDeterminateDerivative: return "gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)";
     case hlsl::ValidationRule::InstrERR_NON_LITERAL_RESOURCE: return "TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.";
@@ -165,14 +165,9 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model";
     case hlsl::ValidationRule::SmSemantic: return "Semantic '%0' is invalid as %1 %2";
     case hlsl::ValidationRule::SmResLimit: return "TODO - Resource limit exceeded for target shader model";
-    case hlsl::ValidationRule::SmICBLimit: return "TODO - Constant buffers must contain at least one element, but no more than 4096 values";
-    case hlsl::ValidationRule::SmIdxTmpLimit: return "TODO - Indexable temporaries must containt at least one element, but no more than 4096 values";
-    case hlsl::ValidationRule::SmLiveLimit: return "TODO - The total number of temporary and indexable-temporary registers (32-bit four-component values) must be less than or equal to 4096";
-    case hlsl::ValidationRule::SmPSInputInt: return "TODO - Pixel shader input values must use the same interpolation mode";
     case hlsl::ValidationRule::SmNoInterpMode: return "Interpolation mode for '%0' is set but should be undefined";
-    case hlsl::ValidationRule::SmNoPSOutputIdx: return "TODO - Pixel shader output registers are not indexable.";
+    case hlsl::ValidationRule::SmNoPSOutputIdx: return "Pixel shader output registers are not indexable.";
     case hlsl::ValidationRule::SmPSConsistentInterp: return "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)";
-    case hlsl::ValidationRule::SmGSOutputLimit: return "TODO - A geometry shader can output a maximum of 1024 32-bit values (including the size of the input data and the size of the data created by the shader)";
     case hlsl::ValidationRule::SmThreadGroupChannelRange: return "Declared Thread Group %0 size %1 outside valid range [%2..%3]";
     case hlsl::ValidationRule::SmMaxTheadGroup: return "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1";
     case hlsl::ValidationRule::SmMaxTGSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1";
@@ -203,7 +198,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmInvalidResourceCompType: return "Invalid resource return type";
     case hlsl::ValidationRule::SmSampleCountOnlyOn2DMS: return "Only Texture2DMS/2DMSArray could has sample count";
     case hlsl::ValidationRule::SmCounterOnlyOnStructBuf: return "BufferUpdateCounter valid only on structured buffers";
-    case hlsl::ValidationRule::SmGSTotalOutputVertexDataRange: return "TODO: Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3";
+    case hlsl::ValidationRule::SmGSTotalOutputVertexDataRange: return "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3";
     case hlsl::ValidationRule::SmMultiStreamMustBePoint: return "Multiple GS output streams are used but '%0' is not pointlist";
     case hlsl::ValidationRule::SmCompletePosition: return "Not all elements of SV_Position were written";
     case hlsl::ValidationRule::SmUndefinedOutput: return "Not all elements of output %0 were written";
@@ -213,7 +208,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmERR_MAX_SAMPLER_EXCEEDED: return "TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)";
     case hlsl::ValidationRule::SmERR_MAX_TEXTURE_EXCEEDED: return "TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)";
     case hlsl::ValidationRule::SmERR_MAX_CBUFFER_EXCEEDED: return "TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)";
-    case hlsl::ValidationRule::SmERR_DUPLICATE_CBUFFER_BANK: return "TODO - ERR_DUPLICATE_CBUFFER_BANK";
     case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_RESOURCE";
     case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE";
     case hlsl::ValidationRule::SmERR_BIND_RESOURCE_RANGE_OVERFLOW: return "TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW";
@@ -806,10 +800,28 @@ static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
   unsigned numOffsets = DxilResource::GetNumOffsets(resKind);
   bool hasOffset = !isa<UndefValue>(offsets[0]);
 
+  auto validateOffset = [&](Value *offset) {
+    if (ConstantInt *cOffset = dyn_cast<ConstantInt>(offset)) {
+      int offset = cOffset->getValue().getSExtValue();
+      if (offset > 7 || offset < -8) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrTextureOffset);
+      }
+    } else {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrTextureOffset);
+    }
+  };
+
+  if (hasOffset) {
+    validateOffset(offsets[0]);
+  }
+
   for (unsigned i = 1; i < kMaxNumOffsets; i++) {
     if (i < numOffsets) {
-      if (hasOffset && isa<UndefValue>(offsets[i])) {
-        ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceOffsetMiss);
+      if (hasOffset) {
+        if (isa<UndefValue>(offsets[i]))
+          ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceOffsetMiss);
+        else
+          validateOffset(offsets[i]);
       }
     } else {
       if (!isa<UndefValue>(offsets[i])) {
@@ -2423,6 +2435,14 @@ static void ValidateResource(hlsl::DxilResource &res,
            std::to_string(stride).c_str()});
     }
   }
+
+  if (res.IsAnyTexture() || res.IsTypedBuffer()) {
+    Type *RetTy = res.GetRetType();
+    unsigned size = ValCtx.DxilMod.GetModule()->getDataLayout().getTypeAllocSize(RetTy);
+    if (size > 4*4) {
+      ValCtx.EmitResourceError(&res, ValidationRule::MetaTextureType);
+    }
+  }
 }
 
 static void
@@ -2879,6 +2899,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
   SpacesAllocator<unsigned, DxilSignatureElement> allocator;
 
   bool IsGS = ValCtx.DxilMod.GetShaderModel()->IsGS();
+  bool IsPS = ValCtx.DxilMod.GetShaderModel()->IsPS();
 
   unordered_map<Semantic::Kind, unsigned> semanticUsageMap[4];
   semanticUsageMap[0][Semantic::Kind::ClipDistance] = 0;
@@ -2899,7 +2920,6 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
 
   for (auto &E : S.GetElements()) {
     ValidateSignatureElement(*E, ValCtx);
-
     // Overlap check.
     unsigned streamId = E->GetOutputStream();
     if (streamId >= DXIL::kNumOutputStreams) {
@@ -2923,6 +2943,11 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
                              rowToInterpModeMap[streamId], semIdxSet, ValCtx);
     if (isOutput && E->GetSemantic()->GetKind() == DXIL::SemanticKind::Position) {
       ValCtx.hasOutputPosition[E->GetOutputStream()] = true;
+    }
+    if (isOutput && IsPS) {
+      if (E->GetRows() > 1) {
+        ValCtx.EmitError(ValidationRule::SmNoPSOutputIdx);
+      }
     }
   }
 

@@ -2151,8 +2151,6 @@ INSTR.ERR_LOOP_CONDITION_OUT_OF_BOUNDS    TODO - cannot unroll loop with an out-
 INSTR.ERR_NON_LITERAL_RESOURCE            TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.
 INSTR.ERR_NON_LITERAL_STREAM              TODO - stream parameter must come from a literal expression
 INSTR.ERR_RESOURCE_UNINITIALIZED          TODO - Resource being indexed is uninitialized.
-INSTR.ERR_TEXTURE_OFFSET                  TODO - texture access must have literal offset and multisample index
-INSTR.ERR_TEXTURE_TYPE                    TODO - return type of texture too large. Cannot exceed 4 components
 INSTR.EVALINTERPOLATIONMODE               Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
 INSTR.FAILTORESLOVETGSMPOINTER            TGSM pointers must originate from an unambiguous TGSM global variable.
 INSTR.HANDLENOTFROMCREATEHANDLE           Resource handle should returned by createHandle
@@ -2200,6 +2198,7 @@ INSTR.SAMPLERMODEFORLOD                   lod instruction requires sampler decla
 INSTR.SAMPLERMODEFORSAMPLE                sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
 INSTR.SAMPLERMODEFORSAMPLEC               sample_c_*/gather_c instructions require sampler declared in comparison mode
 INSTR.TEXTURELOD                          TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube
+INSTR.TEXTUREOFFSET                       offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
 INSTR.TEXTUREOPARGS                       TODO - Instructions that depend on texture type must match operands
 INSTR.TYPECAST                            TODO - Type cast must be valid
 INSTR.UNDEFRESULTFORGETDIMENSION          GetDimensions used undef dimension %0 on %1
@@ -2232,6 +2231,7 @@ META.STRUCTBUFALIGNMENTOUTOFBOUND         StructuredBuffer stride out of bounds
 META.TARGET                               Target triple must be 'dxil-ms-dx'
 META.TESSELLATOROUTPUTPRIMITIVE           Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
 META.TESSELLATORPARTITION                 Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
+META.TEXTURETYPE                          elements of typed buffers and textures must fit in four 32-bit quantities
 META.USED                                 TODO - All metadata must be used
 META.VALIDSAMPLERMODE                     Invalid sampler mode on sampler
 META.VALUERANGE                           Metadata value must be within range
@@ -2246,7 +2246,6 @@ SM.CSNORETURN                             Compute shaders can't return values, o
 SM.DOMAINLOCATIONIDXOOB                   DomainLocation component index out of bounds for the domain.
 SM.DSINPUTCONTROLPOINTCOUNTRANGE          DS input control point count must be [0..%0].  %1 specified
 SM.ERR_BIND_RESOURCE_RANGE_OVERFLOW       TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
-SM.ERR_DUPLICATE_CBUFFER_BANK             TODO - ERR_DUPLICATE_CBUFFER_BANK
 SM.ERR_MAX_CBUFFER_EXCEEDED               TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)
 SM.ERR_MAX_CONST_EXCEEDED                 TODO - ERR_MAX_CONST_EXCEEDED
 SM.ERR_MAX_SAMPLER_EXCEEDED               TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)
@@ -2254,27 +2253,23 @@ SM.ERR_MAX_TEXTURE_EXCEEDED               TODO - The maximum number of texture s
 SM.ERR_UNABLE_TO_BIND_RESOURCE            TODO - ERR_UNABLE_TO_BIND_RESOURCE
 SM.ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE  TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE
 SM.GSINSTANCECOUNTRANGE                   GS instance count must be [1..%0].  %1 specified
-SM.GSOUTPUTLIMIT                          TODO - A geometry shader can output a maximum of 1024 32-bit values (including the size of the input data and the size of the data created by the shader)
 SM.GSOUTPUTVERTEXCOUNTRANGE               GS output vertex count must be [0..%0].  %1 specified
-SM.GSTOTALOUTPUTVERTEXDATARANGE           TODO: Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
+SM.GSTOTALOUTPUTVERTEXDATARANGE           Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
 SM.GSVALIDINPUTPRIMITIVE                  GS input primitive unrecognized
 SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY         GS output primitive topology unrecognized
 SM.HSINPUTCONTROLPOINTCOUNTRANGE          HS input control point count must be [1..%0].  %1 specified
 SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH     For pass thru hull shader, input control point count must match output control point count
-SM.ICBLIMIT                               TODO - Constant buffers must contain at least one element, but no more than 4096 values
-SM.IDXTMPLIMIT                            TODO - Indexable temporaries must containt at least one element, but no more than 4096 values
 SM.INSIDETESSFACTORSIZEMATCHDOMAIN        InsideTessFactor size mismatch the domain.
 SM.INVALIDRESOURCECOMPTYPE                Invalid resource return type
 SM.INVALIDRESOURCEKIND                    Invalid resources kind
 SM.INVALIDTEXTUREKINDONUAV                Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
 SM.ISOLINEOUTPUTPRIMITIVEMISMATCH         Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
-SM.LIVELIMIT                              TODO - The total number of temporary and indexable-temporary registers (32-bit four-component values) must be less than or equal to 4096
 SM.MAXTGSMSIZE                            Total Thread Group Shared Memory storage is %0, exceeded %1
 SM.MAXTHEADGROUP                          Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
 SM.MULTISTREAMMUSTBEPOINT                 When multiple GS output streams are used they must be pointlists
 SM.NAME                                   Target shader model name must be known
 SM.NOINTERPMODE                           Interpolation mode must be undefined for VS input/PS output/patch constant.
-SM.NOPSOUTPUTIDX                          TODO - Pixel shader output registers are not indexable.
+SM.NOPSOUTPUTIDX                          Pixel shader output registers are not indexable.
 SM.OPCODE                                 Opcode must be defined in target shader model
 SM.OPCODEININVALIDFUNCTION                Invalid DXIL opcode usage like StorePatchConstant in patch constant function
 SM.OPERAND                                Operand must be defined in target shader model
@@ -2283,7 +2278,6 @@ SM.OUTPUTCONTROLPOINTSTOTALSCALARS        Total number of scalars across all HS 
 SM.PATCHCONSTANTONLYFORHSDS               patch constant signature only valid in HS and DS
 SM.PSCONSISTENTINTERP                     Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
 SM.PSCOVERAGEANDINNERCOVERAGE             InnerCoverage and Coverage are mutually exclusive.
-SM.PSINPUTINT                             TODO - Pixel shader input values must use the same interpolation mode
 SM.PSOUTPUTSEMANTIC                       Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
 SM.RESLIMIT                               TODO - Resource limit exceeded for target shader model
 SM.RESOURCERANGEOVERLAP                   Resource ranges must not overlap

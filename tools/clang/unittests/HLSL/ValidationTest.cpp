@@ -68,6 +68,19 @@ public:
   TEST_METHOD(StructBufGlobalCoherentAndCounter)
   TEST_METHOD(StructBufLoadCoordinates)
   TEST_METHOD(StructBufStoreCoordinates)
+  TEST_METHOD(TypedBufRetType)
+  TEST_METHOD(VsInputSemantic)
+  TEST_METHOD(VsOutputSemantic)
+  TEST_METHOD(HsInputSemantic)
+  TEST_METHOD(HsOutputSemantic)
+  TEST_METHOD(PatchConstSemantic)
+  TEST_METHOD(DsInputSemantic)
+  TEST_METHOD(DsOutputSemantic)
+  TEST_METHOD(GsInputSemantic)
+  TEST_METHOD(GsOutputSemantic)
+  TEST_METHOD(PsInputSemantic)
+  TEST_METHOD(PsOutputSemantic)
+  TEST_METHOD(ArrayOfSVTarget)
 
   TEST_METHOD(WhenInstrDisallowedThenFail);
   TEST_METHOD(WhenDepthNotFloatThenFail);
@@ -663,6 +676,110 @@ TEST_F(ValidationTest, StructBufStoreCoordinates) {
       "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
       "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
       "structured buffer require 2 coordinates");
+}
+
+TEST_F(ValidationTest, TypedBufRetType) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\sample5.hlsl", "ps_5_0",
+      "%class.Texture2D = type { <4 x float>",
+      "%class.Texture2D = type { <4 x double>",
+      "elements of typed buffers and textures must fit in four 32-bit quantities");
+}
+
+TEST_F(ValidationTest, VsInputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\clip_planes.hlsl", "vs_5_0",
+      "!\"POSITION\", i8 9, i8 0",
+      "!\"SV_Target\", i8 9, i8 16",
+      "Semantic 'SV_Target' is invalid as vs Input");
+}
+
+TEST_F(ValidationTest, VsOutputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\clip_planes.hlsl", "vs_5_0",
+      "!\"NORMAL\", i8 9, i8 0",
+      "!\"SV_Target\", i8 9, i8 16",
+      "Semantic 'SV_Target' is invalid as vs Output");
+}
+
+TEST_F(ValidationTest, HsInputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_5_0",
+      "!\"TEXCOORD\", i8 9, i8 0",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as hs Input");
+}
+
+TEST_F(ValidationTest, HsOutputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_5_0",
+      "!\"TEXCOORD\", i8 9, i8 0",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as hs Output");
+}
+
+TEST_F(ValidationTest, PatchConstSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_5_0",
+      "!\"SV_TessFactor\", i8 9, i8 25",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as hs PatchConstant");
+}
+
+TEST_F(ValidationTest, DsInputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleDs1.hlsl", "ds_5_0",
+      "!\"TEXCOORD\", i8 9, i8 0",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as ds Input");
+}
+
+TEST_F(ValidationTest, DsOutputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleDs1.hlsl", "ds_5_0",
+      "!\"TEXCOORD\", i8 9, i8 0",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as ds Output");
+}
+
+TEST_F(ValidationTest, GsInputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_5_0",
+      "!\"POSSIZE\", i8 9, i8 0",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as gs Input");
+}
+
+TEST_F(ValidationTest, GsOutputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_5_0",
+      "!\"TEXCOORD\", i8 9, i8 0",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as gs Output");
+}
+
+TEST_F(ValidationTest, PsInputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_5_0",
+      "!\"A\", i8 4, i8 0",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as ps Input");
+}
+
+TEST_F(ValidationTest, PsOutputSemantic) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_5_0",
+      "!\"SV_Target\", i8 9, i8 16",
+      "!\"VertexID\", i8 4, i8 1",
+      "Semantic 'VertexID' is invalid as ps Output");
+}
+
+TEST_F(ValidationTest, ArrayOfSVTarget) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_5_0",
+      "i32 6, !\"SV_Target\", i8 9, i8 16, !36, i8 0, i32 1",
+      "i32 6, !\"SV_Target\", i8 9, i8 16, !36, i8 0, i32 2",
+      "Pixel shader output registers are not indexable.");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {

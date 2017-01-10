@@ -58,8 +58,6 @@ enum class ValidationRule : unsigned {
   InstrERR_NON_LITERAL_RESOURCE, // TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.
   InstrERR_NON_LITERAL_STREAM, // TODO - stream parameter must come from a literal expression
   InstrERR_RESOURCE_UNINITIALIZED, // TODO - Resource being indexed is uninitialized.
-  InstrERR_TEXTURE_OFFSET, // TODO - texture access must have literal offset and multisample index
-  InstrERR_TEXTURE_TYPE, // TODO - return type of texture too large. Cannot exceed 4 components
   InstrEvalInterpolationMode, // Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
   InstrFailToResloveTGSMPointer, // TGSM pointers must originate from an unambiguous TGSM global variable.
   InstrHandleNotFromCreateHandle, // Resource handle should returned by createHandle
@@ -107,6 +105,7 @@ enum class ValidationRule : unsigned {
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
   InstrTextureLod, // TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube
+  InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
   InstrTextureOpArgs, // TODO - Instructions that depend on texture type must match operands
   InstrTypeCast, // TODO - Type cast must be valid
   InstrUndefResultForGetDimension, // GetDimensions used undef dimension %0 on %1
@@ -141,6 +140,7 @@ enum class ValidationRule : unsigned {
   MetaTarget, // Target triple must be 'dxil-ms-dx'
   MetaTessellatorOutputPrimitive, // Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
   MetaTessellatorPartition, // Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
+  MetaTextureType, // elements of typed buffers and textures must fit in four 32-bit quantities
   MetaUsed, // TODO - All metadata must be used
   MetaValidSamplerMode, // Invalid sampler mode on sampler 
   MetaValueRange, // Metadata value must be within range
@@ -164,7 +164,6 @@ enum class ValidationRule : unsigned {
   SmDSInputControlPointCountRange, // DS input control point count must be [0..%0].  %1 specified
   SmDomainLocationIdxOOB, // DomainLocation component index out of bounds for the domain.
   SmERR_BIND_RESOURCE_RANGE_OVERFLOW, // TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
-  SmERR_DUPLICATE_CBUFFER_BANK, // TODO - ERR_DUPLICATE_CBUFFER_BANK
   SmERR_MAX_CBUFFER_EXCEEDED, // TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)
   SmERR_MAX_CONST_EXCEEDED, // TODO - ERR_MAX_CONST_EXCEEDED
   SmERR_MAX_SAMPLER_EXCEEDED, // TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)
@@ -172,27 +171,23 @@ enum class ValidationRule : unsigned {
   SmERR_UNABLE_TO_BIND_RESOURCE, // TODO - ERR_UNABLE_TO_BIND_RESOURCE
   SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE, // TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE
   SmGSInstanceCountRange, // GS instance count must be [1..%0].  %1 specified
-  SmGSOutputLimit, // TODO - A geometry shader can output a maximum of 1024 32-bit values (including the size of the input data and the size of the data created by the shader)
   SmGSOutputVertexCountRange, // GS output vertex count must be [0..%0].  %1 specified
-  SmGSTotalOutputVertexDataRange, // TODO: Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
+  SmGSTotalOutputVertexDataRange, // Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
   SmGSValidInputPrimitive, // GS input primitive unrecognized
   SmGSValidOutputPrimitiveTopology, // GS output primitive topology unrecognized
   SmHSInputControlPointCountRange, // HS input control point count must be [1..%0].  %1 specified
   SmHullPassThruControlPointCountMatch, // For pass thru hull shader, input control point count must match output control point count
-  SmICBLimit, // TODO - Constant buffers must contain at least one element, but no more than 4096 values
-  SmIdxTmpLimit, // TODO - Indexable temporaries must containt at least one element, but no more than 4096 values
   SmInsideTessFactorSizeMatchDomain, // InsideTessFactor size mismatch the domain.
   SmInvalidResourceCompType, // Invalid resource return type
   SmInvalidResourceKind, // Invalid resources kind
   SmInvalidTextureKindOnUAV, // Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
   SmIsoLineOutputPrimitiveMismatch, // Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
-  SmLiveLimit, // TODO - The total number of temporary and indexable-temporary registers (32-bit four-component values) must be less than or equal to 4096
   SmMaxTGSMSize, // Total Thread Group Shared Memory storage is %0, exceeded %1
   SmMaxTheadGroup, // Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
   SmMultiStreamMustBePoint, // When multiple GS output streams are used they must be pointlists
   SmName, // Target shader model name must be known
   SmNoInterpMode, // Interpolation mode must be undefined for VS input/PS output/patch constant.
-  SmNoPSOutputIdx, // TODO - Pixel shader output registers are not indexable.
+  SmNoPSOutputIdx, // Pixel shader output registers are not indexable.
   SmOpcode, // Opcode must be defined in target shader model
   SmOpcodeInInvalidFunction, // Invalid DXIL opcode usage like StorePatchConstant in patch constant function
   SmOperand, // Operand must be defined in target shader model
@@ -200,7 +195,6 @@ enum class ValidationRule : unsigned {
   SmOutputControlPointsTotalScalars, // Total number of scalars across all HS output control points must not exceed 
   SmPSConsistentInterp, // Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
   SmPSCoverageAndInnerCoverage, // InnerCoverage and Coverage are mutually exclusive.
-  SmPSInputInt, // TODO - Pixel shader input values must use the same interpolation mode
   SmPSOutputSemantic, // Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
   SmPatchConstantOnlyForHSDS, // patch constant signature only valid in HS and DS
   SmROVOnlyInPS, // RasterizerOrdered objects are only allowed in 5.0+ pixel shaders

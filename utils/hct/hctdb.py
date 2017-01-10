@@ -1402,6 +1402,7 @@ class db_dxil(object):
         self.add_valrule("Meta.InvalidControlFlowHint", "Invalid control flow hint")
         self.add_valrule("Meta.BranchFlatten", "Can't use branch and flatten attributes together")
         self.add_valrule("Meta.ForceCaseOnSwitch", "Attribute forcecase only works for switch")
+        self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")
@@ -1437,8 +1438,7 @@ class db_dxil(object):
         self.add_valrule("Instr.OnlyOneAllocConsume", "RWStructuredBuffers may increment or decrement their counters, but not both.")
 
         # CCompiler
-        self.add_valrule("Instr.ERR_TEXTURE_TYPE", "TODO - return type of texture too large. Cannot exceed 4 components")
-        self.add_valrule("Instr.ERR_TEXTURE_OFFSET", "TODO - texture access must have literal offset and multisample index")
+        self.add_valrule("Instr.TextureOffset", "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7")
         # D3D12
         self.add_valrule("Instr.WAR_GRADIENT_IN_VARYING_FLOW", "TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value")
         self.add_valrule("Instr.DeterminateDerivative", "gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)")
@@ -1507,14 +1507,9 @@ class db_dxil(object):
         self.add_valrule("Sm.Operand", "Operand must be defined in target shader model")
         self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2")
         self.add_valrule("Sm.ResLimit", "TODO - Resource limit exceeded for target shader model")
-        self.add_valrule("Sm.ICBLimit", "TODO - Constant buffers must contain at least one element, but no more than 4096 values")
-        self.add_valrule("Sm.IdxTmpLimit", "TODO - Indexable temporaries must containt at least one element, but no more than 4096 values")
-        self.add_valrule("Sm.LiveLimit", "TODO - The total number of temporary and indexable-temporary registers (32-bit four-component values) must be less than or equal to 4096")
-        self.add_valrule("Sm.PSInputInt", "TODO - Pixel shader input values must use the same interpolation mode") # TODO restrict to PS
         self.add_valrule_msg("Sm.NoInterpMode", "Interpolation mode must be undefined for VS input/PS output/patch constant.", "Interpolation mode for '%0' is set but should be undefined")
-        self.add_valrule("Sm.NoPSOutputIdx", "TODO - Pixel shader output registers are not indexable.")# TODO restrict to PS
+        self.add_valrule("Sm.NoPSOutputIdx", "Pixel shader output registers are not indexable.")# TODO restrict to PS
         self.add_valrule("Sm.PSConsistentInterp", "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)")
-        self.add_valrule("Sm.GSOutputLimit", "TODO - A geometry shader can output a maximum of 1024 32-bit values (including the size of the input data and the size of the data created by the shader)")
         self.add_valrule("Sm.ThreadGroupChannelRange", "Declared Thread Group %0 size %1 outside valid range [%2..%3]")
         self.add_valrule("Sm.MaxTheadGroup", "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1")
         self.add_valrule("Sm.MaxTGSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1")
@@ -1545,7 +1540,7 @@ class db_dxil(object):
         self.add_valrule("Sm.InvalidResourceCompType","Invalid resource return type")
         self.add_valrule("Sm.SampleCountOnlyOn2DMS","Only Texture2DMS/2DMSArray could has sample count")
         self.add_valrule("Sm.CounterOnlyOnStructBuf", "BufferUpdateCounter valid only on structured buffers")
-        self.add_valrule("Sm.GSTotalOutputVertexDataRange", "TODO: Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3")
+        self.add_valrule("Sm.GSTotalOutputVertexDataRange", "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3")
         self.add_valrule_msg("Sm.MultiStreamMustBePoint", "When multiple GS output streams are used they must be pointlists", "Multiple GS output streams are used but '%0' is not pointlist")
         self.add_valrule("Sm.CompletePosition", "Not all elements of SV_Position were written")
         self.add_valrule("Sm.UndefinedOutput", "Not all elements of output %0 were written")
@@ -1555,7 +1550,6 @@ class db_dxil(object):
         self.add_valrule("Sm.ERR_MAX_SAMPLER_EXCEEDED", "TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)")
         self.add_valrule("Sm.ERR_MAX_TEXTURE_EXCEEDED", "TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)")
         self.add_valrule("Sm.ERR_MAX_CBUFFER_EXCEEDED", "TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)")
-        self.add_valrule("Sm.ERR_DUPLICATE_CBUFFER_BANK", "TODO - ERR_DUPLICATE_CBUFFER_BANK")
         self.add_valrule("Sm.ERR_UNABLE_TO_BIND_RESOURCE", "TODO - ERR_UNABLE_TO_BIND_RESOURCE")
         self.add_valrule("Sm.ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE", "TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE")
         self.add_valrule("Sm.ERR_BIND_RESOURCE_RANGE_OVERFLOW", "TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW")
