@@ -1784,6 +1784,36 @@ static void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, DXIL::S
   OS << comment << "\n";
 }
 
+// Class to manage lifetime of llvm module and provide some utility
+// functions used for generating compiler output.
+class DxilCompilerLLVMModuleOutput {
+public:
+  DxilCompilerLLVMModuleOutput(std::unique_ptr<llvm::Module> module)
+    : m_llvmModule(std::move(module))
+  { }
+
+  void CloneForDebugInfo() {
+      m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
+  }
+
+ void WrapModuleInDxilContainer(IMalloc *pMalloc,  AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
+    CComPtr<AbstractMemoryStream> pContainerStream;
+    IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+    SerializeDxilContainerForModule(m_llvmModule.get(), pModuleBitcode, pContainerStream);
+
+    pDxilContainerBlob.Release();
+    IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
+  }
+
+  llvm::Module *get() { return m_llvmModule.get(); }
+  llvm::Module *getWithDebugInfo() { return m_llvmModuleWithDebugInfo.get(); }
+
+private:
+  std::unique_ptr<llvm::Module> m_llvmModule;
+  std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
+};
+
+
 class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -1823,15 +1853,6 @@ private:
     }
     DXASSERT(!opts.HLSL2015, "else ReadDxcOpts didn't fail for non-isense");
     finished = false;
-  }
-
-  void WrapModuleInDxilContainer(IMalloc *pMalloc, llvm::Module *llvmModule, AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
-    CComPtr<AbstractMemoryStream> pContainerStream;
-    IFT(CreateMemoryStream(pMalloc, &pContainerStream));
-      SerializeDxilContainerForModule(llvmModule, pModuleBitcode, pContainerStream);
-
-    pDxilContainerBlob.Release();
-    IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
   }
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
@@ -2011,39 +2032,33 @@ public:
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();
+        outStream.flush();
 
-        // Don't do work to put in a container if an error has occurred, or if
-        // there is only a a high-level representation in the module.
-        
+        // Don't do work to put in a container if an error has occurred
         bool compileOK = !compiler.getDiagnostics().hasErrorOccurred();
         if (compileOK) {
           HRESULT valHR = S_OK;
-          std::unique_ptr<llvm::Module> llvmModule = action.takeModule();
+
+          // Take ownership of the module from the action.
+          DxilCompilerLLVMModuleOutput llvmModule(action.takeModule());
+
+          // If using the internal validator, we'll use the modules directly.
+          // In this case, we'll want to make a clone to avoid SerializeDxilContainerForModule
+          // stripping all the debug info. The debug info will be stripped from the orginal
+          // module, but preserved in the cloned module.
+          if (internalValidator && opts.DebugInfo)
+            llvmModule.CloneForDebugInfo();
+
+          // Do not create a container when there is only a a high-level representation in the module.
           if (!opts.CodeGenHighLevel)
-            WrapModuleInDxilContainer(pMalloc, llvmModule.get(), pOutputStream, pOutputBlob);
+            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob);
+
           if (needsValidation) {
-            outStream.flush();
-
-            llvm::Module *pDebugModule, *pOrigModule;
-            std::unique_ptr<llvm::Module> llvmClonedModule;
-            if (internalValidator && opts.DebugInfo) {
-              // If using the internal validator, we'll use the modules directly.
-              // In this case, we'll want to make a clone to avoid SerializeDxilContainerForModule
-              // destroying this.
-              llvmClonedModule.reset(llvm::CloneModule(llvmModule.get()));
-              pDebugModule = llvmClonedModule.get();
-              pOrigModule = llvmModule.get();
-            }
-            else {
-              pOrigModule = llvmModule.get();
-              pDebugModule = nullptr;
-            }
-
             // Important: in-place edit is required so the blob is reused and thus
             // dxil.dll can be released.
             if (internalValidator) {
               IFT(RunInternalValidator(
-                pValidator, pOrigModule, pDebugModule, pOutputBlob,
+                pValidator, llvmModule.get(), llvmModule.getWithDebugInfo(), pOutputBlob,
                 DxcValidatorFlags_InPlaceEdit, &pValResult));
             }
             else {
