@@ -1407,20 +1407,15 @@ class db_dxil(object):
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")
-        self.add_valrule("Instr.ResID", "TODO - DXIL instruction must refer to valid resource IDs")
         self.add_valrule("Instr.TypeCast", "TODO - Type cast must be valid")
-        self.add_valrule("Instr.PtrArea", "TODO - Pointer must refer to a defined area")
         self.add_valrule_msg("Instr.OpConst", "DXIL intrinsic requires an immediate constant operand", "%0 of %1 must be an immediate constant")
         self.add_valrule("Instr.Allowed", "Instructions must be of an allowed type")
         self.add_valrule("Instr.OpCodeReserved", "Instructions must not reference reserved opcodes")
-        self.add_valrule("Instr.TextureOpArgs", "TODO - Instructions that depend on texture type must match operands")
-        self.add_valrule("Instr.TextureLod", "TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube")
-        self.add_valrule("Instr.OpCodeResType", "TODO - DXIL intrinsic operating on a resource must be of the correct type")
         self.add_valrule_msg("Instr.OperandRange", "TODO - DXIL intrinsic operand must be within defined range", "expect %0 between %1, got %2")
         self.add_valrule("Instr.NoReadingUninitialized", "Instructions should not read uninitialized value")
         self.add_valrule("Instr.NoPtrCast", "TODO - Cast between pointer types disallowed")
-        self.add_valrule("Instr.InBoundsAccess", "TODO - Access to out-of-bounds memory is disallowed")
-        self.add_valrule("Instr.OpConstRange", "TODO - Constant values must be in-range for operation")
+        self.add_valrule("Instr.InBoundsAccess", "Access to out-of-bounds memory is disallowed")
+        self.add_valrule("Instr.OpConstRange", "Constant values must be in-range for operation")
         self.add_valrule("Instr.ImmBiasForSampleB", "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate")
         # If streams have not been declared, you must use cut instead of cut_stream in GS - is there an equivalent rule here?
 
@@ -1432,7 +1427,6 @@ class db_dxil(object):
         self.add_valrule("Instr.NoIDivByZero", "No signed integer division by zero")
         self.add_valrule("Instr.NoUDivByZero", "No unsigned integer division by zero")
         self.add_valrule("Instr.NoIndefiniteDsxy", "No indefinite derivative calculation")
-        self.add_valrule("Instr.ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS", "TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS")
         self.add_valrule("Instr.MinPrecisionNotPrecise", "Instructions marked precise may not refer to minprecision values")
 
         # Backend
@@ -1441,16 +1435,10 @@ class db_dxil(object):
         # CCompiler
         self.add_valrule("Instr.TextureOffset", "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7")
         # D3D12
-        self.add_valrule("Instr.WAR_GRADIENT_IN_VARYING_FLOW", "TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value")
-        self.add_valrule("Instr.DeterminateDerivative", "TODO - gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)")
-        self.add_valrule("Instr.ERR_NON_LITERAL_RESOURCE", "TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.")
-        self.add_valrule("Instr.ERR_NON_LITERAL_STREAM", "TODO - stream parameter must come from a literal expression")
         self.add_valrule_msg("Instr.CannotPullPosition", "pull-model evaluation of position disallowed", "%0 does not support pull-model evaluation of position")
         self.add_valrule("Instr.ERR_LOOP_CONDITION_OUT_OF_BOUNDS", "TODO - cannot unroll loop with an out-of-bounds array reference in the condition")
-        self.add_valrule("Instr.ERR_ATTRIBUTE_PARAM_SIDE_EFFECT", "TODO - expressions with side effects are illegal as attribute parameters for root signature")
-        self.add_valrule("Instr.ERR_RESOURCE_UNINITIALIZED", "TODO - Resource being indexed is uninitialized.")
-        self.add_valrule("Instr.ERR_GUARANTEED_RACE_CONDITION_UAV", "TODO - race condition writing to shared resource detected, consider making this write conditional.")
-        self.add_valrule("Instr.ERR_GUARANTEED_RACE_CONDITION_GSM", "TODO - race condition writing to shared memory detected, consider making this write conditional.")
+        #self.add_valrule("Instr.ERR_GUARANTEED_RACE_CONDITION_UAV", "TODO - race condition writing to shared resource detected, consider making this write conditional.") warning on fxc.
+        #self.add_valrule("Instr.ERR_GUARANTEED_RACE_CONDITION_GSM", "TODO - race condition writing to shared memory detected, consider making this write conditional.") warning on fxc.
         #self.add_valrule("Instr.ERR_INFINITE_LOOP", "TODO - ERR_INFINITE_LOOP") fxc will report error if it can prove the loop is infinite.
         self.add_valrule("Instr.EvalInterpolationMode", "Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample")
         self.add_valrule("Instr.ResourceCoordinateMiss", "coord uninitialized")
@@ -1507,7 +1495,6 @@ class db_dxil(object):
         self.add_valrule("Sm.Opcode", "Opcode must be defined in target shader model")
         self.add_valrule("Sm.Operand", "Operand must be defined in target shader model")
         self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2")
-        self.add_valrule("Sm.ResLimit", "TODO - Resource limit exceeded for target shader model")
         self.add_valrule_msg("Sm.NoInterpMode", "Interpolation mode must be undefined for VS input/PS output/patch constant.", "Interpolation mode for '%0' is set but should be undefined")
         self.add_valrule("Sm.NoPSOutputIdx", "Pixel shader output registers are not indexable.")# TODO restrict to PS
         self.add_valrule("Sm.PSConsistentInterp", "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)")
@@ -1547,9 +1534,6 @@ class db_dxil(object):
         self.add_valrule("Sm.UndefinedOutput", "Not all elements of output %0 were written")
         self.add_valrule("Sm.CSNoReturn", "Compute shaders can't return values, outputs must be written in writable resources (UAVs).")
         self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct")
-        self.add_valrule("Sm.ERR_UNABLE_TO_BIND_RESOURCE", "TODO - ERR_UNABLE_TO_BIND_RESOURCE")
-        self.add_valrule("Sm.ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE", "TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE")
-        self.add_valrule("Sm.ERR_BIND_RESOURCE_RANGE_OVERFLOW", "TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW")
         self.add_valrule_msg("Sm.ResourceRangeOverlap", "Resource ranges must not overlap", "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5")
         self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1")
         self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1")

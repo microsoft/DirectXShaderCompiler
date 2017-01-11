@@ -84,20 +84,15 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
-    case hlsl::ValidationRule::InstrResID: return "TODO - DXIL instruction must refer to valid resource IDs";
     case hlsl::ValidationRule::InstrTypeCast: return "TODO - Type cast must be valid";
-    case hlsl::ValidationRule::InstrPtrArea: return "TODO - Pointer must refer to a defined area";
     case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant";
     case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type";
     case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes";
-    case hlsl::ValidationRule::InstrTextureOpArgs: return "TODO - Instructions that depend on texture type must match operands";
-    case hlsl::ValidationRule::InstrTextureLod: return "TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube";
-    case hlsl::ValidationRule::InstrOpCodeResType: return "TODO - DXIL intrinsic operating on a resource must be of the correct type";
     case hlsl::ValidationRule::InstrOperandRange: return "expect %0 between %1, got %2";
     case hlsl::ValidationRule::InstrNoReadingUninitialized: return "Instructions should not read uninitialized value";
     case hlsl::ValidationRule::InstrNoPtrCast: return "TODO - Cast between pointer types disallowed";
-    case hlsl::ValidationRule::InstrInBoundsAccess: return "TODO - Access to out-of-bounds memory is disallowed";
-    case hlsl::ValidationRule::InstrOpConstRange: return "TODO - Constant values must be in-range for operation";
+    case hlsl::ValidationRule::InstrInBoundsAccess: return "Access to out-of-bounds memory is disallowed";
+    case hlsl::ValidationRule::InstrOpConstRange: return "Constant values must be in-range for operation";
     case hlsl::ValidationRule::InstrImmBiasForSampleB: return "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate";
     case hlsl::ValidationRule::InstrNoIndefiniteLog: return "No indefinite logarithm";
     case hlsl::ValidationRule::InstrNoIndefiniteAsin: return "No indefinite arcsine";
@@ -105,20 +100,11 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrNoIDivByZero: return "No signed integer division by zero";
     case hlsl::ValidationRule::InstrNoUDivByZero: return "No unsigned integer division by zero";
     case hlsl::ValidationRule::InstrNoIndefiniteDsxy: return "No indefinite derivative calculation";
-    case hlsl::ValidationRule::InstrERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS: return "TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS";
     case hlsl::ValidationRule::InstrMinPrecisionNotPrecise: return "Instructions marked precise may not refer to minprecision values";
     case hlsl::ValidationRule::InstrOnlyOneAllocConsume: return "RWStructuredBuffers may increment or decrement their counters, but not both.";
     case hlsl::ValidationRule::InstrTextureOffset: return "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7";
-    case hlsl::ValidationRule::InstrWAR_GRADIENT_IN_VARYING_FLOW: return "TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value";
-    case hlsl::ValidationRule::InstrDeterminateDerivative: return "TODO - gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)";
-    case hlsl::ValidationRule::InstrERR_NON_LITERAL_RESOURCE: return "TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.";
-    case hlsl::ValidationRule::InstrERR_NON_LITERAL_STREAM: return "TODO - stream parameter must come from a literal expression";
     case hlsl::ValidationRule::InstrCannotPullPosition: return "%0 does not support pull-model evaluation of position";
     case hlsl::ValidationRule::InstrERR_LOOP_CONDITION_OUT_OF_BOUNDS: return "TODO - cannot unroll loop with an out-of-bounds array reference in the condition";
-    case hlsl::ValidationRule::InstrERR_ATTRIBUTE_PARAM_SIDE_EFFECT: return "TODO - expressions with side effects are illegal as attribute parameters for root signature";
-    case hlsl::ValidationRule::InstrERR_RESOURCE_UNINITIALIZED: return "TODO - Resource being indexed is uninitialized.";
-    case hlsl::ValidationRule::InstrERR_GUARANTEED_RACE_CONDITION_UAV: return "TODO - race condition writing to shared resource detected, consider making this write conditional.";
-    case hlsl::ValidationRule::InstrERR_GUARANTEED_RACE_CONDITION_GSM: return "TODO - race condition writing to shared memory detected, consider making this write conditional.";
     case hlsl::ValidationRule::InstrEvalInterpolationMode: return "Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample";
     case hlsl::ValidationRule::InstrResourceCoordinateMiss: return "coord uninitialized";
     case hlsl::ValidationRule::InstrResourceCoordinateTooMany: return "out of bound coord must be undef";
@@ -165,7 +151,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmOpcode: return "Opcode must be defined in target shader model";
     case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model";
     case hlsl::ValidationRule::SmSemantic: return "Semantic '%0' is invalid as %1 %2";
-    case hlsl::ValidationRule::SmResLimit: return "TODO - Resource limit exceeded for target shader model";
     case hlsl::ValidationRule::SmNoInterpMode: return "Interpolation mode for '%0' is set but should be undefined";
     case hlsl::ValidationRule::SmNoPSOutputIdx: return "Pixel shader output registers are not indexable.";
     case hlsl::ValidationRule::SmPSConsistentInterp: return "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)";
@@ -205,9 +190,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmUndefinedOutput: return "Not all elements of output %0 were written";
     case hlsl::ValidationRule::SmCSNoReturn: return "Compute shaders can't return values, outputs must be written in writable resources (UAVs).";
     case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct";
-    case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_RESOURCE";
-    case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE";
-    case hlsl::ValidationRule::SmERR_BIND_RESOURCE_RANGE_OVERFLOW: return "TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW";
     case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5";
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1";
     case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1";
@@ -577,7 +559,7 @@ static DxilSignatureElement *ValidateSignatureAccess(Instruction *I, DxilSignatu
 
 static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle, ValidationContext &ValCtx) {
   if (!isa<CallInst>(samplerHandle)) {
-    // Emit
+    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::SamplerKind::Invalid;
   }
 
@@ -638,7 +620,7 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
   ResClass = DXIL::ResourceClass::Invalid;
 
   if (!isa<CallInst>(handle)) {
-    // Emit
+    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::ResourceKind::Invalid;
   }
 
@@ -650,7 +632,6 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
 
   Value *resourceClass = createHandle.get_resourceClass();
   if (!isa<ConstantInt>(resourceClass)) {
-    // Emit
     return DXIL::ResourceKind::Invalid;
   }
 
@@ -973,20 +954,21 @@ static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
 
   Value *resourceClass = createHandle.get_resourceClass();
   if (!isa<ConstantInt>(resourceClass)) {
-    // Emit Instr.OpConstRange
+    ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
+                          ValidationRule::InstrOpConstRange);
     return -1;
   }
 
   if (static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val()) !=
       DXIL::ResourceClass::CBuffer) {
-    // Emit Instr.CBufferClassForCBufferHandle
     ValCtx.EmitInstrError(cast<CallInst>(cbHandle), ValidationRule::InstrCBufferClassForCBufferHandle);
     return -1;
   }
 
   Value *rangeIndex = createHandle.get_rangeId();
   if (!isa<ConstantInt>(rangeIndex)) {
-    // Emit Instr.OpConstRange
+    ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
+                          ValidationRule::InstrOpConstRange);
     return -1;
   }
 
@@ -1235,7 +1217,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     case DXIL::ResourceKind::Texture1DArray:
       if (usage.z) {
-        // Emit use undef dimension.
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture1DArray"});
@@ -1243,7 +1224,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     case DXIL::ResourceKind::Texture2D:
       if (usage.z) {
-        // Emit use undef dimension.
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture2D"});
@@ -1253,7 +1233,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     case DXIL::ResourceKind::Texture2DMS:
       if (usage.z) {
-        // Emit use undef dimension.
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture2DMS"});
@@ -1265,7 +1244,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     case DXIL::ResourceKind::TextureCube:
       if (usage.z) {
-        // Emit use undef dimension.
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "TextureCube"});
@@ -1279,7 +1257,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     case DXIL::ResourceKind::TBuffer: {
       Value *mip = getDim.get_mipLevel();
       if (!isa<UndefValue>(mip)) {
-        // Emit only texture has mip level.
         ValCtx.EmitInstrError(
             CI, ValidationRule::InstrMipLevelForGetDimension);
       }
@@ -2359,6 +2336,29 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         Type *Ty = I.getType()->getPointerElementType();
         if (!ValidateType(Ty, ValCtx)) {
           continue;
+        }
+        GetElementPtrInst *GEP = cast<GetElementPtrInst>(&I);
+        bool allImmIndex = true;
+        for (auto Idx = GEP->idx_begin(), E = GEP->idx_end(); Idx != E; Idx++) {
+          if (!isa<ConstantInt>(Idx)) {
+            allImmIndex = false;
+            break;
+          }
+        }
+        if (allImmIndex) {
+          const DataLayout &DL = ValCtx.DxilMod.GetModule()->getDataLayout();
+
+          Value *Ptr = GEP->getPointerOperand();
+          unsigned size =
+              DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
+          unsigned valSize = DL.getTypeAllocSize(GEP->getType()->getPointerElementType());
+
+          SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
+          unsigned offset =
+              DL.getIndexedOffset(GEP->getPointerOperandType(), Indices);
+          if ((offset + valSize) > size) {
+            ValCtx.EmitInstrError(GEP, ValidationRule::InstrInBoundsAccess);
+          }
         }
       } break;
       case Instruction::SDiv: {

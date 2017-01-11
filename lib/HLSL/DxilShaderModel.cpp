@@ -98,10 +98,6 @@ const ShaderModel *ShaderModel::GetInvalid() {
   return &ms_ShaderModels[kNumShaderModels - 1];
 }
 
-unsigned ShaderModel::GetUAVRegsBase() const {
-  return UINT_MAX;
-}
-
 typedef ShaderModel SM;
 typedef Semantic SE;
 const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {

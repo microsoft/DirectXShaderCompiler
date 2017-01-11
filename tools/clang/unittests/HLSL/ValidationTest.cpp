@@ -88,6 +88,7 @@ public:
   TEST_METHOD(IDivByZero)
   TEST_METHOD(UDivByZero)
   TEST_METHOD(UnusedMetadata)
+  TEST_METHOD(MemoryOutOfBound)
 
   TEST_METHOD(WhenInstrDisallowedThenFail);
   TEST_METHOD(WhenDepthNotFloatThenFail);
@@ -842,6 +843,13 @@ TEST_F(ValidationTest, UnusedMetadata) {
                           ", !llvm.loop ",
                           ", !llvm.loop2 ",
                           "All metadata must be used by dxil");
+}
+
+TEST_F(ValidationTest, MemoryOutOfBound) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_5_0",
+                          "getelementptr [4 x float], [4 x float]* %12, i32 0, i32 3",
+                          "getelementptr [4 x float], [4 x float]* %12, i32 0, i32 10",
+                          "Access to out-of-bounds memory is disallowed");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {

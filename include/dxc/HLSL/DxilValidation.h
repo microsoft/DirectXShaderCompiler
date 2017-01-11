@@ -47,22 +47,14 @@ enum class ValidationRule : unsigned {
   InstrCannotPullPosition, // pull-model evaluation of position disallowed
   InstrCoordinateCountForRawTypedBuf, // raw/typed buffer don't need 2 coordinates
   InstrCoordinateCountForStructBuf, // structured buffer require 2 coordinates
-  InstrDeterminateDerivative, // TODO - gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)
   InstrDxilStructUser, // Dxil struct types should only used by ExtractValue
   InstrDxilStructUserOutOfBound, // Index out of bound when extract value from dxil struct types
-  InstrERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS, // TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS
-  InstrERR_ATTRIBUTE_PARAM_SIDE_EFFECT, // TODO - expressions with side effects are illegal as attribute parameters for root signature
-  InstrERR_GUARANTEED_RACE_CONDITION_GSM, // TODO - race condition writing to shared memory detected, consider making this write conditional.
-  InstrERR_GUARANTEED_RACE_CONDITION_UAV, // TODO - race condition writing to shared resource detected, consider making this write conditional.
   InstrERR_LOOP_CONDITION_OUT_OF_BOUNDS, // TODO - cannot unroll loop with an out-of-bounds array reference in the condition
-  InstrERR_NON_LITERAL_RESOURCE, // TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.
-  InstrERR_NON_LITERAL_STREAM, // TODO - stream parameter must come from a literal expression
-  InstrERR_RESOURCE_UNINITIALIZED, // TODO - Resource being indexed is uninitialized.
   InstrEvalInterpolationMode, // Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
   InstrFailToResloveTGSMPointer, // TGSM pointers must originate from an unambiguous TGSM global variable.
   InstrHandleNotFromCreateHandle, // Resource handle should returned by createHandle
   InstrImmBiasForSampleB, // bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
-  InstrInBoundsAccess, // TODO - Access to out-of-bounds memory is disallowed
+  InstrInBoundsAccess, // Access to out-of-bounds memory is disallowed
   InstrMinPrecisionNotPrecise, // Instructions marked precise may not refer to minprecision values
   InstrMipLevelForGetDimension, // Use mip level on buffer when GetDimensions
   InstrMipOnUAVLoad, // uav load don't support mipLevel/sampleIndex
@@ -77,13 +69,10 @@ enum class ValidationRule : unsigned {
   InstrOffsetOnUAVLoad, // uav load don't support offset
   InstrOload, // DXIL intrinsic overload must be valid
   InstrOnlyOneAllocConsume, // RWStructuredBuffers may increment or decrement their counters, but not both.
-  InstrOpCodeResType, // TODO - DXIL intrinsic operating on a resource must be of the correct type
   InstrOpCodeReserved, // Instructions must not reference reserved opcodes
   InstrOpConst, // DXIL intrinsic requires an immediate constant operand
-  InstrOpConstRange, // TODO - Constant values must be in-range for operation
+  InstrOpConstRange, // Constant values must be in-range for operation
   InstrOperandRange, // TODO - DXIL intrinsic operand must be within defined range
-  InstrPtrArea, // TODO - Pointer must refer to a defined area
-  InstrResID, // TODO - DXIL instruction must refer to valid resource IDs
   InstrResourceClassForLoad, // load can only run on UAV/SRV resource
   InstrResourceClassForSamplerGather, // sample, lod and gather should on srv resource.
   InstrResourceClassForUAVStore, // store should on uav resource.
@@ -104,12 +93,9 @@ enum class ValidationRule : unsigned {
   InstrSamplerModeForLOD, // lod instruction requires sampler declared in default mode
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
-  InstrTextureLod, // TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube
   InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
-  InstrTextureOpArgs, // TODO - Instructions that depend on texture type must match operands
   InstrTypeCast, // TODO - Type cast must be valid
   InstrUndefResultForGetDimension, // GetDimensions used undef dimension %0 on %1
-  InstrWAR_GRADIENT_IN_VARYING_FLOW, // TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value
   InstrWriteMaskForTypedUAVStore, // store on typed uav must write to all four components of the UAV
   InstrWriteMaskMatchValueForUAVStore, // uav store write mask must match store value mask, write mask is %0 and store value mask is %1
 
@@ -164,9 +150,6 @@ enum class ValidationRule : unsigned {
   SmCounterOnlyOnStructBuf, // BufferUpdateCounter valid only on structured buffers
   SmDSInputControlPointCountRange, // DS input control point count must be [0..%0].  %1 specified
   SmDomainLocationIdxOOB, // DomainLocation component index out of bounds for the domain.
-  SmERR_BIND_RESOURCE_RANGE_OVERFLOW, // TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
-  SmERR_UNABLE_TO_BIND_RESOURCE, // TODO - ERR_UNABLE_TO_BIND_RESOURCE
-  SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE, // TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE
   SmGSInstanceCountRange, // GS instance count must be [1..%0].  %1 specified
   SmGSOutputVertexCountRange, // GS output vertex count must be [0..%0].  %1 specified
   SmGSTotalOutputVertexDataRange, // Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
@@ -195,7 +178,6 @@ enum class ValidationRule : unsigned {
   SmPSOutputSemantic, // Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
   SmPatchConstantOnlyForHSDS, // patch constant signature only valid in HS and DS
   SmROVOnlyInPS, // RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
-  SmResLimit, // TODO - Resource limit exceeded for target shader model
   SmResourceRangeOverlap, // Resource ranges must not overlap
   SmSampleCountOnlyOn2DMS, // Only Texture2DMS/2DMSArray could has sample count
   SmSemantic, // Semantic must be defined in target shader model
