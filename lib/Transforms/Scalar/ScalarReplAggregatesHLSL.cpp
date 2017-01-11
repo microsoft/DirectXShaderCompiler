@@ -3805,7 +3805,7 @@ void SROA_Parameter_HLSL::allocateSemanticIndex(
 void SROA_Parameter_HLSL::flattenArgument(
     Function *F, Value *Arg, DxilParameterAnnotation &paramAnnotation,
     std::vector<Value *> &FlatParamList,
-    std::vector<DxilParameterAnnotation> &FlatRetAnnotationList, IRBuilder<> &Builder,
+    std::vector<DxilParameterAnnotation> &FlatAnnotationList, IRBuilder<> &Builder,
     DbgDeclareInst *DDI) {
   std::deque<Value *> WorkList;
   WorkList.push_back(Arg);
@@ -3822,7 +3822,7 @@ void SROA_Parameter_HLSL::flattenArgument(
   }
   Type *opcodeTy = Type::getInt32Ty(F->getContext());
 
-  unsigned startArgIndex = FlatRetAnnotationList.size();
+  unsigned startArgIndex = FlatAnnotationList.size();
 
   // Map from value to annotation.
   std::unordered_map<Value *, DxilFieldAnnotation> annotationMap;
@@ -3831,6 +3831,9 @@ void SROA_Parameter_HLSL::flattenArgument(
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
 
   const std::string &semantic = paramAnnotation.GetSemanticString();
+  bool bSemOverride = !semantic.empty();
+
+  bool bForParam = F == Builder.GetInsertPoint()->getParent()->getParent();
 
   // Map from semantic string to type.
   llvm::StringMap<Type *> semanticTypeMap;
@@ -3916,18 +3919,93 @@ void SROA_Parameter_HLSL::flattenArgument(
       if (Instruction *I = dyn_cast<Instruction>(V))
         deadAllocas.emplace_back(I);
     } else {
-      if (!semantic.empty()) {
+      if (bSemOverride) {
         if (!annotation.GetSemanticString().empty()) {
           // TODO: warning for override the semantic in EltAnnotation.
         }
         // Just save parent semantic here, allocate later.
         annotation.SetSemanticString(semantic);
       }
+
+      // Flatten array of SV_Target.
+      StringRef semanticStr = annotation.GetSemanticString();
+      if (semanticStr.upper().find("SV_TARGET") == 0 &&
+          V->getType()->getPointerElementType()->isArrayTy()) {
+        Type *Ty = cast<ArrayType>(V->getType()->getPointerElementType());
+        StringRef targetStr;
+        unsigned  targetIndex;
+        Semantic::DecomposeNameAndIndex(semanticStr, &targetStr, &targetIndex);
+        // Replace target parameter with local target.
+        AllocaInst *localTarget = Builder.CreateAlloca(Ty);
+        V->replaceAllUsesWith(localTarget);
+        unsigned arraySize = 1;
+        std::vector<unsigned> arraySizeList;
+        while (Ty->isArrayTy()) {
+          unsigned size = Ty->getArrayNumElements();
+          arraySizeList.emplace_back(size);
+          arraySize *= size;
+          Ty = Ty->getArrayElementType();
+        }
+
+        unsigned arrayLevel = arraySizeList.size();
+        std::vector<unsigned> arrayIdxList(arrayLevel, 0);
+
+        // Create flattened target.
+        DxilFieldAnnotation EltAnnotation = annotation;
+        for (unsigned i=0;i<arraySize;i++) {
+          Value *Elt = Builder.CreateAlloca(Ty);
+          EltAnnotation.SetSemanticString(targetStr.str()+std::to_string(targetIndex+i));
+
+          // Add semantic type.
+          semanticTypeMap[EltAnnotation.GetSemanticString()] = Ty;
+
+          annotationMap[Elt] = EltAnnotation;
+          WorkList.push_front(Elt);
+          // Copy local target to flattened target.
+          std::vector<Value*> idxList(arrayLevel+1);
+          idxList[0] = Builder.getInt32(0);
+          for (unsigned idx=0;idx<arrayLevel; idx++) {
+            idxList[idx+1] = Builder.getInt32(arrayIdxList[idx]);
+          }
+
+          if (bForParam) {
+            // If Argument, copy before each return.
+            for (auto &BB : F->getBasicBlockList()) {
+              TerminatorInst *TI = BB.getTerminator();
+              if (isa<ReturnInst>(TI)) {
+                IRBuilder<> RetBuilder(TI);
+                Value *Ptr = RetBuilder.CreateGEP(localTarget, idxList);
+                Value *V = RetBuilder.CreateLoad(Ptr);
+                RetBuilder.CreateStore(V, Elt);
+              }
+            }
+          } else {
+            // Else, copy with Builder.
+            Value *Ptr = Builder.CreateGEP(localTarget, idxList);
+            Value *V = Builder.CreateLoad(Ptr);
+            Builder.CreateStore(V, Elt);
+          }
+
+          // Update arrayIdxList.
+          for (unsigned idx=arrayLevel;idx>0;idx--) {
+            arrayIdxList[idx-1]++;
+            if (arrayIdxList[idx-1] < arraySizeList[idx-1])
+              break;
+            arrayIdxList[idx-1] = 0;
+          }
+        }
+        // Don't override flattened SV_Target.
+        if (V == Arg) {
+          bSemOverride = false;
+        }
+        continue;
+      }
+
       // Cannot SROA, save it to final parameter list.
       FlatParamList.emplace_back(V);
       // Create ParamAnnotation for V.
-      FlatRetAnnotationList.emplace_back(DxilParameterAnnotation());
-      DxilParameterAnnotation &flatParamAnnotation = FlatRetAnnotationList.back();
+      FlatAnnotationList.emplace_back(DxilParameterAnnotation());
+      DxilParameterAnnotation &flatParamAnnotation = FlatAnnotationList.back();
 
       flatParamAnnotation.SetParamInputQual(paramAnnotation.GetParamInputQual());
             
@@ -4032,19 +4110,20 @@ void SROA_Parameter_HLSL::flattenArgument(
   for (Instruction *I : deadAllocas)
     I->eraseFromParent();
 
-  unsigned endArgIndex = FlatRetAnnotationList.size();
-  if (startArgIndex < endArgIndex) {
+  unsigned endArgIndex = FlatAnnotationList.size();
+  if (bForParam && startArgIndex < endArgIndex) {
     DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
     if (inputQual == DxilParamInputQual::OutStream0 ||
         inputQual == DxilParamInputQual::OutStream1 ||
         inputQual == DxilParamInputQual::OutStream2 ||
         inputQual == DxilParamInputQual::OutStream3)
       startArgIndex++;
+
     DxilParameterAnnotation &flatParamAnnotation =
-        FlatRetAnnotationList[startArgIndex];
+        FlatAnnotationList[startArgIndex];
     const std::string &semantic = flatParamAnnotation.GetSemanticString();
     if (!semantic.empty())
-      allocateSemanticIndex(FlatRetAnnotationList, startArgIndex,
+      allocateSemanticIndex(FlatAnnotationList, startArgIndex,
                             semanticTypeMap);
   }
 
@@ -4352,7 +4431,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
-    IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+    Instruction *InsertPt = F->getEntryBlock().getFirstInsertionPt();
+    IRBuilder<> Builder(InsertPt);
     Value *retValAddr = Builder.CreateAlloca(retType);
     // Create DbgDecl for the ret value.
     if (DISubprogram *funcDI = getDISubprogram(F)) {
@@ -4370,10 +4450,13 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     for (BasicBlock &BB : F->getBasicBlockList()) {
       if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
         // Create store for return.
-        IRBuilder<> Builder(RI);
-        Builder.CreateStore(RI->getReturnValue(), retValAddr);
+        IRBuilder<> RetBuilder(RI);
+        RetBuilder.CreateStore(RI->getReturnValue(), retValAddr);
         // Clone the return.
-        Builder.CreateRet(RI->getReturnValue());
+        ReturnInst *NewRet = RetBuilder.CreateRet(RI->getReturnValue());
+        if (RI == InsertPt) {
+          Builder.SetInsertPoint(NewRet);
+        }
         RI->eraseFromParent();
       }
     }

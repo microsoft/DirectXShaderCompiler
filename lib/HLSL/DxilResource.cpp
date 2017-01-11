@@ -42,7 +42,7 @@ Type *DxilResource::GetRetType() const {
   Constant *GV = GetGlobalSymbol();
   Type *Ty = GV->getType()->getPointerElementType();
   // For resource array, use element type.
-  if (Ty->isArrayTy())
+  while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
   // Get the struct buffer type like this %class.StructuredBuffer = type {
   // %struct.mat }.

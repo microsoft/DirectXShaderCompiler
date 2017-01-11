@@ -4284,6 +4284,8 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
         return Builder.CreateFPTrunc(Src, DstTy);
       }
     }
+  } else if (UndefValue *UV = dyn_cast<UndefValue>(Src)) {
+    return UndefValue::get(DstTy);
   } else {
     Instruction *I = cast<Instruction>(Src);
     if (SelectInst *SI = dyn_cast<SelectInst>(I)) {
