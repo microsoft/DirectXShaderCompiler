@@ -52,7 +52,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::BitcodeValid: return "Module bitcode is invalid";
     case hlsl::ValidationRule::MetaRequired: return "TODO - Required metadata missing";
     case hlsl::ValidationRule::MetaKnown: return "Named metadata '%0' is unknown";
-    case hlsl::ValidationRule::MetaUsed: return "TODO - All metadata must be used";
+    case hlsl::ValidationRule::MetaUsed: return "All metadata must be used by dxil";
     case hlsl::ValidationRule::MetaTarget: return "Unknown target triple '%0'";
     case hlsl::ValidationRule::MetaWellFormed: return "TODO - Metadata must be well-formed in operand count and types";
     case hlsl::ValidationRule::MetaSemanticLen: return "Semantic length must be at least 1 and at most 64";
@@ -80,6 +80,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaInvalidControlFlowHint: return "Invalid control flow hint";
     case hlsl::ValidationRule::MetaBranchFlatten: return "Can't use branch and flatten attributes together";
     case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch";
+    case hlsl::ValidationRule::MetaControlFlowHintNotOnControlFlow: return "Control flow hint only works on control flow inst";
     case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
@@ -98,18 +99,18 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrInBoundsAccess: return "TODO - Access to out-of-bounds memory is disallowed";
     case hlsl::ValidationRule::InstrOpConstRange: return "TODO - Constant values must be in-range for operation";
     case hlsl::ValidationRule::InstrImmBiasForSampleB: return "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate";
-    case hlsl::ValidationRule::InstrNoIndefiniteLog: return "TODO - No indefinite logarithm";
-    case hlsl::ValidationRule::InstrNoIndefiniteAsin: return "TODO - No indefinite arcsine";
-    case hlsl::ValidationRule::InstrNoIndefiniteAcos: return "TODO - No indefinite arccosine";
-    case hlsl::ValidationRule::InstrNoIDivByZero: return "TODO - No signed integer division by zero";
-    case hlsl::ValidationRule::InstrNoUDivByZero: return "TODO - No unsigned integer division by zero";
-    case hlsl::ValidationRule::InstrNoIndefiniteDsxy: return "TODO - No indefinite derivative calculation";
+    case hlsl::ValidationRule::InstrNoIndefiniteLog: return "No indefinite logarithm";
+    case hlsl::ValidationRule::InstrNoIndefiniteAsin: return "No indefinite arcsine";
+    case hlsl::ValidationRule::InstrNoIndefiniteAcos: return "No indefinite arccosine";
+    case hlsl::ValidationRule::InstrNoIDivByZero: return "No signed integer division by zero";
+    case hlsl::ValidationRule::InstrNoUDivByZero: return "No unsigned integer division by zero";
+    case hlsl::ValidationRule::InstrNoIndefiniteDsxy: return "No indefinite derivative calculation";
     case hlsl::ValidationRule::InstrERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS: return "TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS";
     case hlsl::ValidationRule::InstrMinPrecisionNotPrecise: return "Instructions marked precise may not refer to minprecision values";
     case hlsl::ValidationRule::InstrOnlyOneAllocConsume: return "RWStructuredBuffers may increment or decrement their counters, but not both.";
     case hlsl::ValidationRule::InstrTextureOffset: return "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7";
     case hlsl::ValidationRule::InstrWAR_GRADIENT_IN_VARYING_FLOW: return "TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value";
-    case hlsl::ValidationRule::InstrDeterminateDerivative: return "gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)";
+    case hlsl::ValidationRule::InstrDeterminateDerivative: return "TODO - gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)";
     case hlsl::ValidationRule::InstrERR_NON_LITERAL_RESOURCE: return "TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.";
     case hlsl::ValidationRule::InstrERR_NON_LITERAL_STREAM: return "TODO - stream parameter must come from a literal expression";
     case hlsl::ValidationRule::InstrCannotPullPosition: return "%0 does not support pull-model evaluation of position";
@@ -204,10 +205,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmUndefinedOutput: return "Not all elements of output %0 were written";
     case hlsl::ValidationRule::SmCSNoReturn: return "Compute shaders can't return values, outputs must be written in writable resources (UAVs).";
     case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct";
-    case hlsl::ValidationRule::SmERR_MAX_CONST_EXCEEDED: return "TODO - ERR_MAX_CONST_EXCEEDED";
-    case hlsl::ValidationRule::SmERR_MAX_SAMPLER_EXCEEDED: return "TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)";
-    case hlsl::ValidationRule::SmERR_MAX_TEXTURE_EXCEEDED: return "TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)";
-    case hlsl::ValidationRule::SmERR_MAX_CBUFFER_EXCEEDED: return "TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)";
     case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_RESOURCE";
     case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE";
     case hlsl::ValidationRule::SmERR_BIND_RESOURCE_RANGE_OVERFLOW: return "TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW";
@@ -287,11 +284,20 @@ struct ValidationContext {
   std::vector<unsigned> outputCols;
   std::vector<unsigned> patchConstCols;
   unsigned domainLocSize;
+  const unsigned kDxilControlFlowHintMDKind;
+  const unsigned kDxilPreciseMDKind;
+  const unsigned kLLVMLoopMDKind;
 
   ValidationContext(Module &llvmModule, Module *DebugModule,
                     DxilModule &dxilModule,
                     DiagnosticPrinterRawOStream &DiagPrn)
       : M(llvmModule), pDebugModule(DebugModule), DxilMod(dxilModule),
+        kDxilControlFlowHintMDKind(llvmModule.getContext().getMDKindID(
+            DxilMDHelper::kDxilControlFlowHintMDName)),
+        kDxilPreciseMDKind(llvmModule.getContext().getMDKindID(
+            DxilMDHelper::kDxilPreciseAttributeMDName)),
+        kLLVMLoopMDKind(llvmModule.getContext().getMDKindID(
+            "llvm.loop")),
         DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1) {
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
@@ -883,7 +889,7 @@ static void ValidateSampleInst(CallInst *CI, Value *srvHandle, Value *samplerHan
     break;
   default:
     ValCtx.EmitInstrError(CI, rule);
-    break;
+    return;
   }
 
   // Coord match resource kind.
@@ -1718,6 +1724,41 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     }
 
   } break;
+  case DXIL::OpCode::Asin: {
+    DxilInst_Asin I(CI);
+    if (ConstantFP *imm = dyn_cast<ConstantFP>(I.get_value())) {
+      if (imm->getValueAPF().isInfinity()) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteAsin);
+      }
+    }
+  } break;
+  case DXIL::OpCode::Acos: {
+    DxilInst_Acos I(CI);
+    if (ConstantFP *imm = dyn_cast<ConstantFP>(I.get_value())) {
+      if (imm->getValueAPF().isInfinity()) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteAcos);
+      }
+    }
+  } break;
+  case DXIL::OpCode::Log: {
+    DxilInst_Log I(CI);
+    if (ConstantFP *imm = dyn_cast<ConstantFP>(I.get_value())) {
+      if (imm->getValueAPF().isInfinity()) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteLog);
+      }
+    }
+  } break;
+  case DXIL::OpCode::DerivFineX:
+  case DXIL::OpCode::DerivFineY:
+  case DXIL::OpCode::DerivCoarseX:
+  case DXIL::OpCode::DerivCoarseY: {
+    Value *V = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
+    if (ConstantFP *imm = dyn_cast<ConstantFP>(V)) {
+      if (imm->getValueAPF().isInfinity()) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteDsxy);
+      }
+    }
+  } break;
   }
 }
 
@@ -2067,6 +2108,137 @@ static void ValidateControlFlowHint(BasicBlock &bb, ValidationContext &ValCtx) {
   }
 }
 
+static void ValidateTBAAMetadata(MDNode *Node, ValidationContext &ValCtx) {
+  switch (Node->getNumOperands()) {
+  case 1: {
+    if (Node->getOperand(0)->getMetadataID() != Metadata::MDStringKind) {
+      ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    }
+  } break;
+  case 2: {
+    MDNode *rootNode = dyn_cast<MDNode>(Node->getOperand(1));
+    if (!rootNode) {
+      ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    } else {
+      ValidateTBAAMetadata(rootNode, ValCtx);
+    }
+  } break;
+  case 3: {
+    MDNode *rootNode = dyn_cast<MDNode>(Node->getOperand(1));
+    if (!rootNode) {
+      ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    } else {
+      ValidateTBAAMetadata(rootNode, ValCtx);
+    }
+    ConstantAsMetadata *pointsToConstMem = dyn_cast<ConstantAsMetadata>(Node->getOperand(2));
+    if (!pointsToConstMem) {
+      ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    } else {
+      ConstantInt *isConst = dyn_cast<ConstantInt>(pointsToConstMem->getValue());
+      if (!isConst) {
+        ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+      } else if (isConst->getValue().getLimitedValue() > 1) {
+        ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+      }
+    }
+  } break;
+  default:
+    ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+  }
+}
+
+static void ValidateLoopMetadata(MDNode *Node, ValidationContext &ValCtx) {
+  if (Node->getNumOperands() == 0 || Node->getNumOperands() > 2) {
+    ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    return;
+  }
+  if (Node != Node->getOperand(0).get()) {
+    ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    return;
+  }
+  if (Node->getNumOperands() == 1) {
+    return;
+  }
+
+  MDNode *LoopNode = dyn_cast<MDNode>(Node->getOperand(1).get());
+  if (!LoopNode) {
+    ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  if (LoopNode->getNumOperands() < 1 || LoopNode->getNumOperands() > 2) {
+    ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  if (LoopNode->getOperand(0) == LoopNode) {
+    ValidateLoopMetadata(LoopNode, ValCtx);
+    return;
+  }
+
+  MDString *LoopStr = dyn_cast<MDString>(LoopNode->getOperand(0));
+  if (!LoopStr) {
+    ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  StringRef Name = LoopStr->getString();
+  if (Name != "llvm.loop.unroll.full" && Name != "llvm.loop.unroll.disable" &&
+      Name != "llvm.loop.unroll.count") {
+    ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  if (Name == "llvm.loop.unroll.count") {
+    if (LoopNode->getNumOperands() != 2) {
+      ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+      return;
+    }
+    ConstantAsMetadata *CountNode =
+        dyn_cast<ConstantAsMetadata>(LoopNode->getOperand(1));
+    if (!CountNode) {
+      ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+    } else {
+      ConstantInt *Count = dyn_cast<ConstantInt>(CountNode->getValue());
+      if (!Count) {
+        ValCtx.EmitMetaError(CountNode, ValidationRule::MetaWellFormed);
+      }
+    }
+  }
+}
+
+static void ValidateInstructionMetadata(Instruction *I,
+                                        ValidationContext &ValCtx) {
+  SmallVector<std::pair<unsigned, MDNode *>, 2> MDNodes;
+  I->getAllMetadataOtherThanDebugLoc(MDNodes);
+  for (auto &MD : MDNodes) {
+    if (MD.first == ValCtx.kDxilControlFlowHintMDKind) {
+      if (!isa<TerminatorInst>(I)) {
+        ValCtx.EmitInstrError(
+            I, ValidationRule::MetaControlFlowHintNotOnControlFlow);
+      }
+    } else if (MD.first == ValCtx.kDxilPreciseMDKind) {
+      // Validated in IsPrecise.
+    } else if (MD.first == ValCtx.kLLVMLoopMDKind) {
+      ValidateLoopMetadata(MD.second, ValCtx);
+    } else if (MD.first == LLVMContext::MD_tbaa) {
+      ValidateTBAAMetadata(MD.second, ValCtx);
+    } else if (MD.first == LLVMContext::MD_range) {
+      // Validated in Verifier.cpp.
+    } else {
+      ValCtx.EmitMetaError(MD.second, ValidationRule::MetaUsed);
+    }
+  }
+}
+
+static void ValidateFunctionMetadata(Function *F, ValidationContext &ValCtx) {
+  SmallVector<std::pair<unsigned, MDNode *>, 2> MDNodes;
+  F->getAllMetadata(MDNodes);
+  for (auto &MD : MDNodes) {
+    ValCtx.EmitMetaError(MD.second, ValidationRule::MetaUsed);
+  }
+}
+
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
@@ -2075,6 +2247,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
     for (auto i = b->begin(), iend = b->end(); i != iend; ++i) {
       llvm::Instruction &I = *i;
+
+      if (I.hasMetadata()) {
+        ValidateInstructionMetadata(&I, ValCtx);
+      }
 
       // Instructions must be allowed.
       if (!IsLLVMInstructionAllowed(I)) {
@@ -2087,7 +2263,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         if (IsPrecise(I, ValCtx)) {
           for (auto &O : I.operands()) {
             if (IsValueMinPrec(ValCtx.DxilMod, O)) {
-              ValCtx.EmitInstrError(&I, ValidationRule::InstrMinPrecisionNotPrecise);
+              ValCtx.EmitInstrError(
+                  &I, ValidationRule::InstrMinPrecisionNotPrecise);
               break;
             }
           }
@@ -2107,7 +2284,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           Value *opcodeVal = CI->getOperand(0);
           ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
           if (OpcodeConst == nullptr) {
-            ValCtx.EmitInstrFormatError(&I, ValidationRule::InstrOpConst, {"Opcode", "DXIL operation"});
+            ValCtx.EmitInstrFormatError(&I, ValidationRule::InstrOpConst,
+                                        {"Opcode", "DXIL operation"});
             continue;
           }
 
@@ -2135,8 +2313,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       if (!isa<PHINode>(&I)) {
         for (Value *op : I.operands()) {
           if (isa<UndefValue>(op)) {
-            ValCtx.EmitInstrError(
-                &I, ValidationRule::InstrNoReadingUninitialized);
+            ValCtx.EmitInstrError(&I,
+                                  ValidationRule::InstrNoReadingUninitialized);
           } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(op)) {
             for (Value *opCE : CE->operands()) {
               if (isa<UndefValue>(opCE)) {
@@ -2183,6 +2361,24 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           continue;
         }
       } break;
+      case Instruction::SDiv: {
+        BinaryOperator *BO = cast<BinaryOperator>(&I);
+        Value *V = BO->getOperand(1);
+        if (ConstantInt *imm = dyn_cast<ConstantInt>(V)) {
+          if (imm->getValue().getLimitedValue() == 0) {
+            ValCtx.EmitInstrError(BO, ValidationRule::InstrNoIDivByZero);
+          }
+        }
+      } break;
+      case Instruction::UDiv: {
+        BinaryOperator *BO = cast<BinaryOperator>(&I);
+        Value *V = BO->getOperand(1);
+        if (ConstantInt *imm = dyn_cast<ConstantInt>(V)) {
+          if (imm->getValue().getLimitedValue() == 0) {
+            ValCtx.EmitInstrError(BO, ValidationRule::InstrNoUDivByZero);
+          }
+        }
+      } break;
       }
 
       if (PointerType *PT = dyn_cast<PointerType>(I.getType())) {
@@ -2214,165 +2410,196 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   }
 }
 
-static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
-  if (F.isDeclaration()) {
-    ValidateExternalFunction(&F, ValCtx);
-  } else {
-    DxilFunctionAnnotation *funcAnnotation = ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
-    if (!funcAnnotation) {
-      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation, {F.getName().str().c_str()});
-      return;
+static void ValidateFunction(Function & F, ValidationContext & ValCtx) {
+    if (F.isDeclaration()) {
+        ValidateExternalFunction(&F, ValCtx);
     }
-
-    // Validate parameter type.
-    for (auto &arg : F.args()) {
-      Type *argTy = arg.getType();
-      if (argTy->isPointerTy())
-        argTy = argTy->getPointerElementType();
-      while (argTy->isArrayTy()) {
-        argTy = argTy->getArrayElementType();
-      }
-
-      DxilParameterAnnotation &paramAnnoation = funcAnnotation->GetParameterAnnotation(arg.getArgNo());
-
-      if (argTy->isStructTy()  && !HLModule::IsStreamOutputType(argTy) &&
-          !paramAnnoation.HasMatrixAnnotation()) {
-        if (arg.hasName())
-          ValCtx.EmitFormatError(
-              ValidationRule::DeclFnFlattenParam,
-              {arg.getName().str().c_str(), F.getName().str().c_str()});
-        else
-          ValCtx.EmitFormatError(ValidationRule::DeclFnFlattenParam,
-                                 {std::to_string(arg.getArgNo()).c_str(),
-                                  F.getName().str().c_str()});
-        break;
-      }
-    }
-
-    ValidateFunctionBody(&F, ValCtx);
-  }
-}
-
-static void ValidateGlobalVariable(GlobalVariable &GV,
-                                   ValidationContext &ValCtx) {
-  bool isInternalGV =
-      HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV);
-
-  if (!isInternalGV) {
-    if (!GV.user_empty()) {
-      bool hasInstructionUser = false;
-      for (User *U : GV.users()) {
-        if (isa<Instruction>(U)) {
-          hasInstructionUser = true;
-          break;
+    else {
+        DxilFunctionAnnotation *funcAnnotation =
+            ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
+        if (!funcAnnotation) {
+            ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation,
+            { F.getName().str().c_str() });
+            return;
         }
-      }
-      // External GV should not have instruction user.
-      if (hasInstructionUser) {
-        ValCtx.EmitGlobalValueError(&GV, ValidationRule::DeclNotUsedExternal);
-      }
-    }
-    // Must have metadata description for each variable.
 
-  } else {
-    // Internal GV must have user.
-    if (GV.user_empty()) {
-      ValCtx.EmitGlobalValueError(&GV, ValidationRule::DeclUsedInternal);
-    }
+        // Validate parameter type.
+        for (auto &arg : F.args()) {
+            Type *argTy = arg.getType();
+            if (argTy->isPointerTy())
+                argTy = argTy->getPointerElementType();
+            while (argTy->isArrayTy()) {
+                argTy = argTy->getArrayElementType();
+            }
 
-    // Validate type for internal globals.
-    if (HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV)) {
-      Type *Ty = GV.getType()->getPointerElementType();
-      ValidateType(Ty, ValCtx);
-    }
-  }
-}
+            DxilParameterAnnotation &paramAnnoation =
+                funcAnnotation->GetParameterAnnotation(arg.getArgNo());
 
-static void ValidateGlobalVariables(ValidationContext &ValCtx) {
-  DxilModule &M = ValCtx.DxilMod;
-
-  unsigned TGSMSize = 0;
-  const DataLayout &DL = M.GetModule()->getDataLayout();
-  for (GlobalVariable &GV : M.GetModule()->globals()) {
-    ValidateGlobalVariable(GV, ValCtx);
-    if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
-      TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
-    }
-  }
-
-  if (TGSMSize > DXIL::kMaxTGSMSize) {
-    ValCtx.EmitFormatError(ValidationRule::SmMaxTGSMSize,
-                          {std::to_string(TGSMSize).c_str(),
-                           std::to_string(DXIL::kMaxTGSMSize).c_str()});
-  }
-}
-
-static void ValidateValidatorVersion(ValidationContext &ValCtx) {
-  Module *pModule = &ValCtx.M;
-  NamedMDNode *pNode = pModule->getNamedMetadata("dx.valver");
-  if (pNode == nullptr) {
-    return;
-  }
-  if (pNode->getNumOperands() == 1) {
-    MDTuple *pVerValues = dyn_cast<MDTuple>(pNode->getOperand(0));
-    if (pVerValues != nullptr && pVerValues->getNumOperands() == 2) {
-      uint64_t majorVer, minorVer;
-      if (GetNodeOperandAsInt(ValCtx, pVerValues, 0, &majorVer) &&
-          GetNodeOperandAsInt(ValCtx, pVerValues, 1, &minorVer)) {
-        unsigned curMajor, curMinor;
-        GetValidationVersion(&curMajor, &curMinor);
-        // This will need to be updated as major/minor versions evolve,
-        // depending on the degree of compat across versions.
-        if (majorVer == curMajor && minorVer <= curMinor) {
-          return;
+            if (argTy->isStructTy() && !HLModule::IsStreamOutputType(argTy) &&
+                !paramAnnoation.HasMatrixAnnotation()) {
+                if (arg.hasName())
+                    ValCtx.EmitFormatError(
+                        ValidationRule::DeclFnFlattenParam,
+                        { arg.getName().str().c_str(), F.getName().str().c_str() });
+                else
+                    ValCtx.EmitFormatError(ValidationRule::DeclFnFlattenParam,
+                    { std::to_string(arg.getArgNo()).c_str(),
+                     F.getName().str().c_str() });
+                break;
+            }
         }
-      }
+
+        ValidateFunctionBody(&F, ValCtx);
     }
-  }
-  ValCtx.EmitError(ValidationRule::MetaWellFormed);
+
+    if (F.hasMetadata()) {
+        ValidateFunctionMetadata(&F, ValCtx);
+    }
 }
 
-static void ValidateMetadata(ValidationContext &ValCtx) {
-  Module *pModule = &ValCtx.M;
-  const std::string &target = pModule->getTargetTriple();
-  if (target != "dxil-ms-dx") {
-    ValCtx.EmitFormatError(ValidationRule::MetaTarget, { target.c_str() });
-  }
+static void ValidateGlobalVariable(GlobalVariable & GV,
+    ValidationContext & ValCtx) {
+    bool isInternalGV =
+        HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV);
 
-  for (auto &NamedMetaNode : pModule->named_metadata()) {
-    if (!DxilModule::IsKnownNamedMetaData(NamedMetaNode)) {
-      StringRef name = NamedMetaNode.getName();
-      if (!name.startswith_lower("llvm."))
-        ValCtx.EmitFormatError(ValidationRule::MetaKnown, { name.str().c_str() });
+    if (!isInternalGV) {
+        if (!GV.user_empty()) {
+            bool hasInstructionUser = false;
+            for (User *U : GV.users()) {
+                if (isa<Instruction>(U)) {
+                    hasInstructionUser = true;
+                    break;
+                }
+            }
+            // External GV should not have instruction user.
+            if (hasInstructionUser) {
+                ValCtx.EmitGlobalValueError(&GV, ValidationRule::DeclNotUsedExternal);
+            }
+        }
+        // Must have metadata description for each variable.
+
     }
-  }
+    else {
+        // Internal GV must have user.
+        if (GV.user_empty()) {
+            ValCtx.EmitGlobalValueError(&GV, ValidationRule::DeclUsedInternal);
+        }
 
-  if (!ValCtx.DxilMod.GetShaderModel()->IsValid()) {
-    ValCtx.EmitFormatError(ValidationRule::SmName, { ValCtx.DxilMod.GetShaderModel()->GetName() });
-  }
-
-  ValidateValidatorVersion(ValCtx);
+        // Validate type for internal globals.
+        if (HLModule::IsStaticGlobal(&GV) ||
+            HLModule::IsSharedMemoryGlobal(&GV)) {
+            Type *Ty = GV.getType()->getPointerElementType();
+            ValidateType(Ty, ValCtx);
+        }
+    }
 }
 
-static void ValidateResourceOverlap(hlsl::DxilResourceBase &res,
-    SpacesAllocator<unsigned, DxilResourceBase> &spaceAllocator,
-    ValidationContext &ValCtx) {
-  unsigned base = res.GetLowerBound();
-  unsigned size = res.GetRangeSize();
-  unsigned space = res.GetSpaceID();
+static void ValidateGlobalVariables(ValidationContext & ValCtx) {
+    DxilModule &M = ValCtx.DxilMod;
 
-  auto &allocator = spaceAllocator.Get(space);
-  unsigned end = base + size - 1;
-  // unbounded
-  if (end < base)
-    end = size;
-  const DxilResourceBase *conflictRes = allocator.Insert(&res, base, end);
-  if (conflictRes) {
-      ValCtx.EmitFormatError(ValidationRule::SmResourceRangeOverlap,
-          {res.GetGlobalName().c_str(), std::to_string(base).c_str(),
-           std::to_string(size).c_str(), std::to_string(conflictRes->GetLowerBound()).c_str(),
-           std::to_string(conflictRes->GetRangeSize()).c_str(), std::to_string(space).c_str()});
-  }
+    unsigned TGSMSize = 0;
+    const DataLayout &DL = M.GetModule()->getDataLayout();
+    for (GlobalVariable &GV : M.GetModule()->globals()) {
+        ValidateGlobalVariable(GV, ValCtx);
+        if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
+            TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
+        }
+    }
+
+    if (TGSMSize > DXIL::kMaxTGSMSize) {
+        ValCtx.EmitFormatError(ValidationRule::SmMaxTGSMSize,
+        { std::to_string(TGSMSize).c_str(),
+         std::to_string(DXIL::kMaxTGSMSize).c_str() });
+    }
+}
+
+static void ValidateValidatorVersion(ValidationContext & ValCtx) {
+    Module *pModule = &ValCtx.M;
+    NamedMDNode *pNode = pModule->getNamedMetadata("dx.valver");
+    if (pNode == nullptr) {
+        return;
+    }
+    if (pNode->getNumOperands() == 1) {
+        MDTuple *pVerValues = dyn_cast<MDTuple>(pNode->getOperand(0));
+        if (pVerValues != nullptr && pVerValues->getNumOperands() == 2) {
+            uint64_t majorVer, minorVer;
+            if (GetNodeOperandAsInt(ValCtx, pVerValues, 0, &majorVer) &&
+                GetNodeOperandAsInt(ValCtx, pVerValues, 1, &minorVer)) {
+                unsigned curMajor, curMinor;
+                GetValidationVersion(&curMajor, &curMinor);
+                // This will need to be updated as major/minor versions evolve,
+                // depending on the degree of compat across versions.
+                if (majorVer == curMajor && minorVer <= curMinor) {
+                    return;
+                }
+            }
+        }
+    }
+    ValCtx.EmitError(ValidationRule::MetaWellFormed);
+}
+
+static void ValidateMetadata(ValidationContext & ValCtx) {
+    Module *pModule = &ValCtx.M;
+    const std::string &target = pModule->getTargetTriple();
+    if (target != "dxil-ms-dx") {
+        ValCtx.EmitFormatError(ValidationRule::MetaTarget, { target.c_str() });
+    }
+
+    StringMap<bool> llvmNamedMeta;
+    // These llvm named metadata is verified in lib/IR/Verifier.cpp.
+    llvmNamedMeta["llvm.dbg.cu"];
+    llvmNamedMeta["llvm.dbg.contents"];
+    llvmNamedMeta["llvm.dbg.defines"];
+    llvmNamedMeta["llvm.dbg.mainFileName"];
+    llvmNamedMeta["llvm.dbg.args"];
+    llvmNamedMeta["llvm.ident"];
+    // Not for HLSL which does not have vtable.
+    // llvmNamedMeta["llvm.bitsets"];
+    llvmNamedMeta["llvm.module.flags"];
+
+    for (auto &NamedMetaNode : pModule->named_metadata()) {
+        if (!DxilModule::IsKnownNamedMetaData(NamedMetaNode)) {
+            StringRef name = NamedMetaNode.getName();
+            if (!name.startswith_lower("llvm."))
+                ValCtx.EmitFormatError(ValidationRule::MetaKnown,
+                { name.str().c_str() });
+            else {
+                if (llvmNamedMeta.count(name) == 0) {
+                    ValCtx.EmitFormatError(ValidationRule::MetaKnown,
+                    { name.str().c_str() });
+                }
+            }
+        }
+    }
+
+    if (!ValCtx.DxilMod.GetShaderModel()->IsValid()) {
+        ValCtx.EmitFormatError(ValidationRule::SmName,
+        { ValCtx.DxilMod.GetShaderModel()->GetName() });
+    }
+
+    ValidateValidatorVersion(ValCtx);
+}
+
+static void ValidateResourceOverlap(
+    hlsl::DxilResourceBase & res,
+    SpacesAllocator<unsigned, DxilResourceBase> & spaceAllocator,
+    ValidationContext & ValCtx) {
+    unsigned base = res.GetLowerBound();
+    unsigned size = res.GetRangeSize();
+    unsigned space = res.GetSpaceID();
+
+    auto &allocator = spaceAllocator.Get(space);
+    unsigned end = base + size - 1;
+    // unbounded
+    if (end < base)
+        end = size;
+    const DxilResourceBase *conflictRes = allocator.Insert(&res, base, end);
+    if (conflictRes) {
+        ValCtx.EmitFormatError(ValidationRule::SmResourceRangeOverlap,
+        { res.GetGlobalName().c_str(), std::to_string(base).c_str(),
+         std::to_string(size).c_str(), std::to_string(conflictRes->GetLowerBound()).c_str(),
+         std::to_string(conflictRes->GetRangeSize()).c_str(), std::to_string(space).c_str() });
+    }
 }
 
 static void ValidateResource(hlsl::DxilResource &res,
@@ -3513,7 +3740,6 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   for (Function &F : pModule->functions()) {
     ValidateFunction(F, ValCtx);
   }
-
 
   ValidateUninitializedOutput(ValCtx);
 

@@ -81,6 +81,13 @@ public:
   TEST_METHOD(PsInputSemantic)
   TEST_METHOD(PsOutputSemantic)
   TEST_METHOD(ArrayOfSVTarget)
+  TEST_METHOD(InfiniteLog)
+  TEST_METHOD(InfiniteAsin)
+  TEST_METHOD(InfiniteAcos)
+  TEST_METHOD(InfiniteDdxDdy)
+  TEST_METHOD(IDivByZero)
+  TEST_METHOD(UDivByZero)
+  TEST_METHOD(UnusedMetadata)
 
   TEST_METHOD(WhenInstrDisallowedThenFail);
   TEST_METHOD(WhenDepthNotFloatThenFail);
@@ -780,6 +787,61 @@ TEST_F(ValidationTest, ArrayOfSVTarget) {
       "i32 6, !\"SV_Target\", i8 9, i8 16, !36, i8 0, i32 1",
       "i32 6, !\"SV_Target\", i8 9, i8 16, !36, i8 0, i32 2",
       "Pixel shader output registers are not indexable.");
+}
+
+TEST_F(ValidationTest, InfiniteLog) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      "op.unary.f32(i32 22, float %3)",
+      "op.unary.f32(i32 22, float 0x7FF0000000000000)",
+      "No indefinite logarithm");
+}
+
+TEST_F(ValidationTest, InfiniteAsin) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      "op.unary.f32(i32 16, float %3)",
+      "op.unary.f32(i32 16, float 0x7FF0000000000000)",
+      "No indefinite arcsine");
+}
+
+TEST_F(ValidationTest, InfiniteAcos) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      "op.unary.f32(i32 15, float %3)",
+      "op.unary.f32(i32 15, float 0x7FF0000000000000)",
+      "No indefinite arccosine");
+}
+
+TEST_F(ValidationTest, InfiniteDdxDdy) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      "op.unary.f32(i32 86, float %3)",
+      "op.unary.f32(i32 86, float 0x7FF0000000000000)",
+      "No indefinite derivative calculation");
+}
+
+TEST_F(ValidationTest, IDivByZero) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      "sdiv i32 %8, %9",
+      "sdiv i32 %8, 0",
+      "No signed integer division by zero");
+}
+
+TEST_F(ValidationTest, UDivByZero) {
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      "udiv i32 %5, %6",
+      "udiv i32 %5, 0",
+      "No unsigned integer division by zero");
+}
+
+TEST_F(ValidationTest, UnusedMetadata) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\loop2.hlsl", "ps_5_0",
+                          ", !llvm.loop ",
+                          ", !llvm.loop2 ",
+                          "All metadata must be used by dxil");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {

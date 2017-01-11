@@ -1374,7 +1374,7 @@ class db_dxil(object):
 
         self.add_valrule("Meta.Required", "TODO - Required metadata missing")
         self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown")
-        self.add_valrule("Meta.Used", "TODO - All metadata must be used")
+        self.add_valrule("Meta.Used", "All metadata must be used by dxil")
         self.add_valrule_msg("Meta.Target", "Target triple must be 'dxil-ms-dx'", "Unknown target triple '%0'")
         self.add_valrule("Meta.WellFormed", "TODO - Metadata must be well-formed in operand count and types")
         self.add_valrule("Meta.SemanticLen", "Semantic length must be at least 1 and at most 64")
@@ -1402,6 +1402,7 @@ class db_dxil(object):
         self.add_valrule("Meta.InvalidControlFlowHint", "Invalid control flow hint")
         self.add_valrule("Meta.BranchFlatten", "Can't use branch and flatten attributes together")
         self.add_valrule("Meta.ForceCaseOnSwitch", "Attribute forcecase only works for switch")
+        self.add_valrule("Meta.ControlFlowHintNotOnControlFlow", "Control flow hint only works on control flow inst")
         self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
@@ -1425,12 +1426,12 @@ class db_dxil(object):
 
         # Need to clean up all error messages and actually implement.
         # Midlevel
-        self.add_valrule("Instr.NoIndefiniteLog", "TODO - No indefinite logarithm")
-        self.add_valrule("Instr.NoIndefiniteAsin", "TODO - No indefinite arcsine")
-        self.add_valrule("Instr.NoIndefiniteAcos", "TODO - No indefinite arccosine")
-        self.add_valrule("Instr.NoIDivByZero", "TODO - No signed integer division by zero")
-        self.add_valrule("Instr.NoUDivByZero", "TODO - No unsigned integer division by zero")
-        self.add_valrule("Instr.NoIndefiniteDsxy", "TODO - No indefinite derivative calculation")
+        self.add_valrule("Instr.NoIndefiniteLog", "No indefinite logarithm")
+        self.add_valrule("Instr.NoIndefiniteAsin", "No indefinite arcsine")
+        self.add_valrule("Instr.NoIndefiniteAcos", "No indefinite arccosine")
+        self.add_valrule("Instr.NoIDivByZero", "No signed integer division by zero")
+        self.add_valrule("Instr.NoUDivByZero", "No unsigned integer division by zero")
+        self.add_valrule("Instr.NoIndefiniteDsxy", "No indefinite derivative calculation")
         self.add_valrule("Instr.ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS", "TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS")
         self.add_valrule("Instr.MinPrecisionNotPrecise", "Instructions marked precise may not refer to minprecision values")
 
@@ -1441,7 +1442,7 @@ class db_dxil(object):
         self.add_valrule("Instr.TextureOffset", "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7")
         # D3D12
         self.add_valrule("Instr.WAR_GRADIENT_IN_VARYING_FLOW", "TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value")
-        self.add_valrule("Instr.DeterminateDerivative", "gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)")
+        self.add_valrule("Instr.DeterminateDerivative", "TODO - gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)")
         self.add_valrule("Instr.ERR_NON_LITERAL_RESOURCE", "TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.")
         self.add_valrule("Instr.ERR_NON_LITERAL_STREAM", "TODO - stream parameter must come from a literal expression")
         self.add_valrule_msg("Instr.CannotPullPosition", "pull-model evaluation of position disallowed", "%0 does not support pull-model evaluation of position")
@@ -1546,10 +1547,6 @@ class db_dxil(object):
         self.add_valrule("Sm.UndefinedOutput", "Not all elements of output %0 were written")
         self.add_valrule("Sm.CSNoReturn", "Compute shaders can't return values, outputs must be written in writable resources (UAVs).")
         self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct")
-        self.add_valrule("Sm.ERR_MAX_CONST_EXCEEDED", "TODO - ERR_MAX_CONST_EXCEEDED")
-        self.add_valrule("Sm.ERR_MAX_SAMPLER_EXCEEDED", "TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)")
-        self.add_valrule("Sm.ERR_MAX_TEXTURE_EXCEEDED", "TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)")
-        self.add_valrule("Sm.ERR_MAX_CBUFFER_EXCEEDED", "TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)")
         self.add_valrule("Sm.ERR_UNABLE_TO_BIND_RESOURCE", "TODO - ERR_UNABLE_TO_BIND_RESOURCE")
         self.add_valrule("Sm.ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE", "TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE")
         self.add_valrule("Sm.ERR_BIND_RESOURCE_RANGE_OVERFLOW", "TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW")

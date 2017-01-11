@@ -2140,7 +2140,7 @@ INSTR.CBUFFERCLASSFORCBUFFERHANDLE        Expect Cbuffer for CBufferLoad handle
 INSTR.CBUFFEROUTOFBOUND                   Cbuffer access out of bound
 INSTR.COORDINATECOUNTFORRAWTYPEDBUF       raw/typed buffer don't need 2 coordinates
 INSTR.COORDINATECOUNTFORSTRUCTBUF         structured buffer require 2 coordinates
-INSTR.DETERMINATEDERIVATIVE               gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)
+INSTR.DETERMINATEDERIVATIVE               TODO - gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)
 INSTR.DXILSTRUCTUSER                      Dxil struct types should only used by ExtractValue
 INSTR.DXILSTRUCTUSEROUTOFBOUND            Index out of bound when extract value from dxil struct types
 INSTR.ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS
@@ -2159,14 +2159,14 @@ INSTR.INBOUNDSACCESS                      TODO - Access to out-of-bounds memory 
 INSTR.MINPRECISIONNOTPRECISE              Instructions marked precise may not refer to minprecision values
 INSTR.MIPLEVELFORGETDIMENSION             Use mip level on buffer when GetDimensions
 INSTR.MIPONUAVLOAD                        uav load don't support mipLevel/sampleIndex
-INSTR.NOIDIVBYZERO                        TODO - No signed integer division by zero
-INSTR.NOINDEFINITEACOS                    TODO - No indefinite arccosine
-INSTR.NOINDEFINITEASIN                    TODO - No indefinite arcsine
-INSTR.NOINDEFINITEDSXY                    TODO - No indefinite derivative calculation
-INSTR.NOINDEFINITELOG                     TODO - No indefinite logarithm
+INSTR.NOIDIVBYZERO                        No signed integer division by zero
+INSTR.NOINDEFINITEACOS                    No indefinite arccosine
+INSTR.NOINDEFINITEASIN                    No indefinite arcsine
+INSTR.NOINDEFINITEDSXY                    No indefinite derivative calculation
+INSTR.NOINDEFINITELOG                     No indefinite logarithm
 INSTR.NOPTRCAST                           TODO - Cast between pointer types disallowed
 INSTR.NOREADINGUNINITIALIZED              Instructions should not read uninitialized value
-INSTR.NOUDIVBYZERO                        TODO - No unsigned integer division by zero
+INSTR.NOUDIVBYZERO                        No unsigned integer division by zero
 INSTR.OFFSETONUAVLOAD                     uav load don't support offset
 INSTR.OLOAD                               DXIL intrinsic overload must be valid
 INSTR.ONLYONEALLOCCONSUME                 RWStructuredBuffers may increment or decrement their counters, but not both.
@@ -2206,6 +2206,7 @@ INSTR.WAR_GRADIENT_IN_VARYING_FLOW        TODO - gradient instruction used in a 
 INSTR.WRITEMASKFORTYPEDUAVSTORE           store on typed uav must write to all four components of the UAV
 INSTR.WRITEMASKMATCHVALUEFORUAVSTORE      uav store write mask must match store value mask, write mask is %0 and store value mask is %1
 META.BRANCHFLATTEN                        Can't use branch and flatten attributes together
+META.CONTROLFLOWHINTNOTONCONTROLFLOW      Control flow hint only works on control flow inst
 META.DENSERESIDS                          Resource identifiers must be zero-based and dense
 META.ENTRYFUNCTION                        entrypoint not found
 META.FLAGSUSAGE                           Flags must match usage
@@ -2232,7 +2233,7 @@ META.TARGET                               Target triple must be 'dxil-ms-dx'
 META.TESSELLATOROUTPUTPRIMITIVE           Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
 META.TESSELLATORPARTITION                 Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
 META.TEXTURETYPE                          elements of typed buffers and textures must fit in four 32-bit quantities
-META.USED                                 TODO - All metadata must be used
+META.USED                                 All metadata must be used by dxil
 META.VALIDSAMPLERMODE                     Invalid sampler mode on sampler
 META.VALUERANGE                           Metadata value must be within range
 META.WELLFORMED                           TODO - Metadata must be well-formed in operand count and types
@@ -2246,10 +2247,6 @@ SM.CSNORETURN                             Compute shaders can't return values, o
 SM.DOMAINLOCATIONIDXOOB                   DomainLocation component index out of bounds for the domain.
 SM.DSINPUTCONTROLPOINTCOUNTRANGE          DS input control point count must be [0..%0].  %1 specified
 SM.ERR_BIND_RESOURCE_RANGE_OVERFLOW       TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
-SM.ERR_MAX_CBUFFER_EXCEEDED               TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)
-SM.ERR_MAX_CONST_EXCEEDED                 TODO - ERR_MAX_CONST_EXCEEDED
-SM.ERR_MAX_SAMPLER_EXCEEDED               TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)
-SM.ERR_MAX_TEXTURE_EXCEEDED               TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)
 SM.ERR_UNABLE_TO_BIND_RESOURCE            TODO - ERR_UNABLE_TO_BIND_RESOURCE
 SM.ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE  TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE
 SM.GSINSTANCECOUNTRANGE                   GS instance count must be [1..%0].  %1 specified

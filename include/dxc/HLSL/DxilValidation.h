@@ -47,7 +47,7 @@ enum class ValidationRule : unsigned {
   InstrCannotPullPosition, // pull-model evaluation of position disallowed
   InstrCoordinateCountForRawTypedBuf, // raw/typed buffer don't need 2 coordinates
   InstrCoordinateCountForStructBuf, // structured buffer require 2 coordinates
-  InstrDeterminateDerivative, // gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)
+  InstrDeterminateDerivative, // TODO - gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)
   InstrDxilStructUser, // Dxil struct types should only used by ExtractValue
   InstrDxilStructUserOutOfBound, // Index out of bound when extract value from dxil struct types
   InstrERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS, // TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS
@@ -66,14 +66,14 @@ enum class ValidationRule : unsigned {
   InstrMinPrecisionNotPrecise, // Instructions marked precise may not refer to minprecision values
   InstrMipLevelForGetDimension, // Use mip level on buffer when GetDimensions
   InstrMipOnUAVLoad, // uav load don't support mipLevel/sampleIndex
-  InstrNoIDivByZero, // TODO - No signed integer division by zero
-  InstrNoIndefiniteAcos, // TODO - No indefinite arccosine
-  InstrNoIndefiniteAsin, // TODO - No indefinite arcsine
-  InstrNoIndefiniteDsxy, // TODO - No indefinite derivative calculation
-  InstrNoIndefiniteLog, // TODO - No indefinite logarithm
+  InstrNoIDivByZero, // No signed integer division by zero
+  InstrNoIndefiniteAcos, // No indefinite arccosine
+  InstrNoIndefiniteAsin, // No indefinite arcsine
+  InstrNoIndefiniteDsxy, // No indefinite derivative calculation
+  InstrNoIndefiniteLog, // No indefinite logarithm
   InstrNoPtrCast, // TODO - Cast between pointer types disallowed
   InstrNoReadingUninitialized, // Instructions should not read uninitialized value
-  InstrNoUDivByZero, // TODO - No unsigned integer division by zero
+  InstrNoUDivByZero, // No unsigned integer division by zero
   InstrOffsetOnUAVLoad, // uav load don't support offset
   InstrOload, // DXIL intrinsic overload must be valid
   InstrOnlyOneAllocConsume, // RWStructuredBuffers may increment or decrement their counters, but not both.
@@ -115,6 +115,7 @@ enum class ValidationRule : unsigned {
 
   // Metadata
   MetaBranchFlatten, // Can't use branch and flatten attributes together
+  MetaControlFlowHintNotOnControlFlow, // Control flow hint only works on control flow inst
   MetaDenseResIDs, // Resource identifiers must be zero-based and dense
   MetaEntryFunction, // entrypoint not found
   MetaFlagsUsage, // Flags must match usage
@@ -141,7 +142,7 @@ enum class ValidationRule : unsigned {
   MetaTessellatorOutputPrimitive, // Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
   MetaTessellatorPartition, // Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
   MetaTextureType, // elements of typed buffers and textures must fit in four 32-bit quantities
-  MetaUsed, // TODO - All metadata must be used
+  MetaUsed, // All metadata must be used by dxil
   MetaValidSamplerMode, // Invalid sampler mode on sampler 
   MetaValueRange, // Metadata value must be within range
   MetaWellFormed, // TODO - Metadata must be well-formed in operand count and types
@@ -164,10 +165,6 @@ enum class ValidationRule : unsigned {
   SmDSInputControlPointCountRange, // DS input control point count must be [0..%0].  %1 specified
   SmDomainLocationIdxOOB, // DomainLocation component index out of bounds for the domain.
   SmERR_BIND_RESOURCE_RANGE_OVERFLOW, // TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
-  SmERR_MAX_CBUFFER_EXCEEDED, // TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)
-  SmERR_MAX_CONST_EXCEEDED, // TODO - ERR_MAX_CONST_EXCEEDED
-  SmERR_MAX_SAMPLER_EXCEEDED, // TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)
-  SmERR_MAX_TEXTURE_EXCEEDED, // TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)
   SmERR_UNABLE_TO_BIND_RESOURCE, // TODO - ERR_UNABLE_TO_BIND_RESOURCE
   SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE, // TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE
   SmGSInstanceCountRange, // GS instance count must be [1..%0].  %1 specified
