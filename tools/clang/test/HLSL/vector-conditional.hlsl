@@ -2,7 +2,7 @@
 
 // Disable validation on fxc (/Vd) because
 // non-literal ternary with objects results in bad code.
-// :FXC_VERIFY_ARGUMENTS: /E main /T ps_5_0 /Vd
+// :FXC_VERIFY_ARGUMENTS: /E main /T ps_6_0 /Vd
 
 /****************************************************************************
 Notes:

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_5_0 -not_use_legacy_cbuf_load  %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 -not_use_legacy_cbuf_load  %s | FileCheck %s
 
 // CHECK: Typed UAV Load Additional Formats
 // CHECK: 64-Bit integer

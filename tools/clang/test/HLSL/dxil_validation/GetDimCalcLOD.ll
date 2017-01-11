@@ -108,7 +108,7 @@ attributes #2 = { nounwind readonly }
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
 !1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{!4, null, null, !7}
 !4 = !{!5}
 !5 = !{i32 0, %class.TextureCube* @"\01?cube@@3V?$TextureCube@V?$vector@M$03@@@@A", !"cube", i32 0, i32 0, i32 1, i32 5, i32 0, !6}

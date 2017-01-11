@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
-// :FXC_VERIFY_ARGUMENTS: /E main /T ps_5_0
+// :FXC_VERIFY_ARGUMENTS: /E main /T ps_6_0
 
 // fxc error X3115: Conflicting register semantics: 's0' and 's1'
 sampler myVar_conflict : register(s0) : register(s1); // expected-error {{conflicting register semantics}} fxc-error {{X3115: Conflicting register semantics: 's0' and 's1'}}
@@ -76,10 +76,10 @@ tbuffer OtherFloats
 sampler myvar_noparens : register; // expected-error {{expected '(' after 'register'}} fxc-error {{X3000: syntax error: unexpected token ';'}}
 sampler myvar_noclosebracket: register(ps, s[2); ]; // expected-error {{expected ']'}} expected-error {{expected unqualified-id}} expected-note {{to match this '['}} fxc-error {{X3000: syntax error: unexpected token ')'}}
 sampler myvar_norparen: register(ps, s[2]; ); // expected-error {{expected ')'}} expected-error {{expected unqualified-id}} fxc-error {{X3000: syntax error: unexpected token ';'}}
-sampler myVar : register(ps_5_0, s);
+sampler myVar : register(ps_6_0, s);
 /*verify-ast
   VarDecl <col:1, col:9> col:9 myVar 'sampler':'SamplerState'
-  `-RegisterAssignment <col:17> register(ps_5_0, s0)
+  `-RegisterAssignment <col:17> register(ps_6_0, s0)
 */
 sampler myVar2 : register(vs, s[8]);
 sampler myVar2_offset : register(vs, s2[8]);
@@ -90,7 +90,7 @@ sampler myVar2_offset : register(vs, s2[8]);
 sampler myVar2_emptyu : register(vs, s2[]); // expected-error {{expected expression}} fxc-error {{X3000: syntax error: unexpected token ']'}}
 sampler myVar_2 : register(vs, s8);
 // fxc error: error X4017: cannot bind the same variable to multiple constants in the same constant bank
-sampler myVar3 : register(ps_5_0, s[0]) : register(vs, s[8]);
+sampler myVar3 : register(ps_6_0, s[0]) : register(vs, s[8]);
 // fxc error X3591: incorrect bind semantic
 sampler myVar4 : register(vs, t0);
 sampler myVar65536 : register(vs, s65536);

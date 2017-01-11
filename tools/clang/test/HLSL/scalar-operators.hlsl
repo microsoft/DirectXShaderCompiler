@@ -9,7 +9,7 @@
 #define _Static_assert(a,b,c) ;
 #endif
 
-// :FXC_VERIFY_ARGUMENTS: /E plain /T vs_5_1
+// :FXC_VERIFY_ARGUMENTS: /E plain /T vs_6_0
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_6_0 scalar-operators.hlsl

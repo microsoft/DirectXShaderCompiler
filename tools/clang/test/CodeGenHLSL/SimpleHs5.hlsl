@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
 // CHECK: SV_TessFactor            0   w           0  LINEDEN   float   w
 // CHECK: SV_TessFactor            1   w           1  LINEDET   float   w

@@ -1,10 +1,10 @@
-// RUN: %dxc -E main -T ps_5_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 // This file provides test cases that are cross-references to the HLSL
 // specification.
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_5_0 spec.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T ps_6_0 spec.hlsl
 
 namespace ns_general {
 // * General

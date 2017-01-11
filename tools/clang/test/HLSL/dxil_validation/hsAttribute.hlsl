@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
 // CHECK: InputControlPointCount=3
 // CHECK: OutputControlPointCount=3

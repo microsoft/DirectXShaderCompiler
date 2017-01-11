@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_5_1 /Zi %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 /Zi %s | FileCheck %s
 
 // CHECK: threadIdInGroup
 // CHECK: threadId

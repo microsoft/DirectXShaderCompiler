@@ -1,4 +1,4 @@
-// RUN: %dxc -E plain -T ps_5_0 %s
+// RUN: %dxc -E plain -T ps_6_0 %s
 
 // This file includes operator tests that target specific cases that are not
 // otherwise covered by the other generated files.

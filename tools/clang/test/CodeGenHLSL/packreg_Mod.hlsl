@@ -1,5 +1,5 @@
-// RUN: %dxc -E main -T ps_5_0 %s
-// :FXC_VERIFY_ARGUMENTS: /E main /T ps_5_0
+// RUN: %dxc -E main -T ps_6_0 %s
+// :FXC_VERIFY_ARGUMENTS: /E main /T ps_6_0
 
 float4 f_no_conflict : register(vs, c0) : register(ps, c1);
 
@@ -52,10 +52,10 @@ tbuffer OtherFloats
   */
 }
 
-sampler myVar : register(ps_5_0, s);
+sampler myVar : register(ps_6_0, s);
 /*verify-ast
   VarDecl <col:1, col:9> myVar 'sampler':'SamplerState'
-  |-RegisterAssignment <col:17> register(ps_5_0, s0)
+  |-RegisterAssignment <col:17> register(ps_6_0, s0)
 */
 sampler myVar2 : register(vs, s[8]);
 sampler myVar2_offset : register(vs, s2[8]);
@@ -64,7 +64,7 @@ sampler myVar2_offset : register(vs, s2[8]);
   |-RegisterAssignment <col:25> register(vs, s10)
 */
 sampler myVar_2 : register(vs, s8);
-sampler myVar3 : register(ps_5_0, s[0]) : register(vs, s[8]);
+sampler myVar3 : register(ps_6_0, s[0]) : register(vs, s[8]);
 sampler myVar4 : register(vs, t0); // expected-warning {{incorrect bind semantic}} fxc-pass {{}}
 sampler myVar65536 : register(vs, s65536);
 sampler myVar281474976710656 : register(vs, s10656); 

@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_5_0 packreg.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T ps_6_0 packreg.hlsl
 
 // fxc error X3115: Conflicting register semantics: 's0' and 's1'
 //sampler myVar_conflict : register(s0) : register(s1); // expected-error {{conflicting register semantics}} fxc-error {{X3115: Conflicting register semantics: 's0' and 's1'}} 
@@ -61,13 +61,13 @@ tbuffer OtherFloats
 //sampler myvar_noparens : register; // expected-error {{expected '(' after 'register'}} fxc-error {{X3000: syntax error: unexpected token ';'}} 
 //sampler myvar_noclosebracket: register(ps, s[2); // expected-error {{expected ']'}} expected-note {{to match this '['}} fxc-error {{X3000: syntax error: unexpected token ')'}} 
 //sampler myvar_norparen: register(ps, s[2]; // expected-error {{expected ')'}} fxc-pass {{}} 
-sampler myVar : register(ps_5_0, s);
+sampler myVar : register(ps_6_0, s);
 sampler myVar2 : register(vs, s[8]);
 sampler myVar2_offset : register(vs, s2[8]);
 //sampler myVar2_emptyu : register(vs, s2[]); // expected-error {{expected expression}} fxc-pass {{}} 
 sampler myVar_2 : register(vs, s8);
 // fxc error: error X4017: cannot bind the same variable to multiple constants in the same constant bank
-//sampler myVar3 : register(ps_5_0, s[0]) : register(vs, s[8]);
+//sampler myVar3 : register(ps_6_0, s[0]) : register(vs, s[8]);
 // fxc error X3591: incorrect bind semantic
 //sampler myVar4 : register(vs, t0); // expected-warning {{incorrect bind semantic}} fxc-pass {{}} 
 sampler myVar65536 : register(vs, s65536);

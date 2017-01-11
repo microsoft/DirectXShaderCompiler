@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: ; PS_INII                  0   xyzw        0     NONE   float
 // CHECK: ; PS_INII                  1   xyzw        1     NONE   float

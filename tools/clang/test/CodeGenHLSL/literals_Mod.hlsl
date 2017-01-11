@@ -1,7 +1,7 @@
-// RUN: %dxc -E test -T vs_5_0 %s
+// RUN: %dxc -E test -T vs_6_0 %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_5_0 literals.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T ps_6_0 literals.hlsl
 
 // without also putting them in a static assertion
 

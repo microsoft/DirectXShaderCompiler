@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 
 // CHECK: float 3.000000e+00}
 

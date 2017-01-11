@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_5_0 %s
+// RUN: %dxc -E main -T cs_6_0 %s
 
 // __decltype is the GCC way of saying 'decltype', but doesn't require C++11
 #ifdef VERIFY_FXC

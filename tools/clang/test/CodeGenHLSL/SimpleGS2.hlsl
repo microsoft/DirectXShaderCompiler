@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T gs_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
 
 // CHECKNOT: SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader feeding rasterizer
 

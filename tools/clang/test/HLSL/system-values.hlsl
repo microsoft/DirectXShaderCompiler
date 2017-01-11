@@ -2,7 +2,7 @@
 // Allows for combinations of system values and arbitrary values to be declared
 // and used in any signature point and any shader stage just by setting define(s).
 // Example:
-// fxc system-values.hlsl /E HSMain /T hs_5_0 "/DHSCPIn_Defs=Def_ClipDistance Def_Arb(float,arb,ARB)"
+// fxc system-values.hlsl /E HSMain /T hs_6_0 "/DHSCPIn_Defs=Def_ClipDistance Def_Arb(float,arb,ARB)"
 
 #define GLUE(a,b) a##b
 #define Def_Arb_NoSem(t,v) DECLARE(t v) USE(t,v)

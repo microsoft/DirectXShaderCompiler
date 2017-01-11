@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 Texture2D<float4> srv1 : register(t3);
 

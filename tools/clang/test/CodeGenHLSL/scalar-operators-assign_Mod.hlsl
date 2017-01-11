@@ -1,4 +1,4 @@
-// RUN: %dxc -E plain -T vs_5_0 %s
+// RUN: %dxc -E plain -T vs_6_0 %s
 
 //
 // without also putting them in a static assertion

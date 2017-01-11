@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_5_1 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
 // CHECK: RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
 RasterizerOrderedBuffer<float4> r;
