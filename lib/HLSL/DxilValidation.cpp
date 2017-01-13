@@ -84,13 +84,15 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
-    case hlsl::ValidationRule::InstrTypeCast: return "TODO - Type cast must be valid";
+    case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
+    case hlsl::ValidationRule::InstrMinPrecisonBitCast: return "Bitcast on minprecison types is not allowed";
+    case hlsl::ValidationRule::InstrStructBitCast: return "Bitcast on struct types is not allowed";
     case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant";
     case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type";
     case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes";
     case hlsl::ValidationRule::InstrOperandRange: return "expect %0 between %1, got %2";
     case hlsl::ValidationRule::InstrNoReadingUninitialized: return "Instructions should not read uninitialized value";
-    case hlsl::ValidationRule::InstrNoPtrCast: return "TODO - Cast between pointer types disallowed";
+    case hlsl::ValidationRule::InstrNoGenericPtrAddrSpaceCast: return "Address space cast between pointer types must have one part to be generic address space";
     case hlsl::ValidationRule::InstrInBoundsAccess: return "Access to out-of-bounds memory is disallowed";
     case hlsl::ValidationRule::InstrOpConstRange: return "Constant values must be in-range for operation";
     case hlsl::ValidationRule::InstrImmBiasForSampleB: return "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate";
@@ -104,7 +106,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrOnlyOneAllocConsume: return "RWStructuredBuffers may increment or decrement their counters, but not both.";
     case hlsl::ValidationRule::InstrTextureOffset: return "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7";
     case hlsl::ValidationRule::InstrCannotPullPosition: return "%0 does not support pull-model evaluation of position";
-    case hlsl::ValidationRule::InstrERR_LOOP_CONDITION_OUT_OF_BOUNDS: return "TODO - cannot unroll loop with an out-of-bounds array reference in the condition";
     case hlsl::ValidationRule::InstrEvalInterpolationMode: return "Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample";
     case hlsl::ValidationRule::InstrResourceCoordinateMiss: return "coord uninitialized";
     case hlsl::ValidationRule::InstrResourceCoordinateTooMany: return "out of bound coord must be undef";
@@ -196,8 +197,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only used in '%1'";
     case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
-    case hlsl::ValidationRule::FlowCallLimit: return "Subroutines can nest up to 32 levels deep";
-    case hlsl::ValidationRule::FlowBranchLimit: return "TODO - Flow control blocks can nest up to 64 deep per subroutine (and main)";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
     case hlsl::ValidationRule::FlowDeadLoop: return "Loop must have break";
     case hlsl::ValidationRule::DeclDxilNsReserved: return "Declaration '%0' uses a reserved prefix";
@@ -254,6 +253,7 @@ struct ValidationContext {
   Module &M;
   Module *pDebugModule;
   DxilModule &DxilMod;
+  const DataLayout &DL;
   DiagnosticPrinterRawOStream &DiagPrinter;
   PSExecutionInfo PSExec;
   DebugLoc LastDebugLocEmit;
@@ -274,12 +274,12 @@ struct ValidationContext {
                     DxilModule &dxilModule,
                     DiagnosticPrinterRawOStream &DiagPrn)
       : M(llvmModule), pDebugModule(DebugModule), DxilMod(dxilModule),
+        DL(llvmModule.getDataLayout()),
         kDxilControlFlowHintMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilControlFlowHintMDName)),
         kDxilPreciseMDKind(llvmModule.getContext().getMDKindID(
             DxilMDHelper::kDxilPreciseAttributeMDName)),
-        kLLVMLoopMDKind(llvmModule.getContext().getMDKindID(
-            "llvm.loop")),
+        kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
         DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1) {
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
@@ -2346,7 +2346,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
         }
         if (allImmIndex) {
-          const DataLayout &DL = ValCtx.DxilMod.GetModule()->getDataLayout();
+          const DataLayout &DL = ValCtx.DL;
 
           Value *Ptr = GEP->getPointerOperand();
           unsigned size =
@@ -2377,6 +2377,46 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           if (imm->getValue().getLimitedValue() == 0) {
             ValCtx.EmitInstrError(BO, ValidationRule::InstrNoUDivByZero);
           }
+        }
+      } break;
+      case Instruction::AddrSpaceCast: {
+        AddrSpaceCastInst *Cast = cast<AddrSpaceCastInst>(&I);
+        unsigned ToAddrSpace = Cast->getType()->getPointerAddressSpace();
+        unsigned FromAddrSpace = Cast->getOperand(0)->getType()->getPointerAddressSpace();
+        if (ToAddrSpace != DXIL::kGenericPointerAddrSpace &&
+            FromAddrSpace != DXIL::kGenericPointerAddrSpace) {
+          ValCtx.EmitInstrError(Cast, ValidationRule::InstrNoGenericPtrAddrSpaceCast);
+        }
+      } break;
+      case Instruction::BitCast: {
+        BitCastInst *Cast = cast<BitCastInst>(&I);
+        Type *FromTy = Cast->getOperand(0)->getType();
+        Type *ToTy = Cast->getType();
+        if (isa<PointerType>(FromTy)) {
+          FromTy = FromTy->getPointerElementType();
+          ToTy = ToTy->getPointerElementType();
+          unsigned FromSize = ValCtx.DL.getTypeAllocSize(FromTy);
+          unsigned ToSize = ValCtx.DL.getTypeAllocSize(ToTy);
+          if (FromSize != ToSize) {
+            ValCtx.EmitInstrError(Cast, ValidationRule::InstrPtrBitCast);
+            continue;
+          }
+          while (isa<ArrayType>(FromTy)) {
+            FromTy = FromTy->getArrayElementType();
+          }
+          while (isa<ArrayType>(ToTy)) {
+            ToTy = ToTy->getArrayElementType();
+          }
+        }
+        if (isa<StructType>(FromTy) || isa<StructType>(ToTy)) {
+          ValCtx.EmitInstrError(Cast, ValidationRule::InstrStructBitCast);
+          continue;
+        }
+
+        bool IsMinPrecisionTy = ValCtx.DL.getTypeAllocSize(FromTy) < 4 ||
+                          ValCtx.DL.getTypeAllocSize(ToTy) < 4;
+        if (IsMinPrecisionTy) {
+          ValCtx.EmitInstrError(Cast, ValidationRule::InstrMinPrecisonBitCast);
         }
       } break;
       }
@@ -3604,7 +3644,7 @@ CalculateCallDepth(CallGraphNode *node,
 static void ValidateCallGraph(ValidationContext &ValCtx) {
   // Build CallGraph.
   CallGraph CG(*ValCtx.DxilMod.GetModule());
-  // Call limit 32 levels.
+
   std::unordered_map<CallGraphNode*, unsigned> depthMap;
   std::unordered_set<CallGraphNode*> callStack;
   CallGraphNode *entryNode = CG[ValCtx.DxilMod.GetEntryFunction()];
@@ -3619,23 +3659,16 @@ static void ValidateCallGraph(ValidationContext &ValCtx) {
 
   if (bRecursive) {
     ValCtx.EmitError(ValidationRule::FlowNoRecusion);
-  } else {
-    for (auto depthIt : depthMap) {
-      if (depthIt.second >= 32) {
-        ValCtx.EmitError(ValidationRule::FlowCallLimit);
-        break;
-      }
-    }
   }
-
 }
 
 static void ValidateFlowControl(ValidationContext &ValCtx) {
   bool reducible =
       IsReducible(*ValCtx.DxilMod.GetModule(), IrreducibilityAction::Ignore);
-  if (!reducible)
+  if (!reducible) {
     ValCtx.EmitError(ValidationRule::FlowReducible);
-  // Branch limit. 64 level nest.
+    return;
+  }
 
   ValidateCallGraph(ValCtx);
 

@@ -5432,6 +5432,8 @@ void MultiDimArrayToOneDimArray::flattenGlobal(GlobalVariable *GV, DxilModule *D
       InitVal = UndefValue::get(AT);
     else
       DXASSERT(0, "invalid initializer");
+  } else {
+    InitVal = UndefValue::get(AT);
   }
   GlobalVariable *NewGV = new GlobalVariable(
       *GV->getParent(), AT, /*IsConstant*/ GV->isConstant(), GV->getLinkage(),

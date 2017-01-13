@@ -123,15 +123,9 @@ struct IntrinsicLower {
 // IOP intrinsics.
 namespace {
 
-// Generates a DXIL operation over an overloaded type (Ty), returning a
-// RetTy value; when Ty is a vector, it will replicate per-element operations
-// into RetTy to rebuild it.
-Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
+Value *TrivialDxilOperation(Function *dxilFunc, OP::OpCode opcode, ArrayRef<Value *> refArgs,
                             Type *Ty, Type *RetTy, OP *hlslOP,
                             IRBuilder<> &Builder) {
-  Type *EltTy = Ty->getScalarType();
-  Function *dxilFunc = hlslOP->GetOpFunc(opcode, EltTy);
-
   unsigned argNum = refArgs.size();
 
   std::vector<Value *> args = refArgs;
@@ -158,6 +152,17 @@ Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
         Builder.CreateCall(dxilFunc, args, hlslOP->GetOpCodeName(opcode));
     return retVal;
   }
+}
+// Generates a DXIL operation over an overloaded type (Ty), returning a
+// RetTy value; when Ty is a vector, it will replicate per-element operations
+// into RetTy to rebuild it.
+Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
+                            Type *Ty, Type *RetTy, OP *hlslOP,
+                            IRBuilder<> &Builder) {
+  Type *EltTy = Ty->getScalarType();
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, EltTy);
+
+  return TrivialDxilOperation(dxilFunc, opcode, refArgs, Ty, RetTy, hlslOP, Builder);
 }
 
 Value *TrivialDxilOperation(OP::OpCode opcode, ArrayRef<Value *> refArgs,
@@ -1121,40 +1126,29 @@ Value *TranslateRadians(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 Value *TranslateF16ToF32(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   IRBuilder<> Builder(CI);
+
   Value *x = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *Ty = CI->getType();
-  // uint to short first.
-  Type *shortTy = Type::getInt16Ty(CI->getContext());
-  if (Ty->isVectorTy())
-    shortTy = VectorType::get(shortTy, Ty->getVectorNumElements());
-  Value *shortX = Builder.CreateTrunc(x, shortTy);
-  // Bitcast to half.
-  Type *halfTy = Type::getHalfTy(CI->getContext());
-  if (Ty->isVectorTy())
-    halfTy = VectorType::get(halfTy, Ty->getVectorNumElements());
-  Value *halfX = Builder.CreateBitCast(shortX, halfTy);
-  // Cast to float
-  return Builder.CreateFPCast(halfX, CI->getType());
+
+  Function *f16tof32 =
+      helper.hlslOP.GetOpFunc(opcode, helper.voidTy);
+  return TrivialDxilOperation(
+      f16tof32, opcode, {Builder.getInt32(static_cast<unsigned>(opcode)), x},
+      x->getType(), Ty, &helper.hlslOP, Builder);
 }
 
 Value *TranslateF32ToF16(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                          HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   IRBuilder<> Builder(CI);
-  // Cast to half.
+
   Value *x = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   Type *Ty = CI->getType();
 
-  Type *halfTy = Type::getHalfTy(CI->getContext());
-  if (Ty->isVectorTy())
-    halfTy = VectorType::get(halfTy, Ty->getVectorNumElements());
-  Value *halfX = Builder.CreateFPCast(x, halfTy);
-  // Bicast to short.
-  Type *shortTy = Type::getInt16Ty(CI->getContext());
-  if (Ty->isVectorTy())
-    shortTy = VectorType::get(shortTy, Ty->getVectorNumElements());
-  Value *shortX = Builder.CreateBitCast(halfX, shortTy);
-  // Cast to uint.
-  return Builder.CreateZExt(shortX, CI->getType());
+  Function *f32tof16 =
+      helper.hlslOP.GetOpFunc(opcode, helper.voidTy);
+  return TrivialDxilOperation(
+      f32tof16, opcode, {Builder.getInt32(static_cast<unsigned>(opcode)), x},
+      x->getType(), Ty, &helper.hlslOP, Builder);
 }
 
 Value *TranslateLength(CallInst *CI, Value *val, hlsl::OP *hlslOP) {
@@ -3732,8 +3726,8 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_dst, TranslateDst, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_exp, TranslateExp, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_exp2, TrivialUnaryOperation, DXIL::OpCode::Exp},
-    {IntrinsicOp::IOP_f16tof32, TranslateF16ToF32, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_f32tof16, TranslateF32ToF16, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_f16tof32, TranslateF16ToF32, DXIL::OpCode::LegacyF16ToF32},
+    {IntrinsicOp::IOP_f32tof16, TranslateF32ToF16, DXIL::OpCode::LegacyF32ToF16},
     {IntrinsicOp::IOP_faceforward, TranslateFaceforward, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_firstbithigh, TranslateFirstbitHi, DXIL::OpCode::FirstbitSHi},
     {IntrinsicOp::IOP_firstbitlow, TranslateFirstbitLo, DXIL::OpCode::FirstbitLo},

@@ -1407,13 +1407,15 @@ class db_dxil(object):
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")
-        self.add_valrule("Instr.TypeCast", "TODO - Type cast must be valid")
+        self.add_valrule("Instr.PtrBitCast", "Pointer type bitcast must be have same size")
+        self.add_valrule("Instr.MinPrecisonBitCast", "Bitcast on minprecison types is not allowed")
+        self.add_valrule("Instr.StructBitCast", "Bitcast on struct types is not allowed")
         self.add_valrule_msg("Instr.OpConst", "DXIL intrinsic requires an immediate constant operand", "%0 of %1 must be an immediate constant")
         self.add_valrule("Instr.Allowed", "Instructions must be of an allowed type")
         self.add_valrule("Instr.OpCodeReserved", "Instructions must not reference reserved opcodes")
-        self.add_valrule_msg("Instr.OperandRange", "TODO - DXIL intrinsic operand must be within defined range", "expect %0 between %1, got %2")
+        self.add_valrule_msg("Instr.OperandRange", "DXIL intrinsic operand must be within defined range", "expect %0 between %1, got %2")
         self.add_valrule("Instr.NoReadingUninitialized", "Instructions should not read uninitialized value")
-        self.add_valrule("Instr.NoPtrCast", "TODO - Cast between pointer types disallowed")
+        self.add_valrule("Instr.NoGenericPtrAddrSpaceCast", "Address space cast between pointer types must have one part to be generic address space")
         self.add_valrule("Instr.InBoundsAccess", "Access to out-of-bounds memory is disallowed")
         self.add_valrule("Instr.OpConstRange", "Constant values must be in-range for operation")
         self.add_valrule("Instr.ImmBiasForSampleB", "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate")
@@ -1436,7 +1438,6 @@ class db_dxil(object):
         self.add_valrule("Instr.TextureOffset", "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7")
         # D3D12
         self.add_valrule_msg("Instr.CannotPullPosition", "pull-model evaluation of position disallowed", "%0 does not support pull-model evaluation of position")
-        self.add_valrule("Instr.ERR_LOOP_CONDITION_OUT_OF_BOUNDS", "TODO - cannot unroll loop with an out-of-bounds array reference in the condition")
         #self.add_valrule("Instr.ERR_GUARANTEED_RACE_CONDITION_UAV", "TODO - race condition writing to shared resource detected, consider making this write conditional.") warning on fxc.
         #self.add_valrule("Instr.ERR_GUARANTEED_RACE_CONDITION_GSM", "TODO - race condition writing to shared memory detected, consider making this write conditional.") warning on fxc.
         #self.add_valrule("Instr.ERR_INFINITE_LOOP", "TODO - ERR_INFINITE_LOOP") fxc will report error if it can prove the loop is infinite.
@@ -1546,8 +1547,6 @@ class db_dxil(object):
         self.add_valrule("Uni.NoWaveSensitiveGradient", "Gradient operations are not affected by wave-sensitive data or control flow.")
         
         self.add_valrule("Flow.Reducible", "Execution flow must be reducible")
-        self.add_valrule("Flow.CallLimit", "Subroutines can nest up to 32 levels deep")
-        self.add_valrule("Flow.BranchLimit", "TODO - Flow control blocks can nest up to 64 deep per subroutine (and main)")
         self.add_valrule("Flow.NoRecusion", "Recursion is not permitted")
         self.add_valrule("Flow.DeadLoop", "Loop must have break")
 

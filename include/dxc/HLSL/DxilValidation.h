@@ -49,21 +49,21 @@ enum class ValidationRule : unsigned {
   InstrCoordinateCountForStructBuf, // structured buffer require 2 coordinates
   InstrDxilStructUser, // Dxil struct types should only used by ExtractValue
   InstrDxilStructUserOutOfBound, // Index out of bound when extract value from dxil struct types
-  InstrERR_LOOP_CONDITION_OUT_OF_BOUNDS, // TODO - cannot unroll loop with an out-of-bounds array reference in the condition
   InstrEvalInterpolationMode, // Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
   InstrFailToResloveTGSMPointer, // TGSM pointers must originate from an unambiguous TGSM global variable.
   InstrHandleNotFromCreateHandle, // Resource handle should returned by createHandle
   InstrImmBiasForSampleB, // bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
   InstrInBoundsAccess, // Access to out-of-bounds memory is disallowed
   InstrMinPrecisionNotPrecise, // Instructions marked precise may not refer to minprecision values
+  InstrMinPrecisonBitCast, // Bitcast on minprecison types is not allowed
   InstrMipLevelForGetDimension, // Use mip level on buffer when GetDimensions
   InstrMipOnUAVLoad, // uav load don't support mipLevel/sampleIndex
+  InstrNoGenericPtrAddrSpaceCast, // Address space cast between pointer types must have one part to be generic address space
   InstrNoIDivByZero, // No signed integer division by zero
   InstrNoIndefiniteAcos, // No indefinite arccosine
   InstrNoIndefiniteAsin, // No indefinite arcsine
   InstrNoIndefiniteDsxy, // No indefinite derivative calculation
   InstrNoIndefiniteLog, // No indefinite logarithm
-  InstrNoPtrCast, // TODO - Cast between pointer types disallowed
   InstrNoReadingUninitialized, // Instructions should not read uninitialized value
   InstrNoUDivByZero, // No unsigned integer division by zero
   InstrOffsetOnUAVLoad, // uav load don't support offset
@@ -72,7 +72,8 @@ enum class ValidationRule : unsigned {
   InstrOpCodeReserved, // Instructions must not reference reserved opcodes
   InstrOpConst, // DXIL intrinsic requires an immediate constant operand
   InstrOpConstRange, // Constant values must be in-range for operation
-  InstrOperandRange, // TODO - DXIL intrinsic operand must be within defined range
+  InstrOperandRange, // DXIL intrinsic operand must be within defined range
+  InstrPtrBitCast, // Pointer type bitcast must be have same size
   InstrResourceClassForLoad, // load can only run on UAV/SRV resource
   InstrResourceClassForSamplerGather, // sample, lod and gather should on srv resource.
   InstrResourceClassForUAVStore, // store should on uav resource.
@@ -93,8 +94,8 @@ enum class ValidationRule : unsigned {
   InstrSamplerModeForLOD, // lod instruction requires sampler declared in default mode
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
+  InstrStructBitCast, // Bitcast on struct types is not allowed
   InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
-  InstrTypeCast, // TODO - Type cast must be valid
   InstrUndefResultForGetDimension, // GetDimensions used undef dimension %0 on %1
   InstrWriteMaskForTypedUAVStore, // store on typed uav must write to all four components of the UAV
   InstrWriteMaskMatchValueForUAVStore, // uav store write mask must match store value mask, write mask is %0 and store value mask is %1
@@ -134,8 +135,6 @@ enum class ValidationRule : unsigned {
   MetaWellFormed, // TODO - Metadata must be well-formed in operand count and types
 
   // Program flow
-  FlowBranchLimit, // TODO - Flow control blocks can nest up to 64 deep per subroutine (and main)
-  FlowCallLimit, // Subroutines can nest up to 32 levels deep
   FlowDeadLoop, // Loop must have break
   FlowNoRecusion, // Recursion is not permitted
   FlowReducible, // Execution flow must be reducible
