@@ -89,6 +89,10 @@ public:
   TEST_METHOD(UDivByZero)
   TEST_METHOD(UnusedMetadata)
   TEST_METHOD(MemoryOutOfBound)
+  TEST_METHOD(AddrSpaceCast)
+  TEST_METHOD(PtrBitCast)
+  TEST_METHOD(MinPrecisionBitCast)
+  TEST_METHOD(StructBitCast)
 
   TEST_METHOD(WhenInstrDisallowedThenFail);
   TEST_METHOD(WhenDepthNotFloatThenFail);
@@ -850,6 +854,46 @@ TEST_F(ValidationTest, MemoryOutOfBound) {
                           "getelementptr [4 x float], [4 x float]* %12, i32 0, i32 3",
                           "getelementptr [4 x float], [4 x float]* %12, i32 0, i32 10",
                           "Access to out-of-bounds memory is disallowed");
+}
+
+TEST_F(ValidationTest, AddrSpaceCast) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
+                          "  store float %11, float* %12, align 4",
+                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
+                          "  %X = addrspacecast float* %12 to float addrspace(1)*    \n"
+                          "  store float %11, float addrspace(1)* %X, align 4",
+                          "generic address space");
+}
+
+TEST_F(ValidationTest, PtrBitCast) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
+                          "  store float %11, float* %12, align 4",
+                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
+                          "  %X = bitcast float* %12 to double*    \n"
+                          "  store float %11, float* %12, align 4",
+                          "Pointer type bitcast must be have same size");
+}
+
+TEST_F(ValidationTest, MinPrecisionBitCast) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
+                          "  store float %11, float* %12, align 4",
+                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
+                          "  %X = bitcast float* %12 to [2 x half]*    \n"
+                          "  store float %11, float* %12, align 4",
+                          "Bitcast on minprecison types is not allowed");
+}
+
+TEST_F(ValidationTest, StructBitCast) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
+                          "  store float %11, float* %12, align 4",
+                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
+                          "  %X = bitcast float* %12 to %dx.types.Handle*    \n"
+                          "  store float %11, float* %12, align 4",
+                          "Bitcast on struct types is not allowed");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {

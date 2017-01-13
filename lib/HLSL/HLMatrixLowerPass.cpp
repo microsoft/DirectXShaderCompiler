@@ -2343,7 +2343,7 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
     ArrayType *AT = ArrayType::get(vecTy->getVectorElementType(), vecTy->getVectorNumElements());
     GlobalVariable *arrayMat = new llvm::GlobalVariable(
       *M, AT, /*IsConstant*/ false, llvm::GlobalValue::InternalLinkage,
-      /*InitVal*/ nullptr, GV->getName());
+      /*InitVal*/ UndefValue::get(AT), GV->getName());
     // Add debug info.
     if (m_HasDbgInfo) {
       DebugInfoFinder &Finder = m_pHLModule->GetOrCreateDebugInfoFinder();

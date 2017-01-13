@@ -2113,168 +2113,167 @@ The set of validation rules that are known to hold for a DXIL program is identif
 .. <py::lines('VALRULES-RST')>hctdb_instrhelp.get_valrules_rst()</py>
 .. VALRULES-RST:BEGIN
 
-====================================== =======================================================================================================================================================================================================================================================================================================
-Rule Code                              Description
-====================================== =======================================================================================================================================================================================================================================================================================================
-BITCODE.VALID                          TODO - Module must be bitcode-valid
-DECL.DXILFNEXTERN                      External function must be a DXIL function
-DECL.DXILNSRESERVED                    The DXIL reserved prefixes must only be used by built-in functions and types
-DECL.FNFLATTENPARAM                    Function parameters must not use struct types
-DECL.FNISCALLED                        Functions can only be used by call instructions
-DECL.NOTUSEDEXTERNAL                   External declaration should not be used
-DECL.USEDEXTERNALFUNCTION              External function must be used
-DECL.USEDINTERNAL                      Internal declaration must be used
-FLOW.BRANCHLIMIT                       TODO - Flow control blocks can nest up to 64 deep per subroutine (and main)
-FLOW.CALLLIMIT                         Subroutines can nest up to 32 levels deep
-FLOW.DEADLOOP                          Loop must have break
-FLOW.NORECUSION                        Recursion is not permitted
-FLOW.REDUCIBLE                         Execution flow must be reducible
-INSTR.ALLOWED                          Instructions must be of an allowed type
-INSTR.BARRIERMODEFORNONCS              sync in a non-Compute Shader must only sync UAV (sync_uglobal)
-INSTR.BARRIERMODENOMEMORY              sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
-INSTR.BARRIERMODEUSELESSUGROUP         sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
-INSTR.BUFFERUPDATECOUNTERONUAV         BufferUpdateCounter valid only on UAV
-INSTR.CALLOLOAD                        Call to DXIL intrinsic must match overload signature
-INSTR.CANNOTPULLPOSITION               pull-model evaluation of position disallowed
-INSTR.CBUFFERCLASSFORCBUFFERHANDLE     Expect Cbuffer for CBufferLoad handle
-INSTR.CBUFFEROUTOFBOUND                Cbuffer access out of bound
-INSTR.COORDINATECOUNTFORRAWTYPEDBUF    raw/typed buffer don't need 2 coordinates
-INSTR.COORDINATECOUNTFORSTRUCTBUF      structured buffer require 2 coordinates
-INSTR.DXILSTRUCTUSER                   Dxil struct types should only used by ExtractValue
-INSTR.DXILSTRUCTUSEROUTOFBOUND         Index out of bound when extract value from dxil struct types
-INSTR.ERR_LOOP_CONDITION_OUT_OF_BOUNDS TODO - cannot unroll loop with an out-of-bounds array reference in the condition
-INSTR.EVALINTERPOLATIONMODE            Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
-INSTR.FAILTORESLOVETGSMPOINTER         TGSM pointers must originate from an unambiguous TGSM global variable.
-INSTR.HANDLENOTFROMCREATEHANDLE        Resource handle should returned by createHandle
-INSTR.IMMBIASFORSAMPLEB                bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
-INSTR.INBOUNDSACCESS                   Access to out-of-bounds memory is disallowed
-INSTR.MINPRECISIONNOTPRECISE           Instructions marked precise may not refer to minprecision values
-INSTR.MIPLEVELFORGETDIMENSION          Use mip level on buffer when GetDimensions
-INSTR.MIPONUAVLOAD                     uav load don't support mipLevel/sampleIndex
-INSTR.NOIDIVBYZERO                     No signed integer division by zero
-INSTR.NOINDEFINITEACOS                 No indefinite arccosine
-INSTR.NOINDEFINITEASIN                 No indefinite arcsine
-INSTR.NOINDEFINITEDSXY                 No indefinite derivative calculation
-INSTR.NOINDEFINITELOG                  No indefinite logarithm
-INSTR.NOPTRCAST                        TODO - Cast between pointer types disallowed
-INSTR.NOREADINGUNINITIALIZED           Instructions should not read uninitialized value
-INSTR.NOUDIVBYZERO                     No unsigned integer division by zero
-INSTR.OFFSETONUAVLOAD                  uav load don't support offset
-INSTR.OLOAD                            DXIL intrinsic overload must be valid
-INSTR.ONLYONEALLOCCONSUME              RWStructuredBuffers may increment or decrement their counters, but not both.
-INSTR.OPCODERESERVED                   Instructions must not reference reserved opcodes
-INSTR.OPCONST                          DXIL intrinsic requires an immediate constant operand
-INSTR.OPCONSTRANGE                     Constant values must be in-range for operation
-INSTR.OPERANDRANGE                     TODO - DXIL intrinsic operand must be within defined range
-INSTR.RESOURCECLASSFORLOAD             load can only run on UAV/SRV resource
-INSTR.RESOURCECLASSFORSAMPLERGATHER    sample, lod and gather should on srv resource.
-INSTR.RESOURCECLASSFORUAVSTORE         store should on uav resource.
-INSTR.RESOURCECOORDINATEMISS           coord uninitialized
-INSTR.RESOURCECOORDINATETOOMANY        out of bound coord must be undef
-INSTR.RESOURCEKINDFORBUFFERLOADSTORE   buffer load/store only works on Raw/Typed/StructuredBuffer
-INSTR.RESOURCEKINDFORCALCLOD           lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray
-INSTR.RESOURCEKINDFORGATHER            gather requires resource declared as texture/2D/Cube/2DArray/CubeArray
-INSTR.RESOURCEKINDFORGETDIM            Invalid resource kind on GetDimensions
-INSTR.RESOURCEKINDFORSAMPLE            sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray
-INSTR.RESOURCEKINDFORSAMPLEC           samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
-INSTR.RESOURCEKINDFORTEXTURELOAD       texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray
-INSTR.RESOURCEKINDFORTEXTURESTORE      texture store only works on Texture1D/1DArray/2D/2DArray/3D
-INSTR.RESOURCEOFFSETMISS               offset uninitialized
-INSTR.RESOURCEOFFSETTOOMANY            out of bound offset must be undef
-INSTR.SAMPLECOMPTYPE                   sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.
-INSTR.SAMPLEINDEXFORLOAD2DMS           load on Texture2DMS/2DMSArray require sampleIndex
-INSTR.SAMPLERMODEFORLOD                lod instruction requires sampler declared in default mode
-INSTR.SAMPLERMODEFORSAMPLE             sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
-INSTR.SAMPLERMODEFORSAMPLEC            sample_c_*/gather_c instructions require sampler declared in comparison mode
-INSTR.TEXTUREOFFSET                    offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
-INSTR.TYPECAST                         TODO - Type cast must be valid
-INSTR.UNDEFRESULTFORGETDIMENSION       GetDimensions used undef dimension %0 on %1
-INSTR.WRITEMASKFORTYPEDUAVSTORE        store on typed uav must write to all four components of the UAV
-INSTR.WRITEMASKMATCHVALUEFORUAVSTORE   uav store write mask must match store value mask, write mask is %0 and store value mask is %1
-META.BRANCHFLATTEN                     Can't use branch and flatten attributes together
-META.CONTROLFLOWHINTNOTONCONTROLFLOW   Control flow hint only works on control flow inst
-META.DENSERESIDS                       Resource identifiers must be zero-based and dense
-META.ENTRYFUNCTION                     entrypoint not found
-META.FLAGSUSAGE                        Flags must match usage
-META.FORCECASEONSWITCH                 Attribute forcecase only works for switch
-META.FUNCTIONANNOTATION                Cannot find function annotation for %0
-META.GLCNOTONAPPENDCONSUME             globallycoherent cannot be used with append/consume buffers
-META.INTEGERINTERPMODE                 signature %0 specifies invalid interpolation mode for integer component type.
-META.INTERPMODEINONEROW                Interpolation mode cannot vary for different cols of a row. Vary at %0 row %1
-META.INTERPMODEVALID                   Interpolation mode must be valid
-META.INVALIDCONTROLFLOWHINT            Invalid control flow hint
-META.KNOWN                             Named metadata should be known
-META.MAXTESSFACTOR                     Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
-META.NOSEMANTICOVERLAP                 Semantics must not overlap
-META.REQUIRED                          TODO - Required metadata missing
-META.SEMAKINDVALID                     Semantic kind must be valid
-META.SEMANTICCOMPTYPE                  %0 must be %1
-META.SEMANTICLEN                       Semantic length must be at least 1 and at most 64
-META.SIGNATURECOMPTYPE                 signature %0 specifies unrecognized or invalid component type
-META.SIGNATUREOUTOFRANGE               signature %0 is out of range at row %1 col %2 size %3.
-META.SIGNATUREOVERLAP                  signature %0 use overlaped address at row %1 col %2 size %3.
-META.STRUCTBUFALIGNMENT                StructuredBuffer stride not aligned
-META.STRUCTBUFALIGNMENTOUTOFBOUND      StructuredBuffer stride out of bounds
-META.TARGET                            Target triple must be 'dxil-ms-dx'
-META.TESSELLATOROUTPUTPRIMITIVE        Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
-META.TESSELLATORPARTITION              Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
-META.TEXTURETYPE                       elements of typed buffers and textures must fit in four 32-bit quantities
-META.USED                              All metadata must be used by dxil
-META.VALIDSAMPLERMODE                  Invalid sampler mode on sampler
-META.VALUERANGE                        Metadata value must be within range
-META.WELLFORMED                        TODO - Metadata must be well-formed in operand count and types
-SM.APPENDANDCONSUMEONSAMEUAV           BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
-SM.CBUFFERELEMENTOVERFLOW              CBuffer elements must not overflow
-SM.CBUFFEROFFSETOVERLAP                CBuffer offsets must not overlap
-SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT     D3D12 constant/texture buffer template element can only be a struct
-SM.COMPLETEPOSITION                    Not all elements of SV_Position were written
-SM.COUNTERONLYONSTRUCTBUF              BufferUpdateCounter valid only on structured buffers
-SM.CSNORETURN                          Compute shaders can't return values, outputs must be written in writable resources (UAVs).
-SM.DOMAINLOCATIONIDXOOB                DomainLocation component index out of bounds for the domain.
-SM.DSINPUTCONTROLPOINTCOUNTRANGE       DS input control point count must be [0..%0].  %1 specified
-SM.GSINSTANCECOUNTRANGE                GS instance count must be [1..%0].  %1 specified
-SM.GSOUTPUTVERTEXCOUNTRANGE            GS output vertex count must be [0..%0].  %1 specified
-SM.GSTOTALOUTPUTVERTEXDATARANGE        Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
-SM.GSVALIDINPUTPRIMITIVE               GS input primitive unrecognized
-SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY      GS output primitive topology unrecognized
-SM.HSINPUTCONTROLPOINTCOUNTRANGE       HS input control point count must be [1..%0].  %1 specified
-SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH  For pass thru hull shader, input control point count must match output control point count
-SM.INSIDETESSFACTORSIZEMATCHDOMAIN     InsideTessFactor size mismatch the domain.
-SM.INVALIDRESOURCECOMPTYPE             Invalid resource return type
-SM.INVALIDRESOURCEKIND                 Invalid resources kind
-SM.INVALIDTEXTUREKINDONUAV             Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
-SM.ISOLINEOUTPUTPRIMITIVEMISMATCH      Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
-SM.MAXTGSMSIZE                         Total Thread Group Shared Memory storage is %0, exceeded %1
-SM.MAXTHEADGROUP                       Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
-SM.MULTISTREAMMUSTBEPOINT              When multiple GS output streams are used they must be pointlists
-SM.NAME                                Target shader model name must be known
-SM.NOINTERPMODE                        Interpolation mode must be undefined for VS input/PS output/patch constant.
-SM.NOPSOUTPUTIDX                       Pixel shader output registers are not indexable.
-SM.OPCODE                              Opcode must be defined in target shader model
-SM.OPCODEININVALIDFUNCTION             Invalid DXIL opcode usage like StorePatchConstant in patch constant function
-SM.OPERAND                             Operand must be defined in target shader model
-SM.OUTPUTCONTROLPOINTCOUNTRANGE        output control point count must be [0..%0].  %1 specified
-SM.OUTPUTCONTROLPOINTSTOTALSCALARS     Total number of scalars across all HS output control points must not exceed
-SM.PATCHCONSTANTONLYFORHSDS            patch constant signature only valid in HS and DS
-SM.PSCONSISTENTINTERP                  Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
-SM.PSCOVERAGEANDINNERCOVERAGE          InnerCoverage and Coverage are mutually exclusive.
-SM.PSOUTPUTSEMANTIC                    Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
-SM.RESOURCERANGEOVERLAP                Resource ranges must not overlap
-SM.ROVONLYINPS                         RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
-SM.SAMPLECOUNTONLYON2DMS               Only Texture2DMS/2DMSArray could has sample count
-SM.SEMANTIC                            Semantic must be defined in target shader model
-SM.STREAMINDEXRANGE                    Stream index (%0) must between 0 and %1
-SM.TESSFACTORFORDOMAIN                 Required TessFactor for domain not found declared anywhere in Patch Constant data
-SM.TESSFACTORSIZEMATCHDOMAIN           TessFactor size mismatch the domain.
-SM.THREADGROUPCHANNELRANGE             Declared Thread Group %0 size %1 outside valid range [%2..%3]
-SM.TRIOUTPUTPRIMITIVEMISMATCH          Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
-SM.UNDEFINEDOUTPUT                     Not all elements of output %0 were written
-SM.VALIDDOMAIN                         Invalid Tessellator Domain specified. Must be isoline, tri or quad
-TYPES.DEFINED                          Type must be defined based on DXIL primitives
-TYPES.INTWIDTH                         Int type must be of valid width
-TYPES.NOVECTOR                         Vector types must not be present
-UNI.NOWAVESENSITIVEGRADIENT            Gradient operations are not affected by wave-sensitive data or control flow.
-====================================== =======================================================================================================================================================================================================================================================================================================
+===================================== =======================================================================================================================================================================================================================================================================================================
+Rule Code                             Description
+===================================== =======================================================================================================================================================================================================================================================================================================
+BITCODE.VALID                         TODO - Module must be bitcode-valid
+DECL.DXILFNEXTERN                     External function must be a DXIL function
+DECL.DXILNSRESERVED                   The DXIL reserved prefixes must only be used by built-in functions and types
+DECL.FNFLATTENPARAM                   Function parameters must not use struct types
+DECL.FNISCALLED                       Functions can only be used by call instructions
+DECL.NOTUSEDEXTERNAL                  External declaration should not be used
+DECL.USEDEXTERNALFUNCTION             External function must be used
+DECL.USEDINTERNAL                     Internal declaration must be used
+FLOW.DEADLOOP                         Loop must have break
+FLOW.NORECUSION                       Recursion is not permitted
+FLOW.REDUCIBLE                        Execution flow must be reducible
+INSTR.ALLOWED                         Instructions must be of an allowed type
+INSTR.BARRIERMODEFORNONCS             sync in a non-Compute Shader must only sync UAV (sync_uglobal)
+INSTR.BARRIERMODENOMEMORY             sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
+INSTR.BARRIERMODEUSELESSUGROUP        sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
+INSTR.BUFFERUPDATECOUNTERONUAV        BufferUpdateCounter valid only on UAV
+INSTR.CALLOLOAD                       Call to DXIL intrinsic must match overload signature
+INSTR.CANNOTPULLPOSITION              pull-model evaluation of position disallowed
+INSTR.CBUFFERCLASSFORCBUFFERHANDLE    Expect Cbuffer for CBufferLoad handle
+INSTR.CBUFFEROUTOFBOUND               Cbuffer access out of bound
+INSTR.COORDINATECOUNTFORRAWTYPEDBUF   raw/typed buffer don't need 2 coordinates
+INSTR.COORDINATECOUNTFORSTRUCTBUF     structured buffer require 2 coordinates
+INSTR.DXILSTRUCTUSER                  Dxil struct types should only used by ExtractValue
+INSTR.DXILSTRUCTUSEROUTOFBOUND        Index out of bound when extract value from dxil struct types
+INSTR.EVALINTERPOLATIONMODE           Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
+INSTR.FAILTORESLOVETGSMPOINTER        TGSM pointers must originate from an unambiguous TGSM global variable.
+INSTR.HANDLENOTFROMCREATEHANDLE       Resource handle should returned by createHandle
+INSTR.IMMBIASFORSAMPLEB               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
+INSTR.INBOUNDSACCESS                  Access to out-of-bounds memory is disallowed
+INSTR.MINPRECISIONNOTPRECISE          Instructions marked precise may not refer to minprecision values
+INSTR.MINPRECISONBITCAST              Bitcast on minprecison types is not allowed
+INSTR.MIPLEVELFORGETDIMENSION         Use mip level on buffer when GetDimensions
+INSTR.MIPONUAVLOAD                    uav load don't support mipLevel/sampleIndex
+INSTR.NOGENERICPTRADDRSPACECAST       Address space cast between pointer types must have one part to be generic address space
+INSTR.NOIDIVBYZERO                    No signed integer division by zero
+INSTR.NOINDEFINITEACOS                No indefinite arccosine
+INSTR.NOINDEFINITEASIN                No indefinite arcsine
+INSTR.NOINDEFINITEDSXY                No indefinite derivative calculation
+INSTR.NOINDEFINITELOG                 No indefinite logarithm
+INSTR.NOREADINGUNINITIALIZED          Instructions should not read uninitialized value
+INSTR.NOUDIVBYZERO                    No unsigned integer division by zero
+INSTR.OFFSETONUAVLOAD                 uav load don't support offset
+INSTR.OLOAD                           DXIL intrinsic overload must be valid
+INSTR.ONLYONEALLOCCONSUME             RWStructuredBuffers may increment or decrement their counters, but not both.
+INSTR.OPCODERESERVED                  Instructions must not reference reserved opcodes
+INSTR.OPCONST                         DXIL intrinsic requires an immediate constant operand
+INSTR.OPCONSTRANGE                    Constant values must be in-range for operation
+INSTR.OPERANDRANGE                    DXIL intrinsic operand must be within defined range
+INSTR.PTRBITCAST                      Pointer type bitcast must be have same size
+INSTR.RESOURCECLASSFORLOAD            load can only run on UAV/SRV resource
+INSTR.RESOURCECLASSFORSAMPLERGATHER   sample, lod and gather should on srv resource.
+INSTR.RESOURCECLASSFORUAVSTORE        store should on uav resource.
+INSTR.RESOURCECOORDINATEMISS          coord uninitialized
+INSTR.RESOURCECOORDINATETOOMANY       out of bound coord must be undef
+INSTR.RESOURCEKINDFORBUFFERLOADSTORE  buffer load/store only works on Raw/Typed/StructuredBuffer
+INSTR.RESOURCEKINDFORCALCLOD          lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray
+INSTR.RESOURCEKINDFORGATHER           gather requires resource declared as texture/2D/Cube/2DArray/CubeArray
+INSTR.RESOURCEKINDFORGETDIM           Invalid resource kind on GetDimensions
+INSTR.RESOURCEKINDFORSAMPLE           sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray
+INSTR.RESOURCEKINDFORSAMPLEC          samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
+INSTR.RESOURCEKINDFORTEXTURELOAD      texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray
+INSTR.RESOURCEKINDFORTEXTURESTORE     texture store only works on Texture1D/1DArray/2D/2DArray/3D
+INSTR.RESOURCEOFFSETMISS              offset uninitialized
+INSTR.RESOURCEOFFSETTOOMANY           out of bound offset must be undef
+INSTR.SAMPLECOMPTYPE                  sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.
+INSTR.SAMPLEINDEXFORLOAD2DMS          load on Texture2DMS/2DMSArray require sampleIndex
+INSTR.SAMPLERMODEFORLOD               lod instruction requires sampler declared in default mode
+INSTR.SAMPLERMODEFORSAMPLE            sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
+INSTR.SAMPLERMODEFORSAMPLEC           sample_c_*/gather_c instructions require sampler declared in comparison mode
+INSTR.STRUCTBITCAST                   Bitcast on struct types is not allowed
+INSTR.TEXTUREOFFSET                   offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
+INSTR.UNDEFRESULTFORGETDIMENSION      GetDimensions used undef dimension %0 on %1
+INSTR.WRITEMASKFORTYPEDUAVSTORE       store on typed uav must write to all four components of the UAV
+INSTR.WRITEMASKMATCHVALUEFORUAVSTORE  uav store write mask must match store value mask, write mask is %0 and store value mask is %1
+META.BRANCHFLATTEN                    Can't use branch and flatten attributes together
+META.CONTROLFLOWHINTNOTONCONTROLFLOW  Control flow hint only works on control flow inst
+META.DENSERESIDS                      Resource identifiers must be zero-based and dense
+META.ENTRYFUNCTION                    entrypoint not found
+META.FLAGSUSAGE                       Flags must match usage
+META.FORCECASEONSWITCH                Attribute forcecase only works for switch
+META.FUNCTIONANNOTATION               Cannot find function annotation for %0
+META.GLCNOTONAPPENDCONSUME            globallycoherent cannot be used with append/consume buffers
+META.INTEGERINTERPMODE                signature %0 specifies invalid interpolation mode for integer component type.
+META.INTERPMODEINONEROW               Interpolation mode cannot vary for different cols of a row. Vary at %0 row %1
+META.INTERPMODEVALID                  Interpolation mode must be valid
+META.INVALIDCONTROLFLOWHINT           Invalid control flow hint
+META.KNOWN                            Named metadata should be known
+META.MAXTESSFACTOR                    Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
+META.NOSEMANTICOVERLAP                Semantics must not overlap
+META.REQUIRED                         TODO - Required metadata missing
+META.SEMAKINDVALID                    Semantic kind must be valid
+META.SEMANTICCOMPTYPE                 %0 must be %1
+META.SEMANTICLEN                      Semantic length must be at least 1 and at most 64
+META.SIGNATURECOMPTYPE                signature %0 specifies unrecognized or invalid component type
+META.SIGNATUREOUTOFRANGE              signature %0 is out of range at row %1 col %2 size %3.
+META.SIGNATUREOVERLAP                 signature %0 use overlaped address at row %1 col %2 size %3.
+META.STRUCTBUFALIGNMENT               StructuredBuffer stride not aligned
+META.STRUCTBUFALIGNMENTOUTOFBOUND     StructuredBuffer stride out of bounds
+META.TARGET                           Target triple must be 'dxil-ms-dx'
+META.TESSELLATOROUTPUTPRIMITIVE       Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
+META.TESSELLATORPARTITION             Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
+META.TEXTURETYPE                      elements of typed buffers and textures must fit in four 32-bit quantities
+META.USED                             All metadata must be used by dxil
+META.VALIDSAMPLERMODE                 Invalid sampler mode on sampler
+META.VALUERANGE                       Metadata value must be within range
+META.WELLFORMED                       TODO - Metadata must be well-formed in operand count and types
+SM.APPENDANDCONSUMEONSAMEUAV          BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
+SM.CBUFFERELEMENTOVERFLOW             CBuffer elements must not overflow
+SM.CBUFFEROFFSETOVERLAP               CBuffer offsets must not overlap
+SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT    D3D12 constant/texture buffer template element can only be a struct
+SM.COMPLETEPOSITION                   Not all elements of SV_Position were written
+SM.COUNTERONLYONSTRUCTBUF             BufferUpdateCounter valid only on structured buffers
+SM.CSNORETURN                         Compute shaders can't return values, outputs must be written in writable resources (UAVs).
+SM.DOMAINLOCATIONIDXOOB               DomainLocation component index out of bounds for the domain.
+SM.DSINPUTCONTROLPOINTCOUNTRANGE      DS input control point count must be [0..%0].  %1 specified
+SM.GSINSTANCECOUNTRANGE               GS instance count must be [1..%0].  %1 specified
+SM.GSOUTPUTVERTEXCOUNTRANGE           GS output vertex count must be [0..%0].  %1 specified
+SM.GSTOTALOUTPUTVERTEXDATARANGE       Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
+SM.GSVALIDINPUTPRIMITIVE              GS input primitive unrecognized
+SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY     GS output primitive topology unrecognized
+SM.HSINPUTCONTROLPOINTCOUNTRANGE      HS input control point count must be [1..%0].  %1 specified
+SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH For pass thru hull shader, input control point count must match output control point count
+SM.INSIDETESSFACTORSIZEMATCHDOMAIN    InsideTessFactor size mismatch the domain.
+SM.INVALIDRESOURCECOMPTYPE            Invalid resource return type
+SM.INVALIDRESOURCEKIND                Invalid resources kind
+SM.INVALIDTEXTUREKINDONUAV            Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
+SM.ISOLINEOUTPUTPRIMITIVEMISMATCH     Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
+SM.MAXTGSMSIZE                        Total Thread Group Shared Memory storage is %0, exceeded %1
+SM.MAXTHEADGROUP                      Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
+SM.MULTISTREAMMUSTBEPOINT             When multiple GS output streams are used they must be pointlists
+SM.NAME                               Target shader model name must be known
+SM.NOINTERPMODE                       Interpolation mode must be undefined for VS input/PS output/patch constant.
+SM.NOPSOUTPUTIDX                      Pixel shader output registers are not indexable.
+SM.OPCODE                             Opcode must be defined in target shader model
+SM.OPCODEININVALIDFUNCTION            Invalid DXIL opcode usage like StorePatchConstant in patch constant function
+SM.OPERAND                            Operand must be defined in target shader model
+SM.OUTPUTCONTROLPOINTCOUNTRANGE       output control point count must be [0..%0].  %1 specified
+SM.OUTPUTCONTROLPOINTSTOTALSCALARS    Total number of scalars across all HS output control points must not exceed
+SM.PATCHCONSTANTONLYFORHSDS           patch constant signature only valid in HS and DS
+SM.PSCONSISTENTINTERP                 Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
+SM.PSCOVERAGEANDINNERCOVERAGE         InnerCoverage and Coverage are mutually exclusive.
+SM.PSOUTPUTSEMANTIC                   Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
+SM.RESOURCERANGEOVERLAP               Resource ranges must not overlap
+SM.ROVONLYINPS                        RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
+SM.SAMPLECOUNTONLYON2DMS              Only Texture2DMS/2DMSArray could has sample count
+SM.SEMANTIC                           Semantic must be defined in target shader model
+SM.STREAMINDEXRANGE                   Stream index (%0) must between 0 and %1
+SM.TESSFACTORFORDOMAIN                Required TessFactor for domain not found declared anywhere in Patch Constant data
+SM.TESSFACTORSIZEMATCHDOMAIN          TessFactor size mismatch the domain.
+SM.THREADGROUPCHANNELRANGE            Declared Thread Group %0 size %1 outside valid range [%2..%3]
+SM.TRIOUTPUTPRIMITIVEMISMATCH         Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
+SM.UNDEFINEDOUTPUT                    Not all elements of output %0 were written
+SM.VALIDDOMAIN                        Invalid Tessellator Domain specified. Must be isoline, tri or quad
+TYPES.DEFINED                         Type must be defined based on DXIL primitives
+TYPES.INTWIDTH                        Int type must be of valid width
+TYPES.NOVECTOR                        Vector types must not be present
+UNI.NOWAVESENSITIVEGRADIENT           Gradient operations are not affected by wave-sensitive data or control flow.
+===================================== =======================================================================================================================================================================================================================================================================================================
 
 .. VALRULES-RST:END
 
