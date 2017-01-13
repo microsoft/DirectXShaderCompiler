@@ -52,17 +52,8 @@ namespace DXIL {
 
   // TODO: move these to appropriate places (ShaderModel.cpp?)
   const unsigned kMaxTempRegCount = 4096;         // DXBC only
-  const unsigned kMaxD3D11ResourceCount = 128;
-  const unsigned kMaxD3D11SamplerCount = 16;
-  const unsigned kMaxD3D11CBufferCount = 14;
   const unsigned kMaxCBufferSize = 4096;
-  const unsigned kMaxD3D10UAVCount = 8;
-  const unsigned kMaxD3D10CS4UAVCount = 1;
-  const unsigned kMaxD3D11UAVCount = 64;
-  const unsigned kMaxD3D12TextureCount = 2048;
-  const unsigned kMaxD3D12SamplerCount = 128;
-  const unsigned kMaxD3D12UAVCount = 512;
-  const unsigned kMaxD3D12CBufferCount = 256;
+  const unsigned kMaxStructBufferStride = 2048;
   const unsigned kMaxHSOutputControlPointsTotalScalars = 3968;
   const unsigned kMaxHSOutputPatchConstantTotalScalars = 32*4;
   const unsigned kMaxOutputTotalScalars = 32*4;
@@ -89,39 +80,6 @@ namespace DXIL {
 
   const float kMaxMipLodBias = 15.99f;
   const float kMinMipLodBias = -16.0f;
-
-  const unsigned kCS_4_X_BUCKET00_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 256;
-  const unsigned kCS_4_X_BUCKET00_MAX_NUM_THREADS_PER_GROUP = 64;
-  const unsigned kCS_4_X_BUCKET01_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 240;
-  const unsigned kCS_4_X_BUCKET01_MAX_NUM_THREADS_PER_GROUP = 68;
-  const unsigned kCS_4_X_BUCKET02_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 224;
-  const unsigned kCS_4_X_BUCKET02_MAX_NUM_THREADS_PER_GROUP = 72;
-  const unsigned kCS_4_X_BUCKET03_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 208;
-  const unsigned kCS_4_X_BUCKET03_MAX_NUM_THREADS_PER_GROUP = 76;
-  const unsigned kCS_4_X_BUCKET04_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 192;
-  const unsigned kCS_4_X_BUCKET04_MAX_NUM_THREADS_PER_GROUP = 84;
-  const unsigned kCS_4_X_BUCKET05_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 176;
-  const unsigned kCS_4_X_BUCKET05_MAX_NUM_THREADS_PER_GROUP = 92;
-  const unsigned kCS_4_X_BUCKET06_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 160;
-  const unsigned kCS_4_X_BUCKET06_MAX_NUM_THREADS_PER_GROUP = 100;
-  const unsigned kCS_4_X_BUCKET07_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 144;
-  const unsigned kCS_4_X_BUCKET07_MAX_NUM_THREADS_PER_GROUP = 112;
-  const unsigned kCS_4_X_BUCKET08_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 128;
-  const unsigned kCS_4_X_BUCKET08_MAX_NUM_THREADS_PER_GROUP = 128;
-  const unsigned kCS_4_X_BUCKET09_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 112;
-  const unsigned kCS_4_X_BUCKET09_MAX_NUM_THREADS_PER_GROUP = 144;
-  const unsigned kCS_4_X_BUCKET10_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 96;
-  const unsigned kCS_4_X_BUCKET10_MAX_NUM_THREADS_PER_GROUP = 168;
-  const unsigned kCS_4_X_BUCKET11_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 80;
-  const unsigned kCS_4_X_BUCKET11_MAX_NUM_THREADS_PER_GROUP = 204;
-  const unsigned kCS_4_X_BUCKET12_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 64;
-  const unsigned kCS_4_X_BUCKET12_MAX_NUM_THREADS_PER_GROUP = 256;
-  const unsigned kCS_4_X_BUCKET13_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 48;
-  const unsigned kCS_4_X_BUCKET13_MAX_NUM_THREADS_PER_GROUP = 340;
-  const unsigned kCS_4_X_BUCKET14_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 32;
-  const unsigned kCS_4_X_BUCKET14_MAX_NUM_THREADS_PER_GROUP = 512;
-  const unsigned kCS_4_X_BUCKET15_MAX_BYTES_TGSM_WRITABLE_PER_THREAD = 16;
-  const unsigned kCS_4_X_BUCKET15_MAX_NUM_THREADS_PER_GROUP	= 768;
 
   enum class ComponentType : uint8_t { 
     Invalid = 0,

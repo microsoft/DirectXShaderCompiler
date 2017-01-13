@@ -1107,6 +1107,20 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Function *patchConstFunc = patchConstantFunctionMap[funcName];
       funcProps->ShaderProps.HS.patchConstantFunc = patchConstFunc;
       DXASSERT_NOMSG(m_pHLModule->HasHLFunctionProps(patchConstFunc));
+      // Check no inout parameter for patch constant function.
+      DxilFunctionAnnotation *patchConstFuncAnnotation =
+          m_pHLModule->GetFunctionAnnotation(patchConstFunc);
+      for (unsigned i = 0; i < patchConstFuncAnnotation->GetNumParameters();
+           i++) {
+        if (patchConstFuncAnnotation->GetParameterAnnotation(i)
+                .GetParamInputQual() == DxilParamInputQual::Inout) {
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "Patch Constant function should not have inout param.");
+          Diags.Report(Attr->getLocation(), DiagID);
+          return;
+        }
+      }
     } else {
       // TODO: Bring this in line with fxc behavior.  In fxc, patchconstantfunc
       //  selection is based only on name (last function with matching name),
@@ -1324,7 +1338,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     if (IsHLSLOutputPatchType(parmDecl->getType())) {
       outputPatchCount++;
-      DXASSERT(dxilInputQ == DxilParamInputQual::In, "OutputPatch must be in parameter");
+      if (dxilInputQ != DxilParamInputQual::In) {
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "OutputPatch should not be out/inout parameter");
+        Diags.Report(parmDecl->getLocation(), DiagID);
+        continue;
+      }
       dxilInputQ = DxilParamInputQual::OutputPatch;
       if (isDS)
         funcProps->ShaderProps.DS.inputControlPoints =
@@ -1332,7 +1351,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
     else if (IsHLSLInputPatchType(parmDecl->getType())) {
       inputPatchCount++;
-      DXASSERT(dxilInputQ == DxilParamInputQual::In, "InputPatch must be in parameter");
+      if (dxilInputQ != DxilParamInputQual::In) {
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "InputPatch should not be out/inout parameter");
+        Diags.Report(parmDecl->getLocation(), DiagID);
+        continue;
+      }
       dxilInputQ = DxilParamInputQual::InputPatch;
       if (isHS) {
         funcProps->ShaderProps.HS.inputControlPoints =
@@ -4260,6 +4284,8 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
         return Builder.CreateFPTrunc(Src, DstTy);
       }
     }
+  } else if (UndefValue *UV = dyn_cast<UndefValue>(Src)) {
+    return UndefValue::get(DstTy);
   } else {
     Instruction *I = cast<Instruction>(Src);
     if (SelectInst *SI = dyn_cast<SelectInst>(I)) {
