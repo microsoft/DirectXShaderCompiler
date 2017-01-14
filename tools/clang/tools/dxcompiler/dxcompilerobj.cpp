@@ -1784,6 +1784,36 @@ static void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, DXIL::S
   OS << comment << "\n";
 }
 
+// Class to manage lifetime of llvm module and provide some utility
+// functions used for generating compiler output.
+class DxilCompilerLLVMModuleOutput {
+public:
+  DxilCompilerLLVMModuleOutput(std::unique_ptr<llvm::Module> module)
+    : m_llvmModule(std::move(module))
+  { }
+
+  void CloneForDebugInfo() {
+      m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
+  }
+
+ void WrapModuleInDxilContainer(IMalloc *pMalloc,  AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
+    CComPtr<AbstractMemoryStream> pContainerStream;
+    IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+    SerializeDxilContainerForModule(m_llvmModule.get(), pModuleBitcode, pContainerStream);
+
+    pDxilContainerBlob.Release();
+    IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
+  }
+
+  llvm::Module *get() { return m_llvmModule.get(); }
+  llvm::Module *getWithDebugInfo() { return m_llvmModuleWithDebugInfo.get(); }
+
+private:
+  std::unique_ptr<llvm::Module> m_llvmModule;
+  std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
+};
+
+
 class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -2002,53 +2032,38 @@ public:
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();
+        outStream.flush();
 
-        // Don't do work to put in a container if an error has occurred, or if
-        // there is only a a high-level representation in the module.
-        
+        // Don't do work to put in a container if an error has occurred
         bool compileOK = !compiler.getDiagnostics().hasErrorOccurred();
         if (compileOK) {
           HRESULT valHR = S_OK;
+
+          // Take ownership of the module from the action.
+          DxilCompilerLLVMModuleOutput llvmModule(action.takeModule());
+
+          // If using the internal validator, we'll use the modules directly.
+          // In this case, we'll want to make a clone to avoid SerializeDxilContainerForModule
+          // stripping all the debug info. The debug info will be stripped from the orginal
+          // module, but preserved in the cloned module.
+          if (internalValidator && opts.DebugInfo)
+            llvmModule.CloneForDebugInfo();
+
+          // Do not create a container when there is only a a high-level representation in the module.
+          if (!opts.CodeGenHighLevel)
+            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob);
+
           if (needsValidation) {
-            outStream.flush();
-
-            CComPtr<AbstractMemoryStream> pFinalStream;
-            IFT(CreateMemoryStream(pMalloc, &pFinalStream));
-
-            llvm::Module *pDebugModule, *pOrigModule;
-            std::unique_ptr<llvm::Module> llvmModule = action.takeModule();
-            std::unique_ptr<llvm::Module> llvmClonedModule;
-            if (internalValidator && opts.DebugInfo) {
-              // If using the internal validator, we'll use the modules directly.
-              // In this case, we'll want to make a clone to avoid SerializeDxilContainerForModule
-              // destroying this.
-              llvmClonedModule.reset(llvm::CloneModule(llvmModule.get()));
-              pDebugModule = llvmClonedModule.get();
-              SerializeDxilContainerForModule(llvmModule.get(), pOutputStream, pFinalStream);
-              pOrigModule = llvmModule.get();
-            }
-            else {
-              pOrigModule = llvmModule.get();
-              pDebugModule = nullptr;
-              SerializeDxilContainerForModule(llvmModule.get(), pOutputStream, pFinalStream);
-            }
-            pOutputBlob.Release();
-            IFT(pFinalStream.QueryInterface(&pOutputBlob));
-
-            CComPtr<IDxcBlob> pFinalStreamBlob;
-            CComPtr<IDxcOperationResult> pValResult;
-            IFT(pFinalStream.QueryInterface(&pFinalStreamBlob));
-
             // Important: in-place edit is required so the blob is reused and thus
             // dxil.dll can be released.
             if (internalValidator) {
               IFT(RunInternalValidator(
-                pValidator, pOrigModule, pDebugModule, pFinalStreamBlob,
+                pValidator, llvmModule.get(), llvmModule.getWithDebugInfo(), pOutputBlob,
                 DxcValidatorFlags_InPlaceEdit, &pValResult));
             }
             else {
               IFT(pValidator->Validate(
-                pFinalStreamBlob, DxcValidatorFlags_InPlaceEdit, &pValResult));
+                pOutputBlob, DxcValidatorFlags_InPlaceEdit, &pValResult));
             }
             IFT(pValResult->GetStatus(&valHR));
             if (FAILED(valHR)) {
