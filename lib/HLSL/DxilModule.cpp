@@ -405,7 +405,8 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   }
 
   unsigned NumUAVs = m_UAVs.size();
-  if (NumUAVs > DXIL::kMaxD3D10UAVCount)
+  const unsigned kSmallUAVCount = 8;
+  if (NumUAVs > kSmallUAVCount)
     Flags.Set64UAVs(true);
   if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
     Flags.SetUAVsAtEveryStage(true);

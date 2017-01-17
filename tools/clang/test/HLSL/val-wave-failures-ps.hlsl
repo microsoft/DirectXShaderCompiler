@@ -1,8 +1,8 @@
 // RUN: %dxc -E main -T ps_6_0 %s /Zi | FileCheck %s
 
-// CHECK: Gradient operations are not affected by wave-sensitive data or control flow.
-// CHECK: Gradient operations are not affected by wave-sensitive data or control flow.
-// CHECK: Gradient operations are not affected by wave-sensitive data or control flow.
+// CHECK: val-wave-failures-ps.hlsl:10:9  Gradient operations are not affected by wave-sensitive data or control flow.
+// CHECK: val-wave-failures-ps.hlsl:30:12 Gradient operations are not affected by wave-sensitive data or control flow.
+// CHECK: val-wave-failures-ps.hlsl:40:12 Gradient operations are not affected by wave-sensitive data or control flow.
 
 float4 main(float4 p: SV_Position) : SV_Target {
   // cannot feed into ddx

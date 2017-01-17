@@ -286,6 +286,7 @@ public:
 
   TEST_METHOD(CompileWhenODumpThenPassConfig)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
+  TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
 
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
@@ -1522,6 +1523,24 @@ TEST_F(CompilerTest, CompileWhenODumpThenPassConfig) {
   VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
   string passes((char *)pResultBlob->GetBufferPointer(), pResultBlob->GetBufferSize());
   VERIFY_ARE_NOT_EQUAL(string::npos, passes.find("inline"));
+}
+
+TEST_F(CompilerTest, CompileWhenVdThenProducesDxilContainer) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(EmptyCompute, &pSource);
+
+  LPCWSTR Args[] = { L"/Vd" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"cs_6_0", Args, _countof(Args), nullptr, 0, nullptr, &pResult));
+  VerifyOperationSucceeded(pResult);
+  CComPtr<IDxcBlob> pResultBlob;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
+  VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(reinterpret_cast<hlsl::DxilContainerHeader *>(pResultBlob->GetBufferPointer()), pResultBlob->GetBufferSize()));
 }
 
 TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {

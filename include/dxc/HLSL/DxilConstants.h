@@ -52,18 +52,8 @@ namespace DXIL {
 
   // TODO: move these to appropriate places (ShaderModel.cpp?)
   const unsigned kMaxTempRegCount = 4096;         // DXBC only
-  const unsigned kMaxD3D11ResourceCount = 128;
-  const unsigned kMaxD3D11SamplerCount = 16;
-  const unsigned kMaxD3D11CBufferCount = 14;
   const unsigned kMaxCBufferSize = 4096;
   const unsigned kMaxStructBufferStride = 2048;
-  const unsigned kMaxD3D10UAVCount = 8;
-  const unsigned kMaxD3D10CS4UAVCount = 1;
-  const unsigned kMaxD3D11UAVCount = 64;
-  const unsigned kMaxD3D12TextureCount = 2048;
-  const unsigned kMaxD3D12SamplerCount = 128;
-  const unsigned kMaxD3D12UAVCount = 512;
-  const unsigned kMaxD3D12CBufferCount = 256;
   const unsigned kMaxHSOutputControlPointsTotalScalars = 3968;
   const unsigned kMaxHSOutputPatchConstantTotalScalars = 32*4;
   const unsigned kMaxOutputTotalScalars = 32*4;
