@@ -1683,7 +1683,7 @@ class db_hlsl_intrisic_param(object):
 
 class db_hlsl(object):
     "A database of HLSL language data"
-    def __init__(self):
+    def __init__(self, intrinsic_defs):
         self.base_types = {
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
@@ -1724,20 +1724,21 @@ class db_hlsl(object):
             "col_major": "AR_QUAL_COLMAJOR",
             "row_major": "AR_QUAL_ROWMAJOR"}
         self.intrinsics = []
-        self.load_intrinsics("gen_intrin_main.txt")
+        self.load_intrinsics(intrinsic_defs)
         self.create_namespaces()
         self.populate_attributes()
+        self.opcode_namespace = "hlsl::IntrinsicOp"
 
     def create_namespaces(self):
         last_ns = None
         self.namespaces = {}
-        for i in sorted(self.intrinsics, lambda x,y: cmp(x.key, y.key)):
+        for i in sorted(self.intrinsics, key=lambda x: x.key):
             if last_ns is None or last_ns.name != i.ns:
                 last_ns = db_hlsl_namespace(i.ns)
                 self.namespaces[i.ns] = last_ns
             last_ns.intrinsics.append(i)
 
-    def load_intrinsics(self, file_name):
+    def load_intrinsics(self, intrinsic_defs):
         import re
         blank_re = re.compile(r"^\s*$")
         comment_re = re.compile(r"^\s*//")
@@ -1904,8 +1905,7 @@ class db_hlsl(object):
             return readonly, readnone, unsigned_op, overload_param_index
 
         current_namespace = None
-        intrin_file = open(file_name)
-        for line in intrin_file:
+        for line in intrinsic_defs:
             if blank_re.match(line): continue
             if comment_re.match(line): continue
             match_obj = namespace_beg_re.match(line)
