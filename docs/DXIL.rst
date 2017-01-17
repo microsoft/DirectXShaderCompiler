@@ -1880,7 +1880,6 @@ PHI           is a PHI node instruction
 Call          calls a function
 Select        selects an instruction
 ExtractValue  extracts from aggregate
-InsertValue   inserts into aggregate
 ============= ======================================================================= =================
 
 
@@ -2125,6 +2124,7 @@ DECL.NOTUSEDEXTERNAL                  External declaration should not be used
 DECL.USEDEXTERNALFUNCTION             External function must be used
 DECL.USEDINTERNAL                     Internal declaration must be used
 FLOW.DEADLOOP                         Loop must have break
+FLOW.FUNCTIONCALL                     Function call on user defined function with parameter is not permitted
 FLOW.NORECUSION                       Recursion is not permitted
 FLOW.REDUCIBLE                        Execution flow must be reducible
 INSTR.ALLOWED                         Instructions must be of an allowed type
@@ -2141,6 +2141,7 @@ INSTR.COORDINATECOUNTFORSTRUCTBUF     structured buffer require 2 coordinates
 INSTR.DXILSTRUCTUSER                  Dxil struct types should only used by ExtractValue
 INSTR.DXILSTRUCTUSEROUTOFBOUND        Index out of bound when extract value from dxil struct types
 INSTR.EVALINTERPOLATIONMODE           Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
+INSTR.EXTRACTVALUE                    ExtractValue should only be used on dxil struct types and cmpxchg
 INSTR.FAILTORESLOVETGSMPOINTER        TGSM pointers must originate from an unambiguous TGSM global variable.
 INSTR.HANDLENOTFROMCREATEHANDLE       Resource handle should returned by createHandle
 INSTR.IMMBIASFORSAMPLEB               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
@@ -2271,6 +2272,7 @@ SM.UNDEFINEDOUTPUT                    Not all elements of output %0 were written
 SM.VALIDDOMAIN                        Invalid Tessellator Domain specified. Must be isoline, tri or quad
 TYPES.DEFINED                         Type must be defined based on DXIL primitives
 TYPES.INTWIDTH                        Int type must be of valid width
+TYPES.NOMULTIDIM                      Only one dimension allowed for array type
 TYPES.NOVECTOR                        Vector types must not be present
 UNI.NOWAVESENSITIVEGRADIENT           Gradient operations are not affected by wave-sensitive data or control flow.
 ===================================== =======================================================================================================================================================================================================================================================================================================

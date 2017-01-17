@@ -51,6 +51,7 @@ public:
   TEST_METHOD(TypedUAVStoreFullMask1)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
+  TEST_METHOD(UserDefineFunction)
   TEST_METHOD(ResourceRangeOverlap0)
   TEST_METHOD(ResourceRangeOverlap1)
   TEST_METHOD(ResourceRangeOverlap2)
@@ -93,6 +94,7 @@ public:
   TEST_METHOD(PtrBitCast)
   TEST_METHOD(MinPrecisionBitCast)
   TEST_METHOD(StructBitCast)
+  TEST_METHOD(MultiDimArray)
 
   TEST_METHOD(WhenInstrDisallowedThenFail);
   TEST_METHOD(WhenDepthNotFloatThenFail);
@@ -554,6 +556,10 @@ TEST_F(ValidationTest, Recursive2) {
     TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
 }
 
+TEST_F(ValidationTest, UserDefineFunction) {
+    TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
+}
+
 TEST_F(ValidationTest, ResourceRangeOverlap0) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\resource_overlap.hlsl", "ps_6_0",
@@ -894,6 +900,14 @@ TEST_F(ValidationTest, StructBitCast) {
                           "  %X = bitcast float* %12 to %dx.types.Handle*    \n"
                           "  store float %11, float* %12, align 4",
                           "Bitcast on struct types is not allowed");
+}
+
+TEST_F(ValidationTest, MultiDimArray) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+                          "%1 = alloca [4 x float]",
+                          "%1 = alloca [4 x float]\n"
+                          "  %md = alloca [2 x [4 x float]]",
+                          "Array Type only allow one dimension");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {

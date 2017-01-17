@@ -351,7 +351,6 @@ class db_dxil(object):
         self.add_llvm_instr("OTHER", 52, "UserOp2", "Instruction", "internal to passes only", "", [])
         self.add_llvm_instr("OTHER", 53, "VAArg", "VAArgInst", "vaarg instruction", "", [])
         self.add_llvm_instr("OTHER", 57, "ExtractValue", "ExtractValueInst", "extracts from aggregate", "", [])
-        self.add_llvm_instr("OTHER", 58, "InsertValue", "InsertValueInst", "inserts into aggregate", "", [])
         self.add_llvm_instr("OTHER", 59, "LandingPad", "LandingPadInst", "represents a landing pad", "", [])
     
     def populate_dxil_operations(self):
@@ -1480,6 +1479,7 @@ class db_dxil(object):
         self.add_valrule("Instr.CBufferOutOfBound", "Cbuffer access out of bound")
         self.add_valrule("Instr.CBufferClassForCBufferHandle", "Expect Cbuffer for CBufferLoad handle")
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
+        self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
@@ -1491,6 +1491,7 @@ class db_dxil(object):
         self.add_valrule_msg("Types.NoVector", "Vector types must not be present", "Vector type '%0' is not allowed")
         self.add_valrule_msg("Types.Defined", "Type must be defined based on DXIL primitives", "Type '%0' is not defined on DXIL primitives")
         self.add_valrule_msg("Types.IntWidth", "Int type must be of valid width", "Int type '%0' has an invalid width")
+        self.add_valrule("Types.NoMultiDim", "Only one dimension allowed for array type")
 
         self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'")
         self.add_valrule("Sm.Opcode", "Opcode must be defined in target shader model")
@@ -1549,6 +1550,7 @@ class db_dxil(object):
         self.add_valrule("Flow.Reducible", "Execution flow must be reducible")
         self.add_valrule("Flow.NoRecusion", "Recursion is not permitted")
         self.add_valrule("Flow.DeadLoop", "Loop must have break")
+        self.add_valrule_msg("Flow.FunctionCall", "Function call on user defined function with parameter is not permitted", "Function call on user defined function with parameter %0 is not permitted, it should be inlined")
 
         self.add_valrule_msg("Decl.DxilNsReserved", "The DXIL reserved prefixes must only be used by built-in functions and types", "Declaration '%0' uses a reserved prefix")
         self.add_valrule_msg("Decl.DxilFnExtern", "External function must be a DXIL function", "External function '%0' is not a DXIL function")
