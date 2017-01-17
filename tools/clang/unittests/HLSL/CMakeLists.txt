@@ -10,7 +10,6 @@ set( LLVM_LINK_COMPONENTS
   dxcsupport
   hlsl
   option
-  Analysis
   Core
   IPA
   IPO

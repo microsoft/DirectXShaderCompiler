@@ -15,15 +15,6 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HLSL/HLOperationLowerExtension.h"
 
-// LLVM include for custom lowering
-#include "llvm/IR/Function.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/STLExtras.h"
-
 ///////////////////////////////////////////////////////////////////////////////
 // Support for test intrinsics.
 
@@ -215,13 +206,13 @@ public:
     return S_OK;
   }
 };
-void CheckOperationFailed(IDxcOperationResult *pResult) {
+static void CheckOperationFailed(IDxcOperationResult *pResult) {
   HRESULT status;
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_FAILED(status);
 }
 
-std::string GetCompileErrors(IDxcOperationResult *pResult) {
+static std::string GetCompileErrors(IDxcOperationResult *pResult) {
   CComPtr<IDxcBlobEncoding> pErrors;
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   if (!pErrors)

@@ -95,17 +95,19 @@ public:
   // Set the validator used to validate semantic defines.
   // Only one validator stored and used to run validation.
   HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) {
-    try {
-      IFTPTR(pValidator);
-      m_semanticDefineValidator = pValidator;
-      return S_OK;
-    }
-    CATCH_CPP_RETURN_HRESULT();
+    if (pValidator == nullptr)
+      return E_POINTER;
+
+    m_semanticDefineValidator = pValidator;
+    return S_OK;
   }
 
   HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) {
-    m_semanticDefineMetaDataName = name;
-    return S_OK;
+    try {
+      m_semanticDefineMetaDataName = name;
+      return S_OK;
+    }
+    CATCH_CPP_RETURN_HRESULT();
   }
 
   // Get the name of the dxil intrinsic function.
@@ -140,19 +142,26 @@ public:
     if (!m_semanticDefineValidator)
       return SemanticDefineValidationResult::Success();
 
+    // Blobs for getting restul from validator. Strings for returning results to caller.
     CComPtr<IDxcBlobEncoding> pError;
     CComPtr<IDxcBlobEncoding> pWarning;
+    std::string error;
+    std::string warning;
+
+    // Run semantic define validator.
     HRESULT result = m_semanticDefineValidator->GetSemanticDefineWarningsAndErrors(name.c_str(), value.c_str(), &pWarning, &pError);
 
+
     if (FAILED(result)) {
-      // Hmmm... what to do?
       // Failure indicates it was not able to even run validation so
-      // we cannot say the define is invalid. Let's return success and
-      // hope for the best.
-      return SemanticDefineValidationResult::Success();
+      // we cannot say whether the define is invalid or not. Return a
+      // generic error message about failure to run the valiadator.
+      error = "failed to run semantic define validator for: ";
+      error.append(name); error.append("="); error.append(value);
+      return SemanticDefineValidationResult{ warning, error };
     }
 
-    // Function to convert encoded blob into a string.
+    // Define a  little function to convert encoded blob into a string.
     auto GetErrorAsString = [&name](const CComPtr<IDxcBlobEncoding> &pBlobString) -> std::string {
       CComPtr<IDxcBlobEncoding> pUTF8BlobStr;
       if (SUCCEEDED(hlsl::DxcGetBlobAsUtf8(pBlobString, &pUTF8BlobStr)))
@@ -162,8 +171,6 @@ public:
     };
 
     // Check to see if any warnings or errors were produced.
-    std::string error;
-    std::string warning;
     if (pError && pError->GetBufferSize()) {
       error = GetErrorAsString(pError);
     }
