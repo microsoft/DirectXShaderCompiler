@@ -14,6 +14,7 @@
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLOperationLower.h"
+#include "dxc/HLSL/HLOperationLowerExtension.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
 
@@ -5681,7 +5682,6 @@ void TranslateSubscriptOperation(Function *F, HLOperationLowerHelper &helper,  H
 void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
                                hlsl::HLOpcodeGroup group, HLObjectOperationLowerHelper *pObjHelper) {
   if (group == HLOpcodeGroup::HLIntrinsic) {
-
     // map to dxil operations
     for (auto U = F->user_begin(); U != F->user_end();) {
       Value *User = *(U++);
@@ -5723,11 +5723,40 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
   }
 }
 
+static void TranslateHLExtension(Function *F, HLSLExtensionsCodegenHelper *helper) {
+  // Find all calls to the function F.
+  // Store the calls in a vector for now to be replaced the loop below.
+  // We use a two step "find then replace" to avoid removing uses while
+  // iterating.
+  SmallVector<CallInst *, 8> CallsToReplace;
+  for (User *U : F->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      CallsToReplace.push_back(CI);
+    }
+  }
+
+  // Get the lowering strategy to use for this intrinsic.
+  llvm::StringRef LowerStrategy = GetHLLowerStrategy(F);
+  ExtensionLowering lower(LowerStrategy, helper);
+
+  // Replace all calls that were successfully translated.
+  for (CallInst *CI : CallsToReplace) {
+      Value *Result = lower.Translate(CI);
+      if (Result && Result != CI) {
+        CI->replaceAllUsesWith(Result);
+        CI->eraseFromParent();
+      }
+  }
+}
+
+
 namespace hlsl {
 
 void TranslateBuiltinOperations(
     HLModule &HLM,
-    std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap) {
+    std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap,
+    HLSLExtensionsCodegenHelper *extCodegenHelper
+  ) {
   HLOperationLowerHelper helper(HLM);
 
   HLObjectOperationLowerHelper objHelper = {handleMap, HLM};
@@ -5738,8 +5767,14 @@ void TranslateBuiltinOperations(
     if (!F->isDeclaration()) {
       continue;
     }
-    hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+    hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
     if (group == HLOpcodeGroup::NotHL) {
+      // Nothing to do.
+      continue;
+    }
+    if (group == HLOpcodeGroup::HLExtIntrinsic) {
+      // TODO: consider handling extensions to object methods
+      TranslateHLExtension(F, extCodegenHelper);
       continue;
     }
     TranslateHLBuiltinOperation(F, helper, group, &objHelper);

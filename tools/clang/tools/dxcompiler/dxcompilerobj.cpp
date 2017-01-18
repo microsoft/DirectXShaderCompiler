@@ -37,6 +37,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "dxc/Support/WinIncludes.h"  // For DxilPipelineStateValidation.h
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 
 #ifdef _DEBUG
 #if defined(_MSC_VER)
@@ -1784,6 +1785,104 @@ static void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, DXIL::S
   OS << comment << "\n";
 }
 
+class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
+private:
+  CompilerInstance &m_CI;
+  DxcLangExtensionsHelper &m_langExtensionsHelper;
+
+  // The metadata format is a root node that has pointers to metadata
+  // nodes for each define. The metatdata node for a define is a pair
+  // of (name, value) metadata strings.
+  //
+  // Example:
+  // !hlsl.semdefs = {!0, !1}
+  // !0 = !{!"FOO", !"BAR"}
+  // !1 = !{!"BOO", !"HOO"}
+  void WriteSemanticDefines(llvm::Module *M, const ParsedSemanticDefineList &defines) {
+    // Create all metadata nodes for each define. Each node is a (name, value) pair.
+    std::vector<MDNode *> mdNodes;
+    for (const ParsedSemanticDefine &define : defines) {
+      MDString *name  = MDString::get(M->getContext(), define.Name);
+      MDString *value = MDString::get(M->getContext(), define.Value);
+      mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
+    }
+
+    // Add root node with pointers to all define metadata nodes.
+    NamedMDNode *Root = M->getOrInsertNamedMetadata(m_langExtensionsHelper.GetSemanticDefineMetadataName());
+    for (MDNode *node : mdNodes)
+      Root->addOperand(node);
+  }
+
+  SemanticDefineErrorList GetValidatedSemanticDefines(const ParsedSemanticDefineList &defines, ParsedSemanticDefineList &validated, SemanticDefineErrorList &errors) {
+    for (const ParsedSemanticDefine &define : defines) {
+      DxcLangExtensionsHelper::SemanticDefineValidationResult result = m_langExtensionsHelper.ValidateSemanticDefine(define.Name, define.Value);
+        if (result.HasError())
+          errors.emplace_back(SemanticDefineError(define.Location, SemanticDefineError::Level::Error, result.Error));
+        if (result.HasWarning())
+          errors.emplace_back(SemanticDefineError(define.Location, SemanticDefineError::Level::Warning, result.Warning));
+        if (!result.HasError())
+          validated.emplace_back(define);
+    }
+
+    return errors;
+  }
+
+public:
+  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper)
+  : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
+  {}
+
+  // Write semantic defines as metadata in the module.
+  virtual std::vector<SemanticDefineError> WriteSemanticDefines(llvm::Module *M) override {
+    // Grab the semantic defines seen by the parser.
+    ParsedSemanticDefineList defines =
+      CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
+
+    // Nothing to do if we have no defines.
+    SemanticDefineErrorList errors;
+    if (!defines.size())
+      return errors;
+
+    ParsedSemanticDefineList validated;
+    GetValidatedSemanticDefines(defines, validated, errors);
+    WriteSemanticDefines(M, validated);
+    return errors;
+  }
+
+  virtual std::string GetIntrinsicName(UINT opcode) override {
+    return m_langExtensionsHelper.GetIntrinsicName(opcode);
+  }
+};
+
+// Class to manage lifetime of llvm module and provide some utility
+// functions used for generating compiler output.
+class DxilCompilerLLVMModuleOutput {
+public:
+  DxilCompilerLLVMModuleOutput(std::unique_ptr<llvm::Module> module)
+    : m_llvmModule(std::move(module))
+  { }
+
+  void CloneForDebugInfo() {
+      m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
+  }
+
+ void WrapModuleInDxilContainer(IMalloc *pMalloc,  AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
+    CComPtr<AbstractMemoryStream> pContainerStream;
+    IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+    SerializeDxilContainerForModule(m_llvmModule.get(), pModuleBitcode, pContainerStream);
+
+    pDxilContainerBlob.Release();
+    IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
+  }
+
+  llvm::Module *get() { return m_llvmModule.get(); }
+  llvm::Module *getWithDebugInfo() { return m_llvmModuleWithDebugInfo.get(); }
+
+private:
+  std::unique_ptr<llvm::Module> m_llvmModule;
+  std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
+};
+
 class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -2002,53 +2101,38 @@ public:
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();
+        outStream.flush();
 
-        // Don't do work to put in a container if an error has occurred, or if
-        // there is only a a high-level representation in the module.
-        
+        // Don't do work to put in a container if an error has occurred
         bool compileOK = !compiler.getDiagnostics().hasErrorOccurred();
         if (compileOK) {
           HRESULT valHR = S_OK;
+
+          // Take ownership of the module from the action.
+          DxilCompilerLLVMModuleOutput llvmModule(action.takeModule());
+
+          // If using the internal validator, we'll use the modules directly.
+          // In this case, we'll want to make a clone to avoid SerializeDxilContainerForModule
+          // stripping all the debug info. The debug info will be stripped from the orginal
+          // module, but preserved in the cloned module.
+          if (internalValidator && opts.DebugInfo)
+            llvmModule.CloneForDebugInfo();
+
+          // Do not create a container when there is only a a high-level representation in the module.
+          if (!opts.CodeGenHighLevel)
+            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob);
+
           if (needsValidation) {
-            outStream.flush();
-
-            CComPtr<AbstractMemoryStream> pFinalStream;
-            IFT(CreateMemoryStream(pMalloc, &pFinalStream));
-
-            llvm::Module *pDebugModule, *pOrigModule;
-            std::unique_ptr<llvm::Module> llvmModule = action.takeModule();
-            std::unique_ptr<llvm::Module> llvmClonedModule;
-            if (internalValidator && opts.DebugInfo) {
-              // If using the internal validator, we'll use the modules directly.
-              // In this case, we'll want to make a clone to avoid SerializeDxilContainerForModule
-              // destroying this.
-              llvmClonedModule.reset(llvm::CloneModule(llvmModule.get()));
-              pDebugModule = llvmClonedModule.get();
-              SerializeDxilContainerForModule(llvmModule.get(), pOutputStream, pFinalStream);
-              pOrigModule = llvmModule.get();
-            }
-            else {
-              pOrigModule = llvmModule.get();
-              pDebugModule = nullptr;
-              SerializeDxilContainerForModule(llvmModule.get(), pOutputStream, pFinalStream);
-            }
-            pOutputBlob.Release();
-            IFT(pFinalStream.QueryInterface(&pOutputBlob));
-
-            CComPtr<IDxcBlob> pFinalStreamBlob;
-            CComPtr<IDxcOperationResult> pValResult;
-            IFT(pFinalStream.QueryInterface(&pFinalStreamBlob));
-
             // Important: in-place edit is required so the blob is reused and thus
             // dxil.dll can be released.
             if (internalValidator) {
               IFT(RunInternalValidator(
-                pValidator, pOrigModule, pDebugModule, pFinalStreamBlob,
+                pValidator, llvmModule.get(), llvmModule.getWithDebugInfo(), pOutputBlob,
                 DxcValidatorFlags_InPlaceEdit, &pValResult));
             }
             else {
               IFT(pValidator->Validate(
-                pFinalStreamBlob, DxcValidatorFlags_InPlaceEdit, &pValResult));
+                pOutputBlob, DxcValidatorFlags_InPlaceEdit, &pValResult));
             }
             IFT(pValResult->GetStatus(&valHR));
             if (FAILED(valHR)) {
@@ -2456,6 +2540,7 @@ public:
     compiler.getCodeGenOpts().setInlining(
         clang::CodeGenOptions::OnlyAlwaysInlining);
 
+    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper);
   }
 };
 

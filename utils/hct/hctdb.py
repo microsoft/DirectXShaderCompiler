@@ -351,7 +351,6 @@ class db_dxil(object):
         self.add_llvm_instr("OTHER", 52, "UserOp2", "Instruction", "internal to passes only", "", [])
         self.add_llvm_instr("OTHER", 53, "VAArg", "VAArgInst", "vaarg instruction", "", [])
         self.add_llvm_instr("OTHER", 57, "ExtractValue", "ExtractValueInst", "extracts from aggregate", "", [])
-        self.add_llvm_instr("OTHER", 58, "InsertValue", "InsertValueInst", "inserts into aggregate", "", [])
         self.add_llvm_instr("OTHER", 59, "LandingPad", "LandingPadInst", "represents a landing pad", "", [])
     
     def populate_dxil_operations(self):
@@ -1480,6 +1479,7 @@ class db_dxil(object):
         self.add_valrule("Instr.CBufferOutOfBound", "Cbuffer access out of bound")
         self.add_valrule("Instr.CBufferClassForCBufferHandle", "Expect Cbuffer for CBufferLoad handle")
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
+        self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
@@ -1491,6 +1491,7 @@ class db_dxil(object):
         self.add_valrule_msg("Types.NoVector", "Vector types must not be present", "Vector type '%0' is not allowed")
         self.add_valrule_msg("Types.Defined", "Type must be defined based on DXIL primitives", "Type '%0' is not defined on DXIL primitives")
         self.add_valrule_msg("Types.IntWidth", "Int type must be of valid width", "Int type '%0' has an invalid width")
+        self.add_valrule("Types.NoMultiDim", "Only one dimension allowed for array type")
 
         self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'")
         self.add_valrule("Sm.Opcode", "Opcode must be defined in target shader model")
@@ -1549,6 +1550,7 @@ class db_dxil(object):
         self.add_valrule("Flow.Reducible", "Execution flow must be reducible")
         self.add_valrule("Flow.NoRecusion", "Recursion is not permitted")
         self.add_valrule("Flow.DeadLoop", "Loop must have break")
+        self.add_valrule_msg("Flow.FunctionCall", "Function call on user defined function with parameter is not permitted", "Function call on user defined function with parameter %0 is not permitted, it should be inlined")
 
         self.add_valrule_msg("Decl.DxilNsReserved", "The DXIL reserved prefixes must only be used by built-in functions and types", "Declaration '%0' uses a reserved prefix")
         self.add_valrule_msg("Decl.DxilFnExtern", "External function must be a DXIL function", "External function '%0' is not a DXIL function")
@@ -1681,7 +1683,7 @@ class db_hlsl_intrisic_param(object):
 
 class db_hlsl(object):
     "A database of HLSL language data"
-    def __init__(self):
+    def __init__(self, intrinsic_defs):
         self.base_types = {
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
@@ -1722,20 +1724,21 @@ class db_hlsl(object):
             "col_major": "AR_QUAL_COLMAJOR",
             "row_major": "AR_QUAL_ROWMAJOR"}
         self.intrinsics = []
-        self.load_intrinsics("gen_intrin_main.txt")
+        self.load_intrinsics(intrinsic_defs)
         self.create_namespaces()
         self.populate_attributes()
+        self.opcode_namespace = "hlsl::IntrinsicOp"
 
     def create_namespaces(self):
         last_ns = None
         self.namespaces = {}
-        for i in sorted(self.intrinsics, lambda x,y: cmp(x.key, y.key)):
+        for i in sorted(self.intrinsics, key=lambda x: x.key):
             if last_ns is None or last_ns.name != i.ns:
                 last_ns = db_hlsl_namespace(i.ns)
                 self.namespaces[i.ns] = last_ns
             last_ns.intrinsics.append(i)
 
-    def load_intrinsics(self, file_name):
+    def load_intrinsics(self, intrinsic_defs):
         import re
         blank_re = re.compile(r"^\s*$")
         comment_re = re.compile(r"^\s*//")
@@ -1902,8 +1905,7 @@ class db_hlsl(object):
             return readonly, readnone, unsigned_op, overload_param_index
 
         current_namespace = None
-        intrin_file = open(file_name)
-        for line in intrin_file:
+        for line in intrinsic_defs:
             if blank_re.match(line): continue
             if comment_re.match(line): continue
             match_obj = namespace_beg_re.match(line)

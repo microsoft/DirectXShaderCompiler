@@ -20,6 +20,27 @@
 
 using namespace std;
 
+void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
+}
+
+std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
+                               IDxcBlob *pProgram) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+
+  if (!dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(dllSupport.Initialize());
+  }
+
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
+  return BlobToUtf8(pDisassembly);
+}
+
 class ValidationTest
 {
 public:
@@ -51,6 +72,7 @@ public:
   TEST_METHOD(TypedUAVStoreFullMask1)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
+  TEST_METHOD(UserDefineFunction)
   TEST_METHOD(ResourceRangeOverlap0)
   TEST_METHOD(ResourceRangeOverlap1)
   TEST_METHOD(ResourceRangeOverlap2)
@@ -93,6 +115,7 @@ public:
   TEST_METHOD(PtrBitCast)
   TEST_METHOD(MinPrecisionBitCast)
   TEST_METHOD(StructBitCast)
+  TEST_METHOD(MultiDimArray)
 
   TEST_METHOD(WhenInstrDisallowedThenFail);
   TEST_METHOD(WhenDepthNotFloatThenFail);
@@ -219,17 +242,7 @@ public:
   }
 
   void DisassembleProgram(IDxcBlob *pProgram, std::string *text) {
-    CComPtr<IDxcCompiler> pCompiler;
-    CComPtr<IDxcBlobEncoding> pDisassembly;
-
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    }
-
-    VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
-    *text = BlobToUtf8(pDisassembly);
+    *text = ::DisassembleProgram(m_dllSupport, pProgram);
   }
 
   void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
@@ -551,6 +564,10 @@ TEST_F(ValidationTest, Recursive) {
 }
 
 TEST_F(ValidationTest, Recursive2) {
+    TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
+}
+
+TEST_F(ValidationTest, UserDefineFunction) {
     TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
 }
 
@@ -894,6 +911,14 @@ TEST_F(ValidationTest, StructBitCast) {
                           "  %X = bitcast float* %12 to %dx.types.Handle*    \n"
                           "  store float %11, float* %12, align 4",
                           "Bitcast on struct types is not allowed");
+}
+
+TEST_F(ValidationTest, MultiDimArray) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+                          "%1 = alloca [4 x float]",
+                          "%1 = alloca [4 x float]\n"
+                          "  %md = alloca [2 x [4 x float]]",
+                          "Only one dimension allowed for array type");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {

@@ -50,6 +50,7 @@ enum class ValidationRule : unsigned {
   InstrDxilStructUser, // Dxil struct types should only used by ExtractValue
   InstrDxilStructUserOutOfBound, // Index out of bound when extract value from dxil struct types
   InstrEvalInterpolationMode, // Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
+  InstrExtractValue, // ExtractValue should only be used on dxil struct types and cmpxchg
   InstrFailToResloveTGSMPointer, // TGSM pointers must originate from an unambiguous TGSM global variable.
   InstrHandleNotFromCreateHandle, // Resource handle should returned by createHandle
   InstrImmBiasForSampleB, // bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
@@ -136,6 +137,7 @@ enum class ValidationRule : unsigned {
 
   // Program flow
   FlowDeadLoop, // Loop must have break
+  FlowFunctionCall, // Function call on user defined function with parameter is not permitted
   FlowNoRecusion, // Recursion is not permitted
   FlowReducible, // Execution flow must be reducible
 
@@ -191,6 +193,7 @@ enum class ValidationRule : unsigned {
   // Type system
   TypesDefined, // Type must be defined based on DXIL primitives
   TypesIntWidth, // Int type must be of valid width
+  TypesNoMultiDim, // Only one dimension allowed for array type
   TypesNoVector, // Vector types must not be present
 
   // Uniform analysis

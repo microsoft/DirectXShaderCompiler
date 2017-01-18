@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 
 namespace clang {
 
@@ -192,6 +193,8 @@ public:
   std::vector<std::string> HLSLDefines;
   /// Arguments passed in from command line
   std::vector<std::string> HLSLArguments;
+  /// Helper for generating llvm bitcode for hlsl extensions.
+  std::shared_ptr<hlsl::HLSLExtensionsCodegenHelper> HLSLExtensionsCodegen;
   // HLSL Change Ends
   /// Regular expression to select optimizations for which we should enable
   /// optimization remarks. Transformation passes whose name matches this

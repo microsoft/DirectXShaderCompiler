@@ -319,13 +319,18 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
 class DxilGenerationPass : public ModulePass {
   HLModule *m_pHLModule;
   bool m_HasDbgInfo;
+  HLSLExtensionsCodegenHelper *m_extensionsCodegenHelper;
 
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilGenerationPass(bool NoOpt = false)
-      : ModulePass(ID), m_pHLModule(nullptr), NotOptimized(NoOpt) {}
+      : ModulePass(ID), m_pHLModule(nullptr), NotOptimized(NoOpt), m_extensionsCodegenHelper(nullptr) {}
 
   const char *getPassName() const override { return "DXIL Generator"; }
+
+  void SetExtensionsHelper(HLSLExtensionsCodegenHelper *helper) {
+    m_extensionsCodegenHelper = helper;
+  }
 
   bool runOnModule(Module &M) override {
     m_pHLModule = &M.GetOrCreateHLModule();
@@ -2217,7 +2222,7 @@ void DxilGenerationPass::GenerateDxilOperations(
       func->eraseFromParent();
   }
 
-  TranslateBuiltinOperations(*m_pHLModule, handleMap);
+  TranslateBuiltinOperations(*m_pHLModule, handleMap, m_extensionsCodegenHelper);
 
   if (pSM->IsGS())
     GenerateStreamOutputOperations();
@@ -2292,8 +2297,10 @@ void DxilGenerationPass::TranslatePreciseAttribute() {
 
 char DxilGenerationPass::ID = 0;
 
-ModulePass *llvm::createDxilGenerationPass(bool NotOptimized) {
-  return new DxilGenerationPass(NotOptimized);
+ModulePass *llvm::createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper) {
+  DxilGenerationPass *dxilPass = new DxilGenerationPass(NotOptimized);
+  dxilPass->SetExtensionsHelper(extensionsHelper);
+  return dxilPass;
 }
 
 INITIALIZE_PASS(DxilGenerationPass, "dxilgen", "HLSL DXIL Generation", false, false)

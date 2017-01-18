@@ -53,6 +53,18 @@ To run tests, open the HLSL Console and run this command after a successful buil
 
     hcttest
 
+Some tests will run shaders and verify their behavior. These tests also involve a driver that can run these execute these shaders. See the next section on how this should be currently set up.
+
+## Running Shaders
+
+To run shaders compiled as DXIL, you will need support from the operating system as well as from the driver for your graphics adapter.
+
+At the moment, the [Windows 10 Insider Preview Build 15007](https://blogs.windows.com/windowsexperience/2017/01/12/announcing-windows-10-insider-preview-build-15007-pc-mobile/#XqlQ5FZfXw5WVhpS.97) is able to run DXIL shaders.
+
+Drivers indicate support DXIL by reporting support for Shader Model 6, possibly in experimental mode. To enable support in these cases, the [Developer mode](https://msdn.microsoft.com/windows/uwp/get-started/enable-your-device-for-development) setting must be enabled.
+
+By default, tests will run using the Windows Advanced Rasterization Platform (WARP) adapter. To select the first available adapter that supports D3D12 instead, the parameter /p:"Adapter=*" can be added to the test command line in utils/hct/hcttest.cmd.
+
 ## Making Changes
 
 To make contributions, see the CONTRIBUTING.md file in this project.
@@ -79,5 +91,6 @@ DirectX Shader Compiler is distributed under the terms of the MIT license.
 See LICENSE-MIT and COPYRIGHT for details.
 
 ## Code of Conduct
+
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 

@@ -158,11 +158,21 @@ bool MacroPairCompareIsLessThan(const std::pair<const IdentifierInfo*, const Mac
 }
 
 static
-void WriteSemanticDefines(CompilerInstance& compiler, _In_ DxcLangExtensionsHelper* helper, raw_string_ostream& o)
-{
+void WriteSemanticDefines(CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper, raw_string_ostream &o) {
+  ParsedSemanticDefineList macros = CollectSemanticDefinesParsedByCompiler(compiler, helper);
+  if (!macros.empty()) {
+    o << "\n// Macros:\n";
+    for (auto&& m : macros) {
+      o << "#define " << m.Name << " " << m.Value << "\n";
+    }
+  }
+}
+
+ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper) {
+  ParsedSemanticDefineList parsedDefines;
   const llvm::SmallVector<std::string, 2>& defines = helper->GetSemanticDefines();
   if (defines.size() == 0) {
-    return;
+    return parsedDefines;
   }
 
   const llvm::SmallVector<std::string, 2>& defineExclusions = helper->GetSemanticDefineExclusions();
@@ -206,20 +216,36 @@ void WriteSemanticDefines(CompilerInstance& compiler, _In_ DxcLangExtensionsHelp
   }
 
   if (!macros.empty()) {
-    o << "\n// Macros:\n";
     std::sort(macros.begin(), macros.end(), MacroPairCompareIsLessThan);
+    SmallVector<std::string, 8> tokens;
     for (auto&& m : macros) {
-      o << "#define " << m.first->getName() << " ";
-      SmallString<128> SpellingBuffer;
-      MacroInfo::tokens_iterator tiEnd = m.second->tokens_end();
-      for (MacroInfo::tokens_iterator ti = m.second->tokens_begin(); ti != tiEnd; ++ti) {
+      std::string name = m.first->getName();
+      // Collect all macro token values into a vector.
+      // Put them in a vector to avoid repeated copying of data when appending strings.
+      tokens.clear();
+      tokens.reserve(m.second->getNumTokens());
+      for (MacroInfo::tokens_iterator ti = m.second->tokens_begin(), tiEnd = m.second->tokens_end(); ti != tiEnd; ++ti) {
         if (ti->hasLeadingSpace())
-          ' ';
-        o << pp.getSpelling(*ti, SpellingBuffer);
+          tokens.push_back(" ");
+        tokens.push_back(pp.getSpelling(*ti));
       }
-      o << "\n";
+
+      // Compute total size of defined string value.
+      size_t size = 0;
+      for (const std::string &s : tokens)
+        size += s.size();
+
+      // Concatenate all values into a single string.
+      std::string value;
+      value.reserve(size);
+      for (const std::string &s : tokens)
+        value.append(s);
+
+      parsedDefines.emplace_back(ParsedSemanticDefine{ name, value, m.second->getDefinitionLoc().getRawEncoding() });
     }
   }
+
+  return parsedDefines;
 }
 
 static
