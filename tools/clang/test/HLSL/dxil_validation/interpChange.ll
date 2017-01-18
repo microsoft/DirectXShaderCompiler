@@ -1,6 +1,6 @@
 ; RUN: %dxv %s | FileCheck %s
 
-; CHECK:Interpolation mode cannot vary for different cols of a row. Vary at A row 0
+; CHECK: signature element A at location (0,2) size (1,2) has interpolation mode that differs from another element packed into the same row.
 
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"

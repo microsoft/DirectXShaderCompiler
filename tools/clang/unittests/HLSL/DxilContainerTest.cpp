@@ -446,8 +446,8 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       ";\n"
       "; Name                 Index   Mask Register SysValue  Format   Used\n"
       "; -------------------- ----- ------ -------- -------- ------- ------\n"
-      "; SV_Position              0   xyzw        0      POS   float   xyzw\n"  // could read SV_POSITION
-      "; COLOR                    0   xyzw        1     NONE   float   xyzw\n"; // should read '1' in register
+      "; COLOR                    0   xyzw        0     NONE   float   xyzw\n"  // should read '1' in register
+      "; SV_Position              0   xyzw        1      POS   float   xyzw\n"; // could read SV_POSITION
     std::string start(s.c_str(), strlen(expected));
     VERIFY_ARE_EQUAL_STR(expected, start.c_str());
   }
@@ -461,8 +461,8 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       ";\n"
       "; Name                 Index   Mask Register SysValue  Format   Used\n"
       "; -------------------- ----- ------ -------- -------- ------- ------\n"
-      "; SV_Position              0   xyzw        0      POS   float       \n" // could read SV_POSITION
-      "; COLOR                    0   xyzw        1     NONE   float       \n" // should read '1' in register, xyzw in Used
+      "; COLOR                    0   xyzw        0     NONE   float       \n" // should read '1' in register, xyzw in Used
+      "; SV_Position              0   xyzw        1      POS   float       \n" // could read SV_POSITION
       ";\n"
       ";\n"
       "; Output signature:\n"

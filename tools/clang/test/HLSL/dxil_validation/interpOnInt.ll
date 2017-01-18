@@ -1,6 +1,6 @@
 ; RUN: %dxv %s | FileCheck %s
 
-; CHECK:signature A specifies invalid interpolation mode for integer component type
+; CHECK:signature element A specifies invalid interpolation mode for integer component type.
 
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"
