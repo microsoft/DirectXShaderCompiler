@@ -10,9 +10,6 @@ set( LLVM_LINK_COMPONENTS
   dxcsupport
   hlsl
   option
-  Core
-  IPA
-  IPO
   )
 
 add_clang_library(clang-hlsl-tests SHARED
