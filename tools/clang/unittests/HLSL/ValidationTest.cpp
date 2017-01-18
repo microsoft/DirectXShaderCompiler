@@ -965,11 +965,11 @@ TEST_F(ValidationTest, StructBitCast) {
 }
 
 TEST_F(ValidationTest, MultiDimArray) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
                           "%1 = alloca [4 x float]",
                           "%1 = alloca [4 x float]\n"
                           "  %md = alloca [2 x [4 x float]]",
-                          "Array Type only allow one dimension");
+                          "Only one dimension allowed for array type");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
