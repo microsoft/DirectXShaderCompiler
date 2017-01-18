@@ -113,7 +113,6 @@ struct HLSL_INTRINSIC {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Interfaces.
-
 struct __declspec(uuid("f0d4da3f-f863-4660-b8b4-dfd94ded6215"))
 IDxcIntrinsicTable : public IUnknown
 {
@@ -123,6 +122,25 @@ public:
     LPCWSTR typeName, LPCWSTR functionName,
     const HLSL_INTRINSIC** pIntrinsic,
     _Inout_ UINT64* pLookupCookie) = 0;
+
+  // Get the lowering strategy for an hlsl extension intrinsic.
+  virtual HRESULT STDMETHODCALLTYPE GetLoweringStrategy(UINT opcode, LPCSTR *pStrategy) = 0;
+  
+  // Callback to support custom naming of hlsl extension intrinsic functions in dxil.
+  // Return the empty string to get the default intrinsic name, which is the mangled
+  // name of the high level intrinsic function.
+  //
+  // Overloaded intrinsics are supported by use of an overload place holder in the
+  // name. The string "$o" in the name will be replaced by the return type of the
+  // intrinsic.
+  virtual HRESULT STDMETHODCALLTYPE GetIntrinsicName(UINT opcode, LPCSTR *pName) = 0;
+};
+
+struct __declspec(uuid("1d063e4f-515a-4d57-a12a-431f6a44cfb9"))
+IDxcSemanticDefineValidator : public IUnknown
+{
+public:
+  virtual HRESULT STDMETHODCALLTYPE GetSemanticDefineWarningsAndErrors(LPCSTR pName, LPCSTR pValue, IDxcBlobEncoding **ppWarningBlob, IDxcBlobEncoding **ppErrorBlob) = 0;
 };
 
 struct __declspec(uuid("282a56b4-3f56-4360-98c7-9ea04a752272"))
@@ -140,6 +158,12 @@ public:
   virtual HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) = 0;
   /// <summary>Registers a table of built-in intrinsics.</summary>
   virtual HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(_In_ IDxcIntrinsicTable* pTable) = 0;
+  /// <summary>Sets an (optional) validator for parsed semantic defines.<summary>
+  /// This provides a hook to check that the semantic defines present in the source
+  /// contain valid data. One validator is used to validate all parsed semantic defines.
+  virtual HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) = 0;
+  /// <summary>Sets the name for the root metadata node used in DXIL to hold the semantic defines.</summary>
+  virtual HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) = 0;
 };
 
 struct __declspec(uuid("454b764f-3549-475b-958c-a7a6fcd05fbc"))

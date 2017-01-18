@@ -37,6 +37,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "dxc/Support/WinIncludes.h"  // For DxilPipelineStateValidation.h
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 
 #ifdef _DEBUG
 #if defined(_MSC_VER)
@@ -1784,6 +1785,75 @@ static void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, DXIL::S
   OS << comment << "\n";
 }
 
+class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
+private:
+  CompilerInstance &m_CI;
+  DxcLangExtensionsHelper &m_langExtensionsHelper;
+
+  // The metadata format is a root node that has pointers to metadata
+  // nodes for each define. The metatdata node for a define is a pair
+  // of (name, value) metadata strings.
+  //
+  // Example:
+  // !hlsl.semdefs = {!0, !1}
+  // !0 = !{!"FOO", !"BAR"}
+  // !1 = !{!"BOO", !"HOO"}
+  void WriteSemanticDefines(llvm::Module *M, const ParsedSemanticDefineList &defines) {
+    // Create all metadata nodes for each define. Each node is a (name, value) pair.
+    std::vector<MDNode *> mdNodes;
+    for (const ParsedSemanticDefine &define : defines) {
+      MDString *name  = MDString::get(M->getContext(), define.Name);
+      MDString *value = MDString::get(M->getContext(), define.Value);
+      mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
+    }
+
+    // Add root node with pointers to all define metadata nodes.
+    NamedMDNode *Root = M->getOrInsertNamedMetadata(m_langExtensionsHelper.GetSemanticDefineMetadataName());
+    for (MDNode *node : mdNodes)
+      Root->addOperand(node);
+  }
+
+  SemanticDefineErrorList GetValidatedSemanticDefines(const ParsedSemanticDefineList &defines, ParsedSemanticDefineList &validated, SemanticDefineErrorList &errors) {
+    for (const ParsedSemanticDefine &define : defines) {
+      DxcLangExtensionsHelper::SemanticDefineValidationResult result = m_langExtensionsHelper.ValidateSemanticDefine(define.Name, define.Value);
+        if (result.HasError())
+          errors.emplace_back(SemanticDefineError(define.Location, SemanticDefineError::Level::Error, result.Error));
+        if (result.HasWarning())
+          errors.emplace_back(SemanticDefineError(define.Location, SemanticDefineError::Level::Warning, result.Warning));
+        if (!result.HasError())
+          validated.emplace_back(define);
+    }
+
+    return errors;
+  }
+
+public:
+  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper)
+  : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
+  {}
+
+  // Write semantic defines as metadata in the module.
+  virtual std::vector<SemanticDefineError> WriteSemanticDefines(llvm::Module *M) override {
+    // Grab the semantic defines seen by the parser.
+    ParsedSemanticDefineList defines =
+      CollectSemanticDefinesParsedByCompiler(m_CI, &m_langExtensionsHelper);
+
+    // Nothing to do if we have no defines.
+    SemanticDefineErrorList errors;
+    if (!defines.size())
+      return errors;
+
+    ParsedSemanticDefineList validated;
+    GetValidatedSemanticDefines(defines, validated, errors);
+    WriteSemanticDefines(M, validated);
+    return errors;
+  }
+
+  virtual std::string GetIntrinsicName(UINT opcode) override {
+    return m_langExtensionsHelper.GetIntrinsicName(opcode);
+  }
+};
+
 // Class to manage lifetime of llvm module and provide some utility
 // functions used for generating compiler output.
 class DxilCompilerLLVMModuleOutput {
@@ -1812,7 +1882,6 @@ private:
   std::unique_ptr<llvm::Module> m_llvmModule;
   std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
 };
-
 
 class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent {
 private:
@@ -2471,6 +2540,7 @@ public:
     compiler.getCodeGenOpts().setInlining(
         clang::CodeGenOptions::OnlyAlwaysInlining);
 
+    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper);
   }
 };
 

@@ -25,9 +25,12 @@ namespace hlsl {
 
 const char HLPrefixStr [] = "dx.hl";
 const char * const HLPrefix = HLPrefixStr;
+static const char HLLowerStrategyStr[] = "dx.hlls";
+static const char * const HLLowerStrategy = HLLowerStrategyStr;
 
 static StringRef HLOpcodeGroupNames[]{
     "notHLDXIL",   // NotHL,
+    "<ext>",       // HLExtIntrinsic - should always refer through extension
     "op",          // HLIntrinsic,
     "cast",        // HLCast,
     "init",        // HLInit,
@@ -41,6 +44,7 @@ static StringRef HLOpcodeGroupNames[]{
 
 static StringRef HLOpcodeGroupFullNames[]{
     "notHLDXIL",       // NotHL,
+    "<ext>",           // HLExtIntrinsic - should aways refer through extension
     "dx.hl.op",        // HLIntrinsic,
     "dx.hl.cast",      // HLCast,
     "dx.hl.init",      // HLInit,
@@ -51,58 +55,66 @@ static StringRef HLOpcodeGroupFullNames[]{
     "dx.hl.select",    // HLSelect,
     "numOfHLDXIL",     // NumOfHLOps
 };
-// Check HLOperation by function name.
-bool IsHLOpByName(Function *F) {
-  return F->getName().startswith(HLPrefix);
-}
-// Check HLOperation by attribute.
-bool IsHLOp(llvm::Function *F) {
-  return F->hasFnAttribute(hlsl::HLPrefix);
-}
 
 static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
-  switch (group[0]) {
-  case 'o': // op
-    return HLOpcodeGroup::HLIntrinsic;
-  case 'c': // cast
-    return HLOpcodeGroup::HLCast;
-  case 'i': // init
-    return HLOpcodeGroup::HLInit;
-  case 'b': // binaryOp
-    return HLOpcodeGroup::HLBinOp;
-  case 'u': // unaryOp
-    return HLOpcodeGroup::HLUnOp;
-  case 's': // subscript and select
-    switch (group[1]) {
-    case 'u':
-      return HLOpcodeGroup::HLSubscript;
-    case 'e':
-      return HLOpcodeGroup::HLSelect;
+  if (!group.empty()) {
+    switch (group[0]) {
+    case 'o': // op
+      return HLOpcodeGroup::HLIntrinsic;
+    case 'c': // cast
+      return HLOpcodeGroup::HLCast;
+    case 'i': // init
+      return HLOpcodeGroup::HLInit;
+    case 'b': // binaryOp
+      return HLOpcodeGroup::HLBinOp;
+    case 'u': // unaryOp
+      return HLOpcodeGroup::HLUnOp;
+    case 's': // subscript
+      switch (group[1]) {
+      case 'u':
+        return HLOpcodeGroup::HLSubscript;
+      case 'e':
+        return HLOpcodeGroup::HLSelect;
+      }
+    case 'm': // matldst
+      return HLOpcodeGroup::HLMatLoadStore;
     }
-  case 'm': // matldst
-    return HLOpcodeGroup::HLMatLoadStore;
-  default:
-    return HLOpcodeGroup::NotHL;
   }
+  return HLOpcodeGroup::NotHL;
 }
 // GetHLOpGroup by function name.
 HLOpcodeGroup GetHLOpcodeGroupByName(Function *F) {
   StringRef name = F->getName();
 
-  if (!name.startswith(HLPrefix))
+  if (!name.startswith(HLPrefix)) {
+    // This could be an external intrinsic, but this function
+    // won't recognize those as such. Use GetHLOpcodeGroupByName
+    // to make that distinction.
     return HLOpcodeGroup::NotHL;
+  }
 
   const unsigned prefixSize = sizeof(HLPrefixStr);
 
   StringRef group = name.substr(prefixSize);
   return GetHLOpcodeGroupInternal(group);
 }
-// GetHLOpGroup by function attribute.
-HLOpcodeGroup GetHLOpcodeGroupByAttr(llvm::Function *F) {
+
+HLOpcodeGroup GetHLOpcodeGroup(llvm::Function *F) {
+  llvm::StringRef name = GetHLOpcodeGroupNameByAttr(F);
+  HLOpcodeGroup result = GetHLOpcodeGroupInternal(name);
+  if (result == HLOpcodeGroup::NotHL) {
+    result = name.empty() ? result : HLOpcodeGroup::HLExtIntrinsic;
+  }
+  if (result == HLOpcodeGroup::NotHL) {
+    result = GetHLOpcodeGroupByName(F);
+  }
+  return result;
+}
+
+llvm::StringRef GetHLOpcodeGroupNameByAttr(llvm::Function *F) {
   Attribute groupAttr = F->getFnAttribute(hlsl::HLPrefix);
   StringRef group = groupAttr.getValueAsString();
-
-  return GetHLOpcodeGroupInternal(group);
+  return group;
 }
 
 StringRef GetHLOpcodeGroupName(HLOpcodeGroup op) {
@@ -240,7 +252,18 @@ llvm::StringRef GetHLOpcodeName(HLMatLoadStoreOpcode Op) {
   llvm_unreachable("invalid matrix load store operator");
 }
 
+StringRef GetHLLowerStrategy(Function *F) {
+  llvm::Attribute A = F->getFnAttribute(HLLowerStrategy);
+  llvm::StringRef LowerStrategy = A.getValueAsString();
+  return LowerStrategy;
+}
+
+void SetHLLowerStrategy(Function *F, StringRef S) {
+  F->addFnAttr(HLLowerStrategy, S);
+}
+
 std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
+  assert(op != HLOpcodeGroup::HLExtIntrinsic && "else table name should be used");
   std::string opName = GetHLOpcodeGroupFullName(op).str() + ".";
 
   switch (op) {
@@ -380,16 +403,35 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
   }
 }
 
-Function *GetOrCreateHLFunction(Module &M,
-                                       FunctionType *funcTy,
-                                       HLOpcodeGroup group, unsigned opcode) {
-  std::string operatorName = GetHLFullName(group, opcode);
-  std::string mangledName = operatorName + ".";
+Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
+                                HLOpcodeGroup group, unsigned opcode) {
+  return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode);
+}
+
+Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
+                                HLOpcodeGroup group, llvm::StringRef *groupName,
+                                llvm::StringRef *fnName, unsigned opcode) {
+  std::string mangledName;
   raw_string_ostream mangledNameStr(mangledName);
-  funcTy->print(mangledNameStr);
+  if (group == HLOpcodeGroup::HLExtIntrinsic) {
+    assert(groupName && "else intrinsic should have been rejected");
+    assert(fnName && "else intrinsic should have been rejected");
+    mangledNameStr << *groupName;
+    mangledNameStr << '.';
+    mangledNameStr << *fnName;
+  }
+  else {
+    mangledNameStr << GetHLFullName(group, opcode);
+    mangledNameStr << '.';
+    funcTy->print(mangledNameStr);
+  }
+
   mangledNameStr.flush();
 
   Function *F = cast<Function>(M.getOrInsertFunction(mangledName, funcTy));
+  if (group == HLOpcodeGroup::HLExtIntrinsic) {
+    F->addFnAttr(hlsl::HLPrefix, *groupName);
+  }
 
   SetHLFunctionAttribute(F, group, opcode);
 

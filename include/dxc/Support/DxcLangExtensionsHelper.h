@@ -13,6 +13,17 @@
 #define __DXCLANGEXTENSIONSHELPER_H__
 
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/FileIOHelper.h"
+#include <vector>
+
+namespace llvm {
+class raw_string_ostream;
+class CallInst;
+class Value;
+}
+namespace clang {
+class CompilerInstance;
+}
 
 namespace hlsl {
 
@@ -22,6 +33,8 @@ private:
   llvm::SmallVector<std::string, 2> m_semanticDefineExclusions;
   llvm::SmallVector<std::string, 2> m_defines;
   llvm::SmallVector<CComPtr<IDxcIntrinsicTable>, 2> m_intrinsicTables;
+  CComPtr<IDxcSemanticDefineValidator> m_semanticDefineValidator;
+  std::string m_semanticDefineMetaDataName;
 
   HRESULT STDMETHODCALLTYPE RegisterIntoVector(LPCWSTR name, llvm::SmallVector<std::string, 2>& here)
   {
@@ -42,6 +55,7 @@ public:
   const llvm::SmallVector<std::string, 2>& GetSemanticDefineExclusions() const { return m_semanticDefineExclusions; }
   const llvm::SmallVector<std::string, 2>& GetDefines() const { return m_defines; }
   llvm::SmallVector<CComPtr<IDxcIntrinsicTable>, 2>& GetIntrinsicTables(){ return m_intrinsicTables; }
+  const std::string &GetSemanticDefineMetadataName() { return m_semanticDefineMetaDataName; }
 
   HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name)
   {
@@ -78,6 +92,95 @@ public:
     CATCH_CPP_RETURN_HRESULT();
   }
 
+  // Set the validator used to validate semantic defines.
+  // Only one validator stored and used to run validation.
+  HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) {
+    if (pValidator == nullptr)
+      return E_POINTER;
+
+    m_semanticDefineValidator = pValidator;
+    return S_OK;
+  }
+
+  HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) {
+    try {
+      m_semanticDefineMetaDataName = name;
+      return S_OK;
+    }
+    CATCH_CPP_RETURN_HRESULT();
+  }
+
+  // Get the name of the dxil intrinsic function.
+  std::string GetIntrinsicName(UINT opcode) {
+    LPCSTR pName = "";
+    for (IDxcIntrinsicTable *table : m_intrinsicTables) {
+      if (SUCCEEDED(table->GetIntrinsicName(opcode, &pName))) {
+        return pName;
+      }
+    }
+
+      return "";
+  }
+
+  // Result of validating a semantic define.
+  // Stores any warning or error messages produced by the validator.
+  // Successful validation means that there are no warning or error messages.
+  struct SemanticDefineValidationResult {
+    std::string Warning;
+    std::string Error;
+
+    bool HasError() { return Error.size() > 0; }
+    bool HasWarning() { return Warning.size() > 0; }
+
+    static SemanticDefineValidationResult Success() {
+      return SemanticDefineValidationResult();
+    }
+  };
+
+  // Use the contained semantice define validator to validate the given semantic define.
+  SemanticDefineValidationResult ValidateSemanticDefine(const std::string &name, const std::string &value) {
+    if (!m_semanticDefineValidator)
+      return SemanticDefineValidationResult::Success();
+
+    // Blobs for getting restul from validator. Strings for returning results to caller.
+    CComPtr<IDxcBlobEncoding> pError;
+    CComPtr<IDxcBlobEncoding> pWarning;
+    std::string error;
+    std::string warning;
+
+    // Run semantic define validator.
+    HRESULT result = m_semanticDefineValidator->GetSemanticDefineWarningsAndErrors(name.c_str(), value.c_str(), &pWarning, &pError);
+
+
+    if (FAILED(result)) {
+      // Failure indicates it was not able to even run validation so
+      // we cannot say whether the define is invalid or not. Return a
+      // generic error message about failure to run the valiadator.
+      error = "failed to run semantic define validator for: ";
+      error.append(name); error.append("="); error.append(value);
+      return SemanticDefineValidationResult{ warning, error };
+    }
+
+    // Define a  little function to convert encoded blob into a string.
+    auto GetErrorAsString = [&name](const CComPtr<IDxcBlobEncoding> &pBlobString) -> std::string {
+      CComPtr<IDxcBlobEncoding> pUTF8BlobStr;
+      if (SUCCEEDED(hlsl::DxcGetBlobAsUtf8(pBlobString, &pUTF8BlobStr)))
+        return std::string(static_cast<char*>(pUTF8BlobStr->GetBufferPointer()), pUTF8BlobStr->GetBufferSize());
+      else
+        return std::string("invalid semantic define " + name);
+    };
+
+    // Check to see if any warnings or errors were produced.
+    if (pError && pError->GetBufferSize()) {
+      error = GetErrorAsString(pError);
+    }
+    if (pWarning && pWarning->GetBufferSize()) {
+      warning = GetErrorAsString(pWarning);
+    }
+
+    return SemanticDefineValidationResult{ warning, error };
+  }
+
   __override void SetupSema(clang::Sema &S) {
     clang::ExternalASTSource *astSource = S.getASTContext().getExternalSource();
     if (clang::ExternalSemaSource *externalSema =
@@ -93,6 +196,14 @@ public:
       PPOpts.addMacroDef(llvm::StringRef(define.c_str()));
     }
   }
+
+  __override DxcLangExtensionsHelper *GetDxcLangExtensionsHelper() {
+    return this;
+  }
+ 
+  DxcLangExtensionsHelper()
+  : m_semanticDefineMetaDataName("hlsl.semdefs")
+  {}
 };
 
 // Use this macro to embed an implementation that will delegate to a field.
@@ -110,6 +221,28 @@ public:
   __override HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) { \
     return (_helper_field_).RegisterDefine(name); \
   } \
+  __override HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) { \
+    return (_helper_field_).SetSemanticDefineValidator(pValidator); \
+  } \
+  __override HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) { \
+    return (_helper_field_).SetSemanticDefineMetaDataName(name); \
+  } \
+
+// A parsed semantic define is a semantic define that has actually been
+// parsed by the compiler. It has a name (required), a value (could be
+// the empty string), and a location. We use an encoded clang::SourceLocation
+// for the location to avoid a clang include dependency.
+struct ParsedSemanticDefine{
+  std::string Name;
+  std::string Value;
+  unsigned Location;
+};
+typedef std::vector<ParsedSemanticDefine> ParsedSemanticDefineList;
+
+// Return the collection of semantic defines parsed by the compiler instance.
+ParsedSemanticDefineList
+  CollectSemanticDefinesParsedByCompiler(clang::CompilerInstance &compiler,
+                                         _In_ DxcLangExtensionsHelper *helper);
 
 } // namespace hlsl
 

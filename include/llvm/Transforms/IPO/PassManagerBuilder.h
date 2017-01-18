@@ -16,6 +16,10 @@
 
 #include <vector>
 
+namespace hlsl {
+  class HLSLExtensionsCodegenHelper;
+}
+
 namespace llvm {
 class Pass;
 class TargetLibraryInfoImpl;
@@ -122,6 +126,7 @@ public:
   bool MergeFunctions;
   bool PrepareForLTO;
   bool HLSLHighLevel = false; // HLSL Change
+  hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

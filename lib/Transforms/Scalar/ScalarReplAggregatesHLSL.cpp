@@ -3403,9 +3403,9 @@ public:
 
     std::deque<Function *> WorkList;
     for (Function &F : M.functions()) {
-      HLOpcodeGroup group = GetHLOpcodeGroupByName(&F);
+      HLOpcodeGroup group = GetHLOpcodeGroup(&F);
       // Skip HL operations.
-      if (group != HLOpcodeGroup::NotHL)
+      if (group != HLOpcodeGroup::NotHL || group == HLOpcodeGroup::HLExtIntrinsic)
         continue;
 
       if (F.isDeclaration()) {

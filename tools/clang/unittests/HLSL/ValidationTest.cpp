@@ -20,6 +20,27 @@
 
 using namespace std;
 
+void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
+}
+
+std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
+                               IDxcBlob *pProgram) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+
+  if (!dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(dllSupport.Initialize());
+  }
+
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
+  return BlobToUtf8(pDisassembly);
+}
+
 class ValidationTest
 {
 public:
@@ -221,17 +242,7 @@ public:
   }
 
   void DisassembleProgram(IDxcBlob *pProgram, std::string *text) {
-    CComPtr<IDxcCompiler> pCompiler;
-    CComPtr<IDxcBlobEncoding> pDisassembly;
-
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    }
-
-    VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
-    *text = BlobToUtf8(pDisassembly);
+    *text = ::DisassembleProgram(m_dllSupport, pProgram);
   }
 
   void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
