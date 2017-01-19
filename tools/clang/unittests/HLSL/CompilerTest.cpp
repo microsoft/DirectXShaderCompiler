@@ -290,6 +290,7 @@ public:
 
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
+  TEST_METHOD(CompileLegacyShaderModelThenFail)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -1146,7 +1147,7 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
     "}", &pSource);
   LPCWSTR args[] = { L"/Zi" };
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", args, _countof(args), nullptr, 0, nullptr, &pResult));
+    L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
 
   // Disassemble the compiled (stripped) program.
@@ -1196,7 +1197,7 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   //WEX::Logging::Log::Comment(GetDebugInfoAsText(pDiaSource).c_str());
 
   // Very basic tests - we have basic symbols, line numbers, and files with sources.
-  VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, value: ps_5_0"));
+  VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
 
@@ -1227,7 +1228,7 @@ TEST_F(CompilerTest, CompileWhenDefinesThenApplied) {
   CreateBlobFromText("F4 main() : SV_Target { return 0; }", &pSource);
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-                                      L"ps_5_0", nullptr, 0, defines,
+                                      L"ps_6_0", nullptr, 0, defines,
                                       _countof(defines), nullptr, &pResult));
 }
 
@@ -1254,7 +1255,7 @@ TEST_F(CompilerTest, CompileWhenDefinesManyThenApplied) {
                      "return 0; }",
                      &pSource);
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-                                      L"ps_5_0", args, _countof(args), nullptr,
+                                      L"ps_6_0", args, _countof(args), nullptr,
                                       0, nullptr, &pResult));
   HRESULT compileStatus;
   VERIFY_SUCCEEDED(pResult->GetStatus(&compileStatus));
@@ -1291,7 +1292,7 @@ TEST_F(CompilerTest, CompileWhenIncorrectThenFails) {
   CreateBlobFromText("float4_undefined main() : SV_Target { return 0; }",
                      &pSource);
 
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main", L"ps_5_0",
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main", L"ps_6_0",
                                       nullptr, 0, nullptr, 0, nullptr,
                                       &pResult));
   HRESULT result;
@@ -1316,7 +1317,7 @@ TEST_F(CompilerTest, CompileWhenWorksThenDisassembleWorks) {
   CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-                                      L"ps_5_0", nullptr, 0, nullptr, 0,
+                                      L"ps_6_0", nullptr, 0, nullptr, 0,
                                       nullptr, &pResult));
   HRESULT result;
   VERIFY_SUCCEEDED(pResult->GetStatus(&result));
@@ -1350,7 +1351,7 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadInvoked) {
   pInclude->CallResults.emplace_back("");
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_ARE_EQUAL_WSTR(L"./helper.h;", pInclude->GetAllFileNames().c_str());
 }
@@ -1370,7 +1371,7 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
   pInclude->CallResults.emplace_back("#define ZERO 0");
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_ARE_EQUAL_WSTR(L"./helper.h;", pInclude->GetAllFileNames().c_str());
 }
@@ -1390,7 +1391,7 @@ TEST_F(CompilerTest, CompileWhenIncludeAbsoluteThenLoadAbsolute) {
   pInclude->CallResults.emplace_back("#define ZERO 0");
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_ARE_EQUAL_WSTR(L"C:\\helper.h;", pInclude->GetAllFileNames().c_str());
 }
@@ -1410,7 +1411,7 @@ TEST_F(CompilerTest, CompileWhenIncludeLocalThenLoadRelative) {
   pInclude->CallResults.emplace_back("#define ZERO 0");
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_ARE_EQUAL_WSTR(L"./..\\helper.h;", pInclude->GetAllFileNames().c_str());
 }
@@ -1434,7 +1435,7 @@ TEST_F(CompilerTest, CompileWhenIncludeSystemThenLoadNotRelative) {
   pInclude->CallResults.emplace_back("#define ZERO 0");
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", args, _countof(args), nullptr, 0, pInclude, &pResult));
+    L"ps_6_0", args, _countof(args), nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./foo\\helper.h;", pInclude->GetAllFileNames().c_str());
 }
@@ -1455,7 +1456,7 @@ TEST_F(CompilerTest, CompileWhenIncludeSystemMissingThenLoadAttempt) {
   pInclude->CallResults.emplace_back("#define ZERO 0");
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   std::string failLog(VerifyOperationFailed(pResult));
   VERIFY_ARE_NOT_EQUAL(std::string::npos, failLog.find("<angled>")); // error message should prompt to use <angled> rather than "quotes"
   VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./subdir/other/helper.h;", pInclude->GetAllFileNames().c_str());
@@ -1479,7 +1480,7 @@ TEST_F(CompilerTest, CompileWhenIncludeFlagsThenIncludeUsed) {
     L"-I\\\\server\\share"
   };
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", args, _countof(args), nullptr, 0, pInclude, &pResult));
+    L"ps_6_0", args, _countof(args), nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_ARE_EQUAL_WSTR(L"\\\\server\\share\\helper.h;", pInclude->GetAllFileNames().c_str());
 }
@@ -1498,7 +1499,7 @@ TEST_F(CompilerTest, CompileWhenIncludeMissingThenFail) {
   pInclude = new TestIncludeHandler(m_dllSupport);
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   HRESULT hr;
   VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
   VERIFY_FAILED(hr);
@@ -1640,7 +1641,7 @@ TEST_F(CompilerTest, CompileWhenShaderModelMismatchAttributeThenFail) {
   CreateBlobFromText(EmptyCompute, &pSource);
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
   std::string failLog(VerifyOperationFailed(pResult));
   VERIFY_ARE_NOT_EQUAL(string::npos, failLog.find("attribute numthreads only valid for CS"));
 }
@@ -1655,7 +1656,24 @@ TEST_F(CompilerTest, CompileBadHlslThenFail) {
     "bad hlsl", &pSource);
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
+    L"ps_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
+
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+}
+
+TEST_F(CompilerTest, CompileLegacyShaderModelThenFail) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(
+    "float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ps_5_1", nullptr, 0, nullptr, 0, nullptr, &pResult));
 
   HRESULT status;
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));

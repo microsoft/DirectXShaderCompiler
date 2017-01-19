@@ -1,9 +1,9 @@
-// RUN: %dxc -E main -T ps_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: NORMAL
-// CHECK: xyz
 // CHECK: TEXCOORD
 // CHECK: xy
+// CHECK: NORMAL
+// CHECK: xyz
 
 // CHECK: SV_Target
 // CHECK: xyzw

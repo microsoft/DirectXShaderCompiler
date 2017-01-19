@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 vector-syntax.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 vector-syntax.hlsl
 
 float fn() {
     float4 myvar = float4(1,2,3,4);

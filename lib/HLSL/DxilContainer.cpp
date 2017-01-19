@@ -84,15 +84,15 @@ bool IsValidDxilContainer(const DxilContainerHeader *pHeader, size_t length) {
 }
 
 const DxilPartHeader *GetDxilPartByType(const DxilContainerHeader *pHeader, DxilFourCC fourCC) {
-  if (IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes) == nullptr) {
+  if (!IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes)) {
     return nullptr;
   }
-  const DxilPartHeader *PartHeader =
-      *find_if(begin(pHeader), end(pHeader), DxilPartIsType(fourCC));
-  if (PartHeader == *end(pHeader)) {
+  const DxilPartIterator partIter =
+      find_if(begin(pHeader), end(pHeader), DxilPartIsType(fourCC));
+  if (partIter == end(pHeader)) {
     return nullptr;
   }
-  return PartHeader;
+  return *partIter;
 }
 
 DxilPartHeader *GetDxilPartByType(DxilContainerHeader *pHeader,
@@ -102,12 +102,11 @@ DxilPartHeader *GetDxilPartByType(DxilContainerHeader *pHeader,
 }
 
 const DxilProgramHeader *GetDxilProgramHeader(const DxilContainerHeader *pHeader, DxilFourCC fourCC) {
-  if (IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes) == nullptr) {
+  if (!IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes)) {
     return nullptr;
   }
-  const DxilPartHeader *PartHeader = *find_if(
-      begin(pHeader), end(pHeader), DxilPartIsType(fourCC));
-  if (PartHeader == *end(pHeader)) {
+  const DxilPartHeader *PartHeader = GetDxilPartByType(pHeader, fourCC);
+  if (!PartHeader) {
     return nullptr;
   }
   const DxilProgramHeader *ProgramHeader =

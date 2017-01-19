@@ -1475,15 +1475,13 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
                               LPCSTR tableName, LPCSTR lowering,
                               const HLSL_INTRINSIC *pIntrinsic) {
   unsigned opcode = (unsigned)pIntrinsic->Op;
-  if (HasUnsignedOpcode(opcode)) {
+  if (HasUnsignedOpcode(opcode) && IsBuiltinTable(tableName)) {
     QualType Ty = FD->getReturnType();
-    if (IsBuiltinTable(tableName)) {
-      IntrinsicOp intrinOp = static_cast<IntrinsicOp>(pIntrinsic->Op);
-      if (pIntrinsic->iOverloadParamIndex != -1) {
-        const FunctionProtoType *FT =
-            FD->getFunctionType()->getAs<FunctionProtoType>();
-        Ty = FT->getParamType(pIntrinsic->iOverloadParamIndex);
-      }
+    IntrinsicOp intrinOp = static_cast<IntrinsicOp>(pIntrinsic->Op);
+    if (pIntrinsic->iOverloadParamIndex != -1) {
+      const FunctionProtoType *FT =
+          FD->getFunctionType()->getAs<FunctionProtoType>();
+      Ty = FT->getParamType(pIntrinsic->iOverloadParamIndex);
     }
 
     // TODO: refine the code for getting element type

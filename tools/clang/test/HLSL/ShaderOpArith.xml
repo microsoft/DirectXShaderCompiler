@@ -9,7 +9,7 @@
       <RootValue Index="0" ResName="Buffer" />
     </RootValues>
 
-    <Shader Name="CS" Target="cs_5_1">
+    <Shader Name="CS" Target="cs_6_0">
       <![CDATA[
     RWStructuredBuffer<float4> g_buf : register(u0);
     [numthreads(8,8,1)]

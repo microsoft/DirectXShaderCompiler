@@ -1,4 +1,4 @@
-// RUN: %dxc -E fn -T ps_5_0 %s
+// RUN: %dxc -E fn -T ps_6_0 %s
 
 void fn() {
     // Can't use this initialization syntax yet.

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 // CHECK: 
 //at 0x1f56df38678 inside block entry of function main.flat Opcode must be defined in target shader model

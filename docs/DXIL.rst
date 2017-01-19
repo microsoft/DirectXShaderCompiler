@@ -2192,29 +2192,39 @@ INSTR.UNDEFRESULTFORGETDIMENSION      GetDimensions used undef dimension %0 on %
 INSTR.WRITEMASKFORTYPEDUAVSTORE       store on typed uav must write to all four components of the UAV
 INSTR.WRITEMASKMATCHVALUEFORUAVSTORE  uav store write mask must match store value mask, write mask is %0 and store value mask is %1
 META.BRANCHFLATTEN                    Can't use branch and flatten attributes together
+META.CLIPCULLMAXCOMPONENTS            Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
+META.CLIPCULLMAXROWS                  Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
 META.CONTROLFLOWHINTNOTONCONTROLFLOW  Control flow hint only works on control flow inst
 META.DENSERESIDS                      Resource identifiers must be zero-based and dense
+META.DUPLICATESYSVALUE                System value may only appear once in signature
 META.ENTRYFUNCTION                    entrypoint not found
 META.FLAGSUSAGE                       Flags must match usage
 META.FORCECASEONSWITCH                Attribute forcecase only works for switch
 META.FUNCTIONANNOTATION               Cannot find function annotation for %0
 META.GLCNOTONAPPENDCONSUME            globallycoherent cannot be used with append/consume buffers
-META.INTEGERINTERPMODE                signature %0 specifies invalid interpolation mode for integer component type.
-META.INTERPMODEINONEROW               Interpolation mode cannot vary for different cols of a row. Vary at %0 row %1
+META.INTEGERINTERPMODE                Interpolation mode on integer must be Constant
+META.INTERPMODEINONEROW               Interpolation mode must be identical for all elements packed into the same row.
 META.INTERPMODEVALID                  Interpolation mode must be valid
 META.INVALIDCONTROLFLOWHINT           Invalid control flow hint
 META.KNOWN                            Named metadata should be known
 META.MAXTESSFACTOR                    Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
 META.NOSEMANTICOVERLAP                Semantics must not overlap
 META.REQUIRED                         TODO - Required metadata missing
+META.SEMAKINDMATCHESNAME              Semantic name must match system value, when defined.
 META.SEMAKINDVALID                    Semantic kind must be valid
 META.SEMANTICCOMPTYPE                 %0 must be %1
+META.SEMANTICINDEXMAX                 System value semantics have a maximum valid semantic index
 META.SEMANTICLEN                      Semantic length must be at least 1 and at most 64
+META.SEMANTICSHOULDBEALLOCATED        Semantic should have a valid packing location
+META.SEMANTICSHOULDNOTBEALLOCATED     Semantic should have a packing location of -1
 META.SIGNATURECOMPTYPE                signature %0 specifies unrecognized or invalid component type
-META.SIGNATUREOUTOFRANGE              signature %0 is out of range at row %1 col %2 size %3.
-META.SIGNATUREOVERLAP                 signature %0 use overlaped address at row %1 col %2 size %3.
+META.SIGNATUREILLEGALCOMPONENTORDER   Component ordering for packed elements must be: arbitrary < system value < system generated value
+META.SIGNATUREINDEXCONFLICT           Only elements with compatible indexing rules may be packed together
+META.SIGNATUREOUTOFRANGE              Signature elements must fit within maximum signature size
+META.SIGNATUREOVERLAP                 Signature elements may not overlap in packing location.
 META.STRUCTBUFALIGNMENT               StructuredBuffer stride not aligned
 META.STRUCTBUFALIGNMENTOUTOFBOUND     StructuredBuffer stride out of bounds
+META.SYSTEMVALUEROWS                  System value may only have 1 row
 META.TARGET                           Target triple must be 'dxil-ms-dx'
 META.TESSELLATOROUTPUTPRIMITIVE       Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
 META.TESSELLATORPARTITION             Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
@@ -2239,7 +2249,7 @@ SM.GSVALIDINPUTPRIMITIVE              GS input primitive unrecognized
 SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY     GS output primitive topology unrecognized
 SM.HSINPUTCONTROLPOINTCOUNTRANGE      HS input control point count must be [1..%0].  %1 specified
 SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH For pass thru hull shader, input control point count must match output control point count
-SM.INSIDETESSFACTORSIZEMATCHDOMAIN    InsideTessFactor size mismatch the domain.
+SM.INSIDETESSFACTORSIZEMATCHDOMAIN    InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
 SM.INVALIDRESOURCECOMPTYPE            Invalid resource return type
 SM.INVALIDRESOURCEKIND                Invalid resources kind
 SM.INVALIDTEXTUREKINDONUAV            Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
@@ -2258,14 +2268,17 @@ SM.OUTPUTCONTROLPOINTSTOTALSCALARS    Total number of scalars across all HS outp
 SM.PATCHCONSTANTONLYFORHSDS           patch constant signature only valid in HS and DS
 SM.PSCONSISTENTINTERP                 Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
 SM.PSCOVERAGEANDINNERCOVERAGE         InnerCoverage and Coverage are mutually exclusive.
+SM.PSMULTIPLEDEPTHSEMANTIC            Pixel Shader only allows one type of depth semantic to be declared
 SM.PSOUTPUTSEMANTIC                   Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
+SM.PSTARGETCOL0                       SV_Target packed location must start at column 0
+SM.PSTARGETINDEXMATCHESROW            SV_Target semantic index must match packed row location
 SM.RESOURCERANGEOVERLAP               Resource ranges must not overlap
 SM.ROVONLYINPS                        RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
 SM.SAMPLECOUNTONLYON2DMS              Only Texture2DMS/2DMSArray could has sample count
 SM.SEMANTIC                           Semantic must be defined in target shader model
 SM.STREAMINDEXRANGE                   Stream index (%0) must between 0 and %1
 SM.TESSFACTORFORDOMAIN                Required TessFactor for domain not found declared anywhere in Patch Constant data
-SM.TESSFACTORSIZEMATCHDOMAIN          TessFactor size mismatch the domain.
+SM.TESSFACTORSIZEMATCHDOMAIN          TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
 SM.THREADGROUPCHANNELRANGE            Declared Thread Group %0 size %1 outside valid range [%2..%3]
 SM.TRIOUTPUTPRIMITIVEMISMATCH         Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
 SM.UNDEFINEDOUTPUT                    Not all elements of output %0 were written

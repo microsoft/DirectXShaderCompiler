@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 -Zi /Od %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -Zi /Od %s | FileCheck %s
 
 // CHECK: DepthOutput=0
 // CHECK: SampleFrequency=1

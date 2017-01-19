@@ -99,13 +99,13 @@ public:
 
 TEST_F(OptionsTest, ReadOptionsWhenExtensionsThenOK) {
   const wchar_t *Args[] = {
-      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_5_0",
+      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
       L"hlsl.hlsl", L"-external", L"foo.dll", L"-external-fn", L"CreateObj"};
   const wchar_t *ArgsNoLib[] = {
-    L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_5_0",
+    L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
     L"hlsl.hlsl", L"-external-fn", L"CreateObj" };
   const wchar_t *ArgsNoFn[] = {
-    L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_5_0",
+    L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
     L"hlsl.hlsl", L"-external", L"foo.dll" };
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
@@ -120,7 +120,7 @@ TEST_F(OptionsTest, ReadOptionsWhenExtensionsThenOK) {
 
 TEST_F(OptionsTest, ReadOptionsForOutputObject) {
   const wchar_t *Args[] = {
-      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_5_0",
+      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
       L"hlsl.hlsl", L"-Fo", L"hlsl.dxbc"};
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
@@ -129,14 +129,14 @@ TEST_F(OptionsTest, ReadOptionsForOutputObject) {
 
 TEST_F(OptionsTest, ReadOptionsConflict) {
   const wchar_t *matrixArgs[] = {
-      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_5_0",
+      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
       L"-Zpr", L"-Zpc",
       L"hlsl.hlsl"};
   MainArgsArr ArgsArr(matrixArgs);
   ReadOptsTest(ArgsArr, DxrFlags, "Cannot specify /Zpr and /Zpc together, use /? to get usage information");
 
   const wchar_t *controlFlowArgs[] = {
-      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_5_0",
+      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
       L"-Gfa", L"-Gfp",
       L"hlsl.hlsl"};
   MainArgsArr controlFlowArr(controlFlowArgs);
@@ -151,27 +151,27 @@ TEST_F(OptionsTest, ReadOptionsWhenHelpThenShortcut) {
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenValidThenOK) {
-  const wchar_t *Args[] = { L"exe.exe", L"/E", L"main", L"/T", L"ps_5_0", L"hlsl.hlsl" };
+  const wchar_t *Args[] = { L"exe.exe", L"/E", L"main", L"/T", L"ps_6_0", L"hlsl.hlsl" };
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
   VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
-  VERIFY_ARE_EQUAL_STR("ps_5_0", o->TargetProfile.data());
+  VERIFY_ARE_EQUAL_STR("ps_6_0", o->TargetProfile.data());
   VERIFY_ARE_EQUAL_STR("hlsl.hlsl", o->InputFile.data());
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenJoinedThenOK) {
-  const wchar_t *Args[] = { L"exe.exe", L"/Emain", L"/Tps_5_0", L"hlsl.hlsl" };
+  const wchar_t *Args[] = { L"exe.exe", L"/Emain", L"/Tps_6_0", L"hlsl.hlsl" };
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
   VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
-  VERIFY_ARE_EQUAL_STR("ps_5_0", o->TargetProfile.data());
+  VERIFY_ARE_EQUAL_STR("ps_6_0", o->TargetProfile.data());
   VERIFY_ARE_EQUAL_STR("hlsl.hlsl", o->InputFile.data());
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenNoEntryThenOK) {
   // It's not an error to omit the entry function name, but it's not
   // set to 'main' on behalf of callers either.
-  const wchar_t *Args[] = { L"exe.exe", L"/T", L"ps_5_0", L"hlsl.hlsl" };
+  const wchar_t *Args[] = { L"exe.exe", L"/T", L"ps_6_0", L"hlsl.hlsl" };
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
   VERIFY_IS_TRUE(o->EntryPoint.empty());
@@ -179,13 +179,13 @@ TEST_F(OptionsTest, ReadOptionsWhenNoEntryThenOK) {
 
 TEST_F(OptionsTest, ReadOptionsWhenInvalidThenFail) {
   const wchar_t *ArgsNoTarget[] = {L"exe.exe", L"/E", L"main", L"hlsl.hlsl"};
-  const wchar_t *ArgsNoInput[] = {L"exe.exe", L"/E", L"main", L"/T", L"ps_5_0"};
+  const wchar_t *ArgsNoInput[] = {L"exe.exe", L"/E", L"main", L"/T", L"ps_6_0"};
   const wchar_t *ArgsNoArg[] = {L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
                                 L"/T"};
   const wchar_t *ArgsUnknown[] = { L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
-    L"/T" L"ps_5_0", L"--unknown"};
+    L"/T" L"ps_6_0", L"--unknown"};
   const wchar_t *ArgsUnknownButIgnore[] = { L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
-    L"/T", L"ps_5_0", L"--unknown", L"-Qunused-arguments" };
+    L"/T", L"ps_6_0", L"--unknown", L"-Qunused-arguments" };
   MainArgsArr ArgsNoTargetArr(ArgsNoTarget),
       ArgsNoInputArr(ArgsNoInput), ArgsNoArgArr(ArgsNoArg),
     ArgsUnknownArr(ArgsUnknown), ArgsUnknownButIgnoreArr(ArgsUnknownButIgnore);
@@ -197,10 +197,10 @@ TEST_F(OptionsTest, ReadOptionsWhenInvalidThenFail) {
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenDefinesThenInit) {
-  const wchar_t *ArgsNoDefines[] = { L"exe.exe", L"/T", L"ps_5_0", L"/E", L"main", L"hlsl.hlsl" };
-  const wchar_t *ArgsOneDefine[] = { L"exe.exe", L"/DNAME1=1", L"/T", L"ps_5_0", L"/E", L"main", L"hlsl.hlsl" };
-  const wchar_t *ArgsTwoDefines[] = { L"exe.exe", L"/DNAME1=1", L"/T", L"ps_5_0", L"/D", L"NAME2=2", L"/E", L"main", L"/T", L"ps_5_0", L"hlsl.hlsl"};
-  const wchar_t *ArgsEmptyDefine[] = { L"exe.exe", L"/DNAME1", L"hlsl.hlsl", L"/E", L"main", L"/T", L"ps_5_0", };
+  const wchar_t *ArgsNoDefines[] = { L"exe.exe", L"/T", L"ps_6_0", L"/E", L"main", L"hlsl.hlsl" };
+  const wchar_t *ArgsOneDefine[] = { L"exe.exe", L"/DNAME1=1", L"/T", L"ps_6_0", L"/E", L"main", L"hlsl.hlsl" };
+  const wchar_t *ArgsTwoDefines[] = { L"exe.exe", L"/DNAME1=1", L"/T", L"ps_6_0", L"/D", L"NAME2=2", L"/E", L"main", L"/T", L"ps_6_0", L"hlsl.hlsl"};
+  const wchar_t *ArgsEmptyDefine[] = { L"exe.exe", L"/DNAME1", L"hlsl.hlsl", L"/E", L"main", L"/T", L"ps_6_0", };
 
   MainArgsArr ArgsNoDefinesArr(ArgsNoDefines), ArgsOneDefineArr(ArgsOneDefine),
       ArgsTwoDefinesArr(ArgsTwoDefines), ArgsEmptyDefineArr(ArgsEmptyDefine);
@@ -278,7 +278,7 @@ TEST_F(OptionsTest, ConvertWhenFailThenThrow) {
 }
 
 TEST_F(OptionsTest, CopyOptionsWhenSingleThenOK) {
-  const char *ArgsNoDefines[] = {"/T",   "ps_5_0",    "/E",
+  const char *ArgsNoDefines[] = {"/T",   "ps_6_0",    "/E",
                                  "main", "hlsl.hlsl", "-unknown"};
   const llvm::opt::OptTable *table = getHlslOptTable();
   unsigned missingIndex = 0, missingArgCount = 0;
@@ -288,7 +288,7 @@ TEST_F(OptionsTest, CopyOptionsWhenSingleThenOK) {
   CopyArgsToWStrings(args, DxcFlags, outArgs);
   EXPECT_EQ(4, outArgs.size()); // -unknown and hlsl.hlsl are missing
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/T")));
-  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"ps_5_0")));
+  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"ps_6_0")));
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/E")));
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"main")));
   VERIFY_ARE_EQUAL    (outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"hlsl.hlsl")));

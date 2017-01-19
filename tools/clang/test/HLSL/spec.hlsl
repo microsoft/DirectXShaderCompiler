@@ -4,7 +4,7 @@
 // specification.
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_5_0 spec.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T ps_5_1 spec.hlsl
 
 namespace ns_general {
 // * General

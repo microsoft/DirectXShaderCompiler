@@ -1,6 +1,6 @@
 ; RUN: %dxv %s | FileCheck %s
 
-; CHECK:Interpolation mode cannot vary for different cols of a row. Vary at A row 0
+; CHECK: signature element A at location (0,2) size (1,2) has interpolation mode that differs from another element packed into the same row.
 
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"
@@ -36,7 +36,7 @@ attributes #1 = { nounwind readnone }
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
 !1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 1}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{i32 1, void (<2 x float>, <2 x float>, <4 x float>*)* @main.flat, !4}
 !4 = !{!5, !7, !10, !13}
 !5 = !{i32 0, !6, !6}
