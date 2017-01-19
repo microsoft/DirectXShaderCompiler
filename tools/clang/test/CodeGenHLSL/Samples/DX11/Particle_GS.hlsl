@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T gs_5_1 %s | FileCheck %s
+// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
 
 // CHECK: storeOutput
 // CHECK: emitStream

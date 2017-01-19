@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_5_0 attributes.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T ps_5_1 attributes.hlsl
 
 // The following is a directive to override default behavior for "VerifyHelper.py fxc RunAttributes".  When this is specified, main shader must be defined manually.
 // :FXC_VERIFY_ARGUMENTS: /T ps_5_1 /E main

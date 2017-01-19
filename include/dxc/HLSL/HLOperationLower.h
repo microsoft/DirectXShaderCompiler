@@ -20,8 +20,10 @@ class Function;
 namespace hlsl {
 class HLModule;
 class DxilResourceBase;
+class HLSLExtensionsCodegenHelper;
 
 void TranslateBuiltinOperations(
     HLModule &HLM,
-    std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap);
+    std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap,
+    HLSLExtensionsCodegenHelper *extCodegenHelper);
 }

@@ -238,7 +238,7 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
 
 static void AddHLSLVectorSubscriptAttr(Decl *D, ASTContext &context) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
-  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)));
+  D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)));
 }
 
 /// <summary>Adds up-front support for HLSL vector types (just the template declaration).</summary>
@@ -740,6 +740,16 @@ bool hlsl::GetIntrinsicOp(const clang::FunctionDecl *FD, unsigned &opcode,
   HLSLIntrinsicAttr *A = FD->getAttr<HLSLIntrinsicAttr>();
   opcode = A->getOpcode();
   group = A->getGroup();
+  return true;
+}
+
+bool hlsl::GetIntrinsicLowering(const clang::FunctionDecl *FD, llvm::StringRef &S) {
+  if (FD == nullptr || !FD->hasAttr<HLSLIntrinsicAttr>()) {
+    return false;
+  }
+
+  HLSLIntrinsicAttr *A = FD->getAttr<HLSLIntrinsicAttr>();
+  S = A->getLowering();
   return true;
 }
 

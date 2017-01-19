@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 struct Foo
 {
@@ -31,5 +31,6 @@ float4 main(float idx1 : Idx1, float idx2 : Idx2) : SV_Target
   buf2[idx1*3].a = r.xy;
   buf2[idx1*3].b = r.xyz;
   buf2[idx1*3].c[idx2] = r.yw;
+  buf2[0].a = buf1.Load(1).b.xy;
   return r;
 }

@@ -98,24 +98,6 @@ const ShaderModel *ShaderModel::GetInvalid() {
   return &ms_ShaderModels[kNumShaderModels - 1];
 }
 
-unsigned ShaderModel::GetNumResources() const {
-  return IsSM51Plus() ? UINT_MAX : DXIL::kMaxD3D11ResourceCount;
-}
-
-unsigned ShaderModel::GetNumSamplers() const {
-  return IsSM51Plus() ? UINT_MAX : DXIL::kMaxD3D11SamplerCount;
-}
-
-unsigned ShaderModel::GetNumCBuffers() const {
-  return IsSM51Plus() ? UINT_MAX : DXIL::kMaxD3D11CBufferCount;
-}
-
-unsigned ShaderModel::GetUAVRegsBase() const {
-  if (IsSM51Plus()) return UINT_MAX;
-  if (IsSM50Plus()) return DXIL::kMaxD3D11UAVCount;
-  return SupportsUAV() ? DXIL::kMaxD3D10UAVCount : 0;
-}
-
 typedef ShaderModel SM;
 typedef Semantic SE;
 const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {

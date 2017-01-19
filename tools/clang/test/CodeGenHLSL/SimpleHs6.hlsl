@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_5_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 -Zi %s | FileCheck %s
 
 // CHECK: may only have one InputPatch parameter
 // CHECK: Patch constant function's output patch input should have 3 elements, but has 5.

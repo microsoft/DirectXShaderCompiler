@@ -36,7 +36,7 @@ enum class ValidationRule : unsigned {
   DeclUsedInternal, // Internal declaration must be used
 
   // Instruction
-  InstrAllowed, // TODO - Instructions must be of an allowed type
+  InstrAllowed, // Instructions must be of an allowed type
   InstrBarrierModeForNonCS, // sync in a non-Compute Shader must only sync UAV (sync_uglobal)
   InstrBarrierModeNoMemory, // sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. 
   InstrBarrierModeUselessUGroup, // sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
@@ -44,49 +44,37 @@ enum class ValidationRule : unsigned {
   InstrCBufferClassForCBufferHandle, // Expect Cbuffer for CBufferLoad handle
   InstrCBufferOutOfBound, // Cbuffer access out of bound
   InstrCallOload, // Call to DXIL intrinsic must match overload signature
+  InstrCannotPullPosition, // pull-model evaluation of position disallowed
   InstrCoordinateCountForRawTypedBuf, // raw/typed buffer don't need 2 coordinates
   InstrCoordinateCountForStructBuf, // structured buffer require 2 coordinates
-  InstrDeterminateDerivative, // gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)
   InstrDxilStructUser, // Dxil struct types should only used by ExtractValue
   InstrDxilStructUserOutOfBound, // Index out of bound when extract value from dxil struct types
-  InstrERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS, // TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS
-  InstrERR_ATTRIBUTE_PARAM_SIDE_EFFECT, // TODO - expressions with side effects are illegal as attribute parameters for root signature
-  InstrERR_CANT_PULL_POSITION, // TODO - %0 does not support pull-model evaluation of position
-  InstrERR_GUARANTEED_RACE_CONDITION_GSM, // TODO - race condition writing to shared memory detected, consider making this write conditional.
-  InstrERR_GUARANTEED_RACE_CONDITION_UAV, // TODO - race condition writing to shared resource detected, consider making this write conditional.
-  InstrERR_LOOP_CONDITION_OUT_OF_BOUNDS, // TODO - cannot unroll loop with an out-of-bounds array reference in the condition
-  InstrERR_NON_LITERAL_RESOURCE, // TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.
-  InstrERR_NON_LITERAL_STREAM, // TODO - stream parameter must come from a literal expression
-  InstrERR_RESOURCE_UNINITIALIZED, // TODO - Resource being indexed is uninitialized.
-  InstrERR_TEXTURE_OFFSET, // TODO - texture access must have literal offset and multisample index
-  InstrERR_TEXTURE_TYPE, // TODO - return type of texture too large. Cannot exceed 4 components
   InstrEvalInterpolationMode, // Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
+  InstrExtractValue, // ExtractValue should only be used on dxil struct types and cmpxchg
   InstrFailToResloveTGSMPointer, // TGSM pointers must originate from an unambiguous TGSM global variable.
   InstrHandleNotFromCreateHandle, // Resource handle should returned by createHandle
   InstrImmBiasForSampleB, // bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
-  InstrInBoundsAccess, // TODO - Access to out-of-bounds memory is disallowed
+  InstrInBoundsAccess, // Access to out-of-bounds memory is disallowed
   InstrMinPrecisionNotPrecise, // Instructions marked precise may not refer to minprecision values
+  InstrMinPrecisonBitCast, // Bitcast on minprecison types is not allowed
   InstrMipLevelForGetDimension, // Use mip level on buffer when GetDimensions
   InstrMipOnUAVLoad, // uav load don't support mipLevel/sampleIndex
-  InstrNoIDivByZero, // TODO - No signed integer division by zero
-  InstrNoIndefiniteAcos, // TODO - No indefinite arccosine
-  InstrNoIndefiniteAsin, // TODO - No indefinite arcsine
-  InstrNoIndefiniteDsxy, // TODO - No indefinite derivative calculation
-  InstrNoIndefiniteLog, // TODO - No indefinite logarithm
-  InstrNoPtrCast, // TODO - Cast between pointer types disallowed
+  InstrNoGenericPtrAddrSpaceCast, // Address space cast between pointer types must have one part to be generic address space
+  InstrNoIDivByZero, // No signed integer division by zero
+  InstrNoIndefiniteAcos, // No indefinite arccosine
+  InstrNoIndefiniteAsin, // No indefinite arcsine
+  InstrNoIndefiniteDsxy, // No indefinite derivative calculation
+  InstrNoIndefiniteLog, // No indefinite logarithm
   InstrNoReadingUninitialized, // Instructions should not read uninitialized value
-  InstrNoUDivByZero, // TODO - No unsigned integer division by zero
+  InstrNoUDivByZero, // No unsigned integer division by zero
   InstrOffsetOnUAVLoad, // uav load don't support offset
   InstrOload, // DXIL intrinsic overload must be valid
   InstrOnlyOneAllocConsume, // RWStructuredBuffers may increment or decrement their counters, but not both.
-  InstrOpCode, // TODO - DXIL intrinsic must have a valid constant opcode
-  InstrOpCodeResType, // TODO - DXIL intrinsic operating on a resource must be of the correct type
-  InstrOpCodeReserved, // TODO - Instructions must not reference reserved opcodes
-  InstrOpConst, // TODO - DXIL intrinsic requires an immediate constant operand
-  InstrOpConstRange, // TODO - Constant values must be in-range for operation
-  InstrOperandRange, // TODO - DXIL intrinsic operand must be within defined range
-  InstrPtrArea, // TODO - Pointer must refer to a defined area
-  InstrResID, // TODO - DXIL instruction must refer to valid resource IDs
+  InstrOpCodeReserved, // Instructions must not reference reserved opcodes
+  InstrOpConst, // DXIL intrinsic requires an immediate constant operand
+  InstrOpConstRange, // Constant values must be in-range for operation
+  InstrOperandRange, // DXIL intrinsic operand must be within defined range
+  InstrPtrBitCast, // Pointer type bitcast must be have same size
   InstrResourceClassForLoad, // load can only run on UAV/SRV resource
   InstrResourceClassForSamplerGather, // sample, lod and gather should on srv resource.
   InstrResourceClassForUAVStore, // store should on uav resource.
@@ -107,51 +95,59 @@ enum class ValidationRule : unsigned {
   InstrSamplerModeForLOD, // lod instruction requires sampler declared in default mode
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
-  InstrTextureLod, // TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube
-  InstrTextureOpArgs, // TODO - Instructions that depend on texture type must match operands
-  InstrTypeCast, // TODO - Type cast must be valid
+  InstrStructBitCast, // Bitcast on struct types is not allowed
+  InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
   InstrUndefResultForGetDimension, // GetDimensions used undef dimension %0 on %1
-  InstrWAR_GRADIENT_IN_VARYING_FLOW, // TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value
   InstrWriteMaskForTypedUAVStore, // store on typed uav must write to all four components of the UAV
   InstrWriteMaskMatchValueForUAVStore, // uav store write mask must match store value mask, write mask is %0 and store value mask is %1
 
   // Metadata
   MetaBranchFlatten, // Can't use branch and flatten attributes together
+  MetaClipCullMaxComponents, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
+  MetaClipCullMaxRows, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
+  MetaControlFlowHintNotOnControlFlow, // Control flow hint only works on control flow inst
   MetaDenseResIDs, // Resource identifiers must be zero-based and dense
+  MetaDuplicateSysValue, // System value may only appear once in signature
   MetaEntryFunction, // entrypoint not found
   MetaFlagsUsage, // Flags must match usage
   MetaForceCaseOnSwitch, // Attribute forcecase only works for switch
   MetaFunctionAnnotation, // Cannot find function annotation for %0
   MetaGlcNotOnAppendConsume, // globallycoherent cannot be used with append/consume buffers
-  MetaIntegerInterpMode, // signature %0 specifies invalid interpolation mode for integer component type.
-  MetaInterpModeInOneRow, // Interpolation mode cannot vary for different cols of a row. Vary at %0 row %1
+  MetaIntegerInterpMode, // Interpolation mode on integer must be Constant
+  MetaInterpModeInOneRow, // Interpolation mode must be identical for all elements packed into the same row.
   MetaInterpModeValid, // Interpolation mode must be valid
   MetaInvalidControlFlowHint, // Invalid control flow hint
   MetaKnown, // Named metadata should be known
   MetaMaxTessFactor, // Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
-  MetaNoRegisterOverlap, // TODO - User-defined variable locations cannot overlap
   MetaNoSemanticOverlap, // Semantics must not overlap
   MetaRequired, // TODO - Required metadata missing
+  MetaSemaKindMatchesName, // Semantic name must match system value, when defined.
   MetaSemaKindValid, // Semantic kind must be valid
   MetaSemanticCompType, // %0 must be %1
-  MetaSemanticLen, // TODO - Semantic length must be at least 1 and at most 64
+  MetaSemanticIndexMax, // System value semantics have a maximum valid semantic index
+  MetaSemanticLen, // Semantic length must be at least 1 and at most 64
+  MetaSemanticShouldBeAllocated, // Semantic should have a valid packing location
+  MetaSemanticShouldNotBeAllocated, // Semantic should have a packing location of -1
   MetaSignatureCompType, // signature %0 specifies unrecognized or invalid component type
-  MetaSignatureOutOfRange, // signature %0 is out of range at row %1 col %2 size %3.
-  MetaSignatureOverlap, // signature %0 use overlaped address at row %1 col %2 size %3.
-  MetaStructBufAlignment, // TODO - structured buffer element size must be a multiple of %u bytes in %s (actual size %u bytes)
-  MetaStructBufAlignmentOutOfBound, // TODO - structured buffer elements cannot be larger than %u bytes in %s (actual size %u bytes)
+  MetaSignatureIllegalComponentOrder, // Component ordering for packed elements must be: arbitrary < system value < system generated value
+  MetaSignatureIndexConflict, // Only elements with compatible indexing rules may be packed together
+  MetaSignatureOutOfRange, // Signature elements must fit within maximum signature size
+  MetaSignatureOverlap, // Signature elements may not overlap in packing location.
+  MetaStructBufAlignment, // StructuredBuffer stride not aligned
+  MetaStructBufAlignmentOutOfBound, // StructuredBuffer stride out of bounds
+  MetaSystemValueRows, // System value may only have 1 row
   MetaTarget, // Target triple must be 'dxil-ms-dx'
   MetaTessellatorOutputPrimitive, // Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
   MetaTessellatorPartition, // Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
-  MetaUsed, // TODO - All metadata must be used
+  MetaTextureType, // elements of typed buffers and textures must fit in four 32-bit quantities
+  MetaUsed, // All metadata must be used by dxil
   MetaValidSamplerMode, // Invalid sampler mode on sampler 
   MetaValueRange, // Metadata value must be within range
   MetaWellFormed, // TODO - Metadata must be well-formed in operand count and types
 
   // Program flow
-  FlowBranchLimit, // TODO - Flow control blocks can nest up to 64 deep per subroutine (and main)
-  FlowCallLimit, // Subroutines can nest up to 32 levels deep
   FlowDeadLoop, // Loop must have break
+  FlowFunctionCall, // Function call on user defined function with parameter is not permitted
   FlowNoRecusion, // Recursion is not permitted
   FlowReducible, // Execution flow must be reducible
 
@@ -165,37 +161,24 @@ enum class ValidationRule : unsigned {
   SmCounterOnlyOnStructBuf, // BufferUpdateCounter valid only on structured buffers
   SmDSInputControlPointCountRange, // DS input control point count must be [0..%0].  %1 specified
   SmDomainLocationIdxOOB, // DomainLocation component index out of bounds for the domain.
-  SmERR_BIND_RESOURCE_RANGE_OVERFLOW, // TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW
-  SmERR_DUPLICATE_CBUFFER_BANK, // TODO - ERR_DUPLICATE_CBUFFER_BANK
-  SmERR_GEN_SEMANTIC_TOO_LONG, // TODO - Semantic length is limited to 64 characters
-  SmERR_MAX_CBUFFER_EXCEEDED, // TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)
-  SmERR_MAX_CONST_EXCEEDED, // TODO - ERR_MAX_CONST_EXCEEDED
-  SmERR_MAX_SAMPLER_EXCEEDED, // TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)
-  SmERR_MAX_TEXTURE_EXCEEDED, // TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)
-  SmERR_UNABLE_TO_BIND_RESOURCE, // TODO - ERR_UNABLE_TO_BIND_RESOURCE
-  SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE, // TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE
   SmGSInstanceCountRange, // GS instance count must be [1..%0].  %1 specified
-  SmGSOutputLimit, // TODO - A geometry shader can output a maximum of 1024 32-bit values (including the size of the input data and the size of the data created by the shader)
   SmGSOutputVertexCountRange, // GS output vertex count must be [0..%0].  %1 specified
-  SmGSTotalOutputVertexDataRange, // TODO: Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
+  SmGSTotalOutputVertexDataRange, // Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
   SmGSValidInputPrimitive, // GS input primitive unrecognized
   SmGSValidOutputPrimitiveTopology, // GS output primitive topology unrecognized
   SmHSInputControlPointCountRange, // HS input control point count must be [1..%0].  %1 specified
   SmHullPassThruControlPointCountMatch, // For pass thru hull shader, input control point count must match output control point count
-  SmICBLimit, // TODO - Constant buffers must contain at least one element, but no more than 4096 values
-  SmIdxTmpLimit, // TODO - Indexable temporaries must containt at least one element, but no more than 4096 values
-  SmInsideTessFactorSizeMatchDomain, // InsideTessFactor size mismatch the domain.
+  SmInsideTessFactorSizeMatchDomain, // InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmInvalidResourceCompType, // Invalid resource return type
   SmInvalidResourceKind, // Invalid resources kind
   SmInvalidTextureKindOnUAV, // Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
   SmIsoLineOutputPrimitiveMismatch, // Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
-  SmLiveLimit, // TODO - The total number of temporary and indexable-temporary registers (32-bit four-component values) must be less than or equal to 4096
   SmMaxTGSMSize, // Total Thread Group Shared Memory storage is %0, exceeded %1
   SmMaxTheadGroup, // Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
   SmMultiStreamMustBePoint, // When multiple GS output streams are used they must be pointlists
   SmName, // Target shader model name must be known
   SmNoInterpMode, // Interpolation mode must be undefined for VS input/PS output/patch constant.
-  SmNoPSOutputIdx, // TODO - Pixel shader output registers are not indexable.
+  SmNoPSOutputIdx, // Pixel shader output registers are not indexable.
   SmOpcode, // Opcode must be defined in target shader model
   SmOpcodeInInvalidFunction, // Invalid DXIL opcode usage like StorePatchConstant in patch constant function
   SmOperand, // Operand must be defined in target shader model
@@ -203,18 +186,18 @@ enum class ValidationRule : unsigned {
   SmOutputControlPointsTotalScalars, // Total number of scalars across all HS output control points must not exceed 
   SmPSConsistentInterp, // Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
   SmPSCoverageAndInnerCoverage, // InnerCoverage and Coverage are mutually exclusive.
-  SmPSInputInt, // TODO - Pixel shader input values must use the same interpolation mode
+  SmPSMultipleDepthSemantic, // Pixel Shader only allows one type of depth semantic to be declared
   SmPSOutputSemantic, // Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
+  SmPSTargetCol0, // SV_Target packed location must start at column 0
+  SmPSTargetIndexMatchesRow, // SV_Target semantic index must match packed row location
   SmPatchConstantOnlyForHSDS, // patch constant signature only valid in HS and DS
   SmROVOnlyInPS, // RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
-  SmResLimit, // TODO - Resource limit exceeded for target shader model
   SmResourceRangeOverlap, // Resource ranges must not overlap
   SmSampleCountOnlyOn2DMS, // Only Texture2DMS/2DMSArray could has sample count
   SmSemantic, // Semantic must be defined in target shader model
   SmStreamIndexRange, // Stream index (%0) must between 0 and %1
-  SmStructBufMustBe4BytesAlign, // Structured buffer stride should 4 byte align
   SmTessFactorForDomain, // Required TessFactor for domain not found declared anywhere in Patch Constant data
-  SmTessFactorSizeMatchDomain, // TessFactor size mismatch the domain.
+  SmTessFactorSizeMatchDomain, // TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmThreadGroupChannelRange, // Declared Thread Group %0 size %1 outside valid range [%2..%3]
   SmTriOutputPrimitiveMismatch, // Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
   SmUndefinedOutput, // Not all elements of output %0 were written
@@ -223,6 +206,7 @@ enum class ValidationRule : unsigned {
   // Type system
   TypesDefined, // Type must be defined based on DXIL primitives
   TypesIntWidth, // Int type must be of valid width
+  TypesNoMultiDim, // Only one dimension allowed for array type
   TypesNoVector, // Vector types must not be present
 
   // Uniform analysis

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_5_1 %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
 // CHECK: threadId
 // CHECK: bufferStore

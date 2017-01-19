@@ -1,4 +1,4 @@
-// RUN: %dxc -E plain -T ps_5_0 %s
+// RUN: %dxc -E plain -T ps_6_0 %s
 
 // This file includes operator tests that target specific cases that are not
 // otherwise covered by the other generated files.
@@ -12,7 +12,7 @@
 #endif
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 more-operators.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 more-operators.hlsl
 // with vs_2_0 (the default) min16float usage produces a complaint that it's not supported
 
 struct f3_s    { float3 f3; };

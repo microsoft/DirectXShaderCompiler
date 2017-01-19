@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0  -not_use_legacy_cbuf_load %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0  -not_use_legacy_cbuf_load %s | FileCheck %s
 
 // The shift for hlsl only use the LSB 5 bits (0-31 range) of src1 for int/uint.
 // CHECK: shl i32

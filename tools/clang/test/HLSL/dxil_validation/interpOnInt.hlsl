@@ -1,4 +1,4 @@
-﻿// RUN: %dxc -E main -T ps_5_0 -fcgl %s | FileCheck %s
+﻿// RUN: %dxc -E main -T ps_6_0 -fcgl %s | FileCheck %s
 
 // CHECK: main
 // After lowering, these would turn into multiple abs calls rather than a 4 x float

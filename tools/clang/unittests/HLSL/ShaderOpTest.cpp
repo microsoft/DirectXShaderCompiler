@@ -1001,9 +1001,9 @@ void ShaderOpTest::PresentRenderTarget(ShaderOp *pShaderOp,
 }
 
 ShaderOp *ShaderOpSet::GetShaderOp(LPCSTR pName) {
-  for (ShaderOp &S : ShaderOps) {
-    if (S.Name && 0 == _stricmp(pName, S.Name)) {
-      return &S;
+  for (auto &S : ShaderOps) {
+    if (S->Name && 0 == _stricmp(pName, S->Name)) {
+      return S.get();
     }
   }
   return nullptr;
@@ -1718,9 +1718,8 @@ void ShaderOpParser::ParseShaderOpSet(IXmlReader *pReader, ShaderOpSet *pShaderO
       LPCWSTR pLocalName;
       CHECK_HR(pReader->GetLocalName(&pLocalName, nullptr));
       if (0 == wcscmp(pLocalName, L"ShaderOp")) {
-        ShaderOp S;
-        pShaderOpSet->ShaderOps.push_back(S);
-        ParseShaderOp(pReader, &pShaderOpSet->ShaderOps.back());
+        pShaderOpSet->ShaderOps.emplace_back(std::make_unique<ShaderOp>());
+        ParseShaderOp(pReader, pShaderOpSet->ShaderOps.back().get());
       }
     }
     else if (nt == XmlNodeType_EndElement) {

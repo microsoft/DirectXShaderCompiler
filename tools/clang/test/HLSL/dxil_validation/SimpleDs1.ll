@@ -1,8 +1,7 @@
 ; RUN: %dxv %s | FileCheck %s
 
 ; CHECK: DS input control point count must be [0..32].  36 specified
-; CHECK: TessFactor size mismatch the domain.
-; CHECK: InsideTessFactor size mismatch the domain.
+; CHECK: Invalid Tessellator Domain specified. Must be isoline, tri or quad
 ; CHECK: DomainLocation component index out of bounds for the domain.
 ; CHECK: DomainLocation component index out of bounds for the domain.
 ; CHECK: DomainLocation component index out of bounds for the domain.

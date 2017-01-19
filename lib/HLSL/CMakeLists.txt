@@ -19,6 +19,7 @@ add_llvm_library(LLVMHLSL
   DxilSemantic.cpp
   DxilShaderModel.cpp
   DxilSignature.cpp
+  DxilSignatureAllocator.cpp
   DxilSignatureElement.cpp
   DxilSigPoint.cpp
   DxilTypeSystem.cpp
@@ -28,6 +29,7 @@ add_llvm_library(LLVMHLSL
   HLModule.cpp
   HLOperations.cpp
   HLOperationLower.cpp
+  HLOperationLowerExtension.cpp
   HLResource.cpp
   ReducibilityAnalysis.cpp
   WaveSensitivityAnalysis.cpp

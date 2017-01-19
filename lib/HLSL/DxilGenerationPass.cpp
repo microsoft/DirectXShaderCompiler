@@ -44,59 +44,6 @@ using namespace hlsl;
 
 namespace {
 
-class Allocator {
-public:
-  Allocator(uint32_t size) : m_bits(size, true) {}
-
-  bool PreAlloc(uint32_t idx, uint32_t size) {
-    uint32_t begin = idx;
-    if (!CheckFree(begin, begin + size)) {
-      // overlap
-      return false;
-    }
-    m_bits.reset(idx, idx + size);
-    return true;
-  }
-
-  uint32_t Alloc(uint32_t size, uint32_t align = 1) {
-    uint32_t freeSlot = m_bits.find_first();
-    // enlarge if need
-    if (freeSlot == -1)
-      m_bits.resize(2 * m_bits.size(), true);
-    // alignment
-    while (freeSlot % align) {
-      freeSlot = m_bits.find_next(freeSlot + align - 1 - (freeSlot % align));
-    }
-
-    while (!CheckFree(freeSlot, freeSlot + size)) {
-      freeSlot = m_bits.find_next(freeSlot);
-      // alignment
-      while (freeSlot % align) {
-        freeSlot = m_bits.find_next(freeSlot + align - 1 - (freeSlot % align));
-      }
-    }
-    uint32_t beginSlot = freeSlot - size;
-    m_bits.reset(beginSlot, freeSlot);
-    return beginSlot;
-  };
-
-private:
-  // 1 means available, 0 means used
-  BitVector m_bits;
-  bool CheckFree(uint32_t &idx, uint32_t end) {
-    assert(idx <= end && "Attempted to set backwards range!");
-
-    // enlarge if need
-    if (end > m_bits.size())
-      m_bits.resize(2 * end, true);
-
-    while (idx < end && m_bits.test(idx)) {
-      idx++;
-    }
-    return idx == end;
-  };
-};
-
 class ResourcePromoter : public LoadAndStorePromoter {
   AllocaInst *AI;
   AllocaInst *NewAI;
@@ -319,13 +266,18 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
 class DxilGenerationPass : public ModulePass {
   HLModule *m_pHLModule;
   bool m_HasDbgInfo;
+  HLSLExtensionsCodegenHelper *m_extensionsCodegenHelper;
 
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilGenerationPass(bool NoOpt = false)
-      : ModulePass(ID), m_pHLModule(nullptr), NotOptimized(NoOpt) {}
+      : ModulePass(ID), m_pHLModule(nullptr), NotOptimized(NoOpt), m_extensionsCodegenHelper(nullptr) {}
 
   const char *getPassName() const override { return "DXIL Generator"; }
+
+  void SetExtensionsHelper(HLSLExtensionsCodegenHelper *helper) {
+    m_extensionsCodegenHelper = helper;
+  }
 
   bool runOnModule(Module &M) override {
     m_pHLModule = &M.GetOrCreateHLModule();
@@ -439,6 +391,10 @@ private:
   std::unordered_map<unsigned, DxilSignatureElement *> m_patchConstantInputsSigMap;
   // Input module is not optimized.
   bool NotOptimized;
+
+  // For validation
+  std::unordered_map<unsigned, std::unordered_set<unsigned> > m_InputSemanticsUsed,
+    m_OutputSemanticsUsed[4], m_PatchConstantSemanticsUsed, m_OtherSemanticsUsed;
 };
 
 class SimplifyInst : public FunctionPass {
@@ -541,14 +497,25 @@ void DxilGenerationPass::ProcessArgument(Function *func,
   // If this was an inout param, do the output side first
   if (isInout) {
     DXASSERT(!isPatchConstantFunction,
-             "Patch Constant function should not have inout param"); // TODO:
-                                                                     // validate
-                                                                     // in front
-                                                                     // end
+             "Patch Constant function should not have inout param");
     m_inoutArgSet.insert(&arg);
     ProcessArgument(func, funcAnnotation, arg, isPatchConstantFunction,
                     /*forceOut*/ true, hasClipPlane);
     qual = DxilParamInputQual::In;
+  }
+
+  // Get stream index
+  unsigned streamIdx = 0;
+  switch (qual) {
+  case DxilParamInputQual::OutStream1:
+    streamIdx = 1;
+    break;
+  case DxilParamInputQual::OutStream2:
+    streamIdx = 2;
+    break;
+  case DxilParamInputQual::OutStream3:
+    streamIdx = 3;
+    break;
   }
 
   const SigPoint *sigPoint = SigPoint::GetSigPoint(
@@ -586,6 +553,40 @@ void DxilGenerationPass::ProcessArgument(Function *func,
   DXIL::SemanticInterpretationKind interpretation =
       SigPoint::GetInterpretation(pSemantic->GetKind(), sigPoint->GetKind(),
                                   SM->GetMajor(), SM->GetMinor());
+
+  // Verify system value semantics do not overlap.
+  // Note: Arbitrary are always in the signature and will be verified with a different mechanism.
+  // For patch constant function, only validate patch constant elements (others already validated on hull function)
+  if (pSemantic->GetKind() != DXIL::SemanticKind::Arbitrary &&
+      (!isPatchConstantFunction || (!sigPoint->IsInput() && !sigPoint->IsOutput()))) {
+    auto &SemanticUseMap = sigPoint->IsInput() ? m_InputSemanticsUsed :
+      (sigPoint->IsOutput() ? m_OutputSemanticsUsed[streamIdx] :
+       (sigPoint->IsPatchConstant() ? m_PatchConstantSemanticsUsed : m_OtherSemanticsUsed));
+    if (SemanticUseMap.count((unsigned)pSemantic->GetKind()) > 0) {
+      auto &SemanticIndexSet = SemanticUseMap[(unsigned)pSemantic->GetKind()];
+      for (unsigned idx : paramAnnotation.GetSemanticIndexVec()) {
+        if (SemanticIndexSet.count(idx) > 0) {
+          m_pHLModule->GetModule()->getContext().emitError(
+              Twine("Parameter with semantic ") + semanticStr +
+              Twine(" has overlapping semantic index at ") + Twine(idx));
+          return;
+        }
+      }
+    }
+    auto &SemanticIndexSet = SemanticUseMap[(unsigned)pSemantic->GetKind()];
+    for (unsigned idx : paramAnnotation.GetSemanticIndexVec()) {
+      SemanticIndexSet.emplace(idx);
+    }
+    // Enforce Coverage and InnerCoverage input mutual exclusivity
+    if (sigPoint->IsInput()) {
+      if ((pSemantic->GetKind() == DXIL::SemanticKind::Coverage && SemanticUseMap.count((unsigned)DXIL::SemanticKind::InnerCoverage) > 0) ||
+          (pSemantic->GetKind() == DXIL::SemanticKind::InnerCoverage && SemanticUseMap.count((unsigned)DXIL::SemanticKind::Coverage) > 0)) {
+        m_pHLModule->GetModule()->getContext().emitError(
+          "Pixel shader inputs SV_Coverage and SV_InnerCoverage are mutually exclusive");
+        return;
+      }
+    }
+  }
 
   // Validate interpretation and replace argument usage with load/store
   // intrinsics
@@ -671,17 +672,8 @@ void DxilGenerationPass::ProcessArgument(Function *func,
   }
 
   // Set Output Stream.
-  switch (qual) {
-  case DxilParamInputQual::OutStream1:
-    pSE->SetOutputStream(1);
-    break;
-  case DxilParamInputQual::OutStream2:
-    pSE->SetOutputStream(2);
-    break;
-  case DxilParamInputQual::OutStream3:
-    pSE->SetOutputStream(3);
-    break;
-  }
+  if (streamIdx > 0)
+    pSE->SetOutputStream(streamIdx);
 }
 
 void DxilGenerationPass::CreateDxilSignatures() {
@@ -709,6 +701,8 @@ void DxilGenerationPass::CreateDxilSignatures() {
                                       "output");
   }
 
+  m_OtherSemanticsUsed.clear();
+
   if (SM->IsHS()) {
     HLFunctionProps &EntryProps = m_pHLModule->GetHLFunctionProps(EntryFunc);
     Function *patchConstantFunc = EntryProps.ShaderProps.HS.patchConstantFunc;
@@ -722,63 +716,25 @@ void DxilGenerationPass::CreateDxilSignatures() {
   }
 }
 
-static void AllocateSE(Allocator &allocator, DxilSignatureElement &SE) {
-  uint32_t idx = allocator.Alloc(SE.GetRows());
-  SE.SetStartRow(idx);
-  SE.SetStartCol(0);
-}
-
 // Allocate input/output slots
-static void AllocateDxilSignature(hlsl::DxilSignature &sig) {
-  // Allocate the input by alignment 4
-  // TODO: create real allocation pass to pack
-  Allocator allocator(256);
-  for (uint32_t i = 0; i < sig.GetElements().size(); i++) {
-    DxilSignatureElement &SE = sig.GetElement(i);
-    DXIL::SemanticInterpretationKind I = SE.GetInterpretation();
-    switch (I) {
-    case DXIL::SemanticInterpretationKind::NA:
-    case DXIL::SemanticInterpretationKind::NotInSig:
-    case DXIL::SemanticInterpretationKind::NotPacked:
-    case DXIL::SemanticInterpretationKind::Shadow:
-      continue;
-    }
-    AllocateSE(allocator, SE);
-  }
-}
-
-static void AllocateGSOutputSignature(hlsl::DxilSignature &sig) {
-  // Allocate the input by alignment 4
-  // TODO: create real allocation pass to pack
-  Allocator allocator[4] = {256, 256, 256, 256};
-  for (uint32_t i = 0; i < sig.GetElements().size(); i++) {
-    DxilSignatureElement &SE = sig.GetElement(i);
-    DXIL::SemanticInterpretationKind I = SE.GetInterpretation();
-    switch (I) {
-    case DXIL::SemanticInterpretationKind::NA:
-    case DXIL::SemanticInterpretationKind::NotInSig:
-    case DXIL::SemanticInterpretationKind::NotPacked:
-    case DXIL::SemanticInterpretationKind::Shadow:
-      continue;
-    }
-    DXASSERT_NOMSG(SE.GetOutputStream() < DXIL::kNumOutputStreams);
-    AllocateSE(allocator[SE.GetOutputStream()], SE);
-  }
-}
-
 void DxilGenerationPass::AllocateDxilInputOutputs() {
-  auto SM = m_pHLModule->GetShaderModel();
-  AllocateDxilSignature(m_pHLModule->GetInputSignature());
-  if (!SM->IsGS()) {
-    AllocateDxilSignature(m_pHLModule->GetOutputSignature());
+  m_pHLModule->GetInputSignature().PackElements();
+  if (!m_pHLModule->GetInputSignature().IsFullyAllocated()) {
+    m_pHLModule->GetCtx().emitError("Failed to allocate all input signature elements in available space.");
   }
-  else {
-    AllocateGSOutputSignature(m_pHLModule->GetOutputSignature());
+
+  m_pHLModule->GetOutputSignature().PackElements();
+  if (!m_pHLModule->GetOutputSignature().IsFullyAllocated()) {
+    m_pHLModule->GetCtx().emitError("Failed to allocate all output signature elements in available space.");
   }
 
   if (m_pHLModule->GetShaderModel()->IsHS() ||
-      m_pHLModule->GetShaderModel()->IsDS())
-    AllocateDxilSignature(m_pHLModule->GetPatchConstantSignature());
+      m_pHLModule->GetShaderModel()->IsDS()) {
+    m_pHLModule->GetPatchConstantSignature().PackElements();
+    if (!m_pHLModule->GetPatchConstantSignature().IsFullyAllocated()) {
+      m_pHLModule->GetCtx().emitError("Failed to allocate all patch constant signature elements in available space.");
+    }
+  }
 }
 
 void DxilGenerationPass::GenerateDxilInputs() {
@@ -1019,17 +975,21 @@ struct InputOutputAccessInfo {
 
 static void collectInputOutputAccessInfo(Value *GV, Constant *constZero,
                              std::vector<InputOutputAccessInfo> &accessInfoList,
-                             bool hasVertexID) {
+                             bool hasVertexID, bool bInput) {
   auto User = GV->user_begin();
   auto UserE = GV->user_end();
   for (; User != UserE;) {
     Value *I = *(User++);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(I)) {
-      InputOutputAccessInfo info = {constZero, ldInst};
-      accessInfoList.push_back(info);
+      if (bInput) {
+        InputOutputAccessInfo info = {constZero, ldInst};
+        accessInfoList.push_back(info);
+      }
     } else if (StoreInst *stInst = dyn_cast<StoreInst>(I)) {
-      InputOutputAccessInfo info = {constZero, stInst};
-      accessInfoList.push_back(info);
+      if (!bInput) {
+        InputOutputAccessInfo info = {constZero, stInst};
+        accessInfoList.push_back(info);
+      }
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I)) {
       // Vector indexing may has more indices.
       // Vector indexing changed to array indexing in SROA_HLSL.
@@ -1090,17 +1050,24 @@ static void collectInputOutputAccessInfo(Value *GV, Constant *constZero,
       for (; GepUser != GepUserE;) {
         auto GepUserIt = GepUser++;
         if (LoadInst *ldInst = dyn_cast<LoadInst>(*GepUserIt)) {
-          InputOutputAccessInfo info = {idxVal, ldInst, vertexID, vectorIdx};
-          accessInfoList.push_back(info);
+          if (bInput) {
+            InputOutputAccessInfo info = {idxVal, ldInst, vertexID, vectorIdx};
+            accessInfoList.push_back(info);
+          }
         } else if (StoreInst *stInst = dyn_cast<StoreInst>(*GepUserIt)) {
-          InputOutputAccessInfo info = {idxVal, stInst, vertexID, vectorIdx};
-          accessInfoList.push_back(info);
+          if (!bInput) {
+            InputOutputAccessInfo info = {idxVal, stInst, vertexID, vectorIdx};
+            accessInfoList.push_back(info);
+          }
         } else if (CallInst *CI = dyn_cast<CallInst>(*GepUserIt)) {
           HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
           DXASSERT_LOCALVAR(group, group == HLOpcodeGroup::HLMatLoadStore,
                             "input/output should only used by ld/st");
-          InputOutputAccessInfo info = {idxVal, CI, vertexID, vectorIdx};
-          accessInfoList.push_back(info);
+          HLMatLoadStoreOpcode opcode = (HLMatLoadStoreOpcode)GetHLOpcode(CI);
+          if ((opcode == HLMatLoadStoreOpcode::ColMatLoad || opcode == HLMatLoadStoreOpcode::RowMatLoad) ? bInput : !bInput) {
+            InputOutputAccessInfo info = {idxVal, CI, vertexID, vectorIdx};
+            accessInfoList.push_back(info);
+          }
         } else
           DXASSERT(0, "input output should only used by ld/st");
       }
@@ -1159,8 +1126,9 @@ static void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *G
   if (newArg->getType() != GV->getType()) {
     DXASSERT_NOMSG(GV->getType()->isPointerTy());
     for (User *U : GV->users()) {
-      LoadInst *LI = cast<LoadInst>(U);
-      LI->replaceAllUsesWith(newArg);
+      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+        LI->replaceAllUsesWith(newArg);
+      }
     }
   } else {
     GV->replaceAllUsesWith(newArg);
@@ -1243,7 +1211,7 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
       HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(GV, M);
 
     std::vector<InputOutputAccessInfo> accessInfoList;
-    collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID && isArrayTy);
+    collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID && isArrayTy, bInput);
 
     for (InputOutputAccessInfo &info : accessInfoList) {
       Value *idxVal = info.idx;
@@ -1500,7 +1468,8 @@ void DxilGenerationPass::GenerateDxilPatchConstantLdSt() {
     }
     
     std::vector<InputOutputAccessInfo> accessInfoList;
-    collectInputOutputAccessInfo(GV, constZero, accessInfoList, /*hasVertexID*/ false);
+    collectInputOutputAccessInfo(GV, constZero, accessInfoList, /*hasVertexID*/ false,
+      !m_pHLModule->GetShaderModel()->IsHS());
     bool isPrecise = m_preciseSigSet.count(SE);
     if (isPrecise)
       HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(GV, M);
@@ -1560,7 +1529,7 @@ void DxilGenerationPass::GenerateDxilPatchConstantFunctionInputs() {
       Function *dxilLdFunc = hlslOP->GetOpFunc(opcode, Ty);
 
       std::vector<InputOutputAccessInfo> accessInfoList;
-      collectInputOutputAccessInfo(&arg, constZero, accessInfoList, /*hasVertexID*/ true);
+      collectInputOutputAccessInfo(&arg, constZero, accessInfoList, /*hasVertexID*/ true, true);
       for (InputOutputAccessInfo &info : accessInfoList) {
         if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
           Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
@@ -2220,7 +2189,7 @@ void DxilGenerationPass::GenerateDxilOperations(
       func->eraseFromParent();
   }
 
-  TranslateBuiltinOperations(*m_pHLModule, handleMap);
+  TranslateBuiltinOperations(*m_pHLModule, handleMap, m_extensionsCodegenHelper);
 
   if (pSM->IsGS())
     GenerateStreamOutputOperations();
@@ -2295,8 +2264,10 @@ void DxilGenerationPass::TranslatePreciseAttribute() {
 
 char DxilGenerationPass::ID = 0;
 
-ModulePass *llvm::createDxilGenerationPass(bool NotOptimized) {
-  return new DxilGenerationPass(NotOptimized);
+ModulePass *llvm::createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper) {
+  DxilGenerationPass *dxilPass = new DxilGenerationPass(NotOptimized);
+  dxilPass->SetExtensionsHelper(extensionsHelper);
+  return dxilPass;
 }
 
 INITIALIZE_PASS(DxilGenerationPass, "dxilgen", "HLSL DXIL Generation", false, false)

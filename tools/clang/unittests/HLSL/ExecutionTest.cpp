@@ -252,7 +252,7 @@ public:
 
     // Load and compile shaders.
     if (UseDxbc()) {
-      DXBCFromText(pShader, L"main", L"cs_5_0", &pComputeShader);
+      DXBCFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
     }
     else {
       CompileFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
@@ -363,8 +363,8 @@ public:
     CComPtr<ID3DBlob> pixelShader;
 
     if (UseDxbc()) {
-      DXBCFromText(pShaders, L"VSMain", L"vs_5_0", &vertexShader);
-      DXBCFromText(pShaders, L"PSMain", L"ps_5_0", &pixelShader);
+      DXBCFromText(pShaders, L"VSMain", L"vs_6_0", &vertexShader);
+      DXBCFromText(pShaders, L"PSMain", L"ps_6_0", &pixelShader);
     } else {
       CompileFromText(pShaders, L"VSMain", L"vs_6_0", &vertexShader);
       CompileFromText(pShaders, L"PSMain", L"ps_6_0", &pixelShader);
@@ -1820,7 +1820,7 @@ RunShaderOpTest(dxc::DxcDllSupport &support, IStream *pStream, LPCSTR pName,
     if (ShaderOpSet->ShaderOps.size() != 1) {
       VERIFY_FAIL(L"Expected a single shader operation.");
     }
-    pShaderOp = &ShaderOpSet->ShaderOps[0];
+    pShaderOp = ShaderOpSet->ShaderOps[0].get();
   }
   else {
     pShaderOp = ShaderOpSet->GetShaderOp(pName);
@@ -1832,7 +1832,7 @@ RunShaderOpTest(dxc::DxcDllSupport &support, IStream *pStream, LPCSTR pName,
     const char sep = ':';
     for (auto &pAvailOp : ShaderOpSet->ShaderOps) {
       msg += sep;
-      msg += pAvailOp.Name ? pAvailOp.Name : "[n/a]";
+      msg += pAvailOp->Name ? pAvailOp->Name : "[n/a]";
     }
     CA2W msgWide(msg.c_str());
     VERIFY_FAIL(msgWide.m_psz);
@@ -2133,7 +2133,7 @@ extern "C" {
           pOutputStrFn(pStrCtx, L"Expected a single shader operation.\r\n");
           return E_FAIL;
         }
-        pShaderOp = &ShaderOpSet->ShaderOps[0];
+        pShaderOp = ShaderOpSet->ShaderOps[0].get();
       }
       else {
         pShaderOp = ShaderOpSet->GetShaderOp(pName);
@@ -2145,7 +2145,7 @@ extern "C" {
         const char sep = ':';
         for (auto &pAvailOp : ShaderOpSet->ShaderOps) {
           msg += sep;
-          msg += pAvailOp.Name ? pAvailOp.Name : "[n/a]";
+          msg += pAvailOp->Name ? pAvailOp->Name : "[n/a]";
         }
         CA2W msgWide(msg.c_str());
         pOutputStrFn(pStrCtx, msgWide);

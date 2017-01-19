@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 -Gis %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -Gis %s | FileCheck %s
 
 // CHECK-NOT: fadd fast
 

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 -WX %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -WX %s | FileCheck %s
 
 // CHECK: error: min10float is promoted to min16float
 

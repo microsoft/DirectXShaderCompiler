@@ -37,6 +37,8 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
+#include "dxc/HLSL/DxilSignatureAllocator.h"
+#include <algorithm>
 
 
 using namespace llvm;
@@ -52,22 +54,31 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::BitcodeValid: return "Module bitcode is invalid";
     case hlsl::ValidationRule::MetaRequired: return "TODO - Required metadata missing";
     case hlsl::ValidationRule::MetaKnown: return "Named metadata '%0' is unknown";
-    case hlsl::ValidationRule::MetaUsed: return "TODO - All metadata must be used";
+    case hlsl::ValidationRule::MetaUsed: return "All metadata must be used by dxil";
     case hlsl::ValidationRule::MetaTarget: return "Unknown target triple '%0'";
     case hlsl::ValidationRule::MetaWellFormed: return "TODO - Metadata must be well-formed in operand count and types";
-    case hlsl::ValidationRule::MetaSemanticLen: return "TODO - Semantic length must be at least 1 and at most 64";
+    case hlsl::ValidationRule::MetaSemanticLen: return "Semantic length must be at least 1 and at most 64";
     case hlsl::ValidationRule::MetaInterpModeValid: return "Invalid interpolation mode for '%0'";
     case hlsl::ValidationRule::MetaSemaKindValid: return "Semantic kind for '%0' is invalid";
     case hlsl::ValidationRule::MetaNoSemanticOverlap: return "Semantic '%0' overlap at %1";
-    case hlsl::ValidationRule::MetaNoRegisterOverlap: return "TODO - User-defined variable locations cannot overlap";
+    case hlsl::ValidationRule::MetaSemaKindMatchesName: return "Semantic name %0 does not match System Value kind %1";
+    case hlsl::ValidationRule::MetaDuplicateSysValue: return "System value %0 appears more than once in the same signature.";
+    case hlsl::ValidationRule::MetaSemanticIndexMax: return "%0 semantic index exceeds maximum (%1)";
+    case hlsl::ValidationRule::MetaSystemValueRows: return "rows for system value semantic %0 must be 1";
+    case hlsl::ValidationRule::MetaSemanticShouldBeAllocated: return "%0 Semantic '%1' should have a valid packing location";
+    case hlsl::ValidationRule::MetaSemanticShouldNotBeAllocated: return "%0 Semantic '%1' should have a packing location of -1";
     case hlsl::ValidationRule::MetaValueRange: return "Metadata value must be within range";
     case hlsl::ValidationRule::MetaFlagsUsage: return "Flags must match usage";
     case hlsl::ValidationRule::MetaDenseResIDs: return "Resource identifiers must be zero-based and dense";
-    case hlsl::ValidationRule::MetaSignatureOverlap: return "signature %0 use overlaped address at row %1 col %2 size %3.";
-    case hlsl::ValidationRule::MetaSignatureOutOfRange: return "signature %0 is out of range at row %1 col %2 size %3.";
-    case hlsl::ValidationRule::MetaIntegerInterpMode: return "signature %0 specifies invalid interpolation mode for integer component type.";
-    case hlsl::ValidationRule::MetaInterpModeInOneRow: return "Interpolation mode cannot vary for different cols of a row. Vary at %0 row %1";
+    case hlsl::ValidationRule::MetaSignatureOverlap: return "signature element %0 at location (%1,%2) size (%3,%4) overlaps another signature element.";
+    case hlsl::ValidationRule::MetaSignatureOutOfRange: return "signature element %0 at location (%1,%2) size (%3,%4) is out of range.";
+    case hlsl::ValidationRule::MetaSignatureIndexConflict: return "signature element %0 at location (%1,%2) size (%3,%4) has an indexing conflict with another signature element packed into the same row.";
+    case hlsl::ValidationRule::MetaSignatureIllegalComponentOrder: return "signature element %0 at location (%1,%2) size (%3,%4) violates component ordering rule (arb < sv < sgv).";
+    case hlsl::ValidationRule::MetaIntegerInterpMode: return "signature element %0 specifies invalid interpolation mode for integer component type.";
+    case hlsl::ValidationRule::MetaInterpModeInOneRow: return "signature element %0 at location (%1,%2) size (%3,%4) has interpolation mode that differs from another element packed into the same row.";
     case hlsl::ValidationRule::MetaSemanticCompType: return "%0 must be %1";
+    case hlsl::ValidationRule::MetaClipCullMaxRows: return "ClipDistance and CullDistance occupy more than the maximum of 2 rows combined.";
+    case hlsl::ValidationRule::MetaClipCullMaxComponents: return "ClipDistance and CullDistance use more than the maximum of 8 components combined.";
     case hlsl::ValidationRule::MetaSignatureCompType: return "signature %0 specifies unrecognized or invalid component type";
     case hlsl::ValidationRule::MetaTessellatorPartition: return "Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.";
     case hlsl::ValidationRule::MetaTessellatorOutputPrimitive: return "Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.";
@@ -75,51 +86,38 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaValidSamplerMode: return "Invalid sampler mode on sampler ";
     case hlsl::ValidationRule::MetaFunctionAnnotation: return "Cannot find function annotation for %0";
     case hlsl::ValidationRule::MetaGlcNotOnAppendConsume: return "globallycoherent cannot be used with append/consume buffers";
-    case hlsl::ValidationRule::MetaStructBufAlignment: return "TODO - structured buffer element size must be a multiple of %u bytes in %s (actual size %u bytes)";
-    case hlsl::ValidationRule::MetaStructBufAlignmentOutOfBound: return "TODO - structured buffer elements cannot be larger than %u bytes in %s (actual size %u bytes)";
+    case hlsl::ValidationRule::MetaStructBufAlignment: return "structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes)";
+    case hlsl::ValidationRule::MetaStructBufAlignmentOutOfBound: return "structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes)";
     case hlsl::ValidationRule::MetaEntryFunction: return "entrypoint not found";
     case hlsl::ValidationRule::MetaInvalidControlFlowHint: return "Invalid control flow hint";
     case hlsl::ValidationRule::MetaBranchFlatten: return "Can't use branch and flatten attributes together";
     case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch";
-    case hlsl::ValidationRule::InstrOpCode: return "TODO - DXIL intrinsic must have a valid constant opcode";
+    case hlsl::ValidationRule::MetaControlFlowHintNotOnControlFlow: return "Control flow hint only works on control flow inst";
+    case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
-    case hlsl::ValidationRule::InstrResID: return "TODO - DXIL instruction must refer to valid resource IDs";
-    case hlsl::ValidationRule::InstrTypeCast: return "TODO - Type cast must be valid";
-    case hlsl::ValidationRule::InstrPtrArea: return "TODO - Pointer must refer to a defined area";
+    case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
+    case hlsl::ValidationRule::InstrMinPrecisonBitCast: return "Bitcast on minprecison types is not allowed";
+    case hlsl::ValidationRule::InstrStructBitCast: return "Bitcast on struct types is not allowed";
     case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant";
-    case hlsl::ValidationRule::InstrAllowed: return "TODO - Instructions must be of an allowed type";
-    case hlsl::ValidationRule::InstrOpCodeReserved: return "TODO - Instructions must not reference reserved opcodes";
-    case hlsl::ValidationRule::InstrTextureOpArgs: return "TODO - Instructions that depend on texture type must match operands";
-    case hlsl::ValidationRule::InstrTextureLod: return "TODO - Level-of-detail is only defined for Texture1D, Texture2D, Texture3D and TextureCube";
-    case hlsl::ValidationRule::InstrOpCodeResType: return "TODO - DXIL intrinsic operating on a resource must be of the correct type";
+    case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type";
+    case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes";
     case hlsl::ValidationRule::InstrOperandRange: return "expect %0 between %1, got %2";
     case hlsl::ValidationRule::InstrNoReadingUninitialized: return "Instructions should not read uninitialized value";
-    case hlsl::ValidationRule::InstrNoPtrCast: return "TODO - Cast between pointer types disallowed";
-    case hlsl::ValidationRule::InstrInBoundsAccess: return "TODO - Access to out-of-bounds memory is disallowed";
-    case hlsl::ValidationRule::InstrOpConstRange: return "TODO - Constant values must be in-range for operation";
+    case hlsl::ValidationRule::InstrNoGenericPtrAddrSpaceCast: return "Address space cast between pointer types must have one part to be generic address space";
+    case hlsl::ValidationRule::InstrInBoundsAccess: return "Access to out-of-bounds memory is disallowed";
+    case hlsl::ValidationRule::InstrOpConstRange: return "Constant values must be in-range for operation";
     case hlsl::ValidationRule::InstrImmBiasForSampleB: return "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate";
-    case hlsl::ValidationRule::InstrNoIndefiniteLog: return "TODO - No indefinite logarithm";
-    case hlsl::ValidationRule::InstrNoIndefiniteAsin: return "TODO - No indefinite arcsine";
-    case hlsl::ValidationRule::InstrNoIndefiniteAcos: return "TODO - No indefinite arccosine";
-    case hlsl::ValidationRule::InstrNoIDivByZero: return "TODO - No signed integer division by zero";
-    case hlsl::ValidationRule::InstrNoUDivByZero: return "TODO - No unsigned integer division by zero";
-    case hlsl::ValidationRule::InstrNoIndefiniteDsxy: return "TODO - No indefinite derivative calculation";
-    case hlsl::ValidationRule::InstrERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS: return "TODO - ERR_ALIAS_ARRAY_INDEX_OUT_OF_BOUNDS";
+    case hlsl::ValidationRule::InstrNoIndefiniteLog: return "No indefinite logarithm";
+    case hlsl::ValidationRule::InstrNoIndefiniteAsin: return "No indefinite arcsine";
+    case hlsl::ValidationRule::InstrNoIndefiniteAcos: return "No indefinite arccosine";
+    case hlsl::ValidationRule::InstrNoIDivByZero: return "No signed integer division by zero";
+    case hlsl::ValidationRule::InstrNoUDivByZero: return "No unsigned integer division by zero";
+    case hlsl::ValidationRule::InstrNoIndefiniteDsxy: return "No indefinite derivative calculation";
     case hlsl::ValidationRule::InstrMinPrecisionNotPrecise: return "Instructions marked precise may not refer to minprecision values";
     case hlsl::ValidationRule::InstrOnlyOneAllocConsume: return "RWStructuredBuffers may increment or decrement their counters, but not both.";
-    case hlsl::ValidationRule::InstrERR_TEXTURE_TYPE: return "TODO - return type of texture too large. Cannot exceed 4 components";
-    case hlsl::ValidationRule::InstrERR_TEXTURE_OFFSET: return "TODO - texture access must have literal offset and multisample index";
-    case hlsl::ValidationRule::InstrWAR_GRADIENT_IN_VARYING_FLOW: return "TODO - gradient instruction used in a loop with varying iteration; partial derivatives may have undefined value";
-    case hlsl::ValidationRule::InstrDeterminateDerivative: return "gradient operation uses a value that may not be defined for all pixels (in UAV loads can not participate in gradient operations)";
-    case hlsl::ValidationRule::InstrERR_NON_LITERAL_RESOURCE: return "TODO - Resources being indexed cannot come from conditional expressions, they must come from literal expressions.";
-    case hlsl::ValidationRule::InstrERR_NON_LITERAL_STREAM: return "TODO - stream parameter must come from a literal expression";
-    case hlsl::ValidationRule::InstrERR_CANT_PULL_POSITION: return "TODO - %0 does not support pull-model evaluation of position";
-    case hlsl::ValidationRule::InstrERR_LOOP_CONDITION_OUT_OF_BOUNDS: return "TODO - cannot unroll loop with an out-of-bounds array reference in the condition";
-    case hlsl::ValidationRule::InstrERR_ATTRIBUTE_PARAM_SIDE_EFFECT: return "TODO - expressions with side effects are illegal as attribute parameters for root signature";
-    case hlsl::ValidationRule::InstrERR_RESOURCE_UNINITIALIZED: return "TODO - Resource being indexed is uninitialized.";
-    case hlsl::ValidationRule::InstrERR_GUARANTEED_RACE_CONDITION_UAV: return "TODO - race condition writing to shared resource detected, consider making this write conditional.";
-    case hlsl::ValidationRule::InstrERR_GUARANTEED_RACE_CONDITION_GSM: return "TODO - race condition writing to shared memory detected, consider making this write conditional.";
+    case hlsl::ValidationRule::InstrTextureOffset: return "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7";
+    case hlsl::ValidationRule::InstrCannotPullPosition: return "%0 does not support pull-model evaluation of position";
     case hlsl::ValidationRule::InstrEvalInterpolationMode: return "Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample";
     case hlsl::ValidationRule::InstrResourceCoordinateMiss: return "coord uninitialized";
     case hlsl::ValidationRule::InstrResourceCoordinateTooMany: return "out of bound coord must be undef";
@@ -159,29 +157,25 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrCBufferOutOfBound: return "Cbuffer access out of bound";
     case hlsl::ValidationRule::InstrCBufferClassForCBufferHandle: return "Expect Cbuffer for CBufferLoad handle";
     case hlsl::ValidationRule::InstrFailToResloveTGSMPointer: return "TGSM pointers must originate from an unambiguous TGSM global variable.";
+    case hlsl::ValidationRule::InstrExtractValue: return "ExtractValue should only be used on dxil struct types and cmpxchg";
     case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed";
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
+    case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'";
     case hlsl::ValidationRule::SmOpcode: return "Opcode must be defined in target shader model";
     case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model";
     case hlsl::ValidationRule::SmSemantic: return "Semantic '%0' is invalid as %1 %2";
-    case hlsl::ValidationRule::SmResLimit: return "TODO - Resource limit exceeded for target shader model";
-    case hlsl::ValidationRule::SmICBLimit: return "TODO - Constant buffers must contain at least one element, but no more than 4096 values";
-    case hlsl::ValidationRule::SmIdxTmpLimit: return "TODO - Indexable temporaries must containt at least one element, but no more than 4096 values";
-    case hlsl::ValidationRule::SmLiveLimit: return "TODO - The total number of temporary and indexable-temporary registers (32-bit four-component values) must be less than or equal to 4096";
-    case hlsl::ValidationRule::SmPSInputInt: return "TODO - Pixel shader input values must use the same interpolation mode";
     case hlsl::ValidationRule::SmNoInterpMode: return "Interpolation mode for '%0' is set but should be undefined";
-    case hlsl::ValidationRule::SmNoPSOutputIdx: return "TODO - Pixel shader output registers are not indexable.";
+    case hlsl::ValidationRule::SmNoPSOutputIdx: return "Pixel shader output registers are not indexable.";
     case hlsl::ValidationRule::SmPSConsistentInterp: return "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)";
-    case hlsl::ValidationRule::SmGSOutputLimit: return "TODO - A geometry shader can output a maximum of 1024 32-bit values (including the size of the input data and the size of the data created by the shader)";
     case hlsl::ValidationRule::SmThreadGroupChannelRange: return "Declared Thread Group %0 size %1 outside valid range [%2..%3]";
     case hlsl::ValidationRule::SmMaxTheadGroup: return "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1";
     case hlsl::ValidationRule::SmMaxTGSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1";
     case hlsl::ValidationRule::SmROVOnlyInPS: return "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders";
     case hlsl::ValidationRule::SmTessFactorForDomain: return "Required TessFactor for domain not found declared anywhere in Patch Constant data";
-    case hlsl::ValidationRule::SmTessFactorSizeMatchDomain: return "TessFactor size mismatch the domain.";
-    case hlsl::ValidationRule::SmInsideTessFactorSizeMatchDomain: return "InsideTessFactor size mismatch the domain.";
+    case hlsl::ValidationRule::SmTessFactorSizeMatchDomain: return "TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.";
+    case hlsl::ValidationRule::SmInsideTessFactorSizeMatchDomain: return "InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.";
     case hlsl::ValidationRule::SmDomainLocationIdxOOB: return "DomainLocation component index out of bounds for the domain.";
     case hlsl::ValidationRule::SmHullPassThruControlPointCountMatch: return "For pass thru hull shader, input control point count must match output control point count";
     case hlsl::ValidationRule::SmOutputControlPointsTotalScalars: return "Total number of scalars across all HS output control points must not exceed ";
@@ -191,6 +185,9 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmPatchConstantOnlyForHSDS: return "patch constant signature only valid in HS and DS";
     case hlsl::ValidationRule::SmStreamIndexRange: return "Stream index (%0) must between 0 and %1";
     case hlsl::ValidationRule::SmPSOutputSemantic: return "Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found";
+    case hlsl::ValidationRule::SmPSMultipleDepthSemantic: return "Pixel Shader only allows one type of depth semantic to be declared";
+    case hlsl::ValidationRule::SmPSTargetIndexMatchesRow: return "SV_Target semantic index must match packed row location";
+    case hlsl::ValidationRule::SmPSTargetCol0: return "SV_Target packed location must start at column 0";
     case hlsl::ValidationRule::SmPSCoverageAndInnerCoverage: return "InnerCoverage and Coverage are mutually exclusive.";
     case hlsl::ValidationRule::SmGSOutputVertexCountRange: return "GS output vertex count must be [0..%0].  %1 specified";
     case hlsl::ValidationRule::SmGSInstanceCountRange: return "GS instance count must be [1..%0].  %1 specified";
@@ -205,32 +202,21 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmInvalidResourceCompType: return "Invalid resource return type";
     case hlsl::ValidationRule::SmSampleCountOnlyOn2DMS: return "Only Texture2DMS/2DMSArray could has sample count";
     case hlsl::ValidationRule::SmCounterOnlyOnStructBuf: return "BufferUpdateCounter valid only on structured buffers";
-    case hlsl::ValidationRule::SmStructBufMustBe4BytesAlign: return "Structured buffer stride should 4 byte align";
-    case hlsl::ValidationRule::SmGSTotalOutputVertexDataRange: return "TODO: Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3";
+    case hlsl::ValidationRule::SmGSTotalOutputVertexDataRange: return "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3";
     case hlsl::ValidationRule::SmMultiStreamMustBePoint: return "Multiple GS output streams are used but '%0' is not pointlist";
     case hlsl::ValidationRule::SmCompletePosition: return "Not all elements of SV_Position were written";
     case hlsl::ValidationRule::SmUndefinedOutput: return "Not all elements of output %0 were written";
     case hlsl::ValidationRule::SmCSNoReturn: return "Compute shaders can't return values, outputs must be written in writable resources (UAVs).";
     case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct";
-    case hlsl::ValidationRule::SmERR_MAX_CONST_EXCEEDED: return "TODO - ERR_MAX_CONST_EXCEEDED";
-    case hlsl::ValidationRule::SmERR_MAX_SAMPLER_EXCEEDED: return "TODO - The maximum number of sampler slots is exceeded for a library (slot index=%u, max slots=%u)";
-    case hlsl::ValidationRule::SmERR_MAX_TEXTURE_EXCEEDED: return "TODO - The maximum number of texture slots is exceeded for a library (slot index=%u, max slots=%u)";
-    case hlsl::ValidationRule::SmERR_MAX_CBUFFER_EXCEEDED: return "TODO - The maximum number of constant buffer slots is exceeded for a library (slot index=%u, max slots=%u)";
-    case hlsl::ValidationRule::SmERR_GEN_SEMANTIC_TOO_LONG: return "TODO - Semantic length is limited to 64 characters";
-    case hlsl::ValidationRule::SmERR_DUPLICATE_CBUFFER_BANK: return "TODO - ERR_DUPLICATE_CBUFFER_BANK";
-    case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_RESOURCE";
-    case hlsl::ValidationRule::SmERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE: return "TODO - ERR_UNABLE_TO_BIND_UNBOUNDED_RESOURCE";
-    case hlsl::ValidationRule::SmERR_BIND_RESOURCE_RANGE_OVERFLOW: return "TODO - ERR_BIND_RESOURCE_RANGE_OVERFLOW";
     case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5";
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1";
     case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1";
     case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only used in '%1'";
     case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
-    case hlsl::ValidationRule::FlowCallLimit: return "Subroutines can nest up to 32 levels deep";
-    case hlsl::ValidationRule::FlowBranchLimit: return "TODO - Flow control blocks can nest up to 64 deep per subroutine (and main)";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
     case hlsl::ValidationRule::FlowDeadLoop: return "Loop must have break";
+    case hlsl::ValidationRule::FlowFunctionCall: return "Function call on user defined function with parameter %0 is not permitted, it should be inlined";
     case hlsl::ValidationRule::DeclDxilNsReserved: return "Declaration '%0' uses a reserved prefix";
     case hlsl::ValidationRule::DeclDxilFnExtern: return "External function '%0' is not a DXIL function";
     case hlsl::ValidationRule::DeclUsedInternal: return "Internal declaration '%0' is unused";
@@ -285,6 +271,7 @@ struct ValidationContext {
   Module &M;
   Module *pDebugModule;
   DxilModule &DxilMod;
+  const DataLayout &DL;
   DiagnosticPrinterRawOStream &DiagPrinter;
   PSExecutionInfo PSExec;
   DebugLoc LastDebugLocEmit;
@@ -297,12 +284,23 @@ struct ValidationContext {
   std::vector<unsigned> outputCols;
   std::vector<unsigned> patchConstCols;
   unsigned domainLocSize;
+  const unsigned kDxilControlFlowHintMDKind;
+  const unsigned kDxilPreciseMDKind;
+  const unsigned kLLVMLoopMDKind;
+  bool m_bCoverageIn, m_bInnerCoverageIn;
 
   ValidationContext(Module &llvmModule, Module *DebugModule,
                     DxilModule &dxilModule,
                     DiagnosticPrinterRawOStream &DiagPrn)
       : M(llvmModule), pDebugModule(DebugModule), DxilMod(dxilModule),
-        DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1) {
+        DL(llvmModule.getDataLayout()),
+        kDxilControlFlowHintMDKind(llvmModule.getContext().getMDKindID(
+            DxilMDHelper::kDxilControlFlowHintMDName)),
+        kDxilPreciseMDKind(llvmModule.getContext().getMDKindID(
+            DxilMDHelper::kDxilPreciseAttributeMDName)),
+        kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
+        DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1),
+        m_bCoverageIn(false), m_bInnerCoverageIn(false) {
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
       OutputPositionMask[i] = 0;
@@ -339,7 +337,10 @@ struct ValidationContext {
       if (pArg == nullptr)
         pArg = "<null>";
 
-      unsigned offset = ruleText.find(argIdx);
+      std::string::size_type offset = ruleText.find(argIdx);
+      if (offset == std::string::npos)
+        continue;
+
       unsigned size = argIdx.size();
       ruleText.replace(offset, size, args[i]);
     }
@@ -361,6 +362,17 @@ struct ValidationContext {
 
   void EmitResourceError(const hlsl::DxilResourceBase *Res, ValidationRule rule) {
     DiagPrinter << GetValidationRuleText(rule);
+    DiagPrinter << '\'' << Res->GetGlobalName() << '\'';
+    DiagPrinter << '\n';
+    Failed = true;
+  }
+
+  void EmitResourceFormatError(const hlsl::DxilResourceBase *Res,
+                               ValidationRule rule,
+                               ArrayRef<const char *> args) {
+    std::string ruleText = GetValidationRuleText(rule);
+    FormatRuleText(ruleText, args);
+    DiagPrinter << ruleText;
     DiagPrinter << '\'' << Res->GetGlobalName() << '\'';
     DiagPrinter << '\n';
     Failed = true;
@@ -567,7 +579,7 @@ static DxilSignatureElement *ValidateSignatureAccess(Instruction *I, DxilSignatu
 
 static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle, ValidationContext &ValCtx) {
   if (!isa<CallInst>(samplerHandle)) {
-    // Emit
+    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::SamplerKind::Invalid;
   }
 
@@ -628,7 +640,7 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
   ResClass = DXIL::ResourceClass::Invalid;
 
   if (!isa<CallInst>(handle)) {
-    // Emit
+    ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::ResourceKind::Invalid;
   }
 
@@ -640,7 +652,6 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
 
   Value *resourceClass = createHandle.get_resourceClass();
   if (!isa<ConstantInt>(resourceClass)) {
-    // Emit
     return DXIL::ResourceKind::Invalid;
   }
 
@@ -796,10 +807,28 @@ static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
   unsigned numOffsets = DxilResource::GetNumOffsets(resKind);
   bool hasOffset = !isa<UndefValue>(offsets[0]);
 
+  auto validateOffset = [&](Value *offset) {
+    if (ConstantInt *cOffset = dyn_cast<ConstantInt>(offset)) {
+      int offset = cOffset->getValue().getSExtValue();
+      if (offset > 7 || offset < -8) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrTextureOffset);
+      }
+    } else {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrTextureOffset);
+    }
+  };
+
+  if (hasOffset) {
+    validateOffset(offsets[0]);
+  }
+
   for (unsigned i = 1; i < kMaxNumOffsets; i++) {
     if (i < numOffsets) {
-      if (hasOffset && isa<UndefValue>(offsets[i])) {
-        ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceOffsetMiss);
+      if (hasOffset) {
+        if (isa<UndefValue>(offsets[i]))
+          ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceOffsetMiss);
+        else
+          validateOffset(offsets[i]);
       }
     } else {
       if (!isa<UndefValue>(offsets[i])) {
@@ -861,7 +890,7 @@ static void ValidateSampleInst(CallInst *CI, Value *srvHandle, Value *samplerHan
     break;
   default:
     ValCtx.EmitInstrError(CI, rule);
-    break;
+    return;
   }
 
   // Coord match resource kind.
@@ -945,20 +974,21 @@ static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
 
   Value *resourceClass = createHandle.get_resourceClass();
   if (!isa<ConstantInt>(resourceClass)) {
-    // Emit Instr.OpConstRange
+    ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
+                          ValidationRule::InstrOpConstRange);
     return -1;
   }
 
   if (static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val()) !=
       DXIL::ResourceClass::CBuffer) {
-    // Emit Instr.CBufferClassForCBufferHandle
     ValCtx.EmitInstrError(cast<CallInst>(cbHandle), ValidationRule::InstrCBufferClassForCBufferHandle);
     return -1;
   }
 
   Value *rangeIndex = createHandle.get_rangeId();
   if (!isa<ConstantInt>(rangeIndex)) {
-    // Emit Instr.OpConstRange
+    ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
+                          ValidationRule::InstrOpConstRange);
     return -1;
   }
 
@@ -1171,6 +1201,11 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
             CI, ValidationRule::InstrEvalInterpolationMode, {pSE->GetName()});
         break;
       }
+      if (pSE->GetSemantic()->GetKind() == DXIL::SemanticKind::Position) {
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrCannotPullPosition,
+            {ValCtx.DxilMod.GetShaderModel()->GetName()});
+      }
     }
   } break;
   case DXIL::OpCode::GetDimensions: {
@@ -1202,7 +1237,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     case DXIL::ResourceKind::Texture1DArray:
       if (usage.z) {
-        // Emit use undef dimension.
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture1DArray"});
@@ -1210,7 +1244,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     case DXIL::ResourceKind::Texture2D:
       if (usage.z) {
-        // Emit use undef dimension.
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture2D"});
@@ -1220,7 +1253,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     case DXIL::ResourceKind::Texture2DMS:
       if (usage.z) {
-        // Emit use undef dimension.
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "Texture2DMS"});
@@ -1232,7 +1264,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     case DXIL::ResourceKind::TextureCube:
       if (usage.z) {
-        // Emit use undef dimension.
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrUndefResultForGetDimension,
             {"z", "TextureCube"});
@@ -1246,7 +1277,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     case DXIL::ResourceKind::TBuffer: {
       Value *mip = getDim.get_mipLevel();
       if (!isa<UndefValue>(mip)) {
-        // Emit only texture has mip level.
         ValCtx.EmitInstrError(
             CI, ValidationRule::InstrMipLevelForGetDimension);
       }
@@ -1691,7 +1721,53 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     }
 
   } break;
+  case DXIL::OpCode::Asin: {
+    DxilInst_Asin I(CI);
+    if (ConstantFP *imm = dyn_cast<ConstantFP>(I.get_value())) {
+      if (imm->getValueAPF().isInfinity()) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteAsin);
+      }
+    }
+  } break;
+  case DXIL::OpCode::Acos: {
+    DxilInst_Acos I(CI);
+    if (ConstantFP *imm = dyn_cast<ConstantFP>(I.get_value())) {
+      if (imm->getValueAPF().isInfinity()) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteAcos);
+      }
+    }
+  } break;
+  case DXIL::OpCode::Log: {
+    DxilInst_Log I(CI);
+    if (ConstantFP *imm = dyn_cast<ConstantFP>(I.get_value())) {
+      if (imm->getValueAPF().isInfinity()) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteLog);
+      }
+    }
+  } break;
+  case DXIL::OpCode::DerivFineX:
+  case DXIL::OpCode::DerivFineY:
+  case DXIL::OpCode::DerivCoarseX:
+  case DXIL::OpCode::DerivCoarseY: {
+    Value *V = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
+    if (ConstantFP *imm = dyn_cast<ConstantFP>(V)) {
+      if (imm->getValueAPF().isInfinity()) {
+        ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteDsxy);
+      }
+    }
+  } break;
+  case DXIL::OpCode::Coverage:
+    ValCtx.m_bCoverageIn = true;
+    break;
+  case DXIL::OpCode::InnerCoverage:
+    ValCtx.m_bInnerCoverageIn = true;
+    break;
   }
+
+  if (ValCtx.m_bCoverageIn && ValCtx.m_bInnerCoverageIn) {
+    ValCtx.EmitError(ValidationRule::SmPSCoverageAndInnerCoverage);
+  }
+
 }
 
 static Type *GetOverloadTyForDxilOperation(CallInst *CI, DXIL::OpCode opcode) {
@@ -1864,9 +1940,41 @@ static bool IsLLVMInstructionAllowed(llvm::Instruction &I) {
   // GetElementPtr=29, AtomicCmpXchg=31, AtomicRMW=32, Trunc=33, ZExt=34,
   // SExt=35, FPToUI=36, FPToSI=37, UIToFP=38, SIToFP=39, FPTrunc=40, FPExt=41,
   // BitCast=44, AddrSpaceCast=45, ICmp=46, FCmp=47, PHI=48, Call=49, Select=50,
-  // ExtractValue=57, InsertValue=58
-  return 1 <= op && op <= 3 || 8 <= op && op <= 29 || 31 <= op && op <= 41 || 44 <= op && op <= 50 || 57 <= op && op <= 58;
+  // ExtractValue=57
+  return 1 <= op && op <= 3 || 8 <= op && op <= 29 || 31 <= op && op <= 41 || 44 <= op && op <= 50 || op == 57;
   // OPCODE-ALLOWED:END
+}
+
+static bool IsDxilBuiltinStructType(StructType *ST, hlsl::OP *hlslOP) {
+  if (ST == hlslOP->GetBinaryWithCarryType())
+    return true;
+  if (ST == hlslOP->GetBinaryWithTwoOutputsType())
+    return true;
+  if (ST == hlslOP->GetInt4Type())
+    return true;
+  if (ST == hlslOP->GetDimensionsType())
+    return true;
+  if (ST == hlslOP->GetHandleType())
+    return true;
+  if (ST == hlslOP->GetSamplePosType())
+    return true;
+  if (ST == hlslOP->GetSplitDoubleType())
+    return true;
+
+  unsigned EltNum = ST->getNumElements();
+  switch (EltNum) {
+  case 2:
+  case 4: {
+    Type *EltTy = ST->getElementType(0);
+    return ST == hlslOP->GetCBufferRetType(EltTy);
+  } break;
+  case 5: {
+    Type *EltTy = ST->getElementType(0);
+    return ST == hlslOP->GetResRetType(EltTy);
+  } break;
+  default:
+    return false;
+  }
 }
 
 static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
@@ -1875,20 +1983,25 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
     return ValidateType(Ty->getPointerElementType(), ValCtx);
   }
   if (Ty->isArrayTy()) {
-    return ValidateType(Ty->getArrayElementType(), ValCtx);
+    Type *EltTy = Ty->getArrayElementType();
+    if (isa<ArrayType>(EltTy)) {
+      ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoMultiDim);
+      return false;
+    }
+    return ValidateType(EltTy, ValCtx);
   }
   if (Ty->isStructTy()) {
     bool result = true;
     StructType *ST = cast<StructType>(Ty);
+
     StringRef Name = ST->getName();
     if (Name.startswith("dx.")) {
-      if (Name != "dx.types.Sampler" && Name != "dx.types.Handle" &&
-          Name != "dx.types.Dimensions" && Name != "dx.types.SamplePos" &&
-          Name != "dx.types.i32c" && Name != "dx.types.twoi32" &&
-          Name != "dx.types.splitdouble" && Name != "dx.types.fouri32") {
-        ValCtx.EmitTypeError(Ty, ValidationRule::DeclDxilNsReserved);
-        result = false;
-      }
+      hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
+      if (IsDxilBuiltinStructType(ST, hlslOP))
+        return true;
+
+      ValCtx.EmitTypeError(Ty, ValidationRule::DeclDxilNsReserved);
+      result = false;
     }
     for (auto e : ST->elements()) {
       if (!ValidateType(e, ValCtx)) {
@@ -2035,6 +2148,137 @@ static void ValidateControlFlowHint(BasicBlock &bb, ValidationContext &ValCtx) {
   }
 }
 
+static void ValidateTBAAMetadata(MDNode *Node, ValidationContext &ValCtx) {
+  switch (Node->getNumOperands()) {
+  case 1: {
+    if (Node->getOperand(0)->getMetadataID() != Metadata::MDStringKind) {
+      ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    }
+  } break;
+  case 2: {
+    MDNode *rootNode = dyn_cast<MDNode>(Node->getOperand(1));
+    if (!rootNode) {
+      ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    } else {
+      ValidateTBAAMetadata(rootNode, ValCtx);
+    }
+  } break;
+  case 3: {
+    MDNode *rootNode = dyn_cast<MDNode>(Node->getOperand(1));
+    if (!rootNode) {
+      ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    } else {
+      ValidateTBAAMetadata(rootNode, ValCtx);
+    }
+    ConstantAsMetadata *pointsToConstMem = dyn_cast<ConstantAsMetadata>(Node->getOperand(2));
+    if (!pointsToConstMem) {
+      ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    } else {
+      ConstantInt *isConst = dyn_cast<ConstantInt>(pointsToConstMem->getValue());
+      if (!isConst) {
+        ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+      } else if (isConst->getValue().getLimitedValue() > 1) {
+        ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+      }
+    }
+  } break;
+  default:
+    ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+  }
+}
+
+static void ValidateLoopMetadata(MDNode *Node, ValidationContext &ValCtx) {
+  if (Node->getNumOperands() == 0 || Node->getNumOperands() > 2) {
+    ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    return;
+  }
+  if (Node != Node->getOperand(0).get()) {
+    ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    return;
+  }
+  if (Node->getNumOperands() == 1) {
+    return;
+  }
+
+  MDNode *LoopNode = dyn_cast<MDNode>(Node->getOperand(1).get());
+  if (!LoopNode) {
+    ValCtx.EmitMetaError(Node, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  if (LoopNode->getNumOperands() < 1 || LoopNode->getNumOperands() > 2) {
+    ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  if (LoopNode->getOperand(0) == LoopNode) {
+    ValidateLoopMetadata(LoopNode, ValCtx);
+    return;
+  }
+
+  MDString *LoopStr = dyn_cast<MDString>(LoopNode->getOperand(0));
+  if (!LoopStr) {
+    ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  StringRef Name = LoopStr->getString();
+  if (Name != "llvm.loop.unroll.full" && Name != "llvm.loop.unroll.disable" &&
+      Name != "llvm.loop.unroll.count") {
+    ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+    return;
+  }
+
+  if (Name == "llvm.loop.unroll.count") {
+    if (LoopNode->getNumOperands() != 2) {
+      ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+      return;
+    }
+    ConstantAsMetadata *CountNode =
+        dyn_cast<ConstantAsMetadata>(LoopNode->getOperand(1));
+    if (!CountNode) {
+      ValCtx.EmitMetaError(LoopNode, ValidationRule::MetaWellFormed);
+    } else {
+      ConstantInt *Count = dyn_cast<ConstantInt>(CountNode->getValue());
+      if (!Count) {
+        ValCtx.EmitMetaError(CountNode, ValidationRule::MetaWellFormed);
+      }
+    }
+  }
+}
+
+static void ValidateInstructionMetadata(Instruction *I,
+                                        ValidationContext &ValCtx) {
+  SmallVector<std::pair<unsigned, MDNode *>, 2> MDNodes;
+  I->getAllMetadataOtherThanDebugLoc(MDNodes);
+  for (auto &MD : MDNodes) {
+    if (MD.first == ValCtx.kDxilControlFlowHintMDKind) {
+      if (!isa<TerminatorInst>(I)) {
+        ValCtx.EmitInstrError(
+            I, ValidationRule::MetaControlFlowHintNotOnControlFlow);
+      }
+    } else if (MD.first == ValCtx.kDxilPreciseMDKind) {
+      // Validated in IsPrecise.
+    } else if (MD.first == ValCtx.kLLVMLoopMDKind) {
+      ValidateLoopMetadata(MD.second, ValCtx);
+    } else if (MD.first == LLVMContext::MD_tbaa) {
+      ValidateTBAAMetadata(MD.second, ValCtx);
+    } else if (MD.first == LLVMContext::MD_range) {
+      // Validated in Verifier.cpp.
+    } else {
+      ValCtx.EmitMetaError(MD.second, ValidationRule::MetaUsed);
+    }
+  }
+}
+
+static void ValidateFunctionMetadata(Function *F, ValidationContext &ValCtx) {
+  SmallVector<std::pair<unsigned, MDNode *>, 2> MDNodes;
+  F->getAllMetadata(MDNodes);
+  for (auto &MD : MDNodes) {
+    ValCtx.EmitMetaError(MD.second, ValidationRule::MetaUsed);
+  }
+}
+
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
@@ -2043,6 +2287,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
     for (auto i = b->begin(), iend = b->end(); i != iend; ++i) {
       llvm::Instruction &I = *i;
+
+      if (I.hasMetadata()) {
+        ValidateInstructionMetadata(&I, ValCtx);
+      }
 
       // Instructions must be allowed.
       if (!IsLLVMInstructionAllowed(I)) {
@@ -2055,7 +2303,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         if (IsPrecise(I, ValCtx)) {
           for (auto &O : I.operands()) {
             if (IsValueMinPrec(ValCtx.DxilMod, O)) {
-              ValCtx.EmitInstrError(&I, ValidationRule::InstrMinPrecisionNotPrecise);
+              ValCtx.EmitInstrError(
+                  &I, ValidationRule::InstrMinPrecisionNotPrecise);
               break;
             }
           }
@@ -2075,7 +2324,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           Value *opcodeVal = CI->getOperand(0);
           ConstantInt *OpcodeConst = dyn_cast<ConstantInt>(opcodeVal);
           if (OpcodeConst == nullptr) {
-            ValCtx.EmitInstrFormatError(&I, ValidationRule::InstrOpConst, {"Opcode", "DXIL operation"});
+            ValCtx.EmitInstrFormatError(&I, ValidationRule::InstrOpConst,
+                                        {"Opcode", "DXIL operation"});
             continue;
           }
 
@@ -2099,8 +2349,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       if (!isa<PHINode>(&I)) {
         for (Value *op : I.operands()) {
           if (isa<UndefValue>(op)) {
-            ValCtx.EmitInstrError(
-                &I, ValidationRule::InstrNoReadingUninitialized);
+            ValCtx.EmitInstrError(&I,
+                                  ValidationRule::InstrNoReadingUninitialized);
           } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(op)) {
             for (Value *opCE : CE->operands()) {
               if (isa<UndefValue>(opCE)) {
@@ -2123,10 +2373,17 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         }
       } break;
       case Instruction::ExtractValue: {
-
-      } break;
-      case Instruction::InsertValue: {
-
+        ExtractValueInst *EV = cast<ExtractValueInst>(&I);
+        Type *Ty = EV->getAggregateOperand()->getType();
+        if (StructType *ST = dyn_cast<StructType>(Ty)) {
+          Value *Agg = EV->getAggregateOperand();
+          if (!isa<AtomicCmpXchgInst>(Agg) &&
+              !IsDxilBuiltinStructType(ST, ValCtx.DxilMod.GetOP())) {
+            ValCtx.EmitInstrError(EV, ValidationRule::InstrExtractValue);
+          }
+        } else {
+          ValCtx.EmitInstrError(EV, ValidationRule::InstrExtractValue);
+        }
       } break;
       case Instruction::Load: {
         Type *Ty = I.getType();
@@ -2145,6 +2402,87 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         Type *Ty = I.getType()->getPointerElementType();
         if (!ValidateType(Ty, ValCtx)) {
           continue;
+        }
+        GetElementPtrInst *GEP = cast<GetElementPtrInst>(&I);
+        bool allImmIndex = true;
+        for (auto Idx = GEP->idx_begin(), E = GEP->idx_end(); Idx != E; Idx++) {
+          if (!isa<ConstantInt>(Idx)) {
+            allImmIndex = false;
+            break;
+          }
+        }
+        if (allImmIndex) {
+          const DataLayout &DL = ValCtx.DL;
+
+          Value *Ptr = GEP->getPointerOperand();
+          unsigned size =
+              DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
+          unsigned valSize = DL.getTypeAllocSize(GEP->getType()->getPointerElementType());
+
+          SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
+          unsigned offset =
+              DL.getIndexedOffset(GEP->getPointerOperandType(), Indices);
+          if ((offset + valSize) > size) {
+            ValCtx.EmitInstrError(GEP, ValidationRule::InstrInBoundsAccess);
+          }
+        }
+      } break;
+      case Instruction::SDiv: {
+        BinaryOperator *BO = cast<BinaryOperator>(&I);
+        Value *V = BO->getOperand(1);
+        if (ConstantInt *imm = dyn_cast<ConstantInt>(V)) {
+          if (imm->getValue().getLimitedValue() == 0) {
+            ValCtx.EmitInstrError(BO, ValidationRule::InstrNoIDivByZero);
+          }
+        }
+      } break;
+      case Instruction::UDiv: {
+        BinaryOperator *BO = cast<BinaryOperator>(&I);
+        Value *V = BO->getOperand(1);
+        if (ConstantInt *imm = dyn_cast<ConstantInt>(V)) {
+          if (imm->getValue().getLimitedValue() == 0) {
+            ValCtx.EmitInstrError(BO, ValidationRule::InstrNoUDivByZero);
+          }
+        }
+      } break;
+      case Instruction::AddrSpaceCast: {
+        AddrSpaceCastInst *Cast = cast<AddrSpaceCastInst>(&I);
+        unsigned ToAddrSpace = Cast->getType()->getPointerAddressSpace();
+        unsigned FromAddrSpace = Cast->getOperand(0)->getType()->getPointerAddressSpace();
+        if (ToAddrSpace != DXIL::kGenericPointerAddrSpace &&
+            FromAddrSpace != DXIL::kGenericPointerAddrSpace) {
+          ValCtx.EmitInstrError(Cast, ValidationRule::InstrNoGenericPtrAddrSpaceCast);
+        }
+      } break;
+      case Instruction::BitCast: {
+        BitCastInst *Cast = cast<BitCastInst>(&I);
+        Type *FromTy = Cast->getOperand(0)->getType();
+        Type *ToTy = Cast->getType();
+        if (isa<PointerType>(FromTy)) {
+          FromTy = FromTy->getPointerElementType();
+          ToTy = ToTy->getPointerElementType();
+          unsigned FromSize = ValCtx.DL.getTypeAllocSize(FromTy);
+          unsigned ToSize = ValCtx.DL.getTypeAllocSize(ToTy);
+          if (FromSize != ToSize) {
+            ValCtx.EmitInstrError(Cast, ValidationRule::InstrPtrBitCast);
+            continue;
+          }
+          while (isa<ArrayType>(FromTy)) {
+            FromTy = FromTy->getArrayElementType();
+          }
+          while (isa<ArrayType>(ToTy)) {
+            ToTy = ToTy->getArrayElementType();
+          }
+        }
+        if (isa<StructType>(FromTy) || isa<StructType>(ToTy)) {
+          ValCtx.EmitInstrError(Cast, ValidationRule::InstrStructBitCast);
+          continue;
+        }
+
+        bool IsMinPrecisionTy = ValCtx.DL.getTypeAllocSize(FromTy) < 4 ||
+                          ValCtx.DL.getTypeAllocSize(ToTy) < 4;
+        if (IsMinPrecisionTy) {
+          ValCtx.EmitInstrError(Cast, ValidationRule::InstrMinPrecisonBitCast);
         }
       } break;
       }
@@ -2182,9 +2520,18 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
   if (F.isDeclaration()) {
     ValidateExternalFunction(&F, ValCtx);
   } else {
-    DxilFunctionAnnotation *funcAnnotation = ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
+    if (&F != ValCtx.DxilMod.GetEntryFunction() &&
+        &F != ValCtx.DxilMod.GetPatchConstantFunction()) {
+      if (!F.arg_empty())
+        ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall,
+                               {F.getName().str().c_str()});
+    }
+
+    DxilFunctionAnnotation *funcAnnotation =
+        ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
     if (!funcAnnotation) {
-      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation, {F.getName().str().c_str()});
+      ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation,
+                             {F.getName().str().c_str()});
       return;
     }
 
@@ -2197,9 +2544,10 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
         argTy = argTy->getArrayElementType();
       }
 
-      DxilParameterAnnotation &paramAnnoation = funcAnnotation->GetParameterAnnotation(arg.getArgNo());
+      DxilParameterAnnotation &paramAnnoation =
+          funcAnnotation->GetParameterAnnotation(arg.getArgNo());
 
-      if (argTy->isStructTy()  && !HLModule::IsStreamOutputType(argTy) &&
+      if (argTy->isStructTy() && !HLModule::IsStreamOutputType(argTy) &&
           !paramAnnoation.HasMatrixAnnotation()) {
         if (arg.hasName())
           ValCtx.EmitFormatError(
@@ -2214,6 +2562,10 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
     }
 
     ValidateFunctionBody(&F, ValCtx);
+  }
+
+  if (F.hasMetadata()) {
+    ValidateFunctionMetadata(&F, ValCtx);
   }
 }
 
@@ -2266,8 +2618,8 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
 
   if (TGSMSize > DXIL::kMaxTGSMSize) {
     ValCtx.EmitFormatError(ValidationRule::SmMaxTGSMSize,
-                          {std::to_string(TGSMSize).c_str(),
-                           std::to_string(DXIL::kMaxTGSMSize).c_str()});
+                           {std::to_string(TGSMSize).c_str(),
+                            std::to_string(DXIL::kMaxTGSMSize).c_str()});
   }
 }
 
@@ -2300,25 +2652,46 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
   Module *pModule = &ValCtx.M;
   const std::string &target = pModule->getTargetTriple();
   if (target != "dxil-ms-dx") {
-    ValCtx.EmitFormatError(ValidationRule::MetaTarget, { target.c_str() });
+    ValCtx.EmitFormatError(ValidationRule::MetaTarget, {target.c_str()});
   }
+
+  StringMap<bool> llvmNamedMeta;
+  // These llvm named metadata is verified in lib/IR/Verifier.cpp.
+  llvmNamedMeta["llvm.dbg.cu"];
+  llvmNamedMeta["llvm.dbg.contents"];
+  llvmNamedMeta["llvm.dbg.defines"];
+  llvmNamedMeta["llvm.dbg.mainFileName"];
+  llvmNamedMeta["llvm.dbg.args"];
+  llvmNamedMeta["llvm.ident"];
+  // Not for HLSL which does not have vtable.
+  // llvmNamedMeta["llvm.bitsets"];
+  llvmNamedMeta["llvm.module.flags"];
 
   for (auto &NamedMetaNode : pModule->named_metadata()) {
     if (!DxilModule::IsKnownNamedMetaData(NamedMetaNode)) {
       StringRef name = NamedMetaNode.getName();
       if (!name.startswith_lower("llvm."))
-        ValCtx.EmitFormatError(ValidationRule::MetaKnown, { name.str().c_str() });
+        ValCtx.EmitFormatError(ValidationRule::MetaKnown, {name.str().c_str()});
+      else {
+        if (llvmNamedMeta.count(name) == 0) {
+          ValCtx.EmitFormatError(ValidationRule::MetaKnown,
+                                 {name.str().c_str()});
+        }
+      }
     }
   }
 
-  if (!ValCtx.DxilMod.GetShaderModel()->IsValid()) {
-    ValCtx.EmitFormatError(ValidationRule::SmName, { ValCtx.DxilMod.GetShaderModel()->GetName() });
+  const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
+  if (!SM->IsValid() || SM->GetMajor() != 6 || SM->GetMinor() != 0) {
+    ValCtx.EmitFormatError(ValidationRule::SmName,
+                           {ValCtx.DxilMod.GetShaderModel()->GetName()});
   }
 
   ValidateValidatorVersion(ValCtx);
 }
 
-static void ValidateResourceOverlap(hlsl::DxilResourceBase &res,
+static void ValidateResourceOverlap(
+    hlsl::DxilResourceBase &res,
     SpacesAllocator<unsigned, DxilResourceBase> &spaceAllocator,
     ValidationContext &ValCtx) {
   unsigned base = res.GetLowerBound();
@@ -2332,10 +2705,13 @@ static void ValidateResourceOverlap(hlsl::DxilResourceBase &res,
     end = size;
   const DxilResourceBase *conflictRes = allocator.Insert(&res, base, end);
   if (conflictRes) {
-      ValCtx.EmitFormatError(ValidationRule::SmResourceRangeOverlap,
-          {res.GetGlobalName().c_str(), std::to_string(base).c_str(),
-           std::to_string(size).c_str(), std::to_string(conflictRes->GetLowerBound()).c_str(),
-           std::to_string(conflictRes->GetRangeSize()).c_str(), std::to_string(space).c_str()});
+    ValCtx.EmitFormatError(
+        ValidationRule::SmResourceRangeOverlap,
+        {res.GetGlobalName().c_str(), std::to_string(base).c_str(),
+         std::to_string(size).c_str(),
+         std::to_string(conflictRes->GetLowerBound()).c_str(),
+         std::to_string(conflictRes->GetRangeSize()).c_str(),
+         std::to_string(space).c_str()});
   }
 }
 
@@ -2385,10 +2761,26 @@ static void ValidateResource(hlsl::DxilResource &res,
   }
 
   if (res.IsStructuredBuffer()) {
-    bool alignedTo4Bytes = (res.GetElementStride() & 3) == 0;
+    unsigned stride = res.GetElementStride();
+    bool alignedTo4Bytes = (stride & 3) == 0;
     if (!alignedTo4Bytes) {
-      ValCtx.EmitResourceError(&res,
-                               ValidationRule::SmStructBufMustBe4BytesAlign);
+      ValCtx.EmitResourceFormatError(
+          &res, ValidationRule::MetaStructBufAlignment,
+          {std::to_string(4).c_str(), std::to_string(stride).c_str()});
+    }
+    if (stride > DXIL::kMaxStructBufferStride) {
+      ValCtx.EmitResourceFormatError(
+          &res, ValidationRule::MetaStructBufAlignmentOutOfBound,
+          {std::to_string(DXIL::kMaxStructBufferStride).c_str(),
+           std::to_string(stride).c_str()});
+    }
+  }
+
+  if (res.IsAnyTexture() || res.IsTypedBuffer()) {
+    Type *RetTy = res.GetRetType();
+    unsigned size = ValCtx.DxilMod.GetModule()->getDataLayout().getTypeAllocSize(RetTy);
+    if (size > 4*4) {
+      ValCtx.EmitResourceError(&res, ValidationRule::MetaTextureType);
     }
   }
 }
@@ -2587,6 +2979,18 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   CompType::Kind compKind = SE.GetCompType().GetKind();
   DXIL::InterpolationMode Mode = SE.GetInterpolationMode()->GetKind();
 
+  StringRef Name = SE.GetName();
+  if (Name.size() < 1 || Name.size() > 64) {
+    ValCtx.EmitSignatureError(&SE, ValidationRule::MetaSemanticLen);
+  }
+
+  if (semanticKind > DXIL::SemanticKind::Arbitrary && semanticKind < DXIL::SemanticKind::Invalid) {
+    if (semanticKind != Semantic::GetByName(SE.GetName())->GetKind()) {
+      ValCtx.EmitFormatError(ValidationRule::MetaSemaKindMatchesName,
+                             {SE.GetName(), SE.GetSemantic()->GetName()});
+    }
+  }
+
   switch (compKind) {
   case CompType::Kind::U64:
   case CompType::Kind::I64:
@@ -2624,26 +3028,41 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
 
   // Elements that should not appear in the Dxil signature:
   bool bAllowedInSig = true;
+  bool bShouldBeAllocated = true;
   switch (SE.GetInterpretation()) {
   case DXIL::SemanticInterpretationKind::NA:
   case DXIL::SemanticInterpretationKind::NotInSig:
   case DXIL::SemanticInterpretationKind::Invalid:
     bAllowedInSig = false;
+    __fallthrough;
+  case DXIL::SemanticInterpretationKind::NotPacked:
+  case DXIL::SemanticInterpretationKind::Shadow:
+    bShouldBeAllocated = false;
     break;
   }
 
+  const char *inputOutput = nullptr;
+  if (SE.IsInput())
+    inputOutput = "Input";
+  else if (SE.IsOutput())
+    inputOutput = "Output";
+  else
+    inputOutput = "PatchConstant";
+
   if (!bAllowedInSig) {
-    const char *inputOutput = nullptr;
-    if (SE.IsInput())
-      inputOutput = "Input";
-    else if (SE.IsOutput())
-      inputOutput = "Output";
-    else
-      inputOutput = "PatchConstant";
     ValCtx.EmitFormatError(
         ValidationRule::SmSemantic,
         {SE.GetName(), ValCtx.DxilMod.GetShaderModel()->GetKindName().c_str(), inputOutput});
+  } else if (bShouldBeAllocated && !SE.IsAllocated()) {
+    ValCtx.EmitFormatError(ValidationRule::MetaSemanticShouldBeAllocated,
+      {inputOutput, SE.GetName()});
+  } else if (!bShouldBeAllocated && SE.IsAllocated()) {
+    ValCtx.EmitFormatError(ValidationRule::MetaSemanticShouldNotBeAllocated,
+      {inputOutput, SE.GetName()});
   }
+
+  bool bIsClipCull = false;
+  bool bIsTessfactor = false;
 
   switch (semanticKind) {
   case DXIL::SemanticKind::Depth:
@@ -2680,6 +3099,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     break;
   case DXIL::SemanticKind::ClipDistance:
   case DXIL::SemanticKind::CullDistance:
+    bIsClipCull = true;
     if ((compKind != CompType::Kind::F32 && compKind != CompType::Kind::F16)) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "float"});
@@ -2708,6 +3128,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticKind::TessFactor:
   case DXIL::SemanticKind::InsideTessFactor:
     // NOTE: the size check is at CheckPatchConstantSemantic.
+    bIsTessfactor = true;
     if (compKind != CompType::Kind::F32) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "float"});
@@ -2724,10 +3145,18 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     break;
   }
 
-  if (SE.GetOutputStream() >= DXIL::kNumOutputStreams) {
-    ValCtx.EmitFormatError(ValidationRule::SmStreamIndexRange,
-                           {std::to_string(SE.GetOutputStream()).c_str(),
-                            std::to_string(DXIL::kNumOutputStreams).c_str()});
+  if (ValCtx.DxilMod.GetShaderModel()->IsGS() && SE.IsOutput()) {
+    if (SE.GetOutputStream() >= DXIL::kNumOutputStreams) {
+      ValCtx.EmitFormatError(ValidationRule::SmStreamIndexRange,
+                             {std::to_string(SE.GetOutputStream()).c_str(),
+                              std::to_string(DXIL::kNumOutputStreams - 1).c_str()});
+    }
+  } else {
+    if (SE.GetOutputStream() > 0) {
+      ValCtx.EmitFormatError(ValidationRule::SmStreamIndexRange,
+                             {std::to_string(SE.GetOutputStream()).c_str(),
+                              "0"});
+    }
   }
 
   if (ValCtx.DxilMod.GetShaderModel()->IsGS()) {
@@ -2737,6 +3166,34 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
         ValCtx.EmitSignatureError(&SE,
                                   ValidationRule::SmMultiStreamMustBePoint);
       }
+    }
+  }
+
+  if (semanticKind == DXIL::SemanticKind::Target) {
+    // Verify packed row == semantic index
+    unsigned row = SE.GetStartRow();
+    for (unsigned i : SE.GetSemanticIndexVec()) {
+      if (row != i) {
+        ValCtx.EmitSignatureError(&SE, ValidationRule::SmPSTargetIndexMatchesRow);
+      }
+      ++row;
+    }
+    // Verify packed col is 0
+    if (SE.GetStartCol() != 0) {
+      ValCtx.EmitSignatureError(&SE, ValidationRule::SmPSTargetCol0);
+    }
+    // Verify max row used < 8
+    if (SE.GetStartRow() + SE.GetRows() > 8) {
+      ValCtx.EmitFormatError(ValidationRule::MetaSemanticIndexMax, {"SV_Target", "7"});
+    }
+  } else if (bAllowedInSig && semanticKind != DXIL::SemanticKind::Arbitrary) {
+    if (!bIsClipCull && SE.GetSemanticStartIndex() > 0) {
+      ValCtx.EmitFormatError(ValidationRule::MetaSemanticIndexMax, {SE.GetSemantic()->GetName(), "0"});
+    }
+    // Maximum rows is 1 for system values other than Target
+    // with the exception of tessfactors, which are validated in CheckPatchConstantSemantic
+    if (!bIsTessfactor && SE.GetRows() > 1) {
+      ValCtx.EmitSignatureError(&SE, ValidationRule::MetaSystemValueRows);
     }
   }
 
@@ -2756,142 +3213,180 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
 
 static void ValidateSignatureOverlap(
     DxilSignatureElement &E, unsigned maxScalars,
-    SpanAllocator<unsigned, DxilSignatureElement> &allocator,
-    unordered_map<Semantic::Kind, unsigned> &semanticUsageMap,
-    unordered_map<unsigned, DXIL::InterpolationMode> &rowToInterpModeMap,
-    unordered_set<unsigned> &semIdxSet, ValidationContext &ValCtx) {
-  for (unsigned semIdx : E.GetSemanticIndexVec()) {
-    if (semIdxSet.count(semIdx) > 0) {
-      ValCtx.EmitFormatError(ValidationRule::MetaNoSemanticOverlap,
-                             {E.GetName(), std::to_string(semIdx).c_str()});
-      return;
-    } else
-      semIdxSet.insert(semIdx);
+    DxilSignatureAllocator &allocator,
+    ValidationContext &ValCtx) {
+
+  // Skip entries that are not or should not be allocated.  Validation occurs in ValidateSignatureElement.
+  if (!E.IsAllocated())
+    return;
+  switch (E.GetInterpretation()) {
+  case DXIL::SemanticInterpretationKind::NA:
+  case DXIL::SemanticInterpretationKind::NotInSig:
+  case DXIL::SemanticInterpretationKind::Invalid:
+  case DXIL::SemanticInterpretationKind::NotPacked:
+  case DXIL::SemanticInterpretationKind::Shadow:
+    return;
   }
 
-  if (E.IsAllocated()) {
-    unsigned address = E.GetStartRow() * 4 + E.GetStartCol();
-    // Interp mode.
-    DXIL::InterpolationMode interpMode = E.GetInterpolationMode()->GetKind();
-    for (unsigned c = 0; c < E.GetCols(); c++) {
-      unsigned row = (address + c) >> 2;
-      if (rowToInterpModeMap.count(row) > 0) {
-        if (interpMode != rowToInterpModeMap[row]) {
-          ValCtx.EmitFormatError(ValidationRule::MetaInterpModeInOneRow,
-                                 {E.GetName(), std::to_string(row).c_str()});
-          return;
-        }
-      } else {
-        rowToInterpModeMap[row] = interpMode;
-      }
-    }
-
-    // Overlap
-    unsigned size = (E.GetRows() - 1) * 4 + E.GetCols();
-    if (address >= maxScalars) {
-      ValCtx.EmitFormatError(ValidationRule::MetaSignatureOutOfRange,
-                             {E.GetName(),
-                              std::to_string(E.GetStartRow()).c_str(),
-                              std::to_string(E.GetStartCol()).c_str(),
-                              std::to_string(size).c_str()});
-      return;
-    }
-
-    Semantic::Kind semanticKind = E.GetSemantic()->GetKind();
-    bool bOverlap = false;
-    if (semanticKind == Semantic::Kind::Arbitrary) {
-      if (allocator.Insert(&E, address, address+size-1))
-        bOverlap = true;
-    } else if (semanticKind == Semantic::Kind::ClipDistance ||
-               semanticKind == Semantic::Kind::CullDistance) {
-      unsigned mask = (1 << (size + 1)) - 1;
-      mask = mask << address;
-      unsigned allocated = semanticUsageMap[semanticKind];
-      if (allocated & mask) {
-        bOverlap = true;
-      }
-      semanticUsageMap[semanticKind] = allocated | mask;
-    } else if (semanticKind == Semantic::Kind::Target) {
-      unsigned idx = E.GetStartRow();
-      unsigned mask = 1 << idx;
-      unsigned allocated = semanticUsageMap[Semantic::Kind::Target];
-      if (allocated & mask) {
-        bOverlap = true;
-      }
-      semanticUsageMap[Semantic::Kind::Target] = allocated | mask;
-    } else {
-      if (semanticUsageMap.count(semanticKind) > 0) {
-        bOverlap = true;
-      } else
-        semanticUsageMap[semanticKind] = 0;
-    }
-    if (bOverlap) {
-      unsigned size = (E.GetRows() - 1) * 4 + E.GetCols();
-      ValCtx.EmitFormatError(ValidationRule::MetaSignatureOverlap,
-                             {E.GetName(),
-                              std::to_string(E.GetStartRow()).c_str(),
-                              std::to_string(E.GetStartCol()).c_str(),
-                              std::to_string(size).c_str()});
-    }
+  DxilSignatureAllocator::ConflictType conflict = allocator.DetectRowConflict(&E, E.GetStartRow());
+  if (conflict == DxilSignatureAllocator::kNoConflict || conflict == DxilSignatureAllocator::kInsufficientFreeComponents)
+    conflict = allocator.DetectColConflict(&E, E.GetStartRow(), E.GetStartCol());
+  switch (conflict) {
+  case DxilSignatureAllocator::kNoConflict:
+    allocator.PlaceElement(&E, E.GetStartRow(), E.GetStartCol());
+    break;
+  case DxilSignatureAllocator::kConflictsWithIndexed:
+    ValCtx.EmitFormatError(ValidationRule::MetaSignatureIndexConflict,
+                            {E.GetName(),
+                            std::to_string(E.GetStartRow()).c_str(),
+                            std::to_string(E.GetStartCol()).c_str(),
+                            std::to_string(E.GetRows()).c_str(),
+                            std::to_string(E.GetCols()).c_str()});
+    break;
+  case DxilSignatureAllocator::kConflictsWithIndexedTessFactor:
+    ValCtx.EmitFormatError(ValidationRule::MetaSignatureIndexConflict,
+                            {E.GetName(),
+                            std::to_string(E.GetStartRow()).c_str(),
+                            std::to_string(E.GetStartCol()).c_str(),
+                            std::to_string(E.GetRows()).c_str(),
+                            std::to_string(E.GetCols()).c_str()});
+    break;
+  case DxilSignatureAllocator::kConflictsWithInterpolationMode:
+    ValCtx.EmitFormatError(ValidationRule::MetaInterpModeInOneRow,
+                            {E.GetName(),
+                            std::to_string(E.GetStartRow()).c_str(),
+                            std::to_string(E.GetStartCol()).c_str(),
+                            std::to_string(E.GetRows()).c_str(),
+                            std::to_string(E.GetCols()).c_str()});
+    break;
+  case DxilSignatureAllocator::kInsufficientFreeComponents:
+    DXASSERT(false, "otherwise, conflict not translated");
+    break;
+  case DxilSignatureAllocator::kOverlapElement:
+    ValCtx.EmitFormatError(ValidationRule::MetaSignatureOverlap,
+                            {E.GetName(),
+                            std::to_string(E.GetStartRow()).c_str(),
+                            std::to_string(E.GetStartCol()).c_str(),
+                            std::to_string(E.GetRows()).c_str(),
+                            std::to_string(E.GetCols()).c_str()});
+    break;
+  case DxilSignatureAllocator::kIllegalComponentOrder:
+    ValCtx.EmitFormatError(ValidationRule::MetaSignatureIllegalComponentOrder,
+                            {E.GetName(),
+                            std::to_string(E.GetStartRow()).c_str(),
+                            std::to_string(E.GetStartCol()).c_str(),
+                            std::to_string(E.GetRows()).c_str(),
+                            std::to_string(E.GetCols()).c_str()});
+    break;
+  case DxilSignatureAllocator::kConflictFit:
+    ValCtx.EmitFormatError(ValidationRule::MetaSignatureOutOfRange,
+                            {E.GetName(),
+                            std::to_string(E.GetStartRow()).c_str(),
+                            std::to_string(E.GetStartCol()).c_str(),
+                            std::to_string(E.GetRows()).c_str(),
+                            std::to_string(E.GetCols()).c_str()});
+    break;
+  default:
+    DXASSERT(false, "otherwise, unrecognized conflict type from DxilSignatureAllocator");
   }
 }
 
 static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
                               unsigned maxScalars) {
-  // TODO: validate signature packing.
-  SpacesAllocator<unsigned, DxilSignatureElement> allocator;
+  DxilSignatureAllocator allocator[DXIL::kNumOutputStreams] = {32, 32, 32, 32};
+  unordered_set<Semantic::Kind> semanticUsageSet[DXIL::kNumOutputStreams];
+  StringMap<unordered_set<unsigned>> semanticIndexMap[DXIL::kNumOutputStreams];
+  unordered_set<unsigned> clipcullRowSet[DXIL::kNumOutputStreams];
+  unsigned clipcullComponents[DXIL::kNumOutputStreams] = {0, 0, 0, 0};
 
-  bool IsGS = ValCtx.DxilMod.GetShaderModel()->IsGS();
-
-  unordered_map<Semantic::Kind, unsigned> semanticUsageMap[4];
-  semanticUsageMap[0][Semantic::Kind::ClipDistance] = 0;
-  semanticUsageMap[0][Semantic::Kind::CullDistance] = 0;
-  semanticUsageMap[1][Semantic::Kind::ClipDistance] = 0;
-  semanticUsageMap[1][Semantic::Kind::CullDistance] = 0;
-  semanticUsageMap[2][Semantic::Kind::ClipDistance] = 0;
-  semanticUsageMap[2][Semantic::Kind::CullDistance] = 0;
-  semanticUsageMap[3][Semantic::Kind::ClipDistance] = 0;
-  semanticUsageMap[3][Semantic::Kind::CullDistance] = 0;
-
-  semanticUsageMap[0][Semantic::Kind::Target] = 0;
-
-  StringMap<unordered_set<unsigned>> semanticIndexMap[4];
-
-  unordered_map<unsigned, DXIL::InterpolationMode> rowToInterpModeMap[4];
   bool isOutput = S.IsOutput();
+  unsigned TargetMask = 0;
+  DXIL::SemanticKind DepthKind = DXIL::SemanticKind::Invalid;
 
   for (auto &E : S.GetElements()) {
+    DXIL::SemanticKind semanticKind = E->GetSemantic()->GetKind();
     ValidateSignatureElement(*E, ValCtx);
 
-    // Overlap check.
+    // Avoid OOB indexing on streamId.
     unsigned streamId = E->GetOutputStream();
-    if (streamId >= DXIL::kNumOutputStreams) {
-      ValCtx.EmitFormatError(
-          ValidationRule::InstrOperandRange,
-          {"StreamID", "0~3", std::to_string(streamId).c_str()});
-      continue;
-    } else if (streamId > 0 && !IsGS) {
-      ValCtx.EmitFormatError(
-          ValidationRule::InstrOperandRange,
-          {"StreamID for none GS", "0", std::to_string(streamId).c_str()});
+    if (streamId >= DXIL::kNumOutputStreams ||
+        !isOutput ||
+        !ValCtx.DxilMod.GetShaderModel()->IsGS()) {
+      streamId = 0;
+    }
+
+    // Semantic index overlap check, keyed by name.
+    std::string nameUpper(E->GetName());
+    std::transform(nameUpper.begin(), nameUpper.end(), nameUpper.begin(), toupper);
+    unordered_set<unsigned> &semIdxSet = semanticIndexMap[streamId][nameUpper];
+    for (unsigned semIdx : E->GetSemanticIndexVec()) {
+      if (semIdxSet.count(semIdx) > 0) {
+        ValCtx.EmitFormatError(ValidationRule::MetaNoSemanticOverlap,
+                               {E->GetName(), std::to_string(semIdx).c_str()});
+        return;
+      } else
+        semIdxSet.insert(semIdx);
+    }
+
+    // SV_Target has special rules
+    if (semanticKind == DXIL::SemanticKind::Target) {
+      // Validate target overlap
+      if (E->GetStartRow() + E->GetRows() <= 8) {
+        unsigned mask = ((1 << E->GetRows()) - 1) << E->GetStartRow();
+        if (TargetMask & mask) {
+          ValCtx.EmitFormatError(ValidationRule::MetaNoSemanticOverlap,
+                                 {"SV_Target", std::to_string(E->GetStartRow()).c_str()});
+        }
+        TargetMask = TargetMask | mask;
+      }
+      if (E->GetRows() > 1) {
+        ValCtx.EmitError(ValidationRule::SmNoPSOutputIdx);
+      }
       continue;
     }
 
     if (E->GetSemantic()->IsInvalid())
       continue;
-    unordered_set<unsigned> &semIdxSet =
-        semanticIndexMap[streamId][E->GetName()];
-    ValidateSignatureOverlap(*E.get(), maxScalars, allocator.Get(streamId),
-                             semanticUsageMap[streamId],
-                             rowToInterpModeMap[streamId], semIdxSet, ValCtx);
-    if (isOutput && E->GetSemantic()->GetKind() == DXIL::SemanticKind::Position) {
+
+    // validate system value semantic rules
+    switch (semanticKind) {
+    case DXIL::SemanticKind::Arbitrary:
+      break;
+    case DXIL::SemanticKind::ClipDistance:
+    case DXIL::SemanticKind::CullDistance:
+      // Validate max 8 components across 2 rows (registers)
+      clipcullRowSet[streamId].insert(E->GetStartRow());
+      if (clipcullRowSet[streamId].size() > 2) {
+        ValCtx.EmitError(ValidationRule::MetaClipCullMaxRows);
+      }
+      clipcullComponents[streamId] += E->GetCols();
+      if (clipcullComponents[streamId] > 8) {
+        ValCtx.EmitError(ValidationRule::MetaClipCullMaxComponents);
+      }
+      break;
+    case DXIL::SemanticKind::Depth:
+    case DXIL::SemanticKind::DepthGreaterEqual:
+    case DXIL::SemanticKind::DepthLessEqual:
+      if (DepthKind != DXIL::SemanticKind::Invalid) {
+        ValCtx.EmitError(ValidationRule::SmPSMultipleDepthSemantic);
+      }
+      DepthKind = semanticKind;
+      break;
+    default:
+      if (semanticUsageSet[streamId].count(semanticKind) > 0) {
+        ValCtx.EmitFormatError(ValidationRule::MetaDuplicateSysValue,
+                               {E->GetSemantic()->GetName()});
+      }
+      semanticUsageSet[streamId].insert(semanticKind);
+      break;
+    }
+
+    // Packed element overlap check.
+    ValidateSignatureOverlap(*E.get(), maxScalars, allocator[streamId], ValCtx);
+
+    if (isOutput && semanticKind == DXIL::SemanticKind::Position) {
       ValCtx.hasOutputPosition[E->GetOutputStream()] = true;
     }
-  }
-
-  if (semanticUsageMap[0].count(Semantic::Kind::InnerCoverage) > 0 &&
-      semanticUsageMap[0].count(Semantic::Kind::Coverage) > 0) {
-    ValCtx.EmitError(ValidationRule::SmPSCoverageAndInnerCoverage);
   }
 }
 
@@ -3044,6 +3539,7 @@ static void CheckPatchConstantSemantic(ValidationContext &ValCtx)
   const unsigned kIsolineInsideSize = 0;
   const unsigned kIsolineDomainLocSize = 3;
 
+  const char *domainName = "";
 
   DXIL::SemanticKind kEdgeSemantic = DXIL::SemanticKind::TessFactor;
   unsigned edgeSize = 0;
@@ -3055,36 +3551,49 @@ static void CheckPatchConstantSemantic(ValidationContext &ValCtx)
 
   switch (domain) {
   case DXIL::TessellatorDomain::IsoLine:
+    domainName = "IsoLine";
     edgeSize = kIsolineEdgeSize;
     insideSize = kIsolineInsideSize;
     ValCtx.domainLocSize = kIsolineDomainLocSize;
     break;
   case DXIL::TessellatorDomain::Tri:
+    domainName = "Tri";
     edgeSize = kTriEdgeSize;
     insideSize = kTriInsideSize;
     ValCtx.domainLocSize = kTriDomainLocSize;
     break;
   case DXIL::TessellatorDomain::Quad:
+    domainName = "Quad";
     edgeSize = kQuadEdgeSize;
     insideSize = kQuadInsideSize;
     ValCtx.domainLocSize = kQuadDomainLocSize;
     break;
+  default:
+    // Don't bother with other tests if domain is invalid
+    return;
   }
 
   bool bFoundEdgeSemantic = false;
   bool bFoundInsideSemantic = false;
   for (auto &SE : patchConstantSig.GetElements()) {
     Semantic::Kind kind = SE->GetSemantic()->GetKind();
-    unsigned size = SE->GetCols() * SE->GetRows();
     if (kind == kEdgeSemantic) {
       bFoundEdgeSemantic = true;
-      if (size != edgeSize) {
-        ValCtx.EmitError(ValidationRule::SmTessFactorSizeMatchDomain);
+      if (SE->GetRows() != edgeSize || SE->GetCols() > 1) {
+        ValCtx.EmitFormatError(ValidationRule::SmTessFactorSizeMatchDomain,
+                               {std::to_string(SE->GetRows()).c_str(),
+                                std::to_string(SE->GetCols()).c_str(),
+                                domainName,
+                                std::to_string(edgeSize).c_str()});
       }
     } else if (kind == kInsideSemantic) {
       bFoundInsideSemantic = true;
-      if (size != insideSize) {
-        ValCtx.EmitError(ValidationRule::SmInsideTessFactorSizeMatchDomain);
+      if (SE->GetRows() != insideSize || SE->GetCols() > 1) {
+        ValCtx.EmitFormatError(ValidationRule::SmInsideTessFactorSizeMatchDomain,
+                               {std::to_string(SE->GetRows()).c_str(),
+                                std::to_string(SE->GetCols()).c_str(),
+                                domainName,
+                                std::to_string(insideSize).c_str()});
       }
     }
   }
@@ -3143,6 +3652,8 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     // check.
   } else if (ShaderType == DXIL::ShaderKind::Domain) {
     DXIL::TessellatorDomain domain = M.GetTessellatorDomain();
+    if (domain >= DXIL::TessellatorDomain::LastEntry)
+      domain = DXIL::TessellatorDomain::Undefined;
     unsigned inputControlPointCount = M.GetInputControlPointCount();
 
     if (inputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
@@ -3157,6 +3668,8 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     CheckPatchConstantSemantic(ValCtx);
   } else if (ShaderType == DXIL::ShaderKind::Hull) {
     DXIL::TessellatorDomain domain = M.GetTessellatorDomain();
+    if (domain >= DXIL::TessellatorDomain::LastEntry)
+      domain = DXIL::TessellatorDomain::Undefined;
     unsigned inputControlPointCount = M.GetInputControlPointCount();
     if (inputControlPointCount < 1 ||
         inputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
@@ -3315,7 +3828,7 @@ CalculateCallDepth(CallGraphNode *node,
 static void ValidateCallGraph(ValidationContext &ValCtx) {
   // Build CallGraph.
   CallGraph CG(*ValCtx.DxilMod.GetModule());
-  // Call limit 32 levels.
+
   std::unordered_map<CallGraphNode*, unsigned> depthMap;
   std::unordered_set<CallGraphNode*> callStack;
   CallGraphNode *entryNode = CG[ValCtx.DxilMod.GetEntryFunction()];
@@ -3330,23 +3843,16 @@ static void ValidateCallGraph(ValidationContext &ValCtx) {
 
   if (bRecursive) {
     ValCtx.EmitError(ValidationRule::FlowNoRecusion);
-  } else {
-    for (auto depthIt : depthMap) {
-      if (depthIt.second >= 32) {
-        ValCtx.EmitError(ValidationRule::FlowCallLimit);
-        break;
-      }
-    }
   }
-
 }
 
 static void ValidateFlowControl(ValidationContext &ValCtx) {
   bool reducible =
       IsReducible(*ValCtx.DxilMod.GetModule(), IrreducibilityAction::Ignore);
-  if (!reducible)
+  if (!reducible) {
     ValCtx.EmitError(ValidationRule::FlowReducible);
-  // Branch limit. 64 level nest.
+    return;
+  }
 
   ValidateCallGraph(ValCtx);
 
@@ -3451,7 +3957,6 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   for (Function &F : pModule->functions()) {
     ValidateFunction(F, ValCtx);
   }
-
 
   ValidateUninitializedOutput(ValCtx);
 

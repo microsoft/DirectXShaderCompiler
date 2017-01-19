@@ -14,7 +14,8 @@ g_db_hlsl = None
 def get_db_hlsl():
     global g_db_hlsl
     if g_db_hlsl is None:
-        g_db_hlsl = db_hlsl()
+      with open("gen_intrin_main.txt", "r") as f:
+        g_db_hlsl = db_hlsl(f)
     return g_db_hlsl
 
 def format_comment(prefix, val):
@@ -495,7 +496,7 @@ def get_hlsl_intrinsic_stats():
     longest_fn = db.intrinsics[0]
     longest_param = None
     longest_arglist_fn = db.intrinsics[0]
-    for i in sorted(db.intrinsics, lambda x,y: cmp(x.key, y.key)):
+    for i in sorted(db.intrinsics, key=lambda x: x.key):
         # Get some values for maximum lengths.
         if len(i.name) > len(longest_fn.name):
             longest_fn = i
@@ -521,7 +522,8 @@ def get_hlsl_intrinsics():
     ns_table = ""
     id_prefix = ""
     arg_idx = 0
-    for i in sorted(db.intrinsics, lambda x,y: cmp(x.key, y.key)):
+    opcode_namespace = db.opcode_namespace
+    for i in sorted(db.intrinsics, key=lambda x: x.key):
         if last_ns != i.ns:
             last_ns = i.ns
             id_prefix = "IOP" if last_ns == "Intrinsics" else "MOP"
@@ -531,7 +533,7 @@ def get_hlsl_intrinsics():
             # This used to be qualified as __declspec(selectany), but that's no longer necessary.
             ns_table = "static const HLSL_INTRINSIC g_%s[] =\n{\n" % (last_ns)
             arg_idx = 0
-        ns_table += "    (UINT)hlsl::IntrinsicOp::%s_%s, %s, %s, %d, %d, g_%s_Args%s,\n" % (id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
+        ns_table += "    (UINT)%s::%s_%s, %s, %s, %d, %d, g_%s_Args%s,\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
         result += "static const HLSL_INTRINSIC_ARGUMENT g_%s_Args%s[] =\n{\n" % (last_ns, arg_idx)
         for p in i.params:
             result += "    \"%s\", %s, %s, %s, %s, %s, %s, %s,\n" % (
@@ -546,14 +548,14 @@ def enum_hlsl_intrinsics():
     db = get_db_hlsl()
     result = ""
     enumed = []
-    for i in sorted(db.intrinsics, lambda x,y: cmp(x.key, y.key)):
+    for i in sorted(db.intrinsics, key=lambda x: x.key):
         if (i.enum_name not in enumed):
             result += "  %s,\n" % (i.enum_name)
             enumed.append(i.enum_name)
     # unsigned
     result += "  // unsigned\n"
 
-    for i in sorted(db.intrinsics, lambda x,y: cmp(x.key, y.key)):
+    for i in sorted(db.intrinsics, key=lambda x: x.key):
         if (i.unsigned_op != ""):
           if (i.unsigned_op not in enumed):
             result += "  %s,\n" % (i.unsigned_op)
@@ -567,7 +569,7 @@ def has_unsigned_hlsl_intrinsics():
     result = ""
     enumed = []
     # unsigned
-    for i in sorted(db.intrinsics, lambda x,y: cmp(x.key, y.key)):
+    for i in sorted(db.intrinsics, key=lambda x: x.key):
         if (i.unsigned_op != ""):
           if (i.enum_name not in enumed):
             result += "  case IntrinsicOp::%s:\n" % (i.enum_name)
@@ -579,7 +581,7 @@ def get_unsigned_hlsl_intrinsics():
     result = ""
     enumed = []
     # unsigned
-    for i in sorted(db.intrinsics, lambda x,y: cmp(x.key, y.key)):
+    for i in sorted(db.intrinsics, key=lambda x: x.key):
         if (i.unsigned_op != ""):
           if (i.enum_name not in enumed):
             enumed.append(i.enum_name)
@@ -773,7 +775,7 @@ def get_valopcode_sm_text():
         return result
 
     for i in instrs:
-        if i.shader_models <> last_model:
+        if i.shader_models != last_model:
             code += flush_instrs(model_instrs, last_model)
             model_instrs = []
             last_model = i.shader_models

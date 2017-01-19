@@ -1,4 +1,4 @@
-// RUN: %dxc -E main  -Zi -T ps_5_0 %s
+// RUN: %dxc -E main  -Zi -T ps_6_0 %s
 
 // TODO: create execution test.
 

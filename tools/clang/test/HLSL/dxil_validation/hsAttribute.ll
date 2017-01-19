@@ -6,8 +6,6 @@
 ; CHECK: Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
 ; CHECK: Hull Shader MaxTessFactor must be [1.000000..64.000000].  65.000000 specified
 ; CHECK: Invalid Tessellator Domain specified. Must be isoline, tri or quad
-; CHECK: TessFactor size mismatch the domain.
-; CHECK: InsideTessFactor size mismatch the domain.
 ; CHECK: output control point count must be [0..32].  36 specified
 
 

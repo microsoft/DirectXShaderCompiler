@@ -1,4 +1,4 @@
-// RUN: %dxc -E cs_main -T cs_5_0 %s
+// RUN: %dxc -E cs_main -T cs_6_0 %s
 
 float overload1(float f) { return 1; }                        /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 double overload1(double f) { return 2; }                       /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */

@@ -101,6 +101,12 @@ private:
   std::unordered_set<LPCSTR, HashStr, PredStr> m_values;
   std::vector<std::vector<char>> m_strings;
 public:
+  string_table() {}
+  // Disable copy constructor and move constructor.
+  string_table(const string_table&) = delete;
+  string_table& operator=(const string_table&) = delete;
+  string_table(string_table&&) = delete;
+  string_table& operator=(string_table&&) = delete;
   LPCSTR insert(LPCSTR pValue);
   LPCSTR insert(LPCWSTR pValue);
 };
@@ -208,7 +214,7 @@ public:
 // Use this class to hold a set of shader operations.
 class ShaderOpSet {
 public:
-  std::vector<ShaderOp> ShaderOps;
+  std::vector<std::unique_ptr<ShaderOp>> ShaderOps;
   ShaderOp *GetShaderOp(LPCSTR pName);
 };
 

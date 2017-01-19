@@ -35,6 +35,7 @@
 #include "clang/Parse/ParseHLSL.h"      // root sig would be in Parser if part of lang
 #include "dxc/Support/WinIncludes.h"    // stream support
 #include "dxc/dxcapi.h"                 // stream support
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -269,7 +270,8 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
   const hlsl::ShaderModel *SM =
       hlsl::ShaderModel::GetByName(CGM.getCodeGenOpts().HLSLProfile.c_str());
-  if (!SM->IsValid()) {
+  // Only accept valid, 6.0 shader model.
+  if (!SM->IsValid() || SM->GetMajor() != 6 || SM->GetMinor() != 0) {
     DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID =
         Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid profile %0");
@@ -987,6 +989,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       } break;
       }
     }
+
+    StringRef lower;
+    if (hlsl::GetIntrinsicLowering(FD, lower))
+      hlsl::SetHLLowerStrategy(F, lower);
+
     // Don't need to add FunctionQual for intrinsic function.
     return;
   }
@@ -1107,6 +1114,20 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       Function *patchConstFunc = patchConstantFunctionMap[funcName];
       funcProps->ShaderProps.HS.patchConstantFunc = patchConstFunc;
       DXASSERT_NOMSG(m_pHLModule->HasHLFunctionProps(patchConstFunc));
+      // Check no inout parameter for patch constant function.
+      DxilFunctionAnnotation *patchConstFuncAnnotation =
+          m_pHLModule->GetFunctionAnnotation(patchConstFunc);
+      for (unsigned i = 0; i < patchConstFuncAnnotation->GetNumParameters();
+           i++) {
+        if (patchConstFuncAnnotation->GetParameterAnnotation(i)
+                .GetParamInputQual() == DxilParamInputQual::Inout) {
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "Patch Constant function should not have inout param.");
+          Diags.Report(Attr->getLocation(), DiagID);
+          return;
+        }
+      }
     } else {
       // TODO: Bring this in line with fxc behavior.  In fxc, patchconstantfunc
       //  selection is based only on name (last function with matching name),
@@ -1324,7 +1345,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     if (IsHLSLOutputPatchType(parmDecl->getType())) {
       outputPatchCount++;
-      DXASSERT(dxilInputQ == DxilParamInputQual::In, "OutputPatch must be in parameter");
+      if (dxilInputQ != DxilParamInputQual::In) {
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "OutputPatch should not be out/inout parameter");
+        Diags.Report(parmDecl->getLocation(), DiagID);
+        continue;
+      }
       dxilInputQ = DxilParamInputQual::OutputPatch;
       if (isDS)
         funcProps->ShaderProps.DS.inputControlPoints =
@@ -1332,7 +1358,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
     else if (IsHLSLInputPatchType(parmDecl->getType())) {
       inputPatchCount++;
-      DXASSERT(dxilInputQ == DxilParamInputQual::In, "InputPatch must be in parameter");
+      if (dxilInputQ != DxilParamInputQual::In) {
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "InputPatch should not be out/inout parameter");
+        Diags.Report(parmDecl->getLocation(), DiagID);
+        continue;
+      }
       dxilInputQ = DxilParamInputQual::InputPatch;
       if (isHS) {
         funcProps->ShaderProps.HS.inputControlPoints =
@@ -2732,7 +2763,13 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
       opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
       break;
     }
-  } else {
+  }
+  else if (group == HLOpcodeGroup::HLExtIntrinsic) {
+    llvm::StringRef fnName = F->getName();
+    llvm::StringRef groupName = GetHLOpcodeGroupNameByAttr(F);
+    opFunc = GetOrCreateHLFunction(M, funcTy, group, &groupName, &fnName, opcode);
+  }
+  else {
     opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
   }
 
@@ -2769,7 +2806,7 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
     }
   }
 
-  HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByAttr(F);
+  HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
 
   if (group == HLOpcodeGroup::HLSubscript &&
       opcode == static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)) {
@@ -2843,6 +2880,9 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
       llvm::FunctionType::get(RetTy, paramTyList, false);
 
   Function *opFunc = CreateOpFunction(M, F, funcTy, group, opcode);
+  StringRef lower = hlsl::GetHLLowerStrategy(F);
+  if (!lower.empty())
+    hlsl::SetHLLowerStrategy(opFunc, lower);
 
   for (auto user = F->user_begin(); user != F->user_end();) {
     // User must be a call.
@@ -3627,6 +3667,22 @@ void CGMSHLSLRuntime::FinishCodeGen() {
 
   // Do simple transform to make later lower pass easier.
   SimpleTransformForHLDXIR(m_pHLModule->GetModule());
+
+  // Add semantic defines for extensions if any are available.
+  if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
+    HLSLExtensionsCodegenHelper::SemanticDefineErrorList errors =
+      CGM.getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(m_pHLModule->GetModule());
+
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    for (const HLSLExtensionsCodegenHelper::SemanticDefineError& error : errors) {
+      DiagnosticsEngine::Level level = DiagnosticsEngine::Error;
+      if (error.IsWarning())
+        level = DiagnosticsEngine::Warning;
+      unsigned DiagID = Diags.getCustomDiagID(level, "%0");
+      Diags.Report(SourceLocation::getFromRawEncoding(error.Location()), DiagID) << error.Message();
+    }
+  }
+
 }
 
 RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
@@ -3642,7 +3698,7 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
   if (RV.isScalar() && RV.getScalarVal() != nullptr) {
     if (CallInst *CI = dyn_cast<CallInst>(RV.getScalarVal())) {
       Function *F = CI->getCalledFunction();
-      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByAttr(F);
+      HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
       if (group == HLOpcodeGroup::HLIntrinsic) {
         bool allOperandImm = true;
         for (auto &operand : CI->arg_operands()) {
@@ -4260,6 +4316,8 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
         return Builder.CreateFPTrunc(Src, DstTy);
       }
     }
+  } else if (UndefValue *UV = dyn_cast<UndefValue>(Src)) {
+    return UndefValue::get(DstTy);
   } else {
     Instruction *I = cast<Instruction>(Src);
     if (SelectInst *SI = dyn_cast<SelectInst>(I)) {

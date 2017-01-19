@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: PS Inner Coverage
 // CHECKNOT: SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader feeding rasterizer

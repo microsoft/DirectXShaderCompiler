@@ -49,14 +49,10 @@ public:
   unsigned GetNumTempRegs() const { return DXIL::kMaxTempRegCount; }
   unsigned GetNumInputRegs() const { return m_NumInputRegs; }
   unsigned GetNumOutputRegs() const { return m_NumOutputRegs; }
-  unsigned GetNumResources() const;
-  unsigned GetNumSamplers() const;
-  unsigned GetNumCBuffers() const;
   unsigned GetCBufferSize() const { return DXIL::kMaxCBufferSize; }
   unsigned SupportsUAV() const { return m_bUAVs; }
   unsigned SupportsTypedUAVs() const { return m_bTypedUavs; }
   unsigned GetUAVRegLimit() const { return m_NumUAVRegs; }
-  unsigned GetUAVRegsBase() const;
 
   static unsigned Count() { return kNumShaderModels - 1; }
   static const ShaderModel *Get(unsigned Idx);
