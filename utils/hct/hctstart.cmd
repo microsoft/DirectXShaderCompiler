@@ -5,9 +5,9 @@ if "%1"=="-?" goto :showhelp
 if "%1"=="-help" goto :showhelp
 if "%1"=="--help" goto :showhelp
 
-rem Default build arch is x86
+rem Default build arch is x64
 if "%BUILD_ARCH%"=="" (
-  set BUILD_ARCH=Win32
+  set BUILD_ARCH=x64
 )
 
 if "%1"=="-x86" (

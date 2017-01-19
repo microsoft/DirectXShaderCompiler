@@ -267,7 +267,7 @@ public:
   }
 
   bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice) {
-    const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_12_1;
+    const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_11_0;
     CComPtr<IDXGIFactory4> factory;
     CComPtr<ID3D12Device> pDevice;
 
