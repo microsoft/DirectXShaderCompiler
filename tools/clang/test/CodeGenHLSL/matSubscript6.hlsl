@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
 // Mat[i][2] is col major. Base address 0.
 // 2 is for [2], i is indexing, so need all 4 component.

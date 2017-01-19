@@ -252,7 +252,7 @@ public:
 
     // Load and compile shaders.
     if (UseDxbc()) {
-      DXBCFromText(pShader, L"main", L"cs_5_0", &pComputeShader);
+      DXBCFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
     }
     else {
       CompileFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
@@ -363,8 +363,8 @@ public:
     CComPtr<ID3DBlob> pixelShader;
 
     if (UseDxbc()) {
-      DXBCFromText(pShaders, L"VSMain", L"vs_5_0", &vertexShader);
-      DXBCFromText(pShaders, L"PSMain", L"ps_5_0", &pixelShader);
+      DXBCFromText(pShaders, L"VSMain", L"vs_6_0", &vertexShader);
+      DXBCFromText(pShaders, L"PSMain", L"ps_6_0", &pixelShader);
     } else {
       CompileFromText(pShaders, L"VSMain", L"vs_6_0", &vertexShader);
       CompileFromText(pShaders, L"PSMain", L"ps_6_0", &pixelShader);

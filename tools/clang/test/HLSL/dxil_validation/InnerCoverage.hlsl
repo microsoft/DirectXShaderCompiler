@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // note: define GENLL in order to generate the basis for InnerCoverage.ll
 

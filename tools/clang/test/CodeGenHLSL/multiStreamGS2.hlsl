@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T gs_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
 
 // CHECK: when multiple GS output streams are used they must be pointlists
 

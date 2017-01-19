@@ -307,12 +307,14 @@ public:
     if (opts.CodeGenHighLevel) return E_FAIL; // skip for now
     if (useDXBC) {
       // Consider supporting defines and flags if/when needed.
+      std::string TargetProfile(opts.TargetProfile.str());
+      TargetProfile[3] = '5'; TargetProfile[5] = '1';
       CComPtr<ID3DBlob> pDxbcBlob;
       CComPtr<ID3DBlob> pDxbcErrors;
       UINT unboundDescTab = (1 << 20);
       IFR(D3DCompileFromFile(path, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
         opts.EntryPoint.str().c_str(),
-        opts.TargetProfile.str().c_str(),
+        TargetProfile.c_str(),
         unboundDescTab, 0, &pDxbcBlob, &pDxbcErrors));
       IFR(pDxbcBlob.QueryInterface(ppBlob));
     }
@@ -430,7 +432,7 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
     "}";
 
   {
-    std::string s = DisassembleProgram(program, L"VSMain", L"vs_5_0");
+    std::string s = DisassembleProgram(program, L"VSMain", L"vs_6_0");
     // NOTE: this will change when proper packing is done, and when 'always-writes' is accurately implemented.
     const char expected[] =
       ";\n"
@@ -453,7 +455,7 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
   }
 
   {
-    std::string s = DisassembleProgram(program, L"PSMain", L"ps_5_0");
+    std::string s = DisassembleProgram(program, L"PSMain", L"ps_6_0");
     // NOTE: this will change when proper packing is done, and when 'always-writes' is accurately implemented.
     const char expected[] =
       ";\n"
@@ -481,7 +483,7 @@ TEST_F(DxilContainerTest, CompileWhenSigSquareThenIncludeSplit) {
     "float main(float4x4 a : A, int4 b : B) : SV_Target {\n"
     " return a[b.x][b.y];\n"
     "}";
-  std::string s = DisassembleProgram(program, L"main", L"ps_5_0");
+  std::string s = DisassembleProgram(program, L"main", L"ps_6_0");
   const char expected[] =
     "// Input signature:\n"
     "//\n"
@@ -515,7 +517,7 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_5_0",
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0",
     nullptr, 0, nullptr, 0, nullptr,
     &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
@@ -540,7 +542,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenBCInvalidThenFails) {
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_5_0",
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0",
     nullptr, 0, nullptr, 0, nullptr,
     &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
@@ -656,7 +658,7 @@ TEST_F(DxilContainerTest, DisassemblyWhenValidThenOK) {
   SetupBasicHeader(&header);
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_5_0",
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0",
                                       nullptr, 0, nullptr, 0, nullptr,
                                       &pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));

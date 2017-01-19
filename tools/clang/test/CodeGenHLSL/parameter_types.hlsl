@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_5_0 -fcgl %s  | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 -fcgl %s  | FileCheck %s
 
 // CHECK: float %a, <4 x float> %b, %struct.T* byval %t, %class.matrix.float.2.3 %m, [3 x <2 x float>]* byval %n
 

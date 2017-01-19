@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 | FileCheck %s
 
 // CHECK: Sqrt
 // CHECK: float 4.000000e+00

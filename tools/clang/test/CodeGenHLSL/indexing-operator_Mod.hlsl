@@ -1,8 +1,8 @@
-// RUN: %dxc -E main -T ps_5_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 indexing-operator.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 indexing-operator.hlsl
 
 Buffer g_b;
 StructuredBuffer<float4> g_sb;

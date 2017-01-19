@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_1 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // 4 GEP for copy, last one for indexing.
 // CHECK: getelementptr

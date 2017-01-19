@@ -249,7 +249,7 @@ attributes #1 = { nounwind readnone }
 
 !0 = !{!"clang version 3.7.0 (tags/RELEASE_370/final)"}
 !1 = !{i32 0, i32 4}
-!2 = !{!"gs", i32 5, i32 0}
+!2 = !{!"gs", i32 6, i32 0}
 !3 = !{null, null, !4, null}
 !4 = !{!5}
 !5 = !{i32 0, %b* @b, !"b", i32 0, i32 0, i32 1, i32 8, null}

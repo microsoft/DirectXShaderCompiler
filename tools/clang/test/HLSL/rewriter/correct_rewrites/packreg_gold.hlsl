@@ -8,7 +8,7 @@ tbuffer OtherFloats {
   float3 f3_t_simple : packoffset(c11.y);
   float2 f2_t_simple : packoffset(c12.z);
 }
-sampler myVar : register(ps_5_0, s0);
+sampler myVar : register(ps_6_0, s0);
 sampler myVar2 : register(vs, s0[8]);
 sampler myVar2_offset : register(vs, s2[8]);
 sampler myVar_2 : register(vs, s8);

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0
 // CHECK: dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1

@@ -1,4 +1,4 @@
-// RUN: %dxc -E plain -T vs_5_0 %s
+// RUN: %dxc -E plain -T vs_6_0 %s
 
 // without also putting them in a static assertion
 
@@ -9,7 +9,7 @@
 // :FXC_VERIFY_ARGUMENTS: /E plain /T vs_5_1
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 scalar-operators.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 scalar-operators.hlsl
 // with vs_2_0 (the default) min16float usage produces a complaint that it's not supported
 
 float4 plain(float4 param4 : FOO) : FOO {

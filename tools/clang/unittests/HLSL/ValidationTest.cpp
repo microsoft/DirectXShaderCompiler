@@ -175,6 +175,7 @@ public:
   TEST_METHOD(UpdateCounterFail);
 
   TEST_METHOD(WhenSmUnknownThenFail);
+  TEST_METHOD(WhenSmLegacyThenFail);
 
   TEST_METHOD(WhenMetaFlagsUsageDeclThenOK);
   TEST_METHOD(WhenMetaFlagsUsageThenFail);
@@ -376,7 +377,7 @@ public:
 
 TEST_F(ValidationTest, WhenCorrectThenOK) {
   CComPtr<IDxcBlob> pProgram;
-  CompileSource("float4 main() : SV_Target { return 1; }", "ps_5_0", &pProgram);
+  CompileSource("float4 main() : SV_Target { return 1; }", "ps_6_0", &pProgram);
   CheckValidationMsg(pProgram, nullptr);
 }
 
@@ -556,6 +557,12 @@ TEST_F(ValidationTest, WhenSmUnknownThenFail) {
                           "Unknown shader model 'ps_1_2'");
 }
 
+TEST_F(ValidationTest, WhenSmLegacyThenFail) {
+  RewriteAssemblyCheckMsg("float4 main() : SV_Target { return 1; }", "ps_6_0",
+                          "{!\"ps\", i32 6, i32 0}", "{!\"ps\", i32 5, i32 1}",
+                          "Unknown shader model 'ps_5_1'");
+}
+
 TEST_F(ValidationTest, WhenMetaFlagsUsageDeclThenOK) {
   RewriteAssemblyCheckMsg(
     "uint u; float4 main() : SV_Target { uint64_t n = u; n *= u; return (uint)(n >> 32); }", "ps_6_0",
@@ -705,7 +712,7 @@ TEST_F(ValidationTest, SemanticLength64) {
 
 TEST_F(ValidationTest, PullModelPosition) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\eval.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\eval.hlsl", "ps_6_0",
       "!\"A\", i8 9, i8 0",
       "!\"SV_Position\", i8 9, i8 3",
       "does not support pull-model evaluation of position");
@@ -713,7 +720,7 @@ TEST_F(ValidationTest, PullModelPosition) {
 
 TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 true, i1 true",
       "globallycoherent cannot be used with append/consume buffers'buf2'");
@@ -721,7 +728,7 @@ TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
 
 TEST_F(ValidationTest, StructBufStrideAlign) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
       "!7 = !{i32 1, i32 52}",
       "!7 = !{i32 1, i32 50}",
       "structured buffer element size must be a multiple of 4 bytes (actual size 50 bytes)");
@@ -729,7 +736,7 @@ TEST_F(ValidationTest, StructBufStrideAlign) {
 
 TEST_F(ValidationTest, StructBufStrideOutOfBound) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
       "!7 = !{i32 1, i32 52}",
       "!7 = !{i32 1, i32 2052}",
       "structured buffer elements cannot be larger than 2048 bytes (actual size 2052 bytes)");
@@ -737,7 +744,7 @@ TEST_F(ValidationTest, StructBufStrideOutOfBound) {
 
 TEST_F(ValidationTest, StructBufLoadCoordinates) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
       "bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
       "bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
       "structured buffer require 2 coordinates");
@@ -745,7 +752,7 @@ TEST_F(ValidationTest, StructBufLoadCoordinates) {
 
 TEST_F(ValidationTest, StructBufStoreCoordinates) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
       "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
       "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
       "structured buffer require 2 coordinates");
@@ -753,7 +760,7 @@ TEST_F(ValidationTest, StructBufStoreCoordinates) {
 
 TEST_F(ValidationTest, TypedBufRetType) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\sample5.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\sample5.hlsl", "ps_6_0",
       "%class.Texture2D = type { <4 x float>",
       "%class.Texture2D = type { <4 x double>",
       "elements of typed buffers and textures must fit in four 32-bit quantities");
@@ -761,7 +768,7 @@ TEST_F(ValidationTest, TypedBufRetType) {
 
 TEST_F(ValidationTest, VsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\clip_planes.hlsl", "vs_5_0",
+      L"..\\CodeGenHLSL\\clip_planes.hlsl", "vs_6_0",
       "!\"POSITION\", i8 9, i8 0",
       "!\"SV_Target\", i8 9, i8 16",
       "Semantic 'SV_Target' is invalid as vs Input");
@@ -769,7 +776,7 @@ TEST_F(ValidationTest, VsInputSemantic) {
 
 TEST_F(ValidationTest, VsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\clip_planes.hlsl", "vs_5_0",
+      L"..\\CodeGenHLSL\\clip_planes.hlsl", "vs_6_0",
       "!\"NORMAL\", i8 9, i8 0",
       "!\"SV_Target\", i8 9, i8 16",
       "Semantic 'SV_Target' is invalid as vs Output");
@@ -777,7 +784,7 @@ TEST_F(ValidationTest, VsOutputSemantic) {
 
 TEST_F(ValidationTest, HsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_5_0",
+      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as hs Input");
@@ -785,7 +792,7 @@ TEST_F(ValidationTest, HsInputSemantic) {
 
 TEST_F(ValidationTest, HsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_5_0",
+      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as hs Output");
@@ -793,7 +800,7 @@ TEST_F(ValidationTest, HsOutputSemantic) {
 
 TEST_F(ValidationTest, PatchConstSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_5_0",
+      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
       "!\"SV_TessFactor\", i8 9, i8 25",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as hs PatchConstant");
@@ -801,7 +808,7 @@ TEST_F(ValidationTest, PatchConstSemantic) {
 
 TEST_F(ValidationTest, DsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleDs1.hlsl", "ds_5_0",
+      L"..\\CodeGenHLSL\\SimpleDs1.hlsl", "ds_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ds Input");
@@ -809,7 +816,7 @@ TEST_F(ValidationTest, DsInputSemantic) {
 
 TEST_F(ValidationTest, DsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleDs1.hlsl", "ds_5_0",
+      L"..\\CodeGenHLSL\\SimpleDs1.hlsl", "ds_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ds Output");
@@ -817,7 +824,7 @@ TEST_F(ValidationTest, DsOutputSemantic) {
 
 TEST_F(ValidationTest, GsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_5_0",
+      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
       "!\"POSSIZE\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as gs Input");
@@ -825,7 +832,7 @@ TEST_F(ValidationTest, GsInputSemantic) {
 
 TEST_F(ValidationTest, GsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_5_0",
+      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
       "!\"TEXCOORD\", i8 9, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as gs Output");
@@ -833,7 +840,7 @@ TEST_F(ValidationTest, GsOutputSemantic) {
 
 TEST_F(ValidationTest, PsInputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
       "!\"A\", i8 4, i8 0",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ps Input");
@@ -841,7 +848,7 @@ TEST_F(ValidationTest, PsInputSemantic) {
 
 TEST_F(ValidationTest, PsOutputSemantic) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
       "!\"SV_Target\", i8 9, i8 16",
       "!\"VertexID\", i8 4, i8 1",
       "Semantic 'VertexID' is invalid as ps Output");
@@ -849,7 +856,7 @@ TEST_F(ValidationTest, PsOutputSemantic) {
 
 TEST_F(ValidationTest, ArrayOfSVTarget) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
       "i32 6, !\"SV_Target\", i8 9, i8 16, !36, i8 0, i32 1",
       "i32 6, !\"SV_Target\", i8 9, i8 16, !36, i8 0, i32 2",
       "Pixel shader output registers are not indexable.");
@@ -857,7 +864,7 @@ TEST_F(ValidationTest, ArrayOfSVTarget) {
 
 TEST_F(ValidationTest, InfiniteLog) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
       "op.unary.f32(i32 22, float %3)",
       "op.unary.f32(i32 22, float 0x7FF0000000000000)",
       "No indefinite logarithm");
@@ -865,7 +872,7 @@ TEST_F(ValidationTest, InfiniteLog) {
 
 TEST_F(ValidationTest, InfiniteAsin) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
       "op.unary.f32(i32 16, float %3)",
       "op.unary.f32(i32 16, float 0x7FF0000000000000)",
       "No indefinite arcsine");
@@ -873,7 +880,7 @@ TEST_F(ValidationTest, InfiniteAsin) {
 
 TEST_F(ValidationTest, InfiniteAcos) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
       "op.unary.f32(i32 15, float %3)",
       "op.unary.f32(i32 15, float 0x7FF0000000000000)",
       "No indefinite arccosine");
@@ -881,7 +888,7 @@ TEST_F(ValidationTest, InfiniteAcos) {
 
 TEST_F(ValidationTest, InfiniteDdxDdy) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
       "op.unary.f32(i32 86, float %3)",
       "op.unary.f32(i32 86, float 0x7FF0000000000000)",
       "No indefinite derivative calculation");
@@ -889,7 +896,7 @@ TEST_F(ValidationTest, InfiniteDdxDdy) {
 
 TEST_F(ValidationTest, IDivByZero) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
       "sdiv i32 %8, %9",
       "sdiv i32 %8, 0",
       "No signed integer division by zero");
@@ -897,28 +904,28 @@ TEST_F(ValidationTest, IDivByZero) {
 
 TEST_F(ValidationTest, UDivByZero) {
     RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_5_0",
+      L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
       "udiv i32 %5, %6",
       "udiv i32 %5, 0",
       "No unsigned integer division by zero");
 }
 
 TEST_F(ValidationTest, UnusedMetadata) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\loop2.hlsl", "ps_5_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\loop2.hlsl", "ps_6_0",
                           ", !llvm.loop ",
                           ", !llvm.loop2 ",
                           "All metadata must be used by dxil");
 }
 
 TEST_F(ValidationTest, MemoryOutOfBound) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_5_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
                           "getelementptr [4 x float], [4 x float]* %12, i32 0, i32 3",
                           "getelementptr [4 x float], [4 x float]* %12, i32 0, i32 10",
                           "Access to out-of-bounds memory is disallowed");
 }
 
 TEST_F(ValidationTest, AddrSpaceCast) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
                           "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
                           "  store float %11, float* %12, align 4",
                           "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
@@ -928,7 +935,7 @@ TEST_F(ValidationTest, AddrSpaceCast) {
 }
 
 TEST_F(ValidationTest, PtrBitCast) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
                           "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
                           "  store float %11, float* %12, align 4",
                           "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
@@ -938,7 +945,7 @@ TEST_F(ValidationTest, PtrBitCast) {
 }
 
 TEST_F(ValidationTest, MinPrecisionBitCast) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
                           "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
                           "  store float %11, float* %12, align 4",
                           "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
@@ -948,7 +955,7 @@ TEST_F(ValidationTest, MinPrecisionBitCast) {
 }
 
 TEST_F(ValidationTest, StructBitCast) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
                           "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
                           "  store float %11, float* %12, align 4",
                           "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
@@ -958,7 +965,7 @@ TEST_F(ValidationTest, StructBitCast) {
 }
 
 TEST_F(ValidationTest, MultiDimArray) {
-  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_5_0",
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
                           "%1 = alloca [4 x float]",
                           "%1 = alloca [4 x float]\n"
                           "  %md = alloca [2 x [4 x float]]",
