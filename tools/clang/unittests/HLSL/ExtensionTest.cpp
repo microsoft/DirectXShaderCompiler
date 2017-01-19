@@ -14,6 +14,7 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HLSL/HLOperationLowerExtension.h"
+#include "dxc/HlslIntrinsicOp.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Support for test intrinsics.
@@ -78,6 +79,17 @@ static const HLSL_INTRINSIC_ARGUMENT TestFnPack4[] = {
   { "value", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT, 1, 3},
 };
 
+// float<2> = test_rand()
+static const HLSL_INTRINSIC_ARGUMENT TestRand[] = {
+  { "test_rand", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+};
+
+// uint = test_rand(uint x)
+static const HLSL_INTRINSIC_ARGUMENT TestUnsigned[] = {
+  { "test_unsigned", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1 },
+  { "x", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 1},
+};
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -101,6 +113,10 @@ Intrinsic Intrinsics[] = {
   {L"test_pack_2",  "test_pack_2.$o",  "p", {  8, false, true, -1, countof(TestFnPack2), TestFnPack2}},
   {L"test_pack_3",  "test_pack_3.$o",  "p", {  9, false, true, -1, countof(TestFnPack3), TestFnPack3}},
   {L"test_pack_4",  "test_pack_4.$o",  "p", { 10, false, true, -1, countof(TestFnPack4), TestFnPack4}},
+  {L"test_rand",    "test_rand",       "r", { 11, false, false,-1, countof(TestRand), TestRand}},
+  // Make this intrinsic have the same opcode as an hlsl intrinsic with an unsigned
+  // counterpart for testing purposes.
+  {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, -1, countof(TestUnsigned), TestUnsigned}},
 };
 
 class TestIntrinsicTable : public IDxcIntrinsicTable {
@@ -294,6 +310,8 @@ public:
   TEST_METHOD(CustomIntrinsicName);
   TEST_METHOD(NoLowering);
   TEST_METHOD(PackedLowering);
+  TEST_METHOD(ReplicateLoweringWhenOnlyVectorIsResult);
+  TEST_METHOD(UnsignedOpcodeIsUnchanged);
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -535,4 +553,41 @@ TEST_F(ExtensionTest, PackedLowering) {
   VERIFY_IS_TRUE(
     disassembly.npos !=
     disassembly.find("call { float, float } @test_pack_4.float(i32 10, { float, float, float }"));
+}
+
+TEST_F(ExtensionTest, ReplicateLoweringWhenOnlyVectorIsResult) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "float2 main(float2 v1 : V1, float2 v2 : V2, float3 v3 : V3) : SV_Target {\n"
+    "  return test_rand();\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // - replicate strategy works for vector results
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("call float @test_rand(i32 11)"));
+}
+
+TEST_F(ExtensionTest, UnsignedOpcodeIsUnchanged) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "uint main(uint v1 : V1) : SV_Target {\n"
+    "  return test_unsigned(v1);\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // - opcode is unchanged when it matches an hlsl intrinsic with
+  //   an unsigned version.
+  // Note that 113 is the current opcode for IOP_min. If that opcode
+  // changes the test will need to be updated to reflect the new opcode.
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("call i32 @test_unsigned(i32 113, "));
 }
