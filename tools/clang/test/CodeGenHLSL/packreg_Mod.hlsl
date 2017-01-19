@@ -1,5 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 %s
-// :FXC_VERIFY_ARGUMENTS: /E main /T ps_6_0
+// :FXC_VERIFY_ARGUMENTS: /E main /T ps_5_1
 
 float4 f_no_conflict : register(vs, c0) : register(ps, c1);
 

@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T vs_6_0 %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 scalar-assignments.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 scalar-assignments.hlsl
 // with vs_2_0 (the default) min16float usage produces a complaint that it's not supported
 
 void main() {

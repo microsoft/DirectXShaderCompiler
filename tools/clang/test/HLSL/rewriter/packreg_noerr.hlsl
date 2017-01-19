@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_6_0 packreg.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T ps_5_1 packreg.hlsl
 
 // fxc error X3115: Conflicting register semantics: 's0' and 's1'
 //sampler myVar_conflict : register(s0) : register(s1); // expected-error {{conflicting register semantics}} fxc-error {{X3115: Conflicting register semantics: 's0' and 's1'}} 

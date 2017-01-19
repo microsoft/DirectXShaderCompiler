@@ -12,7 +12,7 @@
 #endif
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 more-operators.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 more-operators.hlsl
 // with vs_2_0 (the default) min16float usage produces a complaint that it's not supported
 
 struct f3_s    { float3 f3; };

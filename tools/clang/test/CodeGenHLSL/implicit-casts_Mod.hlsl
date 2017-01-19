@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_6_0 implicit-casts.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T ps_5_1 implicit-casts.hlsl
 
 // without also putting them in a static assertion
 

@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T ps_6_0 literals.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T ps_5_1 literals.hlsl
 
 // we use -Wno-unused-value because we generate some no-op expressions to yield errors
 // without also putting them in a static assertion

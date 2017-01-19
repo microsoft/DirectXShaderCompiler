@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
-// :FXC_VERIFY_ARGUMENTS: /E main /T ps_6_0
+// :FXC_VERIFY_ARGUMENTS: /E main /T ps_5_1
 
 // fxc error X3115: Conflicting register semantics: 's0' and 's1'
 sampler myVar_conflict : register(s0) : register(s1); // expected-error {{conflicting register semantics}} fxc-error {{X3115: Conflicting register semantics: 's0' and 's1'}}

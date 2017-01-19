@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 vector-syntax.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 vector-syntax.hlsl
 
 vector v;
 vector<float, 1+1> v1p1;

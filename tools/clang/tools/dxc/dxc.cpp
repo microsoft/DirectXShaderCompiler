@@ -396,11 +396,10 @@ int DxcContext::Compile() {
       IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
 
       // Upgrade profile to 6.0 version from minimum recognized shader model
-      std::string TargetProfile = m_Opts.TargetProfile;
-      const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(TargetProfile.c_str());
+      llvm::StringRef TargetProfile = m_Opts.TargetProfile;
+      const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(m_Opts.TargetProfile.str().c_str());
       if (SM->IsValid() && SM->GetMajor() < 6) {
-        TargetProfile[3] = '6';
-        TargetProfile[5] = '0';
+        TargetProfile = hlsl::ShaderModel::Get(SM->GetKind(), 6, 0)->GetName();
       }
 
       IFT(pCompiler->Compile(pSource, StringRefUtf16(m_Opts.InputFile),
