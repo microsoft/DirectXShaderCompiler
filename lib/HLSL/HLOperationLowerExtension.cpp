@@ -176,6 +176,9 @@ enum {
 // size.
 static unsigned GetReplicatedVectorSize(llvm::CallInst *CI) {
   unsigned commonVectorSize = NO_COMMON_VECTOR_SIZE;
+  Type *RetTy = CI->getType();
+  if (RetTy->isVectorTy())
+    commonVectorSize = RetTy->getVectorNumElements();
   for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
     Type *Ty = CI->getArgOperand(i)->getType();
     if (Ty->isVectorTy()) {
@@ -199,14 +202,11 @@ class ReplicatedFunctionTypeTranslator : public FunctionTypeTranslator {
 
     // Result should be vector or void.
     Type *RetTy = CI->getType();
+    if (!RetTy->isVoidTy() && !RetTy->isVectorTy())
+      return nullptr;
+
     if (RetTy->isVectorTy()) {
-      if (RetTy->getVectorNumElements() != commonVectorSize)
-        return nullptr;
       RetTy = RetTy->getVectorElementType();
-    }
-    else {
-      if (!RetTy->isVoidTy())
-        return nullptr;
     }
 
     return RetTy;
