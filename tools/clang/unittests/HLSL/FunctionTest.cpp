@@ -80,7 +80,7 @@ public:
       flags.push_back(L"/force_rootsig_ver");
       flags.push_back(forceVer.c_str());
     }
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_5_1",
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0",
       flags.data(), flags.size(), nullptr, 0, pIncludeHandler, &pResult));
     VERIFY_SUCCEEDED(pResult->GetStatus(&resultStatus));
     if (expected != resultStatus && FAILED(resultStatus)) {

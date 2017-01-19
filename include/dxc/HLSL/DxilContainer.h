@@ -257,7 +257,6 @@ const DxilContainerHeader *IsDxilContainerLike(const void *ptr, size_t length);
 /// Checks whether the DXIL container is valid and in-bounds.
 bool IsValidDxilContainer(const DxilContainerHeader *pHeader, size_t length);
 
-
 /// Use this type as a unary predicate functor.
 struct DxilPartIsType {
   uint32_t IsFourCC;

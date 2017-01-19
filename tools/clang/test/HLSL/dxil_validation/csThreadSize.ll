@@ -123,7 +123,7 @@ attributes #3 = { nounwind readonly }
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
 !1 = !{i32 0, i32 5}
-!2 = !{!"cs", i32 5, i32 1}
+!2 = !{!"cs", i32 6, i32 0}
 !3 = !{!4, !8, null, null}
 !4 = !{!5, !7}
 !5 = !{i32 0, %dx.alignment.legacy.class.StructuredBuffer* @"\01?mats@@3V?$StructuredBuffer@Umat@@@@A_legacy", !"mats", i32 0, i32 0, i32 1, i32 12, i32 0, !6}

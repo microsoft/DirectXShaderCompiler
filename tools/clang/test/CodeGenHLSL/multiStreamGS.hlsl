@@ -1,18 +1,19 @@
-// RUN: %dxc -E main -T gs_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
 
 // CHECK:; Output signature:
 // CHECK:;
 // CHECK:; Name                 Index   Mask Register SysValue  Format   Used
 // CHECK:; -------------------- ----- ------ -------- -------- ------- ------
-// CHECK:; m0:SV_Position              0   xyzw        0      POS   float   xyzw
-// CHECK:; m0:AAA                      0   xy          1     NONE   float   xy
-// CHECK:; m1:XXX                      0   xyz         0     NONE    uint   xyz
-// CHECK:; m1:PPP                      0   xyzw        1     NONE   float   xyzw
-// CHECK:; m1:PPP                      1   xyzw        2     NONE   float   xyzw
-// CHECK:; m1:PPP                      2   xyzw        3     NONE   float   xyzw
-// CHECK:; m1:YYY                      0   xyz         4     NONE    uint   xyz
-// CHECK:; m2:SV_Position              0   xyzw        0      POS   float   xyzw
-// CHECK:; m2:AAA                      0   xy          1     NONE   float   xy
+// CHECK:; m0:SV_Position           0   xyzw        0      POS   float   xyzw
+// CHECK:; m0:AAA                   0   xy          1     NONE   float   xy
+// CHECK:; m1:PPP                   0   xyzw        0     NONE   float   xyzw
+// CHECK:; m1:PPP                   1   xyzw        1     NONE   float   xyzw
+// CHECK:; m1:PPP                   2   xyzw        2     NONE   float   xyzw
+// CHECK:; m1:XXX                   0   xyz         3     NONE    uint   xyz
+// CHECK:; m1:YYY                   0   xyz         4     NONE    uint   xyz
+// CHECK:; m2:SV_Position           0   xyzw        0      POS   float   xyzw
+// CHECK:; m2:AAA                   0   xy          1     NONE   float   xy
+
 
 // CHECK: OutputStreamMask=7
 

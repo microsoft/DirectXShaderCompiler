@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T hs_5_0 -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 -Zi %s | FileCheck %s
 
 // CHECK: InputPatch should not be out/inout parameter
 // CHECK: OutputPatch should not be out/inout parameter

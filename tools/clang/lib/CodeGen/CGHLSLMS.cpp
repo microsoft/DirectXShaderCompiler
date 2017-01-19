@@ -270,7 +270,8 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
   const hlsl::ShaderModel *SM =
       hlsl::ShaderModel::GetByName(CGM.getCodeGenOpts().HLSLProfile.c_str());
-  if (!SM->IsValid()) {
+  // Only accept valid, 6.0 shader model.
+  if (!SM->IsValid() || SM->GetMajor() != 6 || SM->GetMinor() != 0) {
     DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID =
         Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid profile %0");

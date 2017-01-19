@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_5_0 %s
+// RUN: %dxc -E main -T vs_6_0 %s
 
 // CHECK: main
 struct C {

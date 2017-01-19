@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 -not_use_legacy_cbuf_load %s  | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -not_use_legacy_cbuf_load %s  | FileCheck %s
 
 // CHECK: cbufferLoad
 // CHECK: i32 0

@@ -72,6 +72,9 @@ public:
   bool IsAnyDepth() const;
   DXIL::SemanticInterpretationKind GetInterpretation() const;
 
+  llvm::StringRef GetSemanticName() const;
+  unsigned GetSemanticStartIndex() const;
+
   // Low-level properties.
   int GetStartRow() const;
   void SetStartRow(int StartRow);

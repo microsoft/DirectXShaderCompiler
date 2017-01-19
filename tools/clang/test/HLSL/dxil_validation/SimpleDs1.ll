@@ -1,8 +1,7 @@
 ; RUN: %dxv %s | FileCheck %s
 
 ; CHECK: DS input control point count must be [0..32].  36 specified
-; CHECK: TessFactor size mismatch the domain.
-; CHECK: InsideTessFactor size mismatch the domain.
+; CHECK: Invalid Tessellator Domain specified. Must be isoline, tri or quad
 ; CHECK: DomainLocation component index out of bounds for the domain.
 ; CHECK: DomainLocation component index out of bounds for the domain.
 ; CHECK: DomainLocation component index out of bounds for the domain.
@@ -149,7 +148,7 @@ attributes #1 = { nounwind readnone }
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
 !1 = !{i32 0, i32 7}
-!2 = !{!"ds", i32 5, i32 1}
+!2 = !{!"ds", i32 6, i32 0}
 !3 = !{i32 0, %struct.PSSceneIn addrspace(1)* @dx.typevar.0, !4, %struct.HSPerVertexData addrspace(1)* @dx.typevar.1, !8, %struct.HSPerPatchData addrspace(1)* @dx.typevar.2, !10, %class.OutputPatch addrspace(1)* @dx.typevar.3, !13}
 !4 = !{i32 44, !5, !6, !7}
 !5 = !{i32 3, i32 0, i32 4, !"SV_Position", i32 6, !"pos", i32 7, i32 9}

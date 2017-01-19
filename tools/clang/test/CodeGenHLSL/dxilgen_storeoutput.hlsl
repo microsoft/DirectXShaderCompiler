@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 -fcgl %s | %opt -scalarrepl-param-hlsl -dxilgen -S | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -fcgl %s | %opt -scalarrepl-param-hlsl -dxilgen -S | FileCheck %s
 
 // CHECK: dx.op.storeOutput.f32
 

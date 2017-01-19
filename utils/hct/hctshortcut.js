@@ -8,7 +8,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 //
-// Use this script to createa shortcut on your desktop that will set up the
+// Use this script to create a shortcut on your desktop that will set up the
 // right console environment.
 //
 

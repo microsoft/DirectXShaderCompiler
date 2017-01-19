@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
 // CHECK: dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 0
 // CHECK: dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 1

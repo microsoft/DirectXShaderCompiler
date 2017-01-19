@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s | tee | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | tee | FileCheck %s
 
 // This test uses 'tee' simply to exist as a sample; typically it's only
 // desirable for looking at the disassembly during investigations.

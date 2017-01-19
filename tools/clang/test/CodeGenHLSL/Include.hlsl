@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 -Vi -I inc %s | StdErrCheck %s
+// RUN: %dxc -E main -T ps_6_0 -Vi -I inc %s | StdErrCheck %s
 
 
 

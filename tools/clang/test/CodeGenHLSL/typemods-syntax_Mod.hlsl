@@ -1,4 +1,4 @@
-// RUN: %dxc -E vain -T ps_5_0 %s
+// RUN: %dxc -E vain -T ps_6_0 %s
 
 // The following is meant to be processed by the CodeTags extension in the "VS For Everything" Visual Studio extension:
 /*<py>

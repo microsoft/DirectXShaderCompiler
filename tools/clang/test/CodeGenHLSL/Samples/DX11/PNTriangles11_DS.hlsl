@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ds_5_1 %s | FileCheck %s
+// RUN: %dxc -E main -T ds_6_0 %s | FileCheck %s
 
 // CHECK: domainLocation
 // CHECK: domainLocation

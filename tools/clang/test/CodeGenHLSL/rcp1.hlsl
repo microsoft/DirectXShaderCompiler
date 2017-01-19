@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 float3 main(float4 a : A) : SV_Target
 {

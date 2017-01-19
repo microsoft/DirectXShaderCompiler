@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_1 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: Interpolation mode for PS input position must be linear_noperspective_centroid or 
 

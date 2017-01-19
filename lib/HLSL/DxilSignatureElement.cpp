@@ -53,6 +53,8 @@ void DxilSignatureElement::Initialize(llvm::StringRef Name, const CompType &Elem
   m_ID = ID;
   m_Name = Name.str(); // creates a copy
   Semantic::DecomposeNameAndIndex(m_Name, &m_SemanticName, &m_SemanticStartIndex);
+  if (!IndexVector.empty())
+    m_SemanticStartIndex = IndexVector[0];
   // Find semantic in the table.
   m_pSemantic = Semantic::GetByName(m_SemanticName, m_sigPointKind);
   m_CompType = ElementType;
@@ -180,6 +182,13 @@ DXIL::SemanticInterpretationKind DxilSignatureElement::GetInterpretation() const
   return SigPoint::GetInterpretation(m_pSemantic->GetKind(), m_sigPointKind, ShaderModel::kHighestMajor, ShaderModel::kHighestMinor);
 }
 
+llvm::StringRef DxilSignatureElement::GetSemanticName() const {
+  return m_SemanticName;
+}
+unsigned DxilSignatureElement::GetSemanticStartIndex() const {
+  return m_SemanticStartIndex;
+}
+
 //
 // Low-level properties.
 //
@@ -242,7 +251,7 @@ uint8_t DxilSignatureElement::GetColsAsMask() const {
       return DxilProgramSigMaskY | DxilProgramSigMaskZ | DxilProgramSigMaskW;
     }
   }
-  case 2: return DxilProgramSigMaskZ | ((m_Cols == 2) ? 0 : DxilProgramSigMaskW);
+  case 2: return DxilProgramSigMaskZ | ((m_Cols == 1) ? 0 : DxilProgramSigMaskW);
   case 3:
   default:
     return DxilProgramSigMaskW;

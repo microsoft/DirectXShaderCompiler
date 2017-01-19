@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 RWTexture1D<float4> uav1 : register(u3);
 RWBuffer<float4> uav2;
