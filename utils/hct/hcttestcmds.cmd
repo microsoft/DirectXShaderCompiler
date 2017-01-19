@@ -53,9 +53,9 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxc.exe smoke.cso /recompile /T ps_5_1 /E main 1>nul
+dxc.exe smoke.cso /recompile /T ps_6_0 /E main 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to recompile binary object with target ps_5_1 from %CD%\smoke.hlsl
+  echo Failed to recompile binary object with target ps_6_0 from %CD%\smoke.hlsl
   exit /b 1
 )
 
@@ -68,6 +68,13 @@ if %errorlevel% neq 0 (
 dxc.exe smoke.cso /recompile 1> nul
 if %errorlevel% neq 0 (
   echo Failed to recompile smoke.cso with command line defines
+  exit /b 1
+)
+
+echo Smoke test for dxc.exe shader model upgrade...
+dxc.exe /T ps_5_0 smoke.hlsl 1> nul
+if %errorlevel% neq 0 (
+  echo Failed shader model upgrade test - %CD%\dxc.exe /T ps_5_0 %CD%\smoke.hlsl
   exit /b 1
 )
 

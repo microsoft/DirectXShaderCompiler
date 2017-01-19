@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 struct-assignments.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 struct-assignments.hlsl
 
 struct s_f {
  float f;

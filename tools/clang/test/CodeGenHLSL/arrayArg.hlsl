@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_5_0 %s
+// RUN: %dxc -E main -T cs_6_0 %s
 
 float fn_float_arr(float arr[2]) {
   arr[0] = 123;

@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_5_0 -Zpr %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 -Zpr %s | FileCheck %s
 
 // CHECK: OutputPositionPresent=1
 // CHECK: row_major

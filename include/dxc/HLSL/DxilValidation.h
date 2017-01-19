@@ -103,29 +103,39 @@ enum class ValidationRule : unsigned {
 
   // Metadata
   MetaBranchFlatten, // Can't use branch and flatten attributes together
+  MetaClipCullMaxComponents, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
+  MetaClipCullMaxRows, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
   MetaControlFlowHintNotOnControlFlow, // Control flow hint only works on control flow inst
   MetaDenseResIDs, // Resource identifiers must be zero-based and dense
+  MetaDuplicateSysValue, // System value may only appear once in signature
   MetaEntryFunction, // entrypoint not found
   MetaFlagsUsage, // Flags must match usage
   MetaForceCaseOnSwitch, // Attribute forcecase only works for switch
   MetaFunctionAnnotation, // Cannot find function annotation for %0
   MetaGlcNotOnAppendConsume, // globallycoherent cannot be used with append/consume buffers
-  MetaIntegerInterpMode, // signature %0 specifies invalid interpolation mode for integer component type.
-  MetaInterpModeInOneRow, // Interpolation mode cannot vary for different cols of a row. Vary at %0 row %1
+  MetaIntegerInterpMode, // Interpolation mode on integer must be Constant
+  MetaInterpModeInOneRow, // Interpolation mode must be identical for all elements packed into the same row.
   MetaInterpModeValid, // Interpolation mode must be valid
   MetaInvalidControlFlowHint, // Invalid control flow hint
   MetaKnown, // Named metadata should be known
   MetaMaxTessFactor, // Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
   MetaNoSemanticOverlap, // Semantics must not overlap
   MetaRequired, // TODO - Required metadata missing
+  MetaSemaKindMatchesName, // Semantic name must match system value, when defined.
   MetaSemaKindValid, // Semantic kind must be valid
   MetaSemanticCompType, // %0 must be %1
+  MetaSemanticIndexMax, // System value semantics have a maximum valid semantic index
   MetaSemanticLen, // Semantic length must be at least 1 and at most 64
+  MetaSemanticShouldBeAllocated, // Semantic should have a valid packing location
+  MetaSemanticShouldNotBeAllocated, // Semantic should have a packing location of -1
   MetaSignatureCompType, // signature %0 specifies unrecognized or invalid component type
-  MetaSignatureOutOfRange, // signature %0 is out of range at row %1 col %2 size %3.
-  MetaSignatureOverlap, // signature %0 use overlaped address at row %1 col %2 size %3.
+  MetaSignatureIllegalComponentOrder, // Component ordering for packed elements must be: arbitrary < system value < system generated value
+  MetaSignatureIndexConflict, // Only elements with compatible indexing rules may be packed together
+  MetaSignatureOutOfRange, // Signature elements must fit within maximum signature size
+  MetaSignatureOverlap, // Signature elements may not overlap in packing location.
   MetaStructBufAlignment, // StructuredBuffer stride not aligned
   MetaStructBufAlignmentOutOfBound, // StructuredBuffer stride out of bounds
+  MetaSystemValueRows, // System value may only have 1 row
   MetaTarget, // Target triple must be 'dxil-ms-dx'
   MetaTessellatorOutputPrimitive, // Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
   MetaTessellatorPartition, // Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
@@ -158,7 +168,7 @@ enum class ValidationRule : unsigned {
   SmGSValidOutputPrimitiveTopology, // GS output primitive topology unrecognized
   SmHSInputControlPointCountRange, // HS input control point count must be [1..%0].  %1 specified
   SmHullPassThruControlPointCountMatch, // For pass thru hull shader, input control point count must match output control point count
-  SmInsideTessFactorSizeMatchDomain, // InsideTessFactor size mismatch the domain.
+  SmInsideTessFactorSizeMatchDomain, // InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmInvalidResourceCompType, // Invalid resource return type
   SmInvalidResourceKind, // Invalid resources kind
   SmInvalidTextureKindOnUAV, // Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
@@ -176,7 +186,10 @@ enum class ValidationRule : unsigned {
   SmOutputControlPointsTotalScalars, // Total number of scalars across all HS output control points must not exceed 
   SmPSConsistentInterp, // Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
   SmPSCoverageAndInnerCoverage, // InnerCoverage and Coverage are mutually exclusive.
+  SmPSMultipleDepthSemantic, // Pixel Shader only allows one type of depth semantic to be declared
   SmPSOutputSemantic, // Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
+  SmPSTargetCol0, // SV_Target packed location must start at column 0
+  SmPSTargetIndexMatchesRow, // SV_Target semantic index must match packed row location
   SmPatchConstantOnlyForHSDS, // patch constant signature only valid in HS and DS
   SmROVOnlyInPS, // RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
   SmResourceRangeOverlap, // Resource ranges must not overlap
@@ -184,7 +197,7 @@ enum class ValidationRule : unsigned {
   SmSemantic, // Semantic must be defined in target shader model
   SmStreamIndexRange, // Stream index (%0) must between 0 and %1
   SmTessFactorForDomain, // Required TessFactor for domain not found declared anywhere in Patch Constant data
-  SmTessFactorSizeMatchDomain, // TessFactor size mismatch the domain.
+  SmTessFactorSizeMatchDomain, // TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmThreadGroupChannelRange, // Declared Thread Group %0 size %1 outside valid range [%2..%3]
   SmTriOutputPrimitiveMismatch, // Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
   SmUndefinedOutput, // Not all elements of output %0 were written

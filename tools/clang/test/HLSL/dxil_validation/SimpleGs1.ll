@@ -4,7 +4,7 @@
 ; CHECK: GS instance count must be [1..32].  33 specified
 ; CHECK: GS output primitive topology unrecognized
 ; CHECK: GS input primitive unrecognized
-; CHECK: Stream index (5) must between 0 and 4
+; CHECK: Stream index (5) must between 0 and 3
 
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"
@@ -156,7 +156,7 @@ attributes #1 = { nounwind readnone }
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
 !1 = !{i32 0, i32 7}
-!2 = !{!"gs", i32 5, i32 1}
+!2 = !{!"gs", i32 6, i32 0}
 !3 = !{null, null, !4, null}
 !4 = !{!5}
 !5 = !{i32 0, %b* @b, !"b", i32 0, i32 0, i32 1, i32 8, null}

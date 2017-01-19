@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -O2 -T ps_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -O2 -T ps_6_0 %s | FileCheck %s
 
 // CHECK: !"llvm.loop.unroll.full"
 // CHECK: !"llvm.loop.unroll.disable"

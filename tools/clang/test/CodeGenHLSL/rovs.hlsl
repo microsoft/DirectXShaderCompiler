@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // Note that 'Raw and Structured buffers' is derived from feature part
 // in container, which is only present for CS 4.x

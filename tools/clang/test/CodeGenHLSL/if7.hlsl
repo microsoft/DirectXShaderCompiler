@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_5_0 /Gfp %s
+// RUN: %dxc -E main -T ps_6_0 /Gfp %s
 
 // CHECK: !"dx.controlflow.hints", i32 1
 // CHECK: !"dx.controlflow.hints", i32 1

@@ -55,6 +55,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/HLSL/DxilContainer.h"
+#include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/microcom.h"
 #include "llvm/Option/OptTable.h"
@@ -393,9 +394,17 @@ int DxcContext::Compile() {
     else {
       CComPtr<IDxcIncludeHandler> pIncludeHandler;
       IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
+
+      // Upgrade profile to 6.0 version from minimum recognized shader model
+      llvm::StringRef TargetProfile = m_Opts.TargetProfile;
+      const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(m_Opts.TargetProfile.str().c_str());
+      if (SM->IsValid() && SM->GetMajor() < 6) {
+        TargetProfile = hlsl::ShaderModel::Get(SM->GetKind(), 6, 0)->GetName();
+      }
+
       IFT(pCompiler->Compile(pSource, StringRefUtf16(m_Opts.InputFile),
         StringRefUtf16(m_Opts.EntryPoint),
-        StringRefUtf16(m_Opts.TargetProfile), args.data(),
+        StringRefUtf16(TargetProfile), args.data(),
         args.size(), m_Opts.Defines.data(),
         m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
     }

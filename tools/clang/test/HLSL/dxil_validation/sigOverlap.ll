@@ -1,6 +1,6 @@
 ; RUN: %dxv %s | FileCheck %s
 
-; CHECK: signature A use overlaped address at row 0 col 0 size 4
+; CHECK: signature element A at location (0,0) size (1,4) overlaps another signature element.
 
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"
@@ -49,7 +49,7 @@ attributes #1 = { nounwind readnone }
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
 !1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 1}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{i32 1, void (<4 x float>, <4 x float>, <4 x float>*)* @main.flat, !4}
 !4 = !{!5, !7, !7, !10}
 !5 = !{i32 0, !6, !6}

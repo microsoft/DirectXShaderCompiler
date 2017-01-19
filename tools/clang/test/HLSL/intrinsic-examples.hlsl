@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
-// :FXC_VERIFY_ARGUMENTS: /E FontPixelShader /T ps_5_0 /Gec
+// :FXC_VERIFY_ARGUMENTS: /E FontPixelShader /T ps_5_1 /Gec
 
 float4 FetchFromIndexMap( uniform Texture2D Tex, uniform SamplerState SS, const float2 RoundedUV, const float LOD )
 {

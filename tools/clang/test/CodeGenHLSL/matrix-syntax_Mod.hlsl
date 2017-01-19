@@ -1,7 +1,7 @@
-// RUN: %dxc -E main -T ps_5_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 // To test with the classic compiler, run
-// %sdxroot%\tools\x86\fxc.exe /T vs_6_0 matrix-syntax.hlsl
+// %sdxroot%\tools\x86\fxc.exe /T vs_5_1 matrix-syntax.hlsl
 
 matrix m;
 
