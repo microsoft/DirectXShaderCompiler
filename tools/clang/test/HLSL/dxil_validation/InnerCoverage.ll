@@ -8,8 +8,8 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: alwaysinline nounwind
 define void @main(float %b, i32 %c, i32* nocapture readnone dereferenceable(4) %cover) #0 {
 entry:
-  %0 = call i32 @dx.op.coverage.i32(i32 147)  ; Coverage()
-  %1 = call i32 @dx.op.innercoverage.i32(i32 148)  ; InnerCoverage()
+  %0 = call i32 @dx.op.coverage.i32(i32 93)  ; Coverage()
+  %1 = call i32 @dx.op.innercoverage.i32(i32 94)  ; InnerCoverage()
   %and = and i32 %1, %0
   call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 %and)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
   ret void

@@ -363,7 +363,7 @@ public:
 
     CComPtr<IDxcBlob> pText;
 
-    RewriteAssemblyToText(pSource, pShaderModel, pLookFor, pReplacement, &pText);
+    RewriteAssemblyToText(pSource, pShaderModel, pLookFor, pReplacement, &pText, bRegex);
 
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
@@ -734,32 +734,32 @@ TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
 TEST_F(ValidationTest, StructBufStrideAlign) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "!7 = !{i32 1, i32 52}",
-      "!7 = !{i32 1, i32 50}",
+      "= !{i32 1, i32 52}",
+      "= !{i32 1, i32 50}",
       "structured buffer element size must be a multiple of 4 bytes (actual size 50 bytes)");
 }
 
 TEST_F(ValidationTest, StructBufStrideOutOfBound) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "!7 = !{i32 1, i32 52}",
-      "!7 = !{i32 1, i32 2052}",
+      "= !{i32 1, i32 52}",
+      "= !{i32 1, i32 2052}",
       "structured buffer elements cannot be larger than 2048 bytes (actual size 2052 bytes)");
 }
 
 TEST_F(ValidationTest, StructBufLoadCoordinates) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
-      "bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
+      "bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
+      "bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
       "structured buffer require 2 coordinates");
 }
 
 TEST_F(ValidationTest, StructBufStoreCoordinates) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
-      "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
+      "bufferStore.f32(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
+      "bufferStore.f32(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
       "structured buffer require 2 coordinates");
 }
 
@@ -862,16 +862,17 @@ TEST_F(ValidationTest, PsOutputSemantic) {
 TEST_F(ValidationTest, ArrayOfSVTarget) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
-      "i32 6, !\"SV_Target\", i8 9, i8 16, !36, i8 0, i32 1",
-      "i32 6, !\"SV_Target\", i8 9, i8 16, !36, i8 0, i32 2",
-      "Pixel shader output registers are not indexable.");
+      "i32 6, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1",
+      "i32 6, !\"SV_Target\", i8 9, i8 16, !\\1, i8 0, i32 2",
+      "Pixel shader output registers are not indexable.",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, InfiniteLog) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 22, float %3)",
-      "op.unary.f32(i32 22, float 0x7FF0000000000000)",
+      "op.unary.f32(i32 23, float %3)",
+      "op.unary.f32(i32 23, float 0x7FF0000000000000)",
       "No indefinite logarithm");
 }
 
@@ -894,8 +895,8 @@ TEST_F(ValidationTest, InfiniteAcos) {
 TEST_F(ValidationTest, InfiniteDdxDdy) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 86, float %3)",
-      "op.unary.f32(i32 86, float 0x7FF0000000000000)",
+      "op.unary.f32(i32 85, float %3)",
+      "op.unary.f32(i32 85, float 0x7FF0000000000000)",
       "No indefinite derivative calculation");
 }
 
