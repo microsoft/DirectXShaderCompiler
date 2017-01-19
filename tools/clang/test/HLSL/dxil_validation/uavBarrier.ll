@@ -20,18 +20,18 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main.flat(<2 x i32>, <2 x i32>, <4 x float>* nocapture readnone) #0 {
 entry:
-  %uav1_UAV_2d = tail call %dx.types.Handle @dx.op.createHandle(i32 58, i8 1, i32 0, i32 0, i1 false)
+  %uav1_UAV_2d = tail call %dx.types.Handle @dx.op.createHandle(i32 59, i8 1, i32 0, i32 0, i1 false)
   %3 = tail call i32 @dx.op.loadInput.i32(i32 4, i32 1, i32 0, i8 0, i32 undef)
   %4 = tail call i32 @dx.op.loadInput.i32(i32 4, i32 1, i32 0, i8 1, i32 undef)
   %5 = tail call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 0, i32 undef)
   %6 = tail call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 1, i32 undef)
-  %TextureLoad = tail call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 67, %dx.types.Handle %uav1_UAV_2d, i32 %3, i32 %3, i32 %4, i32 %3, i32 undef, i32 %3, i32 undef)
+  %TextureLoad = tail call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 68, %dx.types.Handle %uav1_UAV_2d, i32 %3, i32 %3, i32 %4, i32 %3, i32 undef, i32 %3, i32 undef)
   %7 = extractvalue %dx.types.ResRet.f32 %TextureLoad, 0
   %8 = extractvalue %dx.types.ResRet.f32 %TextureLoad, 1
   %9 = extractvalue %dx.types.ResRet.f32 %TextureLoad, 2
   %10 = extractvalue %dx.types.ResRet.f32 %TextureLoad, 3
-  tail call void @dx.op.barrier(i32 83, i32 9)
-  %TextureLoad1 = tail call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 67, %dx.types.Handle %uav1_UAV_2d, i32 undef, i32 %5, i32 %6, i32 undef, i32 undef, i32 undef, i32 undef)
+  tail call void @dx.op.barrier(i32 82, i32 9)
+  %TextureLoad1 = tail call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 68, %dx.types.Handle %uav1_UAV_2d, i32 undef, i32 %5, i32 %6, i32 undef, i32 undef, i32 undef, i32 undef)
   %11 = extractvalue %dx.types.ResRet.f32 %TextureLoad1, 0
   %12 = extractvalue %dx.types.ResRet.f32 %TextureLoad1, 1
   %13 = extractvalue %dx.types.ResRet.f32 %TextureLoad1, 2
@@ -50,8 +50,8 @@ entry:
   %factor6 = fmul fast float %conv, 2.000000e+00
   %add4.i3 = fadd fast float %14, %10
   %add9.i3 = fadd fast float %add4.i3, %factor6
-  tail call void @dx.op.barrier(i32 83, i32 2)
-  tail call void @dx.op.textureStore.f32(i32 68, %dx.types.Handle %uav1_UAV_2d, i32 %3, i32 %4, i32 undef, float %add9.i0, float %add9.i1, float %add9.i2, float undef, i8 7)
+  tail call void @dx.op.barrier(i32 82, i32 2)
+  tail call void @dx.op.textureStore.f32(i32 69, %dx.types.Handle %uav1_UAV_2d, i32 %3, i32 %4, i32 undef, float %add9.i0, float %add9.i1, float %add9.i2, float undef, i8 7)
   tail call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %add9.i0)
   tail call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %add9.i1)
   tail call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %add9.i2)
@@ -89,8 +89,8 @@ attributes #2 = { nounwind readonly }
 !dx.entryPoints = !{!21}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 1}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{null, !4, null, null}
 !4 = !{!5}
 !5 = !{i32 0, %class.RWTexture2D* @"\01?uav1@@3V?$RWTexture2D@V?$vector@M$03@@@@A", !"uav1", i32 0, i32 3, i32 1, i32 2, i1 false, i1 false, i1 false, !6}

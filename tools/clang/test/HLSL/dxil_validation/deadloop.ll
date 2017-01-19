@@ -64,8 +64,8 @@ attributes #1 = { nounwind readnone }
 !dx.unused = !{!20}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 1}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{null, null, !4, null}
 !4 = !{!5}
 !5 = !{i32 0, %"$Globals"* @"$Globals", !"$Globals", i32 0, i32 0, i32 1, i32 4, null}

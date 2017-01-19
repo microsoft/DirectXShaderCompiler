@@ -21,19 +21,19 @@ target triple = "dxil-ms-dx"
 
 ; Function Attrs: nounwind
 define void @main.flat(<2 x float>, <4 x float>* nocapture readnone) #0 {
-  %text1_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 0, i32 0, i32 3, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
-  %samp1_sampler = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 3, i32 0, i32 5, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %text1_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0, i32 0, i32 3, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %samp1_sampler = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 3, i32 0, i32 5, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
   %3 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %4 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
-  %5 = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 2, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
-  %6 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 62, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 undef, i32 undef, i32 undef, float 1.8000000e01, float undef)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
+  %5 = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 2, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %6 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 63, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 undef, i32 undef, i32 undef, float 1.8000000e01, float undef)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
   %7 = extractvalue %dx.types.ResRet.f32 %6, 0
   %8 = extractvalue %dx.types.ResRet.f32 %6, 1
   %9 = extractvalue %dx.types.ResRet.f32 %6, 2
   %10 = extractvalue %dx.types.ResRet.f32 %6, 3
-  %11 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 60, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+  %11 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 61, %dx.types.Handle %5, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
   %12 = extractvalue %dx.types.CBufRet.f32 %11, 0
-  %13 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 62, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 -5, i32 7, i32 undef, float %12, float undef)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
+  %13 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 63, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 -5, i32 7, i32 undef, float %12, float undef)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
   %14 = extractvalue %dx.types.ResRet.f32 %13, 0
   %15 = extractvalue %dx.types.ResRet.f32 %13, 1
   %16 = extractvalue %dx.types.ResRet.f32 %13, 2
@@ -42,7 +42,7 @@ define void @main.flat(<2 x float>, <4 x float>* nocapture readnone) #0 {
   %.i1 = fadd fast float %15, %8
   %.i2 = fadd fast float %16, %9
   %.i3 = fadd fast float %17, %10
-  %18 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 62, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 -4, i32 1, i32 undef, float %12, float 1.8000000e01)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
+  %18 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 63, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 -4, i32 1, i32 undef, float %12, float 1.8000000e01)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
   %19 = extractvalue %dx.types.ResRet.f32 %18, 0
   %20 = extractvalue %dx.types.ResRet.f32 %18, 1
   %21 = extractvalue %dx.types.ResRet.f32 %18, 2
@@ -51,7 +51,7 @@ define void @main.flat(<2 x float>, <4 x float>* nocapture readnone) #0 {
   %.i12 = fadd fast float %.i1, %20
   %.i23 = fadd fast float %.i2, %21
   %.i34 = fadd fast float %.i3, %22
-  %23 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 62, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 -3, i32 2, i32 undef, float %12, float 0.000000e+00)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
+  %23 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 63, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 -3, i32 2, i32 undef, float %12, float 0.000000e+00)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
   %24 = extractvalue %dx.types.ResRet.f32 %23, 0
   %25 = extractvalue %dx.types.ResRet.f32 %23, 1
   %26 = extractvalue %dx.types.ResRet.f32 %23, 2
@@ -66,7 +66,7 @@ define void @main.flat(<2 x float>, <4 x float>* nocapture readnone) #0 {
   %.i110 = fadd fast float %.i16, %29
   %.i211 = fadd fast float %.i27, %29
   %.i312 = fadd fast float %.i38, %29
-  %30 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 62, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 -3, i32 2, i32 undef, float %12, float %3)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
+  %30 = call %dx.types.ResRet.f32 @dx.op.sampleBias.f32(i32 63, %dx.types.Handle %text1_texture_2d, %dx.types.Handle %samp1_sampler, float %3, float %4, float undef, float undef, i32 -3, i32 2, i32 undef, float %12, float %3)  ; SampleBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,bias,clamp)
   %31 = extractvalue %dx.types.ResRet.f32 %30, 0
   %32 = extractvalue %dx.types.ResRet.f32 %30, 1
   %33 = extractvalue %dx.types.ResRet.f32 %30, 2
@@ -117,7 +117,7 @@ attributes #2 = { nounwind readonly }
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
 !1 = !{i32 1, i32 0}
-!2 = !{i32 0, i32 7}
+!2 = !{i32 1, i32 0}
 !3 = !{!"ps", i32 6, i32 0}
 !4 = !{!5, null, !8, !10}
 !5 = !{!6}

@@ -474,32 +474,32 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   unsigned op = (unsigned)opcode;
   /* <py::lines('VALOPCODESM-TEXT')>hctdb_instrhelp.get_valopcode_sm_text()</py>*/
   // VALOPCODESM-TEXT:BEGIN
-  // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
-  // FlattenedThreadIdInGroup=96
-  if (93 <= op && op <= 96)
+  // Instructions: ThreadId=95, GroupId=96, ThreadIdInGroup=97,
+  // FlattenedThreadIdInGroup=98
+  if (95 <= op && op <= 98)
     return pSM->IsCS();
-  // Instructions: DomainLocation=108
-  if (op == 108)
+  // Instructions: DomainLocation=107
+  if (op == 107)
     return pSM->IsDS();
-  // Instructions: LoadOutputControlPoint=106, LoadPatchConstant=107
-  if (106 <= op && op <= 107)
+  // Instructions: LoadOutputControlPoint=105, LoadPatchConstant=106
+  if (105 <= op && op <= 106)
     return pSM->IsDS() || pSM->IsHS();
-  // Instructions: EmitStream=97, CutStream=98, EmitThenCutStream=99,
-  // GSInstanceID=138
-  if (97 <= op && op <= 99 || op == 138)
+  // Instructions: EmitStream=99, CutStream=100, EmitThenCutStream=101,
+  // GSInstanceID=102
+  if (99 <= op && op <= 102)
     return pSM->IsGS();
-  // Instructions: PrimitiveID=111
-  if (op == 111)
+  // Instructions: PrimitiveID=110
+  if (op == 110)
     return pSM->IsGS() || pSM->IsDS() || pSM->IsHS() || pSM->IsPS();
-  // Instructions: StorePatchConstant=109, OutputControlPointID=110
-  if (109 <= op && op <= 110)
+  // Instructions: StorePatchConstant=108, OutputControlPointID=109
+  if (108 <= op && op <= 109)
     return pSM->IsHS();
-  // Instructions: Sample=61, SampleBias=62, SampleCmp=65, SampleCmpLevelZero=66,
-  // RenderTargetGetSamplePosition=79, RenderTargetGetSampleCount=80,
-  // CalculateLOD=84, Discard=85, DerivCoarseX=86, DerivCoarseY=87,
-  // DerivFineX=88, DerivFineY=89, EvalSnapped=90, EvalSampleIndex=91,
-  // EvalCentroid=92, SampleIndex=146, Coverage=147, InnerCoverage=148
-  if (61 <= op && op <= 62 || 65 <= op && op <= 66 || 79 <= op && op <= 80 || 84 <= op && op <= 92 || 146 <= op && op <= 148)
+  // Instructions: Sample=62, SampleBias=63, SampleCmp=66, SampleCmpLevelZero=67,
+  // RenderTargetGetSamplePosition=78, RenderTargetGetSampleCount=79,
+  // CalculateLOD=83, Discard=84, DerivCoarseX=85, DerivCoarseY=86,
+  // DerivFineX=87, DerivFineY=88, EvalSnapped=89, EvalSampleIndex=90,
+  // EvalCentroid=91, SampleIndex=92, Coverage=93, InnerCoverage=94
+  if (62 <= op && op <= 63 || 66 <= op && op <= 67 || 78 <= op && op <= 79 || 83 <= op && op <= 94)
     return pSM->IsPS();
   return true;
   // VALOPCODESM-TEXT:END
@@ -1810,11 +1810,6 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
 
     DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
 
-    if (OP::GetOpCodeClass(dxilOpcode) == DXIL::OpCodeClass::Reserved) {
-      // Diagnosed in body validation.
-      continue;
-    }
-
     // In some cases, no overloads are provided (void is exclusive to others)
     Function *dxilFunc;
     if (hlslOP->IsOverloadLegal(dxilOpcode, voidTy)) {
@@ -2086,10 +2081,6 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
 
           unsigned opcode = OpcodeConst->getLimitedValue();
           DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
-          if (OP::GetOpCodeClass(dxilOpcode) == DXIL::OpCodeClass::Reserved) {
-            ValCtx.EmitInstrError(&I, ValidationRule::InstrOpCodeReserved);
-            continue;
-          }
 
           if (OP::IsDxilOpGradient(dxilOpcode)) {
             gradientOps.push_back(CI);

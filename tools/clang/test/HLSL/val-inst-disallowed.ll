@@ -9,9 +9,6 @@ target triple = "dxil-ms-dx"
 
 define void @"\01?main@@YA?AV?$vector@M$03@@XZ.flat"(<4 x float>*) {
 entry:
-; CHECK: Instructions must not reference reserved opcodes
-  %WaveCapture = call %dx.types.wave_t @dx.op.waveCapture(i32 114, i8 0)
-
 ; CHECK: Declaration '%dx.types.wave_t = type { i8* }' uses a reserved prefix
   %wave_local = alloca %dx.types.wave_t
 
@@ -41,8 +38,8 @@ attributes #1 = { nounwind readonly }
 !dx.entryPoints = !{!9}
 
 !0 = !{!"clang version 3.7.0 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 4}
-!2 = !{!"vs", i32 5, i32 0}
+!1 = !{i32 1, i32 0}
+!2 = !{!"vs", i32 6, i32 0}
 !3 = !{i32 1, void (<4 x float>*)* @"\01?main@@YA?AV?$vector@M$03@@XZ.flat", !4}
 !4 = !{!5, !7}
 !5 = !{i32 0, !6, !13}

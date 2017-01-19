@@ -25,18 +25,18 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main.flat(float, float, <4 x float>* nocapture readnone) #0 {
 entry:
-  %buf2_UAV_structbuf = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 1, i32 0, i32 0, i1 false)
-  %buf1_texture_buf = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 0, i32 0, i32 0, i1 false)
+  %buf2_UAV_structbuf = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 1, i32 0, i32 0, i1 false)
+  %buf1_texture_buf = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0, i32 0, i32 0, i1 false)
   %3 = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 0, i32 undef)
   %4 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)
-  %5 = call i32 @dx.op.bufferUpdateCounter(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i8 1)
-  call void @dx.op.bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %5, i32 0, float %4, float %3, float undef, float undef, i8 3)
-  %6 = call i32 @dx.op.bufferUpdateCounter(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i8 -1)
-  %BufferLoad1 = call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 %6, i32 0)
+  %5 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 1)
+  call void @dx.op.bufferStore.f32(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i32 %5, i32 0, float %4, float %3, float undef, float undef, i8 3)
+  %6 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 -1)
+  %BufferLoad1 = call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %6, i32 0)
   %7 = extractvalue %dx.types.ResRet.f32 %BufferLoad1, 0
   %8 = extractvalue %dx.types.ResRet.f32 %BufferLoad1, 1
-  %9 = call i32 @dx.op.bufferUpdateCounter(i32 71, %dx.types.Handle %buf1_texture_buf, i8 undef)
-  %BufferLoad = call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_buf, i32 %6, i32 undef)
+  %9 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf1_texture_buf, i8 undef)
+  %BufferLoad = call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_buf, i32 %6, i32 undef)
   %10 = extractvalue %dx.types.ResRet.f32 %BufferLoad, 0
   %11 = extractvalue %dx.types.ResRet.f32 %BufferLoad, 1
   %add.i0 = fadd fast float %10, %7
@@ -78,8 +78,8 @@ attributes #2 = { nounwind readonly }
 !dx.entryPoints = !{!32}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 1}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{!4, !7, null, null}
 !4 = !{!5}
 !5 = !{i32 0, %class.Buffer* @"\01?buf1@@3V?$Buffer@V?$vector@M$01@@@@A", !"buf1", i32 0, i32 0, i32 1, i32 10, i32 0, !6}

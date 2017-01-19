@@ -6,8 +6,6 @@
 ; CHECK: structured buffer require 2 coordinates
 
 
-
-
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"
 
@@ -28,15 +26,15 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main.flat(float, float, <4 x float>* nocapture readnone) #0 {
 entry:
-  %buf2_UAV_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 58, i8 1, i32 0, i32 0, i1 false)
-  %buf1_texture_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 58, i8 0, i32 0, i32 0, i1 false)
+  %buf2_UAV_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 59, i8 1, i32 0, i32 0, i1 false)
+  %buf1_texture_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0, i32 0, i32 0, i1 false)
   %3 = tail call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 0, i32 undef)
   %4 = tail call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)
   %conv = fptosi float %4 to i32
-  %BufferLoad = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 %conv, i32 0)
+  %BufferLoad = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 %conv, i32 0)
   %5 = extractvalue %dx.types.ResRet.f32 %BufferLoad, 0
   %6 = extractvalue %dx.types.ResRet.f32 %BufferLoad, 1
-  %BufferLoad1 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 %conv, i32 undef)
+  %BufferLoad1 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 %conv, i32 undef)
   %7 = extractvalue %dx.types.ResRet.f32 %BufferLoad1, 0
   %8 = extractvalue %dx.types.ResRet.f32 %BufferLoad1, 1
   %9 = extractvalue %dx.types.ResRet.f32 %BufferLoad1, 2
@@ -45,26 +43,26 @@ entry:
   %conv4 = fptoui float %3 to i32
   %10 = shl i32 %conv4, 3
   %11 = add i32 %10, 20
-  %BufferLoad2 = tail call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 %conv, i32 %11)
+  %BufferLoad2 = tail call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 %conv, i32 %11)
   %12 = extractvalue %dx.types.ResRet.i32 %BufferLoad2, 0
   %13 = extractvalue %dx.types.ResRet.i32 %BufferLoad2, 1
   %conv7.i0 = sitofp i32 %12 to float
   %conv7.i1 = sitofp i32 %13 to float
   %add8.i1 = fadd fast float %add3.i1, %conv7.i1
   %conv9 = fptosi float %3 to i32
-  %BufferLoad3 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 %conv9, i32 0)
+  %BufferLoad3 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 %conv9, i32 0)
   %14 = extractvalue %dx.types.ResRet.f32 %BufferLoad3, 0
   %15 = extractvalue %dx.types.ResRet.f32 %BufferLoad3, 1
   %add12.i0 = fadd fast float %add3.i0, %14
   %add12.i1 = fadd fast float %add8.i1, %15
-  %BufferLoad4 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 %conv9, i32 8)
+  %BufferLoad4 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 %conv9, i32 8)
   %16 = extractvalue %dx.types.ResRet.f32 %BufferLoad4, 0
   %17 = extractvalue %dx.types.ResRet.f32 %BufferLoad4, 1
   %18 = extractvalue %dx.types.ResRet.f32 %BufferLoad4, 2
   %add18.i0 = fadd fast float %add12.i0, %16
   %add18.i1 = fadd fast float %add12.i1, %17
   %add18.i2 = fadd fast float %18, %9
-  %BufferLoad5 = tail call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 %conv9, i32 %11)
+  %BufferLoad5 = tail call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 %conv9, i32 %11)
   %19 = extractvalue %dx.types.ResRet.i32 %BufferLoad5, 0
   %20 = extractvalue %dx.types.ResRet.i32 %BufferLoad5, 1
   %conv28.i0 = sitofp i32 %19 to float
@@ -73,19 +71,19 @@ entry:
   %add29.i1 = fadd fast float %add18.i1, %conv28.i1
   %add34 = fadd fast float %4, 2.000000e+02
   %conv35 = fptosi float %add34 to i32
-  %BufferLoad6 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv35, i32 0)
+  %BufferLoad6 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv35, i32 0)
   %21 = extractvalue %dx.types.ResRet.f32 %BufferLoad6, 0
   %22 = extractvalue %dx.types.ResRet.f32 %BufferLoad6, 1
   %add38.i0 = fadd fast float %add18.i0, %21
   %add38.i1 = fadd fast float %add29.i1, %22
-  %BufferLoad7 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv35, i32 8)
+  %BufferLoad7 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv35, i32 8)
   %23 = extractvalue %dx.types.ResRet.f32 %BufferLoad7, 0
   %24 = extractvalue %dx.types.ResRet.f32 %BufferLoad7, 1
   %25 = extractvalue %dx.types.ResRet.f32 %BufferLoad7, 2
   %add43.i0 = fadd fast float %add38.i0, %23
   %add43.i1 = fadd fast float %add38.i1, %24
   %add43.i2 = fadd fast float %add18.i2, %25
-  %BufferLoad8 = tail call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv35, i32 %11)
+  %BufferLoad8 = tail call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv35, i32 %11)
   %26 = extractvalue %dx.types.ResRet.i32 %BufferLoad8, 0
   %27 = extractvalue %dx.types.ResRet.i32 %BufferLoad8, 1
   %conv50.i0 = sitofp i32 %26 to float
@@ -94,19 +92,19 @@ entry:
   %add51.i1 = fadd fast float %add43.i1, %conv50.i1
   %add52 = fadd fast float %3, 2.000000e+02
   %conv53 = fptosi float %add52 to i32
-  %BufferLoad9 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv53, i32 0)
+  %BufferLoad9 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv53, i32 0)
   %28 = extractvalue %dx.types.ResRet.f32 %BufferLoad9, 0
   %29 = extractvalue %dx.types.ResRet.f32 %BufferLoad9, 1
   %add56.i0 = fadd fast float %add43.i0, %28
   %add56.i1 = fadd fast float %add51.i1, %29
-  %BufferLoad10 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv53, i32 8)
+  %BufferLoad10 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv53, i32 8)
   %30 = extractvalue %dx.types.ResRet.f32 %BufferLoad10, 0
   %31 = extractvalue %dx.types.ResRet.f32 %BufferLoad10, 1
   %32 = extractvalue %dx.types.ResRet.f32 %BufferLoad10, 2
   %add65.i0 = fadd fast float %add56.i0, %30
   %add65.i1 = fadd fast float %add56.i1, %31
   %add65.i2 = fadd fast float %add43.i2, %32
-  %BufferLoad11 = tail call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv53, i32 %11)
+  %BufferLoad11 = tail call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv53, i32 %11)
   %33 = extractvalue %dx.types.ResRet.i32 %BufferLoad11, 0
   %34 = extractvalue %dx.types.ResRet.i32 %BufferLoad11, 1
   %conv76.i0 = sitofp i32 %33 to float
@@ -115,11 +113,11 @@ entry:
   %add77.i1 = fadd fast float %add65.i1, %conv76.i1
   %mul = fmul fast float %4, 3.000000e+00
   %conv82 = fptoui float %mul to i32
-  tail call void @dx.op.bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv82, i32 0, float %add65.i0, float %add77.i1, float undef, float undef, i8 3)
-  tail call void @dx.op.bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv82, i32 8, float %add65.i0, float %add77.i1, float %add65.i2, float undef, i8 7)
+  tail call void @dx.op.bufferStore.f32(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv82, i32 0, float %add65.i0, float %add77.i1, float undef, float undef, i8 3)
+  tail call void @dx.op.bufferStore.f32(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv82, i32 8, float %add65.i0, float %add77.i1, float %add65.i2, float undef, i8 7)
   %conv89.i0 = fptosi float %add77.i1 to i32
   %conv89.i1 = fptosi float %add77.i0 to i32
-  tail call void @dx.op.bufferStore.i32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv82, i32 %11, i32 %conv89.i0, i32 %conv89.i1, i32 undef, i32 undef, i8 3)
+  tail call void @dx.op.bufferStore.i32(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i32 %conv82, i32 %11, i32 %conv89.i0, i32 %conv89.i1, i32 undef, i32 undef, i8 3)
   tail call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %add65.i0)
   tail call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %add77.i1)
   tail call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %add65.i2)
@@ -160,8 +158,8 @@ attributes #2 = { nounwind readonly }
 !dx.entryPoints = !{!29}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 1}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{!4, !7, null, null}
 !4 = !{!5}
 !5 = !{i32 0, %class.StructuredBuffer* @"\01?buf1@@3V?$StructuredBuffer@UFoo@@@@A", !"buf1", i32 0, i32 0, i32 1, i32 12, i32 0, !6}

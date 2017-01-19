@@ -62,8 +62,8 @@ attributes #1 = { nounwind readnone }
 !dx.entryPoints = !{!46}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"hs", i32 5, i32 1}
+!1 = !{i32 1, i32 0}
+!2 = !{!"hs", i32 6, i32 0}
 !3 = !{i32 0, %class.Texture2D addrspace(1)* @dx.typevar.0, !4, %"class.Texture2D<vector<float, 4> >::mips_type" addrspace(1)* @dx.typevar.1, !7, %struct.PSSceneIn addrspace(1)* @dx.typevar.2, !9, %struct.VSSceneIn addrspace(1)* @dx.typevar.3, !13, %struct.HSPerPatchData addrspace(1)* @dx.typevar.4, !17, %class.InputPatch addrspace(1)* @dx.typevar.5, !20, %struct.HSPerVertexData addrspace(1)* @dx.typevar.6, !22}
 !4 = !{i32 20, !5, !6}
 !5 = !{i32 3, i32 0, i32 6, !"h", i32 7, i32 9}

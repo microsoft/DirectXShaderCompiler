@@ -65,8 +65,8 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main.flat(<4 x float>* nocapture readnone) #0 {
 entry:
-  %1 = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 2, i32 0, i32 5, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
-  %2 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 60, %dx.types.Handle %1, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
+  %1 = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 2, i32 0, i32 5, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %2 = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 61, %dx.types.Handle %1, i32 1)  ; CBufferLoadLegacy(handle,regIndex)
   %3 = extractvalue %dx.types.CBufRet.f32 %2, 0
   %4 = extractvalue %dx.types.CBufRet.f32 %2, 1
   %5 = extractvalue %dx.types.CBufRet.f32 %2, 2
@@ -98,8 +98,8 @@ attributes #1 = { nounwind readnone }
 !dx.entryPoints = !{!16}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 0}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{null, null, !4, null}
 !4 = !{!5}
 !5 = !{i32 0, %Foo2* @Foo2, !"Foo2", i32 0, i32 5, i32 1, i32 16, null}

@@ -63,11 +63,11 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main.flat(<4 x float>* nocapture readnone) #0 {
 entry:
-  %1 = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 2, i32 0, i32 5, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
-  %2 = call float @dx.op.cbufferLoad.f32(i32 59, %dx.types.Handle %1, i32 0, i32 8)  ; CBufferLoad(handle,byteOffset,alignment)
-  %3 = call float @dx.op.cbufferLoad.f32(i32 59, %dx.types.Handle %1, i32 4, i32 8)  ; CBufferLoad(handle,byteOffset,alignment)
-  %4 = call float @dx.op.cbufferLoad.f32(i32 59, %dx.types.Handle %1, i32 8, i32 8)  ; CBufferLoad(handle,byteOffset,alignment)
-  %5 = call float @dx.op.cbufferLoad.f32(i32 59, %dx.types.Handle %1, i32 16, i32 8)  ; CBufferLoad(handle,byteOffset,alignment)
+  %1 = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 2, i32 0, i32 5, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %2 = call float @dx.op.cbufferLoad.f32(i32 60, %dx.types.Handle %1, i32 0, i32 8)  ; CBufferLoad(handle,byteOffset,alignment)
+  %3 = call float @dx.op.cbufferLoad.f32(i32 60, %dx.types.Handle %1, i32 4, i32 8)  ; CBufferLoad(handle,byteOffset,alignment)
+  %4 = call float @dx.op.cbufferLoad.f32(i32 60, %dx.types.Handle %1, i32 8, i32 8)  ; CBufferLoad(handle,byteOffset,alignment)
+  %5 = call float @dx.op.cbufferLoad.f32(i32 60, %dx.types.Handle %1, i32 16, i32 8)  ; CBufferLoad(handle,byteOffset,alignment)
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %2)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %3)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %4)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
@@ -95,8 +95,8 @@ attributes #1 = { nounwind readnone }
 !dx.entryPoints = !{!16}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 0}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{null, null, !4, null}
 !4 = !{!5}
 !5 = !{i32 0, %Foo2* @Foo2, !"Foo2", i32 0, i32 5, i32 1, i32 16, null}

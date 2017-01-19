@@ -101,8 +101,8 @@ attributes #1 = { nounwind readnone }
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
 !1 = !{i32 1, i32 0}
-!2 = !{i32 0, i32 7}
-!3 = !{!"hs", i32 5, i32 0}
+!2 = !{i32 1, i32 0}
+!3 = !{!"hs", i32 6, i32 0}
 !4 = !{i32 0, %class.Texture2D addrspace(1)* @dx.typevar.0, !5, %"class.Texture2D<vector<float, 4> >::mips_type" addrspace(1)* @dx.typevar.1, !8, %struct.PSSceneIn addrspace(1)* @dx.typevar.2, !10, %struct.VSSceneIn addrspace(1)* @dx.typevar.3, !14, %struct.HSPerPatchData addrspace(1)* @dx.typevar.4, !18, %struct.HSPerVertexData addrspace(1)* @dx.typevar.5, !21}
 !5 = !{i32 20, !6, !7}
 !6 = !{i32 3, i32 0, i32 6, !"h", i32 7, i32 9}

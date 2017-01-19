@@ -17,7 +17,6 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilRootSignature.h"
-#include "dxc/HLSL/DxilValidation.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -26,6 +25,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include <array>
+
+#include "dxc/Support/WinIncludes.h"
 
 using namespace llvm;
 using std::string;
@@ -131,10 +132,10 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
   ShaderModelName += "_" + std::to_string(Major) + "_" + std::to_string(Minor);
   pSM = ShaderModel::GetByName(ShaderModelName.c_str());
   if (!pSM->IsValid()) {
-    string ErrorMsg = hlsl::GetValidationRuleText(hlsl::ValidationRule::SmName);
-    size_t offset = ErrorMsg.find("%0");
-    if (offset != string::npos)
-      ErrorMsg.replace(offset, 2, ShaderModelName);
+    char ErrorMsgTxt[40];
+    StringCchPrintfA(ErrorMsgTxt, _countof(ErrorMsgTxt),
+                     "Unknown shader model '%s'", ShaderModelName.c_str());
+    string ErrorMsg(ErrorMsgTxt);
     throw hlsl::Exception(DXC_E_INCORRECT_DXIL_METADATA, ErrorMsg);
   }
 }

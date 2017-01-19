@@ -30,8 +30,8 @@ attributes #2 = { nounwind }
 !dx.entryPoints = !{!16}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 1}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{i32 1, void (float, float, i32, i32*)* @main, !4}
 !4 = !{!5, !7, !10, !12, !14}
 !5 = !{i32 1, !6, !6}

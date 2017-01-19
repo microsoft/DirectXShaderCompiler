@@ -42,25 +42,25 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: alwaysinline nounwind
 define void @main(<2 x i32> %tid, <2 x i32> %gid, <2 x i32> %gtid, i32 %gidx) #0 {
 entry:
-  %fA_UAV_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 58, i8 1, i32 0, i32 0, i1 false)
-  %mats2_texture_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 58, i8 0, i32 1, i32 1, i1 false)
-  %mats_texture_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 58, i8 0, i32 0, i32 0, i1 false)
-  %0 = tail call i32 @dx.op.threadId.i32(i32 93, i32 0)
-  %1 = tail call i32 @dx.op.threadId.i32(i32 93, i32 1)
-  %2 = tail call i32 @dx.op.groupId.i32(i32 94, i32 0)
-  %3 = tail call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 1)
-  %4 = tail call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)
+  %fA_UAV_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 59, i8 1, i32 0, i32 0, i1 false)
+  %mats2_texture_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0, i32 1, i32 1, i1 false)
+  %mats_texture_structbuf = tail call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0, i32 0, i32 0, i1 false)
+  %0 = tail call i32 @dx.op.threadId.i32(i32 96, i32 0)
+  %1 = tail call i32 @dx.op.threadId.i32(i32 96, i32 1)
+  %2 = tail call i32 @dx.op.groupId.i32(i32 96, i32 0)
+  %3 = tail call i32 @dx.op.threadIdInGroup.i32(i32 97, i32 1)
+  %4 = tail call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 98)
   %rem = and i32 %0, 63
   %5 = getelementptr inbounds [64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?dataC@@3PAV?$matrix@M$01$01@@A.v", i32 0, i32 %rem, i32 0
   %6 = getelementptr inbounds [64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?dataC@@3PAV?$matrix@M$01$01@@A.v", i32 0, i32 %rem, i32 1
   %7 = getelementptr inbounds [64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?dataC@@3PAV?$matrix@M$01$01@@A.v", i32 0, i32 %rem, i32 2
   %8 = getelementptr inbounds [64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?dataC@@3PAV?$matrix@M$01$01@@A.v", i32 0, i32 %rem, i32 3
-  %BufferLoad = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %mats_texture_structbuf, i32 %2, i32 0)
+  %BufferLoad = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %mats_texture_structbuf, i32 %2, i32 0)
   %9 = extractvalue %dx.types.ResRet.f32 %BufferLoad, 0
   %10 = extractvalue %dx.types.ResRet.f32 %BufferLoad, 1
   %11 = extractvalue %dx.types.ResRet.f32 %BufferLoad, 2
   %12 = extractvalue %dx.types.ResRet.f32 %BufferLoad, 3
-  %BufferLoad10 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 69, %dx.types.Handle %mats2_texture_structbuf, i32 %3, i32 0)
+  %BufferLoad10 = tail call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 70, %dx.types.Handle %mats2_texture_structbuf, i32 %3, i32 0)
   %13 = extractvalue %dx.types.ResRet.f32 %BufferLoad10, 0
   %14 = extractvalue %dx.types.ResRet.f32 %BufferLoad10, 1
   %15 = extractvalue %dx.types.ResRet.f32 %BufferLoad10, 2
@@ -73,8 +73,8 @@ entry:
   store float %.i1, float addrspace(3)* %6, align 4
   store float %.i2, float addrspace(3)* %7, align 8
   store float %.i3, float addrspace(3)* %8, align 4
-  tail call void @dx.op.barrier(i32 83, i32 15)
-  tail call void @dx.op.barrier(i32 83, i32 0)
+  tail call void @dx.op.barrier(i32 82, i32 15)
+  tail call void @dx.op.barrier(i32 82, i32 0)
   %rem3 = and i32 %1, 63
   %sub = xor i32 %rem3, 63
   %17 = getelementptr inbounds [64 x <4 x float>], [64 x <4 x float>] addrspace(3)* @"\01?dataC@@3PAV?$matrix@M$01$01@@A.v", i32 0, i32 %sub, i32 0
@@ -85,16 +85,16 @@ entry:
   %22 = load float, float addrspace(3)* %18, align 4
   %23 = load float, float addrspace(3)* %19, align 8
   %24 = load float, float addrspace(3)* %20, align 4
-  tail call void @dx.op.barrier(i32 83, i32 10)
+  tail call void @dx.op.barrier(i32 82, i32 10)
   %add = add i32 %4, 2
-  tail call void @dx.op.bufferStore.f32(i32 70, %dx.types.Handle %fA_UAV_structbuf, i32 %add, i32 0, float %21, float %22, float %23, float %24, i8 15)
-  tail call void @dx.op.barrier(i32 83, i32 %rem)
+  tail call void @dx.op.bufferStore.f32(i32 71, %dx.types.Handle %fA_UAV_structbuf, i32 %add, i32 0, float %21, float %22, float %23, float %24, i8 15)
+  tail call void @dx.op.barrier(i32 82, i32 %rem)
   %add6 = add i32 %4, 1
   %25 = load %struct.mat, %struct.mat addrspace(1)* @dx.typevar.2, align 4
-  tail call void @dx.op.bufferStore.f32(i32 70, %dx.types.Handle %fA_UAV_structbuf, i32 %add6, i32 0, float %21, float %22, float %23, float %24, i8 15)
-  tail call void @dx.op.barrier(i32 83, i32 2)
-  tail call void @dx.op.barrier(i32 83, i32 4)
-  tail call void @dx.op.bufferStore.f32(i32 70, %dx.types.Handle %fA_UAV_structbuf, i32 %4, i32 0, float %21, float %22, float %23, float %24, i8 15)
+  tail call void @dx.op.bufferStore.f32(i32 71, %dx.types.Handle %fA_UAV_structbuf, i32 %add6, i32 0, float %21, float %22, float %23, float %24, i8 15)
+  tail call void @dx.op.barrier(i32 82, i32 2)
+  tail call void @dx.op.barrier(i32 82, i32 4)
+  tail call void @dx.op.bufferStore.f32(i32 71, %dx.types.Handle %fA_UAV_structbuf, i32 %4, i32 0, float %21, float %22, float %23, float %24, i8 15)
   ret void
 }
 
@@ -135,8 +135,8 @@ attributes #3 = { nounwind }
 !dx.entryPoints = !{!32}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 5}
-!2 = !{!"cs", i32 5, i32 1}
+!1 = !{i32 1, i32 0}
+!2 = !{!"cs", i32 6, i32 0}
 !3 = !{!4, !8, null, null}
 !4 = !{!5, !7}
 !5 = !{i32 0, %dx.alignment.legacy.class.StructuredBuffer* @"\01?mats@@3V?$StructuredBuffer@Umat@@@@A_legacy", !"mats", i32 0, i32 0, i32 1, i32 12, i32 0, !6}

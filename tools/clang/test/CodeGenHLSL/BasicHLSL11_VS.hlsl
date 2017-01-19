@@ -20,7 +20,7 @@
 // CHECK: xyzw
 
 // CHECK: OutputPositionPresent=1
-// CHECK: dx.op.createHandle(i32 58, i8 2, i32 0, i32 5, i1 false)
+// CHECK: dx.op.createHandle(i32 59, i8 2, i32 0, i32 5, i1 false)
 
 //--------------------------------------------------------------------------------------
 // File: BasicHLSL11_VS.hlsl

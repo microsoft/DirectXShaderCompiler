@@ -127,6 +127,11 @@ public:
       const char *pStart = (const char *)text->GetBufferPointer();
       const char *pEnd = pStart + text->GetBufferSize();
       const char *pMatch = std::search(pStart, pEnd, pErrorMsg, pErrorMsg + strlen(pErrorMsg));
+      if (pEnd == pMatch) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+            L"Unable to find '%S' in text:\r\n%.*S", pErrorMsg, (pEnd - pStart),
+            pStart));
+      }
       VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
     }
     return true;
@@ -488,8 +493,8 @@ TEST_F(ValidationTest, GsVertexIDOutOfBound) {
 TEST_F(ValidationTest, StreamIDOutOfBound) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
-      "dx.op.emitStream(i32 97, i8 0)",
-      "dx.op.emitStream(i32 97, i8 1)", 
+      "dx.op.emitStream(i32 99, i8 0)",
+      "dx.op.emitStream(i32 99, i8 1)", 
       "expect StreamID between 0 , got 1");
 }
 
@@ -655,7 +660,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0", 
       "dx.op.storeOutput.f32(i32 5",
-      "dx.op.storePatchConstant.f32(i32 109",
+      "dx.op.storePatchConstant.f32(i32 108",
       "opcode 'StorePatchConstant' should only used in 'PatchConstant function'");
 }
 
@@ -706,7 +711,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0",
       "dx.op.loadInput.f32(i32 4",
-      "dx.op.loadOutputControlPoint.f32(i32 106",
+      "dx.op.loadOutputControlPoint.f32(i32 105",
       "opcode 'LoadOutputControlPoint' should only used in 'PatchConstant function'");
 }
 
@@ -757,7 +762,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0",
       "ret void",
-      "call i32 @dx.op.outputControlPointID.i32(i32 110)\n ret void",
+      "call i32 @dx.op.outputControlPointID.i32(i32 109)\n ret void",
       "opcode 'OutputControlPointID' should only used in 'hull function'");
 }
 

@@ -8,8 +8,6 @@
 ; CHECK: DomainLocation component index out of bounds for the domain.
 
 
-
-
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"
 
@@ -27,9 +25,9 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main.flat(<3 x float>, [3 x <4 x float>]* nocapture readnone, [3 x <2 x float>]* nocapture readnone, [3 x <3 x float>]* nocapture readnone, [3 x float]* nocapture readnone, float* nocapture readnone, <4 x float>* nocapture readnone, <2 x float>* nocapture readnone, <3 x float>* nocapture readnone) #0 {
 entry:
-  %9 = tail call float @dx.op.domainLocation.f32(i32 108, i8 0)
-  %10 = tail call float @dx.op.domainLocation.f32(i32 108, i8 1)
-  %11 = tail call float @dx.op.domainLocation.f32(i32 108, i8 2)
+  %9 = tail call float @dx.op.domainLocation.f32(i32 107, i8 0)
+  %10 = tail call float @dx.op.domainLocation.f32(i32 107, i8 1)
+  %11 = tail call float @dx.op.domainLocation.f32(i32 107, i8 2)
   %12 = tail call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 0)
   %13 = tail call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 0)
   %14 = tail call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 2, i32 0)
@@ -62,7 +60,7 @@ entry:
   %add11.i1 = fadd fast float %add.i1, %mul10.i1
   %add11.i2 = fadd fast float %add.i2, %mul10.i2
   %add11.i3 = fadd fast float %add.i3, %mul10.i3
-  %24 = tail call float @dx.op.loadPatchConstant.f32(i32 107, i32 0, i32 1, i8 0)
+  %24 = tail call float @dx.op.loadPatchConstant.f32(i32 106, i32 0, i32 1, i8 0)
   %add14.i0 = fadd fast float %add11.i0, %24
   %add14.i1 = fadd fast float %add11.i1, %24
   %add14.i2 = fadd fast float %add11.i2, %24
@@ -83,7 +81,7 @@ entry:
   %mul30.i1 = fmul fast float %30, %11
   %add31.i0 = fadd fast float %add25.i0, %mul30.i0
   %add31.i1 = fadd fast float %add25.i1, %mul30.i1
-  %31 = tail call float @dx.op.loadPatchConstant.f32(i32 107, i32 0, i32 0, i8 0)
+  %31 = tail call float @dx.op.loadPatchConstant.f32(i32 106, i32 0, i32 0, i8 0)
   %add36.i0 = fadd fast float %add31.i0, %31
   %add36.i1 = fadd fast float %add31.i1, %31
   %32 = tail call float @dx.op.loadInput.f32(i32 4, i32 2, i32 0, i8 0, i32 0)
@@ -110,7 +108,7 @@ entry:
   %add53.i0 = fadd fast float %add47.i0, %mul52.i0
   %add53.i1 = fadd fast float %add47.i1, %mul52.i1
   %add53.i2 = fadd fast float %add47.i2, %mul52.i2
-  %41 = tail call float @dx.op.loadPatchConstant.f32(i32 107, i32 1, i32 0, i8 0)
+  %41 = tail call float @dx.op.loadPatchConstant.f32(i32 106, i32 1, i32 0, i8 0)
   %add56.i0 = fadd fast float %add53.i0, %41
   %add56.i1 = fadd fast float %add53.i1, %41
   %add56.i2 = fadd fast float %add53.i2, %41
@@ -147,9 +145,9 @@ attributes #1 = { nounwind readnone }
 !dx.typeAnnotations = !{!3, !15}
 !dx.entryPoints = !{!36}
 
-!0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ds", i32 5, i32 1}
+!0 = !{!"my awesome compiler"}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ds", i32 6, i32 0}
 !3 = !{i32 0, %struct.PSSceneIn addrspace(1)* @dx.typevar.0, !4, %struct.HSPerVertexData addrspace(1)* @dx.typevar.1, !8, %struct.HSPerPatchData addrspace(1)* @dx.typevar.2, !10, %class.OutputPatch addrspace(1)* @dx.typevar.3, !13}
 !4 = !{i32 44, !5, !6, !7}
 !5 = !{i32 3, i32 0, i32 4, !"SV_Position", i32 6, !"pos", i32 7, i32 9}

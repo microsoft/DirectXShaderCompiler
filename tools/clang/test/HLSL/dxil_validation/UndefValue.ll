@@ -72,8 +72,8 @@ attributes #1 = { nounwind readnone }
 !dx.entryPoints = !{!12}
 
 !0 = !{!"clang version 3.7.0 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 0}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{i32 1, void (float, float*)* @"\01?main@@YAMM@Z.flat", !4}
 !4 = !{!5, !7, !10}
 !5 = !{i32 0, !6, !6}

@@ -63,14 +63,14 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind
 define void @main.flat(<2 x float>, <4 x float>* nocapture readnone) #0 {
 entry:
-  %cube_texture_cube = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 0, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
-  %g_sam_sampler = call %dx.types.Handle @dx.op.createHandle(i32 58, i8 3, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %cube_texture_cube = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %g_sam_sampler = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 3, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
   %2 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
   %3 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
-  %4 = call %dx.types.Dimensions @dx.op.getDimensions(i32 73, %dx.types.Handle %cube_texture_cube, i32 0)  ; GetDimensions(handle,mipLevel)
+  %4 = call %dx.types.Dimensions @dx.op.getDimensions(i32 74, %dx.types.Handle %cube_texture_cube, i32 0)  ; GetDimensions(handle,mipLevel)
   %5 = extractvalue %dx.types.Dimensions %4, 0
   %6 = extractvalue %dx.types.Dimensions %4, 2
-  %7 = call float @dx.op.calculateLOD.f32(i32 84, %dx.types.Handle %cube_texture_cube, %dx.types.Handle %g_sam_sampler, float %2, float %3, float undef, i1 true)  ; CalculateLOD(handle,sampler,coord0,coord1,coord2,clamped)
+  %7 = call float @dx.op.calculateLOD.f32(i32 83, %dx.types.Handle %cube_texture_cube, %dx.types.Handle %g_sam_sampler, float %2, float %3, float undef, i1 true)  ; CalculateLOD(handle,sampler,coord0,coord1,coord2,clamped)
   %conv = uitofp i32 %5 to float
   %conv1 = uitofp i32 %6 to float
   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %conv)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
@@ -107,8 +107,8 @@ attributes #2 = { nounwind readonly }
 !dx.entryPoints = !{!21}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"ps", i32 5, i32 0}
+!1 = !{i32 1, i32 0}
+!2 = !{!"ps", i32 6, i32 0}
 !3 = !{!4, null, null, !7}
 !4 = !{!5}
 !5 = !{i32 0, %class.TextureCube* @"\01?cube@@3V?$TextureCube@V?$vector@M$03@@@@A", !"cube", i32 0, i32 0, i32 1, i32 5, i32 0, !6}

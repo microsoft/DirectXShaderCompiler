@@ -132,8 +132,8 @@ attributes #1 = { nounwind readnone }
 !dx.entryPoints = !{!34}
 
 !0 = !{!"clang version 3.7 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 7}
-!2 = !{!"vs", i32 5, i32 1}
+!1 = !{i32 1, i32 0}
+!2 = !{!"vs", i32 6, i32 0}
 !3 = !{null, null, !4, null}
 !4 = !{!5}
 !5 = !{i32 0, %"$Globals"* @"$Globals", !"$Globals", i32 0, i32 0, i32 1, i32 112, null}
