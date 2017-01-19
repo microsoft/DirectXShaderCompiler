@@ -72,7 +72,7 @@ public:
   TEST_METHOD(DisassemblyWhenInvalidThenFails)
   TEST_METHOD(DisassemblyWhenValidThenOK)
   TEST_METHOD(ValidateFromLL_Abs2)
-
+  TEST_METHOD(DxilContainerUnitTest)
 
   TEST_METHOD(ReflectionMatchesDXBC_CheckIn)
   BEGIN_TEST_METHOD(ReflectionMatchesDXBC_Full)
@@ -770,4 +770,52 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
 
 TEST_F(DxilContainerTest, ValidateFromLL_Abs2) {
   CodeGenTestCheck(L"abs2_m.ll");
+}
+
+TEST_F(DxilContainerTest, DxilContainerUnitTest) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  CComPtr<IDxcOperationResult> pResult;
+  std::vector<LPCWSTR> arguments;
+  arguments.emplace_back(L"/Zi");
+  
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target { return 0; }", &pSource);
+  // Test DxilContainer with ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_5_0", arguments.data(), 1, nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  
+  const hlsl::DxilContainerHeader *pHeader = static_cast<const hlsl::DxilContainerHeader *> (pProgram->GetBufferPointer());
+  VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(hlsl::GetDxilProgramHeader(pHeader, hlsl::DxilFourCC::DFCC_DXIL));
+  VERIFY_IS_NOT_NULL(hlsl::GetDxilProgramHeader(pHeader, hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL));
+  VERIFY_IS_NOT_NULL(hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_DXIL));
+  VERIFY_IS_NOT_NULL(hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL));
+  
+  pResult.Release();
+  pProgram.Release();
+
+  // Test DxilContainer without ShaderDebugInfoDXIL
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_5_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  
+  pHeader = static_cast<const hlsl::DxilContainerHeader *> (pProgram->GetBufferPointer());
+  VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(hlsl::IsDxilContainerLike(pHeader, pProgram->GetBufferSize()));
+  VERIFY_IS_NOT_NULL(hlsl::GetDxilProgramHeader(pHeader, hlsl::DxilFourCC::DFCC_DXIL));
+  VERIFY_IS_NULL(hlsl::GetDxilProgramHeader(pHeader, hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL));
+  VERIFY_IS_NOT_NULL(hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_DXIL));
+  VERIFY_IS_NULL(hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL));
+
+  // Test Empty DxilContainer
+  hlsl::DxilContainerHeader header;
+  SetupBasicHeader(&header);
+  VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(&header, header.ContainerSizeInBytes));
+  VERIFY_IS_NOT_NULL(hlsl::IsDxilContainerLike(&header, header.ContainerSizeInBytes));
+  VERIFY_IS_NULL(hlsl::GetDxilProgramHeader(&header, hlsl::DxilFourCC::DFCC_DXIL));
+  VERIFY_IS_NULL(hlsl::GetDxilPartByType(&header, hlsl::DxilFourCC::DFCC_DXIL));
+
 }

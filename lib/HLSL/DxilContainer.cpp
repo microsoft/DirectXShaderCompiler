@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilContainer.h"
+#include <algorithm>
 
 namespace hlsl {
 
@@ -80,6 +81,46 @@ bool IsValidDxilContainer(const DxilContainerHeader *pHeader, size_t length) {
   // based on this validation
 
   return true;
+}
+
+const DxilPartHeader *GetDxilPartByType(const DxilContainerHeader *pHeader, DxilFourCC fourCC) {
+  if (IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes) == nullptr) {
+    return nullptr;
+  }
+  const DxilPartHeader *PartHeader =
+      *find_if(begin(pHeader), end(pHeader), DxilPartIsType(fourCC));
+  if (PartHeader == *end(pHeader)) {
+    return nullptr;
+  }
+  return PartHeader;
+}
+
+DxilPartHeader *GetDxilPartByType(DxilContainerHeader *pHeader,
+                                  DxilFourCC fourCC) {
+  return const_cast<DxilPartHeader *>(GetDxilPartByType(
+      static_cast<const DxilContainerHeader *>(pHeader), fourCC));
+}
+
+const DxilProgramHeader *GetDxilProgramHeader(const DxilContainerHeader *pHeader, DxilFourCC fourCC) {
+  if (IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes) == nullptr) {
+    return nullptr;
+  }
+  const DxilPartHeader *PartHeader = *find_if(
+      begin(pHeader), end(pHeader), DxilPartIsType(fourCC));
+  if (PartHeader == *end(pHeader)) {
+    return nullptr;
+  }
+  const DxilProgramHeader *ProgramHeader =
+      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(PartHeader));
+  return IsValidDxilProgramHeader(ProgramHeader,
+                                  ProgramHeader->SizeInUint32 * 4)
+             ? ProgramHeader
+             : nullptr;
+}
+
+DxilProgramHeader *GetDxilProgramHeader(DxilContainerHeader *pHeader, DxilFourCC fourCC) {
+  return const_cast<DxilProgramHeader *>(
+      GetDxilProgramHeader(static_cast<const DxilContainerHeader *>(pHeader), fourCC));
 }
 
 } // namespace hlsl
