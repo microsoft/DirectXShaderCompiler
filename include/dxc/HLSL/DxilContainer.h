@@ -232,6 +232,20 @@ inline const char *GetDxilPartData(const DxilPartHeader *pPart) {
 inline char *GetDxilPartData(DxilPartHeader *pPart) {
   return reinterpret_cast<char *>(pPart + 1);
 }
+/// Gets a part header by fourCC
+DxilPartHeader *GetDxilPartByType(DxilContainerHeader *pHeader,
+                                           DxilFourCC fourCC);
+/// Gets a part header by fourCC 
+const DxilPartHeader *
+GetDxilPartByType(const DxilContainerHeader *pHeader,
+                           DxilFourCC fourCC);
+
+/// Returns valid DxilProgramHeader. nullptr if does not exist.
+DxilProgramHeader *GetDxilProgramHeader(DxilContainerHeader *pHeader, DxilFourCC fourCC);
+
+/// Returns valid DxilProgramHeader. nullptr if does not exist.
+const DxilProgramHeader *
+GetDxilProgramHeader(const DxilContainerHeader *pHeader, DxilFourCC fourCC);
 
 /// Initializes container with the specified values.
 void InitDxilContainer(_Out_ DxilContainerHeader *pHeader, uint32_t partCount,
