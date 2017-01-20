@@ -33,7 +33,7 @@ Before you build, you will need to have some additional software installed.
 * [CMake](https://cmake.org/files/v3.4/cmake-3.4.3-win32-x86.exe). Version 3.4.3 is the supported version. You need not change your PATH variable during installation.
 * [Python](https://www.python.org/downloads/). Version 2.7.x is required, 3.x might work but it's not officially supported. You need not change your PATH variable during installation.
 
-To setup the build environment run the `utils\hct\hctstart.cmd` script passing the path to the source and build directories. For example:
+To setup the build environment run the `utils\hct\hctstart.cmd` script passing the path to the source and build directories from a regular command prompt window. For example:
 
 ```
 git clone https://github.com/Microsoft/DirectXShaderCompiler.git C:\DirectXShaderCompiler
@@ -67,9 +67,11 @@ To run shaders compiled as DXIL, you will need support from the operating system
 
 At the moment, the [Windows 10 Insider Preview Build 15007](https://blogs.windows.com/windowsexperience/2017/01/12/announcing-windows-10-insider-preview-build-15007-pc-mobile/#XqlQ5FZfXw5WVhpS.97) is able to run DXIL shaders.
 
-Drivers indicate support DXIL by reporting support for Shader Model 6, possibly in experimental mode. To enable support in these cases, the [Developer mode](https://msdn.microsoft.com/windows/uwp/get-started/enable-your-device-for-development) setting must be enabled.
+Drivers indicate they can run DXIL by reporting support for Shader Model 6, possibly in experimental mode. To enable support in these cases, the [Developer mode](https://msdn.microsoft.com/windows/uwp/get-started/enable-your-device-for-development) setting must be enabled.
 
-By default, tests will run using the Windows Advanced Rasterization Platform (WARP) adapter. To select the first available adapter that supports D3D12 instead, the parameter /p:"Adapter=*" can be added to the test command line in utils/hct/hcttest.cmd.
+By default, tests will run using the Windows Advanced Rasterization Platform (WARP) adapter. To get the correct version of WARP working, in addition to setting Developer mode, you should install the 'Graphics Tools' optional feature via the Settings app (click the 'Apps' icon, then the 'Manage optional features' link, then 'Add a feature', and select 'Graphics Tools' from the list).
+
+For more information, see this [Wiki page](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Running-Shaders).
 
 ## Making Changes
 
