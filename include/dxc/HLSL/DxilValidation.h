@@ -147,7 +147,7 @@ enum class ValidationRule : unsigned {
 
   // Program flow
   FlowDeadLoop, // Loop must have break
-  FlowFunctionCall, // Function call on user defined function with parameter is not permitted
+  FlowFunctionCall, // Function with parameter is not permitted
   FlowNoRecusion, // Recursion is not permitted
   FlowReducible, // Execution flow must be reducible
 
