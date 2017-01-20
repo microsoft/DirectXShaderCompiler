@@ -989,9 +989,10 @@ TEST_F(ValidationTest, MultiDimArray) {
 
 TEST_F(ValidationTest, NoFunctionParam) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
-                          {"define void @main()", "void ()* @main", "!5 = !{!6}"},
-                          {"define void @main(<4 x i32> %mainArg)", "void (<4 x i32>)* @main", "!5 = !{!6, !6}"},
-                          "with parameter is not permitted");
+    {"define void @main\\(\\)",               "void \\(\\)\\* @main, !([0-9]+)\\}(.*)!\\1 = !\\{!([0-9]+)\\}",  "void \\(\\)\\* @main"},
+    {"define void @main(<4 x i32> %mainArg)", "void (<4 x i32>)* @main, !\\1}\\2!\\1 = !{!\\3, !\\3}",          "void (<4 x i32>)* @main"},
+    "with parameter is not permitted",
+    /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
@@ -1651,13 +1652,13 @@ void main( \
     ",
     "vs_6_0",
 
-    "!{i32 1, !\"Array\", i8 5, i8 0, !([0-9]+), i8 1, i32 2, i8 1, i32 1, i8 0, null}\n"
-    "!17 = !{i32 0, i32 1}\n"
-    "!([0-9]+) = !{i32 2, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 3, i32 1, i8 1, null}",
+    {"!{i32 1, !\"Array\", i8 5, i8 0, !([0-9]+), i8 1, i32 2, i8 1, i32 1, i8 0, null}(.*)"
+    "!\\1 = !{i32 0, i32 1}\n",
+    "= !{i32 2, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 3, i32 1, i8 1, null}"},
 
-    "!{i32 1, !\"Array\", i8 5, i8 0, !\\1, i8 1, i32 2, i8 1, i32 1, i8 1, null}\n"
-    "!17 = !{i32 0, i32 1}\n"
-    "!\\2 = !{i32 2, !\"Value\", i8 5, i8 0, !\\3, i8 1, i32 1, i8 3, i32 2, i8 0, null}",
+    {"!{i32 1, !\"Array\", i8 5, i8 0, !\\1, i8 1, i32 2, i8 1, i32 1, i8 1, null}\\2"
+    "!\\1 = !{i32 0, i32 1}\n",
+    "= !{i32 2, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 3, i32 2, i8 0, null}"},
 
     "signature element Value at location \\(2,0\\) size \\(1,3\\) overlaps another signature element.",
     /*bRegex*/true);
@@ -1670,12 +1671,11 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
     ",
     "ps_6_0",
 
-    "!{i32 1, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 1, i32 1, i8 0, null}\n"
-    "!16 = !{i32 1}\n"
-    "!([0-9]+) = !{i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 0, i8 0, null}",
+    "!{i32 1, !\"SV_Target\", i8 9, i8 16, ![0-9]+, i8 0, i32 1, i8 1, i32 1, i8 0, null}(.*)"
+    "!{i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 0, i8 0, null}",
 
-    "!{i32 1, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\3, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}\n"
-    "!\\2 = !{i32 2, !\"SV_Target\", i8 9, i8 16, !\\3, i8 0, i32 1, i8 4, i32 0, i8 0, null}",
+    "!{i32 1, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\2, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}\\1"
+    "!{i32 2, !\"SV_Target\", i8 9, i8 16, !\\2, i8 0, i32 1, i8 4, i32 0, i8 0, null}",
 
     "Pixel Shader only allows one type of depth semantic to be declared",
     /*bRegex*/true);
