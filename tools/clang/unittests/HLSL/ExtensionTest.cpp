@@ -437,7 +437,7 @@ TEST_F(ExtensionTest, IntrinsicWhenAvailableThenUsed) {
   // - second argument is float, ie it got scalarized
   VERIFY_IS_TRUE(
     disassembly.npos !=
-    disassembly.find("call void @\"test.\\01?test_proc@hlsl@@YAXV?$vector@M$01@@@Z.r\"(i32 2, float %6)"));
+    disassembly.find("call void @\"test.\\01?test_proc@hlsl@@YAXV?$vector@M$01@@@Z.r\"(i32 2, float"));
   VERIFY_IS_TRUE(
     disassembly.npos !=
     disassembly.find("call float @\"test.\\01?test_fn@hlsl@@YA?AV?$vector@M$01@@V2@@Z.r\"(i32 1, float"));
