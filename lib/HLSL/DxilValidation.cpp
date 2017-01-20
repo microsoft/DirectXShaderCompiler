@@ -216,7 +216,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
     case hlsl::ValidationRule::FlowDeadLoop: return "Loop must have break";
-    case hlsl::ValidationRule::FlowFunctionCall: return "Function call on user defined function with parameter %0 is not permitted, it should be inlined";
+    case hlsl::ValidationRule::FlowFunctionCall: return "Function %0 with parameter is not permitted, it should be inlined";
     case hlsl::ValidationRule::DeclDxilNsReserved: return "Declaration '%0' uses a reserved prefix";
     case hlsl::ValidationRule::DeclDxilFnExtern: return "External function '%0' is not a DXIL function";
     case hlsl::ValidationRule::DeclUsedInternal: return "Internal declaration '%0' is unused";
@@ -2520,12 +2520,9 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
   if (F.isDeclaration()) {
     ValidateExternalFunction(&F, ValCtx);
   } else {
-    if (&F != ValCtx.DxilMod.GetEntryFunction() &&
-        &F != ValCtx.DxilMod.GetPatchConstantFunction()) {
-      if (!F.arg_empty())
-        ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall,
-                               {F.getName().str().c_str()});
-    }
+    if (!F.arg_empty())
+      ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall,
+                             {F.getName().str().c_str()});
 
     DxilFunctionAnnotation *funcAnnotation =
         ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);

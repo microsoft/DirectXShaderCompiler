@@ -15,6 +15,7 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/ADT/ArrayRef.h"
 
 #include <atlbase.h>
 
@@ -120,6 +121,7 @@ public:
   TEST_METHOD(MinPrecisionBitCast)
   TEST_METHOD(StructBitCast)
   TEST_METHOD(MultiDimArray)
+  TEST_METHOD(NoFunctionParam)
 
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
@@ -286,7 +288,7 @@ public:
   }
 
   void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
-                               LPCSTR pLookFor, LPCSTR pReplacement,
+                               llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
                                LPCSTR pErrorMsg, bool bRegex = false) {
     CComPtr<IDxcBlob> pText;
     CComPtr<IDxcBlobEncoding> pSourceBlob;
@@ -297,7 +299,7 @@ public:
 
     Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
 
-    RewriteAssemblyToText(pSourceBlob, pShaderModel, pLookFor, pReplacement, &pText, bRegex);
+    RewriteAssemblyToText(pSourceBlob, pShaderModel, pLookFors, pReplacements, &pText, bRegex);
 
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
@@ -314,42 +316,46 @@ public:
   }
 
   void RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
-                             LPCSTR pLookFor, LPCSTR pReplacement,
+                             llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
                              IDxcBlob **pBlob, bool bRegex = false) {
     CComPtr<IDxcBlob> pProgram;
     std::string disassembly;
     CompileSource(pSource, pShaderModel, &pProgram);
     DisassembleProgram(pProgram, &disassembly);
-    if (pLookFor && *pLookFor) {
-      if (bRegex) {
-        llvm::Regex RE(pLookFor);
-        std::string reErrors;
-        VERIFY_IS_TRUE(RE.isValid(reErrors));
-        std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
-        VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
-        VERIFY_IS_TRUE(reErrors.empty());
-        disassembly = std::move(replaced);
-      } else {
-        bool found = false;
-        size_t pos = 0;
-        size_t lookForLen = strlen(pLookFor);
-        size_t replaceLen = strlen(pReplacement);
-        for (;;) {
-          pos = disassembly.find(pLookFor, pos);
-          if (pos == std::string::npos)
-            break;
-          found = true; // at least once
-          disassembly.replace(pos, lookForLen, pReplacement);
-          pos += replaceLen;
+    for (unsigned i = 0; i < pLookFors.size(); ++i) {
+      LPCSTR pLookFor = pLookFors[i];
+      LPCSTR pReplacement = pReplacements[i];
+      if (pLookFor && *pLookFor) {
+        if (bRegex) {
+          llvm::Regex RE(pLookFor);
+          std::string reErrors;
+          VERIFY_IS_TRUE(RE.isValid(reErrors));
+          std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
+          VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
+          VERIFY_IS_TRUE(reErrors.empty());
+          disassembly = std::move(replaced);
+        } else {
+          bool found = false;
+          size_t pos = 0;
+          size_t lookForLen = strlen(pLookFor);
+          size_t replaceLen = strlen(pReplacement);
+          for (;;) {
+            pos = disassembly.find(pLookFor, pos);
+            if (pos == std::string::npos)
+              break;
+            found = true; // at least once
+            disassembly.replace(pos, lookForLen, pReplacement);
+            pos += replaceLen;
+          }
+          VERIFY_IS_TRUE(found);
         }
-        VERIFY_IS_TRUE(found);
       }
     }
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), pBlob);
   }
   
   void RewriteAssemblyCheckMsg(LPCWSTR name, LPCSTR pShaderModel,
-                               LPCSTR pLookFor, LPCSTR pReplacement,
+                               llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
                                LPCSTR pErrorMsg, bool bRegex = false) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
     CComPtr<IDxcLibrary> pLibrary;
@@ -363,7 +369,7 @@ public:
 
     CComPtr<IDxcBlob> pText;
 
-    RewriteAssemblyToText(pSource, pShaderModel, pLookFor, pReplacement, &pText, bRegex);
+    RewriteAssemblyToText(pSource, pShaderModel, pLookFors, pReplacements, &pText, bRegex);
 
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
@@ -558,7 +564,8 @@ TEST_F(ValidationTest, WhenIncorrectPSThenFail) {
 
 TEST_F(ValidationTest, WhenSmUnknownThenFail) {
   RewriteAssemblyCheckMsg("float4 main() : SV_Target { return 1; }", "ps_6_0",
-                          "{!\"ps\", i32 6, i32 0}", "{!\"ps\", i32 1, i32 2}",
+                          {"{!\"ps\", i32 6, i32 0}"},
+                          {"{!\"ps\", i32 1, i32 2}"},
                           "Unknown shader model 'ps_1_2'");
 }
 
@@ -871,15 +878,16 @@ TEST_F(ValidationTest, ArrayOfSVTarget) {
 TEST_F(ValidationTest, InfiniteLog) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 23, float %3)",
+      "op.unary.f32\\(i32 23, float %[0-9+]\\)",
       "op.unary.f32(i32 23, float 0x7FF0000000000000)",
-      "No indefinite logarithm");
+      "No indefinite logarithm",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, InfiniteAsin) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 16, float %3)",
+      "op.unary.f32(i32 16, float %1)",
       "op.unary.f32(i32 16, float 0x7FF0000000000000)",
       "No indefinite arcsine");
 }
@@ -887,7 +895,7 @@ TEST_F(ValidationTest, InfiniteAsin) {
 TEST_F(ValidationTest, InfiniteAcos) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 15, float %3)",
+      "op.unary.f32(i32 15, float %1)",
       "op.unary.f32(i32 15, float 0x7FF0000000000000)",
       "No indefinite arccosine");
 }
@@ -895,24 +903,25 @@ TEST_F(ValidationTest, InfiniteAcos) {
 TEST_F(ValidationTest, InfiniteDdxDdy) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 85, float %3)",
+      "op.unary.f32\\(i32 85, float %[0-9]+\\)",
       "op.unary.f32(i32 85, float 0x7FF0000000000000)",
-      "No indefinite derivative calculation");
+      "No indefinite derivative calculation",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, IDivByZero) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "sdiv i32 %8, %9",
-      "sdiv i32 %8, 0",
+      "sdiv i32 %6, %7",
+      "sdiv i32 %6, 0",
       "No signed integer division by zero");
 }
 
 TEST_F(ValidationTest, UDivByZero) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "udiv i32 %5, %6",
-      "udiv i32 %5, 0",
+      "udiv i32 %3, %4",
+      "udiv i32 %3, 0",
       "No unsigned integer division by zero");
 }
 
@@ -925,57 +934,64 @@ TEST_F(ValidationTest, UnusedMetadata) {
 
 TEST_F(ValidationTest, MemoryOutOfBound) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
-                          "getelementptr [4 x float], [4 x float]* %12, i32 0, i32 3",
-                          "getelementptr [4 x float], [4 x float]* %12, i32 0, i32 10",
+                          "getelementptr [4 x float], [4 x float]* %7, i32 0, i32 3",
+                          "getelementptr [4 x float], [4 x float]* %7, i32 0, i32 10",
                           "Access to out-of-bounds memory is disallowed");
 }
 
 TEST_F(ValidationTest, AddrSpaceCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
-                          "  store float %11, float* %12, align 4",
-                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
-                          "  %X = addrspacecast float* %12 to float addrspace(1)*    \n"
-                          "  store float %11, float addrspace(1)* %X, align 4",
+                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
+                          "  store float %10, float* %11, align 4",
+                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
+                          "  %X = addrspacecast float* %11 to float addrspace(1)*    \n"
+                          "  store float %10, float addrspace(1)* %X, align 4",
                           "generic address space");
 }
 
 TEST_F(ValidationTest, PtrBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
-                          "  store float %11, float* %12, align 4",
-                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
-                          "  %X = bitcast float* %12 to double*    \n"
-                          "  store float %11, float* %12, align 4",
+                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
+                          "  store float %10, float* %11, align 4",
+                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
+                          "  %X = bitcast float* %11 to double*    \n"
+                          "  store float %10, float* %11, align 4",
                           "Pointer type bitcast must be have same size");
 }
 
 TEST_F(ValidationTest, MinPrecisionBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
-                          "  store float %11, float* %12, align 4",
-                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
-                          "  %X = bitcast float* %12 to [2 x half]*    \n"
-                          "  store float %11, float* %12, align 4",
+                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
+                          "  store float %10, float* %11, align 4",
+                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
+                          "  %X = bitcast float* %11 to [2 x half]*    \n"
+                          "  store float %10, float* %11, align 4",
                           "Bitcast on minprecison types is not allowed");
 }
 
 TEST_F(ValidationTest, StructBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
-                          "  store float %11, float* %12, align 4",
-                          "%12 = getelementptr [4 x float], [4 x float]* %1, i32 0, i32 0\n"
-                          "  %X = bitcast float* %12 to %dx.types.Handle*    \n"
-                          "  store float %11, float* %12, align 4",
+                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
+                          "  store float %10, float* %11, align 4",
+                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
+                          "  %X = bitcast float* %11 to %dx.types.Handle*    \n"
+                          "  store float %10, float* %11, align 4",
                           "Bitcast on struct types is not allowed");
 }
 
 TEST_F(ValidationTest, MultiDimArray) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%1 = alloca [4 x float]",
-                          "%1 = alloca [4 x float]\n"
+                          "%0 = alloca [4 x float]",
+                          "%0 = alloca [4 x float]\n"
                           "  %md = alloca [2 x [4 x float]]",
                           "Only one dimension allowed for array type");
+}
+
+TEST_F(ValidationTest, NoFunctionParam) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+                          {"define void @main()", "void ()* @main", "!5 = !{!6}"},
+                          {"define void @main(<4 x i32> %mainArg)", "void (<4 x i32>)* @main", "!5 = !{!6, !6}"},
+                          "with parameter is not permitted");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
@@ -1636,9 +1652,11 @@ void main( \
     "vs_6_0",
 
     "!{i32 1, !\"Array\", i8 5, i8 0, !([0-9]+), i8 1, i32 2, i8 1, i32 1, i8 0, null}\n"
+    "!17 = !{i32 0, i32 1}\n"
     "!([0-9]+) = !{i32 2, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 3, i32 1, i8 1, null}",
 
     "!{i32 1, !\"Array\", i8 5, i8 0, !\\1, i8 1, i32 2, i8 1, i32 1, i8 1, null}\n"
+    "!17 = !{i32 0, i32 1}\n"
     "!\\2 = !{i32 2, !\"Value\", i8 5, i8 0, !\\3, i8 1, i32 1, i8 3, i32 2, i8 0, null}",
 
     "signature element Value at location \\(2,0\\) size \\(1,3\\) overlaps another signature element.",
@@ -1653,6 +1671,7 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
     "ps_6_0",
 
     "!{i32 1, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 1, i32 1, i8 0, null}\n"
+    "!16 = !{i32 1}\n"
     "!([0-9]+) = !{i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 0, i8 0, null}",
 
     "!{i32 1, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\3, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}\n"

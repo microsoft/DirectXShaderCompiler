@@ -4133,35 +4133,23 @@ void SROA_Parameter_HLSL::flattenArgument(
 void SROA_Parameter_HLSL::moveFunctionBody(Function *F, Function *flatF) {
   bool updateRetType = F->getReturnType() != flatF->getReturnType();
 
-  // Clone blocks and move instructions.
-  std::unordered_map<Value *, Value *> VMap;
-  Function::BasicBlockListType &blockList = F->getBasicBlockList();
-  for (BasicBlock &BB : blockList) {
-    BasicBlock *NewBB = BasicBlock::Create(BB.getContext(), "", flatF);
-    if (BB.hasName()) NewBB->setName(BB.getName());
-    // Add basic block mapping.
-    VMap[&BB] = NewBB;
-    // Update block uses.
-    BB.replaceAllUsesWith(NewBB);
-    // Move intrinsictions to NewBB.
-    NewBB->getInstList().splice(NewBB->begin(), BB.getInstList());
-  }
+  // Splice the body of the old function right into the new function.
+  flatF->getBasicBlockList().splice(flatF->begin(), F->getBasicBlockList());
+
   // Update Block uses.
-  for (BasicBlock &BB : blockList) {
-    BasicBlock *NewBB = cast<BasicBlock>(VMap[&BB]);
-    if (updateRetType) {
-      // Replace ret with ret void.
-      if (ReturnInst *RI = dyn_cast<ReturnInst>(NewBB->getTerminator())) {
-        // Create store for return.
-        IRBuilder<> Builder(RI);
-        Builder.CreateRetVoid();
-        RI->eraseFromParent();
+  if (updateRetType) {
+    for (BasicBlock &BB : flatF->getBasicBlockList()) {
+      if (updateRetType) {
+        // Replace ret with ret void.
+        if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
+          // Create store for return.
+          IRBuilder<> Builder(RI);
+          Builder.CreateRetVoid();
+          RI->eraseFromParent();
+        }
       }
     }
   }
-
-  // Cleanup the original function.
-  F->getBasicBlockList().clear();  
 }
 
 static void SplitArrayCopy(Value *V) {

@@ -2496,6 +2496,39 @@ INITIALIZE_PASS(HLEnsureMetadata, "hlsl-hlensure", "HLSL High-Level Metadata Ens
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
+
+Function *StripFunctionParameter(Function *F, DxilModule &DM,
+    DenseMap<const Function *, DISubprogram *> &FunctionDIs) {
+  Module &M = *DM.GetModule();
+  Type *VoidTy = Type::getVoidTy(M.getContext());
+  FunctionType *FT = FunctionType::get(VoidTy, false);
+  for (auto &arg : F->args()) {
+    if (!arg.user_empty())
+      return nullptr;
+  }
+
+  Function *NewFunc = Function::Create(FT, F->getLinkage(), F->getName());
+  M.getFunctionList().insert(F, NewFunc);
+  // Splice the body of the old function right into the new function.
+  NewFunc->getBasicBlockList().splice(NewFunc->begin(), F->getBasicBlockList());
+
+  // Patch the pointer to LLVM function in debug info descriptor.
+  auto DI = FunctionDIs.find(F);
+  if (DI != FunctionDIs.end()) {
+    DISubprogram *SP = DI->second;
+    SP->replaceFunction(NewFunc);
+    // Ensure the map is updated so it can be reused on subsequent argument
+    // promotions of the same function.
+    FunctionDIs.erase(DI);
+    FunctionDIs[NewFunc] = SP;
+  }
+  NewFunc->takeName(F);
+  DM.GetTypeSystem().EraseFunctionAnnotation(F);
+  F->eraseFromParent();
+  DM.GetTypeSystem().AddFunctionAnnotation(NewFunc);
+  return NewFunc;
+}
+
 class DxilEmitMetadata : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -2586,8 +2619,26 @@ public:
         }
       }
 
-      M.GetDxilModule().CollectShaderFlags(); // Update flags to reflect any changes.
-      M.GetDxilModule().EmitDxilMetadata();
+      DxilModule &DM = M.GetDxilModule();
+      DenseMap<const Function *, DISubprogram *> FunctionDIs =
+          makeSubprogramMap(M);
+      if (Function *PatchConstantFunc = DM.GetPatchConstantFunction()) {
+        PatchConstantFunc =
+            StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
+        if (PatchConstantFunc)
+          DM.SetPatchConstantFunction(PatchConstantFunc);
+      }
+
+      if (Function *EntryFunc = DM.GetEntryFunction()) {
+        StringRef Name = DM.GetEntryFunctionName();
+        EntryFunc->setName(Name);
+        EntryFunc = StripFunctionParameter(EntryFunc, DM, FunctionDIs);
+        if (EntryFunc)
+          DM.SetEntryFunction(EntryFunc);
+      }
+
+      DM.CollectShaderFlags(); // Update flags to reflect any changes.
+      DM.EmitDxilMetadata();
       return true;
     }
 

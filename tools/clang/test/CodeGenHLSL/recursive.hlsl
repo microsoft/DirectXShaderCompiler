@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: Recursion is not permitted
-// CHECK: Function call on user defined function
+// CHECK: with parameter is not permitted
 
 void test_inout(inout float4 m, float4 a) 
 {
