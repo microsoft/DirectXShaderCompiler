@@ -289,7 +289,7 @@ public:
 
   void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
                                llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
-                               LPCSTR pErrorMsg, bool bRegex = false) {
+                               llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     CComPtr<IDxcBlob> pText;
     CComPtr<IDxcBlobEncoding> pSourceBlob;
     
@@ -307,11 +307,13 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pText, &pAssembleResult));
 
-    if (!CheckOperationResultMsg(pAssembleResult, pErrorMsg, true, bRegex)) {
-      // Assembly succeeded, try validation.
-      CComPtr<IDxcBlob> pBlob;
-      VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
-      CheckValidationMsg(pBlob, pErrorMsg, bRegex);
+    for (auto pErrorMsg : pErrorMsgs) {
+      if (!CheckOperationResultMsg(pAssembleResult, pErrorMsg, true, bRegex)) {
+        // Assembly succeeded, try validation.
+        CComPtr<IDxcBlob> pBlob;
+        VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
+        CheckValidationMsg(pBlob, pErrorMsg, bRegex);
+      }
     }
   }
 
@@ -356,7 +358,7 @@ public:
   
   void RewriteAssemblyCheckMsg(LPCWSTR name, LPCSTR pShaderModel,
                                llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
-                               LPCSTR pErrorMsg, bool bRegex = false) {
+                               llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pSource;
@@ -376,12 +378,13 @@ public:
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pText, &pAssembleResult));
-
-    if (!CheckOperationResultMsg(pAssembleResult, pErrorMsg, true, bRegex)) {
-      // Assembly succeeded, try validation.
-      CComPtr<IDxcBlob> pBlob;
-      VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
-      CheckValidationMsg(pBlob, pErrorMsg, bRegex);
+    for (auto pErrorMsg : pErrorMsgs) {
+      if (!CheckOperationResultMsg(pAssembleResult, pErrorMsg, true, bRegex)) {
+        // Assembly succeeded, try validation.
+        CComPtr<IDxcBlob> pBlob;
+        VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
+        CheckValidationMsg(pBlob, pErrorMsg, bRegex);
+      }
     }
   }
 };
@@ -470,7 +473,30 @@ TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
 }
 
 TEST_F(ValidationTest, BarrierFail) {
-  TestCheck(L"dxil_validation\\barrier.ll");
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\barrier.hlsl", "cs_6_0",
+      {"dx.op.barrier(i32 82, i32 8)",
+        "dx.op.barrier(i32 82, i32 9)",
+        "dx.op.barrier(i32 82, i32 11)",
+        "%class.RWStructuredBuffer = type { %class.matrix.float.2.2 }\n",
+        "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 98)",
+      },
+      {"dx.op.barrier(i32 82, i32 15)",
+        "dx.op.barrier(i32 82, i32 0)",
+        "dx.op.barrier(i32 82, i32 %rem)",
+        "%class.RWStructuredBuffer = type { %class.matrix.float.2.2 }\n"
+        "@dx.typevar.8 = external addrspace(1) constant %class.RWStructuredBuffer\n"
+        "@\"internalGV\" = internal global [64 x <4 x float>] undef\n",
+        "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 98)\n"
+        "%load = load %class.RWStructuredBuffer, %class.RWStructuredBuffer addrspace(1)* @dx.typevar.8",
+      },
+      {"Internal declaration 'internalGV' is unused",
+       "External declaration 'dx.typevar.8' is unused",
+       "Vector type '<4 x float>' is not allowed",
+       "Mode of Barrier must be an immediate constant",
+       "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory)",
+       "sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal"
+      });
 }
 TEST_F(ValidationTest, CBufferLegacyOutOfBoundFail) {
   TestCheck(L"dxil_validation\\cbuffer1.50_legacy.ll");
@@ -1666,17 +1692,12 @@ void main( \
 
 TEST_F(ValidationTest, SemMultiDepth) {
   RewriteAssemblyCheckMsg(" \
-float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target1) : SV_Target \
+float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target) : SV_Target1 \
 { d0 = f4.z; d1 = f4.w; return f4; } \
     ",
     "ps_6_0",
-
-    "!{i32 1, !\"SV_Target\", i8 9, i8 16, ![0-9]+, i8 0, i32 1, i8 1, i32 1, i8 0, null}(.*)"
-    "!{i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 0, i8 0, null}",
-
-    "!{i32 1, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\2, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}\\1"
-    "!{i32 2, !\"SV_Target\", i8 9, i8 16, !\\2, i8 0, i32 1, i8 4, i32 0, i8 0, null}",
-
+    {"!{i32 1, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 1, i32 0, i8 0, null}"},
+    {"!{i32 1, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\1, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}"},
     "Pixel Shader only allows one type of depth semantic to be declared",
     /*bRegex*/true);
 }
