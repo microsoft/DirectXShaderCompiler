@@ -162,6 +162,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
     case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type";
+    case hlsl::ValidationRule::TypesI8: return "I8 can only used as immediate value for intrinsic";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'";
     case hlsl::ValidationRule::SmOpcode: return "Opcode must be defined in target shader model";
     case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model";
@@ -2346,19 +2347,33 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         continue;
       }
 
-      if (!isa<PHINode>(&I)) {
-        for (Value *op : I.operands()) {
-          if (isa<UndefValue>(op)) {
-            ValCtx.EmitInstrError(&I,
-                                  ValidationRule::InstrNoReadingUninitialized);
-          } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(op)) {
-            for (Value *opCE : CE->operands()) {
-              if (isa<UndefValue>(opCE)) {
-                ValCtx.EmitInstrError(
-                    &I, ValidationRule::InstrNoReadingUninitialized);
-              }
+      for (Value *op : I.operands()) {
+        if (!isa<PHINode>(&I) && isa<UndefValue>(op)) {
+          ValCtx.EmitInstrError(&I,
+                                ValidationRule::InstrNoReadingUninitialized);
+        } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(op)) {
+          for (Value *opCE : CE->operands()) {
+            if (isa<UndefValue>(opCE)) {
+              ValCtx.EmitInstrError(
+                  &I, ValidationRule::InstrNoReadingUninitialized);
             }
           }
+        }
+        if (IntegerType *IT = dyn_cast<IntegerType>(op->getType())) {
+          if (IT->getBitWidth() == 8) {
+            ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
+          }
+        }
+      }
+
+      Type *Ty = I.getType();
+      if (isa<PointerType>(Ty))
+        Ty = Ty->getPointerElementType();
+      while (isa<ArrayType>(Ty))
+        Ty = Ty->getArrayElementType();
+      if (IntegerType *IT = dyn_cast<IntegerType>(Ty)) {
+        if (IT->getBitWidth() == 8) {
+          ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
         }
       }
 

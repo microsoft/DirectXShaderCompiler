@@ -4265,10 +4265,9 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
   Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoadLegacy);
 
   Type *i1Ty = Type::getInt1Ty(EltTy->getContext());
-  Type *i8Ty = Type::getInt8Ty(EltTy->getContext());
   Type *doubleTy = Type::getDoubleTy(EltTy->getContext());
   Type *i64Ty = Type::getInt64Ty(EltTy->getContext());
-  bool isBool = EltTy == i1Ty || EltTy == i8Ty;
+  bool isBool = EltTy == i1Ty;
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
   bool isNormal = !isBool && !is64;
   if (isNormal) {
@@ -4283,14 +4282,12 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
     Value *Result = Builder.CreateExtractValue(loadLegacy, eltIdx);
     return Result;
   } else {
+    DXASSERT(isBool, "bool should be i1");
     Type *i32Ty = Type::getInt32Ty(EltTy->getContext());
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, i32Ty);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
     Value *Result = Builder.CreateExtractValue(loadLegacy, channelOffset);
-    if (EltTy == i1Ty)
-      return Builder.CreateICmpEQ(Result, hlslOP->GetU32Const(0));
-    else
-      return Builder.CreateTrunc(Result, i8Ty);
+    return Builder.CreateICmpEQ(Result, hlslOP->GetU32Const(0));
   }
 }
 
@@ -4302,10 +4299,9 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
   Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoadLegacy);
 
   Type *i1Ty = Type::getInt1Ty(EltTy->getContext());
-  Type *i8Ty = Type::getInt8Ty(EltTy->getContext());
   Type *doubleTy = Type::getDoubleTy(EltTy->getContext());
   Type *i64Ty = Type::getInt64Ty(EltTy->getContext());
-  bool isBool = EltTy == i1Ty || EltTy == i8Ty;
+  bool isBool = EltTy == i1Ty;
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
   bool isNormal = !isBool && !is64;
   if (isNormal) {
@@ -4340,6 +4336,7 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
     }
     return Result;
   } else {
+    DXASSERT(isBool, "bool should be i1");
     Type *i32Ty = Type::getInt32Ty(EltTy->getContext());
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, i32Ty);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
@@ -4348,10 +4345,7 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
       Value *NewElt = Builder.CreateExtractValue(loadLegacy, channelOffset+i);
       Result = Builder.CreateInsertElement(Result, NewElt, i);
     }
-    if (EltTy == i1Ty)
-      return Builder.CreateICmpEQ(Result, ConstantAggregateZero::get(Result->getType()));
-    else
-      return Builder.CreateTrunc(Result, VectorType::get(i8Ty, vecSize));
+    return Builder.CreateICmpEQ(Result, ConstantAggregateZero::get(Result->getType()));
   }
 }
 

@@ -2274,6 +2274,7 @@ SM.TRIOUTPUTPRIMITIVEMISMATCH         Hull Shader declared with Tri Domain must 
 SM.UNDEFINEDOUTPUT                    Not all elements of output %0 were written
 SM.VALIDDOMAIN                        Invalid Tessellator Domain specified. Must be isoline, tri or quad
 TYPES.DEFINED                         Type must be defined based on DXIL primitives
+TYPES.I8                              I8 can only used as immediate value for intrinsic
 TYPES.INTWIDTH                        Int type must be of valid width
 TYPES.NOMULTIDIM                      Only one dimension allowed for array type
 TYPES.NOVECTOR                        Vector types must not be present
