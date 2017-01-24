@@ -122,6 +122,7 @@ public:
   TEST_METHOD(StructBitCast)
   TEST_METHOD(MultiDimArray)
   TEST_METHOD(NoFunctionParam)
+  TEST_METHOD(I8Type)
 
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
@@ -1018,6 +1019,15 @@ TEST_F(ValidationTest, NoFunctionParam) {
     {"define void @main\\(\\)",               "void \\(\\)\\* @main, !([0-9]+)\\}(.*)!\\1 = !\\{!([0-9]+)\\}",  "void \\(\\)\\* @main"},
     {"define void @main(<4 x i32> %mainArg)", "void (<4 x i32>)* @main, !\\1}\\2!\\1 = !{!\\3, !\\3}",          "void (<4 x i32>)* @main"},
     "with parameter is not permitted",
+    /*bRegex*/true);
+}
+
+TEST_F(ValidationTest, I8Type) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
+                          "%([0-9]+) = alloca \\[4 x float\\]",
+                          "%\\1 = alloca [4 x float]\n"
+                          "  %m8 = alloca i8",
+                          "I8 can only used as immediate value for intrinsic",
     /*bRegex*/true);
 }
 
