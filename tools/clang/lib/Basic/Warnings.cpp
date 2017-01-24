@@ -22,12 +22,6 @@
 //
 // Remark options are also handled here, analogously, except that they are much
 // simpler because a remark can't be promoted to an error.
-#include "clang/Basic/AllDiagnostics.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/DiagnosticOptions.h"
-#include <algorithm>
-#include <cstring>
-#include <utility>
 
 #include "clang/Basic/AllDiagnostics.h"
 #include "clang/Basic/Diagnostic.h"

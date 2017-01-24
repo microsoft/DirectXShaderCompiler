@@ -11,12 +11,6 @@
 // whether the size of the symbolic region is a multiple of the size of T.
 //
 //===----------------------------------------------------------------------===//
-#include "ClangSACheckers.h"
-#include "clang/AST/CharUnits.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
-#include "clang/StaticAnalyzer/Core/Checker.h"
-#include "clang/StaticAnalyzer/Core/CheckerManager.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 
 #include "ClangSACheckers.h"
 #include "clang/AST/CharUnits.h"

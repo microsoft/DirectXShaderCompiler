@@ -6,36 +6,6 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include "DebugMap.h"
-#include "BinaryHolder.h"
-#include "DebugMap.h"
-#include "dsymutil.h"
-#include "llvm/ADT/IntervalMap.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/CodeGen/AsmPrinter.h"
-#include "llvm/CodeGen/DIE.h"
-#include "llvm/DebugInfo/DWARF/DWARFContext.h"
-#include "llvm/DebugInfo/DWARF/DWARFDebugInfoEntry.h"
-#include "llvm/DebugInfo/DWARF/DWARFFormValue.h"
-#include "llvm/MC/MCAsmBackend.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCDwarf.h"
-#include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCObjectFileInfo.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Object/MachO.h"
-#include "llvm/Support/Dwarf.h"
-#include "llvm/Support/LEB128.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
-#include <string>
-#include <tuple>
 
 #include "DebugMap.h"
 #include "BinaryHolder.h"

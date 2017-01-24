@@ -11,8 +11,6 @@
 // the form major[.minor[.subminor]].
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Basic/VersionTuple.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include "clang/Basic/VersionTuple.h"
 #include "llvm/Support/raw_ostream.h"

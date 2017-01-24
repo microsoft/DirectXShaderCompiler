@@ -10,11 +10,6 @@
 // This file provides the Win32 specific implementation of the Signals class.
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Support/FileSystem.h"
-#include <algorithm>
-#include <signal.h>
-#include <stdio.h>
-#include <vector>
 
 #if 0 // HLSL Change - disable signal processing
 

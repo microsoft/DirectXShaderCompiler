@@ -11,11 +11,6 @@
 //  of what occurred during preprocessing, and its helpers.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Lex/PreprocessingRecord.h"
-#include "clang/Lex/MacroInfo.h"
-#include "clang/Lex/Token.h"
-#include "llvm/Support/Capacity.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #include "clang/Lex/PreprocessingRecord.h"
 #include "clang/Lex/MacroInfo.h"

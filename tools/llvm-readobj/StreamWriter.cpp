@@ -1,7 +1,3 @@
-#include "StreamWriter.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Format.h"
-#include <cctype>
 
 #include "StreamWriter.h"
 #include "llvm/ADT/StringExtras.h"

@@ -1,13 +1,3 @@
-#include "llvm/Config/config.h"
-#include "../RPCChannel.h"
-#include "../RemoteTarget.h"
-#include "../RemoteTargetMessage.h"
-#include "llvm/Support/Memory.h"
-#include <assert.h>
-#include <map>
-#include <stdint.h>
-#include <string>
-#include <vector>
 
 #include "llvm/Config/config.h"
 #include "../RPCChannel.h"

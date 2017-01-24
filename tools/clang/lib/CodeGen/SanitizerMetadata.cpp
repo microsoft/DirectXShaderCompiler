@@ -10,11 +10,6 @@
 // Class which emits metadata consumed by sanitizer instrumentation passes.
 //
 //===----------------------------------------------------------------------===//
-#include "SanitizerMetadata.h"
-#include "CodeGenModule.h"
-#include "clang/AST/Type.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Constants.h"
 
 #include "SanitizerMetadata.h"
 #include "CodeGenModule.h"

@@ -11,7 +11,6 @@
 // sanitizers.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Basic/SanitizerBlacklist.h"
 
 #include "clang/Basic/SanitizerBlacklist.h"
 //                                                                           //

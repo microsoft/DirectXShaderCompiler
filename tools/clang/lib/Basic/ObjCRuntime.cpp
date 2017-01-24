@@ -11,8 +11,6 @@
 // target Objective-C runtime.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Basic/ObjCRuntime.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include "clang/Basic/ObjCRuntime.h"
 #include "llvm/Support/raw_ostream.h"

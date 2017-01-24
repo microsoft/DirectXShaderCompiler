@@ -1,6 +1,3 @@
-#include "clang/Basic/Attributes.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "llvm/ADT/StringSwitch.h"
 
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/IdentifierTable.h"

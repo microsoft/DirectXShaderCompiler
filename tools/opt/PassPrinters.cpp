@@ -11,13 +11,6 @@
 /// \brief Utilities to print analysis info for various kinds of passes.
 ///
 //===----------------------------------------------------------------------===//
-#include "PassPrinters.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/RegionPass.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
-#include <string>
 
 #include "PassPrinters.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"

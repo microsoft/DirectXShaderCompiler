@@ -55,7 +55,6 @@
 //
 // - When (i' - i) is constant but i and i' are not, we could still perform
 //   SLSR.
-#include <vector>
 
 #include <vector>
 //                                                                           //

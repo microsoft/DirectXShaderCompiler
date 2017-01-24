@@ -9,8 +9,6 @@
 //
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Lex/Lexer.h"
-#include "clang/Tooling/RefactoringCallbacks.h"
 
 #include "clang/Lex/Lexer.h"
 #include "clang/Tooling/RefactoringCallbacks.h"

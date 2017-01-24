@@ -46,28 +46,6 @@
 // If this pass found points matching all this properties, then
 // MachineFrameInfo is updated this that information.
 //===----------------------------------------------------------------------===//
-#include "llvm/ADT/Statistic.h"
-// To check for profitability.
-#include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
-// For property #1 for Save.
-#include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-// To record the result of the analysis.
-#include "llvm/CodeGen/MachineFrameInfo.h"
-// For property #2.
-#include "llvm/CodeGen/MachineLoopInfo.h"
-// For property #1 for Restore.
-#include "llvm/CodeGen/MachinePostDominators.h"
-#include "llvm/CodeGen/Passes.h"
-// To know about callee-saved.
-#include "llvm/CodeGen/RegisterClassInfo.h"
-#include "llvm/Support/Debug.h"
-// To query the target about frame lowering.
-#include "llvm/Target/TargetFrameLowering.h"
-// To know about frame setup operation.
-#include "llvm/Target/TargetInstrInfo.h"
-// To access TargetInstrInfo.
-#include "llvm/Target/TargetSubtargetInfo.h"
 
 #include "llvm/ADT/Statistic.h"
 // To check for profitability.

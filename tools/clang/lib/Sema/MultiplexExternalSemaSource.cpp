@@ -10,9 +10,6 @@
 // This file implements the event dispatching to the subscribed clients.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Sema/MultiplexExternalSemaSource.h"
-#include "clang/AST/DeclContextInternals.h"
-#include "clang/Sema/Lookup.h"
 
 #include "clang/Sema/MultiplexExternalSemaSource.h"
 #include "clang/AST/DeclContextInternals.h"

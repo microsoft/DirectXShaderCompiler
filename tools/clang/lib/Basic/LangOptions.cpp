@@ -10,7 +10,6 @@
 //  This file defines the LangOptions class.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Basic/LangOptions.h"
 
 #include "clang/Basic/LangOptions.h"
 //                                                                           //

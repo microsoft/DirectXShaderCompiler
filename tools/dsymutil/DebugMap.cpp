@@ -6,14 +6,6 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include "DebugMap.h"
-#include "BinaryHolder.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Support/DataTypes.h"
-#include "llvm/Support/Format.h"
-#include "llvm/Support/raw_ostream.h"
-#include <algorithm>
 
 #include "DebugMap.h"
 #include "BinaryHolder.h"

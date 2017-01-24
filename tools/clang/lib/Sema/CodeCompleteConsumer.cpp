@@ -10,20 +10,6 @@
 //  This file implements the CodeCompleteConsumer class.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Sema/CodeCompleteConsumer.h"
-#include "clang-c/Index.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/Sema/Scope.h"
-#include "clang/Sema/Sema.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/raw_ostream.h"
-#include <algorithm>
-#include <cstring>
-#include <functional>
 
 #include "clang/Sema/CodeCompleteConsumer.h"
 #include "clang-c/Index.h"

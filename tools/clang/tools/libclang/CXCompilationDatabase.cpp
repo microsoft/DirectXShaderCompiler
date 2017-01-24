@@ -1,7 +1,3 @@
-#include "clang-c/CXCompilationDatabase.h"
-#include "CXString.h"
-#include "clang/Tooling/CompilationDatabase.h"
-#include <cstdio>
 
 #include "clang-c/CXCompilationDatabase.h"
 #include "CXString.h"

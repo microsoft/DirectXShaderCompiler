@@ -10,18 +10,6 @@
 // This file implements the C++ related Decl classes.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTLambda.h"
-#include "clang/AST/ASTMutationListener.h"
-#include "clang/AST/CXXInheritance.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/TypeLoc.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
 
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/ASTContext.h"

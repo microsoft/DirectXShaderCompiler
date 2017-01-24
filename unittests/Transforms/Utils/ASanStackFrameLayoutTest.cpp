@@ -6,10 +6,6 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Utils/ASanStackFrameLayout.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "gtest/gtest.h"
-#include <sstream>
 
 #include "llvm/Transforms/Utils/ASanStackFrameLayout.h"
 #include "llvm/ADT/ArrayRef.h"

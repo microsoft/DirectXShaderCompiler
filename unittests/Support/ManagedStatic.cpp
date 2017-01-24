@@ -6,9 +6,6 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Config/config.h"
-#include "llvm/Support/Threading.h"
 
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Config/config.h"

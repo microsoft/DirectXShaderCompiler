@@ -14,15 +14,6 @@
 // aggressively, even if the involved symbols are under constrained.
 //
 //===----------------------------------------------------------------------===//
-#include "ClangSACheckers.h"
-#include "clang/AST/Attr.h"
-#include "clang/Basic/Builtins.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
-#include "clang/StaticAnalyzer/Core/Checker.h"
-#include "clang/StaticAnalyzer/Core/CheckerManager.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ProgramStateTrait.h"
-#include <climits>
 
 #include "ClangSACheckers.h"
 #include "clang/AST/Attr.h"

@@ -11,18 +11,6 @@
 //  context into another context.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/AST/ASTImporter.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTDiagnostic.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/DeclVisitor.h"
-#include "clang/AST/StmtVisitor.h"
-#include "clang/AST/TypeVisitor.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Basic/SourceManager.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include <deque>
 
 #include "clang/AST/ASTImporter.h"
 #include "clang/AST/ASTContext.h"

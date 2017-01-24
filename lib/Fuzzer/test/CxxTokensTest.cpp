@@ -1,9 +1,4 @@
 // Simple test for a fuzzer. The fuzzer must find a sequence of C++ tokens.
-#include <cstdint>
-#include <cstdlib>
-#include <cstddef>
-#include <cstring>
-#include <iostream>
 
 // Simple test for a fuzzer. The fuzzer must find a sequence of C++ tokens.
 #include <cstdint>

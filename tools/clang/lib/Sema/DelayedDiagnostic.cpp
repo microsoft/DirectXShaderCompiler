@@ -14,8 +14,6 @@
 // This file also defines AccessedEntity.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Sema/DelayedDiagnostic.h"
-#include <string.h>
 
 #include "clang/Sema/DelayedDiagnostic.h"
 #include <string.h>

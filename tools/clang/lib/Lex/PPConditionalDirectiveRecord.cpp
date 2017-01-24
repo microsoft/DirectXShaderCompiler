@@ -11,8 +11,6 @@
 //  a record of conditional directive regions.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Lex/PPConditionalDirectiveRecord.h"
-#include "llvm/Support/Capacity.h"
 
 #include "clang/Lex/PPConditionalDirectiveRecord.h"
 #include "llvm/Support/Capacity.h"

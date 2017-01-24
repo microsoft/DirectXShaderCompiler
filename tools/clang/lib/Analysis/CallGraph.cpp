@@ -10,13 +10,6 @@
 //  This file defines the AST-based CallGraph.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Analysis/CallGraph.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/StmtVisitor.h"
-#include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Support/GraphWriter.h"
 
 #include "clang/Analysis/CallGraph.h"
 #include "clang/AST/ASTContext.h"

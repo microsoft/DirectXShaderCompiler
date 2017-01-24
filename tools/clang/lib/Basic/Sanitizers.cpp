@@ -10,10 +10,6 @@
 //  This file defines the classes from Sanitizers.h
 //
 //===----------------------------------------------------------------------===//
-#include "clang/Basic/Sanitizers.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
 
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Basic/LLVM.h"

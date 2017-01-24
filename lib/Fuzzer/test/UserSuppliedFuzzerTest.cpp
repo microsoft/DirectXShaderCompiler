@@ -1,12 +1,6 @@
 // Simple test for a fuzzer.
 // The fuzzer must find the string "Hi!" preceded by a magic value.
 // Uses UserSuppliedFuzzer which ensures that the magic is present.
-#include <cstdint>
-#include <cassert>
-#include <cstdlib>
-#include <cstddef>
-#include <cstring>
-#include <iostream>
 
 #include <cstdint>
 #include <cassert>

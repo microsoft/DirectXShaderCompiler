@@ -10,11 +10,6 @@
 |* Implements the diagnostic functions of the Clang C interface.              *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-#include "CIndexDiagnostic.h"
-#include "CIndexer.h"
-#include "CXTranslationUnit.h"
-#include "CXSourceLocation.h"
-#include "CXString.h"
 
 #include "CIndexDiagnostic.h"
 #include "CIndexer.h"
