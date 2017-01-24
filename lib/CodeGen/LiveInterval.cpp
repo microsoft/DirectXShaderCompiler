@@ -1,21 +1,22 @@
 //===-- LiveInterval.cpp - Live Interval Representation -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveInterval.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the LiveRange and LiveInterval classes.  Given some  //
-// numbering of each the machine instructions an interval [i, j) is said to be a//
-// live range for register v if there is no instruction with number j' >= j  //
-// such that v is live at j' and there is no instruction with number i' < i such//
-// that v is live at i'. In this implementation ranges can have holes,       //
-// i.e. a range might look like [1,20), [50,65), [1000,1001).  Each          //
-// individual segment is represented as an instance of LiveRange::Segment,   //
-// and the whole range is represented as an instance of LiveRange.           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the LiveRange and LiveInterval classes.  Given some
+// numbering of each the machine instructions an interval [i, j) is said to be a
+// live range for register v if there is no instruction with number j' >= j
+// such that v is live at j' and there is no instruction with number i' < i such
+// that v is live at i'. In this implementation ranges can have holes,
+// i.e. a range might look like [1,20), [50,65), [1000,1001).  Each
+// individual segment is represented as an instance of LiveRange::Segment,
+// and the whole range is represented as an instance of LiveRange.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/LiveInterval.h"
 #include "RegisterCoalescer.h"

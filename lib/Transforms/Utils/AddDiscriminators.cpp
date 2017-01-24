@@ -1,56 +1,56 @@
 //===- AddDiscriminators.cpp - Insert DWARF path discriminators -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AddDiscriminators.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file adds DWARF discriminators to the IR. Path discriminators are    //
-// used to decide what CFG path was taken inside sub-graphs whose instructions//
-// share the same line and column number information.                        //
-//                                                                           //
-// The main user of this is the sample profiler. Instruction samples are     //
-// mapped to line number information. Since a single line may be spread      //
-// out over several basic blocks, discriminators add more precise location   //
-// for the samples.                                                          //
-//                                                                           //
-// For example,                                                              //
-//                                                                           //
-//   1  #define ASSERT(P)                                                    //
-//   2      if (!(P))                                                        //
-//   3        abort()                                                        //
-//   ...                                                                     //
-//   100   while (true) {                                                    //
-//   101     ASSERT (sum < 0);                                               //
-//   102     ...                                                             //
-//   130   }                                                                 //
-//                                                                           //
-// when converted to IR, this snippet looks something like:                  //
-//                                                                           //
-// while.body:                                       ; preds = %entry, %if.end//
-//   %0 = load i32* %sum, align 4, !dbg !15                                  //
-//   %cmp = icmp slt i32 %0, 0, !dbg !15                                     //
-//   br i1 %cmp, label %if.end, label %if.then, !dbg !15                     //
-//                                                                           //
-// if.then:                                          ; preds = %while.body   //
-//   call void @abort(), !dbg !15                                            //
-//   br label %if.end, !dbg !15                                              //
-//                                                                           //
-// Notice that all the instructions in blocks 'while.body' and 'if.then'     //
-// have exactly the same debug information. When this program is sampled     //
-// at runtime, the profiler will assume that all these instructions are      //
-// equally frequent. This, in turn, will consider the edge while.body->if.then//
-// to be frequently taken (which is incorrect).                              //
-//                                                                           //
-// By adding a discriminator value to the instructions in block 'if.then',   //
-// we can distinguish instructions at line 101 with discriminator 0 from     //
-// the instructions at line 101 with discriminator 1.                        //
-//                                                                           //
-// For more details about DWARF discriminators, please visit                 //
-// http://wiki.dwarfstd.org/index.php?title=Path_Discriminators              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                      The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file adds DWARF discriminators to the IR. Path discriminators are
+// used to decide what CFG path was taken inside sub-graphs whose instructions
+// share the same line and column number information.
+//
+// The main user of this is the sample profiler. Instruction samples are
+// mapped to line number information. Since a single line may be spread
+// out over several basic blocks, discriminators add more precise location
+// for the samples.
+//
+// For example,
+//
+//   1  #define ASSERT(P)
+//   2      if (!(P))
+//   3        abort()
+//   ...
+//   100   while (true) {
+//   101     ASSERT (sum < 0);
+//   102     ...
+//   130   }
+//
+// when converted to IR, this snippet looks something like:
+//
+// while.body:                                       ; preds = %entry, %if.end
+//   %0 = load i32* %sum, align 4, !dbg !15
+//   %cmp = icmp slt i32 %0, 0, !dbg !15
+//   br i1 %cmp, label %if.end, label %if.then, !dbg !15
+//
+// if.then:                                          ; preds = %while.body
+//   call void @abort(), !dbg !15
+//   br label %if.end, !dbg !15
+//
+// Notice that all the instructions in blocks 'while.body' and 'if.then'
+// have exactly the same debug information. When this program is sampled
+// at runtime, the profiler will assume that all these instructions are
+// equally frequent. This, in turn, will consider the edge while.body->if.then
+// to be frequently taken (which is incorrect).
+//
+// By adding a discriminator value to the instructions in block 'if.then',
+// we can distinguish instructions at line 101 with discriminator 0 from
+// the instructions at line 101 with discriminator 1.
+//
+// For more details about DWARF discriminators, please visit
+// http://wiki.dwarfstd.org/index.php?title=Path_Discriminators
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/BasicBlock.h"

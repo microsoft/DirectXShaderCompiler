@@ -1,14 +1,15 @@
 //===-- llvm/ValueSymbolTable.h - Implement a Value Symtab ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ValueSymbolTable.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the name/Value symbol table for LLVM.                //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the name/Value symbol table for LLVM.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_VALUESYMBOLTABLE_H
 #define LLVM_IR_VALUESYMBOLTABLE_H

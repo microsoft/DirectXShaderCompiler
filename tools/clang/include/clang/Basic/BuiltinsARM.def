@@ -1,16 +1,16 @@
 //===--- BuiltinsARM.def - ARM Builtin function database ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BuiltinsARM.def                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the ARM-specific builtin function database.  Users of   //
-// this file must define the BUILTIN macro to make use of this information.  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// The format of this database matches clang/Basic/Builtins.def.             //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the ARM-specific builtin function database.  Users of
+// this file must define the BUILTIN macro to make use of this information.
+//
+//===----------------------------------------------------------------------===//
 
 #if defined(BUILTIN) && !defined(LANGBUILTIN)
 #   define LANGBUILTIN(ID, TYPE, ATTRS, BUILTIN_LANG) BUILTIN(ID, TYPE, ATTRS)

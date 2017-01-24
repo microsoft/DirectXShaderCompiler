@@ -1,12 +1,4 @@
 /*===---- arm_acle.h - ARM Non-Neon intrinsics -----------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// arm_acle.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __ARM_ACLE_H
 #define __ARM_ACLE_H
 

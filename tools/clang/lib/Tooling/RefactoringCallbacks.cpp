@@ -1,11 +1,16 @@
 //===--- RefactoringCallbacks.cpp - Structural query framework ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RefactoringCallbacks.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//
+//===----------------------------------------------------------------------===//
+#include "clang/Lex/Lexer.h"
+#include "clang/Tooling/RefactoringCallbacks.h"
 
 #include "clang/Lex/Lexer.h"
 #include "clang/Tooling/RefactoringCallbacks.h"

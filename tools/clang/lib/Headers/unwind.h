@@ -1,13 +1,4 @@
 /*===---- unwind.h - Stack unwinding ----------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// unwind.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-/* See "Data Definitions for libgcc_s" in the Linux Standard Base.*/
 
 #ifndef __CLANG_UNWIND_H
 #define __CLANG_UNWIND_H

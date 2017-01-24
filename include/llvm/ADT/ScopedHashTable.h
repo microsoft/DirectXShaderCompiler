@@ -1,31 +1,32 @@
 //===- ScopedHashTable.h - A simple scoped hash table ---------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScopedHashTable.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements an efficient scoped hash table, which is useful for  //
-// things like dominator-based optimizations.  This allows clients to do things//
-// like this:                                                                //
 //
-//  ScopedHashTable<int, int> HT;                                            //
-//  {                                                                        //
-//    ScopedHashTableScope<int, int> Scope1(HT);                             //
-//    HT.insert(0, 0);                                                       //
-//    HT.insert(1, 1);                                                       //
-//    {                                                                      //
-//      ScopedHashTableScope<int, int> Scope2(HT);                           //
-//      HT.insert(0, 42);                                                    //
-//    }                                                                      //
-//  }                                                                        //
+//                     The LLVM Compiler Infrastructure
 //
-// Looking up the value for "0" in the Scope2 block will return 42.  Looking //
-// up the value for 0 before 42 is inserted or after Scope2 is popped will   //
-// return 0.                                                                 //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// This file implements an efficient scoped hash table, which is useful for
+// things like dominator-based optimizations.  This allows clients to do things
+// like this:
+//
+//  ScopedHashTable<int, int> HT;
+//  {
+//    ScopedHashTableScope<int, int> Scope1(HT);
+//    HT.insert(0, 0);
+//    HT.insert(1, 1);
+//    {
+//      ScopedHashTableScope<int, int> Scope2(HT);
+//      HT.insert(0, 42);
+//    }
+//  }
+//
+// Looking up the value for "0" in the Scope2 block will return 42.  Looking
+// up the value for 0 before 42 is inserted or after Scope2 is popped will
+// return 0.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_SCOPEDHASHTABLE_H
 #define LLVM_ADT_SCOPEDHASHTABLE_H

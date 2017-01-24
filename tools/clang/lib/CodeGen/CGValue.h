@@ -1,15 +1,16 @@
 //===-- CGValue.h - LLVM CodeGen wrappers for llvm::Value* ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CGValue.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// These classes implement wrappers around llvm::Value in order to           //
-// fully represent the range of values for C L- and R- values.               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// These classes implement wrappers around llvm::Value in order to
+// fully represent the range of values for C L- and R- values.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_CODEGEN_CGVALUE_H
 #define LLVM_CLANG_LIB_CODEGEN_CGVALUE_H

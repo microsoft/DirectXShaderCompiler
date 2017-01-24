@@ -1,36 +1,37 @@
 //===-- BuiltinTypeNodes.def - Metadata about BuiltinTypes ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BuiltinTypes.def                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the database about various builtin singleton types.    //
-//                                                                           //
-//  BuiltinType::Id is the enumerator defining the type.                     //
-//                                                                           //
-//  Context.SingletonId is the global singleton of this type.  Some global   //
-//  singletons are shared by multiple types.                                 //
-//                                                                           //
-//    BUILTIN_TYPE(Id, SingletonId) - A builtin type that has not been       //
-//    covered by any other #define.  Defining this macro covers all          //
-//    the builtins.                                                          //
-//                                                                           //
-//    SIGNED_TYPE(Id, SingletonId) - A signed integral type.                 //
-//                                                                           //
-//    UNSIGNED_TYPE(Id, SingletonId) - An unsigned integral type.            //
-//                                                                           //
-//    FLOATING_TYPE(Id, SingletonId) - A floating-point type.                //
-//                                                                           //
-//    PLACEHOLDER_TYPE(Id, SingletonId) - A placeholder type.  Placeholder   //
-//    types are used to perform context-sensitive checking of specific       //
-//    forms of expression.                                                   //
-//                                                                           //
-//    SHARED_SINGLETON_TYPE(Expansion) - The given expansion corresponds     //
-//    to a builtin which uses a shared singleton type.                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the database about various builtin singleton types.
+//
+//  BuiltinType::Id is the enumerator defining the type.
+//
+//  Context.SingletonId is the global singleton of this type.  Some global
+//  singletons are shared by multiple types.
+//
+//    BUILTIN_TYPE(Id, SingletonId) - A builtin type that has not been
+//    covered by any other #define.  Defining this macro covers all
+//    the builtins.
+//
+//    SIGNED_TYPE(Id, SingletonId) - A signed integral type.
+//
+//    UNSIGNED_TYPE(Id, SingletonId) - An unsigned integral type.
+//
+//    FLOATING_TYPE(Id, SingletonId) - A floating-point type.
+//
+//    PLACEHOLDER_TYPE(Id, SingletonId) - A placeholder type.  Placeholder
+//    types are used to perform context-sensitive checking of specific
+//    forms of expression.
+//
+//    SHARED_SINGLETON_TYPE(Expansion) - The given expansion corresponds
+//    to a builtin which uses a shared singleton type.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef SIGNED_TYPE
 #define SIGNED_TYPE(Id, SingletonId) BUILTIN_TYPE(Id, SingletonId)

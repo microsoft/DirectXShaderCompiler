@@ -1,14 +1,15 @@
 //===-- TargetSubtargetInfo.cpp - General Target Information ---------------==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetSubtargetInfo.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file describes the general parts of a Subtarget.                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file describes the general parts of a Subtarget.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/ADT/SmallVector.h"

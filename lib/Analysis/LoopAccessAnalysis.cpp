@@ -1,15 +1,16 @@
 //===- LoopAccessAnalysis.cpp - Loop Access Analysis Implementation --------==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopAccessAnalysis.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The implementation for the loop memory dependence that was originally     //
-// developed for the loop vectorizer.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The implementation for the loop memory dependence that was originally
+// developed for the loop vectorizer.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"

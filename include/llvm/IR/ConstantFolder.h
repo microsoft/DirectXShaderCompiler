@@ -1,17 +1,18 @@
 //===- ConstantFolder.h - Constant folding helper ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantFolder.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the ConstantFolder class, a helper for IRBuilder.       //
-// It provides IRBuilder with a set of methods for creating constants        //
-// with minimal folding.  For general constant creation and folding,         //
-// use ConstantExpr and the routines in llvm/Analysis/ConstantFolding.h.     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the ConstantFolder class, a helper for IRBuilder.
+// It provides IRBuilder with a set of methods for creating constants
+// with minimal folding.  For general constant creation and folding,
+// use ConstantExpr and the routines in llvm/Analysis/ConstantFolding.h.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_CONSTANTFOLDER_H
 #define LLVM_IR_CONSTANTFOLDER_H

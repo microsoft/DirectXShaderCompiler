@@ -1,15 +1,16 @@
 //=== MallocChecker.cpp - A malloc/free checker -------------------*- C++ -*--//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MallocChecker.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines malloc/free checker, which checks for potential memory  //
-// leaks, double free, and use-after-free problems.                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines malloc/free checker, which checks for potential memory
+// leaks, double free, and use-after-free problems.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "InterCheckerAPI.h"

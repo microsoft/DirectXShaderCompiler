@@ -1,20 +1,21 @@
 //===-- CodeGen/MachineJumpTableInfo.h - Abstract Jump Tables  --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineJumpTableInfo.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The MachineJumpTableInfo class keeps track of jump tables referenced by   //
-// lowered switch instructions in the MachineFunction.                       //
 //
-// Instructions reference the address of these jump tables through the use of//
-// MO_JumpTableIndex values.  When emitting assembly or machine code, these  //
-// virtual address references are converted to refer to the address of the   //
-// function jump tables.                                                     //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The MachineJumpTableInfo class keeps track of jump tables referenced by
+// lowered switch instructions in the MachineFunction.
+//
+// Instructions reference the address of these jump tables through the use of
+// MO_JumpTableIndex values.  When emitting assembly or machine code, these
+// virtual address references are converted to refer to the address of the
+// function jump tables.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINEJUMPTABLEINFO_H
 #define LLVM_CODEGEN_MACHINEJUMPTABLEINFO_H

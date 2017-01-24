@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 clang_tablegen(Checkers.inc -gen-clang-sa-checkers
   -I ${CMAKE_CURRENT_SOURCE_DIR}/../../../include
   SOURCE Checkers.td

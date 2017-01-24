@@ -1,14 +1,15 @@
 //===- CocoaConventions.h - Special handling of Cocoa conventions -*- C++ -*--//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CocoaConventions.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements cocoa naming convention analysis.                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements cocoa naming convention analysis. 
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/DomainSpecific/CocoaConventions.h"
 #include "clang/AST/Decl.h"

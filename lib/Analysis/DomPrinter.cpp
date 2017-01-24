@@ -1,21 +1,22 @@
 //===- DomPrinter.cpp - DOT printer for the dominance trees    ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DomPrinter.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines '-dot-dom' and '-dot-postdom' analysis passes, which emit//
-// a dom.<fnname>.dot or postdom.<fnname>.dot file for each function in the  //
-// program, with a graph of the dominance/postdominance tree of that         //
-// function.                                                                 //
-//                                                                           //
-// There are also passes available to directly call dotty ('-view-dom' or    //
-// '-view-postdom'). By appending '-only' like '-dot-dom-only' only the      //
-// names of the bbs are printed, but the content is hidden.                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines '-dot-dom' and '-dot-postdom' analysis passes, which emit
+// a dom.<fnname>.dot or postdom.<fnname>.dot file for each function in the
+// program, with a graph of the dominance/postdominance tree of that
+// function.
+//
+// There are also passes available to directly call dotty ('-view-dom' or
+// '-view-postdom'). By appending '-only' like '-dot-dom-only' only the
+// names of the bbs are printed, but the content is hidden.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/DomPrinter.h"
 #include "llvm/Analysis/DOTGraphTraitsPass.h"

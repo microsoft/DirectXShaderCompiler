@@ -1,11 +1,19 @@
 //===- tools/dsymutil/DebugMap.cpp - Generic debug map representation -----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DebugMap.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                             The LLVM Linker
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+#include "DebugMap.h"
+#include "BinaryHolder.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/iterator_range.h"
+#include "llvm/Support/DataTypes.h"
+#include "llvm/Support/Format.h"
+#include "llvm/Support/raw_ostream.h"
+#include <algorithm>
 
 #include "DebugMap.h"
 #include "BinaryHolder.h"

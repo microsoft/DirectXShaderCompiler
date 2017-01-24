@@ -1,14 +1,15 @@
 //===--- RewriteRope.h - Rope specialized for rewriter ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RewriteRope.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the RewriteRope class, which is a powerful string class.//
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the RewriteRope class, which is a powerful string class.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_REWRITE_CORE_REWRITEROPE_H
 #define LLVM_CLANG_REWRITE_CORE_REWRITEROPE_H

@@ -1,16 +1,17 @@
 //===----- CGObjCRuntime.h - Interface to ObjC Runtimes ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CGObjCRuntime.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This provides an abstract class for Objective-C code generation.  Concrete//
-// subclasses of this implement code generation for specific Objective-C     //
-// runtime libraries.                                                        //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This provides an abstract class for Objective-C code generation.  Concrete
+// subclasses of this implement code generation for specific Objective-C
+// runtime libraries.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_CODEGEN_CGOBJCRUNTIME_H
 #define LLVM_CLANG_LIB_CODEGEN_CGOBJCRUNTIME_H

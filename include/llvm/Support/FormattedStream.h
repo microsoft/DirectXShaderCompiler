@@ -1,15 +1,16 @@
 //===-- llvm/Support/FormattedStream.h - Formatted streams ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FormattedStream.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains raw_ostream implementations for streams to do          //
-// things like pretty-print comments.                                        //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains raw_ostream implementations for streams to do
+// things like pretty-print comments.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_FORMATTEDSTREAM_H
 #define LLVM_SUPPORT_FORMATTEDSTREAM_H

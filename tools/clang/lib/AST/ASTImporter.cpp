@@ -1,14 +1,28 @@
 //===--- ASTImporter.cpp - Importing ASTs from other Contexts ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTImporter.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the ASTImporter class which imports AST nodes from one //
-//  context into another context.                                            //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the ASTImporter class which imports AST nodes from one
+//  context into another context.
+//
+//===----------------------------------------------------------------------===//
+#include "clang/AST/ASTImporter.h"
+#include "clang/AST/ASTContext.h"
+#include "clang/AST/ASTDiagnostic.h"
+#include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclObjC.h"
+#include "clang/AST/DeclVisitor.h"
+#include "clang/AST/StmtVisitor.h"
+#include "clang/AST/TypeVisitor.h"
+#include "clang/Basic/FileManager.h"
+#include "clang/Basic/SourceManager.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include <deque>
 
 #include "clang/AST/ASTImporter.h"
 #include "clang/AST/ASTContext.h"

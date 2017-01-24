@@ -1,16 +1,17 @@
-//= MallocSizeofChecker.cpp - Check for dubious malloc arguments ---*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MallocSizeofChecker.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Reports inconsistencies between the casted type of the return value of a  //
-// malloc/calloc/realloc call and the operand of any sizeof expressions      //
-// contained within its argument(s).                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+// MallocSizeofChecker.cpp - Check for dubious malloc arguments ---*- C++ -*-=//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Reports inconsistencies between the casted type of the return value of a
+// malloc/calloc/realloc call and the operand of any sizeof expressions
+// contained within its argument(s).
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/StmtVisitor.h"

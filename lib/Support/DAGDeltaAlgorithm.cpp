@@ -1,35 +1,35 @@
 //===--- DAGDeltaAlgorithm.cpp - A DAG Minimization Algorithm --*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DAGDeltaAlgorithm.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The algorithm we use attempts to exploit the dependency information by    //
-// minimizing top-down. We start by constructing an initial root set R, and  //
-// then iteratively:                                                         //
-//                                                                           //
-//   1. Minimize the set R using the test predicate:                         //
-//       P'(S) = P(S union pred*(S))                                         //
-//                                                                           //
-//   2. Extend R to R' = R union pred(R).                                    //
-//                                                                           //
-// until a fixed point is reached.                                           //
-//                                                                           //
-// The idea is that we want to quickly prune entire portions of the graph, so we//
-// try to find high-level nodes that can be eliminated with all of their     //
-// dependents.                                                               //
-//                                                                           //
-// FIXME: The current algorithm doesn't actually provide a strong guarantee  //
-// about the minimality of the result. The problem is that after adding nodes to//
-// the required set, we no longer consider them for elimination. For strictly//
-// well formed predicates, this doesn't happen, but it commonly occurs in    //
-// practice when there are unmodelled dependencies. I believe we can resolve //
-// this by allowing the required set to be minimized as well, but need more test//
-// cases first.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//===----------------------------------------------------------------------===//
+//
+// The algorithm we use attempts to exploit the dependency information by
+// minimizing top-down. We start by constructing an initial root set R, and
+// then iteratively:
+//
+//   1. Minimize the set R using the test predicate:
+//       P'(S) = P(S union pred*(S))
+//
+//   2. Extend R to R' = R union pred(R).
+//
+// until a fixed point is reached.
+//
+// The idea is that we want to quickly prune entire portions of the graph, so we
+// try to find high-level nodes that can be eliminated with all of their
+// dependents.
+//
+// FIXME: The current algorithm doesn't actually provide a strong guarantee
+// about the minimality of the result. The problem is that after adding nodes to
+// the required set, we no longer consider them for elimination. For strictly
+// well formed predicates, this doesn't happen, but it commonly occurs in
+// practice when there are unmodelled dependencies. I believe we can resolve
+// this by allowing the required set to be minimized as well, but need more test
+// cases first.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DAGDeltaAlgorithm.h"
 #include "llvm/ADT/DeltaAlgorithm.h"

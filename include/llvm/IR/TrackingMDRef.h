@@ -1,14 +1,15 @@
 //===- llvm/IR/TrackingMDRef.h - Tracking Metadata references ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TrackingMDRef.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// References to metadata that track RAUW.                                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// References to metadata that track RAUW.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_TRACKINGMDREF_H
 #define LLVM_IR_TRACKINGMDREF_H

@@ -1,16 +1,17 @@
 //===-- llvm/SymbolTableListTraitsImpl.h - Implementation ------*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SymbolTableListTraitsImpl.h                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the stickier parts of the SymbolTableListTraits class,//
-// and is explicitly instantiated where needed to avoid defining all this code//
-// in a widely used header.                                                  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the stickier parts of the SymbolTableListTraits class,
+// and is explicitly instantiated where needed to avoid defining all this code
+// in a widely used header.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_IR_SYMBOLTABLELISTTRAITSIMPL_H
 #define LLVM_LIB_IR_SYMBOLTABLELISTTRAITSIMPL_H

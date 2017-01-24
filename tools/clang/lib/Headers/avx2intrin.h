@@ -1,12 +1,4 @@
 /*===---- avx2intrin.h - AVX2 intrinsics -----------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// avx2intrin.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __IMMINTRIN_H
 #error "Never use <avx2intrin.h> directly; include <immintrin.h> instead."
 #endif

@@ -1,15 +1,16 @@
 //===- CloneModule.cpp - Clone an entire module ---------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CloneModule.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the CloneModule interface which makes a copy of an   //
-// entire module.                                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the CloneModule interface which makes a copy of an
+// entire module.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Constant.h"

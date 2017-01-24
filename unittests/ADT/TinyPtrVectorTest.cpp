@@ -1,14 +1,15 @@
 //===- llvm/unittest/ADT/TinyPtrVectorTest.cpp ----------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TinyPtrVectorTest.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// TinyPtrVector unit tests.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// TinyPtrVector unit tests.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/ADT/ArrayRef.h"

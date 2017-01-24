@@ -1,14 +1,15 @@
 //===-- Path.cpp - Implement OS Path Concept ------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Path.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements the operating system Path API.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements the operating system Path API.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/Endian.h"

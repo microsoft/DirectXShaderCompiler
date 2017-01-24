@@ -1,18 +1,16 @@
 //===- not.cpp - The 'not' testing tool -----------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// not.cpp                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Usage:                                                                    //
-//   not cmd                                                                 //
-//     Will return true if cmd doesn't crash and returns false.              //
-//   not --crash cmd                                                         //
-//     Will return true if cmd crashes (e.g. for testing crash reporting).   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// Usage:
+//   not cmd
+//     Will return true if cmd doesn't crash and returns false.
+//   not --crash cmd
+//     Will return true if cmd crashes (e.g. for testing crash reporting).
 
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"

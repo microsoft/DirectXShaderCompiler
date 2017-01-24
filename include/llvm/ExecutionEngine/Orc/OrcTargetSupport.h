@@ -1,14 +1,15 @@
 //===-- OrcTargetSupport.h - Code to support specific targets  --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// OrcTargetSupport.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Target specific code for Orc, e.g. callback assembly.                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Target specific code for Orc, e.g. callback assembly.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_EXECUTIONENGINE_ORC_ORCTARGETSUPPORT_H
 #define LLVM_EXECUTIONENGINE_ORC_ORCTARGETSUPPORT_H

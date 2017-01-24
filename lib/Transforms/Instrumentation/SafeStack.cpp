@@ -1,18 +1,19 @@
 //===-- SafeStack.cpp - Safe Stack Insertion ------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SafeStack.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass splits the stack into the safe stack (kept as-is for LLVM backend)//
-// and the unsafe stack (explicitly allocated and managed through the runtime//
-// support library).                                                         //
-//                                                                           //
-// http://clang.llvm.org/docs/SafeStack.html                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass splits the stack into the safe stack (kept as-is for LLVM backend)
+// and the unsafe stack (explicitly allocated and managed through the runtime
+// support library).
+//
+// http://clang.llvm.org/docs/SafeStack.html
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/ADT/Statistic.h"

@@ -1,18 +1,19 @@
 //===- llvm/Analysis/DominanceFrontier.h - Dominator Frontiers --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DominanceFrontierImpl.h                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is the generic implementation of the DominanceFrontier class, which  //
-// calculate and holds the dominance frontier for a function for.            //
 //
-// This should be considered deprecated, don't add any more uses of this data//
-// structure.                                                                //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is the generic implementation of the DominanceFrontier class, which
+// calculate and holds the dominance frontier for a function for.
+//
+// This should be considered deprecated, don't add any more uses of this data
+// structure.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_DOMINANCEFRONTIERIMPL_H
 #define LLVM_ANALYSIS_DOMINANCEFRONTIERIMPL_H

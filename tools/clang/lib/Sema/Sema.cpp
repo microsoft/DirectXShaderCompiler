@@ -1,15 +1,16 @@
 //===--- Sema.cpp - AST Builder and Semantic Analysis Implementation ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Sema.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the actions class which performs semantic analysis and//
-// builds an AST out of a parse stream.                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the actions class which performs semantic analysis and
+// builds an AST out of a parse stream.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/ASTContext.h"

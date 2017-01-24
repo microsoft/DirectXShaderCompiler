@@ -1,21 +1,22 @@
 //===--- llvm/ADT/SparseMultiSet.h - Sparse multiset ------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SparseMultiSet.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the SparseMultiSet class, which adds multiset behavior to//
-// the SparseSet.                                                            //
 //
-// A sparse multiset holds a small number of objects identified by integer keys//
-// from a moderately sized universe. The sparse multiset uses more memory than//
-// other containers in order to provide faster operations. Any key can map to//
-// multiple values. A SparseMultiSetNode class is provided, which serves as a//
-// convenient base class for the contents of a SparseMultiSet.               //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the SparseMultiSet class, which adds multiset behavior to
+// the SparseSet.
+//
+// A sparse multiset holds a small number of objects identified by integer keys
+// from a moderately sized universe. The sparse multiset uses more memory than
+// other containers in order to provide faster operations. Any key can map to
+// multiple values. A SparseMultiSetNode class is provided, which serves as a
+// convenient base class for the contents of a SparseMultiSet.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_SPARSEMULTISET_H
 #define LLVM_ADT_SPARSEMULTISET_H

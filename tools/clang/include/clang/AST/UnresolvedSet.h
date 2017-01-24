@@ -1,15 +1,16 @@
 //===-- UnresolvedSet.h - Unresolved sets of declarations  ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// UnresolvedSet.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the UnresolvedSet class, which is used to store        //
-//  collections of declarations in the AST.                                  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the UnresolvedSet class, which is used to store
+//  collections of declarations in the AST.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_AST_UNRESOLVEDSET_H
 #define LLVM_CLANG_AST_UNRESOLVEDSET_H

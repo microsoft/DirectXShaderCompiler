@@ -1,14 +1,15 @@
 //===- TGLexer.cpp - Lexer for TableGen -----------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TGLexer.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Implement the Lexer for TableGen.                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Implement the Lexer for TableGen.
+//
+//===----------------------------------------------------------------------===//
 
 #include "TGLexer.h"
 #include "llvm/ADT/StringSwitch.h"

@@ -1,15 +1,16 @@
 //===- ASTVector.h - Vector that uses ASTContext for allocation  --*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTVector.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file provides ASTVector, a vector  ADT whose contents are           //
-//  allocated using the allocator associated with an ASTContext..            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file provides ASTVector, a vector  ADT whose contents are
+//  allocated using the allocator associated with an ASTContext..
+//
+//===----------------------------------------------------------------------===//
 
 // FIXME: Most of this is copy-and-paste from BumpVector.h and SmallVector.h.
 // We can refactor this core logic into something common.

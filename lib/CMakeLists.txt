@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 # `Support' and `TableGen' libraries are added on the top-level CMakeLists.txt
 
 add_subdirectory(IR)

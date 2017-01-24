@@ -1,19 +1,20 @@
 //===- unittest/AST/SourceLocationTest.cpp - AST source loc unit tests ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SourceLocationTest.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains tests for SourceLocation and SourceRange fields        //
-// in AST nodes.                                                             //
-//                                                                           //
-// FIXME: In the long-term, when we test more than source locations, we may  //
-// want to have a unit test file for an AST node (or group of related nodes),//
-// rather than a unit test file for source locations for all AST nodes.      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains tests for SourceLocation and SourceRange fields
+// in AST nodes.
+//
+// FIXME: In the long-term, when we test more than source locations, we may
+// want to have a unit test file for an AST node (or group of related nodes),
+// rather than a unit test file for source locations for all AST nodes.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTContext.h"
 #include "MatchVerifier.h"

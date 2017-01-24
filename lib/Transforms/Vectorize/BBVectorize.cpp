@@ -1,17 +1,18 @@
 //===- BBVectorize.cpp - A Basic-Block Vectorizer -------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BBVectorize.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a basic-block vectorization pass. The algorithm was  //
-// inspired by that used by the Vienna MAP Vectorizor by Franchetti and Kral,//
-// et al. It works by looking for chains of pairable operations and then     //
-// pairing them.                                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a basic-block vectorization pass. The algorithm was
+// inspired by that used by the Vienna MAP Vectorizor by Franchetti and Kral,
+// et al. It works by looking for chains of pairable operations and then
+// pairing them.
+//
+//===----------------------------------------------------------------------===//
 
 #define BBV_NAME "bb-vectorize"
 #include "llvm/Transforms/Vectorize.h"

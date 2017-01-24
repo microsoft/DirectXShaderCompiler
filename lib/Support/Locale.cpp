@@ -1,12 +1,5 @@
-//===- Locale.cpp -----------------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Locale.cpp                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+#include "llvm/Support/Locale.h"
+#include "llvm/Support/Unicode.h"
 
 #include "llvm/Support/Locale.h"
 #include "llvm/Support/Unicode.h"

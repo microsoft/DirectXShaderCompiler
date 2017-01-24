@@ -1,21 +1,22 @@
 //===-- llvm/ADT/IntEqClasses.h - Equiv. Classes of Integers ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntEqClasses.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Equivalence classes for small integers. This is a mapping of the integers //
-// 0 .. N-1 into M equivalence classes numbered 0 .. M-1.                    //
 //
-// Initially each integer has its own equivalence class. Classes are joined by//
-// passing a representative member of each class to join().                  //
+//                     The LLVM Compiler Infrastructure
 //
-// Once the classes are built, compress() will number them 0 .. M-1 and prevent//
-// further changes.                                                          //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// Equivalence classes for small integers. This is a mapping of the integers
+// 0 .. N-1 into M equivalence classes numbered 0 .. M-1.
+//
+// Initially each integer has its own equivalence class. Classes are joined by
+// passing a representative member of each class to join().
+//
+// Once the classes are built, compress() will number them 0 .. M-1 and prevent
+// further changes.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_INTEQCLASSES_H
 #define LLVM_ADT_INTEQCLASSES_H

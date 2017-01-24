@@ -1,20 +1,21 @@
 //===-- llvm/Analysis/Lint.h - LLVM IR Lint ---------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Lint.h                                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines lint interfaces that can be used for some sanity checking//
-// of input to the system, and for checking that transformations             //
-// haven't done something bad. In contrast to the Verifier, the Lint checker //
-// checks for undefined behavior or constructions with likely unintended     //
-// behavior.                                                                 //
 //
-// To see what specifically is checked, look at Lint.cpp                     //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines lint interfaces that can be used for some sanity checking
+// of input to the system, and for checking that transformations
+// haven't done something bad. In contrast to the Verifier, the Lint checker
+// checks for undefined behavior or constructions with likely unintended
+// behavior.
+//
+// To see what specifically is checked, look at Lint.cpp
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_LINT_H
 #define LLVM_ANALYSIS_LINT_H

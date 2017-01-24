@@ -1,12 +1,4 @@
 /*===---- fma4intrin.h - FMA4 intrinsics -----------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// fmaintrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __IMMINTRIN_H
 #error "Never use <fmaintrin.h> directly; include <immintrin.h> instead."
 #endif

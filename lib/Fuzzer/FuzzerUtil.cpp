@@ -1,14 +1,13 @@
 //===- FuzzerUtil.cpp - Misc utils ----------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FuzzerUtil.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Misc utils.                                                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// Misc utils.
+//===----------------------------------------------------------------------===//
 
 #include "FuzzerInternal.h"
 #include <sstream>

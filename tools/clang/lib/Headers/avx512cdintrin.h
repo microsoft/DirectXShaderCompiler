@@ -1,14 +1,4 @@
 /*===------------- avx512cdintrin.h - AVX512CD intrinsics ------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// avx512cdintrin.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////#ifndef __IMMINTRIN_H
-#error "Never use <avx512cdintrin.h> directly; include <immintrin.h> instead."
-#endif
 
 #ifndef __AVX512CDINTRIN_H
 #define __AVX512CDINTRIN_H

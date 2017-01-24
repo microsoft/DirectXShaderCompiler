@@ -1,15 +1,16 @@
 //===---- CGLoopInfo.h - LLVM CodeGen for loop metadata -*- C++ -*---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CGLoopInfo.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is the internal state used for llvm translation for loop statement   //
-// metadata.                                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is the internal state used for llvm translation for loop statement
+// metadata.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_CODEGEN_CGLOOPINFO_H
 #define LLVM_CLANG_LIB_CODEGEN_CGLOOPINFO_H

@@ -1,15 +1,16 @@
 //===-- Instrumentation.cpp - TransformUtils Infrastructure ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Instrumentation.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the common initialization infrastructure for the        //
-// Instrumentation library.                                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the common initialization infrastructure for the
+// Instrumentation library.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/InitializePasses.h"
 #include "llvm-c/Initialization.h"

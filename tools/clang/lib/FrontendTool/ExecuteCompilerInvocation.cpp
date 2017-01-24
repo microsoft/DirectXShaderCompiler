@@ -1,15 +1,16 @@
 //===--- ExecuteCompilerInvocation.cpp ------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExecuteCompilerInvocation.cpp                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file holds ExecuteCompilerInvocation(). It is split into its own file to//
-// minimize the impact of pulling in essentially everything else in Clang.   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file holds ExecuteCompilerInvocation(). It is split into its own file to
+// minimize the impact of pulling in essentially everything else in Clang.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/FrontendTool/Utils.h"
 // #include "clang/ARCMigrate/ARCMTActions.h" // HLSL Change

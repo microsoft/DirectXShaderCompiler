@@ -1,17 +1,16 @@
 //===--- AllDiagnostics.h - Aggregate Diagnostic headers --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AllDiagnostics.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Includes all the separate Diagnostic headers & some related helpers.//
+/// \file
+/// \brief Includes all the separate Diagnostic headers & some related helpers.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_BASIC_ALLDIAGNOSTICS_H
 #define LLVM_CLANG_BASIC_ALLDIAGNOSTICS_H

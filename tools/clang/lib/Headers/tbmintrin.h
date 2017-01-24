@@ -1,12 +1,4 @@
 /*===---- tbmintrin.h - TBM intrinsics -------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// tbmintrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __TBM__
 #error "TBM instruction set is not enabled"
 #endif

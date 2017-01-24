@@ -1,15 +1,16 @@
 //===------------ FixedLenDecoderEmitter.cpp - Decoder Generator ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FixedLenDecoderEmitter.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// It contains the tablegen backend that emits the decoder functions for     //
-// targets with fixed length instruction set.                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// It contains the tablegen backend that emits the decoder functions for
+// targets with fixed length instruction set.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenTarget.h"
 #include "llvm/ADT/APInt.h"

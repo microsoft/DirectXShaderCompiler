@@ -1,14 +1,4 @@
 /*===---- avx512fintrin.h - AVX2 intrinsics --------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// avx512fintrin.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////#ifndef __IMMINTRIN_H
-#error "Never use <avx512fintrin.h> directly; include <immintrin.h> instead."
-#endif
 
 #ifndef __AVX512FINTRIN_H
 #define __AVX512FINTRIN_H

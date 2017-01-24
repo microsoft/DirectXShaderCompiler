@@ -1,42 +1,45 @@
 //===-- LoopIdiomRecognize.cpp - Loop idiom recognition -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopIdiomRecognize.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass implements an idiom recognizer that transforms simple loops into a//
-// non-loop form.  In cases that this kicks in, it can be a significant      //
-// performance win.                                                          //
-//                                                                           //
-// TODO List:                                                                //
-//                                                                           //
-// Future loop memory idioms to recognize:                                   //
-//   memcmp, memmove, strlen, etc.                                           //
-// Future floating point idioms to recognize in -ffast-math mode:            //
-//   fpowi                                                                   //
-// Future integer operation idioms to recognize:                             //
-//   ctpop, ctlz, cttz                                                       //
-//                                                                           //
-// Beware that isel's default lowering for ctpop is highly inefficient for   //
-// i64 and larger types when i64 is legal and the value has few bits set.  It//
-// would be good to enhance isel to emit a loop for ctpop in this case.      //
-//                                                                           //
-// We should enhance the memset/memcpy recognition to handle multiple stores in//
-// the loop.  This would handle things like:                                 //
-//   void foo(_Complex float *P)                                             //
-//     for (i) { __real__(*P) = 0;  __imag__(*P) = 0; }                      //
-//                                                                           //
-// We should enhance this to handle negative strides through memory.         //
-// Alternatively (and perhaps better) we could rely on an earlier pass to force//
-// forward iteration through memory, which is generally better for cache     //
-// behavior.  Negative strides *do* happen for memset/memcpy loops.          //
-//                                                                           //
-// This could recognize common matrix multiplies and dot product idioms and  //
-// replace them with calls to BLAS (if linked in??).                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass implements an idiom recognizer that transforms simple loops into a
+// non-loop form.  In cases that this kicks in, it can be a significant
+// performance win.
+//
+//===----------------------------------------------------------------------===//
+//
+// TODO List:
+//
+// Future loop memory idioms to recognize:
+//   memcmp, memmove, strlen, etc.
+// Future floating point idioms to recognize in -ffast-math mode:
+//   fpowi
+// Future integer operation idioms to recognize:
+//   ctpop, ctlz, cttz
+//
+// Beware that isel's default lowering for ctpop is highly inefficient for
+// i64 and larger types when i64 is legal and the value has few bits set.  It
+// would be good to enhance isel to emit a loop for ctpop in this case.
+//
+// We should enhance the memset/memcpy recognition to handle multiple stores in
+// the loop.  This would handle things like:
+//   void foo(_Complex float *P)
+//     for (i) { __real__(*P) = 0;  __imag__(*P) = 0; }
+//
+// We should enhance this to handle negative strides through memory.
+// Alternatively (and perhaps better) we could rely on an earlier pass to force
+// forward iteration through memory, which is generally better for cache
+// behavior.  Negative strides *do* happen for memset/memcpy loops.
+//
+// This could recognize common matrix multiplies and dot product idioms and
+// replace them with calls to BLAS (if linked in??).
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/Statistic.h"

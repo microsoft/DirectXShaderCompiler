@@ -1,17 +1,18 @@
 //===--- ArgumentsAdjusters.h - Command line arguments adjuster -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ArgumentsAdjusters.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares typedef ArgumentsAdjuster and functions to create several//
-// useful argument adjusters.                                                //
-// ArgumentsAdjusters modify command line arguments obtained from a compilation//
-// database before they are used to run a frontend action.                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares typedef ArgumentsAdjuster and functions to create several
+// useful argument adjusters.
+// ArgumentsAdjusters modify command line arguments obtained from a compilation
+// database before they are used to run a frontend action.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_TOOLING_ARGUMENTSADJUSTERS_H
 #define LLVM_CLANG_TOOLING_ARGUMENTSADJUSTERS_H

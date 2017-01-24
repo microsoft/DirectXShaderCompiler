@@ -1,17 +1,18 @@
 //===- LocalStackSlotAllocation.cpp - Pre-allocate locals to stack slots --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LocalStackSlotAllocation.cpp                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass assigns local frame indices to stack slots relative to one another//
-// and allocates additional base registers to access them when the target    //
-// estimates they are likely to be out of range of stack pointer and frame   //
-// pointer relative addressing.                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass assigns local frame indices to stack slots relative to one another
+// and allocates additional base registers to access them when the target
+// estimates they are likely to be out of range of stack pointer and frame
+// pointer relative addressing.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/STLExtras.h"

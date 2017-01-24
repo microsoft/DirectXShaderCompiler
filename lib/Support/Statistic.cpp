@@ -1,24 +1,25 @@
 //===-- Statistic.cpp - Easy way to expose stats information --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Statistic.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the 'Statistic' class, which is designed to be an easy//
-// way to expose various success metrics from passes.  These statistics are  //
-// printed at the end of a run, when the -stats command line option is enabled//
-// on the command line.                                                      //
-//                                                                           //
-// This is useful for reporting information like the number of instructions  //
-// simplified, optimized or removed by various transformations, like this:   //
-//                                                                           //
-// static Statistic NumInstEliminated("GCSE", "Number of instructions killed");//
-//                                                                           //
-// Later, in the code: ++NumInstEliminated;                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the 'Statistic' class, which is designed to be an easy
+// way to expose various success metrics from passes.  These statistics are
+// printed at the end of a run, when the -stats command line option is enabled
+// on the command line.
+//
+// This is useful for reporting information like the number of instructions
+// simplified, optimized or removed by various transformations, like this:
+//
+// static Statistic NumInstEliminated("GCSE", "Number of instructions killed");
+//
+// Later, in the code: ++NumInstEliminated;
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"

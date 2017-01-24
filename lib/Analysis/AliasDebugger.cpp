@@ -1,19 +1,20 @@
 //===- AliasDebugger.cpp - Simple Alias Analysis Use Checker --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AliasDebugger.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This simple pass checks alias analysis users to ensure that if they       //
-// create a new value, they do not query AA without informing it of the value.//
-// It acts as a shim over any other AA pass you want.                        //
-//                                                                           //
-// Yes keeping track of every value in the program is expensive, but this is //
-// a debugging pass.                                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This simple pass checks alias analysis users to ensure that if they
+// create a new value, they do not query AA without informing it of the value.
+// It acts as a shim over any other AA pass you want.
+//
+// Yes keeping track of every value in the program is expensive, but this is 
+// a debugging pass.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/AliasAnalysis.h"

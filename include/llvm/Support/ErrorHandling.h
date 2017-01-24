@@ -1,15 +1,16 @@
 //===- llvm/Support/ErrorHandling.h - Fatal error handling ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ErrorHandling.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines an API used to indicate fatal error conditions.  Non-fatal//
-// errors (most of them) should be handled through LLVMContext.              //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines an API used to indicate fatal error conditions.  Non-fatal
+// errors (most of them) should be handled through LLVMContext.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_ERRORHANDLING_H
 #define LLVM_SUPPORT_ERRORHANDLING_H

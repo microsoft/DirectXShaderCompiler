@@ -1,14 +1,15 @@
 //===--- MacroArgs.cpp - Formal argument info for Macros ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MacroArgs.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the MacroArgs interface.                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the MacroArgs interface.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Lex/MacroArgs.h"
 #include "clang/Lex/LexDiagnostic.h"

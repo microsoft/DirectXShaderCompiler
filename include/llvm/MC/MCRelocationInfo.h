@@ -1,16 +1,17 @@
 //==-- llvm/MC/MCRelocationInfo.h --------------------------------*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCRelocationInfo.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the MCRelocationInfo class, which provides methods to  //
-// create MCExprs from relocations, either found in an object::ObjectFile    //
-// (object::RelocationRef), or provided through the C API.                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the MCRelocationInfo class, which provides methods to
+// create MCExprs from relocations, either found in an object::ObjectFile
+// (object::RelocationRef), or provided through the C API.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCRELOCATIONINFO_H
 #define LLVM_MC_MCRELOCATIONINFO_H

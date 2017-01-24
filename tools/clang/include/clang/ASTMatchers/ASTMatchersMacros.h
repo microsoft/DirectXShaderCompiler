@@ -1,50 +1,51 @@
 //===--- ASTMatchersMacros.h - Structural query framework -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTMatchersMacros.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Defines macros that enable us to define new matchers in a single place.  //
-//  Since a matcher is a function which returns a Matcher<T> object, where   //
-//  T is the type of the actual implementation of the matcher, the macros allow//
-//  us to write matchers like functions and take care of the definition of the//
-//  class boilerplate.                                                       //
 //
-//  Note that when you define a matcher with an AST_MATCHER* macro, only the //
-//  function which creates the matcher goes into the current namespace - the //
-//  class that implements the actual matcher, which gets returned by the     //
-//  generator function, is put into the 'internal' namespace. This allows us //
-//  to only have the functions (which is all the user cares about) in the    //
-//  'ast_matchers' namespace and hide the boilerplate.                       //
+//                     The LLVM Compiler Infrastructure
 //
-//  To define a matcher in user code, put it into your own namespace. This would//
-//  help to prevent ODR violations in case a matcher with the same name is   //
-//  defined in multiple translation units:                                   //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  namespace my_matchers {                                                  //
-//  AST_MATCHER_P(clang::MemberExpr, Member,                                 //
-//                clang::ast_matchers::internal::Matcher<clang::ValueDecl>,  //
-//                InnerMatcher) {                                            //
-//    return InnerMatcher.matches(*Node.getMemberDecl(), Finder, Builder);   //
-//  }                                                                        //
-//  } // namespace my_matchers                                               //
+//===----------------------------------------------------------------------===//
 //
-//  Alternatively, an unnamed namespace may be used:                         //
+//  Defines macros that enable us to define new matchers in a single place.
+//  Since a matcher is a function which returns a Matcher<T> object, where
+//  T is the type of the actual implementation of the matcher, the macros allow
+//  us to write matchers like functions and take care of the definition of the
+//  class boilerplate.
 //
-//  namespace clang {                                                        //
-//  namespace ast_matchers {                                                 //
-//  namespace {                                                              //
-//  AST_MATCHER_P(MemberExpr, Member,                                        //
-//                internal::Matcher<ValueDecl>, InnerMatcher) {              //
-//    return InnerMatcher.matches(*Node.getMemberDecl(), Finder, Builder);   //
-//  }                                                                        //
-//  } // namespace                                                           //
-//  } // namespace ast_matchers                                              //
-//  } // namespace clang                                                     //
+//  Note that when you define a matcher with an AST_MATCHER* macro, only the
+//  function which creates the matcher goes into the current namespace - the
+//  class that implements the actual matcher, which gets returned by the
+//  generator function, is put into the 'internal' namespace. This allows us
+//  to only have the functions (which is all the user cares about) in the
+//  'ast_matchers' namespace and hide the boilerplate.
 //
-///////////////////////////////////////////////////////////////////////////////
+//  To define a matcher in user code, put it into your own namespace. This would
+//  help to prevent ODR violations in case a matcher with the same name is
+//  defined in multiple translation units:
+//
+//  namespace my_matchers {
+//  AST_MATCHER_P(clang::MemberExpr, Member,
+//                clang::ast_matchers::internal::Matcher<clang::ValueDecl>,
+//                InnerMatcher) {
+//    return InnerMatcher.matches(*Node.getMemberDecl(), Finder, Builder);
+//  }
+//  } // namespace my_matchers
+//
+//  Alternatively, an unnamed namespace may be used:
+//
+//  namespace clang {
+//  namespace ast_matchers {
+//  namespace {
+//  AST_MATCHER_P(MemberExpr, Member,
+//                internal::Matcher<ValueDecl>, InnerMatcher) {
+//    return InnerMatcher.matches(*Node.getMemberDecl(), Finder, Builder);
+//  }
+//  } // namespace
+//  } // namespace ast_matchers
+//  } // namespace clang
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ASTMATCHERS_ASTMATCHERSMACROS_H
 #define LLVM_CLANG_ASTMATCHERS_ASTMATCHERSMACROS_H

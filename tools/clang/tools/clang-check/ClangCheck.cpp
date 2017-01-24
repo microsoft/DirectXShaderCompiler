@@ -1,19 +1,20 @@
 //===--- tools/clang-check/ClangCheck.cpp - Clang check tool --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ClangCheck.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements a clang-check tool that runs clang based on the info//
-//  stored in a compilation database.                                        //
-//                                                                           //
-//  This tool uses the Clang Tooling infrastructure, see                     //
-//    http://clang.llvm.org/docs/HowToSetupToolingForLLVM.html               //
-//  for details on setting it up with LLVM source tree.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements a clang-check tool that runs clang based on the info
+//  stored in a compilation database.
+//
+//  This tool uses the Clang Tooling infrastructure, see
+//    http://clang.llvm.org/docs/HowToSetupToolingForLLVM.html
+//  for details on setting it up with LLVM source tree.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/CodeGen/ObjectFilePCHContainerOperations.h"

@@ -1,16 +1,17 @@
 //===-------- EdgeBundles.h - Bundles of CFG edges --------------*- c++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// EdgeBundles.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The EdgeBundles analysis forms equivalence classes of CFG edges such that all//
-// edges leaving a machine basic block are in the same bundle, and all edges //
-// leaving a basic block are in the same bundle.                             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The EdgeBundles analysis forms equivalence classes of CFG edges such that all
+// edges leaving a machine basic block are in the same bundle, and all edges
+// leaving a basic block are in the same bundle.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_EDGEBUNDLES_H
 #define LLVM_CODEGEN_EDGEBUNDLES_H

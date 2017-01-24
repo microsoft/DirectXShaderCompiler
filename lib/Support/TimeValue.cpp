@@ -1,14 +1,15 @@
 //===-- TimeValue.cpp - Implement OS TimeValue Concept ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TimeValue.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements the operating system TimeValue concept.             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements the operating system TimeValue concept.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/TimeValue.h"
 #include "llvm/Config/config.h"

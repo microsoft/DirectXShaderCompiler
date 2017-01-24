@@ -1,12 +1,6 @@
-//===- CounterTest.cpp ------------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CounterTest.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+// Test for a fuzzer: must find the case where a particular basic block is
+// executed many times.
+#include <iostream>
 
 // Test for a fuzzer: must find the case where a particular basic block is
 // executed many times.

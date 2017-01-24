@@ -1,15 +1,16 @@
 //===--- Utils.h - Misc utilities for the front-end -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Utils.h                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This header contains miscellaneous utilities for various front-end actions//
-//  which were split from Frontend to minimise Frontend's dependencies.      //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This header contains miscellaneous utilities for various front-end actions
+//  which were split from Frontend to minimise Frontend's dependencies.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_FRONTENDTOOL_UTILS_H
 #define LLVM_CLANG_FRONTENDTOOL_UTILS_H

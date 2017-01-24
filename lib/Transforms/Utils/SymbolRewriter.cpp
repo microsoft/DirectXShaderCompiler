@@ -1,60 +1,61 @@
 //===- SymbolRewriter.cpp - Symbol Rewriter ---------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SymbolRewriter.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// SymbolRewriter is a LLVM pass which can rewrite symbols transparently within//
-// existing code.  It is implemented as a compiler pass and is configured via a//
-// YAML configuration file.                                                  //
-//                                                                           //
-// The YAML configuration file format is as follows:                         //
-//                                                                           //
-// RewriteMapFile := RewriteDescriptors                                      //
-// RewriteDescriptors := RewriteDescriptor | RewriteDescriptors              //
-// RewriteDescriptor := RewriteDescriptorType ':' '{' RewriteDescriptorFields '}'//
-// RewriteDescriptorFields := RewriteDescriptorField | RewriteDescriptorFields//
-// RewriteDescriptorField := FieldIdentifier ':' FieldValue ','              //
-// RewriteDescriptorType := Identifier                                       //
-// FieldIdentifier := Identifier                                             //
-// FieldValue := Identifier                                                  //
-// Identifier := [0-9a-zA-Z]+                                                //
-//                                                                           //
-// Currently, the following descriptor types are supported:                  //
-//                                                                           //
-// - function:          (function rewriting)                                 //
-//      + Source        (original name of the function)                      //
-//      + Target        (explicit transformation)                            //
-//      + Transform     (pattern transformation)                             //
-//      + Naked         (boolean, whether the function is undecorated)       //
-// - global variable:   (external linkage global variable rewriting)         //
-//      + Source        (original name of externally visible variable)       //
-//      + Target        (explicit transformation)                            //
-//      + Transform     (pattern transformation)                             //
-// - global alias:      (global alias rewriting)                             //
-//      + Source        (original name of the aliased name)                  //
-//      + Target        (explicit transformation)                            //
-//      + Transform     (pattern transformation)                             //
-//                                                                           //
-// Note that source and exactly one of [Target, Transform] must be provided  //
-//                                                                           //
-// New rewrite descriptors can be created.  Addding a new rewrite descriptor //
-// involves:                                                                 //
-//                                                                           //
-//  a) extended the rewrite descriptor kind enumeration                      //
-//     (<anonymous>::RewriteDescriptor::RewriteDescriptorType)               //
-//  b) implementing the new descriptor                                       //
-//     (c.f. <anonymous>::ExplicitRewriteFunctionDescriptor)                 //
-//  c) extending the rewrite map parser                                      //
-//     (<anonymous>::RewriteMapParser::parseEntry)                           //
-//                                                                           //
-//  Specify to rewrite the symbols using the `-rewrite-symbols` option, and  //
-//  specify the map file to use for the rewriting via the `-rewrite-map-file`//
-//  option.                                                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// SymbolRewriter is a LLVM pass which can rewrite symbols transparently within
+// existing code.  It is implemented as a compiler pass and is configured via a
+// YAML configuration file.
+//
+// The YAML configuration file format is as follows:
+//
+// RewriteMapFile := RewriteDescriptors
+// RewriteDescriptors := RewriteDescriptor | RewriteDescriptors
+// RewriteDescriptor := RewriteDescriptorType ':' '{' RewriteDescriptorFields '}'
+// RewriteDescriptorFields := RewriteDescriptorField | RewriteDescriptorFields
+// RewriteDescriptorField := FieldIdentifier ':' FieldValue ','
+// RewriteDescriptorType := Identifier
+// FieldIdentifier := Identifier
+// FieldValue := Identifier
+// Identifier := [0-9a-zA-Z]+
+//
+// Currently, the following descriptor types are supported:
+//
+// - function:          (function rewriting)
+//      + Source        (original name of the function)
+//      + Target        (explicit transformation)
+//      + Transform     (pattern transformation)
+//      + Naked         (boolean, whether the function is undecorated)
+// - global variable:   (external linkage global variable rewriting)
+//      + Source        (original name of externally visible variable)
+//      + Target        (explicit transformation)
+//      + Transform     (pattern transformation)
+// - global alias:      (global alias rewriting)
+//      + Source        (original name of the aliased name)
+//      + Target        (explicit transformation)
+//      + Transform     (pattern transformation)
+//
+// Note that source and exactly one of [Target, Transform] must be provided
+//
+// New rewrite descriptors can be created.  Addding a new rewrite descriptor
+// involves:
+//
+//  a) extended the rewrite descriptor kind enumeration
+//     (<anonymous>::RewriteDescriptor::RewriteDescriptorType)
+//  b) implementing the new descriptor
+//     (c.f. <anonymous>::ExplicitRewriteFunctionDescriptor)
+//  c) extending the rewrite map parser
+//     (<anonymous>::RewriteMapParser::parseEntry)
+//
+//  Specify to rewrite the symbols using the `-rewrite-symbols` option, and
+//  specify the map file to use for the rewriting via the `-rewrite-map-file`
+//  option.
+//
+//===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "symbol-rewriter"
 #include "llvm/CodeGen/Passes.h"

@@ -1,28 +1,29 @@
 //===- llvm/Support/Debug.h - Easy way to add debug output ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Debug.h                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a handy way of adding debugging information to your  //
-// code, without it being enabled all of the time, and without having to add //
-// command line options to enable it.                                        //
 //
-// In particular, just wrap your code with the DEBUG() macro, and it will be //
-// enabled automatically if you specify '-debug' on the command-line.        //
-// Alternatively, you can also define the DEBUG_TYPE macro to "foo" specify  //
-// that your debug code belongs to class "foo". Be careful that you only do  //
-// this after including Debug.h and not around any #include of headers. Headers//
-// should define and undef the macro acround the code that needs to use the  //
-// DEBUG() macro. Then, on the command line, you can specify '-debug-only=foo'//
-// to enable JUST the debug information for the foo class.                   //
+//                     The LLVM Compiler Infrastructure
 //
-// When compiling without assertions, the -debug-* options and all code in   //
-// DEBUG() statements disappears, so it does not affect the runtime of the code.//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// This file implements a handy way of adding debugging information to your
+// code, without it being enabled all of the time, and without having to add
+// command line options to enable it.
+//
+// In particular, just wrap your code with the DEBUG() macro, and it will be
+// enabled automatically if you specify '-debug' on the command-line.
+// Alternatively, you can also define the DEBUG_TYPE macro to "foo" specify
+// that your debug code belongs to class "foo". Be careful that you only do
+// this after including Debug.h and not around any #include of headers. Headers
+// should define and undef the macro acround the code that needs to use the
+// DEBUG() macro. Then, on the command line, you can specify '-debug-only=foo'
+// to enable JUST the debug information for the foo class.
+//
+// When compiling without assertions, the -debug-* options and all code in
+// DEBUG() statements disappears, so it does not affect the runtime of the code.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_DEBUG_H
 #define LLVM_SUPPORT_DEBUG_H

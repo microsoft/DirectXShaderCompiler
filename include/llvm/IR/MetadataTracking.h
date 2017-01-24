@@ -1,14 +1,15 @@
 //===- llvm/IR/MetadataTracking.h - Metadata tracking ---------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MetadataTracking.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Low-level functions to enable tracking of metadata that could RAUW.       //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Low-level functions to enable tracking of metadata that could RAUW.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_METADATATRACKING_H
 #define LLVM_IR_METADATATRACKING_H

@@ -1,27 +1,28 @@
 //===-- SpillPlacement.h - Optimal Spill Code Placement --------*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SpillPlacement.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This analysis computes the optimal spill code placement between basic blocks.//
 //
-// The runOnMachineFunction() method only precomputes some profiling information//
-// about the CFG. The real work is done by prepare(), addConstraints(), and  //
-// finish() which are called by the register allocator.                      //
+//                     The LLVM Compiler Infrastructure
 //
-// Given a variable that is live across multiple basic blocks, and given     //
-// constraints on the basic blocks where the variable is live, determine which//
-// edge bundles should have the variable in a register and which edge bundles//
-// should have the variable in a stack slot.                                 //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// The returned bit vector can be used to place optimal spill code at basic  //
-// block entries and exits. Spill code placement inside a basic block is not //
-// considered.                                                               //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// This analysis computes the optimal spill code placement between basic blocks.
+//
+// The runOnMachineFunction() method only precomputes some profiling information
+// about the CFG. The real work is done by prepare(), addConstraints(), and
+// finish() which are called by the register allocator.
+//
+// Given a variable that is live across multiple basic blocks, and given
+// constraints on the basic blocks where the variable is live, determine which
+// edge bundles should have the variable in a register and which edge bundles
+// should have the variable in a stack slot.
+//
+// The returned bit vector can be used to place optimal spill code at basic
+// block entries and exits. Spill code placement inside a basic block is not
+// considered.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_CODEGEN_SPILLPLACEMENT_H
 #define LLVM_LIB_CODEGEN_SPILLPLACEMENT_H

@@ -1,28 +1,29 @@
 //===--- CompilationDatabase.h - --------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CompilationDatabase.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file provides an interface and multiple implementations for         //
-//  CompilationDatabases.                                                    //
 //
-//  While C++ refactoring and analysis tools are not compilers, and thus     //
-//  don't run as part of the build system, they need the exact information   //
-//  of a build in order to be able to correctly understand the C++ code of   //
-//  the project. This information is provided via the CompilationDatabase    //
-//  interface.                                                               //
+//                     The LLVM Compiler Infrastructure
 //
-//  To create a CompilationDatabase from a build directory one can call      //
-//  CompilationDatabase::loadFromDirectory(), which deduces the correct      //
-//  compilation database from the root of the build tree.                    //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  See the concrete subclasses of CompilationDatabase for currently supported//
-//  formats.                                                                 //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+//  This file provides an interface and multiple implementations for
+//  CompilationDatabases.
+//
+//  While C++ refactoring and analysis tools are not compilers, and thus
+//  don't run as part of the build system, they need the exact information
+//  of a build in order to be able to correctly understand the C++ code of
+//  the project. This information is provided via the CompilationDatabase
+//  interface.
+//
+//  To create a CompilationDatabase from a build directory one can call
+//  CompilationDatabase::loadFromDirectory(), which deduces the correct
+//  compilation database from the root of the build tree.
+//
+//  See the concrete subclasses of CompilationDatabase for currently supported
+//  formats.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_TOOLING_COMPILATIONDATABASE_H
 #define LLVM_CLANG_TOOLING_COMPILATIONDATABASE_H

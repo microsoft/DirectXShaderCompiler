@@ -1,15 +1,16 @@
 //===--- ASTDumper.cpp - Dumping implementation for ASTs ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTDumper.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the AST dump methods, which dump out the             //
-// AST in a form that exposes type details and other fields.                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the AST dump methods, which dump out the
+// AST in a form that exposes type details and other fields.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"

@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 import re, string, sys, os, time
 
 DEBUG = 0

@@ -1,15 +1,16 @@
 /*===-- module.c - tool for testing libLLVM and llvm-c API ----------------===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// module.c                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the --module-dump, --module-list-functions and       //
-// --module-list-globals commands in llvm-c-test.                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+|*                                                                            *|
+|*                     The LLVM Compiler Infrastructure                       *|
+|*                                                                            *|
+|* This file is distributed under the University of Illinois Open Source      *|
+|* License. See LICENSE.TXT for details.                                      *|
+|*                                                                            *|
+|*===----------------------------------------------------------------------===*|
+|*                                                                            *|
+|* This file implements the --module-dump, --module-list-functions and        *|
+|* --module-list-globals commands in llvm-c-test.                             *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
 
 #include "llvm-c-test.h"
 #include "llvm-c/BitReader.h"

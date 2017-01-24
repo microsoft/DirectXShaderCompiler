@@ -1,15 +1,16 @@
 //===- RemoteTarget.cpp - LLVM Remote process JIT execution --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RemoteTarget.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Implementation of the RemoteTarget class which executes JITed code in a   //
-// separate address range from where it was built.                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Implementation of the RemoteTarget class which executes JITed code in a
+// separate address range from where it was built.
+//
+//===----------------------------------------------------------------------===//
 
 #include "RemoteTarget.h"
 #include "llvm/ADT/StringRef.h"

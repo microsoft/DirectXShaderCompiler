@@ -1,12 +1,5 @@
-//===- test.cpp -------------------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// test.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+#include "test.h"
+#include <cstdlib>
 
 #include "test.h"
 #include <cstdlib>

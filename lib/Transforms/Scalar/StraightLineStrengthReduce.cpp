@@ -1,59 +1,61 @@
 //===-- StraightLineStrengthReduce.cpp - ------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StraightLineStrengthReduce.cpp                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements straight-line strength reduction (SLSR). Unlike loop //
-// strength reduction, this algorithm is designed to reduce arithmetic       //
-// redundancy in straight-line code instead of loops. It has proven to be    //
-// effective in simplifying arithmetic statements derived from an unrolled loop.//
-// It can also simplify the logic of SeparateConstOffsetFromGEP.             //
-//                                                                           //
-// There are many optimizations we can perform in the domain of SLSR. This file//
-// for now contains only an initial step. Specifically, we look for strength //
-// reduction candidates in the following forms:                              //
-//                                                                           //
-// Form 1: B + i * S                                                         //
-// Form 2: (B + i) * S                                                       //
-// Form 3: &B[i * S]                                                         //
-//                                                                           //
-// where S is an integer variable, and i is a constant integer. If we found two//
-// candidates S1 and S2 in the same form and S1 dominates S2, we may rewrite S2//
-// in a simpler way with respect to S1. For example,                         //
-//                                                                           //
-// S1: X = B + i * S                                                         //
-// S2: Y = B + i' * S   => X + (i' - i) * S                                  //
-//                                                                           //
-// S1: X = (B + i) * S                                                       //
-// S2: Y = (B + i') * S => X + (i' - i) * S                                  //
-//                                                                           //
-// S1: X = &B[i * S]                                                         //
-// S2: Y = &B[i' * S]   => &X[(i' - i) * S]                                  //
-//                                                                           //
-// Note: (i' - i) * S is folded to the extent possible.                      //
-//                                                                           //
-// This rewriting is in general a good idea. The code patterns we focus on   //
-// usually come from loop unrolling, so (i' - i) * S is likely the same      //
-// across iterations and can be reused. When that happens, the optimized form//
-// takes only one add starting from the second iteration.                    //
-//                                                                           //
-// When such rewriting is possible, we call S1 a "basis" of S2. When S2 has  //
-// multiple bases, we choose to rewrite S2 with respect to its "immediate"   //
-// basis, the basis that is the closest ancestor in the dominator tree.      //
-//                                                                           //
-// TODO:                                                                     //
-//                                                                           //
-// - Floating point arithmetics when fast math is enabled.                   //
-//                                                                           //
-// - SLSR may decrease ILP at the architecture level. Targets that are very  //
-//   sensitive to ILP may want to disable it. Having SLSR to consider ILP is //
-//   left as future work.                                                    //
-//                                                                           //
-// - When (i' - i) is constant but i and i' are not, we could still perform  //
-//   SLSR.                                                                   //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements straight-line strength reduction (SLSR). Unlike loop
+// strength reduction, this algorithm is designed to reduce arithmetic
+// redundancy in straight-line code instead of loops. It has proven to be
+// effective in simplifying arithmetic statements derived from an unrolled loop.
+// It can also simplify the logic of SeparateConstOffsetFromGEP.
+//
+// There are many optimizations we can perform in the domain of SLSR. This file
+// for now contains only an initial step. Specifically, we look for strength
+// reduction candidates in the following forms:
+//
+// Form 1: B + i * S
+// Form 2: (B + i) * S
+// Form 3: &B[i * S]
+//
+// where S is an integer variable, and i is a constant integer. If we found two
+// candidates S1 and S2 in the same form and S1 dominates S2, we may rewrite S2
+// in a simpler way with respect to S1. For example,
+//
+// S1: X = B + i * S
+// S2: Y = B + i' * S   => X + (i' - i) * S
+//
+// S1: X = (B + i) * S
+// S2: Y = (B + i') * S => X + (i' - i) * S
+//
+// S1: X = &B[i * S]
+// S2: Y = &B[i' * S]   => &X[(i' - i) * S]
+//
+// Note: (i' - i) * S is folded to the extent possible.
+//
+// This rewriting is in general a good idea. The code patterns we focus on
+// usually come from loop unrolling, so (i' - i) * S is likely the same
+// across iterations and can be reused. When that happens, the optimized form
+// takes only one add starting from the second iteration.
+//
+// When such rewriting is possible, we call S1 a "basis" of S2. When S2 has
+// multiple bases, we choose to rewrite S2 with respect to its "immediate"
+// basis, the basis that is the closest ancestor in the dominator tree.
+//
+// TODO:
+//
+// - Floating point arithmetics when fast math is enabled.
+//
+// - SLSR may decrease ILP at the architecture level. Targets that are very
+//   sensitive to ILP may want to disable it. Having SLSR to consider ILP is
+//   left as future work.
+//
+// - When (i' - i) is constant but i and i' are not, we could still perform
+//   SLSR.
+#include <vector>
 
 #include <vector>
 //                                                                           //

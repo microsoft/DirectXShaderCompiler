@@ -1,17 +1,18 @@
 //===- SearchForAddressOfSpecialSymbol.cpp - Function addresses -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SearchForAddressOfSpecialSymbol.cpp                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file pulls the addresses of certain symbols out of the linker.  It must//
-//  include as few header files as possible because it declares the symbols as//
-//  void*, which would conflict with the actual symbol type if any header    //
-//  declared it.                                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file pulls the addresses of certain symbols out of the linker.  It must
+//  include as few header files as possible because it declares the symbols as
+//  void*, which would conflict with the actual symbol type if any header
+//  declared it.
+//
+//===----------------------------------------------------------------------===//
 
 #include <string.h>
 

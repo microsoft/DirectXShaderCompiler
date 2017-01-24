@@ -1,27 +1,28 @@
 //===- AliasAnalysis.cpp - Generic Alias Analysis Interface Implementation -==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AliasAnalysis.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the generic AliasAnalysis interface which is used as the//
-// common interface used by all clients and implementations of alias analysis.//
-//                                                                           //
-// This file also implements the default version of the AliasAnalysis interface//
-// that is to be used when no other implementation is specified.  This does some//
-// simple tests that detect obvious cases: two different global pointers cannot//
-// alias, a global cannot alias a malloc, two different mallocs cannot alias,//
-// etc.                                                                      //
-//                                                                           //
-// This alias analysis implementation really isn't very good for anything, but//
-// it is very fast, and makes a nice clean default implementation.  Because it//
-// handles lots of little corner cases, other, more complex, alias analysis  //
-// implementations may choose to rely on this pass to resolve these simple and//
-// easy cases.                                                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the generic AliasAnalysis interface which is used as the
+// common interface used by all clients and implementations of alias analysis.
+//
+// This file also implements the default version of the AliasAnalysis interface
+// that is to be used when no other implementation is specified.  This does some
+// simple tests that detect obvious cases: two different global pointers cannot
+// alias, a global cannot alias a malloc, two different mallocs cannot alias,
+// etc.
+//
+// This alias analysis implementation really isn't very good for anything, but
+// it is very fast, and makes a nice clean default implementation.  Because it
+// handles lots of little corner cases, other, more complex, alias analysis
+// implementations may choose to rely on this pass to resolve these simple and
+// easy cases.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CFG.h"

@@ -1,16 +1,17 @@
 //===- llvm/unittest/IR/LegacyPassManager.cpp - Legacy PassManager tests --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegacyPassManagerTest.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This unit test exercises the legacy pass manager infrastructure. We use the//
-// old names as well to ensure that the source-level compatibility is preserved//
-// where possible.                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This unit test exercises the legacy pass manager infrastructure. We use the
+// old names as well to ensure that the source-level compatibility is preserved
+// where possible.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/ADT/SmallVector.h"

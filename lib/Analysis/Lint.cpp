@@ -1,37 +1,38 @@
 //===-- Lint.cpp - Check for common errors in LLVM IR ---------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Lint.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass statically checks for common and easily-identified constructs   //
-// which produce undefined or likely unintended behavior in LLVM IR.         //
-//                                                                           //
-// It is not a guarantee of correctness, in two ways. First, it isn't        //
-// comprehensive. There are checks which could be done statically which are  //
-// not yet implemented. Some of these are indicated by TODO comments, but    //
-// those aren't comprehensive either. Second, many conditions cannot be      //
-// checked statically. This pass does no dynamic instrumentation, so it      //
-// can't check for all possible problems.                                    //
-//                                                                           //
-// Another limitation is that it assumes all code will be executed. A store  //
-// through a null pointer in a basic block which is never reached is harmless,//
-// but this pass will warn about it anyway. This is the main reason why most //
-// of these checks live here instead of in the Verifier pass.                //
-//                                                                           //
-// Optimization passes may make conditions that this pass checks for more or //
-// less obvious. If an optimization pass appears to be introducing a warning,//
-// it may be that the optimization pass is merely exposing an existing       //
-// condition in the code.                                                    //
-//                                                                           //
-// This code may be run before instcombine. In many cases, instcombine checks//
-// for the same kinds of things and turns instructions with undefined behavior//
-// into unreachable (or equivalent). Because of this, this pass makes some   //
-// effort to look through bitcasts and so on.                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass statically checks for common and easily-identified constructs
+// which produce undefined or likely unintended behavior in LLVM IR.
+//
+// It is not a guarantee of correctness, in two ways. First, it isn't
+// comprehensive. There are checks which could be done statically which are
+// not yet implemented. Some of these are indicated by TODO comments, but
+// those aren't comprehensive either. Second, many conditions cannot be
+// checked statically. This pass does no dynamic instrumentation, so it
+// can't check for all possible problems.
+//
+// Another limitation is that it assumes all code will be executed. A store
+// through a null pointer in a basic block which is never reached is harmless,
+// but this pass will warn about it anyway. This is the main reason why most
+// of these checks live here instead of in the Verifier pass.
+//
+// Optimization passes may make conditions that this pass checks for more or
+// less obvious. If an optimization pass appears to be introducing a warning,
+// it may be that the optimization pass is merely exposing an existing
+// condition in the code.
+//
+// This code may be run before instcombine. In many cases, instcombine checks
+// for the same kinds of things and turns instructions with undefined behavior
+// into unreachable (or equivalent). Because of this, this pass makes some
+// effort to look through bitcasts and so on.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Lint.h"
 #include "llvm/ADT/STLExtras.h"

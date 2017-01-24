@@ -1,24 +1,25 @@
 //===-- LiveRegMatrix.h - Track register interference ---------*- C++ -*---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveRegMatrix.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The LiveRegMatrix analysis pass keeps track of virtual register interference//
-// along two dimensions: Slot indexes and register units. The matrix is used by//
-// register allocators to ensure that no interfering virtual registers get   //
-// assigned to overlapping physical registers.                               //
 //
-// Register units are defined in MCRegisterInfo.h, they represent the smallest//
-// unit of interference when dealing with overlapping physical registers. The//
-// LiveRegMatrix is represented as a LiveIntervalUnion per register unit. When//
-// a virtual register is assigned to a physical register, the live range for //
-// the virtual register is inserted into the LiveIntervalUnion for each regunit//
-// in the physreg.                                                           //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The LiveRegMatrix analysis pass keeps track of virtual register interference
+// along two dimensions: Slot indexes and register units. The matrix is used by
+// register allocators to ensure that no interfering virtual registers get
+// assigned to overlapping physical registers.
+//
+// Register units are defined in MCRegisterInfo.h, they represent the smallest
+// unit of interference when dealing with overlapping physical registers. The
+// LiveRegMatrix is represented as a LiveIntervalUnion per register unit. When
+// a virtual register is assigned to a physical register, the live range for
+// the virtual register is inserted into the LiveIntervalUnion for each regunit
+// in the physreg.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_LIVEREGMATRIX_H
 #define LLVM_CODEGEN_LIVEREGMATRIX_H

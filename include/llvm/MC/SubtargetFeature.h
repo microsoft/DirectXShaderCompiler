@@ -1,16 +1,17 @@
 //===-- llvm/MC/SubtargetFeature.h - CPU characteristics --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SubtargetFeature.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines and manages user or tool specified CPU characteristics. //
-// The intent is to be able to package specific features that should or should//
-// not be used on a specific target processor.  A tool, such as llc, could, as//
-// as example, gather chip info from the command line, a long with features  //
-// that should be used on that chip.                                         //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines and manages user or tool specified CPU characteristics.
+// The intent is to be able to package specific features that should or should
+// not be used on a specific target processor.  A tool, such as llc, could, as
+// as example, gather chip info from the command line, a long with features
+// that should be used on that chip.
 //
 //===----------------------------------------------------------------------===//
 

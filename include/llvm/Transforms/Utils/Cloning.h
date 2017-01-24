@@ -1,18 +1,19 @@
 //===- Cloning.h - Clone various parts of LLVM programs ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Cloning.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines various functions that are used to clone chunks of LLVM //
-// code for various purposes.  This varies from copying whole modules into new//
-// modules, to cloning functions with different arguments, to inlining       //
-// functions, to copying basic blocks to support loop unrolling or superblock//
-// formation, etc.                                                           //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines various functions that are used to clone chunks of LLVM
+// code for various purposes.  This varies from copying whole modules into new
+// modules, to cloning functions with different arguments, to inlining
+// functions, to copying basic blocks to support loop unrolling or superblock
+// formation, etc.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_UTILS_CLONING_H
 #define LLVM_TRANSFORMS_UTILS_CLONING_H

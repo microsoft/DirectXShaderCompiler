@@ -1,23 +1,24 @@
 //===-- llvm/Support/GraphWriter.h - Write graph to a .dot file -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GraphWriter.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a simple interface that can be used to print out generic//
-// LLVM graphs to ".dot" files.  "dot" is a tool that is part of the AT&T    //
-// graphviz package (http://www.research.att.com/sw/tools/graphviz/) which can//
-// be used to turn the files output by this interface into a variety of      //
-// different graphics formats.                                               //
 //
-// Graphs do not need to implement any interface past what is already required//
-// by the GraphTraits template, but they can choose to implement specializations//
-// of the DOTGraphTraits template if they want to customize the graphs output in//
-// any way.                                                                  //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a simple interface that can be used to print out generic
+// LLVM graphs to ".dot" files.  "dot" is a tool that is part of the AT&T
+// graphviz package (http://www.research.att.com/sw/tools/graphviz/) which can
+// be used to turn the files output by this interface into a variety of
+// different graphics formats.
+//
+// Graphs do not need to implement any interface past what is already required
+// by the GraphTraits template, but they can choose to implement specializations
+// of the DOTGraphTraits template if they want to customize the graphs output in
+// any way.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_GRAPHWRITER_H
 #define LLVM_SUPPORT_GRAPHWRITER_H

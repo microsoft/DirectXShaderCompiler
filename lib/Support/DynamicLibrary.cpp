@@ -1,16 +1,17 @@
 //===-- DynamicLibrary.cpp - Runtime link/load libraries --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DynamicLibrary.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements the operating system DynamicLibrary concept.        //
-//                                                                           //
-// FIXME: This file leaks ExplicitSymbols and OpenedHandles!                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements the operating system DynamicLibrary concept.
+//
+// FIXME: This file leaks ExplicitSymbols and OpenedHandles!
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm-c/Support.h"

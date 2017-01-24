@@ -1,16 +1,17 @@
 //===-- LiveIntervalUnion.cpp - Live interval union data structure --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveIntervalUnion.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// LiveIntervalUnion represents a coalesced set of live intervals. This may be//
-// used during coalescing to represent a congruence class, or during register//
-// allocation to model liveness of a physical register.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// LiveIntervalUnion represents a coalesced set of live intervals. This may be
+// used during coalescing to represent a congruence class, or during register
+// allocation to model liveness of a physical register.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/LiveIntervalUnion.h"
 #include "llvm/ADT/SparseBitVector.h"

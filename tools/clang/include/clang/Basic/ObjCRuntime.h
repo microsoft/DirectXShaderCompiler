@@ -1,17 +1,16 @@
 //===--- ObjCRuntime.h - Objective-C Runtime Configuration ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjCRuntime.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Defines types useful for describing an Objective-C runtime.       //
+/// \file
+/// \brief Defines types useful for describing an Objective-C runtime.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_BASIC_OBJCRUNTIME_H
 #define LLVM_CLANG_BASIC_OBJCRUNTIME_H

@@ -1,67 +1,67 @@
 //===- DivergenceAnalysis.cpp ------ Divergence Analysis ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DivergenceAnalysis.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines divergence analysis which determines whether a branch in a//
-// GPU program is divergent. It can help branch optimizations such as jump   //
-// threading and loop unswitching to make better decisions.                  //
-//                                                                           //
-// GPU programs typically use the SIMD execution model, where multiple threads//
-// in the same execution group have to execute in lock-step. Therefore, if the//
-// code contains divergent branches (i.e., threads in a group do not agree on//
-// which path of the branch to take), the group of threads has to execute all//
-// the paths from that branch with different subsets of threads enabled until//
-// they converge at the immediately post-dominating BB of the paths.         //
-//                                                                           //
-// Due to this execution model, some optimizations such as jump              //
-// threading and loop unswitching can be unfortunately harmful when performed on//
-// divergent branches. Therefore, an analysis that computes which branches in a//
-// GPU program are divergent can help the compiler to selectively run these  //
-// optimizations.                                                            //
-//                                                                           //
-// This file defines divergence analysis which computes a conservative but   //
-// non-trivial approximation of all divergent branches in a GPU program. It  //
-// partially implements the approach described in                            //
-//                                                                           //
-//   Divergence Analysis                                                     //
-//   Sampaio, Souza, Collange, Pereira                                       //
-//   TOPLAS '13                                                              //
-//                                                                           //
-// The divergence analysis identifies the sources of divergence (e.g., special//
-// variables that hold the thread ID), and recursively marks variables that are//
-// data or sync dependent on a source of divergence as divergent.            //
-//                                                                           //
-// While data dependency is a well-known concept, the notion of sync dependency//
-// is worth more explanation. Sync dependence characterizes the control flow //
-// aspect of the propagation of branch divergence. For example,              //
-//                                                                           //
-//   %cond = icmp slt i32 %tid, 10                                           //
-//   br i1 %cond, label %then, label %else                                   //
-// then:                                                                     //
-//   br label %merge                                                         //
-// else:                                                                     //
-//   br label %merge                                                         //
-// merge:                                                                    //
-//   %a = phi i32 [ 0, %then ], [ 1, %else ]                                 //
-//                                                                           //
-// Suppose %tid holds the thread ID. Although %a is not data dependent on %tid//
-// because %tid is not on its use-def chains, %a is sync dependent on %tid   //
-// because the branch "br i1 %cond" depends on %tid and affects which value %a//
-// is assigned to.                                                           //
-//                                                                           //
-// The current implementation has the following limitations:                 //
-// 1. intra-procedural. It conservatively considers the arguments of a       //
-//    non-kernel-entry function and the return value of a function call as   //
-//    divergent.                                                             //
-// 2. memory as black box. It conservatively considers values loaded from    //
-//    generic or local address as divergent. This can be improved by leveraging//
-//    pointer analysis.                                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines divergence analysis which determines whether a branch in a
+// GPU program is divergent. It can help branch optimizations such as jump
+// threading and loop unswitching to make better decisions.
+//
+// GPU programs typically use the SIMD execution model, where multiple threads
+// in the same execution group have to execute in lock-step. Therefore, if the
+// code contains divergent branches (i.e., threads in a group do not agree on
+// which path of the branch to take), the group of threads has to execute all
+// the paths from that branch with different subsets of threads enabled until
+// they converge at the immediately post-dominating BB of the paths.
+//
+// Due to this execution model, some optimizations such as jump
+// threading and loop unswitching can be unfortunately harmful when performed on
+// divergent branches. Therefore, an analysis that computes which branches in a
+// GPU program are divergent can help the compiler to selectively run these
+// optimizations.
+//
+// This file defines divergence analysis which computes a conservative but
+// non-trivial approximation of all divergent branches in a GPU program. It
+// partially implements the approach described in
+//
+//   Divergence Analysis
+//   Sampaio, Souza, Collange, Pereira
+//   TOPLAS '13
+//
+// The divergence analysis identifies the sources of divergence (e.g., special
+// variables that hold the thread ID), and recursively marks variables that are
+// data or sync dependent on a source of divergence as divergent.
+//
+// While data dependency is a well-known concept, the notion of sync dependency
+// is worth more explanation. Sync dependence characterizes the control flow
+// aspect of the propagation of branch divergence. For example,
+//
+//   %cond = icmp slt i32 %tid, 10
+//   br i1 %cond, label %then, label %else
+// then:
+//   br label %merge
+// else:
+//   br label %merge
+// merge:
+//   %a = phi i32 [ 0, %then ], [ 1, %else ]
+//
+// Suppose %tid holds the thread ID. Although %a is not data dependent on %tid
+// because %tid is not on its use-def chains, %a is sync dependent on %tid
+// because the branch "br i1 %cond" depends on %tid and affects which value %a
+// is assigned to.
+//
+// The current implementation has the following limitations:
+// 1. intra-procedural. It conservatively considers the arguments of a
+//    non-kernel-entry function and the return value of a function call as
+//    divergent.
+// 2. memory as black box. It conservatively considers values loaded from
+//    generic or local address as divergent. This can be improved by leveraging
+//    pointer analysis.
+//===----------------------------------------------------------------------===//
 
 #include <vector>
 #include "llvm/IR/Dominators.h"

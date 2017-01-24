@@ -1,14 +1,15 @@
 //===--- DataflowValues.h - Data structure for dataflow values --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DataflowValues.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a skeleton data structure for encapsulating the dataflow//
-// values for a CFG.  Typically this is subclassed to provide methods for    //
-// computing these values from a CFG.                                        //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a skeleton data structure for encapsulating the dataflow
+// values for a CFG.  Typically this is subclassed to provide methods for
+// computing these values from a CFG.
 //
 //===----------------------------------------------------------------------===//
 

@@ -1,14 +1,15 @@
 //==--- SourceLocation.cpp - Compact identifier for Source Files -*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SourceLocation.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines accessor methods for the FullSourceLoc class.          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines accessor methods for the FullSourceLoc class.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/PrettyStackTrace.h"

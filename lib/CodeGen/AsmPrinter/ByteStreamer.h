@@ -1,15 +1,16 @@
 //===-- llvm/CodeGen/ByteStreamer.h - ByteStreamer class --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ByteStreamer.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains a class that can take bytes that would normally be     //
-// streamed via the AsmPrinter.                                              //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains a class that can take bytes that would normally be
+// streamed via the AsmPrinter.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_CODEGEN_ASMPRINTER_BYTESTREAMER_H
 #define LLVM_LIB_CODEGEN_ASMPRINTER_BYTESTREAMER_H

@@ -1,17 +1,18 @@
 //===------------- Disassembler.h - LLVM Disassembler -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Disassembler.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the interface for the Disassembly library's disassembler //
-// context.  The disassembler is responsible for producing strings for       //
-// individual instructions according to a given architecture and disassembly //
-// syntax.                                                                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+// 
+//===----------------------------------------------------------------------===//
+//
+// This file defines the interface for the Disassembly library's disassembler 
+// context.  The disassembler is responsible for producing strings for
+// individual instructions according to a given architecture and disassembly
+// syntax.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_MC_MCDISASSEMBLER_DISASSEMBLER_H
 #define LLVM_LIB_MC_MCDISASSEMBLER_DISASSEMBLER_H

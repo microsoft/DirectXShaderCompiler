@@ -1,16 +1,11 @@
 //===-- TargetLibraryInfo.def - Library information -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetLibraryInfo.def                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// This .def file will either fill in the enum definition or fill in the     //
-// string representation array definition for TargetLibraryInfo.             //
-// Which is defined depends on whether TLI_DEFINE_ENUM is defined or         //
-// TLI_DEFINE_STRING is defined. Only one should be defined at a time.       //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #if !(defined(TLI_DEFINE_ENUM) || defined(TLI_DEFINE_STRING))
 #error "Must define TLI_DEFINE_ENUM or TLI_DEFINE_STRING for TLI .def."

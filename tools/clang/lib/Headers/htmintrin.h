@@ -1,12 +1,4 @@
 /*===---- htmintrin.h - Standard header for PowerPC HTM ---------------===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// htmintrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __HTMINTRIN_H
 #define __HTMINTRIN_H
 

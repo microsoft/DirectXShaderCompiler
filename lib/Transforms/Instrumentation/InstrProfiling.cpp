@@ -1,16 +1,17 @@
 //===-- InstrProfiling.cpp - Frontend instrumentation based profiling -----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstrProfiling.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass lowers instrprof_increment intrinsics emitted by a frontend for //
-// profiling. It also builds the data structures and initialization code needed//
-// for updating execution counts and emitting the profile at runtime.        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass lowers instrprof_increment intrinsics emitted by a frontend for
+// profiling. It also builds the data structures and initialization code needed
+// for updating execution counts and emitting the profile at runtime.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Instrumentation.h"
 

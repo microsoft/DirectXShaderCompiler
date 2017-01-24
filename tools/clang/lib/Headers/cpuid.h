@@ -1,12 +1,4 @@
 /*===---- cpuid.h - X86 cpu model detection --------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// cpuid.h                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #if !(__x86_64__ || __i386__)
 #error this header is for x86 only
 #endif

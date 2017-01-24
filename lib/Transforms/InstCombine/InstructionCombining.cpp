@@ -1,36 +1,37 @@
 //===- InstructionCombining.cpp - Combine multiple instructions -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstructionCombining.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// InstructionCombining - Combine instructions to form fewer, simple         //
-// instructions.  This pass does not modify the CFG.  This pass is where     //
-// algebraic simplification happens.                                         //
-//                                                                           //
-// This pass combines things like:                                           //
-//    %Y = add i32 %X, 1                                                     //
-//    %Z = add i32 %Y, 1                                                     //
-// into:                                                                     //
-//    %Z = add i32 %X, 2                                                     //
-//                                                                           //
-// This is a simple worklist driven algorithm.                               //
-//                                                                           //
-// This pass guarantees that the following canonicalizations are performed on//
-// the program:                                                              //
-//    1. If a binary operator has a constant operand, it is moved to the RHS //
-//    2. Bitwise operators with constant operands are always grouped so that //
-//       shifts are performed first, then or's, then and's, then xor's.      //
-//    3. Compare instructions are converted from <,>,<=,>= to ==,!= if possible//
-//    4. All cmp instructions on boolean values are replaced with logical ops//
-//    5. add X, X is represented as (X*2) => (X << 1)                        //
-//    6. Multiplies with a power-of-two constant argument are transformed into//
-//       shifts.                                                             //
-//   ... etc.                                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// InstructionCombining - Combine instructions to form fewer, simple
+// instructions.  This pass does not modify the CFG.  This pass is where
+// algebraic simplification happens.
+//
+// This pass combines things like:
+//    %Y = add i32 %X, 1
+//    %Z = add i32 %Y, 1
+// into:
+//    %Z = add i32 %X, 2
+//
+// This is a simple worklist driven algorithm.
+//
+// This pass guarantees that the following canonicalizations are performed on
+// the program:
+//    1. If a binary operator has a constant operand, it is moved to the RHS
+//    2. Bitwise operators with constant operands are always grouped so that
+//       shifts are performed first, then or's, then and's, then xor's.
+//    3. Compare instructions are converted from <,>,<=,>= to ==,!= if possible
+//    4. All cmp instructions on boolean values are replaced with logical ops
+//    5. add X, X is represented as (X*2) => (X << 1)
+//    6. Multiplies with a power-of-two constant argument are transformed into
+//       shifts.
+//   ... etc.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "InstCombineInternal.h"

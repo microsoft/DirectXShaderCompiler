@@ -1,21 +1,22 @@
 //===----- LegalizeIntegerTypes.cpp - Legalization of integer types -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegalizeIntegerTypes.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements integer type expansion and promotion for LegalizeTypes.//
-// Promotion is the act of changing a computation in an illegal type into a  //
-// computation in a larger type.  For example, implementing i8 arithmetic in an//
-// i32 register (often needed on powerpc).                                   //
-// Expansion is the act of changing a computation in an illegal type into a  //
-// computation in two identical registers of a smaller type.  For example,   //
-// implementing i64 arithmetic in two i32 registers (often needed on 32-bit  //
-// targets).                                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements integer type expansion and promotion for LegalizeTypes.
+// Promotion is the act of changing a computation in an illegal type into a
+// computation in a larger type.  For example, implementing i8 arithmetic in an
+// i32 register (often needed on powerpc).
+// Expansion is the act of changing a computation in an illegal type into a
+// computation in two identical registers of a smaller type.  For example,
+// implementing i64 arithmetic in two i32 registers (often needed on 32-bit
+// targets).
+//
+//===----------------------------------------------------------------------===//
 
 #include "LegalizeTypes.h"
 #include "llvm/IR/DerivedTypes.h"

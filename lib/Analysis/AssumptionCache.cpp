@@ -1,15 +1,16 @@
 //===- AssumptionCache.cpp - Cache finding @llvm.assume calls -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AssumptionCache.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains a pass that keeps track of @llvm.assume intrinsics in  //
-// the functions of a module.                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains a pass that keeps track of @llvm.assume intrinsics in
+// the functions of a module.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/IR/CallSite.h"

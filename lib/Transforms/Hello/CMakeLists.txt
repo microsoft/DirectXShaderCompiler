@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 # If we don't need RTTI or EH, there's no reason to export anything
 # from the hello plugin.
 if( NOT LLVM_REQUIRES_RTTI )

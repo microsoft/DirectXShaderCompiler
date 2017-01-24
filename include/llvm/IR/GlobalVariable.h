@@ -1,20 +1,21 @@
 //===-- llvm/GlobalVariable.h - GlobalVariable class ------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GlobalVariable.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of the GlobalVariable class, which     //
-// represents a single global variable (or constant) in the VM.              //
 //
-// Global variables are constant pointers that refer to hunks of space that are//
-// allocated by either the VM, or by the linker in a static compiler.  A global//
-// variable may have an initial value, which is copied into the executables .data//
-// area.  Global Constants are required to have initializers.                //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of the GlobalVariable class, which
+// represents a single global variable (or constant) in the VM.
+//
+// Global variables are constant pointers that refer to hunks of space that are
+// allocated by either the VM, or by the linker in a static compiler.  A global
+// variable may have an initial value, which is copied into the executables .data
+// area.  Global Constants are required to have initializers.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_GLOBALVARIABLE_H
 #define LLVM_IR_GLOBALVARIABLE_H

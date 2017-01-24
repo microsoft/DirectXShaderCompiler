@@ -1,14 +1,15 @@
 //===- FlatternCFG.cpp - Code to perform CFG flattening ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FlattenCFG.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Reduce conditional branches in CFG.                                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Reduce conditional branches in CFG.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/ADT/SmallPtrSet.h"

@@ -1,18 +1,17 @@
 //===--- ContinuationIndenter.h - Format C++ code ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ContinuationIndenter.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief This file implements an indenter that manages the indentation of  //
-/// continuations.                                                           //
+/// \file
+/// \brief This file implements an indenter that manages the indentation of
+/// continuations.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_FORMAT_CONTINUATIONINDENTER_H
 #define LLVM_CLANG_LIB_FORMAT_CONTINUATIONINDENTER_H

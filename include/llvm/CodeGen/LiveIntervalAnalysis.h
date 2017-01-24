@@ -1,20 +1,21 @@
 //===-- LiveIntervalAnalysis.h - Live Interval Analysis ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveIntervalAnalysis.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the LiveInterval analysis pass.  Given some numbering of//
-// each the machine instructions (in this implemention depth-first order) an //
-// interval [i, j) is said to be a live interval for register v if there is no//
-// instruction with number j' > j such that v is live at j' and there is no  //
-// instruction with number i' < i such that v is live at i'. In this         //
-// implementation intervals can have holes, i.e. an interval might look like //
-// [1,20), [50,65), [1000,1001).                                             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the LiveInterval analysis pass.  Given some numbering of
+// each the machine instructions (in this implemention depth-first order) an
+// interval [i, j) is said to be a live interval for register v if there is no
+// instruction with number j' > j such that v is live at j' and there is no
+// instruction with number i' < i such that v is live at i'. In this
+// implementation intervals can have holes, i.e. an interval might look like
+// [1,20), [50,65), [1000,1001).
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_LIVEINTERVALANALYSIS_H
 #define LLVM_CODEGEN_LIVEINTERVALANALYSIS_H

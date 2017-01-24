@@ -1,15 +1,16 @@
 //===--- CFGStmtMap.h - Map from Stmt* to CFGBlock* -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CFGStmtMap.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the CFGStmtMap class, which defines a mapping from     //
-//  Stmt* to CFGBlock*                                                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the CFGStmtMap class, which defines a mapping from
+//  Stmt* to CFGBlock*
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseMap.h"
 #include "clang/AST/ParentMap.h"

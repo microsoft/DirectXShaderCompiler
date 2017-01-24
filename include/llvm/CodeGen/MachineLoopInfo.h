@@ -1,30 +1,31 @@
 //===- llvm/CodeGen/MachineLoopInfo.h - Natural Loop Calculator -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineLoopInfo.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the MachineLoopInfo class that is used to identify natural//
-// loops and determine the loop depth of various nodes of the CFG.  Note that//
-// natural loops may actually be several loops that share the same header node.//
 //
-// This analysis calculates the nesting structure of loops in a function.  For//
-// each natural loop identified, this analysis identifies natural loops      //
-// contained entirely within the loop and the basic blocks the make up the loop.//
+//                     The LLVM Compiler Infrastructure
 //
-// It can calculate on the fly various bits of information, for example:     //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  * whether there is a preheader for the loop                              //
-//  * the number of back edges to the header                                 //
-//  * whether or not a particular block branches out of the loop             //
-//  * the successor blocks of the loop                                       //
-//  * the loop depth                                                         //
-//  * the trip count                                                         //
-//  * etc...                                                                 //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file defines the MachineLoopInfo class that is used to identify natural
+// loops and determine the loop depth of various nodes of the CFG.  Note that
+// natural loops may actually be several loops that share the same header node.
+//
+// This analysis calculates the nesting structure of loops in a function.  For
+// each natural loop identified, this analysis identifies natural loops
+// contained entirely within the loop and the basic blocks the make up the loop.
+//
+// It can calculate on the fly various bits of information, for example:
+//
+//  * whether there is a preheader for the loop
+//  * the number of back edges to the header
+//  * whether or not a particular block branches out of the loop
+//  * the successor blocks of the loop
+//  * the loop depth
+//  * the trip count
+//  * etc...
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINELOOPINFO_H
 #define LLVM_CODEGEN_MACHINELOOPINFO_H

@@ -1,23 +1,24 @@
 //===------- LegalizeVectorTypes.cpp - Legalization of vector types -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegalizeVectorTypes.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file performs vector type splitting and scalarization for LegalizeTypes.//
-// Scalarization is the act of changing a computation in an illegal one-element//
-// vector type to be a computation in its scalar element type.  For example, //
-// implementing <1 x f32> arithmetic in a scalar f32 register.  This is needed//
-// as a base case when scalarizing vector arithmetic like <4 x f32>, which   //
-// eventually decomposes to scalars if the target doesn't support v4f32 or v2f32//
-// types.                                                                    //
-// Splitting is the act of changing a computation in an invalid vector type to//
-// be a computation in two vectors of half the size.  For example, implementing//
-// <128 x f32> operations in terms of two <64 x f32> operations.             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file performs vector type splitting and scalarization for LegalizeTypes.
+// Scalarization is the act of changing a computation in an illegal one-element
+// vector type to be a computation in its scalar element type.  For example,
+// implementing <1 x f32> arithmetic in a scalar f32 register.  This is needed
+// as a base case when scalarizing vector arithmetic like <4 x f32>, which
+// eventually decomposes to scalars if the target doesn't support v4f32 or v2f32
+// types.
+// Splitting is the act of changing a computation in an invalid vector type to
+// be a computation in two vectors of half the size.  For example, implementing
+// <128 x f32> operations in terms of two <64 x f32> operations.
+//
+//===----------------------------------------------------------------------===//
 
 #include "LegalizeTypes.h"
 #include "llvm/IR/DataLayout.h"

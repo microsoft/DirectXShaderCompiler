@@ -1,14 +1,15 @@
 //===- MachineBranchProbabilityInfo.cpp - Machine Branch Probability Info -===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineBranchProbabilityInfo.cpp                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This analysis uses probability info stored in Machine Basic Blocks.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This analysis uses probability info stored in Machine Basic Blocks.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"

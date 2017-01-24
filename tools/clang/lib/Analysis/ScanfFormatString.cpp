@@ -1,15 +1,16 @@
 //= ScanfFormatString.cpp - Analysis of printf format strings --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScanfFormatString.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Handling of format string in scanf and friends.  The structure of format  //
-// strings for fscanf() are described in C99 7.19.6.2.                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Handling of format string in scanf and friends.  The structure of format
+// strings for fscanf() are described in C99 7.19.6.2.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/FormatString.h"
 #include "FormatStringParsing.h"

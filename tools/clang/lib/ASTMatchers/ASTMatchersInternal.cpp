@@ -1,14 +1,15 @@
 //===--- ASTMatchersInternal.cpp - Structural query framework -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTMatchersInternal.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Implements the base layer of the matcher framework.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  Implements the base layer of the matcher framework.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchersInternal.h"

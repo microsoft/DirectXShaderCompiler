@@ -1,15 +1,16 @@
 //== SVals.h - Abstract Values for Static Analysis ---------*- C++ -*--==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SVals.h                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines SVal, Loc, and NonLoc, classes that represent          //
-//  abstract r-values for use with path-sensitive value tracking.            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines SVal, Loc, and NonLoc, classes that represent
+//  abstract r-values for use with path-sensitive value tracking.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_SVALS_H
 #define LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_SVALS_H

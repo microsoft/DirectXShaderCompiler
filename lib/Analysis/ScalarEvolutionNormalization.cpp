@@ -1,15 +1,16 @@
 //===- ScalarEvolutionNormalization.cpp - See below -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScalarEvolutionNormalization.cpp                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements utilities for working with "normalized" expressions. //
-// See the comments at the top of ScalarEvolutionNormalization.h for details.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements utilities for working with "normalized" expressions.
+// See the comments at the top of ScalarEvolutionNormalization.h for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"

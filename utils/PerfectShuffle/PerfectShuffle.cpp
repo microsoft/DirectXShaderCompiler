@@ -1,17 +1,18 @@
 //===-- PerfectShuffle.cpp - Perfect Shuffle Generator --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PerfectShuffle.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file computes an optimal sequence of instructions for doing all shuffles//
-// of two 4-element vectors.  With a release build and when configured to emit//
-// an altivec instruction table, this takes about 30s to run on a 2.7Ghz     //
-// PowerPC G5.                                                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file computes an optimal sequence of instructions for doing all shuffles
+// of two 4-element vectors.  With a release build and when configured to emit
+// an altivec instruction table, this takes about 30s to run on a 2.7Ghz
+// PowerPC G5.
+//
+//===----------------------------------------------------------------------===//
 
 #include <cassert>
 #include <cstdlib>

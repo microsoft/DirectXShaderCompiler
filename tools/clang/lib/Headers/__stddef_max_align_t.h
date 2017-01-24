@@ -1,12 +1,4 @@
 /*===---- __stddef_max_align_t.h - Definition of max_align_t for modules ---===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// __stddef_max_align_t.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __CLANG_MAX_ALIGN_T_DEFINED
 #define __CLANG_MAX_ALIGN_T_DEFINED
 

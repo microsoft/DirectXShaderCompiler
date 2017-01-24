@@ -1,14 +1,15 @@
 //===--- Allocator.cpp - Simple memory allocation abstraction -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Allocator.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the BumpPtrAllocator interface.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the BumpPtrAllocator interface.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/raw_ostream.h"

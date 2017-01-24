@@ -1,13 +1,22 @@
 //===------ CXXInheritance.cpp - C++ Inheritance ----------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CXXInheritance.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides routines that help analyzing C++ inheritance hierarchies.//
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides routines that help analyzing C++ inheritance hierarchies.
+//
+//===----------------------------------------------------------------------===//
+#include "clang/AST/CXXInheritance.h"
+#include "clang/AST/ASTContext.h"
+#include "clang/AST/DeclCXX.h"
+#include "clang/AST/RecordLayout.h"
+#include "llvm/ADT/SetVector.h"
+#include <algorithm>
+#include <set>
 
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/ASTContext.h"

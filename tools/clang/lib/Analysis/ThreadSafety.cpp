@@ -1,18 +1,19 @@
 //===- ThreadSafety.cpp ----------------------------------------*- C++ --*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ThreadSafety.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// A intra-procedural analysis for thread safety (e.g. deadlocks and race    //
-// conditions), based off of an annotation system.                           //
-//                                                                           //
-// See http://clang.llvm.org/docs/ThreadSafetyAnalysis.html                  //
-// for more information.                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// A intra-procedural analysis for thread safety (e.g. deadlocks and race
+// conditions), based off of an annotation system.
+//
+// See http://clang.llvm.org/docs/ThreadSafetyAnalysis.html
+// for more information.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"

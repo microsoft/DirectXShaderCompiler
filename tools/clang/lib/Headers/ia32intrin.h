@@ -1,12 +1,4 @@
-/*====-------- ia32intrin.h ---------------------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ia32intrin.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+/* ===-------- ia32intrin.h ---------------------------------------------------===
 #ifndef __X86INTRIN_H
 #error "Never use <ia32intrin.h> directly; include <x86intrin.h> instead."
 #endif

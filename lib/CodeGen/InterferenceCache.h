@@ -1,15 +1,16 @@
 //===-- InterferenceCache.h - Caching per-block interference ---*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InterferenceCache.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// InterferenceCache remembers per-block interference from LiveIntervalUnions,//
-// fixed RegUnit interference, and register masks.                           //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// InterferenceCache remembers per-block interference from LiveIntervalUnions,
+// fixed RegUnit interference, and register masks.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_CODEGEN_INTERFERENCECACHE_H
 #define LLVM_LIB_CODEGEN_INTERFERENCECACHE_H

@@ -1,15 +1,16 @@
 //===-- ElimAvailExtern.cpp - DCE unreachable internal functions ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ElimAvailExtern.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This transform is designed to eliminate available external global         //
-// definitions from the program, turning them into declarations.             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This transform is designed to eliminate available external global
+// definitions from the program, turning them into declarations.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/Statistic.h"

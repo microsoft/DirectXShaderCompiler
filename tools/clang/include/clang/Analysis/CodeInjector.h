@@ -1,19 +1,18 @@
 //===-- CodeInjector.h ------------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeInjector.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Defines the clang::CodeInjector interface which is responsible for//
-/// injecting AST of function definitions that may not be available in the   //
-/// original source.                                                         //
+/// \file
+/// \brief Defines the clang::CodeInjector interface which is responsible for
+/// injecting AST of function definitions that may not be available in the
+/// original source.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ANALYSIS_CODEINJECTOR_H
 #define LLVM_CLANG_ANALYSIS_CODEINJECTOR_H

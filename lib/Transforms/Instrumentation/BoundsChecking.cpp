@@ -1,15 +1,16 @@
 //===- BoundsChecking.cpp - Instrumentation for run-time bounds checking --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BoundsChecking.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a pass that instruments the code to perform run-time //
-// bounds checking on loads, stores, and other memory intrinsics.            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a pass that instruments the code to perform run-time
+// bounds checking on loads, stores, and other memory intrinsics.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/ADT/Statistic.h"

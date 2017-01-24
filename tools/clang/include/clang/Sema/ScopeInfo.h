@@ -1,15 +1,16 @@
 //===--- ScopeInfo.h - Information about a semantic context -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScopeInfo.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines FunctionScopeInfo and its subclasses, which contain     //
-// information about a single function, block, lambda, or method body.       //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines FunctionScopeInfo and its subclasses, which contain
+// information about a single function, block, lambda, or method body.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SEMA_SCOPEINFO_H
 #define LLVM_CLANG_SEMA_SCOPEINFO_H

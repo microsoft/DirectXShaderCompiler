@@ -1,18 +1,17 @@
 //===- MemoryLocation.h - Memory location descriptions ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MemoryLocation.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file provides utility analysis objects describing memory locations. //
-/// These are used both by the Alias Analysis infrastructure and more        //
-/// specialized memory analysis layers.                                      //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file provides utility analysis objects describing memory locations.
+/// These are used both by the Alias Analysis infrastructure and more
+/// specialized memory analysis layers.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_MEMORYLOCATION_H
 #define LLVM_ANALYSIS_MEMORYLOCATION_H

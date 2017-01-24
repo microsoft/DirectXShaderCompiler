@@ -1,12 +1,6 @@
-//===- OrcTargetSupport.cpp -------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// OrcTargetSupport.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+#include "llvm/ADT/Triple.h"
+#include "llvm/ExecutionEngine/Orc/OrcTargetSupport.h"
+#include <array>
 
 #include "llvm/ADT/Triple.h"
 #include "llvm/ExecutionEngine/Orc/OrcTargetSupport.h"

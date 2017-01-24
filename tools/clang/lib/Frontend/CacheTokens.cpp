@@ -1,15 +1,16 @@
 //===--- CacheTokens.cpp - Caching of lexer tokens for PTH support --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CacheTokens.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This provides a possible implementation of PTH support for Clang that is  //
-// based on caching lexed tokens and identifiers.                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This provides a possible implementation of PTH support for Clang that is
+// based on caching lexed tokens and identifiers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/Utils.h"
 #include "clang/Basic/Diagnostic.h"

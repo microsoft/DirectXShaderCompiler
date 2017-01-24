@@ -1,22 +1,23 @@
 //===--- ARMEHABI.h - ARM Exception Handling ABI ----------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ARMEHABI.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the constants for the ARM unwind opcodes and exception  //
-// handling table entry kinds.                                               //
 //
-// The enumerations and constants in this file reflect the ARM EHABI         //
-// Specification as published by ARM.                                        //
+//                     The LLVM Compiler Infrastructure
 //
-// Exception Handling ABI for the ARM Architecture r2.09 - November 30, 2012 //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// http://infocenter.arm.com/help/topic/com.arm.doc.ihi0038a/IHI0038A_ehabi.pdf//
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file defines the constants for the ARM unwind opcodes and exception
+// handling table entry kinds.
+//
+// The enumerations and constants in this file reflect the ARM EHABI
+// Specification as published by ARM.
+//
+// Exception Handling ABI for the ARM Architecture r2.09 - November 30, 2012
+//
+// http://infocenter.arm.com/help/topic/com.arm.doc.ihi0038a/IHI0038A_ehabi.pdf
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_ARMEHABI_H
 #define LLVM_SUPPORT_ARMEHABI_H

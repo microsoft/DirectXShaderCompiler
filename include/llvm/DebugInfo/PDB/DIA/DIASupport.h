@@ -1,16 +1,15 @@
 //===- DIASupport.h - Common header includes for DIA ------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DIASupport.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Common defines and header includes for all LLVMDebugInfoPDBDIA.  The      //
-// definitions here configure the necessary #defines and include system headers//
-// in the proper order for using DIA.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// Common defines and header includes for all LLVMDebugInfoPDBDIA.  The
+// definitions here configure the necessary #defines and include system headers
+// in the proper order for using DIA.
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_DEBUGINFO_PDB_DIA_DIASUPPORT_H
 #define LLVM_DEBUGINFO_PDB_DIA_DIASUPPORT_H

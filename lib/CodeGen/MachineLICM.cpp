@@ -1,19 +1,20 @@
 //===-- MachineLICM.cpp - Machine Loop Invariant Code Motion Pass ---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineLICM.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass performs loop invariant code motion on machine instructions. We //
-// attempt to remove as much code from the body of a loop as possible.       //
-//                                                                           //
-// This pass is not intended to be a replacement or a complete alternative   //
-// for the LLVM-IR-level LICM pass. It is only designed to hoist simple      //
-// constructs that are not exposed before lowering and instruction selection.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass performs loop invariant code motion on machine instructions. We
+// attempt to remove as much code from the body of a loop as possible.
+//
+// This pass is not intended to be a replacement or a complete alternative
+// for the LLVM-IR-level LICM pass. It is only designed to hoist simple
+// constructs that are not exposed before lowering and instruction selection.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseMap.h"

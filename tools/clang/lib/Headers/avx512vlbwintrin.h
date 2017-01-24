@@ -1,12 +1,4 @@
 /*===---- avx512vlbwintrin.h - AVX512VL and AVX512BW intrinsics ----------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// avx512vlbwintrin.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __IMMINTRIN_H
 #error "Never use <avx512vlbwintrin.h> directly; include <immintrin.h> instead."
 #endif

@@ -1,15 +1,16 @@
 //===- RemoteMemoryManager.h - LLI MCJIT recording memory manager ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RemoteMemoryManager.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This memory manager allocates local storage and keeps a record of each    //
-// allocation. Iterators are provided for all data and code allocations.     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This memory manager allocates local storage and keeps a record of each
+// allocation. Iterators are provided for all data and code allocations.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TOOLS_LLI_REMOTEMEMORYMANAGER_H
 #define LLVM_TOOLS_LLI_REMOTEMEMORYMANAGER_H

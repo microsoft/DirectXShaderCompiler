@@ -1,18 +1,19 @@
 //===----- ScheduleDAGRRList.cpp - Reg pressure reduction list scheduler --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScheduleDAGRRList.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This implements bottom-up and top-down register pressure reduction list   //
-// schedulers, using standard algorithms.  The basic approach uses a priority//
-// queue of available nodes to schedule.  One at a time, nodes are taken from//
-// the priority queue (thus in priority order), checked for legality to      //
-// schedule, and emitted if legal.                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This implements bottom-up and top-down register pressure reduction list
+// schedulers, using standard algorithms.  The basic approach uses a priority
+// queue of available nodes to schedule.  One at a time, nodes are taken from
+// the priority queue (thus in priority order), checked for legality to
+// schedule, and emitted if legal.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "ScheduleDAGSDNodes.h"

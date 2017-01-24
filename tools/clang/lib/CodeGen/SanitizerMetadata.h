@@ -1,14 +1,15 @@
 //===--- SanitizerMetadata.h - Metadata for sanitizers ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SanitizerMetadata.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Class which emits metadata consumed by sanitizer instrumentation passes.  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Class which emits metadata consumed by sanitizer instrumentation passes.
+//
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_LIB_CODEGEN_SANITIZERMETADATA_H
 #define LLVM_CLANG_LIB_CODEGEN_SANITIZERMETADATA_H
 

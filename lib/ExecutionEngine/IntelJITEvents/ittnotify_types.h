@@ -1,13 +1,4 @@
 /*===-- ittnotify_types.h - JIT Profiling API internal types--------*- C -*-===*
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ittnotify_types.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////#ifndef _ITTNOTIFY_TYPES_H_
-#define _ITTNOTIFY_TYPES_H_
 
 typedef enum ___itt_group_id
 {

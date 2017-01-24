@@ -1,24 +1,25 @@
 //=- DirectIvarAssignment.cpp - Check rules on ObjC properties -*- C++ ----*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DirectIvarAssignment.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Check that Objective C properties are set with the setter, not though a  //
-//      direct assignment.                                                   //
-//                                                                           //
-//  Two versions of a checker exist: one that checks all methods and the other//
-//      that only checks the methods annotated with                          //
-//      __attribute__((annotate("objc_no_direct_instance_variable_assignment")))//
-//                                                                           //
-//  The checker does not warn about assignments to Ivars, annotated with     //
-//       __attribute__((objc_allow_direct_instance_variable_assignment"))). This//
-//      annotation serves as a false positive suppression mechanism for the  //
-//      checker. The annotation is allowed on properties and Ivars.          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  Check that Objective C properties are set with the setter, not though a
+//      direct assignment.
+//
+//  Two versions of a checker exist: one that checks all methods and the other
+//      that only checks the methods annotated with
+//      __attribute__((annotate("objc_no_direct_instance_variable_assignment")))
+//
+//  The checker does not warn about assignments to Ivars, annotated with
+//       __attribute__((objc_allow_direct_instance_variable_assignment"))). This
+//      annotation serves as a false positive suppression mechanism for the
+//      checker. The annotation is allowed on properties and Ivars.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/Attr.h"

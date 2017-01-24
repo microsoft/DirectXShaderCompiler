@@ -1,32 +1,33 @@
 //===-- InstructionSimplify.h - Fold instrs into simpler forms --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstructionSimplify.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares routines for folding instructions into simpler forms   //
-// that do not require creating new instructions.  This does constant folding//
-// ("add i32 1, 1" -> "2") but can also handle non-constant operands, either //
-// returning a constant ("and i32 %x, 0" -> "0") or an already existing value//
-// ("and i32 %x, %x" -> "%x").  If the simplification is also an instruction //
-// then it dominates the original instruction.                               //
 //
-// These routines implicitly resolve undef uses. The easiest way to be safe when//
-// using these routines to obtain simplified values for existing instructions is//
-// to always replace all uses of the instructions with the resulting simplified//
-// values. This will prevent other code from seeing the same undef uses and  //
-// resolving them to different values.                                       //
+//                     The LLVM Compiler Infrastructure
 //
-// These routines are designed to tolerate moderately incomplete IR, such as //
-// instructions that are not connected to basic blocks yet. However, they do //
-// require that all the IR that they encounter be valid. In particular, they //
-// require that all non-constant values be defined in the same function, and the//
-// same call context of that function (and not split between caller and callee//
-// contexts of a directly recursive call, for example).                      //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// This file declares routines for folding instructions into simpler forms
+// that do not require creating new instructions.  This does constant folding
+// ("add i32 1, 1" -> "2") but can also handle non-constant operands, either
+// returning a constant ("and i32 %x, 0" -> "0") or an already existing value
+// ("and i32 %x, %x" -> "%x").  If the simplification is also an instruction
+// then it dominates the original instruction.
+//
+// These routines implicitly resolve undef uses. The easiest way to be safe when
+// using these routines to obtain simplified values for existing instructions is
+// to always replace all uses of the instructions with the resulting simplified
+// values. This will prevent other code from seeing the same undef uses and
+// resolving them to different values.
+//
+// These routines are designed to tolerate moderately incomplete IR, such as
+// instructions that are not connected to basic blocks yet. However, they do
+// require that all the IR that they encounter be valid. In particular, they
+// require that all non-constant values be defined in the same function, and the
+// same call context of that function (and not split between caller and callee
+// contexts of a directly recursive call, for example).
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 #define LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H

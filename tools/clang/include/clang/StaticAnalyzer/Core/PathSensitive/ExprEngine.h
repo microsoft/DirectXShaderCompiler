@@ -1,16 +1,17 @@
 //===-- ExprEngine.h - Path-Sensitive Expression-Level Dataflow ---*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExprEngine.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines a meta-engine for path-sensitive dataflow analysis that//
-//  is built on CoreEngine, but provides the boilerplate to execute transfer //
-//  functions and build the ExplodedGraph at the expression level.           //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines a meta-engine for path-sensitive dataflow analysis that
+//  is built on CoreEngine, but provides the boilerplate to execute transfer
+//  functions and build the ExplodedGraph at the expression level.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_EXPRENGINE_H
 #define LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_EXPRENGINE_H

@@ -1,18 +1,19 @@
 //===- DeadStoreElimination.cpp - Fast Dead Store Elimination -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DeadStoreElimination.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a trivial dead store elimination that only considers //
-// basic-block local redundant stores.                                       //
-//                                                                           //
-// FIXME: This should eventually be extended to be a post-dominator tree     //
-// traversal.  Doing so would be pretty trivial.                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a trivial dead store elimination that only considers
+// basic-block local redundant stores.
+//
+// FIXME: This should eventually be extended to be a post-dominator tree
+// traversal.  Doing so would be pretty trivial.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/STLExtras.h"

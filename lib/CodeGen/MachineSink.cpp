@@ -1,19 +1,20 @@
 //===-- MachineSink.cpp - Sinking for machine instructions ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineSink.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass moves instructions into successor blocks when possible, so that //
-// they aren't executed on paths where their results aren't needed.          //
-//                                                                           //
-// This pass is not intended to be a replacement or a complete alternative   //
-// for an LLVM-IR-level sinking pass. It is only designed to sink simple     //
-// constructs that are not exposed before lowering and instruction selection.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass moves instructions into successor blocks when possible, so that
+// they aren't executed on paths where their results aren't needed.
+//
+// This pass is not intended to be a replacement or a complete alternative
+// for an LLVM-IR-level sinking pass. It is only designed to sink simple
+// constructs that are not exposed before lowering and instruction selection.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/SetVector.h"

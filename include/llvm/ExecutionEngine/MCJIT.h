@@ -1,15 +1,16 @@
 //===-- MCJIT.h - MC-Based Just-In-Time Execution Engine --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCJIT.h                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file forces the MCJIT to link in on certain operating systems.       //
-// (Windows).                                                                //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file forces the MCJIT to link in on certain operating systems.
+// (Windows).
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_EXECUTIONENGINE_MCJIT_H
 #define LLVM_EXECUTIONENGINE_MCJIT_H

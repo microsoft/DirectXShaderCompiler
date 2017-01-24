@@ -1,18 +1,19 @@
 //===-- llvm/CodeGen/MachineFunction.h --------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineFunction.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Collect native machine code for a function.  This class contains a list of//
-// MachineBasicBlock instances that make up the current compiled function.   //
 //
-// This class also contains pointers to various classes which hold           //
-// target-specific information about the generated code.                     //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Collect native machine code for a function.  This class contains a list of
+// MachineBasicBlock instances that make up the current compiled function.
+//
+// This class also contains pointers to various classes which hold
+// target-specific information about the generated code.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINEFUNCTION_H
 #define LLVM_CODEGEN_MACHINEFUNCTION_H

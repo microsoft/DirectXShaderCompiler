@@ -1,15 +1,16 @@
 //===---- ScheduleDAGInstrs.cpp - MachineInstr Rescheduling ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScheduleDAGInstrs.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This implements the ScheduleDAGInstrs class, which implements re-scheduling//
-// of MachineInstrs.                                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This implements the ScheduleDAGInstrs class, which implements re-scheduling
+// of MachineInstrs.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/ScheduleDAGInstrs.h"
 #include "llvm/ADT/MapVector.h"

@@ -1,17 +1,18 @@
 //===-- RegisterScavenging.cpp - Machine register scavenging --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegisterScavenging.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the machine register scavenger. It can provide       //
-// information, such as unused registers, at any point in a machine basic block.//
-// It also provides a mechanism to make registers available by evicting them to//
-// spill slots.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the machine register scavenger. It can provide
+// information, such as unused registers, at any point in a machine basic block.
+// It also provides a mechanism to make registers available by evicting them to
+// spill slots.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"

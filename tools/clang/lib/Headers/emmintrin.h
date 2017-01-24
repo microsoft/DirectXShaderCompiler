@@ -1,12 +1,4 @@
 /*===---- emmintrin.h - SSE2 intrinsics ------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// emmintrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __EMMINTRIN_H
 #define __EMMINTRIN_H
 

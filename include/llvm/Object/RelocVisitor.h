@@ -1,16 +1,17 @@
 //===-- RelocVisitor.h - Visitor for object file relocations -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RelocVisitor.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides a wrapper around all the different types of relocations//
-// in different file formats, such that a client can handle them in a unified//
-// manner by only implementing a minimal number of functions.                //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides a wrapper around all the different types of relocations
+// in different file formats, such that a client can handle them in a unified
+// manner by only implementing a minimal number of functions.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_OBJECT_RELOCVISITOR_H
 #define LLVM_OBJECT_RELOCVISITOR_H

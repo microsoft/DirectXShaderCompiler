@@ -1,16 +1,17 @@
 //===- Calls.cpp - Wrapper for all function and method calls ------*- C++ -*--//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CallEvent.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file This file defines CallEvent and its subclasses, which represent path-//
-/// sensitive instances of different kinds of function and method calls      //
-/// (C, C++, and Objective-C).                                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+/// \file This file defines CallEvent and its subclasses, which represent path-
+/// sensitive instances of different kinds of function and method calls
+/// (C, C++, and Objective-C).
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 #include "clang/AST/ParentMap.h"

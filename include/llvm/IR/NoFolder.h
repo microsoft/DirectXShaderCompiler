@@ -1,22 +1,23 @@
 //===- NoFolder.h - Constant folding helper ---------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// NoFolder.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the NoFolder class, a helper for IRBuilder.  It provides//
-// IRBuilder with a set of methods for creating unfolded constants.  This is //
-// useful for learners trying to understand how LLVM IR works, and who don't //
-// want details to be hidden by the constant folder.  For general constant   //
-// creation and folding, use ConstantExpr and the routines in                //
-// llvm/Analysis/ConstantFolding.h.                                          //
 //
-// Note: since it is not actually possible to create unfolded constants, this//
-// class returns instructions rather than constants.                         //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the NoFolder class, a helper for IRBuilder.  It provides
+// IRBuilder with a set of methods for creating unfolded constants.  This is
+// useful for learners trying to understand how LLVM IR works, and who don't
+// want details to be hidden by the constant folder.  For general constant
+// creation and folding, use ConstantExpr and the routines in
+// llvm/Analysis/ConstantFolding.h.
+//
+// Note: since it is not actually possible to create unfolded constants, this
+// class returns instructions rather than constants.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_NOFOLDER_H
 #define LLVM_IR_NOFOLDER_H

@@ -1,24 +1,25 @@
 //===- SimplifyCFGPass.cpp - CFG Simplification Pass ----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SimplifyCFGPass.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements dead code elimination and basic block merging, along //
-// with a collection of other peephole control flow optimizations.  For example://
-//                                                                           //
-//   * Removes basic blocks with no predecessors.                            //
-//   * Merges a basic block into its predecessor if there is only one and the//
-//     predecessor only has one successor.                                   //
-//   * Eliminates PHI nodes for basic blocks with a single predecessor.      //
-//   * Eliminates a basic block that only contains an unconditional branch.  //
-//   * Changes invoke instructions to nounwind functions to be calls.        //
-//   * Change things like "if (x) if (y)" into "if (x&y)".                   //
-//   * etc..                                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements dead code elimination and basic block merging, along
+// with a collection of other peephole control flow optimizations.  For example:
+//
+//   * Removes basic blocks with no predecessors.
+//   * Merges a basic block into its predecessor if there is only one and the
+//     predecessor only has one successor.
+//   * Eliminates PHI nodes for basic blocks with a single predecessor.
+//   * Eliminates a basic block that only contains an unconditional branch.
+//   * Changes invoke instructions to nounwind functions to be calls.
+//   * Change things like "if (x) if (y)" into "if (x&y)".
+//   * etc..
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/ADT/SmallPtrSet.h"

@@ -1,14 +1,15 @@
 //===- Version.cpp - Clang Version Number -----------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Version.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines several version-related utility functions for Clang.    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines several version-related utility functions for Clang.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Basic/Version.h"
 #include "clang/Basic/LLVM.h"

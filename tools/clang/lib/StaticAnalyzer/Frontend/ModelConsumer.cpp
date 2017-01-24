@@ -1,24 +1,23 @@
 //===--- ModelConsumer.cpp - ASTConsumer for consuming model files --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ModelConsumer.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief This file implements an ASTConsumer for consuming model files.    //
+/// \file
+/// \brief This file implements an ASTConsumer for consuming model files.
 ///
-/// This ASTConsumer handles the AST of a parsed model file. All top level   //
-/// function definitions will be collected from that model file for later    //
-/// retrieval during the static analysis. The body of these functions will not//
-/// be injected into the ASTUnit of the analyzed translation unit. It will be//
-/// available through the BodyFarm which is utilized by the AnalysisDeclContext//
-/// class.                                                                   //
+/// This ASTConsumer handles the AST of a parsed model file. All top level
+/// function definitions will be collected from that model file for later
+/// retrieval during the static analysis. The body of these functions will not
+/// be injected into the ASTUnit of the analyzed translation unit. It will be
+/// available through the BodyFarm which is utilized by the AnalysisDeclContext
+/// class.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Frontend/ModelConsumer.h"
 #include "clang/AST/Decl.h"

@@ -1,14 +1,15 @@
 //===--- CommentSema.h - Doxygen comment semantic analysis ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommentSema.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the semantic analysis class for Doxygen comments.      //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the semantic analysis class for Doxygen comments.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_AST_COMMENTSEMA_H
 #define LLVM_CLANG_AST_COMMENTSEMA_H

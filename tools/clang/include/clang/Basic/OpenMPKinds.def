@@ -1,17 +1,16 @@
 //===--- OpenMPKinds.def - OpenMP directives and clauses list ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// OpenMPKinds.def                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// \brief This file defines the list of supported OpenMP directives and     //
-/// clauses.                                                                 //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// \brief This file defines the list of supported OpenMP directives and
+/// clauses.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef OPENMP_DIRECTIVE
 #  define OPENMP_DIRECTIVE(Name)

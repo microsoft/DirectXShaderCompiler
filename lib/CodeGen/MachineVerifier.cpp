@@ -1,27 +1,27 @@
 //===-- MachineVerifier.cpp - Machine Code Verifier -----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineVerifier.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Pass to verify generated machine code. The following is checked:          //
-//                                                                           //
-// Operand counts: All explicit operands must be present.                    //
-//                                                                           //
-// Register classes: All physical and virtual register operands must be      //
-// compatible with the register class required by the instruction descriptor.//
-//                                                                           //
-// Register live intervals: Registers must be defined only once, and must be //
-// defined before use.                                                       //
-//                                                                           //
-// The machine code verifier is enabled from LLVMTargetMachine.cpp with the  //
-// command-line option -verify-machineinstrs, or by defining the environment //
-// variable LLVM_VERIFY_MACHINEINSTRS to the name of a file that will receive//
-// the verifier errors.                                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Pass to verify generated machine code. The following is checked:
+//
+// Operand counts: All explicit operands must be present.
+//
+// Register classes: All physical and virtual register operands must be
+// compatible with the register class required by the instruction descriptor.
+//
+// Register live intervals: Registers must be defined only once, and must be
+// defined before use.
+//
+// The machine code verifier is enabled from LLVMTargetMachine.cpp with the
+// command-line option -verify-machineinstrs, or by defining the environment
+// variable LLVM_VERIFY_MACHINEINSTRS to the name of a file that will receive
+// the verifier errors.
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseSet.h"

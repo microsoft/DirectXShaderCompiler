@@ -1,17 +1,18 @@
 //===-- SpecialCaseList.cpp - special case list for sanitizers ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SpecialCaseList.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is a utility class for instrumentation passes (like AddressSanitizer //
-// or ThreadSanitizer) to avoid instrumenting some functions or global       //
-// variables, or to instrument some functions or global variables in a specific//
-// way, based on a user-supplied list.                                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is a utility class for instrumentation passes (like AddressSanitizer
+// or ThreadSanitizer) to avoid instrumenting some functions or global
+// variables, or to instrument some functions or global variables in a specific
+// way, based on a user-supplied list.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/SpecialCaseList.h"
 #include "llvm/ADT/SmallVector.h"

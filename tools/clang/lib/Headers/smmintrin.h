@@ -1,12 +1,4 @@
 /*===---- smmintrin.h - SSE4 intrinsics ------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// smmintrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef _SMMINTRIN_H
 #define _SMMINTRIN_H
 

@@ -1,19 +1,18 @@
 //===- tools/dsymutil/dsymutil.h - dsymutil high-level functionality ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// dsymutil.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                             The LLVM Linker
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
+/// \file
 ///
-/// This file contains the class declaration for the code that parses STABS  //
-/// debug maps that are embedded in the binaries symbol tables.              //
+/// This file contains the class declaration for the code that parses STABS
+/// debug maps that are embedded in the binaries symbol tables.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_TOOLS_DSYMUTIL_DSYMUTIL_H
 #define LLVM_TOOLS_DSYMUTIL_DSYMUTIL_H
 

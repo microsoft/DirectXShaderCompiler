@@ -1,14 +1,15 @@
 //===- llvm/ADT/SmallVector.cpp - 'Normally small' vectors ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SmallVector.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the SmallVector class.                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the SmallVector class.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallVector.h"
 using namespace llvm;

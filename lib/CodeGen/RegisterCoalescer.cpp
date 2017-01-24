@@ -1,16 +1,17 @@
 //===- RegisterCoalescer.cpp - Generic Register Coalescing Interface -------==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegisterCoalescer.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the generic RegisterCoalescer interface which        //
-// is used as the common interface used by all clients and                   //
-// implementations of register coalescing.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the generic RegisterCoalescer interface which
+// is used as the common interface used by all clients and
+// implementations of register coalescing.
+//
+//===----------------------------------------------------------------------===//
 
 #include "RegisterCoalescer.h"
 #include "llvm/ADT/STLExtras.h"

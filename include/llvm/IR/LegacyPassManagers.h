@@ -1,12 +1,13 @@
 //===- LegacyPassManagers.h - Legacy Pass Infrastructure --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegacyPassManagers.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the LLVM Pass Manager infrastructure.                  //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the LLVM Pass Manager infrastructure.
 //
 //===----------------------------------------------------------------------===//
 

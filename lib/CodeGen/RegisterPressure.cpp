@@ -1,15 +1,16 @@
 //===-- RegisterPressure.cpp - Dynamic Register Pressure ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegisterPressure.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the RegisterPressure class which can be used to track//
-// MachineInstr level register pressure.                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the RegisterPressure class which can be used to track
+// MachineInstr level register pressure.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/RegisterPressure.h"
 #include "llvm/CodeGen/LiveInterval.h"

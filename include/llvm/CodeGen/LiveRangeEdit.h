@@ -1,18 +1,19 @@
 //===---- LiveRangeEdit.h - Basic tools for split and spill -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveRangeEdit.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The LiveRangeEdit class represents changes done to a virtual register when it//
-// is spilled or split.                                                      //
 //
-// The parent register is never changed. Instead, a number of new virtual    //
-// registers are created and added to the newRegs vector.                    //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The LiveRangeEdit class represents changes done to a virtual register when it
+// is spilled or split.
+//
+// The parent register is never changed. Instead, a number of new virtual
+// registers are created and added to the newRegs vector.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_LIVERANGEEDIT_H
 #define LLVM_CODEGEN_LIVERANGEEDIT_H

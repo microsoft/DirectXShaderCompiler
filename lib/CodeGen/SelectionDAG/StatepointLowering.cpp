@@ -1,15 +1,16 @@
 //===-- StatepointLowering.cpp - SDAGBuilder's statepoint code -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StatepointLowering.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file includes support code use by SelectionDAGBuilder when lowering a//
-// statepoint sequence in SelectionDAG IR.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file includes support code use by SelectionDAGBuilder when lowering a
+// statepoint sequence in SelectionDAG IR.
+//
+//===----------------------------------------------------------------------===//
 
 #include "StatepointLowering.h"
 #include "SelectionDAGBuilder.h"

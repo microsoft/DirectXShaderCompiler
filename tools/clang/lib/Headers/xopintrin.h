@@ -1,12 +1,4 @@
 /*===---- xopintrin.h - XOP intrinsics -------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// xopintrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __X86INTRIN_H
 #error "Never use <xopintrin.h> directly; include <x86intrin.h> instead."
 #endif

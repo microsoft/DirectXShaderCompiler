@@ -1,21 +1,20 @@
 //== IdenticalExprChecker.cpp - Identical expression checker----------------==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IdenticalExprChecker.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief This defines IdenticalExprChecker, a check that warns about       //
-/// unintended use of identical expressions.                                 //
+/// \file
+/// \brief This defines IdenticalExprChecker, a check that warns about
+/// unintended use of identical expressions.
 ///
-/// It checks for use of identical expressions with comparison operators and //
-/// inside conditional expressions.                                          //
+/// It checks for use of identical expressions with comparison operators and
+/// inside conditional expressions.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/RecursiveASTVisitor.h"

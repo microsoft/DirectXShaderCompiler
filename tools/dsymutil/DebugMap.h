@@ -1,24 +1,23 @@
 //===- tools/dsymutil/DebugMap.h - Generic debug map representation -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DebugMap.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                             The LLVM Linker
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
+/// \file
 ///
-/// This file contains the class declaration of the DebugMap                 //
-/// entity. A DebugMap lists all the object files linked together to         //
-/// produce an executable along with the linked address of all the           //
-/// atoms used in these object files.                                        //
-/// The DebugMap is an input to the DwarfLinker class that will              //
-/// extract the Dwarf debug information from the referenced object           //
-/// files and link their usefull debug info together.                        //
+/// This file contains the class declaration of the DebugMap
+/// entity. A DebugMap lists all the object files linked together to
+/// produce an executable along with the linked address of all the
+/// atoms used in these object files.
+/// The DebugMap is an input to the DwarfLinker class that will
+/// extract the Dwarf debug information from the referenced object
+/// files and link their usefull debug info together.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_TOOLS_DSYMUTIL_DEBUGMAP_H
 #define LLVM_TOOLS_DSYMUTIL_DEBUGMAP_H
 

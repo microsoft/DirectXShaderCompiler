@@ -1,18 +1,17 @@
 //===--- UnwrappedLineFormatter.h - Format C++ code -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// UnwrappedLineFormatter.h                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Implements a combinartorial exploration of all the different      //
-/// linebreaks unwrapped lines can be formatted in.                          //
+/// \file
+/// \brief Implements a combinartorial exploration of all the different
+/// linebreaks unwrapped lines can be formatted in.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_FORMAT_UNWRAPPEDLINEFORMATTER_H
 #define LLVM_CLANG_LIB_FORMAT_UNWRAPPEDLINEFORMATTER_H

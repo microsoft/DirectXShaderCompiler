@@ -1,12 +1,4 @@
 /*===---- stdarg.h - Variable argument handling ----------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// stdarg.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __STDARG_H
 #define __STDARG_H
 

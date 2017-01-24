@@ -1,15 +1,16 @@
 //===- NoAliasAnalysis.cpp - Minimal Alias Analysis Impl ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// NoAliasAnalysis.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the default implementation of the Alias Analysis interface//
-// that simply returns "I don't know" for all queries.                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the default implementation of the Alias Analysis interface
+// that simply returns "I don't know" for all queries.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/AliasAnalysis.h"

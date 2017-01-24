@@ -1,19 +1,20 @@
 //===--- CaptureTracking.cpp - Determine whether a pointer is captured ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CaptureTracking.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains routines that help determine which pointers are captured.//
-// A pointer value is captured if the function makes a copy of any part of the//
-// pointer that outlives the call.  Not being captured means, more or less, that//
-// the pointer is only dereferenced and not stored in a global.  Returning part//
-// of the pointer as the function return value may or may not count as capturing//
-// the pointer, depending on the context.                                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains routines that help determine which pointers are captured.
+// A pointer value is captured if the function makes a copy of any part of the
+// pointer that outlives the call.  Not being captured means, more or less, that
+// the pointer is only dereferenced and not stored in a global.  Returning part
+// of the pointer as the function return value may or may not count as capturing
+// the pointer, depending on the context.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"

@@ -1,12 +1,11 @@
 //===- llvm/unittest/IR/InstructionsTest.cpp - Instructions unit tests ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstructionsTest.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/ADT/STLExtras.h"

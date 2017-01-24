@@ -1,28 +1,29 @@
 //===-- MachineBlockPlacement.cpp - Basic Block Code Layout optimization --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineBlockPlacement.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements basic block placement transformations using the CFG  //
-// structure and branch probability estimates.                               //
-//                                                                           //
-// The pass strives to preserve the structure of the CFG (that is, retain    //
-// a topological ordering of basic blocks) in the absence of a *strong* signal//
-// to the contrary from probabilities. However, within the CFG structure, it //
-// attempts to choose an ordering which favors placing more likely sequences of//
-// blocks adjacent to each other.                                            //
-//                                                                           //
-// The algorithm works from the inner-most loop within a function outward, and//
-// at each stage walks through the basic blocks, trying to coalesce them into//
-// sequential chains where allowed by the CFG (or demanded by heavy          //
-// probabilities). Finally, it walks the blocks in topological order, and the//
-// first time it reaches a chain of basic blocks, it schedules them in the   //
-// function in-order.                                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements basic block placement transformations using the CFG
+// structure and branch probability estimates.
+//
+// The pass strives to preserve the structure of the CFG (that is, retain
+// a topological ordering of basic blocks) in the absence of a *strong* signal
+// to the contrary from probabilities. However, within the CFG structure, it
+// attempts to choose an ordering which favors placing more likely sequences of
+// blocks adjacent to each other.
+//
+// The algorithm works from the inner-most loop within a function outward, and
+// at each stage walks through the basic blocks, trying to coalesce them into
+// sequential chains where allowed by the CFG (or demanded by heavy
+// probabilities). Finally, it walks the blocks in topological order, and the
+// first time it reaches a chain of basic blocks, it schedules them in the
+// function in-order.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseMap.h"

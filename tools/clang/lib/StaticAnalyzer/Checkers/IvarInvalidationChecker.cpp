@@ -1,31 +1,32 @@
 //=- IvarInvalidationChecker.cpp - -*- C++ -------------------------------*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IvarInvalidationChecker.cpp                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This checker implements annotation driven invalidation checking. If a class//
-//  contains a method annotated with 'objc_instance_variable_invalidator',   //
-//  - (void) foo                                                             //
-//           __attribute__((annotate("objc_instance_variable_invalidator")));//
-//  all the "ivalidatable" instance variables of this class should be        //
-//  invalidated. We call an instance variable ivalidatable if it is an object of//
-//  a class which contains an invalidation method. There could be multiple   //
-//  methods annotated with such annotations per class, either one can be used//
-//  to invalidate the ivar. An ivar or property are considered to be         //
-//  invalidated if they are being assigned 'nil' or an invalidation method has//
-//  been called on them. An invalidation method should either invalidate all //
-//  the ivars or call another invalidation method (on self).                 //
-//                                                                           //
-//  Partial invalidor annotation allows to addess cases when ivars are       //
-//  invalidated by other methods, which might or might not be called from    //
-//  the invalidation method. The checker checks that each invalidation       //
-//  method and all the partial methods cumulatively invalidate all ivars.    //
-//    __attribute__((annotate("objc_instance_variable_invalidator_partial")));//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This checker implements annotation driven invalidation checking. If a class
+//  contains a method annotated with 'objc_instance_variable_invalidator',
+//  - (void) foo
+//           __attribute__((annotate("objc_instance_variable_invalidator")));
+//  all the "ivalidatable" instance variables of this class should be
+//  invalidated. We call an instance variable ivalidatable if it is an object of
+//  a class which contains an invalidation method. There could be multiple
+//  methods annotated with such annotations per class, either one can be used
+//  to invalidate the ivar. An ivar or property are considered to be
+//  invalidated if they are being assigned 'nil' or an invalidation method has
+//  been called on them. An invalidation method should either invalidate all
+//  the ivars or call another invalidation method (on self).
+//
+//  Partial invalidor annotation allows to addess cases when ivars are 
+//  invalidated by other methods, which might or might not be called from 
+//  the invalidation method. The checker checks that each invalidation
+//  method and all the partial methods cumulatively invalidate all ivars.
+//    __attribute__((annotate("objc_instance_variable_invalidator_partial")));
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/Attr.h"

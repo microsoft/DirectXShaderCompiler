@@ -1,12 +1,13 @@
-//===-- ChildTarget.cpp ---------------------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ChildTarget.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+#include "llvm/Config/config.h"
+#include "../RPCChannel.h"
+#include "../RemoteTarget.h"
+#include "../RemoteTargetMessage.h"
+#include "llvm/Support/Memory.h"
+#include <assert.h>
+#include <map>
+#include <stdint.h>
+#include <string>
+#include <vector>
 
 #include "llvm/Config/config.h"
 #include "../RPCChannel.h"

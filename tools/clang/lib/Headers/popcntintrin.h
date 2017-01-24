@@ -1,12 +1,4 @@
 /*===---- popcntintrin.h - POPCNT intrinsics -------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// popcntintrin.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __POPCNT__
 #error "POPCNT instruction set not enabled"
 #endif

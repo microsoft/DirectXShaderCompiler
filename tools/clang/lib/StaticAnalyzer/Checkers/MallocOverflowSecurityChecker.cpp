@@ -1,21 +1,22 @@
-//= MallocOverflowSecurityChecker.cpp - Check for malloc overflows -*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MallocOverflowSecurityChecker.cpp                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This checker detects a common memory allocation security flaw.            //
-// Suppose 'unsigned int n' comes from an untrusted source. If the           //
-// code looks like 'malloc (n * 4)', and an attacker can make 'n' be         //
-// say MAX_UINT/4+2, then instead of allocating the correct 'n' 4-byte       //
-// elements, this will actually allocate only two because of overflow.       //
-// Then when the rest of the program attempts to store values past the       //
-// second element, these values will actually overwrite other items in       //
-// the heap, probably allowing the attacker to execute arbitrary code.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+// MallocOverflowSecurityChecker.cpp - Check for malloc overflows -*- C++ -*-=//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This checker detects a common memory allocation security flaw.
+// Suppose 'unsigned int n' comes from an untrusted source. If the
+// code looks like 'malloc (n * 4)', and an attacker can make 'n' be
+// say MAX_UINT/4+2, then instead of allocating the correct 'n' 4-byte
+// elements, this will actually allocate only two because of overflow.
+// Then when the rest of the program attempts to store values past the
+// second element, these values will actually overwrite other items in
+// the heap, probably allowing the attacker to execute arbitrary code.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/EvaluatedExprVisitor.h"

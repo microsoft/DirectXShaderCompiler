@@ -1,15 +1,16 @@
 //===-libllvm.cpp - LLVM Shared Library -----------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// libllvm.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file is empty and serves only the purpose of making CMake happy because//
-// you can't define a target with no sources.                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file is empty and serves only the purpose of making CMake happy because
+// you can't define a target with no sources.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Config/config.h"
 

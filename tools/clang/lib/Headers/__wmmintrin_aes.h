@@ -1,13 +1,4 @@
 /*===---- __wmmintrin_aes.h - AES intrinsics -------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// __wmmintrin_aes.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////#ifndef _WMMINTRIN_AES_H
-#define _WMMINTRIN_AES_H
 
 #include <emmintrin.h>
 

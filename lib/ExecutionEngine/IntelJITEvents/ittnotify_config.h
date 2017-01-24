@@ -1,13 +1,4 @@
 /*===-- ittnotify_config.h - JIT Profiling API internal config-----*- C -*-===*
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ittnotify_config.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////#ifndef _ITTNOTIFY_CONFIG_H_
-#define _ITTNOTIFY_CONFIG_H_
 
 /** @cond exclude_from_documentation */
 #ifndef ITT_OS_WIN

@@ -1,15 +1,16 @@
 //===-- llvm-stress.cpp - Generate random LL files to stress-test LLVM ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-stress.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This program is a utility that generates random .ll files to stress-test  //
-// different components in LLVM.                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This program is a utility that generates random .ll files to stress-test
+// different components in LLVM.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/IR/Constants.h"

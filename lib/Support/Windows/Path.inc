@@ -1,16 +1,15 @@
 //===- llvm/Support/Windows/Path.inc - Windows Path Impl --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Path.inc                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Windows specific implementation of the Path API. //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-//=== WARNING: Implementation here must contain only generic Windows code that//
-//===          is guaranteed to work on *all* Windows variants.              //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Windows specific implementation of the Path API.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/WindowsError.h"

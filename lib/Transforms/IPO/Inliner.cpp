@@ -1,16 +1,17 @@
 //===- Inliner.cpp - Code common to all inliners --------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Inliner.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the mechanics required to implement inlining without //
-// missing any calls and updating the call graph.  The decisions of which calls//
-// are profitable to inline are implemented elsewhere.                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the mechanics required to implement inlining without
+// missing any calls and updating the call graph.  The decisions of which calls
+// are profitable to inline are implemented elsewhere.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/InlinerPass.h"
 #include "llvm/ADT/SmallPtrSet.h"

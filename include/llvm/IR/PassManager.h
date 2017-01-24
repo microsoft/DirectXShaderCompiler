@@ -1,40 +1,39 @@
 //===- PassManager.h - Pass management infrastructure -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PassManager.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// This header defines various interfaces for pass management in LLVM. There//
-/// is no "pass" interface in LLVM per se. Instead, an instance of any class //
-/// which supports a method to 'run' it over a unit of IR can be used as     //
-/// a pass. A pass manager is generally a tool to collect a sequence of passes//
-/// which run over a particular IR construct, and run each of them in sequence//
-/// over each such construct in the containing IR construct. As there is no  //
-/// containing IR construct for a Module, a manager for passes over modules  //
-/// forms the base case which runs its managed passes in sequence over the   //
-/// single module provided.                                                  //
+/// This header defines various interfaces for pass management in LLVM. There
+/// is no "pass" interface in LLVM per se. Instead, an instance of any class
+/// which supports a method to 'run' it over a unit of IR can be used as
+/// a pass. A pass manager is generally a tool to collect a sequence of passes
+/// which run over a particular IR construct, and run each of them in sequence
+/// over each such construct in the containing IR construct. As there is no
+/// containing IR construct for a Module, a manager for passes over modules
+/// forms the base case which runs its managed passes in sequence over the
+/// single module provided.
 ///
-/// The core IR library provides managers for running passes over            //
-/// modules and functions.                                                   //
+/// The core IR library provides managers for running passes over
+/// modules and functions.
 ///
-/// * FunctionPassManager can run over a Module, runs each pass over         //
-///   a Function.                                                            //
-/// * ModulePassManager must be directly run, runs each pass over the Module.//
+/// * FunctionPassManager can run over a Module, runs each pass over
+///   a Function.
+/// * ModulePassManager must be directly run, runs each pass over the Module.
 ///
-/// Note that the implementations of the pass managers use concept-based     //
-/// polymorphism as outlined in the "Value Semantics and Concept-based       //
-/// Polymorphism" talk (or its abbreviated sibling "Inheritance Is The Base  //
-/// Class of Evil") by Sean Parent:                                          //
-/// * http://github.com/sean-parent/sean-parent.github.com/wiki/Papers-and-Presentations//
-/// * http://www.youtube.com/watch?v=_BpMYeUFXv8                             //
-/// * http://channel9.msdn.com/Events/GoingNative/2013/Inheritance-Is-The-Base-Class-of-Evil//
+/// Note that the implementations of the pass managers use concept-based
+/// polymorphism as outlined in the "Value Semantics and Concept-based
+/// Polymorphism" talk (or its abbreviated sibling "Inheritance Is The Base
+/// Class of Evil") by Sean Parent:
+/// * http://github.com/sean-parent/sean-parent.github.com/wiki/Papers-and-Presentations
+/// * http://www.youtube.com/watch?v=_BpMYeUFXv8
+/// * http://channel9.msdn.com/Events/GoingNative/2013/Inheritance-Is-The-Base-Class-of-Evil
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_PASSMANAGER_H
 #define LLVM_IR_PASSMANAGER_H

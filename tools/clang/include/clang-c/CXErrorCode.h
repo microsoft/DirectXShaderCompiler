@@ -1,12 +1,15 @@
 /*===-- clang-c/CXErrorCode.h - C Index Error Codes  --------------*- C -*-===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CXErrorCode.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+|*                                                                            *|
+|*                     The LLVM Compiler Infrastructure                       *|
+|*                                                                            *|
+|* This file is distributed under the University of Illinois Open Source      *|
+|* License. See LICENSE.TXT for details.                                      *|
+|*                                                                            *|
+|*===----------------------------------------------------------------------===*|
+|*                                                                            *|
+|* This header provides the CXErrorCode enumerators.                          *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
 #ifndef LLVM_CLANG_C_CXERRORCODE_H
 #define LLVM_CLANG_C_CXERRORCODE_H
 

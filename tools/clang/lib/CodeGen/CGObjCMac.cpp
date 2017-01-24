@@ -1,14 +1,15 @@
 //===------- CGObjCMac.cpp - Interface to Apple Objective-C Runtime -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CGObjCMac.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This provides Objective-C code generation targeting the Apple runtime.    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This provides Objective-C code generation targeting the Apple runtime.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CGObjCRuntime.h"
 #include "CGBlocks.h"

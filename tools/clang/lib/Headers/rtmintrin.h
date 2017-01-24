@@ -1,12 +1,4 @@
 /*===---- rtmintrin.h - RTM intrinsics -------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// rtmintrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __IMMINTRIN_H
 #error "Never use <rtmintrin.h> directly; include <immintrin.h> instead."
 #endif

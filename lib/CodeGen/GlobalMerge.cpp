@@ -1,65 +1,63 @@
 //===-- GlobalMerge.cpp - Internal globals merging  -----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GlobalMerge.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass merges globals with internal linkage into one. This way all the //
-// globals which were merged into a biggest one can be addressed using offsets//
-// from the same base pointer (no need for separate base pointer for each of the//
-// global). Such a transformation can significantly reduce the register pressure//
-// when many globals are involved.                                           //
-//                                                                           //
-// For example, consider the code which touches several global variables at  //
-// once:                                                                     //
-//                                                                           //
-// static int foo[N], bar[N], baz[N];                                        //
-//                                                                           //
-// for (i = 0; i < N; ++i) {                                                 //
-//    foo[i] = bar[i] * baz[i];                                              //
-// }                                                                         //
-//                                                                           //
-//  On ARM the addresses of 3 arrays should be kept in the registers, thus   //
-//  this code has quite large register pressure (loop body):                 //
-//                                                                           //
-//  ldr     r1, [r5], #4                                                     //
-//  ldr     r2, [r6], #4                                                     //
-//  mul     r1, r2, r1                                                       //
-//  str     r1, [r0], #4                                                     //
-//                                                                           //
-//  Pass converts the code to something like:                                //
-//                                                                           //
-//  static struct {                                                          //
-//    int foo[N];                                                            //
-//    int bar[N];                                                            //
-//    int baz[N];                                                            //
-//  } merged;                                                                //
-//                                                                           //
-//  for (i = 0; i < N; ++i) {                                                //
-//    merged.foo[i] = merged.bar[i] * merged.baz[i];                         //
-//  }                                                                        //
-//                                                                           //
-//  and in ARM code this becomes:                                            //
-//                                                                           //
-//  ldr     r0, [r5, #40]                                                    //
-//  ldr     r1, [r5, #80]                                                    //
-//  mul     r0, r1, r0                                                       //
-//  str     r0, [r5], #4                                                     //
-//                                                                           //
-//  note that we saved 2 registers here almostly "for free".                 //
-//                                                                           //
-// However, merging globals can have tradeoffs:                              //
-// - it confuses debuggers, tools, and users                                 //
-// - it makes linker optimizations less useful (order files, LOHs, ...)      //
-// - it forces usage of indexed addressing (which isn't necessarily "free")  //
-// - it can increase register pressure when the uses are disparate enough.   //
-//                                                                           //
-// We use heuristics to discover the best global grouping we can (cf cl::opts).//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This pass merges globals with internal linkage into one. This way all the
+// globals which were merged into a biggest one can be addressed using offsets
+// from the same base pointer (no need for separate base pointer for each of the
+// global). Such a transformation can significantly reduce the register pressure
+// when many globals are involved.
+//
+// For example, consider the code which touches several global variables at
+// once:
+//
+// static int foo[N], bar[N], baz[N];
+//
+// for (i = 0; i < N; ++i) {
+//    foo[i] = bar[i] * baz[i];
+// }
+//
+//  On ARM the addresses of 3 arrays should be kept in the registers, thus
+//  this code has quite large register pressure (loop body):
+//
+//  ldr     r1, [r5], #4
+//  ldr     r2, [r6], #4
+//  mul     r1, r2, r1
+//  str     r1, [r0], #4
+//
+//  Pass converts the code to something like:
+//
+//  static struct {
+//    int foo[N];
+//    int bar[N];
+//    int baz[N];
+//  } merged;
+//
+//  for (i = 0; i < N; ++i) {
+//    merged.foo[i] = merged.bar[i] * merged.baz[i];
+//  }
+//
+//  and in ARM code this becomes:
+//
+//  ldr     r0, [r5, #40]
+//  ldr     r1, [r5, #80]
+//  mul     r0, r1, r0
+//  str     r0, [r5], #4
+//
+//  note that we saved 2 registers here almostly "for free".
+//
+// However, merging globals can have tradeoffs:
+// - it confuses debuggers, tools, and users
+// - it makes linker optimizations less useful (order files, LOHs, ...)
+// - it forces usage of indexed addressing (which isn't necessarily "free")
+// - it can increase register pressure when the uses are disparate enough.
+// 
+// We use heuristics to discover the best global grouping we can (cf cl::opts).
 // ===---------------------------------------------------------------------===//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseMap.h"

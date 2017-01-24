@@ -1,16 +1,17 @@
 //===--- ASTTypeTraits.cpp --------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTTypeTraits.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Provides a dynamic type identifier and a dynamically typed node container//
-//  that can be used to store an AST base node at runtime in the same storage in//
-//  a type safe way.                                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  Provides a dynamic type identifier and a dynamically typed node container
+//  that can be used to store an AST base node at runtime in the same storage in
+//  a type safe way.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTTypeTraits.h"
 #include "clang/AST/ASTContext.h"

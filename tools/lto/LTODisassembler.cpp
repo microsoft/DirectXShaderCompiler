@@ -1,15 +1,16 @@
 //===-- LTODisassembler.cpp - LTO Disassembler interface ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LTODisassembler.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This function provides utility methods used by clients of libLTO that want//
-// to use the disassembler.                                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This function provides utility methods used by clients of libLTO that want
+// to use the disassembler.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm-c/lto.h"
 #include "llvm/Support/TargetSelect.h"

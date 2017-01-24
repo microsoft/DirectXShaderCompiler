@@ -1,18 +1,19 @@
 //===-- llvm/Function.h - Class to represent a single function --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Function.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of the Function class, which represents a//
-// single function/procedure in LLVM.                                        //
 //
-// A function basically consists of a list of basic blocks, a list of arguments,//
-// and a symbol table.                                                       //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of the Function class, which represents a
+// single function/procedure in LLVM.
+//
+// A function basically consists of a list of basic blocks, a list of arguments,
+// and a symbol table.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_FUNCTION_H
 #define LLVM_IR_FUNCTION_H

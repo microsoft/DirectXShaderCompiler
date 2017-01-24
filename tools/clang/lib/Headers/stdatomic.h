@@ -1,12 +1,4 @@
 /*===---- stdatomic.h - Standard header for atomic types and operations -----===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// stdatomic.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __CLANG_STDATOMIC_H
 #define __CLANG_STDATOMIC_H
 

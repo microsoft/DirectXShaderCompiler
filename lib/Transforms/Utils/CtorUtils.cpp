@@ -1,14 +1,15 @@
 //===- CtorUtils.cpp - Helpers for working with global_ctors ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CtorUtils.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines functions that are used to process llvm.global_ctors.   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines functions that are used to process llvm.global_ctors.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/CtorUtils.h"
 #include "llvm/ADT/BitVector.h"

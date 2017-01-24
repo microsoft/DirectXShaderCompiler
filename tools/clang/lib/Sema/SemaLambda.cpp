@@ -1,14 +1,26 @@
 //===--- SemaLambda.cpp - Semantic Analysis for C++11 Lambdas -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaLambda.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements semantic analysis for C++ lambda expressions.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements semantic analysis for C++ lambda expressions.
+//
+//===----------------------------------------------------------------------===//
+#include "clang/Sema/DeclSpec.h"
+#include "TypeLocBuilder.h"
+#include "clang/AST/ASTLambda.h"
+#include "clang/AST/ExprCXX.h"
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Sema/Initialization.h"
+#include "clang/Sema/Lookup.h"
+#include "clang/Sema/Scope.h"
+#include "clang/Sema/ScopeInfo.h"
+#include "clang/Sema/SemaInternal.h"
+#include "clang/Sema/SemaLambda.h"
 
 #include "clang/Sema/DeclSpec.h"
 #include "TypeLocBuilder.h"

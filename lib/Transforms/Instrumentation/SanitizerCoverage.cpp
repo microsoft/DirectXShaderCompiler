@@ -1,31 +1,32 @@
 //===-- SanitizerCoverage.cpp - coverage instrumentation for sanitizers ---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SanitizerCoverage.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Coverage instrumentation that works with AddressSanitizer                 //
-// and potentially with other Sanitizers.                                    //
-//                                                                           //
-// We create a Guard variable with the same linkage                          //
-// as the function and inject this code into the entry block (SCK_Function)  //
-// or all blocks (SCK_BB):                                                   //
-// if (Guard < 0) {                                                          //
-//    __sanitizer_cov(&Guard);                                               //
-// }                                                                         //
-// The accesses to Guard are atomic. The rest of the logic is                //
-// in __sanitizer_cov (it's fine to call it more than once).                 //
-//                                                                           //
-// With SCK_Edge we also split critical edges this effectively               //
-// instrumenting all edges.                                                  //
-//                                                                           //
-// This coverage implementation provides very limited data:                  //
-// it only tells if a given function (block) was ever executed. No counters. //
-// But for many use cases this is what we need and the added slowdown small. //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Coverage instrumentation that works with AddressSanitizer
+// and potentially with other Sanitizers.
+//
+// We create a Guard variable with the same linkage
+// as the function and inject this code into the entry block (SCK_Function)
+// or all blocks (SCK_BB):
+// if (Guard < 0) {
+//    __sanitizer_cov(&Guard);
+// }
+// The accesses to Guard are atomic. The rest of the logic is
+// in __sanitizer_cov (it's fine to call it more than once).
+//
+// With SCK_Edge we also split critical edges this effectively
+// instrumenting all edges.
+//
+// This coverage implementation provides very limited data:
+// it only tells if a given function (block) was ever executed. No counters.
+// But for many use cases this is what we need and the added slowdown small.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/ADT/ArrayRef.h"

@@ -1,15 +1,16 @@
 //==- ScheduleDAGInstrs.h - MachineInstr Scheduling --------------*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScheduleDAGInstrs.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the ScheduleDAGInstrs class, which implements        //
-// scheduling for a MachineInstr-based dependency graph.                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the ScheduleDAGInstrs class, which implements
+// scheduling for a MachineInstr-based dependency graph.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_SCHEDULEDAGINSTRS_H
 #define LLVM_CODEGEN_SCHEDULEDAGINSTRS_H

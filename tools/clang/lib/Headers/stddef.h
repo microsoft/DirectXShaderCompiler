@@ -1,12 +1,4 @@
 /*===---- stddef.h - Basic type definitions --------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// stddef.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #if !defined(__STDDEF_H) || defined(__need_ptrdiff_t) ||                       \
     defined(__need_size_t) || defined(__need_wchar_t) ||                       \
     defined(__need_NULL) || defined(__need_wint_t)

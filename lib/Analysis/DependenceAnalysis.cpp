@@ -1,54 +1,55 @@
 //===-- DependenceAnalysis.cpp - DA Implementation --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DependenceAnalysis.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// DependenceAnalysis is an LLVM pass that analyses dependences between memory//
-// accesses. Currently, it is an (incomplete) implementation of the approach //
-// described in                                                              //
-//                                                                           //
-//            Practical Dependence Testing                                   //
-//            Goff, Kennedy, Tseng                                           //
-//            PLDI 1991                                                      //
-//                                                                           //
-// There's a single entry point that analyzes the dependence between a pair  //
-// of memory references in a function, returning either NULL, for no dependence,//
-// or a more-or-less detailed description of the dependence between them.    //
-//                                                                           //
-// Currently, the implementation cannot propagate constraints between        //
-// coupled RDIV subscripts and lacks a multi-subscript MIV test.             //
-// Both of these are conservative weaknesses;                                //
-// that is, not a source of correctness problems.                            //
-//                                                                           //
-// The implementation depends on the GEP instruction to differentiate        //
-// subscripts. Since Clang linearizes some array subscripts, the dependence  //
-// analysis is using SCEV->delinearize to recover the representation of multiple//
-// subscripts, and thus avoid the more expensive and less precise MIV tests. The//
-// delinearization is controlled by the flag -da-delinearize.                //
-//                                                                           //
-// We should pay some careful attention to the possibility of integer overflow//
-// in the implementation of the various tests. This could happen with Add,   //
-// Subtract, or Multiply, with both APInt's and SCEV's.                      //
-//                                                                           //
-// Some non-linear subscript pairs can be handled by the GCD test            //
-// (and perhaps other tests).                                                //
-// Should explore how often these things occur.                              //
-//                                                                           //
-// Finally, it seems like certain test cases expose weaknesses in the SCEV   //
-// simplification, especially in the handling of sign and zero extensions.   //
-// It could be useful to spend time exploring these.                         //
-//                                                                           //
-// Please note that this is work in progress and the interface is subject to //
-// change.                                                                   //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// DependenceAnalysis is an LLVM pass that analyses dependences between memory
+// accesses. Currently, it is an (incomplete) implementation of the approach
+// described in
+//
+//            Practical Dependence Testing
+//            Goff, Kennedy, Tseng
+//            PLDI 1991
+//
+// There's a single entry point that analyzes the dependence between a pair
+// of memory references in a function, returning either NULL, for no dependence,
+// or a more-or-less detailed description of the dependence between them.
+//
+// Currently, the implementation cannot propagate constraints between
+// coupled RDIV subscripts and lacks a multi-subscript MIV test.
+// Both of these are conservative weaknesses;
+// that is, not a source of correctness problems.
+//
+// The implementation depends on the GEP instruction to differentiate
+// subscripts. Since Clang linearizes some array subscripts, the dependence
+// analysis is using SCEV->delinearize to recover the representation of multiple
+// subscripts, and thus avoid the more expensive and less precise MIV tests. The
+// delinearization is controlled by the flag -da-delinearize.
+//
+// We should pay some careful attention to the possibility of integer overflow
+// in the implementation of the various tests. This could happen with Add,
+// Subtract, or Multiply, with both APInt's and SCEV's.
+//
+// Some non-linear subscript pairs can be handled by the GCD test
+// (and perhaps other tests).
+// Should explore how often these things occur.
+//
+// Finally, it seems like certain test cases expose weaknesses in the SCEV
+// simplification, especially in the handling of sign and zero extensions.
+// It could be useful to spend time exploring these.
+//
+// Please note that this is work in progress and the interface is subject to
+// change.
+//
+//===----------------------------------------------------------------------===//
 //                                                                            //
 //                   In memory of Ken Kennedy, 1945 - 2007                    //
 //                                                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/ADT/STLExtras.h"

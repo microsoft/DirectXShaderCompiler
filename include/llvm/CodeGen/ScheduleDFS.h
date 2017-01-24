@@ -1,14 +1,15 @@
 //===- ScheduleDAGILP.h - ILP metric for ScheduleDAGInstrs ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScheduleDFS.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Definition of an ILP metric for machine level instruction scheduling.     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Definition of an ILP metric for machine level instruction scheduling.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_SCHEDULEDFS_H
 #define LLVM_CODEGEN_SCHEDULEDFS_H

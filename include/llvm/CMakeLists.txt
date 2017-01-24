@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 add_subdirectory(IR)
 
 # If we're doing an out-of-tree build, copy a module map for generated

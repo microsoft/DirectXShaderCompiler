@@ -1,26 +1,27 @@
 //===- ValueMap.h - Safe map from Values to data ----------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ValueMap.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the ValueMap class.  ValueMap maps Value* or any subclass//
-// to an arbitrary other type.  It provides the DenseMap interface but updates//
-// itself to remain safe when keys are RAUWed or deleted.  By default, when a//
-// key is RAUWed from V1 to V2, the old mapping V1->target is removed, and a new//
-// mapping V2->target is added.  If V2 already existed, its old target is    //
-// overwritten.  When a key is deleted, its mapping is removed.              //
 //
-// You can override a ValueMap's Config parameter to control exactly what    //
-// happens on RAUW and destruction and to get called back on each event.  It's//
-// legal to call back into the ValueMap from a Config's callbacks.  Config   //
-// parameters should inherit from ValueMapConfig<KeyT> to get default        //
-// implementations of all the methods ValueMap uses.  See ValueMapConfig for //
-// documentation of the functions you can override.                          //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the ValueMap class.  ValueMap maps Value* or any subclass
+// to an arbitrary other type.  It provides the DenseMap interface but updates
+// itself to remain safe when keys are RAUWed or deleted.  By default, when a
+// key is RAUWed from V1 to V2, the old mapping V1->target is removed, and a new
+// mapping V2->target is added.  If V2 already existed, its old target is
+// overwritten.  When a key is deleted, its mapping is removed.
+//
+// You can override a ValueMap's Config parameter to control exactly what
+// happens on RAUW and destruction and to get called back on each event.  It's
+// legal to call back into the ValueMap from a Config's callbacks.  Config
+// parameters should inherit from ValueMapConfig<KeyT> to get default
+// implementations of all the methods ValueMap uses.  See ValueMapConfig for
+// documentation of the functions you can override.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_VALUEMAP_H
 #define LLVM_IR_VALUEMAP_H

@@ -1,16 +1,17 @@
 //===-- OProfileWrapper.cpp - OProfile JIT API Wrapper implementation -----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// OProfileWrapper.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the interface in OProfileWrapper.h. It is responsible//
-// for loading the opagent dynamic library when the first call to an op_     //
-// function occurs.                                                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the interface in OProfileWrapper.h. It is responsible
+// for loading the opagent dynamic library when the first call to an op_
+// function occurs.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ExecutionEngine/OProfileWrapper.h"
 #include "llvm/ADT/SmallString.h"

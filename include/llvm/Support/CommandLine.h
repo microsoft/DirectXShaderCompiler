@@ -1,18 +1,19 @@
 //===- llvm/Support/CommandLine.h - Command line handler --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommandLine.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class implements a command line argument processor that is useful when//
-// creating a tool.  It provides a simple, minimalistic interface that is easily//
-// extensible and supports nonlocal (library) command line options.          //
 //
-// Note that rather than trying to figure out what this code does, you should//
-// read the library documentation located in docs/CommandLine.html or looks at//
-// the many example usages in tools/*/*.cpp                                  //
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class implements a command line argument processor that is useful when
+// creating a tool.  It provides a simple, minimalistic interface that is easily
+// extensible and supports nonlocal (library) command line options.
+//
+// Note that rather than trying to figure out what this code does, you should
+// read the library documentation located in docs/CommandLine.html or looks at
+// the many example usages in tools/*/*.cpp
 //
 //===----------------------------------------------------------------------===//
 

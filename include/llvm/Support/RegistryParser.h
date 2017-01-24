@@ -1,14 +1,15 @@
 //=== RegistryParser.h - Linker-supported plugin registries -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegistryParser.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Defines a command-line parser for a registry.                             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Defines a command-line parser for a registry.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_REGISTRYPARSER_H
 #define LLVM_SUPPORT_REGISTRYPARSER_H

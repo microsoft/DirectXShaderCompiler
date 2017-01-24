@@ -1,12 +1,4 @@
 /*===---- prfchwintrin.h - PREFETCHW intrinsic -----------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// prfchwintrin.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #if !defined(__X86INTRIN_H) && !defined(_MM3DNOW_H_INCLUDED)
 #error "Never use <prfchwintrin.h> directly; include <x86intrin.h> or <mm3dnow.h> instead."
 #endif

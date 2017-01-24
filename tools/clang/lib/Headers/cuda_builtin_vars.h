@@ -1,12 +1,4 @@
 /*===---- cuda_builtin_vars.h - CUDA built-in variables ---------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// cuda_builtin_vars.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __CUDA_BUILTIN_VARS_H
 #define __CUDA_BUILTIN_VARS_H
 

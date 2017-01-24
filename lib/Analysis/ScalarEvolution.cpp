@@ -1,59 +1,62 @@
 //===- ScalarEvolution.cpp - Scalar Evolution Analysis --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScalarEvolution.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the implementation of the scalar evolution analysis    //
-// engine, which is used primarily to analyze expressions involving induction//
-// variables in loops.                                                       //
-//                                                                           //
-// There are several aspects to this library.  First is the representation of//
-// scalar expressions, which are represented as subclasses of the SCEV class.//
-// These classes are used to represent certain types of subexpressions that we//
-// can handle. We only create one SCEV of a particular shape, so             //
-// pointer-comparisons for equality are legal.                               //
-//                                                                           //
-// One important aspect of the SCEV objects is that they are never cyclic, even//
-// if there is a cycle in the dataflow for an expression (ie, a PHI node).  If//
-// the PHI node is one of the idioms that we can represent (e.g., a polynomial//
-// recurrence) then we represent it directly as a recurrence node, otherwise we//
-// represent it as a SCEVUnknown node.                                       //
-//                                                                           //
-// In addition to being able to represent expressions of various types, we also//
-// have folders that are used to build the *canonical* representation for a  //
-// particular expression.  These folders are capable of using a variety of   //
-// rewrite rules to simplify the expressions.                                //
-//                                                                           //
-// Once the folders are defined, we can implement the more interesting       //
-// higher-level code, such as the code that recognizes PHI nodes of various  //
-// types, computes the execution count of a loop, etc.                       //
-//                                                                           //
-// TODO: We should use these routines and value representations to implement //
-// dependence analysis!                                                      //
-//                                                                           //
-// There are several good references for the techniques used in this analysis.//
-//                                                                           //
-//  Chains of recurrences -- a method to expedite the evaluation             //
-//  of closed-form functions                                                 //
-//  Olaf Bachmann, Paul S. Wang, Eugene V. Zima                              //
-//                                                                           //
-//  On computational properties of chains of recurrences                     //
-//  Eugene V. Zima                                                           //
-//                                                                           //
-//  Symbolic Evaluation of Chains of Recurrences for Loop Optimization       //
-//  Robert A. van Engelen                                                    //
-//                                                                           //
-//  Efficient Symbolic Analysis for Optimizing Compilers                     //
-//  Robert A. van Engelen                                                    //
-//                                                                           //
-//  Using the chains of recurrences algebra for data dependence testing and  //
-//  induction variable substitution                                          //
-//  MS Thesis, Johnie Birch                                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the implementation of the scalar evolution analysis
+// engine, which is used primarily to analyze expressions involving induction
+// variables in loops.
+//
+// There are several aspects to this library.  First is the representation of
+// scalar expressions, which are represented as subclasses of the SCEV class.
+// These classes are used to represent certain types of subexpressions that we
+// can handle. We only create one SCEV of a particular shape, so
+// pointer-comparisons for equality are legal.
+//
+// One important aspect of the SCEV objects is that they are never cyclic, even
+// if there is a cycle in the dataflow for an expression (ie, a PHI node).  If
+// the PHI node is one of the idioms that we can represent (e.g., a polynomial
+// recurrence) then we represent it directly as a recurrence node, otherwise we
+// represent it as a SCEVUnknown node.
+//
+// In addition to being able to represent expressions of various types, we also
+// have folders that are used to build the *canonical* representation for a
+// particular expression.  These folders are capable of using a variety of
+// rewrite rules to simplify the expressions.
+//
+// Once the folders are defined, we can implement the more interesting
+// higher-level code, such as the code that recognizes PHI nodes of various
+// types, computes the execution count of a loop, etc.
+//
+// TODO: We should use these routines and value representations to implement
+// dependence analysis!
+//
+//===----------------------------------------------------------------------===//
+//
+// There are several good references for the techniques used in this analysis.
+//
+//  Chains of recurrences -- a method to expedite the evaluation
+//  of closed-form functions
+//  Olaf Bachmann, Paul S. Wang, Eugene V. Zima
+//
+//  On computational properties of chains of recurrences
+//  Eugene V. Zima
+//
+//  Symbolic Evaluation of Chains of Recurrences for Loop Optimization
+//  Robert A. van Engelen
+//
+//  Efficient Symbolic Analysis for Optimizing Compilers
+//  Robert A. van Engelen
+//
+//  Using the chains of recurrences algebra for data dependence testing and
+//  induction variable substitution
+//  MS Thesis, Johnie Birch
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/ADT/Optional.h"

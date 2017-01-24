@@ -1,15 +1,56 @@
 //===--------------------- SemaLookup.cpp - Name Lookup  ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaLookup.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements name lookup for C, C++, Objective-C, and            //
-//  Objective-C++.                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements name lookup for C, C++, Objective-C, and
+//  Objective-C++.
+//
+//===----------------------------------------------------------------------===//
+#include "clang/Sema/Lookup.h"
+#include "clang/AST/ASTContext.h"
+#include "clang/AST/ASTMutationListener.h"
+#include "clang/AST/CXXInheritance.h"
+#include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclLookups.h"
+#include "clang/AST/DeclObjC.h"
+#include "clang/AST/DeclTemplate.h"
+#include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
+#include "clang/Basic/Builtins.h"
+#include "clang/Basic/LangOptions.h"
+#include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/ModuleLoader.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Sema/DeclSpec.h"
+#include "clang/Sema/ExternalSemaSource.h"
+#include "clang/Sema/Overload.h"
+#include "clang/Sema/Scope.h"
+#include "clang/Sema/ScopeInfo.h"
+#include "clang/Sema/Sema.h"
+#include "clang/Sema/SemaInternal.h"
+#include "clang/Sema/TemplateDeduction.h"
+#include "clang/Sema/TypoCorrection.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/TinyPtrVector.h"
+#include "llvm/ADT/edit_distance.h"
+#include "llvm/Support/ErrorHandling.h"
+#include <algorithm>
+#include <iterator>
+#include <limits>
+#include <list>
+#include <map>
+#include <set>
+#include <utility>
+#include <vector>
 
 #include "clang/Sema/Lookup.h"
 #include "clang/AST/ASTContext.h"

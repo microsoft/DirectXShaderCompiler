@@ -1,47 +1,48 @@
 //===- SetTheory.h - Generate ordered sets from DAG expressions -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SetTheory.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the SetTheory class that computes ordered sets of    //
-// Records from DAG expressions.  Operators for standard set operations are  //
-// predefined, and it is possible to add special purpose set operators as well.//
 //
-// The user may define named sets as Records of predefined classes. Set      //
-// expanders can be added to a SetTheory instance to teach it how to find the//
-// elements of such a named set.                                             //
+//                     The LLVM Compiler Infrastructure
 //
-// These are the predefined operators. The argument lists can be individual  //
-// elements (defs), other sets (defs of expandable classes), lists, or DAG   //
-// expressions that are evaluated recursively.                               //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// - (add S1, S2 ...) Union sets. This is also how sets are created from element//
-//   lists.                                                                  //
+//===----------------------------------------------------------------------===//
 //
-// - (sub S1, S2, ...) Set difference. Every element in S1 except for the    //
-//   elements in S2, ...                                                     //
+// This file implements the SetTheory class that computes ordered sets of
+// Records from DAG expressions.  Operators for standard set operations are
+// predefined, and it is possible to add special purpose set operators as well.
 //
-// - (and S1, S2) Set intersection. Every element in S1 that is also in S2.  //
+// The user may define named sets as Records of predefined classes. Set
+// expanders can be added to a SetTheory instance to teach it how to find the
+// elements of such a named set.
 //
-// - (shl S, N) Shift left. Remove the first N elements from S.              //
+// These are the predefined operators. The argument lists can be individual
+// elements (defs), other sets (defs of expandable classes), lists, or DAG
+// expressions that are evaluated recursively.
 //
-// - (trunc S, N) Truncate. The first N elements of S.                       //
+// - (add S1, S2 ...) Union sets. This is also how sets are created from element
+//   lists.
 //
-// - (rotl S, N) Rotate left. Same as (add (shl S, N), (trunc S, N)).        //
+// - (sub S1, S2, ...) Set difference. Every element in S1 except for the
+//   elements in S2, ...
 //
-// - (rotr S, N) Rotate right.                                               //
+// - (and S1, S2) Set intersection. Every element in S1 that is also in S2.
 //
-// - (decimate S, N) Decimate S by picking every N'th element, starting with //
-//   the first one. For instance, (decimate S, 2) returns the even elements of//
-//   S.                                                                      //
+// - (shl S, N) Shift left. Remove the first N elements from S.
 //
-// - (sequence "Format", From, To) Generate a sequence of defs with printf.  //
-//   For instance, (sequence "R%u", 0, 3) -> [ R0, R1, R2, R3 ]              //
+// - (trunc S, N) Truncate. The first N elements of S.
 //
-///////////////////////////////////////////////////////////////////////////////
+// - (rotl S, N) Rotate left. Same as (add (shl S, N), (trunc S, N)).
+//
+// - (rotr S, N) Rotate right.
+//
+// - (decimate S, N) Decimate S by picking every N'th element, starting with
+//   the first one. For instance, (decimate S, 2) returns the even elements of
+//   S.
+//
+// - (sequence "Format", From, To) Generate a sequence of defs with printf.
+//   For instance, (sequence "R%u", 0, 3) -> [ R0, R1, R2, R3 ]
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TABLEGEN_SETTHEORY_H
 #define LLVM_TABLEGEN_SETTHEORY_H

@@ -1,12 +1,4 @@
 /*===---- mm3dnow.h - 3DNow! intrinsics ------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// mm3dnow.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef _MM3DNOW_H_INCLUDED
 #define _MM3DNOW_H_INCLUDED
 

@@ -1,15 +1,22 @@
 //=== CastSizeChecker.cpp ---------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CastSizeChecker.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// CastSizeChecker checks when casting a malloc'ed symbolic region to type T,//
-// whether the size of the symbolic region is a multiple of the size of T.   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// CastSizeChecker checks when casting a malloc'ed symbolic region to type T,
+// whether the size of the symbolic region is a multiple of the size of T.
+//
+//===----------------------------------------------------------------------===//
+#include "ClangSACheckers.h"
+#include "clang/AST/CharUnits.h"
+#include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
+#include "clang/StaticAnalyzer/Core/Checker.h"
+#include "clang/StaticAnalyzer/Core/CheckerManager.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 
 #include "ClangSACheckers.h"
 #include "clang/AST/CharUnits.h"

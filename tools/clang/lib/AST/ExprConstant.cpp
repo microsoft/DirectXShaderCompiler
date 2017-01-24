@@ -1,36 +1,37 @@
 //===--- ExprConstant.cpp - Expression Constant Evaluator -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExprConstant.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Expr constant evaluator.                         //
-//                                                                           //
-// Constant expression evaluation produces four main results:                //
-//                                                                           //
-//  * A success/failure flag indicating whether constant folding was successful.//
-//    This is the 'bool' return value used by most of the code in this file. A//
-//    'false' return value indicates that constant folding has failed, and any//
-//    appropriate diagnostic has already been produced.                      //
-//                                                                           //
-//  * An evaluated result, valid only if constant folding has not failed.    //
-//                                                                           //
-//  * A flag indicating if evaluation encountered (unevaluated) side-effects.//
-//    These arise in cases such as (sideEffect(), 0) and (sideEffect() || 1),//
-//    where it is possible to determine the evaluated result regardless.     //
-//                                                                           //
-//  * A set of notes indicating why the evaluation was not a constant expression//
-//    (under the C++11 / C++1y rules only, at the moment), or, if folding failed//
-//    too, why the expression could not be folded.                           //
-//                                                                           //
-// If we are checking for a potential constant expression, failure to constant//
-// fold a potential constant sub-expression will be indicated by a 'false'   //
-// return value (the expression could not be folded) and no diagnostic (the  //
-// expression is not necessarily non-constant).                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Expr constant evaluator.
+//
+// Constant expression evaluation produces four main results:
+//
+//  * A success/failure flag indicating whether constant folding was successful.
+//    This is the 'bool' return value used by most of the code in this file. A
+//    'false' return value indicates that constant folding has failed, and any
+//    appropriate diagnostic has already been produced.
+//
+//  * An evaluated result, valid only if constant folding has not failed.
+//
+//  * A flag indicating if evaluation encountered (unevaluated) side-effects.
+//    These arise in cases such as (sideEffect(), 0) and (sideEffect() || 1),
+//    where it is possible to determine the evaluated result regardless.
+//
+//  * A set of notes indicating why the evaluation was not a constant expression
+//    (under the C++11 / C++1y rules only, at the moment), or, if folding failed
+//    too, why the expression could not be folded.
+//
+// If we are checking for a potential constant expression, failure to constant
+// fold a potential constant sub-expression will be indicated by a 'false'
+// return value (the expression could not be folded) and no diagnostic (the
+// expression is not necessarily non-constant).
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/APValue.h"
 #include "clang/AST/ASTContext.h"

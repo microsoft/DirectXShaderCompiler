@@ -1,11 +1,24 @@
 //===--- SanitizerArgs.cpp - Arguments for sanitizer tools  ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SanitizerArgs.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+#include "clang/Driver/SanitizerArgs.h"
+#include "Tools.h"
+#include "clang/Basic/Sanitizers.h"
+#include "clang/Driver/Driver.h"
+#include "clang/Driver/DriverDiagnostic.h"
+#include "clang/Driver/Options.h"
+#include "clang/Driver/ToolChain.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/SpecialCaseList.h"
+#include <memory>
 
 #include "clang/Driver/SanitizerArgs.h"
 #include "Tools.h"

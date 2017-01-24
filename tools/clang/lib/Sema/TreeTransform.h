@@ -1,13 +1,13 @@
 //===------- TreeTransform.h - Semantic Tree Transformation -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TreeTransform.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements a semantic tree transformation that takes a given   //
-//  AST and rebuilds it, possibly transforming some nodes in the process.    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//===----------------------------------------------------------------------===//
+//
+//  This file implements a semantic tree transformation that takes a given
+//  AST and rebuilds it, possibly transforming some nodes in the process.
 //
 //===----------------------------------------------------------------------===//
 

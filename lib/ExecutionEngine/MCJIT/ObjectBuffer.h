@@ -1,15 +1,16 @@
 //===--- ObjectBuffer.h - Utility class to wrap object memory ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjectBuffer.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares a wrapper class to hold the memory into which an       //
-// object will be generated.                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares a wrapper class to hold the memory into which an
+// object will be generated.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_EXECUTIONENGINE_OBJECTBUFFER_H
 #define LLVM_EXECUTIONENGINE_OBJECTBUFFER_H

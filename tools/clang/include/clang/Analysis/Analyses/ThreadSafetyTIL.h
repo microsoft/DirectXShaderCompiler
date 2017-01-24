@@ -1,47 +1,48 @@
 //===- ThreadSafetyTIL.h ---------------------------------------*- C++ --*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ThreadSafetyTIL.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a simple Typed Intermediate Language, or TIL, that is used//
-// by the thread safety analysis (See ThreadSafety.cpp).  The TIL is intended//
-// to be largely independent of clang, in the hope that the analysis can be  //
-// reused for other non-C++ languages.  All dependencies on clang/llvm should//
-// go in ThreadSafetyUtil.h.                                                 //
 //
-// Thread safety analysis works by comparing mutex expressions, e.g.         //
+//                     The LLVM Compiler Infrastructure
 //
-// class A { Mutex mu; int dat GUARDED_BY(this->mu); }                       //
-// class B { A a; }                                                          //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT in the llvm repository for details.
 //
-// void foo(B* b) {                                                          //
-//   (*b).a.mu.lock();     // locks (*b).a.mu                                //
-//   b->a.dat = 0;         // substitute &b->a for 'this';                   //
-//                         // requires lock on (&b->a)->mu                   //
-//   (b->a.mu).unlock();   // unlocks (b->a.mu)                              //
-// }                                                                         //
+//===----------------------------------------------------------------------===//
 //
-// As illustrated by the above example, clang Exprs are not well-suited to   //
-// represent mutex expressions directly, since there is no easy way to compare//
-// Exprs for equivalence.  The thread safety analysis thus lowers clang Exprs//
-// into a simple intermediate language (IL).  The IL supports:               //
+// This file defines a simple Typed Intermediate Language, or TIL, that is used
+// by the thread safety analysis (See ThreadSafety.cpp).  The TIL is intended
+// to be largely independent of clang, in the hope that the analysis can be
+// reused for other non-C++ languages.  All dependencies on clang/llvm should
+// go in ThreadSafetyUtil.h.
 //
-// (1) comparisons for semantic equality of expressions                      //
-// (2) SSA renaming of variables                                             //
-// (3) wildcards and pattern matching over expressions                       //
-// (4) hash-based expression lookup                                          //
+// Thread safety analysis works by comparing mutex expressions, e.g.
 //
-// The TIL is currently very experimental, is intended only for use within   //
-// the thread safety analysis, and is subject to change without notice.      //
-// After the API stabilizes and matures, it may be appropriate to make this  //
-// more generally available to other analyses.                               //
+// class A { Mutex mu; int dat GUARDED_BY(this->mu); }
+// class B { A a; }
 //
-// UNDER CONSTRUCTION.  USE AT YOUR OWN RISK.                                //
+// void foo(B* b) {
+//   (*b).a.mu.lock();     // locks (*b).a.mu
+//   b->a.dat = 0;         // substitute &b->a for 'this';
+//                         // requires lock on (&b->a)->mu
+//   (b->a.mu).unlock();   // unlocks (b->a.mu)
+// }
 //
-///////////////////////////////////////////////////////////////////////////////
+// As illustrated by the above example, clang Exprs are not well-suited to
+// represent mutex expressions directly, since there is no easy way to compare
+// Exprs for equivalence.  The thread safety analysis thus lowers clang Exprs
+// into a simple intermediate language (IL).  The IL supports:
+//
+// (1) comparisons for semantic equality of expressions
+// (2) SSA renaming of variables
+// (3) wildcards and pattern matching over expressions
+// (4) hash-based expression lookup
+//
+// The TIL is currently very experimental, is intended only for use within
+// the thread safety analysis, and is subject to change without notice.
+// After the API stabilizes and matures, it may be appropriate to make this
+// more generally available to other analyses.
+//
+// UNDER CONSTRUCTION.  USE AT YOUR OWN RISK.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ANALYSIS_ANALYSES_THREADSAFETYTIL_H
 #define LLVM_CLANG_ANALYSIS_ANALYSES_THREADSAFETYTIL_H

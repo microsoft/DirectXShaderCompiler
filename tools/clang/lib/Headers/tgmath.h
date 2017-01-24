@@ -1,12 +1,4 @@
 /*===---- tgmath.h - Standard header for type generic math ----------------===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// tgmath.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __TGMATH_H
 #define __TGMATH_H
 

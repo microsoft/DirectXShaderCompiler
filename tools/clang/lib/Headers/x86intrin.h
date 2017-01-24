@@ -1,12 +1,4 @@
 /*===---- x86intrin.h - X86 intrinsics -------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// x86intrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __X86INTRIN_H
 #define __X86INTRIN_H
 

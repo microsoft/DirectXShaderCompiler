@@ -1,15 +1,16 @@
 //===- ASTDeserializationListener.h - Decl/Type PCH Read Events -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTDeserializationListener.h                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the ASTDeserializationListener class, which is notified//
-//  by the ASTReader whenever a type or declaration is deserialized.         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the ASTDeserializationListener class, which is notified
+//  by the ASTReader whenever a type or declaration is deserialized.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SERIALIZATION_ASTDESERIALIZATIONLISTENER_H
 #define LLVM_CLANG_SERIALIZATION_ASTDESERIALIZATIONLISTENER_H

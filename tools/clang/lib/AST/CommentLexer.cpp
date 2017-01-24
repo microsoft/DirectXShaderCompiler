@@ -1,11 +1,11 @@
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommentLexer.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+#include "clang/AST/CommentLexer.h"
+#include "clang/AST/CommentCommandTraits.h"
+#include "clang/AST/CommentDiagnostic.h"
+#include "clang/Basic/CharInfo.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include "clang/AST/CommentLexer.h"
 #include "clang/AST/CommentCommandTraits.h"

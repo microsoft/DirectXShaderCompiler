@@ -1,19 +1,20 @@
 //===-- UnrollLoop.cpp - Loop unrolling utilities -------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopUnroll.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements some loop unrolling utilities. It does not define any//
-// actual pass or policy, but provides a single function to perform loop     //
-// unrolling.                                                                //
-//                                                                           //
-// The process of unrolling can produce extraneous basic blocks linked with  //
-// unconditional branches.  This will be corrected in the future.            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements some loop unrolling utilities. It does not define any
+// actual pass or policy, but provides a single function to perform loop
+// unrolling.
+//
+// The process of unrolling can produce extraneous basic blocks linked with
+// unconditional branches.  This will be corrected in the future.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/ADT/SmallPtrSet.h"

@@ -1,12 +1,4 @@
 /*===---- iso646.h - Standard header for alternate spellings of operators---===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// iso646.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __ISO646_H
 #define __ISO646_H
 

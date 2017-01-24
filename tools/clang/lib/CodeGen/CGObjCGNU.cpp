@@ -1,17 +1,18 @@
 //===------- CGObjCGNU.cpp - Emit LLVM Code from ASTs for a Module --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CGObjCGNU.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This provides Objective-C code generation targeting the GNU runtime.  The //
-// class in this file generates structures used by the GNU Objective-C runtime//
-// library.  These structures are defined in objc/objc.h and objc/objc-api.h in//
-// the GNU runtime distribution.                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This provides Objective-C code generation targeting the GNU runtime.  The
+// class in this file generates structures used by the GNU Objective-C runtime
+// library.  These structures are defined in objc/objc.h and objc/objc-api.h in
+// the GNU runtime distribution.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CGObjCRuntime.h"
 #include "CGCleanup.h"

@@ -1,22 +1,23 @@
 //===- llvm/Support/ScaledNumber.h - Support for scaled numbers -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScaledNumber.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains functions (and a class) useful for working with scaled //
-// numbers -- in particular, pairs of integers where one represents digits and//
-// another represents a scale.  The functions are helpers and live in the    //
-// namespace ScaledNumbers.  The class ScaledNumber is useful for modelling  //
-// certain cost metrics that need simple, integer-like semantics that are easy//
-// to reason about.                                                          //
 //
-// These might remind you of soft-floats.  If you want one of those, you're in//
-// the wrong place.  Look at include/llvm/ADT/APFloat.h instead.             //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains functions (and a class) useful for working with scaled
+// numbers -- in particular, pairs of integers where one represents digits and
+// another represents a scale.  The functions are helpers and live in the
+// namespace ScaledNumbers.  The class ScaledNumber is useful for modelling
+// certain cost metrics that need simple, integer-like semantics that are easy
+// to reason about.
+//
+// These might remind you of soft-floats.  If you want one of those, you're in
+// the wrong place.  Look at include/llvm/ADT/APFloat.h instead.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_SCALEDNUMBER_H
 #define LLVM_SUPPORT_SCALEDNUMBER_H

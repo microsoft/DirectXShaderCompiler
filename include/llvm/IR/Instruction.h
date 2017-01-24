@@ -1,15 +1,16 @@
 //===-- llvm/Instruction.h - Instruction class definition -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Instruction.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of the Instruction class, which is the //
-// base class for all of the LLVM instructions.                              //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of the Instruction class, which is the
+// base class for all of the LLVM instructions.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_INSTRUCTION_H
 #define LLVM_IR_INSTRUCTION_H

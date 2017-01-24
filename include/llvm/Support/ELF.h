@@ -1,20 +1,21 @@
 //===-- llvm/Support/ELF.h - ELF constants and data structures --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ELF.h                                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header contains common, non-processor-specific data structures and   //
-// constants for the ELF file format.                                        //
 //
-// The details of the ELF32 bits in this file are largely based on the Tool  //
-// Interface Standard (TIS) Executable and Linking Format (ELF) Specification//
-// Version 1.2, May 1995. The ELF64 stuff is based on ELF-64 Object File Format//
-// Version 1.5, Draft 2, May 1998 as well as OpenBSD header files.           //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header contains common, non-processor-specific data structures and
+// constants for the ELF file format.
+//
+// The details of the ELF32 bits in this file are largely based on the Tool
+// Interface Standard (TIS) Executable and Linking Format (ELF) Specification
+// Version 1.2, May 1995. The ELF64 stuff is based on ELF-64 Object File Format
+// Version 1.5, Draft 2, May 1998 as well as OpenBSD header files.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_ELF_H
 #define LLVM_SUPPORT_ELF_H

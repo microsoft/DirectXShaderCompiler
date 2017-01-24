@@ -1,20 +1,20 @@
 //===- llvm/CodeGen/SlotIndexes.h - Slot indexes representation -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SlotIndexes.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements SlotIndex and related classes. The purpose of SlotIndex//
-// is to describe a position at which a register can become live, or cease to//
-// be live.                                                                  //
 //
-// SlotIndex is mostly a proxy for entries of the SlotIndexList, a class which//
-// is held is LiveIntervals and provides the real numbering. This allows     //
-// LiveIntervals to perform largely transparent renumbering.                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements SlotIndex and related classes. The purpose of SlotIndex
+// is to describe a position at which a register can become live, or cease to
+// be live.
+//
+// SlotIndex is mostly a proxy for entries of the SlotIndexList, a class which
+// is held is LiveIntervals and provides the real numbering. This allows
+// LiveIntervals to perform largely transparent renumbering.
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_SLOTINDEXES_H
 #define LLVM_CODEGEN_SLOTINDEXES_H

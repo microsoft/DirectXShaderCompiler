@@ -1,12 +1,4 @@
 /*===---- stdint.h - Standard header for sized integer types --------------===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// stdint.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __CLANG_STDINT_H
 #define __CLANG_STDINT_H
 

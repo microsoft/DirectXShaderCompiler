@@ -1,6 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
-# HLSL Change - add ignored sources
 set(HLSL_IGNORE_SOURCES CGObjCGNU.cpp CGObjCMac.cpp CGObjCRuntime.cpp CGOpenCLRuntime.cpp CGOpenMPRuntime.cpp)
 
 set(LLVM_LINK_COMPONENTS

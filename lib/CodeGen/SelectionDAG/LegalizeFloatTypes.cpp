@@ -1,22 +1,23 @@
 //===-------- LegalizeFloatTypes.cpp - Legalization of float types --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegalizeFloatTypes.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements float type expansion and softening for LegalizeTypes.//
-// Softening is the act of turning a computation in an illegal floating point//
-// type into a computation in an integer type of the same size; also known as//
-// "soft float".  For example, turning f32 arithmetic into operations using i32.//
-// The resulting integer value is the same as what you would get by performing//
-// the floating point operation and bitcasting the result to the integer type.//
-// Expansion is the act of changing a computation in an illegal type to be a //
-// computation in two identical registers of a smaller type.  For example,   //
-// implementing ppcf128 arithmetic in two f64 registers.                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements float type expansion and softening for LegalizeTypes.
+// Softening is the act of turning a computation in an illegal floating point
+// type into a computation in an integer type of the same size; also known as
+// "soft float".  For example, turning f32 arithmetic into operations using i32.
+// The resulting integer value is the same as what you would get by performing
+// the floating point operation and bitcasting the result to the integer type.
+// Expansion is the act of changing a computation in an illegal type to be a
+// computation in two identical registers of a smaller type.  For example,
+// implementing ppcf128 arithmetic in two f64 registers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "LegalizeTypes.h"
 #include "llvm/Support/ErrorHandling.h"

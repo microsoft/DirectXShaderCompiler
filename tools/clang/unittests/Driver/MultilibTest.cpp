@@ -1,14 +1,15 @@
 //===- unittests/Driver/MultilibTest.cpp --- Multilib tests ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MultilibTest.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Unit tests for Multilib and MultilibSet                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Unit tests for Multilib and MultilibSet
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Driver/Multilib.h"
 #include "clang/Basic/LLVM.h"

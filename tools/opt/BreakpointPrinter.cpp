@@ -1,15 +1,22 @@
 //===- BreakpointPrinter.cpp - Breakpoint location printer ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BreakpointPrinter.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Breakpoint location printer.                                      //
+/// \file
+/// \brief Breakpoint location printer.
 ///
+//===----------------------------------------------------------------------===//
+#include "BreakpointPrinter.h"
+#include "llvm/ADT/StringSet.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "BreakpointPrinter.h"
 #include "llvm/ADT/StringSet.h"

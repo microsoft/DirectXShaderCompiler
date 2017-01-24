@@ -1,18 +1,19 @@
 //===-- IPConstantPropagation.cpp - Propagate constants through calls -----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IPConstantPropagation.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass implements an _extremely_ simple interprocedural constant       //
-// propagation pass.  It could certainly be improved in many different ways, //
-// like using a worklist.  This pass makes arguments dead, but does not remove//
-// them.  The existing dead argument elimination pass should be run after this//
-// to clean up the mess.                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass implements an _extremely_ simple interprocedural constant
+// propagation pass.  It could certainly be improved in many different ways,
+// like using a worklist.  This pass makes arguments dead, but does not remove
+// them.  The existing dead argument elimination pass should be run after this
+// to clean up the mess.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SmallVector.h"

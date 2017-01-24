@@ -1,17 +1,16 @@
 //===--- SemaExprCXX.cpp - Semantic Analysis for Expressions --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaExprCXX.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Implements semantic analysis for C++ expressions.                 //
+/// \file
+/// \brief Implements semantic analysis for C++ expressions.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaInternal.h"
 #include "TreeTransform.h"

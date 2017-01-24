@@ -1,22 +1,23 @@
 //===- ScalarEvolutionAliasAnalysis.cpp - SCEV-based Alias Analysis -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScalarEvolutionAliasAnalysis.cpp                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the ScalarEvolutionAliasAnalysis pass, which implements a//
-// simple alias analysis implemented in terms of ScalarEvolution queries.    //
-//                                                                           //
-// This differs from traditional loop dependence analysis in that it tests   //
-// for dependencies within a single iteration of a loop, rather than         //
-// dependencies between different iterations.                                //
-//                                                                           //
-// ScalarEvolution has a more complete understanding of pointer arithmetic   //
-// than BasicAliasAnalysis' collection of ad-hoc analyses.                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the ScalarEvolutionAliasAnalysis pass, which implements a
+// simple alias analysis implemented in terms of ScalarEvolution queries.
+//
+// This differs from traditional loop dependence analysis in that it tests
+// for dependencies within a single iteration of a loop, rather than
+// dependencies between different iterations.
+//
+// ScalarEvolution has a more complete understanding of pointer arithmetic
+// than BasicAliasAnalysis' collection of ad-hoc analyses.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/AliasAnalysis.h"

@@ -1,17 +1,18 @@
 //===-- LiveIntervalUnion.h - Live interval union data struct --*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveIntervalUnion.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// LiveIntervalUnion is a union of live segments across multiple live virtual//
-// registers. This may be used during coalescing to represent a congruence   //
-// class, or during register allocation to model liveness of a physical      //
-// register.                                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// LiveIntervalUnion is a union of live segments across multiple live virtual
+// registers. This may be used during coalescing to represent a congruence
+// class, or during register allocation to model liveness of a physical
+// register.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_LIVEINTERVALUNION_H
 #define LLVM_CODEGEN_LIVEINTERVALUNION_H

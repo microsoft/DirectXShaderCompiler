@@ -1,15 +1,16 @@
 //===-- DwarfEHPrepare - Prepare exception handling for code generation ---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DwarfEHPrepare.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass mulches exception handling code into a form adapted to code     //
-// generation. Required if using dwarf exception handling.                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass mulches exception handling code into a form adapted to code
+// generation. Required if using dwarf exception handling.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/BitVector.h"

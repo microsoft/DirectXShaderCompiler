@@ -1,17 +1,18 @@
 //===- llvm/Transforms/Utils/IntegerDivision.h ------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntegerDivision.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains an implementation of 32bit and 64bit scalar integer    //
-// division for targets that don't have native support. It's largely derived //
-// from compiler-rt's implementations of __udivsi3 and __udivmoddi4,         //
-// but hand-tuned for targets that prefer less control flow.                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains an implementation of 32bit and 64bit scalar integer
+// division for targets that don't have native support. It's largely derived
+// from compiler-rt's implementations of __udivsi3 and __udivmoddi4,
+// but hand-tuned for targets that prefer less control flow.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_UTILS_INTEGERDIVISION_H
 #define LLVM_TRANSFORMS_UTILS_INTEGERDIVISION_H

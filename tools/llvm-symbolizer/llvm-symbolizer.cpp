@@ -1,18 +1,19 @@
 //===-- llvm-symbolizer.cpp - Simple addr2line-like symbolizer ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-symbolizer.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This utility works much like "addr2line". It is able of transforming      //
-// tuples (module name, module offset) to code locations (function name,     //
-// file, line number, column number). It is targeted for compiler-rt tools   //
-// (especially AddressSanitizer and ThreadSanitizer) that can use it         //
-// to symbolize stack traces in their error reports.                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This utility works much like "addr2line". It is able of transforming
+// tuples (module name, module offset) to code locations (function name,
+// file, line number, column number). It is targeted for compiler-rt tools
+// (especially AddressSanitizer and ThreadSanitizer) that can use it
+// to symbolize stack traces in their error reports.
+//
+//===----------------------------------------------------------------------===//
 
 #include "LLVMSymbolize.h"
 #include "llvm/ADT/StringRef.h"

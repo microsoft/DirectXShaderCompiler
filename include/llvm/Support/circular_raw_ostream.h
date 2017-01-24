@@ -1,15 +1,16 @@
 //===-- llvm/Support/circular_raw_ostream.h - Buffered streams --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// circular_raw_ostream.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains raw_ostream implementations for streams to do circular //
-// buffering of their output.                                                //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains raw_ostream implementations for streams to do circular
+// buffering of their output.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_CIRCULAR_RAW_OSTREAM_H
 #define LLVM_SUPPORT_CIRCULAR_RAW_OSTREAM_H

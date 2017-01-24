@@ -1,15 +1,16 @@
 //===--- ParsedTemplate.h - Template Parsing Data Types -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ParsedTemplate.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file provides data structures that store the parsed representation of//
-//  templates.                                                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file provides data structures that store the parsed representation of
+//  templates.
+//
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SEMA_PARSEDTEMPLATE_H
 #define LLVM_CLANG_SEMA_PARSEDTEMPLATE_H
 

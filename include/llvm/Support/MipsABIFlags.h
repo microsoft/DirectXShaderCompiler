@@ -1,17 +1,18 @@
 //===--- MipsABIFlags.h - MIPS ABI flags ----------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MipsABIFlags.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the constants for the ABI flags structure contained     //
-// in the .MIPS.abiflags section.                                            //
 //
-// https://dmz-portal.mips.com/wiki/MIPS_O32_ABI_-_FR0_and_FR1_Interlinking  //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the constants for the ABI flags structure contained
+// in the .MIPS.abiflags section.
+//
+// https://dmz-portal.mips.com/wiki/MIPS_O32_ABI_-_FR0_and_FR1_Interlinking
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_MIPSABIFLAGS_H
 #define LLVM_SUPPORT_MIPSABIFLAGS_H

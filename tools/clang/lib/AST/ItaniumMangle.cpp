@@ -1,17 +1,36 @@
 //===--- ItaniumMangle.cpp - Itanium C++ Name Mangling ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ItaniumMangle.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Implements C++ name mangling according to the Itanium C++ ABI,            //
-// which is used in GCC 3.2 and newer (and many compilers that are           //
-// ABI-compatible with GCC):                                                 //
-//                                                                           //
-//   http://mentorembedded.github.io/cxx-abi/abi.html#mangling               //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Implements C++ name mangling according to the Itanium C++ ABI,
+// which is used in GCC 3.2 and newer (and many compilers that are
+// ABI-compatible with GCC):
+//
+//   http://mentorembedded.github.io/cxx-abi/abi.html#mangling
+//
+//===----------------------------------------------------------------------===//
+#include "clang/AST/Mangle.h"
+#include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
+#include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclObjC.h"
+#include "clang/AST/DeclTemplate.h"
+#include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
+#include "clang/AST/ExprObjC.h"
+#include "clang/AST/TypeLoc.h"
+#include "clang/Basic/ABI.h"
+#include "clang/Basic/SourceManager.h"
+#include "clang/Basic/TargetInfo.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "clang/AST/Mangle.h"
 #include "clang/AST/ASTContext.h"

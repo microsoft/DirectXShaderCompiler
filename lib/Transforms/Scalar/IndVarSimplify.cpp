@@ -1,27 +1,28 @@
 //===- IndVarSimplify.cpp - Induction Variable Elimination ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IndVarSimplify.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This transformation analyzes and transforms the induction variables (and  //
-// computations derived from them) into simpler forms suitable for subsequent//
-// analysis and transformation.                                              //
-//                                                                           //
-// If the trip count of a loop is computable, this pass also makes the following//
-// changes:                                                                  //
-//   1. The exit condition for the loop is canonicalized to compare the      //
-//      induction value against the exit value.  This turns loops like:      //
-//        'for (i = 7; i*i < 1000; ++i)' into 'for (i = 0; i != 25; ++i)'    //
-//   2. Any use outside of the loop of an expression derived from the indvar //
-//      is changed to compute the derived value outside of the loop, eliminating//
-//      the dependence on the exit value of the induction variable.  If the only//
-//      purpose of the loop is to compute the exit value of some derived     //
-//      expression, this transformation will make the loop dead.             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This transformation analyzes and transforms the induction variables (and
+// computations derived from them) into simpler forms suitable for subsequent
+// analysis and transformation.
+//
+// If the trip count of a loop is computable, this pass also makes the following
+// changes:
+//   1. The exit condition for the loop is canonicalized to compare the
+//      induction value against the exit value.  This turns loops like:
+//        'for (i = 7; i*i < 1000; ++i)' into 'for (i = 0; i != 25; ++i)'
+//   2. Any use outside of the loop of an expression derived from the indvar
+//      is changed to compute the derived value outside of the loop, eliminating
+//      the dependence on the exit value of the induction variable.  If the only
+//      purpose of the loop is to compute the exit value of some derived
+//      expression, this transformation will make the loop dead.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseMap.h"

@@ -1,16 +1,17 @@
 //===--- FixItRewriter.cpp - Fix-It Rewriter Diagnostic Client --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FixItRewriter.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is a diagnostic client adaptor that performs rewrites as             //
-// suggested by code modification hints attached to diagnostics. It          //
-// then forwards any diagnostics to the adapted diagnostic client.           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is a diagnostic client adaptor that performs rewrites as
+// suggested by code modification hints attached to diagnostics. It
+// then forwards any diagnostics to the adapted diagnostic client.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Rewrite/Frontend/FixItRewriter.h"
 #include "clang/Basic/FileManager.h"

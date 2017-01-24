@@ -1,21 +1,22 @@
 //===- LiveDebugVariables.h - Tracking debug info variables ----*- c++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveDebugVariables.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides the interface to the LiveDebugVariables analysis.      //
 //
-// The analysis removes DBG_VALUE instructions for virtual registers and tracks//
-// live user variables in a data structure that can be updated during register//
-// allocation.                                                               //
+//                     The LLVM Compiler Infrastructure
 //
-// After register allocation new DBG_VALUE instructions are emitted to reflect//
-// the new locations of user variables.                                      //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// This file provides the interface to the LiveDebugVariables analysis.
+//
+// The analysis removes DBG_VALUE instructions for virtual registers and tracks
+// live user variables in a data structure that can be updated during register
+// allocation.
+//
+// After register allocation new DBG_VALUE instructions are emitted to reflect
+// the new locations of user variables.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_CODEGEN_LIVEDEBUGVARIABLES_H
 #define LLVM_LIB_CODEGEN_LIVEDEBUGVARIABLES_H

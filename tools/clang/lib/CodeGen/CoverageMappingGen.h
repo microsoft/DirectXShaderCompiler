@@ -1,14 +1,15 @@
 //===---- CoverageMappingGen.h - Coverage mapping generation ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CoverageMappingGen.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Instrumentation-based code coverage mapping generator                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Instrumentation-based code coverage mapping generator
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_CODEGEN_COVERAGEMAPPINGGEN_H
 #define LLVM_CLANG_LIB_CODEGEN_COVERAGEMAPPINGGEN_H

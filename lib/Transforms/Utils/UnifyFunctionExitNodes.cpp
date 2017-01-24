@@ -1,17 +1,18 @@
 //===- UnifyFunctionExitNodes.cpp - Make all functions have a single exit -===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// UnifyFunctionExitNodes.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass is used to ensure that functions have at most one return        //
-// instruction in them.  Additionally, it keeps track of which node is the new//
-// exit node of the CFG.  If there are no exit nodes in the CFG, the getExitNode//
-// method will return a null pointer.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass is used to ensure that functions have at most one return
+// instruction in them.  Additionally, it keeps track of which node is the new
+// exit node of the CFG.  If there are no exit nodes in the CFG, the getExitNode
+// method will return a null pointer.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/ADT/StringExtras.h"

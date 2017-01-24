@@ -1,20 +1,21 @@
 //===- InstructionSimplify.cpp - Fold instruction operands ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstructionSimplify.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements routines for folding instructions into simpler forms //
-// that do not require creating new instructions.  This does constant folding//
-// ("add i32 1, 1" -> "2") but can also handle non-constant operands, either //
-// returning a constant ("and i32 %x, 0" -> "0") or an already existing value//
-// ("and i32 %x, %x" -> "%x").  All operands are assumed to have already been//
-// simplified: This is usually true and assuming it simplifies the logic (if //
-// they have not been simplified then results are correct but maybe suboptimal).//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements routines for folding instructions into simpler forms
+// that do not require creating new instructions.  This does constant folding
+// ("add i32 1, 1" -> "2") but can also handle non-constant operands, either
+// returning a constant ("and i32 %x, 0" -> "0") or an already existing value
+// ("and i32 %x, %x" -> "%x").  All operands are assumed to have already been
+// simplified: This is usually true and assuming it simplifies the logic (if
+// they have not been simplified then results are correct but maybe suboptimal).
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/ADT/SetVector.h"

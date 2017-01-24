@@ -1,14 +1,15 @@
 //===--- Bitcode/Writer/BitcodeWriter.cpp - Bitcode Writer ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BitcodeWriter.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Bitcode writer implementation.                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Bitcode writer implementation.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "ValueEnumerator.h"

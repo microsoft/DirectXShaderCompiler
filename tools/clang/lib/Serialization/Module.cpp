@@ -1,15 +1,20 @@
 //===--- Module.cpp - Module description ------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Module.cpp                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements the Module class, which describes a module that has //
-//  been loaded from an AST file.                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements the Module class, which describes a module that has
+//  been loaded from an AST file.
+//
+//===----------------------------------------------------------------------===//
+#include "clang/Serialization/Module.h"
+#include "ASTReaderInternals.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "clang/Serialization/Module.h"
 #include "ASTReaderInternals.h"

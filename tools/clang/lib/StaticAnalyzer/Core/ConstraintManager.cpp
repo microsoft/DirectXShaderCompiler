@@ -1,14 +1,15 @@
 //== ConstraintManager.cpp - Constraints on symbolic values -----*- C++ -*--==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstraintManager.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defined the interface to manage constraints on symbolic values.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defined the interface to manage constraints on symbolic values.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
 

@@ -1,14 +1,15 @@
 //===--- ExprCXX.cpp - (C++) Expression AST Node Implementation -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExprCXX.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the subclesses of Expr class declared in ExprCXX.h   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the subclesses of Expr class declared in ExprCXX.h
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"

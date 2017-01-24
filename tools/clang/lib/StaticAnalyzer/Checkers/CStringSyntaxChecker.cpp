@@ -1,16 +1,30 @@
 //== CStringSyntaxChecker.cpp - CoreFoundation containers API *- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CStringSyntaxChecker.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// An AST checker that looks for common pitfalls when using C string APIs.   //
-//  - Identifies erroneous patterns in the last argument to strncat - the number//
-//    of bytes to copy.                                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// An AST checker that looks for common pitfalls when using C string APIs.
+//  - Identifies erroneous patterns in the last argument to strncat - the number
+//    of bytes to copy.
+//
+//===----------------------------------------------------------------------===//
+#include "ClangSACheckers.h"
+#include "clang/AST/Expr.h"
+#include "clang/AST/OperationKinds.h"
+#include "clang/AST/StmtVisitor.h"
+#include "clang/Analysis/AnalysisContext.h"
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/TypeTraits.h"
+#include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
+#include "clang/StaticAnalyzer/Core/Checker.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "ClangSACheckers.h"
 #include "clang/AST/Expr.h"

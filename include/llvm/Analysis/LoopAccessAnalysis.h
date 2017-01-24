@@ -1,15 +1,16 @@
 //===- llvm/Analysis/LoopAccessAnalysis.h -----------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopAccessAnalysis.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the interface for the loop memory dependence framework that//
-// was originally developed for the Loop Vectorizer.                         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the interface for the loop memory dependence framework that
+// was originally developed for the Loop Vectorizer.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_LOOPACCESSANALYSIS_H
 #define LLVM_ANALYSIS_LOOPACCESSANALYSIS_H

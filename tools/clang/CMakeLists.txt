@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 cmake_minimum_required(VERSION 2.8.8)
 
 # FIXME: It may be removed when we use 2.8.12.

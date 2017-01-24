@@ -1,16 +1,17 @@
 //===-- SequenceToOffsetTable.h - Compress similar sequences ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SequenceToOffsetTable.h                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// SequenceToOffsetTable can be used to emit a number of null-terminated     //
-// sequences as one big array.  Use the same memory when a sequence is a suffix//
-// of another.                                                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// SequenceToOffsetTable can be used to emit a number of null-terminated
+// sequences as one big array.  Use the same memory when a sequence is a suffix
+// of another.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_UTILS_TABLEGEN_SEQUENCETOOFFSETTABLE_H
 #define LLVM_UTILS_TABLEGEN_SEQUENCETOOFFSETTABLE_H

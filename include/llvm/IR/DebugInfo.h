@@ -1,17 +1,18 @@
 //===- DebugInfo.h - Debug Information Helpers ------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DebugInfo.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a bunch of datatypes that are useful for creating and   //
-// walking debug info in LLVM IR form. They essentially provide wrappers around//
-// the information in the global variables that's needed when constructing the//
-// DWARF information.                                                        //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a bunch of datatypes that are useful for creating and
+// walking debug info in LLVM IR form. They essentially provide wrappers around
+// the information in the global variables that's needed when constructing the
+// DWARF information.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_DEBUGINFO_H
 #define LLVM_IR_DEBUGINFO_H

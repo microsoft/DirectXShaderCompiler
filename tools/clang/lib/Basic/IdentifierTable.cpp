@@ -1,15 +1,16 @@
 //===--- IdentifierTable.cpp - Hash table for identifier lookup -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IdentifierTable.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the IdentifierInfo, IdentifierVisitor, and           //
-// IdentifierTable interfaces.                                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the IdentifierInfo, IdentifierVisitor, and
+// IdentifierTable interfaces.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/IdentifierTable.h"

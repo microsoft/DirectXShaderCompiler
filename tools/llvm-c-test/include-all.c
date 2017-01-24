@@ -1,15 +1,16 @@
 /*===-- include-all.c - tool for testing libLLVM and llvm-c API -----------===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// include-all.c                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file doesn't have any actual code. It just make sure that all        //
-// the llvm-c include files are good and doesn't generate any warnings       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+|*                                                                            *|
+|*                     The LLVM Compiler Infrastructure                       *|
+|*                                                                            *|
+|* This file is distributed under the University of Illinois Open Source      *|
+|* License. See LICENSE.TXT for details.                                      *|
+|*                                                                            *|
+|*===----------------------------------------------------------------------===*|
+|*                                                                            *|
+|* This file doesn't have any actual code. It just make sure that all         *|
+|* the llvm-c include files are good and doesn't generate any warnings        *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
 
 // FIXME: Autogenerate this list
 

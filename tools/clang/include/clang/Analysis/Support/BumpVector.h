@@ -1,15 +1,16 @@
 //===-- BumpVector.h - Vector-like ADT that uses bump allocation --*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BumpVector.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file provides BumpVector, a vector-like ADT whose contents are      //
-//  allocated from a BumpPtrAllocator.                                       //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file provides BumpVector, a vector-like ADT whose contents are
+//  allocated from a BumpPtrAllocator.
+//
+//===----------------------------------------------------------------------===//
 
 // FIXME: Most of this is copy-and-paste from SmallVector.h.  We can
 // refactor this core logic into something common that is shared between

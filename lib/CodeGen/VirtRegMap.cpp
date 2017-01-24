@@ -1,19 +1,20 @@
 //===-- llvm/CodeGen/VirtRegMap.cpp - Virtual Register Map ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// VirtRegMap.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the VirtRegMap class.                                //
-//                                                                           //
-// It also contains implementations of the Spiller interface, which, given a //
-// virtual register map and a machine function, eliminates all virtual       //
-// references by replacing them with physical register references - adding spill//
-// code as necessary.                                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the VirtRegMap class.
+//
+// It also contains implementations of the Spiller interface, which, given a
+// virtual register map and a machine function, eliminates all virtual
+// references by replacing them with physical register references - adding spill
+// code as necessary.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/VirtRegMap.h"
 #include "LiveDebugVariables.h"

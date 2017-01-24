@@ -1,22 +1,23 @@
 //===--- TransEmptyStatements.cpp - Transformations to ARC mode -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TransEmptyStatementsAndDealloc.cpp                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// removeEmptyStatementsAndDealloc:                                          //
-//                                                                           //
-// Removes empty statements that are leftovers from previous transformations.//
-// e.g for                                                                   //
-//                                                                           //
-//  [x retain];                                                              //
-//                                                                           //
-// removeRetainReleaseDealloc will leave an empty ";" that removeEmptyStatements//
-// will remove.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// removeEmptyStatementsAndDealloc:
+//
+// Removes empty statements that are leftovers from previous transformations.
+// e.g for
+//
+//  [x retain];
+//
+// removeRetainReleaseDealloc will leave an empty ";" that removeEmptyStatements
+// will remove.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Transforms.h"
 #include "Internals.h"

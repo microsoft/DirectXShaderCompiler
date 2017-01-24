@@ -1,15 +1,16 @@
 //===- MachineScheduler.cpp - Machine Instruction Scheduler ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineScheduler.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// MachineScheduler schedules machine instructions after phi elimination. It //
-// preserves LiveIntervals so it can be invoked before register allocation.  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// MachineScheduler schedules machine instructions after phi elimination. It
+// preserves LiveIntervals so it can be invoked before register allocation.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/MachineScheduler.h"
 #include "llvm/ADT/PriorityQueue.h"

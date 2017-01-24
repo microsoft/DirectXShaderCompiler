@@ -1,12 +1,6 @@
-//===- Attributes.cpp -------------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Attributes.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+#include "clang/Basic/Attributes.h"
+#include "clang/Basic/IdentifierTable.h"
+#include "llvm/ADT/StringSwitch.h"
 
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/IdentifierTable.h"

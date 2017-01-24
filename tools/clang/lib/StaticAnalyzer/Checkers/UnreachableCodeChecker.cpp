@@ -1,18 +1,17 @@
 //==- UnreachableCodeChecker.cpp - Generalized dead code checker -*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// UnreachableCodeChecker.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a generalized unreachable code checker using a       //
-// path-sensitive analysis. We mark any path visited, and then walk the CFG as a//
-// post-analysis to determine what was never visited.                        //
-//                                                                           //
-// A similar flow-sensitive only check exists in Analysis/ReachableCode.cpp  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This file implements a generalized unreachable code checker using a
+// path-sensitive analysis. We mark any path visited, and then walk the CFG as a
+// post-analysis to determine what was never visited.
+//
+// A similar flow-sensitive only check exists in Analysis/ReachableCode.cpp
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/ParentMap.h"

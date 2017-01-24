@@ -1,41 +1,42 @@
 //===--- ASTMatchFinder.h - Structural query framework ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTMatchFinder.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Provides a way to construct an ASTConsumer that runs given matchers      //
-//  over the AST and invokes a given callback on every match.                //
 //
-//  The general idea is to construct a matcher expression that describes a   //
-//  subtree match on the AST. Next, a callback that is executed every time the//
-//  expression matches is registered, and the matcher is run over the AST of //
-//  some code. Matched subexpressions can be bound to string IDs and easily  //
-//  be accessed from the registered callback. The callback can than use the  //
-//  AST nodes that the subexpressions matched on to output information about //
-//  the match or construct changes that can be applied to the code.          //
+//                     The LLVM Compiler Infrastructure
 //
-//  Example:                                                                 //
-//  class HandleMatch : public MatchFinder::MatchCallback {                  //
-//  public:                                                                  //
-//    virtual void Run(const MatchFinder::MatchResult &Result) {             //
-//      const CXXRecordDecl *Class =                                         //
-//          Result.Nodes.GetDeclAs<CXXRecordDecl>("id");                     //
-//      ...                                                                  //
-//    }                                                                      //
-//  };                                                                       //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  int main(int argc, char **argv) {                                        //
-//    ClangTool Tool(argc, argv);                                            //
-//    MatchFinder finder;                                                    //
-//    finder.AddMatcher(Id("id", record(hasName("::a_namespace::AClass"))),  //
-//                      new HandleMatch);                                    //
-//    return Tool.Run(newFrontendActionFactory(&finder));                    //
-//  }                                                                        //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+//  Provides a way to construct an ASTConsumer that runs given matchers
+//  over the AST and invokes a given callback on every match.
+//
+//  The general idea is to construct a matcher expression that describes a
+//  subtree match on the AST. Next, a callback that is executed every time the
+//  expression matches is registered, and the matcher is run over the AST of
+//  some code. Matched subexpressions can be bound to string IDs and easily
+//  be accessed from the registered callback. The callback can than use the
+//  AST nodes that the subexpressions matched on to output information about
+//  the match or construct changes that can be applied to the code.
+//
+//  Example:
+//  class HandleMatch : public MatchFinder::MatchCallback {
+//  public:
+//    virtual void Run(const MatchFinder::MatchResult &Result) {
+//      const CXXRecordDecl *Class =
+//          Result.Nodes.GetDeclAs<CXXRecordDecl>("id");
+//      ...
+//    }
+//  };
+//
+//  int main(int argc, char **argv) {
+//    ClangTool Tool(argc, argv);
+//    MatchFinder finder;
+//    finder.AddMatcher(Id("id", record(hasName("::a_namespace::AClass"))),
+//                      new HandleMatch);
+//    return Tool.Run(newFrontendActionFactory(&finder));
+//  }
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ASTMATCHERS_ASTMATCHFINDER_H
 #define LLVM_CLANG_ASTMATCHERS_ASTMATCHFINDER_H

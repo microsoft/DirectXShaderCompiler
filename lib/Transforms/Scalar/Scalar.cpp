@@ -1,16 +1,17 @@
 //===-- Scalar.cpp --------------------------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Scalar.cpp                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements common infrastructure for libLLVMScalarOpts.a, which //
-// implements several scalar transformations over the LLVM intermediate      //
-// representation, including the C bindings for that library.                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements common infrastructure for libLLVMScalarOpts.a, which
+// implements several scalar transformations over the LLVM intermediate
+// representation, including the C bindings for that library.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm-c/Initialization.h"

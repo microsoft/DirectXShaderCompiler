@@ -1,15 +1,16 @@
 //===- llvm-extract.cpp - LLVM function extraction utility ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-extract.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This utility changes the input module to only contain a single function,  //
-// which is primarily used for debugging transformations.                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This utility changes the input module to only contain a single function,
+// which is primarily used for debugging transformations.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"

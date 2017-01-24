@@ -1,14 +1,15 @@
 //===-- DiffLog.h - Difference Log Builder and accessories ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DiffLog.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header defines the interface to the LLVM difference log builder.     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header defines the interface to the LLVM difference log builder.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TOOLS_LLVM_DIFF_DIFFLOG_H
 #define LLVM_TOOLS_LLVM_DIFF_DIFFLOG_H

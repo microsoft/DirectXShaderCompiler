@@ -1,19 +1,20 @@
 //===-- BranchFolding.cpp - Fold machine code branch instructions ---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BranchFolding.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass forwards branches to unconditional branches to make them branch //
-// directly to the target block.  This pass often results in dead MBB's, which//
-// it then removes.                                                          //
-//                                                                           //
-// Note that this pass must be run after register allocation, it cannot handle//
-// SSA form.                                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass forwards branches to unconditional branches to make them branch
+// directly to the target block.  This pass often results in dead MBB's, which
+// it then removes.
+//
+// Note that this pass must be run after register allocation, it cannot handle
+// SSA form.
+//
+//===----------------------------------------------------------------------===//
 
 #include "BranchFolding.h"
 #include "llvm/ADT/STLExtras.h"

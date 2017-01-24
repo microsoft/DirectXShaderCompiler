@@ -1,14 +1,15 @@
 //===-- llvm/Instructions.h - Instruction subclass definitions --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Instructions.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file exposes the class definitions of all of the subclasses of the   //
-// Instruction class.  This is meant to be an easy way to get access to all  //
-// instruction subclasses.                                                   //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file exposes the class definitions of all of the subclasses of the
+// Instruction class.  This is meant to be an easy way to get access to all
+// instruction subclasses.
 //
 //===----------------------------------------------------------------------===//
 

@@ -1,12 +1,4 @@
 /*===---- mm_malloc.h - Allocating and Freeing Aligned Memory Blocks -------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// mm_malloc.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __MM_MALLOC_H
 #define __MM_MALLOC_H
 

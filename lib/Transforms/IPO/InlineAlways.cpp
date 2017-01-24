@@ -1,15 +1,16 @@
 //===- InlineAlways.cpp - Code to inline always_inline functions ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InlineAlways.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a custom inliner that handles only functions that    //
-// are marked as "always inline".                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a custom inliner that handles only functions that
+// are marked as "always inline".
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SmallPtrSet.h"

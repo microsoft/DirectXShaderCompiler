@@ -1,12 +1,4 @@
 /*===---- xmmintrin.h - SSE intrinsics -------------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// xmmintrin.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/////////////////////////////////////////////////////////////////////////////// 
 #ifndef __XMMINTRIN_H
 #define __XMMINTRIN_H
  

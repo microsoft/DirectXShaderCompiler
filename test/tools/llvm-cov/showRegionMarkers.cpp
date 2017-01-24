@@ -1,13 +1,4 @@
-//===- showRegionMarkers.cpp ------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// showRegionMarkers.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// RUN: llvm-profdata merge %S/Inputs/regionMarkers.proftext -o %t.profdata  //
+// RUN: llvm-profdata merge %S/Inputs/regionMarkers.proftext -o %t.profdata
 
 int main() {                      // CHECK: Marker at [[@LINE]]:12 = 1.11M
   int x = 0;

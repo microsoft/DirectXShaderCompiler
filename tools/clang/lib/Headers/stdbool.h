@@ -1,12 +1,4 @@
 /*===---- stdbool.h - Standard header for booleans -------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// stdbool.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __STDBOOL_H
 #define __STDBOOL_H
 

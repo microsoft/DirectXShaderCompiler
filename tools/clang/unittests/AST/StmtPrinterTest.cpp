@@ -1,22 +1,23 @@
 //===- unittests/AST/StmtPrinterTest.cpp --- Statement printer tests ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StmtPrinterTest.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains tests for Stmt::printPretty() and related methods.     //
-//                                                                           //
-// Search this file for WRONG to see test cases that are producing something //
-// completely wrong, invalid C++ or just misleading.                         //
-//                                                                           //
-// These tests have a coding convention:                                     //
-// * statements to be printed should be contained within a function named 'A'//
-//   unless it should have some special name (e.g., 'operator+');            //
-// * additional helper declarations are 'Z', 'Y', 'X' and so on.             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains tests for Stmt::printPretty() and related methods.
+//
+// Search this file for WRONG to see test cases that are producing something
+// completely wrong, invalid C++ or just misleading.
+//
+// These tests have a coding convention:
+// * statements to be printed should be contained within a function named 'A'
+//   unless it should have some special name (e.g., 'operator+');
+// * additional helper declarations are 'Z', 'Y', 'X' and so on.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"

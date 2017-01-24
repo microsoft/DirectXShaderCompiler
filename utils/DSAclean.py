@@ -1,6 +1,4 @@
 #! /usr/bin/python
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 
 #changelog: 
 #10/13/2005b: replaced the # in tmp(.#*)* with alphanumeric and _, this will then remove

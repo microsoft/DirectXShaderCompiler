@@ -1,12 +1,7 @@
-//===- Operator.cpp ---------------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Operator.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+#include "llvm/IR/Operator.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Type.h"
 
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"

@@ -1,24 +1,25 @@
 //===- IteratedDominanceFrontier.h - Calculate IDF --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IteratedDominanceFrontier.h                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \brief Compute iterated dominance frontiers using a linear time algorithm.//
-///
-/// The algorithm used here is based on:                                     //
-///
-///   Sreedhar and Gao. A linear time algorithm for placing phi-nodes.       //
-///   In Proceedings of the 22nd ACM SIGPLAN-SIGACT Symposium on Principles of//
-///   Programming Languages                                                  //
-///   POPL '95. ACM, New York, NY, 62-73.                                    //
-///
-/// It has been modified to not explicitly use the DJ graph data structure and//
-/// to directly compute pruned SSA using per-variable liveness information.  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+/// \brief Compute iterated dominance frontiers using a linear time algorithm.
+///
+/// The algorithm used here is based on:
+///
+///   Sreedhar and Gao. A linear time algorithm for placing phi-nodes.
+///   In Proceedings of the 22nd ACM SIGPLAN-SIGACT Symposium on Principles of
+///   Programming Languages
+///   POPL '95. ACM, New York, NY, 62-73.
+///
+/// It has been modified to not explicitly use the DJ graph data structure and
+/// to directly compute pruned SSA using per-variable liveness information.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_IDF_H
 #define LLVM_ANALYSIS_IDF_H

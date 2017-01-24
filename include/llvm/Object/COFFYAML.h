@@ -1,14 +1,15 @@
 //===- COFFYAML.h - COFF YAMLIO implementation ------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// COFFYAML.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares classes for handling the YAML representation of COFF.  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares classes for handling the YAML representation of COFF.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_OBJECT_COFFYAML_H
 #define LLVM_OBJECT_COFFYAML_H

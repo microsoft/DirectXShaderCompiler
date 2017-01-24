@@ -1,29 +1,30 @@
 //===-- StringPool.h - Interned string pool ---------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StringPool.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares an interned string pool, which helps reduce the cost of//
-// strings by using the same storage for identical strings.                  //
 //
-// To intern a string:                                                       //
+//                     The LLVM Compiler Infrastructure
 //
-//   StringPool Pool;                                                        //
-//   PooledStringPtr Str = Pool.intern("wakka wakka");                       //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// To use the value of an interned string, use operator bool and operator*:  //
+//===----------------------------------------------------------------------===//
 //
-//   if (Str)                                                                //
-//     cerr << "the string is" << *Str << "\n";                              //
+// This file declares an interned string pool, which helps reduce the cost of
+// strings by using the same storage for identical strings.
 //
-// Pooled strings are immutable, but you can change a PooledStringPtr to point//
-// to another instance. So that interned strings can eventually be freed,    //
-// strings in the string pool are reference-counted (automatically).         //
+// To intern a string:
 //
-///////////////////////////////////////////////////////////////////////////////
+//   StringPool Pool;
+//   PooledStringPtr Str = Pool.intern("wakka wakka");
+//
+// To use the value of an interned string, use operator bool and operator*:
+//
+//   if (Str)
+//     cerr << "the string is" << *Str << "\n";
+//
+// Pooled strings are immutable, but you can change a PooledStringPtr to point
+// to another instance. So that interned strings can eventually be freed,
+// strings in the string pool are reference-counted (automatically).
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_STRINGPOOL_H
 #define LLVM_SUPPORT_STRINGPOOL_H

@@ -1,13 +1,4 @@
 /*===-- jitprofiling.h - JIT Profiling API-------------------------*- C -*-===*
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// jitprofiling.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////#ifndef __JITPROFILING_H__
-#define __JITPROFILING_H__
 
 /*
  * Various constants used by functions

@@ -1,23 +1,24 @@
 //===- ExecutionDepsFix.cpp - Fix execution dependecy issues ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExecutionDepsFix.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the execution dependency fix pass.                     //
-//                                                                           //
-// Some X86 SSE instructions like mov, and, or, xor are available in different//
-// variants for different operand types. These variant instructions are      //
-// equivalent, but on Nehalem and newer cpus there is extra latency          //
-// transferring data between integer and floating point domains.  ARM cores  //
-// have similar issues when they are configured with both VFP and NEON       //
-// pipelines.                                                                //
-//                                                                           //
-// This pass changes the variant instructions to minimize domain crossings.  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the execution dependency fix pass.
+//
+// Some X86 SSE instructions like mov, and, or, xor are available in different
+// variants for different operand types. These variant instructions are
+// equivalent, but on Nehalem and newer cpus there is extra latency
+// transferring data between integer and floating point domains.  ARM cores
+// have similar issues when they are configured with both VFP and NEON
+// pipelines.
+//
+// This pass changes the variant instructions to minimize domain crossings.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/PostOrderIterator.h"

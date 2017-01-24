@@ -1,16 +1,17 @@
 //===- lli.cpp - LLVM Interpreter / Dynamic compiler ----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// lli.cpp                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This utility provides a simple wrapper around the LLVM Execution Engines, //
-// which allow the direct execution of LLVM programs through a Just-In-Time  //
-// compiler, or through an interpreter if no JIT is available for this platform.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This utility provides a simple wrapper around the LLVM Execution Engines,
+// which allow the direct execution of LLVM programs through a Just-In-Time
+// compiler, or through an interpreter if no JIT is available for this platform.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/LLVMContext.h"
 #include "OrcLazyJIT.h"

@@ -1,16 +1,17 @@
 //=- AnalysisBasedWarnings.cpp - Sema warnings based on libAnalysis -*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AnalysisBasedWarnings.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines analysis_warnings::[Policy,Executor].                   //
-// Together they are used by Sema to issue warnings based on inexpensive     //
-// static analysis algorithms in libAnalysis.                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines analysis_warnings::[Policy,Executor].
+// Together they are used by Sema to issue warnings based on inexpensive
+// static analysis algorithms in libAnalysis.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/AnalysisBasedWarnings.h"
 #include "clang/AST/DeclCXX.h"

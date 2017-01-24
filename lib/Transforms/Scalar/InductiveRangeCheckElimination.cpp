@@ -1,46 +1,45 @@
 //===-- InductiveRangeCheckElimination.cpp - ------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InductiveRangeCheckElimination.cpp                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The InductiveRangeCheckElimination pass splits a loop's iteration space into//
-// three disjoint ranges.  It does that in a way such that the loop running in//
-// the middle loop provably does not need range checks. As an example, it will//
-// convert                                                                   //
-//                                                                           //
-//   len = < known positive >                                                //
-//   for (i = 0; i < n; i++) {                                               //
-//     if (0 <= i && i < len) {                                              //
-//       do_something();                                                     //
-//     } else {                                                              //
-//       throw_out_of_bounds();                                              //
-//     }                                                                     //
-//   }                                                                       //
-//                                                                           //
-// to                                                                        //
-//                                                                           //
-//   len = < known positive >                                                //
-//   limit = smin(n, len)                                                    //
-//   // no first segment                                                     //
-//   for (i = 0; i < limit; i++) {                                           //
-//     if (0 <= i && i < len) { // this check is fully redundant             //
-//       do_something();                                                     //
-//     } else {                                                              //
-//       throw_out_of_bounds();                                              //
-//     }                                                                     //
-//   }                                                                       //
-//   for (i = limit; i < n; i++) {                                           //
-//     if (0 <= i && i < len) {                                              //
-//       do_something();                                                     //
-//     } else {                                                              //
-//       throw_out_of_bounds();                                              //
-//     }                                                                     //
-//   }                                                                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// The InductiveRangeCheckElimination pass splits a loop's iteration space into
+// three disjoint ranges.  It does that in a way such that the loop running in
+// the middle loop provably does not need range checks. As an example, it will
+// convert
+//
+//   len = < known positive >
+//   for (i = 0; i < n; i++) {
+//     if (0 <= i && i < len) {
+//       do_something();
+//     } else {
+//       throw_out_of_bounds();
+//     }
+//   }
+//
+// to
+//
+//   len = < known positive >
+//   limit = smin(n, len)
+//   // no first segment
+//   for (i = 0; i < limit; i++) {
+//     if (0 <= i && i < len) { // this check is fully redundant
+//       do_something();
+//     } else {
+//       throw_out_of_bounds();
+//     }
+//   }
+//   for (i = limit; i < n; i++) {
+//     if (0 <= i && i < len) {
+//       do_something();
+//     } else {
+//       throw_out_of_bounds();
+//     }
+//   }
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"

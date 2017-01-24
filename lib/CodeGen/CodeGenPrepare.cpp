@@ -1,16 +1,17 @@
 //===- CodeGenPrepare.cpp - Prepare a function for code generation --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeGenPrepare.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass munges the code in the input function to better prepare it for  //
-// SelectionDAG-based code generation. This works around limitations in it's //
-// basic-block-at-a-time approach. It should eventually be removed.          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass munges the code in the input function to better prepare it for
+// SelectionDAG-based code generation. This works around limitations in it's
+// basic-block-at-a-time approach. It should eventually be removed.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseMap.h"

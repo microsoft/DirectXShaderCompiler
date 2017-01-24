@@ -1,15 +1,16 @@
 //===- ExternalPreprocessorSource.h - Abstract Macro Interface --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExternalPreprocessorSource.h                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the ExternalPreprocessorSource interface, which enables//
-//  construction of macro definitions from some external source.             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the ExternalPreprocessorSource interface, which enables
+//  construction of macro definitions from some external source.
+//
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_LEX_EXTERNALPREPROCESSORSOURCE_H
 #define LLVM_CLANG_LEX_EXTERNALPREPROCESSORSOURCE_H
 

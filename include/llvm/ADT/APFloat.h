@@ -1,19 +1,18 @@
 //===- llvm/ADT/APFloat.h - Arbitrary Precision Floating Point ---*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// APFloat.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief                                                                   //
-/// This file declares a class to represent arbitrary precision floating point//
-/// values and provide a variety of arithmetic operations on them.           //
+/// \file
+/// \brief
+/// This file declares a class to represent arbitrary precision floating point
+/// values and provide a variety of arithmetic operations on them.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_APFLOAT_H
 #define LLVM_ADT_APFLOAT_H

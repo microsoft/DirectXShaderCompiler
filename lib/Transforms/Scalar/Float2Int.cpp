@@ -1,15 +1,16 @@
 //===- Float2Int.cpp - Demote floating point ops to work on integers ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Float2Int.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Float2Int pass, which aims to demote floating    //
-// point operations to work on integers, where that is losslessly possible.  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Float2Int pass, which aims to demote floating
+// point operations to work on integers, where that is losslessly possible.
+//
+//===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "float2int"
 #include "llvm/ADT/APInt.h"

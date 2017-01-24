@@ -1,12 +1,4 @@
 /*===---- htmxlintrin.h - XL compiler HTM execution intrinsics-------------===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// htmxlintrin.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #ifndef __HTMXLINTRIN_H
 #define __HTMXLINTRIN_H
 

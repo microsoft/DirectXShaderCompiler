@@ -1,18 +1,19 @@
 //===--- NonNullParamChecker.cpp - Undefined arguments checker -*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// NonNullParamChecker.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This defines NonNullParamChecker, which checks for arguments expected not to//
-// be null due to:                                                           //
-//   - the corresponding parameters being declared to have nonnull attribute //
-//   - the corresponding parameters being references; since the call would form//
-//     a reference to a null pointer                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This defines NonNullParamChecker, which checks for arguments expected not to
+// be null due to:
+//   - the corresponding parameters being declared to have nonnull attribute
+//   - the corresponding parameters being references; since the call would form
+//     a reference to a null pointer
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/Attr.h"

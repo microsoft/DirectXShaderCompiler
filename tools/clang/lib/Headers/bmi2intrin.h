@@ -1,12 +1,4 @@
 /*===---- bmi2intrin.h - BMI2 intrinsics -----------------------------------===
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// bmi2intrin.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 #if !defined __X86INTRIN_H && !defined __IMMINTRIN_H
 #error "Never use <bmi2intrin.h> directly; include <x86intrin.h> instead."
 #endif

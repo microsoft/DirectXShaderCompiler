@@ -1,13 +1,29 @@
 //===--- CodeCompleteConsumer.cpp - Code Completion Interface ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeCompleteConsumer.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements the CodeCompleteConsumer class.                     //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements the CodeCompleteConsumer class.
+//
+//===----------------------------------------------------------------------===//
+#include "clang/Sema/CodeCompleteConsumer.h"
+#include "clang-c/Index.h"
+#include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclObjC.h"
+#include "clang/AST/DeclTemplate.h"
+#include "clang/Sema/Scope.h"
+#include "clang/Sema/Sema.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/Support/raw_ostream.h"
+#include <algorithm>
+#include <cstring>
+#include <functional>
 
 #include "clang/Sema/CodeCompleteConsumer.h"
 #include "clang-c/Index.h"

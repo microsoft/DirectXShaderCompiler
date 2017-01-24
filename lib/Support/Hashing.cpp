@@ -1,16 +1,17 @@
 //===-------------- lib/Support/Hashing.cpp -------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Hashing.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides implementation bits for the LLVM common hashing        //
-// infrastructure. Documentation and most of the other information is in the //
-// header file.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides implementation bits for the LLVM common hashing
+// infrastructure. Documentation and most of the other information is in the
+// header file.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Hashing.h"
 

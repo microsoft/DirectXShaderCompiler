@@ -1,17 +1,18 @@
 //= FormatString.h - Analysis of printf/fprintf format strings --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FormatString.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines APIs for analyzing the format strings of printf, fscanf,//
-// and friends.                                                              //
 //
-// The structure of format strings for fprintf are described in C99 7.19.6.1.//
+//                     The LLVM Compiler Infrastructure
 //
-// The structure of format strings for fscanf are described in C99 7.19.6.2. //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines APIs for analyzing the format strings of printf, fscanf,
+// and friends.
+//
+// The structure of format strings for fprintf are described in C99 7.19.6.1.
+//
+// The structure of format strings for fscanf are described in C99 7.19.6.2.
 //
 //===----------------------------------------------------------------------===//
 

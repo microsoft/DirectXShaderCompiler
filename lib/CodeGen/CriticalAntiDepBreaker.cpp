@@ -1,16 +1,17 @@
 //===----- CriticalAntiDepBreaker.cpp - Anti-dep breaker -------- ---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CriticalAntiDepBreaker.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the CriticalAntiDepBreaker class, which              //
-// implements register anti-dependence breaking along a blocks               //
-// critical path during post-RA scheduler.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the CriticalAntiDepBreaker class, which
+// implements register anti-dependence breaking along a blocks
+// critical path during post-RA scheduler.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CriticalAntiDepBreaker.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
