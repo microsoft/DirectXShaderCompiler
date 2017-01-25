@@ -1,18 +1,19 @@
 //=- NSAutoreleasePoolChecker.cpp --------------------------------*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// NSAutoreleasePoolChecker.cpp                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines a NSAutoreleasePoolChecker, a small checker that warns //
-//  about subpar uses of NSAutoreleasePool.  Note that while the check itself//
-//  (in its current form) could be written as a flow-insensitive check, in   //
-//  can be potentially enhanced in the future with flow-sensitive information.//
-//  It is also a good example of the CheckerVisitor interface.               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines a NSAutoreleasePoolChecker, a small checker that warns
+//  about subpar uses of NSAutoreleasePool.  Note that while the check itself
+//  (in its current form) could be written as a flow-insensitive check, in
+//  can be potentially enhanced in the future with flow-sensitive information.
+//  It is also a good example of the CheckerVisitor interface. 
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/Decl.h"

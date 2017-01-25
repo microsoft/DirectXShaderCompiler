@@ -1,19 +1,20 @@
 //===-- ConstantFolding.h - Internal Constant Folding Interface -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantFold.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the (internal) constant folding interfaces for LLVM.  These//
-// interfaces are used by the ConstantExpr::get* methods to automatically fold//
-// constants when possible.                                                  //
 //
-// These operators may return a null object if they don't know how to perform//
-// the specified operation on the specified constant types.                  //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the (internal) constant folding interfaces for LLVM.  These
+// interfaces are used by the ConstantExpr::get* methods to automatically fold
+// constants when possible.
+//
+// These operators may return a null object if they don't know how to perform
+// the specified operation on the specified constant types.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_IR_CONSTANTFOLD_H
 #define LLVM_LIB_IR_CONSTANTFOLD_H

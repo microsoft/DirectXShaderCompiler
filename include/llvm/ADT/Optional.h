@@ -1,16 +1,17 @@
 //===-- Optional.h - Simple variant for passing optional values ---*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Optional.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file provides Optional, a template class modeled in the spirit of   //
-//  OCaml's 'opt' variant.  The idea is to strongly type whether or not      //
-//  a value can be optional.                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file provides Optional, a template class modeled in the spirit of
+//  OCaml's 'opt' variant.  The idea is to strongly type whether or not
+//  a value can be optional.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_OPTIONAL_H
 #define LLVM_ADT_OPTIONAL_H

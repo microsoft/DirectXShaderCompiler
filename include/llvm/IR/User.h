@@ -1,19 +1,20 @@
 //===-- llvm/User.h - User class definition ---------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// User.h                                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class defines the interface that one who uses a Value must implement.//
-// Each instance of the Value class keeps track of what User's have handles  //
-// to it.                                                                    //
 //
-//  * Instructions are the largest class of Users.                           //
-//  * Constants may be users of other constants (think arrays and stuff)     //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class defines the interface that one who uses a Value must implement.
+// Each instance of the Value class keeps track of what User's have handles
+// to it.
+//
+//  * Instructions are the largest class of Users.
+//  * Constants may be users of other constants (think arrays and stuff)
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_USER_H
 #define LLVM_IR_USER_H

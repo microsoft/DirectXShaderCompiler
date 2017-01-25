@@ -1,15 +1,16 @@
 //===- llvm/Codegen/LinkAllCodegenComponents.h ------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LinkAllCodegenComponents.h                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header file pulls in all codegen related passes for tools like lli and//
-// llc that need this functionality.                                         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                      The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header file pulls in all codegen related passes for tools like lli and
+// llc that need this functionality.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_LINKALLCODEGENCOMPONENTS_H
 #define LLVM_CODEGEN_LINKALLCODEGENCOMPONENTS_H

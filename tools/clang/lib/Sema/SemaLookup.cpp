@@ -1,15 +1,16 @@
 //===--------------------- SemaLookup.cpp - Name Lookup  ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaLookup.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements name lookup for C, C++, Objective-C, and            //
-//  Objective-C++.                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements name lookup for C, C++, Objective-C, and
+//  Objective-C++.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/Lookup.h"
 #include "clang/AST/ASTContext.h"

@@ -1,15 +1,16 @@
 //===-------- InlineSpiller.cpp - Insert spills and restores inline -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InlineSpiller.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The inline spiller modifies the machine function directly instead of      //
-// inserting spills and restores in VirtRegMap.                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The inline spiller modifies the machine function directly instead of
+// inserting spills and restores in VirtRegMap.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Spiller.h"
 #include "llvm/ADT/SetVector.h"

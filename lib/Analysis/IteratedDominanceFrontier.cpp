@@ -1,14 +1,15 @@
 //===- IteratedDominanceFrontier.cpp - Compute IDF ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IteratedDominanceFrontier.cpp                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \brief Compute iterated dominance frontiers using a linear time algorithm.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+/// \brief Compute iterated dominance frontiers using a linear time algorithm.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
 #include "llvm/IR/CFG.h"

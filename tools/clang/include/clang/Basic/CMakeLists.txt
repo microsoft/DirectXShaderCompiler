@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 macro(clang_diag_gen component)
   clang_tablegen(Diagnostic${component}Kinds.inc
     -gen-clang-diags-defs -clang-component=${component}

@@ -1,14 +1,15 @@
 //===-- Timer.cpp - Interval Timing Support -------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Timer.cpp                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Interval Timing implementation.                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Interval Timing implementation.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Timer.h"
 #include "llvm/ADT/StringMap.h"

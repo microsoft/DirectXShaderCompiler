@@ -1,15 +1,16 @@
 //===-- llvm/GlobalObject.h - Class to represent global objects -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GlobalObject.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This represents an independent object. That is, a function or a global    //
-// variable, but not an alias.                                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This represents an independent object. That is, a function or a global
+// variable, but not an alias.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_GLOBALOBJECT_H
 #define LLVM_IR_GLOBALOBJECT_H

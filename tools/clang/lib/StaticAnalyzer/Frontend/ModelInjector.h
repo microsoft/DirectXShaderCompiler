@@ -1,26 +1,25 @@
 //===-- ModelInjector.h -----------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ModelInjector.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief This file defines the clang::ento::ModelInjector class which implements the//
-/// clang::CodeInjector interface. This class is responsible for injecting   //
-/// function definitions that were synthesized from model files.             //
+/// \file
+/// \brief This file defines the clang::ento::ModelInjector class which implements the
+/// clang::CodeInjector interface. This class is responsible for injecting
+/// function definitions that were synthesized from model files.
 ///
-/// Model files allow definitions of functions to be lazily constituted for functions//
-/// which lack bodies in the original source code.  This allows the analyzer //
-/// to more precisely analyze code that calls such functions, analyzing the  //
-/// artificial definitions (which typically approximate the semantics of the //
-/// called function) when called by client code.  These definitions are      //
-/// reconstituted lazily, on-demand, by the static analyzer engine.          //
+/// Model files allow definitions of functions to be lazily constituted for functions
+/// which lack bodies in the original source code.  This allows the analyzer
+/// to more precisely analyze code that calls such functions, analyzing the
+/// artificial definitions (which typically approximate the semantics of the
+/// called function) when called by client code.  These definitions are
+/// reconstituted lazily, on-demand, by the static analyzer engine.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SA_FRONTEND_MODELINJECTOR_H
 #define LLVM_CLANG_SA_FRONTEND_MODELINJECTOR_H

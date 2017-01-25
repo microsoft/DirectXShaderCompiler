@@ -1,16 +1,17 @@
 //===-- llvm/LinkTimeOptimizer.h - LTO Public C Interface -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LinkTimeOptimizer.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header provides a C API to use the LLVM link time optimization       //
-// library. This is intended to be used by linkers which are C-only in       //
-// their implementation for performing LTO.                                  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header provides a C API to use the LLVM link time optimization
+// library. This is intended to be used by linkers which are C-only in
+// their implementation for performing LTO.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_C_LINKTIMEOPTIMIZER_H
 #define LLVM_C_LINKTIMEOPTIMIZER_H

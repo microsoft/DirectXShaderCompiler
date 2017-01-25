@@ -1,15 +1,16 @@
 //===--- VTTBuilder.h - C++ VTT layout builder --------------------*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// VTTBuilder.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This contains code dealing with generation of the layout of virtual table //
-// tables (VTT).                                                             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This contains code dealing with generation of the layout of virtual table
+// tables (VTT).
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_AST_VTTBUILDER_H
 #define LLVM_CLANG_AST_VTTBUILDER_H

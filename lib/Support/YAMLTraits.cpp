@@ -1,12 +1,11 @@
 //===- lib/Support/YAMLTraits.cpp -----------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// YAMLTraits.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                             The LLVM Linker
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/ADT/SmallString.h"

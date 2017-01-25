@@ -1,16 +1,17 @@
 //===- LoopPass.cpp - Loop Pass and Loop Pass Manager ---------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopPass.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements LoopPass and LPPassManager. All loop optimization    //
-// and transformation passes are derived from LoopPass. LPPassManager is     //
-// responsible for managing LoopPasses.                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements LoopPass and LPPassManager. All loop optimization
+// and transformation passes are derived from LoopPass. LPPassManager is
+// responsible for managing LoopPasses.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/IRPrintingPasses.h"

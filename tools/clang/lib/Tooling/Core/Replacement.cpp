@@ -1,14 +1,15 @@
 //===--- Replacement.cpp - Framework for clang refactoring tools ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Replacement.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Implements classes to support/store refactorings.                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  Implements classes to support/store refactorings.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticIDs.h"

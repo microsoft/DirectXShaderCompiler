@@ -1,16 +1,15 @@
 //===- FuzzerFlags.def - Run-time flags -------------------------*- C++ -* ===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FuzzerFlags.def                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Flags. FUZZER_FLAG_INT/FUZZER_FLAG_STRING macros should be defined at the //
-// point of inclusion. We are not using any flag parsing library for better  //
-// portability and independence.                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// Flags. FUZZER_FLAG_INT/FUZZER_FLAG_STRING macros should be defined at the
+// point of inclusion. We are not using any flag parsing library for better
+// portability and independence.
+//===----------------------------------------------------------------------===//
 
 FUZZER_FLAG_INT(verbosity, 1, "Verbosity level.")
 FUZZER_FLAG_INT(seed, 0, "Random seed. If 0, seed is generated.")

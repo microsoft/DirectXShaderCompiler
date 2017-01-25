@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 add_custom_target(ClangUnitTests)
 set_target_properties(ClangUnitTests PROPERTIES FOLDER "Clang tests")
 

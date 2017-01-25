@@ -1,23 +1,22 @@
 //===--- Allocator.h - Simple memory allocation abstraction -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Allocator.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// This file defines the MallocAllocator and BumpPtrAllocator interfaces. Both//
-/// of these conform to an LLVM "Allocator" concept which consists of an     //
-/// Allocate method accepting a size and alignment, and a Deallocate accepting//
-/// a pointer and size. Further, the LLVM "Allocator" concept has overloads of//
-/// Allocate and Deallocate for setting size and alignment based on the final//
-/// type. These overloads are typically provided by a base class template \c //
-/// AllocatorBase.                                                           //
+/// This file defines the MallocAllocator and BumpPtrAllocator interfaces. Both
+/// of these conform to an LLVM "Allocator" concept which consists of an
+/// Allocate method accepting a size and alignment, and a Deallocate accepting
+/// a pointer and size. Further, the LLVM "Allocator" concept has overloads of
+/// Allocate and Deallocate for setting size and alignment based on the final
+/// type. These overloads are typically provided by a base class template \c
+/// AllocatorBase.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_ALLOCATOR_H
 #define LLVM_SUPPORT_ALLOCATOR_H

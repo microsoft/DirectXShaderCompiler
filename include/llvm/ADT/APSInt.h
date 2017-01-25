@@ -1,15 +1,16 @@
 //===-- llvm/ADT/APSInt.h - Arbitrary Precision Signed Int -----*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// APSInt.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the APSInt class, which is a simple class that       //
-// represents an arbitrary sized integer that knows its signedness.          //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the APSInt class, which is a simple class that
+// represents an arbitrary sized integer that knows its signedness.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_APSINT_H
 #define LLVM_ADT_APSINT_H

@@ -1,14 +1,15 @@
 //===- MCSectionMachO.h - MachO Machine Code Sections -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCSectionMachO.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the MCSectionMachO class.                              //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the MCSectionMachO class.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCSECTIONMACHO_H
 #define LLVM_MC_MCSECTIONMACHO_H

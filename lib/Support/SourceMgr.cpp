@@ -1,16 +1,17 @@
 //===- SourceMgr.cpp - Manager for Simple Source Buffers & Diagnostics ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SourceMgr.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the SourceMgr class.  This class is used as a simple //
-// substrate for diagnostics, #include handling, and other low level things for//
-// simple parsers.                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the SourceMgr class.  This class is used as a simple
+// substrate for diagnostics, #include handling, and other low level things for
+// simple parsers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/ADT/Twine.h"

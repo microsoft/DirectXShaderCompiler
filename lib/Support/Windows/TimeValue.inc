@@ -1,14 +1,15 @@
 //===- Win32/TimeValue.cpp - Win32 TimeValue Implementation -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TimeValue.inc                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides the Win32 implementation of the TimeValue class.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides the Win32 implementation of the TimeValue class.
+//
+//===----------------------------------------------------------------------===//
 
 #include "WindowsSupport.h"
 #include "llvm/Support/Format.h"

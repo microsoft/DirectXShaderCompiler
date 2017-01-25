@@ -1,21 +1,22 @@
 //===- llvm/PassSupport.h - Pass Support code -------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PassSupport.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines stuff that is used to define and "use" Passes.  This file//
-// is automatically #included by Pass.h, so:                                 //
 //
-//           NO .CPP FILES SHOULD INCLUDE THIS FILE DIRECTLY                 //
+//                     The LLVM Compiler Infrastructure
 //
-// Instead, #include Pass.h.                                                 //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// This file defines Pass registration code and classes used for it.         //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file defines stuff that is used to define and "use" Passes.  This file
+// is automatically #included by Pass.h, so:
+//
+//           NO .CPP FILES SHOULD INCLUDE THIS FILE DIRECTLY
+//
+// Instead, #include Pass.h.
+//
+// This file defines Pass registration code and classes used for it.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_PASSSUPPORT_H
 #define LLVM_PASSSUPPORT_H

@@ -1,15 +1,16 @@
 //===--- DependencyGraph.cpp - Generate dependency file -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DependencyGraph.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This code generates a header dependency graph in DOT format, for use      //
-// with, e.g., GraphViz.                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This code generates a header dependency graph in DOT format, for use
+// with, e.g., GraphViz.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/Utils.h"
 #include "clang/Basic/FileManager.h"

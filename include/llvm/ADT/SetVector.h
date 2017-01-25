@@ -1,20 +1,21 @@
 //===- llvm/ADT/SetVector.h - Set with insert order iteration ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SetVector.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a set that has insertion order iteration             //
-// characteristics. This is useful for keeping a set of things that need to be//
-// visited later but in a deterministic order (insertion order). The interface//
-// is purposefully minimal.                                                  //
 //
-// This file defines SetVector and SmallSetVector, which performs no allocations//
-// if the SetVector has less than a certain number of elements.              //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a set that has insertion order iteration
+// characteristics. This is useful for keeping a set of things that need to be
+// visited later but in a deterministic order (insertion order). The interface
+// is purposefully minimal.
+//
+// This file defines SetVector and SmallSetVector, which performs no allocations
+// if the SetVector has less than a certain number of elements.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_SETVECTOR_H
 #define LLVM_ADT_SETVECTOR_H

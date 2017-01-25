@@ -1,23 +1,24 @@
 //===- StripSymbols.cpp - Strip symbols and debug info from a module ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StripSymbols.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The StripSymbols transformation implements code stripping. Specifically, it//
-// can delete:                                                               //
-//                                                                           //
-//   * names for virtual registers                                           //
-//   * symbols for internal globals and functions                            //
-//   * debug information                                                     //
-//                                                                           //
-// Note that this transformation makes code much less readable, so it should //
-// only be used in situations where the 'strip' utility would be used, such as//
-// reducing code size or making it harder to reverse engineer code.          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The StripSymbols transformation implements code stripping. Specifically, it
+// can delete:
+//
+//   * names for virtual registers
+//   * symbols for internal globals and functions
+//   * debug information
+//
+// Note that this transformation makes code much less readable, so it should
+// only be used in situations where the 'strip' utility would be used, such as
+// reducing code size or making it harder to reverse engineer code.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/DenseMap.h"

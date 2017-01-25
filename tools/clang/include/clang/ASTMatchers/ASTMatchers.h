@@ -1,45 +1,46 @@
 //===--- ASTMatchers.h - Structural query framework -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTMatchers.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements matchers to be used together with the MatchFinder to//
-//  match AST nodes.                                                         //
 //
-//  Matchers are created by generator functions, which can be combined in    //
-//  a functional in-language DSL to express queries over the C++ AST.        //
+//                     The LLVM Compiler Infrastructure
 //
-//  For example, to match a class with a certain name, one would call:       //
-//    recordDecl(hasName("MyClass"))                                         //
-//  which returns a matcher that can be used to find all AST nodes that declare//
-//  a class named 'MyClass'.                                                 //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  For more complicated match expressions we're often interested in accessing//
-//  multiple parts of the matched AST nodes once a match is found. In that case,//
-//  use the id(...) matcher around the match expressions that match the nodes//
-//  you want to access.                                                      //
+//===----------------------------------------------------------------------===//
 //
-//  For example, when we're interested in child classes of a certain class, we//
-//  would write:                                                             //
-//    recordDecl(hasName("MyClass"), hasChild(id("child", recordDecl())))    //
-//  When the match is found via the MatchFinder, a user provided callback will//
-//  be called with a BoundNodes instance that contains a mapping from the    //
-//  strings that we provided for the id(...) calls to the nodes that were    //
-//  matched.                                                                 //
-//  In the given example, each time our matcher finds a match we get a callback//
-//  where "child" is bound to the CXXRecordDecl node of the matching child   //
-//  class declaration.                                                       //
+//  This file implements matchers to be used together with the MatchFinder to
+//  match AST nodes.
 //
-//  See ASTMatchersInternal.h for a more in-depth explanation of the         //
-//  implementation details of the matcher framework.                         //
+//  Matchers are created by generator functions, which can be combined in
+//  a functional in-language DSL to express queries over the C++ AST.
 //
-//  See ASTMatchFinder.h for how to use the generated matchers to run over   //
-//  an AST.                                                                  //
+//  For example, to match a class with a certain name, one would call:
+//    recordDecl(hasName("MyClass"))
+//  which returns a matcher that can be used to find all AST nodes that declare
+//  a class named 'MyClass'.
 //
-///////////////////////////////////////////////////////////////////////////////
+//  For more complicated match expressions we're often interested in accessing
+//  multiple parts of the matched AST nodes once a match is found. In that case,
+//  use the id(...) matcher around the match expressions that match the nodes
+//  you want to access.
+//
+//  For example, when we're interested in child classes of a certain class, we
+//  would write:
+//    recordDecl(hasName("MyClass"), hasChild(id("child", recordDecl())))
+//  When the match is found via the MatchFinder, a user provided callback will
+//  be called with a BoundNodes instance that contains a mapping from the
+//  strings that we provided for the id(...) calls to the nodes that were
+//  matched.
+//  In the given example, each time our matcher finds a match we get a callback
+//  where "child" is bound to the CXXRecordDecl node of the matching child
+//  class declaration.
+//
+//  See ASTMatchersInternal.h for a more in-depth explanation of the
+//  implementation details of the matcher framework.
+//
+//  See ASTMatchFinder.h for how to use the generated matchers to run over
+//  an AST.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ASTMATCHERS_ASTMATCHERS_H
 #define LLVM_CLANG_ASTMATCHERS_ASTMATCHERS_H

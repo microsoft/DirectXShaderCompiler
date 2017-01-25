@@ -1,14 +1,15 @@
 //===--- RewriteObjCFoundationAPI.cpp - Foundation API Rewriter -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RewriteObjCFoundationAPI.cpp                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Rewrites legacy method calls to modern syntax.                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Rewrites legacy method calls to modern syntax.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Edit/Rewriters.h"
 #include "clang/AST/ASTContext.h"

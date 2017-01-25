@@ -1,17 +1,20 @@
 //===--- PPExpressions.cpp - Preprocessor Expression Evaluation -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PPExpressions.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Preprocessor::EvaluateDirectiveExpression method,//
-// which parses and evaluates integer constant expressions for #if directives.//
-//                                                                           //
-// FIXME: implement testing for #assert's.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Preprocessor::EvaluateDirectiveExpression method,
+// which parses and evaluates integer constant expressions for #if directives.
+//
+//===----------------------------------------------------------------------===//
+//
+// FIXME: implement testing for #assert's.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Basic/TargetInfo.h"

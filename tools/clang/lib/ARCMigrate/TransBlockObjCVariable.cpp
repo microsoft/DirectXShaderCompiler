@@ -1,28 +1,29 @@
 //===--- TransBlockObjCVariable.cpp - Transformations to ARC mode ---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TransBlockObjCVariable.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// rewriteBlockObjCVariable:                                                 //
-//                                                                           //
-// Adding __block to an obj-c variable could be either because the variable  //
-// is used for output storage or the user wanted to break a retain cycle.    //
-// This transformation checks whether a reference of the variable for the block//
-// is actually needed (it is assigned to or its address is taken) or not.    //
-// If the reference is not needed it will assume __block was added to break a//
-// cycle so it will remove '__block' and add __weak/__unsafe_unretained.     //
-// e.g                                                                       //
-//                                                                           //
-//   __block Foo *x;                                                         //
-//   bar(^ { [x cake]; });                                                   //
-// ---->                                                                     //
-//   __weak Foo *x;                                                          //
-//   bar(^ { [x cake]; });                                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// rewriteBlockObjCVariable:
+//
+// Adding __block to an obj-c variable could be either because the variable
+// is used for output storage or the user wanted to break a retain cycle.
+// This transformation checks whether a reference of the variable for the block
+// is actually needed (it is assigned to or its address is taken) or not.
+// If the reference is not needed it will assume __block was added to break a
+// cycle so it will remove '__block' and add __weak/__unsafe_unretained.
+// e.g
+//
+//   __block Foo *x;
+//   bar(^ { [x cake]; });
+// ---->
+//   __weak Foo *x;
+//   bar(^ { [x cake]; });
+//
+//===----------------------------------------------------------------------===//
 
 #include "Transforms.h"
 #include "Internals.h"

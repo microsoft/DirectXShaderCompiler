@@ -1,37 +1,36 @@
 //===- LazyCallGraph.h - Analysis of a Module's call graph ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LazyCallGraph.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// Implements a lazy call graph analysis and related passes for the new pass//
-/// manager.                                                                 //
+/// Implements a lazy call graph analysis and related passes for the new pass
+/// manager.
 ///
-/// NB: This is *not* a traditional call graph! It is a graph which models both//
-/// the current calls and potential calls. As a consequence there are many   //
-/// edges in this call graph that do not correspond to a 'call' or 'invoke'  //
-/// instruction.                                                             //
+/// NB: This is *not* a traditional call graph! It is a graph which models both
+/// the current calls and potential calls. As a consequence there are many
+/// edges in this call graph that do not correspond to a 'call' or 'invoke'
+/// instruction.
 ///
-/// The primary use cases of this graph analysis is to facilitate iterating  //
-/// across the functions of a module in ways that ensure all callees are     //
-/// visited prior to a caller (given any SCC constraints), or vice versa. As //
-/// such is it particularly well suited to organizing CGSCC optimizations such//
-/// as inlining, outlining, argument promotion, etc. That is its primary use //
-/// case and motivates the design. It may not be appropriate for other       //
-/// purposes. The use graph of functions or some other conservative analysis of//
-/// call instructions may be interesting for optimizations and subsequent    //
-/// analyses which don't work in the context of an overly specified          //
-/// potential-call-edge graph.                                               //
+/// The primary use cases of this graph analysis is to facilitate iterating
+/// across the functions of a module in ways that ensure all callees are
+/// visited prior to a caller (given any SCC constraints), or vice versa. As
+/// such is it particularly well suited to organizing CGSCC optimizations such
+/// as inlining, outlining, argument promotion, etc. That is its primary use
+/// case and motivates the design. It may not be appropriate for other
+/// purposes. The use graph of functions or some other conservative analysis of
+/// call instructions may be interesting for optimizations and subsequent
+/// analyses which don't work in the context of an overly specified
+/// potential-call-edge graph.
 ///
-/// To understand the specific rules and nature of this call graph analysis, //
-/// see the documentation of the \c LazyCallGraph below.                     //
+/// To understand the specific rules and nature of this call graph analysis,
+/// see the documentation of the \c LazyCallGraph below.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_LAZYCALLGRAPH_H
 #define LLVM_ANALYSIS_LAZYCALLGRAPH_H

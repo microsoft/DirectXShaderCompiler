@@ -1,12 +1,12 @@
 //===- RegionIterator.h - Iterators to iteratate over Regions ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegionIterator.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the iterators to iterate over the elements of a Region. //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This file defines the iterators to iterate over the elements of a Region.
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_ANALYSIS_REGIONITERATOR_H
 #define LLVM_ANALYSIS_REGIONITERATOR_H

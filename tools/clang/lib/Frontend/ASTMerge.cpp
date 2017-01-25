@@ -1,11 +1,11 @@
 //===-- ASTMerge.cpp - AST Merging Frontent Action --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTMerge.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/ASTUnit.h"
 #include "clang/AST/ASTContext.h"

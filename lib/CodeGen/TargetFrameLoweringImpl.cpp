@@ -1,14 +1,15 @@
 //===----- TargetFrameLoweringImpl.cpp - Implement target frame interface --==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetFrameLoweringImpl.cpp                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Implements the layout of a stack frame on the target machine.             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Implements the layout of a stack frame on the target machine.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Target/TargetFrameLowering.h"

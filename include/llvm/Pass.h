@@ -1,26 +1,28 @@
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Pass.h                                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a base class that indicates that a specified class is a //
-// transformation pass implementation.                                       //
+//===- llvm/Pass.h - Base class for Passes ----------------------*- C++ -*-===//
 //
-// Passes are designed this way so that it is possible to run passes in a cache//
-// and organizationally optimal order without having to specify it at the front//
-// end.  This allows arbitrary passes to be strung together and have them    //
-// executed as efficiently as possible.                                      //
+//                     The LLVM Compiler Infrastructure
 //
-// Passes should extend one of the classes below, depending on the guarantees//
-// that it can make about what will be modified as it is run.  For example, most//
-// global optimizations should derive from FunctionPass, because they do not add//
-// or delete functions, they operate on the internals of the function.       //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// Note that this file #includes PassSupport.h and PassAnalysisSupport.h (at the//
-// bottom), so the APIs exposed by these files are also automatically available//
-// to all users of this file.                                                //
+//===----------------------------------------------------------------------===//
+//
+// This file defines a base class that indicates that a specified class is a
+// transformation pass implementation.
+//
+// Passes are designed this way so that it is possible to run passes in a cache
+// and organizationally optimal order without having to specify it at the front
+// end.  This allows arbitrary passes to be strung together and have them
+// executed as efficiently as possible.
+//
+// Passes should extend one of the classes below, depending on the guarantees
+// that it can make about what will be modified as it is run.  For example, most
+// global optimizations should derive from FunctionPass, because they do not add
+// or delete functions, they operate on the internals of the function.
+//
+// Note that this file #includes PassSupport.h and PassAnalysisSupport.h (at the
+// bottom), so the APIs exposed by these files are also automatically available
+// to all users of this file.
 //
 //===----------------------------------------------------------------------===//
 

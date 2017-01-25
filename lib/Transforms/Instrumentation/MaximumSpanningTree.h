@@ -1,15 +1,16 @@
 //===- llvm/Analysis/MaximumSpanningTree.h - Interface ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MaximumSpanningTree.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This module provides means for calculating a maximum spanning tree for a  //
-// given set of weighted edges. The type parameter T is the type of a node.  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This module provides means for calculating a maximum spanning tree for a
+// given set of weighted edges. The type parameter T is the type of a node.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_MAXIMUMSPANNINGTREE_H
 #define LLVM_ANALYSIS_MAXIMUMSPANNINGTREE_H

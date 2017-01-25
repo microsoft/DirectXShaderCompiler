@@ -1,20 +1,21 @@
 //===- llvm/ADT/IndexedMap.h - An index map implementation ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IndexedMap.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements an indexed map. The index map template takes two     //
-// types. The first is the mapped type and the second is a functor           //
-// that maps its argument to a size_t. On instantiation a "null" value       //
-// can be provided to be used as a "does not exist" indicator in the         //
-// map. A member function grow() is provided that given the value of         //
-// the maximally indexed key (the argument of the functor) makes sure        //
-// the map has enough space for it.                                          //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements an indexed map. The index map template takes two
+// types. The first is the mapped type and the second is a functor
+// that maps its argument to a size_t. On instantiation a "null" value
+// can be provided to be used as a "does not exist" indicator in the
+// map. A member function grow() is provided that given the value of
+// the maximally indexed key (the argument of the functor) makes sure
+// the map has enough space for it.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_INDEXEDMAP_H
 #define LLVM_ADT_INDEXEDMAP_H

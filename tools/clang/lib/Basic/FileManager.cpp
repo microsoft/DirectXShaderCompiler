@@ -1,18 +1,21 @@
 //===--- FileManager.cpp - File System Probing and Caching ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FileManager.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements the FileManager interface.                          //
-//                                                                           //
-// TODO: This should index all interesting directories with dirent calls.    //
-//  getdirentries ?                                                          //
-//  opendir/readdir_r/closedir ?                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements the FileManager interface.
+//
+//===----------------------------------------------------------------------===//
+//
+// TODO: This should index all interesting directories with dirent calls.
+//  getdirentries ?
+//  opendir/readdir_r/closedir ?
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemStatCache.h"

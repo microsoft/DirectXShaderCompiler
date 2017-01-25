@@ -1,22 +1,23 @@
 //===-- Internalize.cpp - Mark functions internal -------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Internalize.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass loops over all of the functions and variables in the input module.//
-// If the function or variable is not in the list of external names given to //
-// the pass it is marked as internal.                                        //
-//                                                                           //
-// This transformation would not be legal in a regular compilation, but it gets//
-// extra information from the linker about what is safe.                     //
-//                                                                           //
-// For example: Internalizing a function with external linkage. Only if we are//
-// told it is only used from within this module, it is safe to do it.        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass loops over all of the functions and variables in the input module.
+// If the function or variable is not in the list of external names given to
+// the pass it is marked as internal.
+//
+// This transformation would not be legal in a regular compilation, but it gets
+// extra information from the linker about what is safe.
+//
+// For example: Internalizing a function with external linkage. Only if we are
+// told it is only used from within this module, it is safe to do it.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SmallPtrSet.h"

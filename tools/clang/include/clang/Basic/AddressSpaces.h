@@ -1,18 +1,17 @@
 //===--- AddressSpaces.h - Language-specific address spaces -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AddressSpaces.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Provides definitions for the various language-specific address    //
-/// spaces.                                                                  //
+/// \file
+/// \brief Provides definitions for the various language-specific address
+/// spaces.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_BASIC_ADDRESSSPACES_H
 #define LLVM_CLANG_BASIC_ADDRESSSPACES_H

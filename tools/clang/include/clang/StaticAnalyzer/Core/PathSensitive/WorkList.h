@@ -1,15 +1,16 @@
 //==- WorkList.h - Worklist class used by CoreEngine ---------------*- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// WorkList.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines WorkList, a pure virtual class that represents an opaque//
-//  worklist used by CoreEngine to explore the reachability state space.     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines WorkList, a pure virtual class that represents an opaque
+//  worklist used by CoreEngine to explore the reachability state space.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_WORKLIST_H
 #define LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_WORKLIST_H

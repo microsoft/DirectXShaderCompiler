@@ -1,14 +1,15 @@
 /*===-- main.c - tool for testing libLLVM and llvm-c API ------------------===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// main.c                                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Main file for llvm-c-tests. "Parses" arguments and dispatches.            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+|*                                                                            *|
+|*                     The LLVM Compiler Infrastructure                       *|
+|*                                                                            *|
+|* This file is distributed under the University of Illinois Open Source      *|
+|* License. See LICENSE.TXT for details.                                      *|
+|*                                                                            *|
+|*===----------------------------------------------------------------------===*|
+|*                                                                            *|
+|* Main file for llvm-c-tests. "Parses" arguments and dispatches.             *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
 
 #include "llvm-c-test.h"
 #include "llvm-c/BitReader.h"

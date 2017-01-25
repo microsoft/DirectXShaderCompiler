@@ -1,14 +1,15 @@
 //===- DeadMachineInstructionElim.cpp - Remove dead machine instructions --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DeadMachineInstructionElim.cpp                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is an extremely simple MachineInstr-level dead-code-elimination pass.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is an extremely simple MachineInstr-level dead-code-elimination pass.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/Statistic.h"

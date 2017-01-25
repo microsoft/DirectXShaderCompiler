@@ -1,27 +1,26 @@
 //===- llvm/Support/Process.h -----------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Process.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// Provides a library for accessing information about this process and other//
-/// processes on the operating system. Also provides means of spawning       //
-/// subprocess for commands. The design of this library is modeled after the //
-/// proposed design of the Boost.Process library, and is design specifically to//
-/// follow the style of standard libraries and potentially become a proposal //
-/// for a standard library.                                                  //
+/// Provides a library for accessing information about this process and other
+/// processes on the operating system. Also provides means of spawning
+/// subprocess for commands. The design of this library is modeled after the
+/// proposed design of the Boost.Process library, and is design specifically to
+/// follow the style of standard libraries and potentially become a proposal
+/// for a standard library.
 ///
-/// This file declares the llvm::sys::Process class which contains a collection//
-/// of legacy static interfaces for extracting various information about the //
-/// current process. The goal is to migrate users of this API over to the new//
-/// interfaces.                                                              //
+/// This file declares the llvm::sys::Process class which contains a collection
+/// of legacy static interfaces for extracting various information about the
+/// current process. The goal is to migrate users of this API over to the new
+/// interfaces.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_PROCESS_H
 #define LLVM_SUPPORT_PROCESS_H

@@ -1,15 +1,16 @@
-//= SValBuilder.h - Construction of SVals from evaluating expressions -*- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SValBuilder.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines SValBuilder, a class that defines the interface for    //
-//  "symbolical evaluators" which construct an SVal from an expression.      //
+// SValBuilder.h - Construction of SVals from evaluating expressions -*- C++ -*-
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines SValBuilder, a class that defines the interface for
+//  "symbolical evaluators" which construct an SVal from an expression.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_SVALBUILDER_H
 #define LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_SVALBUILDER_H

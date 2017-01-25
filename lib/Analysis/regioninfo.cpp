@@ -1,14 +1,13 @@
 //===- RegionInfo.cpp - SESE region detection analysis --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// regioninfo.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Detects single entry single exit regions in the control flow graph.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// Detects single entry single exit regions in the control flow graph.
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/ADT/PostOrderIterator.h"

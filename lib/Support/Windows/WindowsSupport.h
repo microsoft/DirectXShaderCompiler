@@ -1,15 +1,16 @@
 //===- WindowsSupport.h - Common Windows Include File -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// WindowsSupport.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines things specific to Windows implementations.  In addition to//
-// providing some helpers for working with win32 APIs, this header wraps     //
-// <windows.h> with some portability macros.  Always include WindowsSupport.h//
-// instead of including <windows.h> directly.                                //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines things specific to Windows implementations.  In addition to
+// providing some helpers for working with win32 APIs, this header wraps
+// <windows.h> with some portability macros.  Always include WindowsSupport.h
+// instead of including <windows.h> directly.
 //
 //===----------------------------------------------------------------------===//
 

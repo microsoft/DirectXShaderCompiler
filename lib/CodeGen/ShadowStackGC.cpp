@@ -1,28 +1,29 @@
 //===-- ShadowStackGC.cpp - GC support for uncooperative targets ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ShadowStackGC.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements lowering for the llvm.gc* intrinsics for targets that do//
-// not natively support them (which includes the C backend). Note that the code//
-// generated is not quite as efficient as algorithms which generate stack maps//
-// to identify roots.                                                        //
-//                                                                           //
-// This pass implements the code transformation described in this paper:     //
-//   "Accurate Garbage Collection in an Uncooperative Environment"           //
-//   Fergus Henderson, ISMM, 2002                                            //
-//                                                                           //
-// In runtime/GC/SemiSpace.cpp is a prototype runtime which is compatible with//
-// ShadowStackGC.                                                            //
-//                                                                           //
-// In order to support this particular transformation, all stack roots are   //
-// coallocated in the stack. This allows a fully target-independent stack map//
-// while introducing only minor runtime overhead.                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements lowering for the llvm.gc* intrinsics for targets that do
+// not natively support them (which includes the C backend). Note that the code
+// generated is not quite as efficient as algorithms which generate stack maps
+// to identify roots.
+//
+// This pass implements the code transformation described in this paper:
+//   "Accurate Garbage Collection in an Uncooperative Environment"
+//   Fergus Henderson, ISMM, 2002
+//
+// In runtime/GC/SemiSpace.cpp is a prototype runtime which is compatible with
+// ShadowStackGC.
+//
+// In order to support this particular transformation, all stack roots are
+// coallocated in the stack. This allows a fully target-independent stack map
+// while introducing only minor runtime overhead.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/GCs.h"
 #include "llvm/ADT/StringExtras.h"

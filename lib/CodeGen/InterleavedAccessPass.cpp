@@ -1,40 +1,41 @@
 //=----------------------- InterleavedAccessPass.cpp -----------------------==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InterleavedAccessPass.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Interleaved Access pass, which identifies        //
-// interleaved memory accesses and transforms into target specific intrinsics.//
-//                                                                           //
-// An interleaved load reads data from memory into several vectors, with     //
-// DE-interleaving the data on a factor. An interleaved store writes several //
-// vectors to memory with RE-interleaving the data on a factor.              //
-//                                                                           //
-// As interleaved accesses are hard to be identified in CodeGen (mainly because//
-// the VECTOR_SHUFFLE DAG node is quite different from the shufflevector IR),//
-// we identify and transform them to intrinsics in this pass. So the intrinsics//
-// can be easily matched into target specific instructions later in CodeGen. //
-//                                                                           //
-// E.g. An interleaved load (Factor = 2):                                    //
-//        %wide.vec = load <8 x i32>, <8 x i32>* %ptr                        //
-//        %v0 = shuffle <8 x i32> %wide.vec, <8 x i32> undef, <0, 2, 4, 6>   //
-//        %v1 = shuffle <8 x i32> %wide.vec, <8 x i32> undef, <1, 3, 5, 7>   //
-//                                                                           //
-// It could be transformed into a ld2 intrinsic in AArch64 backend or a vld2 //
-// intrinsic in ARM backend.                                                 //
-//                                                                           //
-// E.g. An interleaved store (Factor = 3):                                   //
-//        %i.vec = shuffle <8 x i32> %v0, <8 x i32> %v1,                     //
-//                                    <0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11> //
-//        store <12 x i32> %i.vec, <12 x i32>* %ptr                          //
-//                                                                           //
-// It could be transformed into a st3 intrinsic in AArch64 backend or a vst3 //
-// intrinsic in ARM backend.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+// The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Interleaved Access pass, which identifies
+// interleaved memory accesses and transforms into target specific intrinsics.
+//
+// An interleaved load reads data from memory into several vectors, with
+// DE-interleaving the data on a factor. An interleaved store writes several
+// vectors to memory with RE-interleaving the data on a factor.
+//
+// As interleaved accesses are hard to be identified in CodeGen (mainly because
+// the VECTOR_SHUFFLE DAG node is quite different from the shufflevector IR),
+// we identify and transform them to intrinsics in this pass. So the intrinsics
+// can be easily matched into target specific instructions later in CodeGen.
+//
+// E.g. An interleaved load (Factor = 2):
+//        %wide.vec = load <8 x i32>, <8 x i32>* %ptr
+//        %v0 = shuffle <8 x i32> %wide.vec, <8 x i32> undef, <0, 2, 4, 6>
+//        %v1 = shuffle <8 x i32> %wide.vec, <8 x i32> undef, <1, 3, 5, 7>
+//
+// It could be transformed into a ld2 intrinsic in AArch64 backend or a vld2
+// intrinsic in ARM backend.
+//
+// E.g. An interleaved store (Factor = 3):
+//        %i.vec = shuffle <8 x i32> %v0, <8 x i32> %v1,
+//                                    <0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11>
+//        store <12 x i32> %i.vec, <12 x i32>* %ptr
+//
+// It could be transformed into a st3 intrinsic in AArch64 backend or a vst3
+// intrinsic in ARM backend.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/InstIterator.h"

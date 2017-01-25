@@ -1,17 +1,18 @@
 //===--- PtrState.h - ARC State for a Ptr -------------------*- C++ -*-----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PtrState.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file contains declarations for the ARC state associated with a ptr. It//
-//  is only used by the ARC Sequence Dataflow computation. By separating this//
-//  from the actual dataflow, it is easier to consider the mechanics of the ARC//
-//  optimization separate from the actual predicates being used.             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file contains declarations for the ARC state associated with a ptr. It
+//  is only used by the ARC Sequence Dataflow computation. By separating this
+//  from the actual dataflow, it is easier to consider the mechanics of the ARC
+//  optimization separate from the actual predicates being used.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_TRANSFORMS_OBJCARC_PTRSTATE_H
 #define LLVM_LIB_TRANSFORMS_OBJCARC_PTRSTATE_H

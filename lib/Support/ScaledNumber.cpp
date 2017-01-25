@@ -1,14 +1,15 @@
 //==- lib/Support/ScaledNumber.cpp - Support for scaled numbers -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScaledNumber.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Implementation of some scaled number algorithms.                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Implementation of some scaled number algorithms.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ScaledNumber.h"
 #include "llvm/ADT/APFloat.h"

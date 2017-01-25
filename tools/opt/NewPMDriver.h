@@ -1,23 +1,22 @@
 //===- NewPMDriver.h - Function to drive opt with the new PM ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// NewPMDriver.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// A single function which is called to drive the opt behavior for the new  //
-/// PassManager.                                                             //
+/// A single function which is called to drive the opt behavior for the new
+/// PassManager.
 ///
-/// This is only in a separate TU with a header to avoid including all of the//
-/// old pass manager headers and the new pass manager headers into the same  //
-/// file. Eventually all of the routines here will get folded back into      //
-/// opt.cpp.                                                                 //
+/// This is only in a separate TU with a header to avoid including all of the
+/// old pass manager headers and the new pass manager headers into the same
+/// file. Eventually all of the routines here will get folded back into
+/// opt.cpp.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TOOLS_OPT_NEWPMDRIVER_H
 #define LLVM_TOOLS_OPT_NEWPMDRIVER_H

@@ -1,30 +1,31 @@
 //===-- LegalizeVectorOps.cpp - Implement SelectionDAG::LegalizeVectors ---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// legalizevectorops.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the SelectionDAG::LegalizeVectors method.            //
-//                                                                           //
-// The vector legalizer looks for vector operations which might need to be   //
-// scalarized and legalizes them. This is a separate step from Legalize because//
-// scalarizing can introduce illegal types.  For example, suppose we have an //
-// ISD::SDIV of type v2i64 on x86-32.  The type is legal (for example, addition//
-// on a v2i64 is legal), but ISD::SDIV isn't legal, so we have to unroll the //
-// operation, which introduces nodes with the illegal type i64 which must be //
-// expanded.  Similarly, suppose we have an ISD::SRA of type v16i8 on PowerPC;//
-// the operation must be unrolled, which introduces nodes with the illegal   //
-// type i8 which must be promoted.                                           //
-//                                                                           //
-// This does not legalize vector manipulations like ISD::BUILD_VECTOR,       //
-// or operations that happen to take a vector which are custom-lowered;      //
-// the legalization for such operations never produces nodes                 //
-// with illegal types, so it's okay to put off legalizing them until         //
-// SelectionDAG::Legalize runs.                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the SelectionDAG::LegalizeVectors method.
+//
+// The vector legalizer looks for vector operations which might need to be
+// scalarized and legalizes them. This is a separate step from Legalize because
+// scalarizing can introduce illegal types.  For example, suppose we have an
+// ISD::SDIV of type v2i64 on x86-32.  The type is legal (for example, addition
+// on a v2i64 is legal), but ISD::SDIV isn't legal, so we have to unroll the
+// operation, which introduces nodes with the illegal type i64 which must be
+// expanded.  Similarly, suppose we have an ISD::SRA of type v16i8 on PowerPC;
+// the operation must be unrolled, which introduces nodes with the illegal
+// type i8 which must be promoted.
+//
+// This does not legalize vector manipulations like ISD::BUILD_VECTOR,
+// or operations that happen to take a vector which are custom-lowered;
+// the legalization for such operations never produces nodes
+// with illegal types, so it's okay to put off legalizing them until
+// SelectionDAG::Legalize runs.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/Target/TargetLowering.h"

@@ -1,19 +1,20 @@
 //== ObjCContainersChecker.cpp - Path sensitive checker for CFArray *- C++ -*=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjCContainersChecker.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Performs path sensitive checks of Core Foundation static containers like  //
-// CFArray.                                                                  //
-// 1) Check for buffer overflows:                                            //
-//      In CFArrayGetArrayAtIndex( myArray, index), if the index is outside the//
-//      index space of theArray (0 to N-1 inclusive (where N is the count of //
-//      theArray), the behavior is undefined.                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Performs path sensitive checks of Core Foundation static containers like
+// CFArray.
+// 1) Check for buffer overflows:
+//      In CFArrayGetArrayAtIndex( myArray, index), if the index is outside the
+//      index space of theArray (0 to N-1 inclusive (where N is the count of
+//      theArray), the behavior is undefined.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/ParentMap.h"

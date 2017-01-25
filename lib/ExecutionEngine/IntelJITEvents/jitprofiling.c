@@ -1,19 +1,21 @@
 /*===-- jitprofiling.c - JIT (Just-In-Time) Profiling API----------*- C -*-===*
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// jitprofiling.c                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// * This file provides Intel(R) Performance Analyzer JIT (Just-In-Time)     //
-// * Profiling API implementation.                                           //
-// * NOTE: This file comes in a style different from the rest of LLVM        //
-// * source base since  this is a piece of code shared from Intel(R)         //
-// * products.  Please do not reformat / re-style this code to make          //
-// * subsequent merges and contributions from the original source base eaiser.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+ *
+ *                     The LLVM Compiler Infrastructure
+ *
+ * This file is distributed under the University of Illinois Open Source
+ * License. See LICENSE.TXT for details.
+ *
+ *===----------------------------------------------------------------------===*
+ *
+ * This file provides Intel(R) Performance Analyzer JIT (Just-In-Time) 
+ * Profiling API implementation. 
+ *
+ * NOTE: This file comes in a style different from the rest of LLVM
+ * source base since  this is a piece of code shared from Intel(R)
+ * products.  Please do not reformat / re-style this code to make
+ * subsequent merges and contributions from the original source base eaiser.
+ *
+ *===----------------------------------------------------------------------===*/
 
 #include "ittnotify_config.h"
 

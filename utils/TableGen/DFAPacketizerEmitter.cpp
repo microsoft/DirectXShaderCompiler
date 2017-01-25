@@ -1,18 +1,19 @@
 //===- DFAPacketizerEmitter.cpp - Packetization DFA for a VLIW machine-----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DFAPacketizerEmitter.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class parses the Schedule.td file and produces an API that can be used//
-// to reason about whether an instruction can be added to a packet on a VLIW //
-// architecture. The class internally generates a deterministic finite       //
-// automaton (DFA) that models all possible mappings of machine instructions //
-// to functional units as instructions are added to a packet.                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class parses the Schedule.td file and produces an API that can be used
+// to reason about whether an instruction can be added to a packet on a VLIW
+// architecture. The class internally generates a deterministic finite
+// automaton (DFA) that models all possible mappings of machine instructions
+// to functional units as instructions are added to a packet.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenTarget.h"
 #include "llvm/ADT/DenseSet.h"

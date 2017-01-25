@@ -1,15 +1,16 @@
 //===- RewriteStatepointsForGC.cpp - Make GC relocations explicit ---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RewriteStatepointsForGC.cpp                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Rewrite an existing set of gc.statepoints such that they make potential   //
-// relocations performed by the garbage collector explicit in the IR.        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Rewrite an existing set of gc.statepoints such that they make potential
+// relocations performed by the garbage collector explicit in the IR.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
 #include "llvm/Analysis/CFG.h"

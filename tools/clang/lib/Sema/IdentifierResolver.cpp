@@ -1,15 +1,16 @@
 //===- IdentifierResolver.cpp - Lexical Scope Name lookup -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IdentifierResolver.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the IdentifierResolver class, which is used for lexical//
-// scoped lookup, based on declaration names.                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the IdentifierResolver class, which is used for lexical
+// scoped lookup, based on declaration names.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/IdentifierResolver.h"
 #include "clang/AST/Decl.h"

@@ -1,27 +1,27 @@
 //=- llvm/CodeGen/DFAPacketizer.cpp - DFA Packetizer for VLIW -*- C++ -*-=====//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DFAPacketizer.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class implements a deterministic finite automaton (DFA) based        //
-// packetizing mechanism for VLIW architectures. It provides APIs to         //
-// determine whether there exists a legal mapping of instructions to         //
-// functional unit assignments in a packet. The DFA is auto-generated from   //
-// the target's Schedule.td file.                                            //
-//                                                                           //
-// A DFA consists of 3 major elements: states, inputs, and transitions. For  //
-// the packetizing mechanism, the input is the set of instruction classes for//
-// a target. The state models all possible combinations of functional unit   //
-// consumption for a given set of instructions in a packet. A transition     //
-// models the addition of an instruction to a packet. In the DFA constructed //
-// by this class, if an instruction can be added to a packet, then a valid   //
-// transition exists from the corresponding state. Invalid transitions       //
-// indicate that the instruction cannot be added to the current packet.      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This class implements a deterministic finite automaton (DFA) based
+// packetizing mechanism for VLIW architectures. It provides APIs to
+// determine whether there exists a legal mapping of instructions to
+// functional unit assignments in a packet. The DFA is auto-generated from
+// the target's Schedule.td file.
+//
+// A DFA consists of 3 major elements: states, inputs, and transitions. For
+// the packetizing mechanism, the input is the set of instruction classes for
+// a target. The state models all possible combinations of functional unit
+// consumption for a given set of instructions in a packet. A transition
+// models the addition of an instruction to a packet. In the DFA constructed
+// by this class, if an instruction can be added to a packet, then a valid
+// transition exists from the corresponding state. Invalid transitions
+// indicate that the instruction cannot be added to the current packet.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/DFAPacketizer.h"
 #include "llvm/CodeGen/MachineInstr.h"

@@ -1,15 +1,16 @@
 //===- ValueTracking.cpp - Walk computations to compute properties --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ValueTracking.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains routines that help analyze properties that chains of   //
-// computations have.                                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains routines that help analyze properties that chains of
+// computations have.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/SmallPtrSet.h"

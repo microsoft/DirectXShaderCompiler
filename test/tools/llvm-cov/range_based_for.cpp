@@ -1,14 +1,5 @@
-//===- range_based_for.cpp ---------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// range_based_for.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// Make sure that compiler-added local variables (whose line number is zero) //
-// don't crash llvm-cov.                                                     //
+// Make sure that compiler-added local variables (whose line number is zero)
+// don't crash llvm-cov.
 
 // We need shell for cd
 // REQUIRES: shell

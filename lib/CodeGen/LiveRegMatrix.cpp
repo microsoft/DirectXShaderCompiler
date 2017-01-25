@@ -1,14 +1,15 @@
 //===-- LiveRegMatrix.cpp - Track register interference -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveRegMatrix.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the LiveRegMatrix analysis pass.                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the LiveRegMatrix analysis pass.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/LiveRegMatrix.h"
 #include "RegisterCoalescer.h"

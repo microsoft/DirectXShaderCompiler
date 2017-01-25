@@ -1,15 +1,15 @@
 //===--- Options.td - Options for clang -----------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Options.td                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the options accepted by clang.                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// Include the common option parsing interfaces.                             //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the options accepted by clang.
+//
+//===----------------------------------------------------------------------===//
 
 include "llvm/Option/OptParser.td"
 

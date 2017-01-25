@@ -1,15 +1,16 @@
 //===- AliasAnalysisCounter.cpp - Alias Analysis Query Counter ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AliasAnalysisCounter.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a pass which can be used to count how many alias queries//
-// are being made and how the alias analysis implementation being used responds.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a pass which can be used to count how many alias queries
+// are being made and how the alias analysis implementation being used responds.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/AliasAnalysis.h"

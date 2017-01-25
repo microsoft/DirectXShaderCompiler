@@ -1,16 +1,17 @@
 //===-- llvm/MC/MCAsmInfo.h - Asm info --------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCAsmInfo.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains a class to be used as the basis for target specific    //
-// asm writers.  This class primarily takes care of global printing constants,//
-// which are used in very similar ways across all targets.                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains a class to be used as the basis for target specific
+// asm writers.  This class primarily takes care of global printing constants,
+// which are used in very similar ways across all targets.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCASMINFO_H
 #define LLVM_MC_MCASMINFO_H

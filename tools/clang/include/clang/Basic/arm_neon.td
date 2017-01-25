@@ -1,23 +1,25 @@
 //===--- arm_neon.td - ARM NEON compiler interface ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// arm_neon.td                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the TableGen definitions from which the ARM NEON header//
-//  file will be generated.  See ARM document DUI0348B.                      //
-//                                                                           //
-// Each intrinsic is a subclass of the Inst class. An intrinsic can either   //
-// generate a __builtin_* call or it can expand to a set of generic operations.//
-//                                                                           //
-// The operations are subclasses of Operation providing a list of DAGs, the  //
-// last of which is the return value. The available DAG nodes are documented //
-// below.                                                                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// The base Operation class. All operations must subclass this.              //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the TableGen definitions from which the ARM NEON header
+//  file will be generated.  See ARM document DUI0348B.
+//
+//===----------------------------------------------------------------------===//
+//
+// Each intrinsic is a subclass of the Inst class. An intrinsic can either
+// generate a __builtin_* call or it can expand to a set of generic operations.
+//
+// The operations are subclasses of Operation providing a list of DAGs, the
+// last of which is the return value. The available DAG nodes are documented
+// below.
+//
+//===----------------------------------------------------------------------===//
 
 class Operation<list<dag> ops=[]> {
   list<dag> Ops = ops;

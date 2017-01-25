@@ -1,16 +1,17 @@
 //==--- InstrEmitter.cpp - Emit MachineInstrs for the SelectionDAG class ---==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstrEmitter.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This implements the Emit routines for the SelectionDAG class, which creates//
-// MachineInstrs based on the decisions of the SelectionDAG instruction      //
-// selection.                                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This implements the Emit routines for the SelectionDAG class, which creates
+// MachineInstrs based on the decisions of the SelectionDAG instruction
+// selection.
+//
+//===----------------------------------------------------------------------===//
 
 #include "InstrEmitter.h"
 #include "SDNodeDbgValue.h"

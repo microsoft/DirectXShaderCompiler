@@ -1,15 +1,16 @@
 //===--- StmtViz.cpp - Graphviz visualization for Stmt ASTs -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StmtViz.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements Stmt::viewAST, which generates a Graphviz DOT file  //
-//  that depicts the AST and then calls Graphviz/dot+gv on it.               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements Stmt::viewAST, which generates a Graphviz DOT file
+//  that depicts the AST and then calls Graphviz/dot+gv on it.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/StmtGraphTraits.h"
 #include "clang/AST/Decl.h"

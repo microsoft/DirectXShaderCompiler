@@ -1,19 +1,20 @@
 //===-- PrologEpilogInserter.cpp - Insert Prolog/Epilog code in function --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PrologEpilogInserter.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass is responsible for finalizing the functions frame layout, saving//
-// callee saved registers, and for emitting prolog & epilog code for the     //
-// function.                                                                 //
-//                                                                           //
-// This pass must be run after register allocation.  After this pass is      //
-// executed, it is illegal to construct MO_FrameIndex operands.              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass is responsible for finalizing the functions frame layout, saving
+// callee saved registers, and for emitting prolog & epilog code for the
+// function.
+//
+// This pass must be run after register allocation.  After this pass is
+// executed, it is illegal to construct MO_FrameIndex operands.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/IndexedMap.h"
 #include "llvm/ADT/STLExtras.h"

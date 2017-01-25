@@ -1,15 +1,16 @@
 //===-- llvm/CodeGen/MachineModuleInfoImpls.cpp ---------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineModuleInfoImpls.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements object-file format specific implementations of       //
-// MachineModuleInfoImpl.                                                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements object-file format specific implementations of
+// MachineModuleInfoImpl.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 #include "llvm/MC/MCSymbol.h"

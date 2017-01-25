@@ -1,14 +1,15 @@
 //===-- llvm/ADT/FoldingSet.h - Uniquing Hash Set ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FoldingSet.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a hash set that can be used to remove duplication of nodes//
-// in a graph.  This code was originally created by Chris Lattner for use with//
-// SelectionDAGCSEMap, but was isolated to provide use across the llvm code set.//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a hash set that can be used to remove duplication of nodes
+// in a graph.  This code was originally created by Chris Lattner for use with
+// SelectionDAGCSEMap, but was isolated to provide use across the llvm code set.
 //
 //===----------------------------------------------------------------------===//
 

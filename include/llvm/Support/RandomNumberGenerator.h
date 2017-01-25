@@ -1,16 +1,17 @@
 //==- llvm/Support/RandomNumberGenerator.h - RNG for diversity ---*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RandomNumberGenerator.h                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines an abstraction for deterministic random number          //
-// generation (RNG).  Note that the current implementation is not            //
-// cryptographically secure as it uses the C++11 <random> facilities.        //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines an abstraction for deterministic random number
+// generation (RNG).  Note that the current implementation is not
+// cryptographically secure as it uses the C++11 <random> facilities.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_RANDOMNUMBERGENERATOR_H_
 #define LLVM_SUPPORT_RANDOMNUMBERGENERATOR_H_

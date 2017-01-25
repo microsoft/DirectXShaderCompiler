@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 option(BUILD_CLANG_FORMAT_VS_PLUGIN "Build clang-format VS plugin" OFF)
 if (BUILD_CLANG_FORMAT_VS_PLUGIN)
   add_custom_target(clang_format_exe_for_vsix

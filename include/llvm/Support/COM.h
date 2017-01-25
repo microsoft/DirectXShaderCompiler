@@ -1,17 +1,16 @@
 //===- llvm/Support/COM.h ---------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// COM.h                                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// Provides a library for accessing COM functionality of the Host OS.       //
+/// Provides a library for accessing COM functionality of the Host OS.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_COM_H
 #define LLVM_SUPPORT_COM_H

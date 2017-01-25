@@ -1,17 +1,18 @@
 //===-- CodeGen/MachineInstBuilder.h - Simplify creation of MIs -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineInstrBuilder.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file exposes a function named BuildMI, which is useful for dramatically//
-// simplifying how MachineInstr's are created.  It allows use of code like this://
 //
-//   M = BuildMI(X86::ADDrr8, 2).addReg(argVal1).addReg(argVal2);            //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file exposes a function named BuildMI, which is useful for dramatically
+// simplifying how MachineInstr's are created.  It allows use of code like this:
+//
+//   M = BuildMI(X86::ADDrr8, 2).addReg(argVal1).addReg(argVal2);
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINEINSTRBUILDER_H
 #define LLVM_CODEGEN_MACHINEINSTRBUILDER_H

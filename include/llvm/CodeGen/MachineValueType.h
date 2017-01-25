@@ -1,15 +1,16 @@
 //===- CodeGen/MachineValueType.h - Machine-Level types ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineValueType.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the set of machine-level target independent types which //
-// legal values in the code generator use.                                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the set of machine-level target independent types which
+// legal values in the code generator use.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINEVALUETYPE_H
 #define LLVM_CODEGEN_MACHINEVALUETYPE_H

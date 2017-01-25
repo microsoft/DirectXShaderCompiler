@@ -1,12 +1,15 @@
 //===- CXTypes.cpp - Implements 'CXTypes' aspect of libclang ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CXType.cpp                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===--------------------------------------------------------------------===//
+//
+// This file implements the 'CXTypes' API hooks in the Clang-C library.
+//
+//===--------------------------------------------------------------------===//
 
 #include "CIndexer.h"
 #include "CXCursor.h"

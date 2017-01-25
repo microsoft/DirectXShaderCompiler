@@ -1,15 +1,16 @@
 //===-- IntelJITEventListener.cpp - Tell Intel profiler about JITed code --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntelJITEventListener.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a JITEventListener object to tell Intel(R) VTune(TM)    //
-// Amplifier XE 2011 about JITted functions.                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a JITEventListener object to tell Intel(R) VTune(TM)
+// Amplifier XE 2011 about JITted functions.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Config/config.h"
 #include "IntelJITEventsWrapper.h"

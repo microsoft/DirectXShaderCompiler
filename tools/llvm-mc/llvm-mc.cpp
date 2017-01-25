@@ -1,15 +1,16 @@
 //===-- llvm-mc.cpp - Machine Code Hacking Driver -------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-mc.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This utility is a simple driver that allows command line hacking on machine//
-// code.                                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This utility is a simple driver that allows command line hacking on machine
+// code.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Disassembler.h"
 #include "llvm/MC/MCAsmBackend.h"

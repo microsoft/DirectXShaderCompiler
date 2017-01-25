@@ -1,30 +1,31 @@
 //===--- TransAutoreleasePool.cpp - Transformations to ARC mode -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TransAutoreleasePool.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// rewriteAutoreleasePool:                                                   //
-//                                                                           //
-// Calls to NSAutoreleasePools will be rewritten as an @autorelease scope.   //
-//                                                                           //
-//  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];              //
-//  ...                                                                      //
-//  [pool release];                                                          //
-// ---->                                                                     //
-//  @autorelease {                                                           //
-//  ...                                                                      //
-//  }                                                                        //
-//                                                                           //
-// An NSAutoreleasePool will not be touched if:                              //
-// - There is not a corresponding -release/-drain in the same scope          //
-// - Not all references of the NSAutoreleasePool variable can be removed     //
-// - There is a variable that is declared inside the intended @autorelease scope//
-//   which is also used outside it.                                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// rewriteAutoreleasePool:
+//
+// Calls to NSAutoreleasePools will be rewritten as an @autorelease scope.
+//
+//  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+//  ...
+//  [pool release];
+// ---->
+//  @autorelease {
+//  ...
+//  }
+//
+// An NSAutoreleasePool will not be touched if:
+// - There is not a corresponding -release/-drain in the same scope
+// - Not all references of the NSAutoreleasePool variable can be removed
+// - There is a variable that is declared inside the intended @autorelease scope
+//   which is also used outside it.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Transforms.h"
 #include "Internals.h"

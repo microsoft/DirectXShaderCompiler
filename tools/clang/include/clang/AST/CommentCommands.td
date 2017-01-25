@@ -1,12 +1,6 @@
 //===----------------------------------------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommentCommands.td                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+// Define command classes.
+//===----------------------------------------------------------------------===//
 
 class Command<string name> {
   string Name = name;

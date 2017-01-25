@@ -1,16 +1,17 @@
 //===- InheritViz.cpp - Graphviz visualization for inheritance --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InheritViz.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements CXXRecordDecl::viewInheritance, which               //
-//  generates a GraphViz DOT file that depicts the class inheritance         //
-//  diagram and then calls Graphviz/dot+gv on it.                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements CXXRecordDecl::viewInheritance, which
+//  generates a GraphViz DOT file that depicts the class inheritance
+//  diagram and then calls Graphviz/dot+gv on it.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"

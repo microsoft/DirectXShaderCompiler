@@ -1,16 +1,17 @@
 //===--- DiagnosticRenderer.h - Diagnostic Pretty-Printing ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DiagnosticRenderer.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is a utility class that provides support for pretty-printing of      //
-// diagnostics. It is used to implement the different code paths which require//
-// such functionality in a consistent way.                                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is a utility class that provides support for pretty-printing of
+// diagnostics. It is used to implement the different code paths which require
+// such functionality in a consistent way.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_FRONTEND_DIAGNOSTICRENDERER_H
 #define LLVM_CLANG_FRONTEND_DIAGNOSTICRENDERER_H

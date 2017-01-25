@@ -1,15 +1,16 @@
 //===-- ASTUnresolvedSet.h - Unresolved sets of declarations  ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTUnresolvedSet.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file provides an UnresolvedSet-like class, whose contents are       //
-//  allocated using the allocator associated with an ASTContext.             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file provides an UnresolvedSet-like class, whose contents are
+//  allocated using the allocator associated with an ASTContext.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_AST_ASTUNRESOLVEDSET_H
 #define LLVM_CLANG_AST_ASTUNRESOLVEDSET_H

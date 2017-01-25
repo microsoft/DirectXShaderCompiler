@@ -1,15 +1,16 @@
 //== PrintfFormatString.cpp - Analysis of printf format strings --*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PrintfFormatString.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Handling of format string in printf and friends.  The structure of format //
-// strings for fprintf() are described in C99 7.19.6.1.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Handling of format string in printf and friends.  The structure of format
+// strings for fprintf() are described in C99 7.19.6.1.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/FormatString.h"
 #include "FormatStringParsing.h"

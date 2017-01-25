@@ -1,14 +1,15 @@
 //===--- DependencyFile.cpp - Generate dependency file --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DependencyFile.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This code generates dependency files.                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This code generates dependency files.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/Utils.h"
 #include "clang/Basic/FileManager.h"

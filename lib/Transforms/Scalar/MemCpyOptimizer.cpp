@@ -1,15 +1,16 @@
 //===- MemCpyOptimizer.cpp - Optimize use of memcpy and friends -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MemCpyOptimizer.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass performs various transformations related to eliminating memcpy  //
-// calls, or transforming sets of stores into memset's.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass performs various transformations related to eliminating memcpy
+// calls, or transforming sets of stores into memset's.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SmallVector.h"

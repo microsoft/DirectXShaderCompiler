@@ -1,25 +1,24 @@
 //===--- DeclSpec.h - Parsed declaration specifiers -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DeclSpec.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief This file defines the classes used to store parsed information about//
-/// declaration-specifiers and declarators.                                  //
+/// \file
+/// \brief This file defines the classes used to store parsed information about
+/// declaration-specifiers and declarators.
 ///
-/// \verbatim                                                                //
-///   static const int volatile x, *y, *(*(*z)[10])(const void *x);          //
-///   ------------------------- -  --  ---------------------------           //
-///     declaration-specifiers  \  |   /                                     //
-///                            declarators                                   //
-/// \endverbatim                                                             //
+/// \verbatim
+///   static const int volatile x, *y, *(*(*z)[10])(const void *x);
+///   ------------------------- -  --  ---------------------------
+///     declaration-specifiers  \  |   /
+///                            declarators
+/// \endverbatim
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SEMA_DECLSPEC_H
 #define LLVM_CLANG_SEMA_DECLSPEC_H

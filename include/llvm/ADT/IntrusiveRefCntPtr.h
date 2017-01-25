@@ -1,19 +1,20 @@
 //== llvm/ADT/IntrusiveRefCntPtr.h - Smart Refcounting Pointer ---*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntrusiveRefCntPtr.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines IntrusiveRefCntPtr, a template class that               //
-// implements a "smart" pointer for objects that maintain their own          //
-// internal reference count, and RefCountedBase/RefCountedBaseVPTR, two      //
-// generic base classes for objects that wish to have their lifetimes        //
-// managed using reference counting.                                         //
 //
-// IntrusiveRefCntPtr is similar to Boost's intrusive_ptr with added         //
-// LLVM-style casting.                                                       //
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines IntrusiveRefCntPtr, a template class that
+// implements a "smart" pointer for objects that maintain their own
+// internal reference count, and RefCountedBase/RefCountedBaseVPTR, two
+// generic base classes for objects that wish to have their lifetimes
+// managed using reference counting.
+//
+// IntrusiveRefCntPtr is similar to Boost's intrusive_ptr with added
+// LLVM-style casting.
 //
 //===----------------------------------------------------------------------===//
 

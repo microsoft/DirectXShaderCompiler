@@ -1,19 +1,20 @@
 //==--- CodeGenABITypes.cpp - Convert Clang types to LLVM types for ABI ----==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeGenABITypes.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// CodeGenABITypes is a simple interface for getting LLVM types for          //
-// the parameters and the return value of a function given the Clang         //
-// types.                                                                    //
-//                                                                           //
-// The class is implemented as a public wrapper around the private           //
-// CodeGenTypes class in lib/CodeGen.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// CodeGenABITypes is a simple interface for getting LLVM types for
+// the parameters and the return value of a function given the Clang
+// types.
+//
+// The class is implemented as a public wrapper around the private
+// CodeGenTypes class in lib/CodeGen.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/CodeGen/CodeGenABITypes.h"
 #include "CodeGenModule.h"

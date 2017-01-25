@@ -1,17 +1,16 @@
 //===-- llvm/MC/MachineLocation.h -------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineLocation.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The MachineLocation class is used to represent a simple location in a machine//
-// frame.  Locations will be one of two forms; a register or an address formed//
-// from a base address plus an offset.  Register indirection can be specified by//
-// explicitly passing an offset to the constructor.                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// The MachineLocation class is used to represent a simple location in a machine
+// frame.  Locations will be one of two forms; a register or an address formed
+// from a base address plus an offset.  Register indirection can be specified by
+// explicitly passing an offset to the constructor.
+//===----------------------------------------------------------------------===//
 
 
 #ifndef LLVM_MC_MACHINELOCATION_H

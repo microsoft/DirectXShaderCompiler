@@ -1,70 +1,70 @@
 //===-- PeepholeOptimizer.cpp - Peephole Optimizations --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PeepholeOptimizer.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Perform peephole optimizations on the machine code:                       //
-//                                                                           //
-// - Optimize Extensions                                                     //
-//                                                                           //
-//     Optimization of sign / zero extension instructions. It may be extended to//
-//     handle other instructions with similar properties.                    //
-//                                                                           //
-//     On some targets, some instructions, e.g. X86 sign / zero extension, may//
-//     leave the source value in the lower part of the result. This optimization//
-//     will replace some uses of the pre-extension value with uses of the    //
-//     sub-register of the results.                                          //
-//                                                                           //
-// - Optimize Comparisons                                                    //
-//                                                                           //
-//     Optimization of comparison instructions. For instance, in this code:  //
-//                                                                           //
-//       sub r1, 1                                                           //
-//       cmp r1, 0                                                           //
-//       bz  L1                                                              //
-//                                                                           //
-//     If the "sub" instruction all ready sets (or could be modified to set) the//
-//     same flag that the "cmp" instruction sets and that "bz" uses, then we can//
-//     eliminate the "cmp" instruction.                                      //
-//                                                                           //
-//     Another instance, in this code:                                       //
-//                                                                           //
-//       sub r1, r3 | sub r1, imm                                            //
-//       cmp r3, r1 or cmp r1, r3 | cmp r1, imm                              //
-//       bge L1                                                              //
-//                                                                           //
-//     If the branch instruction can use flag from "sub", then we can replace//
-//     "sub" with "subs" and eliminate the "cmp" instruction.                //
-//                                                                           //
-// - Optimize Loads:                                                         //
-//                                                                           //
-//     Loads that can be folded into a later instruction. A load is foldable //
-//     if it loads to virtual registers and the virtual register defined has //
-//     a single use.                                                         //
-//                                                                           //
-// - Optimize Copies and Bitcast (more generally, target specific copies):   //
-//                                                                           //
-//     Rewrite copies and bitcasts to avoid cross register bank copies       //
-//     when possible.                                                        //
-//     E.g., Consider the following example, where capital and lower         //
-//     letters denote different register file:                               //
-//     b = copy A <-- cross-bank copy                                        //
-//     C = copy b <-- cross-bank copy                                        //
-//   =>                                                                      //
-//     b = copy A <-- cross-bank copy                                        //
-//     C = copy A <-- same-bank copy                                         //
-//                                                                           //
-//     E.g., for bitcast:                                                    //
-//     b = bitcast A <-- cross-bank copy                                     //
-//     C = bitcast b <-- cross-bank copy                                     //
-//   =>                                                                      //
-//     b = bitcast A <-- cross-bank copy                                     //
-//     C = copy A    <-- same-bank copy                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Perform peephole optimizations on the machine code:
+//
+// - Optimize Extensions
+//
+//     Optimization of sign / zero extension instructions. It may be extended to
+//     handle other instructions with similar properties.
+//
+//     On some targets, some instructions, e.g. X86 sign / zero extension, may
+//     leave the source value in the lower part of the result. This optimization
+//     will replace some uses of the pre-extension value with uses of the
+//     sub-register of the results.
+//
+// - Optimize Comparisons
+//
+//     Optimization of comparison instructions. For instance, in this code:
+//
+//       sub r1, 1
+//       cmp r1, 0
+//       bz  L1
+//
+//     If the "sub" instruction all ready sets (or could be modified to set) the
+//     same flag that the "cmp" instruction sets and that "bz" uses, then we can
+//     eliminate the "cmp" instruction.
+//
+//     Another instance, in this code:
+//
+//       sub r1, r3 | sub r1, imm
+//       cmp r3, r1 or cmp r1, r3 | cmp r1, imm
+//       bge L1
+//
+//     If the branch instruction can use flag from "sub", then we can replace
+//     "sub" with "subs" and eliminate the "cmp" instruction.
+//
+// - Optimize Loads:
+//
+//     Loads that can be folded into a later instruction. A load is foldable
+//     if it loads to virtual registers and the virtual register defined has 
+//     a single use.
+//
+// - Optimize Copies and Bitcast (more generally, target specific copies):
+//
+//     Rewrite copies and bitcasts to avoid cross register bank copies
+//     when possible.
+//     E.g., Consider the following example, where capital and lower
+//     letters denote different register file:
+//     b = copy A <-- cross-bank copy
+//     C = copy b <-- cross-bank copy
+//   =>
+//     b = copy A <-- cross-bank copy
+//     C = copy A <-- same-bank copy
+//
+//     E.g., for bitcast:
+//     b = bitcast A <-- cross-bank copy
+//     C = bitcast b <-- cross-bank copy
+//   =>
+//     b = bitcast A <-- cross-bank copy
+//     C = copy A    <-- same-bank copy
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseMap.h"

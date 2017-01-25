@@ -1,18 +1,19 @@
 //===-- llvm/GlobalValue.h - Class to represent a global value --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GlobalValue.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file is a common base class of all globally definable objects.  As such,//
-// it is subclassed by GlobalVariable, GlobalAlias and by Function.  This is //
-// used because you can do certain things with these global objects that you //
-// can't do to anything else.  For example, use the address of one as a      //
-// constant.                                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file is a common base class of all globally definable objects.  As such,
+// it is subclassed by GlobalVariable, GlobalAlias and by Function.  This is
+// used because you can do certain things with these global objects that you
+// can't do to anything else.  For example, use the address of one as a
+// constant.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_GLOBALVALUE_H
 #define LLVM_IR_GLOBALVALUE_H

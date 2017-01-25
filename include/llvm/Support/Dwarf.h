@@ -1,18 +1,19 @@
 //===-- llvm/Support/Dwarf.h ---Dwarf Constants------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Dwarf.h                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// \file                                                                     //
-// \brief This file contains constants used for implementing Dwarf           //
-// debug support.                                                            //
 //
-// For details on the Dwarf specfication see the latest DWARF Debugging      //
-// Information Format standard document on http://www.dwarfstd.org. This     //
-// file often includes support for non-released standard features.           //
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// \file
+// \brief This file contains constants used for implementing Dwarf
+// debug support.
+//
+// For details on the Dwarf specfication see the latest DWARF Debugging
+// Information Format standard document on http://www.dwarfstd.org. This
+// file often includes support for non-released standard features.
 //
 //===----------------------------------------------------------------------===//
 

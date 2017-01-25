@@ -1,21 +1,22 @@
 //===----- SchedulePostRAList.cpp - list scheduler ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PostRASchedulerList.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This implements a top-down list scheduler, using standard algorithms.     //
-// The basic approach uses a priority queue of available nodes to schedule.  //
-// One at a time, nodes are taken from the priority queue (thus in priority  //
-// order), checked for legality to schedule, and emitted if legal.           //
-//                                                                           //
-// Nodes may not be legal to schedule either due to structural hazards (e.g. //
-// pipeline or resource constraints) or because an input to the instruction has//
-// not completed execution.                                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This implements a top-down list scheduler, using standard algorithms.
+// The basic approach uses a priority queue of available nodes to schedule.
+// One at a time, nodes are taken from the priority queue (thus in priority
+// order), checked for legality to schedule, and emitted if legal.
+//
+// Nodes may not be legal to schedule either due to structural hazards (e.g.
+// pipeline or resource constraints) or because an input to the instruction has
+// not completed execution.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "AggressiveAntiDepBreaker.h"

@@ -1,28 +1,29 @@
 //===- PrintSCC.cpp - Enumerate SCCs in some key graphs -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PrintSCC.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides passes to print out SCCs in a CFG or a CallGraph.      //
-// Normally, you would not use these passes; instead, you would use the      //
-// scc_iterator directly to enumerate SCCs and process them in some way.  These//
-// passes serve three purposes:                                              //
-//                                                                           //
-// (1) As a reference for how to use the scc_iterator.                       //
-// (2) To print out the SCCs for a CFG or a CallGraph:                       //
-//       analyze -print-cfg-sccs            to print the SCCs in each CFG of a module.//
-//       analyze -print-cfg-sccs -stats     to print the #SCCs and the maximum SCC size.//
-//       analyze -print-cfg-sccs -debug > /dev/null to watch the algorithm in action.//
-//                                                                           //
-//     and similarly:                                                        //
-//       analyze -print-callgraph-sccs [-stats] [-debug] to print SCCs in the CallGraph//
-//                                                                           //
-// (3) To test the scc_iterator.                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides passes to print out SCCs in a CFG or a CallGraph.
+// Normally, you would not use these passes; instead, you would use the
+// scc_iterator directly to enumerate SCCs and process them in some way.  These
+// passes serve three purposes:
+//
+// (1) As a reference for how to use the scc_iterator.
+// (2) To print out the SCCs for a CFG or a CallGraph:
+//       analyze -print-cfg-sccs            to print the SCCs in each CFG of a module.
+//       analyze -print-cfg-sccs -stats     to print the #SCCs and the maximum SCC size.
+//       analyze -print-cfg-sccs -debug > /dev/null to watch the algorithm in action.
+//
+//     and similarly:
+//       analyze -print-callgraph-sccs [-stats] [-debug] to print SCCs in the CallGraph
+//
+// (3) To test the scc_iterator.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/Analysis/CallGraph.h"

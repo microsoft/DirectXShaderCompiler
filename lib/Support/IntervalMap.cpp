@@ -1,14 +1,15 @@
 //===- lib/Support/IntervalMap.cpp - A sorted interval map ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntervalMap.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the few non-templated functions in IntervalMap.      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the few non-templated functions in IntervalMap.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/IntervalMap.h"
 

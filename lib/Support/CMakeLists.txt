@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 set(system_libs)
 if( NOT MSVC )
   if( MINGW )

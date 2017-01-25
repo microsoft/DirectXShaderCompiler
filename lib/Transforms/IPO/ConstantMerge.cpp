@@ -1,20 +1,21 @@
 //===- ConstantMerge.cpp - Merge duplicate global constants ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantMerge.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the interface to a pass that merges duplicate global    //
-// constants together into a single constant that is shared.  This is useful //
-// because some passes (ie TraceValues) insert a lot of string constants into//
-// the program, regardless of whether or not an existing string is available.//
-//                                                                           //
-// Algorithm: ConstantMerge is designed to build up a map of available constants//
-// and eliminate duplicates when it is initialized.                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the interface to a pass that merges duplicate global
+// constants together into a single constant that is shared.  This is useful
+// because some passes (ie TraceValues) insert a lot of string constants into
+// the program, regardless of whether or not an existing string is available.
+//
+// Algorithm: ConstantMerge is designed to build up a map of available constants
+// and eliminate duplicates when it is initialized.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/DenseMap.h"

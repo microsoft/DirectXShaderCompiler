@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 
 """
 Static Analyzer qualification infrastructure: adding a new project to 

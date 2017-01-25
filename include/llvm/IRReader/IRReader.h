@@ -1,15 +1,16 @@
 //===---- llvm/IRReader/IRReader.h - Reader for LLVM IR files ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IRReader.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines functions for reading LLVM IR. They support both        //
-// Bitcode and Assembly, automatically detecting the input format.           //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines functions for reading LLVM IR. They support both
+// Bitcode and Assembly, automatically detecting the input format.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IRREADER_IRREADER_H
 #define LLVM_IRREADER_IRREADER_H

@@ -1,18 +1,18 @@
 //===- PassRegistry.def - Registry of passes --------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PassRegistry.def                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file is used as the registry of passes that are part of the core LLVM//
-// libraries. This file describes both transformation passes and analyses    //
-// Analyses are registered while transformation passes have names registered //
-// that can be used when providing a textual pass pipeline.                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// NOTE: NO INCLUDE GUARD DESIRED!                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file is used as the registry of passes that are part of the core LLVM
+// libraries. This file describes both transformation passes and analyses
+// Analyses are registered while transformation passes have names registered
+// that can be used when providing a textual pass pipeline.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef MODULE_ANALYSIS
 #define MODULE_ANALYSIS(NAME, CREATE_PASS)

@@ -1,17 +1,18 @@
 //===-- AssemblyAnnotationWriter.h - Annotation .ll files -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AssemblyAnnotationWriter.h                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Clients of the assembly writer can use this interface to add their own    //
-// special-purpose annotations to LLVM assembly language printouts.  Note that//
-// the assembly parser won't be able to parse these, in general, so          //
-// implementations are advised to print stuff as LLVM comments.              //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Clients of the assembly writer can use this interface to add their own
+// special-purpose annotations to LLVM assembly language printouts.  Note that
+// the assembly parser won't be able to parse these, in general, so
+// implementations are advised to print stuff as LLVM comments.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_ASSEMBLYANNOTATIONWRITER_H
 #define LLVM_IR_ASSEMBLYANNOTATIONWRITER_H

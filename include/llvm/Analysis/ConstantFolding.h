@@ -1,20 +1,21 @@
 //===-- ConstantFolding.h - Fold instructions into constants ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantFolding.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares routines for folding instructions into constants when all//
-// operands are constants, for example "sub i32 1, 0" -> "1".                //
 //
-// Also, to supplement the basic VMCore ConstantExpr simplifications,        //
-// this file declares some additional folding routines that can make use of  //
-// DataLayout information. These functions cannot go in VMCore due to library//
-// dependency issues.                                                        //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares routines for folding instructions into constants when all
+// operands are constants, for example "sub i32 1, 0" -> "1".
+//
+// Also, to supplement the basic VMCore ConstantExpr simplifications,
+// this file declares some additional folding routines that can make use of
+// DataLayout information. These functions cannot go in VMCore due to library
+// dependency issues.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_CONSTANTFOLDING_H
 #define LLVM_ANALYSIS_CONSTANTFOLDING_H

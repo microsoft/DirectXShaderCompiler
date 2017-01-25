@@ -1,14 +1,15 @@
 //===--- CheckerManager.cpp - Static Analyzer Checker Manager -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CheckerManager.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Defines the Static Analyzer Checker Manager.                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Defines the Static Analyzer Checker Manager.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/AST/DeclBase.h"

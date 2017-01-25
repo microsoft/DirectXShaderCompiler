@@ -1,15 +1,16 @@
 //===--- LiteralSupport.cpp - Code to parse and process literals ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiteralSupport.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the NumericLiteralParser, CharLiteralParser, and     //
-// StringLiteralParser interfaces.                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the NumericLiteralParser, CharLiteralParser, and
+// StringLiteralParser interfaces.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Lex/LiteralSupport.h"
 #include "clang/Basic/CharInfo.h"

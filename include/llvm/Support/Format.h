@@ -1,23 +1,24 @@
 //===- Format.h - Efficient printf-style formatting for streams -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Format.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the format() function, which can be used with other  //
-// LLVM subsystems to provide printf-style formatting.  This gives all the power//
-// and risk of printf.  This can be used like this (with raw_ostreams as an  //
-// example):                                                                 //
 //
-//    OS << "mynumber: " << format("%4.5f", 1234.412) << '\n';               //
+//                     The LLVM Compiler Infrastructure
 //
-// Or if you prefer:                                                         //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  OS << format("mynumber: %4.5f\n", 1234.412);                             //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file implements the format() function, which can be used with other
+// LLVM subsystems to provide printf-style formatting.  This gives all the power
+// and risk of printf.  This can be used like this (with raw_ostreams as an
+// example):
+//
+//    OS << "mynumber: " << format("%4.5f", 1234.412) << '\n';
+//
+// Or if you prefer:
+//
+//  OS << format("mynumber: %4.5f\n", 1234.412);
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_FORMAT_H
 #define LLVM_SUPPORT_FORMAT_H

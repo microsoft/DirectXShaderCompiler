@@ -1,15 +1,16 @@
 //===-- llvm/MC/MCSchedule.h - Scheduling -----------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCSchedule.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the classes used to describe a subtarget's machine model//
-// for scheduling and other instruction cost heuristics.                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the classes used to describe a subtarget's machine model
+// for scheduling and other instruction cost heuristics.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCSCHEDULE_H
 #define LLVM_MC_MCSCHEDULE_H

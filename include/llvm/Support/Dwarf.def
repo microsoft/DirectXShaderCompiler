@@ -1,15 +1,15 @@
 //===- llvm/Support/Dwarf.def - Dwarf definitions ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Dwarf.def                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Macros for running through Dwarf enumerators.                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// TODO: Add other DW-based macros.                                          //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Macros for running through Dwarf enumerators.
+//
+//===----------------------------------------------------------------------===//
 
 #if !(defined HANDLE_DW_TAG || defined HANDLE_DW_OP ||                         \
       defined HANDLE_DW_LANG || defined HANDLE_DW_ATE ||                       \

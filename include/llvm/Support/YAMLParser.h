@@ -1,38 +1,39 @@
 //===--- YAMLParser.h - Simple YAML parser --------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// YAMLParser.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This is a YAML 1.2 parser.                                               //
 //
-//  See http://www.yaml.org/spec/1.2/spec.html for the full standard.        //
+//                     The LLVM Compiler Infrastructure
 //
-//  This currently does not implement the following:                         //
-//    * Multi-line literal folding.                                          //
-//    * Tag resolution.                                                      //
-//    * UTF-16.                                                              //
-//    * BOMs anywhere other than the first Unicode scalar value in the file. //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  The most important class here is Stream. This represents a YAML stream with//
-//  0, 1, or many documents.                                                 //
+//===----------------------------------------------------------------------===//
 //
-//  SourceMgr sm;                                                            //
-//  StringRef input = getInput();                                            //
-//  yaml::Stream stream(input, sm);                                          //
+//  This is a YAML 1.2 parser.
 //
-//  for (yaml::document_iterator di = stream.begin(), de = stream.end();     //
-//       di != de; ++di) {                                                   //
-//    yaml::Node *n = di->getRoot();                                         //
-//    if (n) {                                                               //
-//      // Do something with n...                                            //
-//    } else                                                                 //
-//      break;                                                               //
-//  }                                                                        //
+//  See http://www.yaml.org/spec/1.2/spec.html for the full standard.
 //
-///////////////////////////////////////////////////////////////////////////////
+//  This currently does not implement the following:
+//    * Multi-line literal folding.
+//    * Tag resolution.
+//    * UTF-16.
+//    * BOMs anywhere other than the first Unicode scalar value in the file.
+//
+//  The most important class here is Stream. This represents a YAML stream with
+//  0, 1, or many documents.
+//
+//  SourceMgr sm;
+//  StringRef input = getInput();
+//  yaml::Stream stream(input, sm);
+//
+//  for (yaml::document_iterator di = stream.begin(), de = stream.end();
+//       di != de; ++di) {
+//    yaml::Node *n = di->getRoot();
+//    if (n) {
+//      // Do something with n...
+//    } else
+//      break;
+//  }
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_YAMLPARSER_H
 #define LLVM_SUPPORT_YAMLPARSER_H

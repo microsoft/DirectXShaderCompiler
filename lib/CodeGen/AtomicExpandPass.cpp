@@ -1,15 +1,16 @@
 //===-- AtomicExpandPass.cpp - Expand atomic instructions -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AtomicExpandPass.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains a pass (at IR level) to replace atomic instructions with//
-// either (intrinsic-based) load-linked/store-conditional loops or AtomicCmpXchg.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains a pass (at IR level) to replace atomic instructions with
+// either (intrinsic-based) load-linked/store-conditional loops or AtomicCmpXchg.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"

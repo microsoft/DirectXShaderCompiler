@@ -1,19 +1,20 @@
 //===-- CommandLine.cpp - Command line parser implementation --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommandLine.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class implements a command line argument processor that is useful when//
-// creating a tool.  It provides a simple, minimalistic interface that is easily//
-// extensible and supports nonlocal (library) command line options.          //
-//                                                                           //
-// Note that rather than trying to figure out what this code does, you could try//
-// reading the library documentation located in docs/CommandLine.html        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class implements a command line argument processor that is useful when
+// creating a tool.  It provides a simple, minimalistic interface that is easily
+// extensible and supports nonlocal (library) command line options.
+//
+// Note that rather than trying to figure out what this code does, you could try
+// reading the library documentation located in docs/CommandLine.html
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm-c/Support.h"

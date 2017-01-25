@@ -1,15 +1,16 @@
 //===- Error.cpp - tblgen error handling helper routines --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Error.cpp                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains error handling helper routines to pretty-print diagnostic//
-// messages from tblgen.                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains error handling helper routines to pretty-print diagnostic
+// messages from tblgen.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/TableGen/Error.h"
 #include "llvm/ADT/Twine.h"

@@ -1,17 +1,18 @@
 //===-- llvm/CodeGen/ExpandISelPseudos.cpp ----------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExpandISelPseudos.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Expand Pseudo-instructions produced by ISel. These are usually to allow   //
-// the expansion to contain control flow, such as a conditional move         //
-// implemented with a conditional branch and a phi, or an atomic operation   //
-// implemented with a loop.                                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Expand Pseudo-instructions produced by ISel. These are usually to allow
+// the expansion to contain control flow, such as a conditional move
+// implemented with a conditional branch and a phi, or an atomic operation
+// implemented with a loop.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/MachineFunction.h"

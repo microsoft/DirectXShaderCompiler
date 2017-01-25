@@ -1,14 +1,15 @@
 //===-------- EdgeBundles.cpp - Bundles of CFG edges ----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// EdgeBundles.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides the implementation of the EdgeBundles analysis.        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides the implementation of the EdgeBundles analysis.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/EdgeBundles.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"

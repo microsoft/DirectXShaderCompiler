@@ -1,15 +1,16 @@
 //===- YAMLBench - Benchmark the YAMLParser implementation ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// YAMLBench.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This program executes the YAMLParser on differently sized YAML texts and  //
-// outputs the run time.                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This program executes the YAMLParser on differently sized YAML texts and
+// outputs the run time.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Casting.h"

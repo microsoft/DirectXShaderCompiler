@@ -1,16 +1,17 @@
 /*===-- llvm-c/lto.h - LTO Public C Interface ---------------------*- C -*-===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// lto.h                                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header provides public interface to an abstract link time optimization//
-// library.  LLVM provides an implementation of this interface for use with  //
-// llvm bitcode files.                                                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+|*                                                                            *|
+|*                     The LLVM Compiler Infrastructure                       *|
+|*                                                                            *|
+|* This file is distributed under the University of Illinois Open Source      *|
+|* License. See LICENSE.TXT for details.                                      *|
+|*                                                                            *|
+|*===----------------------------------------------------------------------===*|
+|*                                                                            *|
+|* This header provides public interface to an abstract link time optimization*|
+|* library.  LLVM provides an implementation of this interface for use with   *|
+|* llvm bitcode files.                                                        *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
 
 #ifndef LLVM_C_LTO_H
 #define LLVM_C_LTO_H

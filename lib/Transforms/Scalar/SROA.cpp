@@ -1,28 +1,27 @@
 //===- SROA.cpp - Scalar Replacement Of Aggregates ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SROA.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This transformation implements the well known scalar replacement of      //
-/// aggregates transformation. It tries to identify promotable elements of an//
-/// aggregate alloca, and promote them to registers. It will also try to     //
-/// convert uses of an element (or set of elements) of an alloca into a vector//
-/// or bitfield-style integer scalar if appropriate.                         //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This transformation implements the well known scalar replacement of
+/// aggregates transformation. It tries to identify promotable elements of an
+/// aggregate alloca, and promote them to registers. It will also try to
+/// convert uses of an element (or set of elements) of an alloca into a vector
+/// or bitfield-style integer scalar if appropriate.
 ///
-/// It works to do this with minimal slicing of the alloca so that regions   //
-/// which are merely transferred in and out of external memory remain unchanged//
-/// and are not decomposed to scalar code.                                   //
+/// It works to do this with minimal slicing of the alloca so that regions
+/// which are merely transferred in and out of external memory remain unchanged
+/// and are not decomposed to scalar code.
 ///
-/// Because this also performs alloca promotion, it can be thought of as also//
-/// serving the purpose of SSA formation. The algorithm iterates on the      //
-/// function until all opportunities for promotion have been realized.       //
+/// Because this also performs alloca promotion, it can be thought of as also
+/// serving the purpose of SSA formation. The algorithm iterates on the
+/// function until all opportunities for promotion have been realized.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/STLExtras.h"

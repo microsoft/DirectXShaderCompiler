@@ -1,19 +1,20 @@
 //===- SLPVectorizer.cpp - A bottom up SLP Vectorizer ---------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SLPVectorizer.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass implements the Bottom Up SLP vectorizer. It detects consecutive //
-// stores that can be put together into vector-stores. Next, it attempts to  //
-// construct vectorizable tree using the use-def chains. If a profitable tree//
-// was found, the SLP vectorizer performs vectorization on the tree.         //
-//                                                                           //
-// The pass is inspired by the work described in the paper:                  //
-//  "Loop-Aware SLP in GCC" by Ira Rosen, Dorit Nuzman, Ayal Zaks.           //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This pass implements the Bottom Up SLP vectorizer. It detects consecutive
+// stores that can be put together into vector-stores. Next, it attempts to
+// construct vectorizable tree using the use-def chains. If a profitable tree
+// was found, the SLP vectorizer performs vectorization on the tree.
+//
+// The pass is inspired by the work described in the paper:
+//  "Loop-Aware SLP in GCC" by Ira Rosen, Dorit Nuzman, Ayal Zaks.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/ADT/MapVector.h"

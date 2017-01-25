@@ -1,14 +1,15 @@
 //===--- ObjCMethodList.h - A singly linked list of methods -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjCMethodList.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines ObjCMethodList, a singly-linked list of methods.        //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines ObjCMethodList, a singly-linked list of methods.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SEMA_OBJCMETHODLIST_H
 #define LLVM_CLANG_SEMA_OBJCMETHODLIST_H

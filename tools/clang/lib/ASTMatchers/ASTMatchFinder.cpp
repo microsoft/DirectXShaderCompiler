@@ -1,19 +1,20 @@
 //===--- ASTMatchFinder.cpp - Structural query framework ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTMatchFinder.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Implements an algorithm to efficiently search for matches on AST nodes.  //
-//  Uses memoization to support recursive matches like HasDescendant.        //
-//                                                                           //
-//  The general idea is to visit all AST nodes with a RecursiveASTVisitor,   //
-//  calling the Matches(...) method of each matcher we are running on each   //
-//  AST node. The matcher can recurse via the ASTMatchFinder interface.      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  Implements an algorithm to efficiently search for matches on AST nodes.
+//  Uses memoization to support recursive matches like HasDescendant.
+//
+//  The general idea is to visit all AST nodes with a RecursiveASTVisitor,
+//  calling the Matches(...) method of each matcher we are running on each
+//  AST node. The matcher can recurse via the ASTMatchFinder interface.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/AST/ASTConsumer.h"

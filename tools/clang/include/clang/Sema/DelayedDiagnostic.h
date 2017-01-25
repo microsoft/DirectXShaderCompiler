@@ -1,24 +1,23 @@
 //===--- DelayedDiagnostic.h - Delayed declarator diagnostics ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DelayedDiagnostic.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Defines the classes clang::DelayedDiagnostic and                  //
-/// clang::AccessedEntity.                                                   //
+/// \file
+/// \brief Defines the classes clang::DelayedDiagnostic and 
+/// clang::AccessedEntity.
 ///
-/// DelayedDiangostic is used to record diagnostics that are being           //
-/// conditionally produced during declarator parsing.  Certain kinds of      //
-/// diagnostics -- notably deprecation and access control -- are suppressed  //
-/// based on semantic properties of the parsed declaration that aren't known //
-/// until it is fully parsed.                                                //
+/// DelayedDiangostic is used to record diagnostics that are being
+/// conditionally produced during declarator parsing.  Certain kinds of
+/// diagnostics -- notably deprecation and access control -- are suppressed
+/// based on semantic properties of the parsed declaration that aren't known
+/// until it is fully parsed.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SEMA_DELAYEDDIAGNOSTIC_H
 #define LLVM_CLANG_SEMA_DELAYEDDIAGNOSTIC_H

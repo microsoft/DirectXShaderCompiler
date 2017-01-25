@@ -1,15 +1,16 @@
 //===-- llvm-lto: a simple command-line program to link modules with LTO --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-lto.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This program takes in a list of bitcode files, links them, performs link-time//
-// optimization, and outputs an object file.                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This program takes in a list of bitcode files, links them, performs link-time
+// optimization, and outputs an object file.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringSet.h"
 #include "llvm/CodeGen/CommandFlags.h"

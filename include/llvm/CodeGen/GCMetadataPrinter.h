@@ -1,20 +1,21 @@
 //===-- llvm/CodeGen/GCMetadataPrinter.h - Prints asm GC tables -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GCMetadataPrinter.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The abstract base class GCMetadataPrinter supports writing GC metadata tables//
-// as assembly code. This is a separate class from GCStrategy in order to allow//
-// users of the LLVM JIT to avoid linking with the AsmWriter.                //
 //
-// Subclasses of GCMetadataPrinter must be registered using the              //
-// GCMetadataPrinterRegistry. This is separate from the GCStrategy itself    //
-// because these subclasses are logically plugins for the AsmWriter.         //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The abstract base class GCMetadataPrinter supports writing GC metadata tables
+// as assembly code. This is a separate class from GCStrategy in order to allow
+// users of the LLVM JIT to avoid linking with the AsmWriter.
+//
+// Subclasses of GCMetadataPrinter must be registered using the
+// GCMetadataPrinterRegistry. This is separate from the GCStrategy itself
+// because these subclasses are logically plugins for the AsmWriter.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_GCMETADATAPRINTER_H
 #define LLVM_CODEGEN_GCMETADATAPRINTER_H

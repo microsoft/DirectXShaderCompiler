@@ -1,14 +1,15 @@
 //===- Error.h - system_error extensions for llvm-readobj -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Error.h                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This declares a new error_category for the llvm-readobj tool.             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This declares a new error_category for the llvm-readobj tool.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TOOLS_LLVM_READOBJ_ERROR_H
 #define LLVM_TOOLS_LLVM_READOBJ_ERROR_H

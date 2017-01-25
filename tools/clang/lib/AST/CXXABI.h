@@ -1,15 +1,16 @@
 //===----- CXXABI.h - Interface to C++ ABIs ---------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CXXABI.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This provides an abstract class for C++ AST support. Concrete             //
-// subclasses of this implement AST support for specific C++ ABIs.           //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This provides an abstract class for C++ AST support. Concrete
+// subclasses of this implement AST support for specific C++ ABIs.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_AST_CXXABI_H
 #define LLVM_CLANG_LIB_AST_CXXABI_H

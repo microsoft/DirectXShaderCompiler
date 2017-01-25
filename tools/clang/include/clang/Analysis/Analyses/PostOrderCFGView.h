@@ -1,14 +1,15 @@
 //===- PostOrderCFGView.h - Post order view of CFG blocks ---------*- C++ --*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PostOrderCFGView.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements post order view of the blocks in a CFG.              //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements post order view of the blocks in a CFG.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ANALYSIS_ANALYSES_POSTORDERCFGVIEW_H
 #define LLVM_CLANG_ANALYSIS_ANALYSES_POSTORDERCFGVIEW_H

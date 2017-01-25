@@ -1,16 +1,16 @@
 //===- llvm/Support/DiagnosticInfo.cpp - Diagnostic Definitions -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DiagnosticInfo.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the different classes involved in low level diagnostics.//
-//                                                                           //
-// Diagnostics reporting is still done as part of the LLVMContext.           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the different classes involved in low level diagnostics.
+//
+// Diagnostics reporting is still done as part of the LLVMContext.
+//===----------------------------------------------------------------------===//
 
 #include "LLVMContextImpl.h"
 #include "llvm/ADT/Twine.h"

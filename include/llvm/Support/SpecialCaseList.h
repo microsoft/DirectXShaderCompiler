@@ -1,49 +1,49 @@
 //===-- SpecialCaseList.h - special case list for sanitizers ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SpecialCaseList.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is a utility class used to parse user-provided text files with       //
-// "special case lists" for code sanitizers. Such files are used to          //
-// define "ABI list" for DataFlowSanitizer and blacklists for another sanitizers//
-// like AddressSanitizer or UndefinedBehaviorSanitizer.                      //
 //
-// Empty lines and lines starting with "#" are ignored. All the rest lines   //
-// should have the form:                                                     //
-//   section:wildcard_expression[=category]                                  //
-// If category is not specified, it is assumed to be empty string.           //
-// Definitions of "section" and "category" are sanitizer-specific. For example,//
-// sanitizer blacklists support sections "src", "fun" and "global".          //
-// Wildcard expressions define, respectively, source files, functions or     //
-// globals which shouldn't be instrumented.                                  //
-// Examples of categories:                                                   //
-//   "functional": used in DFSan to list functions with pure functional      //
-//                 semantics.                                                //
-//   "init": used in ASan blacklist to disable initialization-order bugs     //
-//           detection for certain globals or source files.                  //
-// Full special case list file example:                                      //
-// ---                                                                       //
-// # Blacklisted items:                                                      //
-// fun:*_ZN4base6subtle*                                                     //
-// global:*global_with_bad_access_or_initialization*                         //
-// global:*global_with_initialization_issues*=init                           //
-// type:*Namespace::ClassName*=init                                          //
-// src:file_with_tricky_code.cc                                              //
-// src:ignore-global-initializers-issues.cc=init                             //
+//                     The LLVM Compiler Infrastructure
 //
-// # Functions with pure functional semantics:                               //
-// fun:cos=functional                                                        //
-// fun:sin=functional                                                        //
-// ---                                                                       //
-// Note that the wild card is in fact an llvm::Regex, but * is automatically //
-// replaced with .*                                                          //
-// This is similar to the "ignore" feature of ThreadSanitizer.               //
-// http://code.google.com/p/data-race-test/wiki/ThreadSanitizerIgnores       //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// This is a utility class used to parse user-provided text files with
+// "special case lists" for code sanitizers. Such files are used to
+// define "ABI list" for DataFlowSanitizer and blacklists for another sanitizers
+// like AddressSanitizer or UndefinedBehaviorSanitizer.
+//
+// Empty lines and lines starting with "#" are ignored. All the rest lines
+// should have the form:
+//   section:wildcard_expression[=category]
+// If category is not specified, it is assumed to be empty string.
+// Definitions of "section" and "category" are sanitizer-specific. For example,
+// sanitizer blacklists support sections "src", "fun" and "global".
+// Wildcard expressions define, respectively, source files, functions or
+// globals which shouldn't be instrumented.
+// Examples of categories:
+//   "functional": used in DFSan to list functions with pure functional
+//                 semantics.
+//   "init": used in ASan blacklist to disable initialization-order bugs
+//           detection for certain globals or source files.
+// Full special case list file example:
+// ---
+// # Blacklisted items:
+// fun:*_ZN4base6subtle*
+// global:*global_with_bad_access_or_initialization*
+// global:*global_with_initialization_issues*=init
+// type:*Namespace::ClassName*=init
+// src:file_with_tricky_code.cc
+// src:ignore-global-initializers-issues.cc=init
+//
+// # Functions with pure functional semantics:
+// fun:cos=functional
+// fun:sin=functional
+// ---
+// Note that the wild card is in fact an llvm::Regex, but * is automatically
+// replaced with .*
+// This is similar to the "ignore" feature of ThreadSanitizer.
+// http://code.google.com/p/data-race-test/wiki/ThreadSanitizerIgnores
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_SPECIALCASELIST_H
 #define LLVM_SUPPORT_SPECIALCASELIST_H

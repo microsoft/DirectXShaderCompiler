@@ -1,19 +1,20 @@
 //===- unittest/AST/MatchVerifier.h - AST unit test support ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MatchVerifier.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Provides MatchVerifier, a base class to implement gtest matchers that    //
-//  verify things that can be matched on the AST.                            //
 //
-//  Also implements matchers based on MatchVerifier:                         //
-//  LocationVerifier and RangeVerifier to verify whether a matched node has  //
-//  the expected source location or source range.                            //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  Provides MatchVerifier, a base class to implement gtest matchers that
+//  verify things that can be matched on the AST.
+//
+//  Also implements matchers based on MatchVerifier:
+//  LocationVerifier and RangeVerifier to verify whether a matched node has
+//  the expected source location or source range.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_UNITTESTS_AST_MATCHVERIFIER_H
 #define LLVM_CLANG_UNITTESTS_AST_MATCHVERIFIER_H

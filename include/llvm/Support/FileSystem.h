@@ -1,27 +1,28 @@
 //===- llvm/Support/FileSystem.h - File System OS Concept -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FileSystem.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the llvm::sys::fs namespace. It is designed after      //
-// TR2/boost filesystem (v3), but modified to remove exception handling and the//
-// path class.                                                               //
 //
-// All functions return an error_code and their actual work via the last out //
-// argument. The out argument is defined if and only if errc::success is     //
-// returned. A function may return any error code in the generic or system   //
-// category. However, they shall be equivalent to any error conditions listed//
-// in each functions respective documentation if the condition applies. [ note://
-// this does not guarantee that error_code will be in the set of explicitly  //
-// listed codes, but it does guarantee that if any of the explicitly listed  //
-// errors occur, the correct error_code will be used ]. All functions may    //
-// return errc::not_enough_memory if there is not enough memory to complete the//
-// operation.                                                                //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the llvm::sys::fs namespace. It is designed after
+// TR2/boost filesystem (v3), but modified to remove exception handling and the
+// path class.
+//
+// All functions return an error_code and their actual work via the last out
+// argument. The out argument is defined if and only if errc::success is
+// returned. A function may return any error code in the generic or system
+// category. However, they shall be equivalent to any error conditions listed
+// in each functions respective documentation if the condition applies. [ note:
+// this does not guarantee that error_code will be in the set of explicitly
+// listed codes, but it does guarantee that if any of the explicitly listed
+// errors occur, the correct error_code will be used ]. All functions may
+// return errc::not_enough_memory if there is not enough memory to complete the
+// operation.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_FILESYSTEM_H
 #define LLVM_SUPPORT_FILESYSTEM_H

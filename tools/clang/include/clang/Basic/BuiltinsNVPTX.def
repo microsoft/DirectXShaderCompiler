@@ -1,16 +1,16 @@
 //===--- BuiltinsPTX.def - PTX Builtin function database ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BuiltinsNVPTX.def                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the PTX-specific builtin function database.  Users of   //
-// this file must define the BUILTIN macro to make use of this information.  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// The format of this database matches clang/Basic/Builtins.def.             //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the PTX-specific builtin function database.  Users of
+// this file must define the BUILTIN macro to make use of this information.
+//
+//===----------------------------------------------------------------------===//
 
 // Builtins retained from previous PTX back-end
 BUILTIN(__builtin_ptx_read_tid_x, "i", "nc")

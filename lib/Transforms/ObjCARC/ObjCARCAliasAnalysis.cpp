@@ -1,25 +1,24 @@
 //===- ObjCARCAliasAnalysis.cpp - ObjC ARC Optimization -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjCARCAliasAnalysis.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file defines a simple ARC-aware AliasAnalysis using special knowledge//
-/// of Objective C to enhance other optimization passes which rely on the Alias//
-/// Analysis infrastructure.                                                 //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file defines a simple ARC-aware AliasAnalysis using special knowledge
+/// of Objective C to enhance other optimization passes which rely on the Alias
+/// Analysis infrastructure.
 ///
-/// WARNING: This file knows about certain library functions. It recognizes them//
-/// by name, and hardwires knowledge of their semantics.                     //
+/// WARNING: This file knows about certain library functions. It recognizes them
+/// by name, and hardwires knowledge of their semantics.
 ///
-/// WARNING: This file knows about how certain Objective-C library functions are//
-/// used. Naive LLVM IR transformations which would otherwise be             //
-/// behavior-preserving may break these assumptions.                         //
+/// WARNING: This file knows about how certain Objective-C library functions are
+/// used. Naive LLVM IR transformations which would otherwise be
+/// behavior-preserving may break these assumptions.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "ObjCARC.h"
 #include "ObjCARCAliasAnalysis.h"

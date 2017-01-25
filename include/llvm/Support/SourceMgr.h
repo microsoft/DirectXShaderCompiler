@@ -1,16 +1,17 @@
 //===- SourceMgr.h - Manager for Source Buffers & Diagnostics ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SourceMgr.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the SMDiagnostic and SourceMgr classes.  This          //
-// provides a simple substrate for diagnostics, #include handling, and other low//
-// level things for simple parsers.                                          //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the SMDiagnostic and SourceMgr classes.  This
+// provides a simple substrate for diagnostics, #include handling, and other low
+// level things for simple parsers.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_SOURCEMGR_H
 #define LLVM_SUPPORT_SOURCEMGR_H

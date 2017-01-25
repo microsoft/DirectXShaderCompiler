@@ -1,15 +1,16 @@
 //===--- PthreadLockChecker.cpp - Check for locking problems ---*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PthreadLockChecker.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This defines PthreadLockChecker, a simple lock -> unlock checker.         //
-// Also handles XNU locks, which behave similarly enough to share code.      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This defines PthreadLockChecker, a simple lock -> unlock checker.
+// Also handles XNU locks, which behave similarly enough to share code.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"

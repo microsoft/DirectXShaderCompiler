@@ -1,14 +1,15 @@
 //===--- CLCompatOptions.td - Options for clang-cl ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CLCompatOptions.td                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the options accepted by clang-cl.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the options accepted by clang-cl.
+//
+//===----------------------------------------------------------------------===//
 
 def cl_Group : OptionGroup<"<clang-cl options>">,
   HelpText<"CL.EXE COMPATIBILITY OPTIONS">;

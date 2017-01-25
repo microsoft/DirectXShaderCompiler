@@ -1,37 +1,36 @@
 //===--- SourceManager.h - Track and cache source files ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SourceManager.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Defines the SourceManager interface.                              //
+/// \file
+/// \brief Defines the SourceManager interface.
 ///
-/// There are three different types of locations in a %file: a spelling      //
-/// location, an expansion location, and a presumed location.                //
+/// There are three different types of locations in a %file: a spelling
+/// location, an expansion location, and a presumed location.
 ///
-/// Given an example of:                                                     //
-/// \code                                                                    //
-/// #define min(x, y) x < y ? x : y                                          //
-/// \endcode                                                                 //
+/// Given an example of:
+/// \code
+/// #define min(x, y) x < y ? x : y
+/// \endcode
 ///
-/// and then later on a use of min:                                          //
-/// \code                                                                    //
-/// #line 17                                                                 //
-/// return min(a, b);                                                        //
-/// \endcode                                                                 //
+/// and then later on a use of min:
+/// \code
+/// #line 17
+/// return min(a, b);
+/// \endcode
 ///
-/// The expansion location is the line in the source code where the macro    //
-/// was expanded (the return statement), the spelling location is the        //
-/// location in the source where the macro was originally defined,           //
-/// and the presumed location is where the line directive states that        //
-/// the line is 17, or any other line.                                       //
+/// The expansion location is the line in the source code where the macro
+/// was expanded (the return statement), the spelling location is the
+/// location in the source where the macro was originally defined,
+/// and the presumed location is where the line directive states that
+/// the line is 17, or any other line.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_BASIC_SOURCEMANAGER_H
 #define LLVM_CLANG_BASIC_SOURCEMANAGER_H

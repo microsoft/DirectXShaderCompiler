@@ -1,16 +1,17 @@
 //===- llvm-pdbdump.cpp - Dump debug info from a PDB file -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-pdbdump.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Dumps debug information present in PDB files.  This utility makes use of  //
-// the Microsoft Windows SDK, so will not compile or run on non-Windows      //
-// platforms.                                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Dumps debug information present in PDB files.  This utility makes use of
+// the Microsoft Windows SDK, so will not compile or run on non-Windows
+// platforms.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm-pdbdump.h"
 #include "CompilandDumper.h"

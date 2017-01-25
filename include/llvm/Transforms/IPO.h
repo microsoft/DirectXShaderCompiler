@@ -1,13 +1,14 @@
 //===- llvm/Transforms/IPO.h - Interprocedural Transformations --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IPO.h                                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header file defines prototypes for accessor functions that expose passes//
-// in the IPO transformations library.                                       //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header file defines prototypes for accessor functions that expose passes
+// in the IPO transformations library.
 //
 //===----------------------------------------------------------------------===//
 

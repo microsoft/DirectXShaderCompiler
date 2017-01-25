@@ -1,14 +1,15 @@
 //===-- CGCleanup.h - Classes for cleanups IR generation --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CGCleanup.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// These classes support the generation of LLVM IR for cleanups.             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// These classes support the generation of LLVM IR for cleanups.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_CODEGEN_CGCLEANUP_H
 #define LLVM_CLANG_LIB_CODEGEN_CGCLEANUP_H

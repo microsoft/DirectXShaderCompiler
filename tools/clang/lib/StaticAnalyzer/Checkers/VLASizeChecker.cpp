@@ -1,17 +1,18 @@
 //=== VLASizeChecker.cpp - Undefined dereference checker --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// VLASizeChecker.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This defines VLASizeChecker, a builtin check in ExprEngine that           //
-// performs checks for declaration of VLA of undefined or zero size.         //
-// In addition, VLASizeChecker is responsible for defining the extent        //
-// of the MemRegion that represents a VLA.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This defines VLASizeChecker, a builtin check in ExprEngine that 
+// performs checks for declaration of VLA of undefined or zero size.
+// In addition, VLASizeChecker is responsible for defining the extent
+// of the MemRegion that represents a VLA.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/CharUnits.h"

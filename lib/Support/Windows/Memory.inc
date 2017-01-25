@@ -1,15 +1,16 @@
 //===- Win32/Memory.cpp - Win32 Memory Implementation -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Memory.inc                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides the Win32 specific implementation of various Memory    //
-// management utilities                                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides the Win32 specific implementation of various Memory
+// management utilities
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"

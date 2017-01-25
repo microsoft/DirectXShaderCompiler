@@ -1,15 +1,16 @@
 //===- EarlyCSE.cpp - Simple and fast CSE pass ----------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// EarlyCSE.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass performs a simple dominator tree walk that eliminates trivially //
-// redundant instructions.                                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass performs a simple dominator tree walk that eliminates trivially
+// redundant instructions.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/ADT/Hashing.h"

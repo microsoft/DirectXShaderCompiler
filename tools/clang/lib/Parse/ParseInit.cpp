@@ -1,14 +1,15 @@
 //===--- ParseInit.cpp - Initializer Parsing ------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ParseInit.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements initializer parsing as specified by C99 6.7.8.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements initializer parsing as specified by C99 6.7.8.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Parse/Parser.h"
 #include "RAIIObjectsForParser.h"

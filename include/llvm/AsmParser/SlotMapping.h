@@ -1,14 +1,15 @@
 //===-- SlotMapping.h - Slot number mapping for unnamed values --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SlotMapping.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of the SlotMapping struct.             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of the SlotMapping struct.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ASMPARSER_SLOTMAPPING_H
 #define LLVM_ASMPARSER_SLOTMAPPING_H

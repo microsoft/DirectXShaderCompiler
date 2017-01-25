@@ -1,20 +1,21 @@
 //===- ConstantFold.cpp - LLVM constant folder ----------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantFold.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements folding of constants for LLVM.  This implements the  //
-// (internal) ConstantFold.h interface, which is used by the                 //
-// ConstantExpr::get* methods to automatically fold constants when possible. //
-//                                                                           //
-// The current constant folding implementation is implemented in two pieces: the//
-// pieces that don't need DataLayout, and the pieces that do. This is to avoid//
-// a dependence in IR on Target.                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements folding of constants for LLVM.  This implements the
+// (internal) ConstantFold.h interface, which is used by the
+// ConstantExpr::get* methods to automatically fold constants when possible.
+//
+// The current constant folding implementation is implemented in two pieces: the
+// pieces that don't need DataLayout, and the pieces that do. This is to avoid
+// a dependence in IR on Target.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ConstantFold.h"
 #include "llvm/ADT/SmallVector.h"

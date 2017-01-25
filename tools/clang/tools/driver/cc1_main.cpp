@@ -1,16 +1,17 @@
 //===-- cc1_main.cpp - Clang CC1 Compiler Frontend ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// cc1_main.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is the entry point to the clang -cc1 functionality, which implements the//
-// core compiler functionality along with a number of additional tools for   //
-// demonstration and testing purposes.                                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is the entry point to the clang -cc1 functionality, which implements the
+// core compiler functionality along with a number of additional tools for
+// demonstration and testing purposes.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Option/Arg.h"
 #include "clang/CodeGen/ObjectFilePCHContainerOperations.h"

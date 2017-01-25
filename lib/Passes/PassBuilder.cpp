@@ -1,20 +1,19 @@
 //===- Parsing, selection, and construction of pass pipelines -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PassBuilder.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// This file provides the implementation of the PassBuilder based on our    //
-/// static pass registry as well as related functionality. It also provides  //
-/// helpers to aid in analyzing, debugging, and testing passes and pass      //
-/// pipelines.                                                               //
+/// This file provides the implementation of the PassBuilder based on our
+/// static pass registry as well as related functionality. It also provides
+/// helpers to aid in analyzing, debugging, and testing passes and pass
+/// pipelines.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Analysis/AssumptionCache.h"

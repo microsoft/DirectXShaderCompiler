@@ -1,16 +1,15 @@
 //===- PtrUseVisitor.cpp - InstVisitors over a pointers uses --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PtrUseVisitor.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// Implementation of the pointer use visitors.                              //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// Implementation of the pointer use visitors.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/PtrUseVisitor.h"
 

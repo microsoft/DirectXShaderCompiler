@@ -1,14 +1,11 @@
 //===- llvm/unittest/ADT/PackedVectorTest.cpp - PackedVector tests --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PackedVectorTest.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// BitVectorTest tests fail on PowerPC for unknown reasons, so disable this  //
-// as well since it depends on a BitVector.                                  //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef __ppc__
 

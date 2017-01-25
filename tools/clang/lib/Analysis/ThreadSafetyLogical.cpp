@@ -1,15 +1,14 @@
 //===- ThreadSafetyLogical.cpp ---------------------------------*- C++ --*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ThreadSafetyLogical.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a representation for logical expressions with SExpr leaves//
-// that are used as part of fact-checking capability expressions.            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This file defines a representation for logical expressions with SExpr leaves
+// that are used as part of fact-checking capability expressions.
+//===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/ThreadSafetyLogical.h"
 

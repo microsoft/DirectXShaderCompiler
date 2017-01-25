@@ -1,17 +1,18 @@
 //===--- Scalarizer.cpp - Scalarize vector operations ---------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Scalarizer.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass converts vector operations into scalar operations, in order     //
-// to expose optimization opportunities on the individual scalar operations. //
-// It is mainly intended for targets that do not have vector units, but it   //
-// may also be useful for revectorizing code to different vector widths.     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass converts vector operations into scalar operations, in order
+// to expose optimization opportunities on the individual scalar operations.
+// It is mainly intended for targets that do not have vector units, but it
+// may also be useful for revectorizing code to different vector widths.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/IRBuilder.h"

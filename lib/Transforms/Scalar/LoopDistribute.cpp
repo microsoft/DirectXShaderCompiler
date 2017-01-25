@@ -1,25 +1,26 @@
 //===- LoopDistribute.cpp - Loop Distribution Pass ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopDistribute.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Loop Distribution Pass.  Its main focus is to    //
-// distribute loops that cannot be vectorized due to dependence cycles.  It  //
-// tries to isolate the offending dependences into a new loop allowing       //
-// vectorization of the remaining parts.                                     //
-//                                                                           //
-// For dependence analysis, the pass uses the LoopVectorizer's               //
-// LoopAccessAnalysis.  Because this analysis presumes no change in the order of//
-// memory operations, special care is taken to preserve the lexical order of //
-// these operations.                                                         //
-//                                                                           //
-// Similarly to the Vectorizer, the pass also supports loop versioning to    //
-// run-time disambiguate potentially overlapping arrays.                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Loop Distribution Pass.  Its main focus is to
+// distribute loops that cannot be vectorized due to dependence cycles.  It
+// tries to isolate the offending dependences into a new loop allowing
+// vectorization of the remaining parts.
+//
+// For dependence analysis, the pass uses the LoopVectorizer's
+// LoopAccessAnalysis.  Because this analysis presumes no change in the order of
+// memory operations, special care is taken to preserve the lexical order of
+// these operations.
+//
+// Similarly to the Vectorizer, the pass also supports loop versioning to
+// run-time disambiguate potentially overlapping arrays.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/EquivalenceClasses.h"

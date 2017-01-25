@@ -1,14 +1,15 @@
 //===- ObjectTransformLayer.h - Run all objects through functor -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjectTransformLayer.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Run all objects passed in through a user supplied functor.                //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Run all objects passed in through a user supplied functor.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_EXECUTIONENGINE_ORC_OBJECTTRANSFORMLAYER_H
 #define LLVM_EXECUTIONENGINE_ORC_OBJECTTRANSFORMLAYER_H

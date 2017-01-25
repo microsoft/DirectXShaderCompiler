@@ -1,18 +1,19 @@
 //===- llvm/Analysis/Interval.h - Interval Class Declaration ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Interval.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of the Interval class, which           //
-// represents a set of CFG nodes and is a portion of an interval partition.  //
 //
-// Intervals have some interesting and useful properties, including the      //
-// following:                                                                //
-//    1. The header node of an interval dominates all of the elements of the //
-//       interval                                                            //
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of the Interval class, which
+// represents a set of CFG nodes and is a portion of an interval partition.
+//
+// Intervals have some interesting and useful properties, including the
+// following:
+//    1. The header node of an interval dominates all of the elements of the
+//       interval
 //
 //===----------------------------------------------------------------------===//
 

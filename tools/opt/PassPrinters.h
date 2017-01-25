@@ -1,17 +1,16 @@
 //===- PassPrinters.h - Utilities to print analysis info for passes -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PassPrinters.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Utilities to print analysis info for various kinds of passes.     //
+/// \file
+/// \brief Utilities to print analysis info for various kinds of passes.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_TOOLS_OPT_PASSPRINTERS_H
 #define LLVM_TOOLS_OPT_PASSPRINTERS_H
 

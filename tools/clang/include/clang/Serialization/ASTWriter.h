@@ -1,15 +1,16 @@
 //===--- ASTWriter.h - AST File Writer --------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTWriter.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the ASTWriter class, which writes an AST file          //
-//  containing a serialized representation of a translation unit.            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the ASTWriter class, which writes an AST file
+//  containing a serialized representation of a translation unit.
+//
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SERIALIZATION_ASTWRITER_H
 #define LLVM_CLANG_SERIALIZATION_ASTWRITER_H
 

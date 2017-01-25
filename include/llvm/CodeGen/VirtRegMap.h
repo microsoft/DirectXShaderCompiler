@@ -1,17 +1,18 @@
 //===-- llvm/CodeGen/VirtRegMap.h - Virtual Register Map -*- C++ -*--------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// VirtRegMap.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a virtual register map. This maps virtual registers to//
-// physical registers and virtual registers to stack slots. It is created and//
-// updated by a register allocator and then used by a machine code rewriter that//
-// adds spill code and rewrites virtual into physical register references.   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a virtual register map. This maps virtual registers to
+// physical registers and virtual registers to stack slots. It is created and
+// updated by a register allocator and then used by a machine code rewriter that
+// adds spill code and rewrites virtual into physical register references.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_VIRTREGMAP_H
 #define LLVM_CODEGEN_VIRTREGMAP_H

@@ -1,15 +1,16 @@
 //== TestAfterDivZeroChecker.cpp - Test after division by zero checker --*--==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TestAfterDivZeroChecker.cpp                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This defines TestAfterDivZeroChecker, a builtin check that performs checks//
-//  for division by zero where the division occurs before comparison with zero.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This defines TestAfterDivZeroChecker, a builtin check that performs checks
+//  for division by zero where the division occurs before comparison with zero.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"

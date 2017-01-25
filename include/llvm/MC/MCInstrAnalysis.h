@@ -1,15 +1,16 @@
 //===-- llvm/MC/MCInstrAnalysis.h - InstrDesc target hooks ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCInstrAnalysis.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the MCInstrAnalysis class which the MCTargetDescs can   //
-// derive from to give additional information to MC.                         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the MCInstrAnalysis class which the MCTargetDescs can
+// derive from to give additional information to MC.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCINSTRANALYSIS_H
 #define LLVM_MC_MCINSTRANALYSIS_H

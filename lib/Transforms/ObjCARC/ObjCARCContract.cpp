@@ -1,30 +1,27 @@
 //===- ObjCARCContract.cpp - ObjC ARC Optimization ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjCARCContract.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file defines late ObjC ARC optimizations. ARC stands for Automatic  //
-/// Reference Counting and is a system for managing reference counts for objects//
-/// in Objective C.                                                          //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file defines late ObjC ARC optimizations. ARC stands for Automatic
+/// Reference Counting and is a system for managing reference counts for objects
+/// in Objective C.
 ///
-/// This specific file mainly deals with ``contracting'' multiple lower level//
-/// operations into singular higher level operations through pattern matching.//
+/// This specific file mainly deals with ``contracting'' multiple lower level
+/// operations into singular higher level operations through pattern matching.
 ///
-/// WARNING: This file knows about certain library functions. It recognizes them//
-/// by name, and hardwires knowledge of their semantics.                     //
+/// WARNING: This file knows about certain library functions. It recognizes them
+/// by name, and hardwires knowledge of their semantics.
 ///
-/// WARNING: This file knows about how certain Objective-C library functions are//
-/// used. Naive LLVM IR transformations which would otherwise be             //
-/// behavior-preserving may break these assumptions.                         //
+/// WARNING: This file knows about how certain Objective-C library functions are
+/// used. Naive LLVM IR transformations which would otherwise be
+/// behavior-preserving may break these assumptions.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// TODO: ObjCARCContract could insert PHI nodes when uses aren't             //
-// dominated by single calls.                                                //
+//===----------------------------------------------------------------------===//
 
 #include "ObjCARC.h"
 #include "ARCRuntimeEntryPoints.h"

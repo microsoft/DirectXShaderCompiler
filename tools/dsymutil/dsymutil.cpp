@@ -1,15 +1,16 @@
 //===-- dsymutil.cpp - Debug info dumping utility for llvm ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// dsymutil.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This program is a utility that aims to be a dropin replacement for        //
-// Darwin's dsymutil.                                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This program is a utility that aims to be a dropin replacement for
+// Darwin's dsymutil.
+//
+//===----------------------------------------------------------------------===//
 
 #include "DebugMap.h"
 #include "dsymutil.h"

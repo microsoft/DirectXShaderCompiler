@@ -1,25 +1,24 @@
 //===---- ADT/SCCIterator.h - Strongly Connected Comp. Iter. ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SCCIterator.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// This builds on the llvm/ADT/GraphTraits.h file to find the strongly      //
-/// connected components (SCCs) of a graph in O(N+E) time using Tarjan's DFS //
-/// algorithm.                                                               //
+/// This builds on the llvm/ADT/GraphTraits.h file to find the strongly
+/// connected components (SCCs) of a graph in O(N+E) time using Tarjan's DFS
+/// algorithm.
 ///
-/// The SCC iterator has the important property that if a node in SCC S1 has an//
-/// edge to a node in SCC S2, then it visits S1 *after* S2.                  //
+/// The SCC iterator has the important property that if a node in SCC S1 has an
+/// edge to a node in SCC S2, then it visits S1 *after* S2.
 ///
-/// To visit S1 *before* S2, use the scc_iterator on the Inverse graph. (NOTE://
-/// This requires some simple wrappers and is not supported yet.)            //
+/// To visit S1 *before* S2, use the scc_iterator on the Inverse graph. (NOTE:
+/// This requires some simple wrappers and is not supported yet.)
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_SCCITERATOR_H
 #define LLVM_ADT_SCCITERATOR_H

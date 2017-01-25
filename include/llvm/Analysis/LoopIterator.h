@@ -1,26 +1,25 @@
 //===--------- LoopIterator.h - Iterate over loop blocks --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopIterator.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines iterators to visit the basic blocks within a loop.      //
 //
-// These iterators currently visit blocks within subloops as well.           //
-// Unfortunately we have no efficient way of summarizing loop exits which would//
-// allow skipping subloops during traversal.                                 //
+//                     The LLVM Compiler Infrastructure
 //
-// If you want to visit all blocks in a loop and don't need an ordered traveral,//
-// use Loop::block_begin() instead.                                          //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// This is intentionally designed to work with ill-formed loops in which the //
-// backedge has been deleted. The only prerequisite is that all blocks       //
-// contained within the loop according to the most recent LoopInfo analysis are//
-// reachable from the loop header.                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+// This file defines iterators to visit the basic blocks within a loop.
+//
+// These iterators currently visit blocks within subloops as well.
+// Unfortunately we have no efficient way of summarizing loop exits which would
+// allow skipping subloops during traversal.
+//
+// If you want to visit all blocks in a loop and don't need an ordered traveral,
+// use Loop::block_begin() instead.
+//
+// This is intentionally designed to work with ill-formed loops in which the
+// backedge has been deleted. The only prerequisite is that all blocks
+// contained within the loop according to the most recent LoopInfo analysis are
+// reachable from the loop header.
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_LOOPITERATOR_H
 #define LLVM_ANALYSIS_LOOPITERATOR_H

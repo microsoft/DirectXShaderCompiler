@@ -1,14 +1,15 @@
 //===--- CC1Options.td - Options for clang -cc1 ---------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CC1Options.td                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the options accepted by clang -cc1 and clang -cc1as.   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the options accepted by clang -cc1 and clang -cc1as.
+//
+//===----------------------------------------------------------------------===//
 
 let Flags = [CC1Option, NoDriverOption] in {
 

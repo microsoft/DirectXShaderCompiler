@@ -1,14 +1,15 @@
 //===- ToolOutputFile.h - Output files for compiler-like tools -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ToolOutputFile.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the tool_output_file class.                            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the tool_output_file class.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_TOOLOUTPUTFILE_H
 #define LLVM_SUPPORT_TOOLOUTPUTFILE_H

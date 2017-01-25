@@ -1,14 +1,15 @@
 //===-- SelectionDAGISel.cpp - Implement the SelectionDAGISel class -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SelectionDAGISel.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This implements the SelectionDAGISel class.                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This implements the SelectionDAGISel class.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/GCStrategy.h"
 #include "ScheduleDAGSDNodes.h"

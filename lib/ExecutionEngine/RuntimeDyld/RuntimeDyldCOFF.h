@@ -1,14 +1,15 @@
 //===-- RuntimeDyldCOFF.h - Run-time dynamic linker for MC-JIT ---*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RuntimeDyldCOFF.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// COFF support for MC-JIT runtime dynamic linker.                           //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// COFF support for MC-JIT runtime dynamic linker.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_RUNTIME_DYLD_COFF_H
 #define LLVM_RUNTIME_DYLD_COFF_H

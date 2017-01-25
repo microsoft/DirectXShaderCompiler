@@ -1,15 +1,16 @@
 //=-- InstrProf.cpp - Instrumented profiling format support -----------------=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstrProf.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains support for clang's instrumentation based PGO and      //
-// coverage.                                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains support for clang's instrumentation based PGO and
+// coverage.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Support/ErrorHandling.h"

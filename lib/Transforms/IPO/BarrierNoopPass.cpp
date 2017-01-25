@@ -1,21 +1,22 @@
 //===- BarrierNoopPass.cpp - A barrier pass for the pass manager ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BarrierNoopPass.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// NOTE: DO NOT USE THIS IF AVOIDABLE                                        //
-//                                                                           //
-// This pass is a nonce pass intended to allow manipulation of the implicitly//
-// nesting pass manager. For example, it can be used to cause a CGSCC pass   //
-// manager to be closed prior to running a new collection of function passes.//
-//                                                                           //
-// FIXME: This is a huge HACK. This should be removed when the pass manager's//
-// nesting is made explicit instead of implicit.                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// NOTE: DO NOT USE THIS IF AVOIDABLE
+//
+// This pass is a nonce pass intended to allow manipulation of the implicitly
+// nesting pass manager. For example, it can be used to cause a CGSCC pass
+// manager to be closed prior to running a new collection of function passes.
+//
+// FIXME: This is a huge HACK. This should be removed when the pass manager's
+// nesting is made explicit instead of implicit.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"

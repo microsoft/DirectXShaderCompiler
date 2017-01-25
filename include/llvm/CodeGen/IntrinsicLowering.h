@@ -1,16 +1,17 @@
 //===-- IntrinsicLowering.h - Intrinsic Function Lowering -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntrinsicLowering.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the IntrinsicLowering interface.  This interface allows //
-// addition of domain-specific or front-end specific intrinsics to LLVM without//
-// having to modify all of the C backend or interpreter.                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the IntrinsicLowering interface.  This interface allows
+// addition of domain-specific or front-end specific intrinsics to LLVM without
+// having to modify all of the C backend or interpreter.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_INTRINSICLOWERING_H
 #define LLVM_CODEGEN_INTRINSICLOWERING_H

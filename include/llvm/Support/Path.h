@@ -1,16 +1,17 @@
 //===- llvm/Support/Path.h - Path Operating System Concept ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Path.h                                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the llvm::sys::path namespace. It is designed after    //
-// TR2/boost filesystem (v3), but modified to remove exception handling and the//
-// path class.                                                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the llvm::sys::path namespace. It is designed after
+// TR2/boost filesystem (v3), but modified to remove exception handling and the
+// path class.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_PATH_H
 #define LLVM_SUPPORT_PATH_H

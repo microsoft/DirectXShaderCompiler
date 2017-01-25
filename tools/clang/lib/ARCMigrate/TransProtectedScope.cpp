@@ -1,15 +1,16 @@
 //===--- TransProtectedScope.cpp - Transformations to ARC mode ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TransProtectedScope.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Adds brackets in case statements that "contain" initialization of retaining//
-// variable, thus emitting the "switch case is in protected scope" error.    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Adds brackets in case statements that "contain" initialization of retaining
+// variable, thus emitting the "switch case is in protected scope" error.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Transforms.h"
 #include "Internals.h"

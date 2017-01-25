@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 # FIXME: As we plan to execute llvm-symbolizer binary from compiler-rt
 # libraries, it has to be compiled for all supported targets (x86_64, i386 etc).
 # This means that we need LLVM libraries to be compiled for these

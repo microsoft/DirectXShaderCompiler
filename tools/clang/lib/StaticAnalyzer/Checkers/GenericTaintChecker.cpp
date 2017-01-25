@@ -1,18 +1,19 @@
 //== GenericTaintChecker.cpp ----------------------------------- -*- C++ -*--=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GenericTaintChecker.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This checker defines the attack surface for generic taint propagation.    //
-//                                                                           //
-// The taint information produced by it might be useful to other checkers. For//
-// example, checkers should report errors which involve tainted data more    //
-// aggressively, even if the involved symbols are under constrained.         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This checker defines the attack surface for generic taint propagation.
+//
+// The taint information produced by it might be useful to other checkers. For
+// example, checkers should report errors which involve tainted data more
+// aggressively, even if the involved symbols are under constrained.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/Attr.h"

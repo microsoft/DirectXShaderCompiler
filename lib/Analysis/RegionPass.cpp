@@ -1,17 +1,18 @@
 //===- RegionPass.cpp - Region Pass and Region Pass Manager ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegionPass.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements RegionPass and RGPassManager. All region optimization//
-// and transformation passes are derived from RegionPass. RGPassManager is   //
-// responsible for managing RegionPasses.                                    //
-// most of these codes are COPY from LoopPass.cpp                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements RegionPass and RGPassManager. All region optimization
+// and transformation passes are derived from RegionPass. RGPassManager is
+// responsible for managing RegionPasses.
+// most of these codes are COPY from LoopPass.cpp
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/RegionPass.h"
 #include "llvm/Analysis/RegionIterator.h"

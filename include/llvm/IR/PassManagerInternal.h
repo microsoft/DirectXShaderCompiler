@@ -1,20 +1,19 @@
 //===- PassManager internal APIs and implementation details -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PassManagerInternal.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// This header provides internal APIs and implementation details used by the//
-/// pass management interfaces exposed in PassManager.h. To understand more  //
-/// context of why these particular interfaces are needed, see that header   //
-/// file. None of these APIs should be used elsewhere.                       //
+/// This header provides internal APIs and implementation details used by the
+/// pass management interfaces exposed in PassManager.h. To understand more
+/// context of why these particular interfaces are needed, see that header
+/// file. None of these APIs should be used elsewhere.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_PASSMANAGERINTERNAL_H
 #define LLVM_IR_PASSMANAGERINTERNAL_H

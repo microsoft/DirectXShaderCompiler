@@ -1,17 +1,18 @@
 //===-------------------------- TargetRecip.cpp ---------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetRecip.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class is used to customize machine-specific reciprocal estimate code //
-// generation in a target-independent way.                                   //
-// If a target does not support operations in this specification, then code  //
-// generation will default to using supported operations.                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class is used to customize machine-specific reciprocal estimate code
+// generation in a target-independent way.
+// If a target does not support operations in this specification, then code
+// generation will default to using supported operations.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/STLExtras.h"

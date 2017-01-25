@@ -1,22 +1,23 @@
 //===-- ExternalFunctions.cpp - Implement External Functions --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExternalFunctions.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file contains both code to deal with invoking "external" functions, but//
-//  also contains code that implements "exported" external functions.        //
-//                                                                           //
-//  There are currently two mechanisms for handling external functions in the//
-//  Interpreter.  The first is to implement lle_* wrapper functions that are //
-//  specific to well-known library functions which manually translate the    //
-//  arguments from GenericValues and make the call.  If such a wrapper does  //
-//  not exist, and libffi is available, then the Interpreter will attempt to //
-//  invoke the function using libffi, after finding its address.             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file contains both code to deal with invoking "external" functions, but
+//  also contains code that implements "exported" external functions.
+//
+//  There are currently two mechanisms for handling external functions in the
+//  Interpreter.  The first is to implement lle_* wrapper functions that are
+//  specific to well-known library functions which manually translate the
+//  arguments from GenericValues and make the call.  If such a wrapper does
+//  not exist, and libffi is available, then the Interpreter will attempt to
+//  invoke the function using libffi, after finding its address.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Interpreter.h"
 #include "llvm/Config/config.h"     // Detect libffi

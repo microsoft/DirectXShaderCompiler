@@ -1,29 +1,30 @@
 //===--- RefactoringCallbacks.h - Structural query framework ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RefactoringCallbacks.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Provides callbacks to make common kinds of refactorings easy.            //
 //
-//  The general idea is to construct a matcher expression that describes a   //
-//  subtree match on the AST and then replace the corresponding source code  //
-//  either by some specific text or some other AST node.                     //
+//                     The LLVM Compiler Infrastructure
 //
-//  Example:                                                                 //
-//  int main(int argc, char **argv) {                                        //
-//    ClangTool Tool(argc, argv);                                            //
-//    MatchFinder Finder;                                                    //
-//    ReplaceStmtWithText Callback("integer", "42");                         //
-//    Finder.AddMatcher(id("integer", expression(integerLiteral())), Callback);//
-//    return Tool.run(newFrontendActionFactory(&Finder));                    //
-//  }                                                                        //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  This will replace all integer literals with "42".                        //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+//  Provides callbacks to make common kinds of refactorings easy.
+//
+//  The general idea is to construct a matcher expression that describes a
+//  subtree match on the AST and then replace the corresponding source code
+//  either by some specific text or some other AST node.
+//
+//  Example:
+//  int main(int argc, char **argv) {
+//    ClangTool Tool(argc, argv);
+//    MatchFinder Finder;
+//    ReplaceStmtWithText Callback("integer", "42");
+//    Finder.AddMatcher(id("integer", expression(integerLiteral())), Callback);
+//    return Tool.run(newFrontendActionFactory(&Finder));
+//  }
+//
+//  This will replace all integer literals with "42".
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_TOOLING_REFACTORINGCALLBACKS_H
 #define LLVM_CLANG_TOOLING_REFACTORINGCALLBACKS_H

@@ -1,15 +1,16 @@
 //===--- StmtPrinter.cpp - Printing implementation for Stmt ASTs ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StmtPrinter.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Stmt::dumpPretty/Stmt::printPretty methods, which//
-// pretty print the AST back out to C code.                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Stmt::dumpPretty/Stmt::printPretty methods, which
+// pretty print the AST back out to C code.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"

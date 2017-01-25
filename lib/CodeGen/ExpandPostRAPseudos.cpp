@@ -1,15 +1,16 @@
 //===-- ExpandPostRAPseudos.cpp - Pseudo instruction expansion pass -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExpandPostRAPseudos.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a pass that expands COPY and SUBREG_TO_REG pseudo       //
-// instructions after register allocation.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a pass that expands COPY and SUBREG_TO_REG pseudo
+// instructions after register allocation.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"

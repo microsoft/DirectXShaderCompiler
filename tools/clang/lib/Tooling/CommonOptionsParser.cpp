@@ -1,27 +1,28 @@
 //===--- CommonOptionsParser.cpp - common options for clang tools ---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommonOptionsParser.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements the CommonOptionsParser class used to parse common  //
-//  command-line options for clang tools, so that they can be run as separate//
-//  command-line applications with a consistent common interface for handling//
-//  compilation database and input files.                                    //
-//                                                                           //
-//  It provides a common subset of command-line options, common algorithm    //
-//  for locating a compilation database and source files, and help messages  //
-//  for the basic command-line interface.                                    //
-//                                                                           //
-//  It creates a CompilationDatabase and reads common command-line options.  //
-//                                                                           //
-//  This class uses the Clang Tooling infrastructure, see                    //
-//    http://clang.llvm.org/docs/HowToSetupToolingForLLVM.html               //
-//  for details on setting it up with LLVM source tree.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements the CommonOptionsParser class used to parse common
+//  command-line options for clang tools, so that they can be run as separate
+//  command-line applications with a consistent common interface for handling
+//  compilation database and input files.
+//
+//  It provides a common subset of command-line options, common algorithm
+//  for locating a compilation database and source files, and help messages
+//  for the basic command-line interface.
+//
+//  It creates a CompilationDatabase and reads common command-line options.
+//
+//  This class uses the Clang Tooling infrastructure, see
+//    http://clang.llvm.org/docs/HowToSetupToolingForLLVM.html
+//  for details on setting it up with LLVM source tree.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/CommandLine.h"
 #include "clang/Tooling/ArgumentsAdjusters.h"

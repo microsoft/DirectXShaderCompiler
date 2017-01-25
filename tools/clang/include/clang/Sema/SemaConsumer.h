@@ -1,16 +1,17 @@
 //===--- SemaConsumer.h - Abstract interface for AST semantics --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaConsumer.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the SemaConsumer class, a subclass of                  //
-//  ASTConsumer that is used by AST clients that also require                //
-//  additional semantic analysis.                                            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the SemaConsumer class, a subclass of
+//  ASTConsumer that is used by AST clients that also require
+//  additional semantic analysis.
+//
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_SEMA_SEMACONSUMER_H
 #define LLVM_CLANG_SEMA_SEMACONSUMER_H
 

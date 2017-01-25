@@ -1,20 +1,16 @@
 //===- TargetSelectionDAG.td - Common code for DAG isels ---*- tablegen -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetSelectionDAG.td                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the target-independent interfaces used by SelectionDAG  //
-// instruction selection generators.                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// Selection DAG Type Constraint definitions.                                //
-//                                                                           //
-// Note that the semantics of these constraints are hard coded into tblgen.  To//
-// modify or add constraints, you have to hack tblgen.                       //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the target-independent interfaces used by SelectionDAG
+// instruction selection generators.
+//
+//===----------------------------------------------------------------------===//
 
 class SDTypeConstraint<int opnum> {
   int OperandNum = opnum;

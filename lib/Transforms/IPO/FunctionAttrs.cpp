@@ -1,21 +1,22 @@
 //===- FunctionAttrs.cpp - Pass which marks functions attributes ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FunctionAttrs.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a simple interprocedural pass which walks the        //
-// call-graph, looking for functions which do not access or only read        //
-// non-local memory, and marking them readnone/readonly.  It does the        //
-// same with function arguments independently, marking them readonly/        //
-// readnone/nocapture.  Finally, well-known library call declarations        //
-// are marked with all attributes that are consistent with the               //
-// function's standard definition. This pass is implemented as a             //
-// bottom-up traversal of the call-graph.                                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a simple interprocedural pass which walks the
+// call-graph, looking for functions which do not access or only read
+// non-local memory, and marking them readnone/readonly.  It does the
+// same with function arguments independently, marking them readonly/
+// readnone/nocapture.  Finally, well-known library call declarations
+// are marked with all attributes that are consistent with the
+// function's standard definition. This pass is implemented as a
+// bottom-up traversal of the call-graph.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SCCIterator.h"

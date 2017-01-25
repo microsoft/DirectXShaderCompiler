@@ -1,16 +1,17 @@
 /*===-- disassemble.c - tool for testing libLLVM and llvm-c API -----------===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// disassemble.c                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the --disassemble command in llvm-c-test.            //
-// --disassemble reads lines from stdin, parses them as a triple and hex     //
-// machine code, and prints disassembly of the machine code.                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+|*                                                                            *|
+|*                     The LLVM Compiler Infrastructure                       *|
+|*                                                                            *|
+|* This file is distributed under the University of Illinois Open Source      *|
+|* License. See LICENSE.TXT for details.                                      *|
+|*                                                                            *|
+|*===----------------------------------------------------------------------===*|
+|*                                                                            *|
+|* This file implements the --disassemble command in llvm-c-test.             *|
+|* --disassemble reads lines from stdin, parses them as a triple and hex      *|
+|*  machine code, and prints disassembly of the machine code.                 *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
 
 #include "llvm-c-test.h"
 #include "llvm-c/Disassembler.h"

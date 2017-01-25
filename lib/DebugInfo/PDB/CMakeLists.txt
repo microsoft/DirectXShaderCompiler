@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 macro(add_pdb_impl_folder group)
   list(APPEND PDB_IMPL_SOURCES ${ARGN})
   source_group(${group} FILES ${ARGN})

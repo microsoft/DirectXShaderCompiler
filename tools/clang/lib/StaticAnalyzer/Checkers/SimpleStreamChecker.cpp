@@ -1,18 +1,19 @@
 //===-- SimpleStreamChecker.cpp -----------------------------------------*- C++ -*--//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SimpleStreamChecker.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Defines a checker for proper use of fopen/fclose APIs.                    //
-//   - If a file has been closed with fclose, it should not be accessed again.//
-//   Accessing a closed file results in undefined behavior.                  //
-//   - If a file was opened with fopen, it must be closed with fclose before //
-//   the execution ends. Failing to do so results in a resource leak.        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Defines a checker for proper use of fopen/fclose APIs.
+//   - If a file has been closed with fclose, it should not be accessed again.
+//   Accessing a closed file results in undefined behavior.
+//   - If a file was opened with fopen, it must be closed with fclose before
+//   the execution ends. Failing to do so results in a resource leak.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"

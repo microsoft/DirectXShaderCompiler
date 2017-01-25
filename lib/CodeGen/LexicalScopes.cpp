@@ -1,17 +1,18 @@
 //===- LexicalScopes.cpp - Collecting lexical scope info ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LexicalScopes.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements LexicalScopes analysis.                              //
-//                                                                           //
-// This pass collects lexical scope information and maps machine instructions//
-// to respective lexical scopes.                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements LexicalScopes analysis.
+//
+// This pass collects lexical scope information and maps machine instructions
+// to respective lexical scopes.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/LexicalScopes.h"
 #include "llvm/CodeGen/MachineFunction.h"

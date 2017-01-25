@@ -1,17 +1,18 @@
 //===---- Delinearization.cpp - MultiDimensional Index Delinearization ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Delinearization.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This implements an analysis pass that tries to delinearize all GEP        //
-// instructions in all loops using the SCEV analysis functionality. This pass is//
-// only used for testing purposes: if your pass needs delinearization, please//
-// use the on-demand SCEVAddRecExpr::delinearize() function.                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This implements an analysis pass that tries to delinearize all GEP
+// instructions in all loops using the SCEV analysis functionality. This pass is
+// only used for testing purposes: if your pass needs delinearization, please
+// use the on-demand SCEVAddRecExpr::delinearize() function.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Constants.h"
 #include "llvm/Analysis/LoopInfo.h"

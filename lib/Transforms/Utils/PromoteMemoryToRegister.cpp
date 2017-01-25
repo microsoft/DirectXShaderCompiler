@@ -1,18 +1,19 @@
 //===- PromoteMemoryToRegister.cpp - Convert allocas to registers ---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PromoteMemoryToRegister.cpp                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file promotes memory references to be register references.  It promotes//
-// alloca instructions which only have loads and stores as uses.  An alloca is//
-// transformed by using iterated dominator frontiers to place PHI nodes, then//
-// traversing the function in depth-first order to rewrite loads and stores as//
-// appropriate.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file promotes memory references to be register references.  It promotes
+// alloca instructions which only have loads and stores as uses.  An alloca is
+// transformed by using iterated dominator frontiers to place PHI nodes, then
+// traversing the function in depth-first order to rewrite loads and stores as
+// appropriate.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/ADT/ArrayRef.h"

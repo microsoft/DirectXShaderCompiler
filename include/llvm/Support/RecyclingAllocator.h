@@ -1,15 +1,16 @@
 //==- llvm/Support/RecyclingAllocator.h - Recycling Allocator ----*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RecyclingAllocator.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the RecyclingAllocator class.  See the doxygen comment for//
-// RecyclingAllocator for more details on the implementation.                //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the RecyclingAllocator class.  See the doxygen comment for
+// RecyclingAllocator for more details on the implementation.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_RECYCLINGALLOCATOR_H
 #define LLVM_SUPPORT_RECYCLINGALLOCATOR_H

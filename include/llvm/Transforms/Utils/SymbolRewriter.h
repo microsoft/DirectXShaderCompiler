@@ -1,33 +1,34 @@
 //===-- SymbolRewriter.h - Symbol Rewriting Pass ----------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SymbolRewriter.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides the prototypes and definitions related to the Symbol   //
-// Rewriter pass.                                                            //
 //
-// The Symbol Rewriter pass takes a set of rewrite descriptors which define  //
-// transformations for symbol names.  These can be either single name to name//
-// trnsformation or more broad regular expression based transformations.     //
+//                     The LLVM Compiler Infrastructure
 //
-// All the functions are re-written at the IR level.  The Symbol Rewriter itself//
-// is exposed as a module level pass.  All symbols at the module level are   //
-// iterated.  For any matching symbol, the requested transformation is applied,//
-// updating references to it as well (a la RAUW).  The resulting binary will //
-// only contain the rewritten symbols.                                       //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// By performing this operation in the compiler, we are able to catch symbols//
-// that would otherwise not be possible to catch (e.g. inlined symbols).     //
+//===----------------------------------------------------------------------===//
 //
-// This makes it possible to cleanly transform symbols without resorting to  //
-// overly-complex macro tricks and the pre-processor.  An example of where this//
-// is useful is the sanitizers where we would like to intercept a well-defined//
-// set of functions across the module.                                       //
+// This file provides the prototypes and definitions related to the Symbol
+// Rewriter pass.
 //
-///////////////////////////////////////////////////////////////////////////////
+// The Symbol Rewriter pass takes a set of rewrite descriptors which define
+// transformations for symbol names.  These can be either single name to name
+// trnsformation or more broad regular expression based transformations.
+//
+// All the functions are re-written at the IR level.  The Symbol Rewriter itself
+// is exposed as a module level pass.  All symbols at the module level are
+// iterated.  For any matching symbol, the requested transformation is applied,
+// updating references to it as well (a la RAUW).  The resulting binary will
+// only contain the rewritten symbols.
+//
+// By performing this operation in the compiler, we are able to catch symbols
+// that would otherwise not be possible to catch (e.g. inlined symbols).
+//
+// This makes it possible to cleanly transform symbols without resorting to
+// overly-complex macro tricks and the pre-processor.  An example of where this
+// is useful is the sanitizers where we would like to intercept a well-defined
+// set of functions across the module.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_UTILS_SYMBOL_REWRITER_H
 #define LLVM_TRANSFORMS_UTILS_SYMBOL_REWRITER_H

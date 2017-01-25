@@ -1,19 +1,20 @@
 //===-- WinEHPrepare - Prepare exception handling for code generation ---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// WinEHPrepare.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass lowers LLVM IR exception handling into something closer to what the//
-// backend wants for functions using a personality function from a runtime   //
-// provided by MSVC. Functions with other personality functions are left alone//
-// and may be prepared by other passes. In particular, all supported MSVC    //
-// personality functions require cleanup code to be outlined, and the C++    //
-// personality requires catch handler code to be outlined.                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass lowers LLVM IR exception handling into something closer to what the
+// backend wants for functions using a personality function from a runtime
+// provided by MSVC. Functions with other personality functions are left alone
+// and may be prepared by other passes. In particular, all supported MSVC
+// personality functions require cleanup code to be outlined, and the C++
+// personality requires catch handler code to be outlined.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/MapVector.h"

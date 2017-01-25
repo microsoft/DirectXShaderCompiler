@@ -1,15 +1,16 @@
 //===--- SemaInternal.h - Internal Sema Interfaces --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaInternal.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides common API and #includes for the internal              //
-// implementation of Sema.                                                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides common API and #includes for the internal
+// implementation of Sema.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SEMA_SEMAINTERNAL_H
 #define LLVM_CLANG_SEMA_SEMAINTERNAL_H

@@ -1,15 +1,16 @@
 //===-- TailDuplication.cpp - Duplicate blocks into predecessors' tails ---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TailDuplication.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass duplicates basic blocks ending in unconditional branches into   //
-// the tails of their predecessors.                                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass duplicates basic blocks ending in unconditional branches into
+// the tails of their predecessors.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseSet.h"

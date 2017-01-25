@@ -1,16 +1,17 @@
 //===- ThreadSafetyTIL.h ---------------------------------------*- C++ --*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ThreadSafetyOps.def                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the list of core opcodes for the Thread Safety          //
-// Typed Intermediate language.  Please see ThreadSafetyTIL.h for more       //
-// information.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the list of core opcodes for the Thread Safety
+// Typed Intermediate language.  Please see ThreadSafetyTIL.h for more
+// information.
+//
+//===----------------------------------------------------------------------===//
 
 TIL_OPCODE_DEF(Future)
 TIL_OPCODE_DEF(Undefined)

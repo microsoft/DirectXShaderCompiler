@@ -1,21 +1,22 @@
 //===- llvm/Analysis/ScalarEvolution.h - Scalar Evolution -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScalarEvolution.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The ScalarEvolution class is an LLVM pass which can be used to analyze and//
-// categorize scalar expressions in loops.  It specializes in recognizing    //
-// general induction variables, representing them with the abstract and opaque//
-// SCEV class.  Given this analysis, trip counts of loops and other important//
-// properties can be obtained.                                               //
 //
-// This analysis is primarily useful for induction variable substitution and //
-// strength reduction.                                                       //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The ScalarEvolution class is an LLVM pass which can be used to analyze and
+// categorize scalar expressions in loops.  It specializes in recognizing
+// general induction variables, representing them with the abstract and opaque
+// SCEV class.  Given this analysis, trip counts of loops and other important
+// properties can be obtained.
+//
+// This analysis is primarily useful for induction variable substitution and
+// strength reduction.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_SCALAREVOLUTION_H
 #define LLVM_ANALYSIS_SCALAREVOLUTION_H

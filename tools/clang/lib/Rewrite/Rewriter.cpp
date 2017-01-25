@@ -1,15 +1,16 @@
 //===--- Rewriter.cpp - Code rewriting interface --------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Rewriter.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the Rewriter class, which is used for code             //
-//  transformations.                                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the Rewriter class, which is used for code
+//  transformations.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Basic/Diagnostic.h"

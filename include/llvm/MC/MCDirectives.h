@@ -1,14 +1,15 @@
 //===- MCDirectives.h - Enums for directives on various targets -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCDirectives.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines various enums that represent target-specific directives.//
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines various enums that represent target-specific directives.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCDIRECTIVES_H
 #define LLVM_MC_MCDIRECTIVES_H

@@ -1,17 +1,18 @@
 //===- llvm/Analysis/AliasSetTracker.h - Build Alias Sets -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AliasSetTracker.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines two classes: AliasSetTracker and AliasSet.  These interface//
-// are used to classify a collection of pointer references into a maximal number//
-// of disjoint sets.  Each AliasSet object constructed by the AliasSetTracker//
-// object refers to memory disjoint from the other sets.                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines two classes: AliasSetTracker and AliasSet.  These interface
+// are used to classify a collection of pointer references into a maximal number
+// of disjoint sets.  Each AliasSet object constructed by the AliasSetTracker
+// object refers to memory disjoint from the other sets.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_ALIASSETTRACKER_H
 #define LLVM_ANALYSIS_ALIASSETTRACKER_H

@@ -1,14 +1,15 @@
 //===-- CodeGen/AsmPrinter/EHStreamer.cpp - Exception Directive Streamer --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// EHStreamer.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains support for writing exception info into assembly files.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains support for writing exception info into assembly files.
+//
+//===----------------------------------------------------------------------===//
 
 #include "EHStreamer.h"
 #include "llvm/CodeGen/AsmPrinter.h"

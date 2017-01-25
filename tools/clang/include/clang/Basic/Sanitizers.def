@@ -1,17 +1,18 @@
 //===--- Sanitizers.def - Runtime sanitizer options -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Sanitizers.def                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the options for specifying which runtime sanitizers to  //
-// enable. Users of this file must define the SANITIZER macro to make use of //
-// this information. Users of this file can also define the SANITIZER_GROUP  //
-// macro to get information on options which refer to sets of sanitizers.    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the options for specifying which runtime sanitizers to
+// enable. Users of this file must define the SANITIZER macro to make use of
+// this information. Users of this file can also define the SANITIZER_GROUP
+// macro to get information on options which refer to sets of sanitizers.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef SANITIZER
 #error "Define SANITIZER prior to including this file!"

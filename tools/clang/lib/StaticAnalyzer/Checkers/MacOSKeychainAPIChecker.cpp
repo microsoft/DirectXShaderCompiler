@@ -1,17 +1,16 @@
 //==--- MacOSKeychainAPIChecker.cpp ------------------------------*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MacOSKeychainAPIChecker.cpp                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This checker flags misuses of KeyChainAPI. In particular, the password data//
-// allocated/returned by SecKeychainItemCopyContent,                         //
-// SecKeychainFindGenericPassword, SecKeychainFindInternetPassword functions has//
-// to be freed using a call to SecKeychainItemFreeContent.                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This checker flags misuses of KeyChainAPI. In particular, the password data
+// allocated/returned by SecKeychainItemCopyContent,
+// SecKeychainFindGenericPassword, SecKeychainFindInternetPassword functions has
+// to be freed using a call to SecKeychainItemFreeContent.
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"

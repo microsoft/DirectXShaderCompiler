@@ -1,14 +1,15 @@
 //===- Mutex.cpp - Mutual Exclusion Lock ------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Mutex.cpp                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the llvm::sys::Mutex class.                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the llvm::sys::Mutex class.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Config/config.h"
 #include "llvm/Support/Mutex.h"

@@ -1,19 +1,20 @@
 //===-- llvm-dis.cpp - The low-level LLVM disassembler --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-dis.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This utility may be invoked in the following manner:                      //
-//  llvm-dis [options]      - Read LLVM bitcode from stdin, write asm to stdout//
-//  llvm-dis [options] x.bc - Read LLVM bitcode from the x.bc file, write asm//
-//                            to the x.ll file.                              //
-//  Options:                                                                 //
-//      --help   - Output information about command line switches            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This utility may be invoked in the following manner:
+//  llvm-dis [options]      - Read LLVM bitcode from stdin, write asm to stdout
+//  llvm-dis [options] x.bc - Read LLVM bitcode from the x.bc file, write asm
+//                            to the x.ll file.
+//  Options:
+//      --help   - Output information about command line switches
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Bitcode/ReaderWriter.h"

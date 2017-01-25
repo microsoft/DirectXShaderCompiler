@@ -1,19 +1,20 @@
 //====- TargetFolder.h - Constant folding helper ---------------*- C++ -*-====//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetFolder.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the TargetFolder class, a helper for IRBuilder.         //
-// It provides IRBuilder with a set of methods for creating constants with   //
-// target dependent folding, in addition to the same target-independent      //
-// folding that the ConstantFolder class provides.  For general constant     //
-// creation and folding, use ConstantExpr and the routines in                //
-// llvm/Analysis/ConstantFolding.h.                                          //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the TargetFolder class, a helper for IRBuilder.
+// It provides IRBuilder with a set of methods for creating constants with
+// target dependent folding, in addition to the same target-independent
+// folding that the ConstantFolder class provides.  For general constant
+// creation and folding, use ConstantExpr and the routines in
+// llvm/Analysis/ConstantFolding.h.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_TARGETFOLDER_H
 #define LLVM_ANALYSIS_TARGETFOLDER_H

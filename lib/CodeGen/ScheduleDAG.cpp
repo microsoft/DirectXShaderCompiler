@@ -1,15 +1,16 @@
 //===---- ScheduleDAG.cpp - Implement the ScheduleDAG class ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScheduleDAG.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This implements the ScheduleDAG class, which is a base class used by      //
-// scheduling implementation classes.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This implements the ScheduleDAG class, which is a base class used by
+// scheduling implementation classes.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/ScheduleDAG.h"
 #include "llvm/CodeGen/ScheduleHazardRecognizer.h"

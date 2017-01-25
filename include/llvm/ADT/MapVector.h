@@ -1,17 +1,18 @@
 //===- llvm/ADT/MapVector.h - Map w/ deterministic value order --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MapVector.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a map that provides insertion order iteration. The   //
-// interface is purposefully minimal. The key is assumed to be cheap to copy //
-// and 2 copies are kept, one for indexing in a DenseMap, one for iteration in//
-// a std::vector.                                                            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a map that provides insertion order iteration. The
+// interface is purposefully minimal. The key is assumed to be cheap to copy
+// and 2 copies are kept, one for indexing in a DenseMap, one for iteration in
+// a std::vector.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_MAPVECTOR_H
 #define LLVM_ADT_MAPVECTOR_H

@@ -1,18 +1,19 @@
 //===--- llvm-as.cpp - The low-level LLVM assembler -----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-as.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This utility may be invoked in the following manner:                     //
-//   llvm-as --help         - Output information about command line switches //
-//   llvm-as [options]      - Read LLVM asm from stdin, write bitcode to stdout//
-//   llvm-as [options] x.ll - Read LLVM asm from the x.ll file, write bitcode//
-//                            to the x.bc file.                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This utility may be invoked in the following manner:
+//   llvm-as --help         - Output information about command line switches
+//   llvm-as [options]      - Read LLVM asm from stdin, write bitcode to stdout
+//   llvm-as [options] x.ll - Read LLVM asm from the x.ll file, write bitcode
+//                            to the x.bc file.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/AsmParser/Parser.h"

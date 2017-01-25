@@ -1,22 +1,23 @@
 //===---- LiveRangeCalc.h - Calculate live ranges ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveRangeCalc.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The LiveRangeCalc class can be used to compute live ranges from scratch.  It//
-// caches information about values in the CFG to speed up repeated operations//
-// on the same live range.  The cache can be shared by non-overlapping live  //
-// ranges.  SplitKit uses that when computing the live range of split products.//
 //
-// A low-level interface is available to clients that know where a variable is//
-// live, but don't know which value it has as every point.  LiveRangeCalc will//
-// propagate values down the dominator tree, and even insert PHI-defs where  //
-// needed.  SplitKit uses this faster interface when possible.               //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The LiveRangeCalc class can be used to compute live ranges from scratch.  It
+// caches information about values in the CFG to speed up repeated operations
+// on the same live range.  The cache can be shared by non-overlapping live
+// ranges.  SplitKit uses that when computing the live range of split products.
+//
+// A low-level interface is available to clients that know where a variable is
+// live, but don't know which value it has as every point.  LiveRangeCalc will
+// propagate values down the dominator tree, and even insert PHI-defs where
+// needed.  SplitKit uses this faster interface when possible.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_CODEGEN_LIVERANGECALC_H
 #define LLVM_LIB_CODEGEN_LIVERANGECALC_H

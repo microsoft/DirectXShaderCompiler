@@ -1,16 +1,17 @@
 //== PseudoConstantAnalysis.cpp - Find Pseudoconstants in the AST-*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PseudoConstantAnalysis.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file tracks the usage of variables in a Decl body to see if they are //
-// never written to, implying that they constant. This is useful in static   //
-// analysis to see if a developer might have intended a variable to be const.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file tracks the usage of variables in a Decl body to see if they are
+// never written to, implying that they constant. This is useful in static
+// analysis to see if a developer might have intended a variable to be const.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/PseudoConstantAnalysis.h"
 #include "clang/AST/Decl.h"

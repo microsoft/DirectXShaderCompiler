@@ -1,43 +1,44 @@
 //===--- TransUnbridgedCasts.cpp - Transformations to ARC mode ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TransUnbridgedCasts.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// rewriteUnbridgedCasts:                                                    //
-//                                                                           //
-// A cast of non-objc pointer to an objc one is checked. If the non-objc pointer//
-// is from a file-level variable, __bridge cast is used to convert it.       //
-// For the result of a function call that we know is +1/+0,                  //
-// __bridge/CFBridgingRelease is used.                                       //
-//                                                                           //
-//  NSString *str = (NSString *)kUTTypePlainText;                            //
-//  str = b ? kUTTypeRTF : kUTTypePlainText;                                 //
-//  NSString *_uuidString = (NSString *)CFUUIDCreateString(kCFAllocatorDefault,//
-//                                                         _uuid);           //
-// ---->                                                                     //
-//  NSString *str = (__bridge NSString *)kUTTypePlainText;                   //
-//  str = (__bridge NSString *)(b ? kUTTypeRTF : kUTTypePlainText);          //
-// NSString *_uuidString = (NSString *)                                      //
-//            CFBridgingRelease(CFUUIDCreateString(kCFAllocatorDefault, _uuid));//
-//                                                                           //
-// For a C pointer to ObjC, for casting 'self', __bridge is used.            //
-//                                                                           //
-//  CFStringRef str = (CFStringRef)self;                                     //
-// ---->                                                                     //
-//  CFStringRef str = (__bridge CFStringRef)self;                            //
-//                                                                           //
-// Uses of Block_copy/Block_release macros are rewritten:                    //
-//                                                                           //
-//  c = Block_copy(b);                                                       //
-//  Block_release(c);                                                        //
-// ---->                                                                     //
-//  c = [b copy];                                                            //
-//  <removed>                                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// rewriteUnbridgedCasts:
+//
+// A cast of non-objc pointer to an objc one is checked. If the non-objc pointer
+// is from a file-level variable, __bridge cast is used to convert it.
+// For the result of a function call that we know is +1/+0,
+// __bridge/CFBridgingRelease is used.
+//
+//  NSString *str = (NSString *)kUTTypePlainText;
+//  str = b ? kUTTypeRTF : kUTTypePlainText;
+//  NSString *_uuidString = (NSString *)CFUUIDCreateString(kCFAllocatorDefault,
+//                                                         _uuid);
+// ---->
+//  NSString *str = (__bridge NSString *)kUTTypePlainText;
+//  str = (__bridge NSString *)(b ? kUTTypeRTF : kUTTypePlainText);
+// NSString *_uuidString = (NSString *)
+//            CFBridgingRelease(CFUUIDCreateString(kCFAllocatorDefault, _uuid));
+//
+// For a C pointer to ObjC, for casting 'self', __bridge is used.
+//
+//  CFStringRef str = (CFStringRef)self;
+// ---->
+//  CFStringRef str = (__bridge CFStringRef)self;
+//
+// Uses of Block_copy/Block_release macros are rewritten:
+//
+//  c = Block_copy(b);
+//  Block_release(c);
+// ---->
+//  c = [b copy];
+//  <removed>
+//
+//===----------------------------------------------------------------------===//
 
 #include "Transforms.h"
 #include "Internals.h"

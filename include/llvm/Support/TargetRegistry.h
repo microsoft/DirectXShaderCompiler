@@ -1,19 +1,20 @@
 //===-- Support/TargetRegistry.h - Target Registration ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetRegistry.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file exposes the TargetRegistry interface, which tools can use to access//
-// the appropriate target specific classes (TargetMachine, AsmPrinter, etc.) //
-// which have been registered.                                               //
 //
-// Target specific class implementations should register themselves using the//
-// appropriate TargetRegistry interfaces.                                    //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file exposes the TargetRegistry interface, which tools can use to access
+// the appropriate target specific classes (TargetMachine, AsmPrinter, etc.)
+// which have been registered.
+//
+// Target specific class implementations should register themselves using the
+// appropriate TargetRegistry interfaces.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_TARGETREGISTRY_H
 #define LLVM_SUPPORT_TARGETREGISTRY_H

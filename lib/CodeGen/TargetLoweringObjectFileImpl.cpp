@@ -1,15 +1,16 @@
 //===-- llvm/CodeGen/TargetLoweringObjectFileImpl.cpp - Object File Info --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetLoweringObjectFileImpl.cpp                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements classes used to handle lowerings specific to common  //
-// object file formats.                                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements classes used to handle lowerings specific to common
+// object file formats.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/ADT/SmallString.h"

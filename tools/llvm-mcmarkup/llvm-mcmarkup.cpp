@@ -1,14 +1,15 @@
 //===-- llvm-mcmarkup.cpp - Parse the MC assembly markup tags -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-mcmarkup.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Example simple parser implementation for the MC assembly markup language. //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Example simple parser implementation for the MC assembly markup language.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Format.h"

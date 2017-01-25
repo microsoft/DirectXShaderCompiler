@@ -1,15 +1,16 @@
 //===-- FunctionLoweringInfo.h - Lower functions from LLVM IR to CodeGen --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FunctionLoweringInfo.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This implements routines for translating functions from LLVM IR into      //
-// Machine IR.                                                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This implements routines for translating functions from LLVM IR into
+// Machine IR.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_FUNCTIONLOWERINGINFO_H
 #define LLVM_CODEGEN_FUNCTIONLOWERINGINFO_H

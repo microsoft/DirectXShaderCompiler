@@ -1,17 +1,18 @@
-//= ProgramStateTrait.h - Partial implementations of ProgramStateTrait -*- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ProgramStateTrait.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines partial implementations of template specializations of //
-//  the class ProgramStateTrait<>.  ProgramStateTrait<> is used by ProgramState //
-//  to implement set/get methods for manipulating a ProgramState's           //
-//  generic data map.                                                        //
+//ProgramStateTrait.h - Partial implementations of ProgramStateTrait -*- C++ -*-
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines partial implementations of template specializations of
+//  the class ProgramStateTrait<>.  ProgramStateTrait<> is used by ProgramState 
+//  to implement set/get methods for manipulating a ProgramState's
+//  generic data map.
+//
+//===----------------------------------------------------------------------===//
 
 
 #ifndef LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_PROGRAMSTATETRAIT_H

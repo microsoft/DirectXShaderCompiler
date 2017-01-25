@@ -1,13 +1,15 @@
 //== TaintTesterChecker.cpp ----------------------------------- -*- C++ -*--=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TaintTesterChecker.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This checker can be used for testing how taint data is propagated.        //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This checker can be used for testing how taint data is propagated.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"

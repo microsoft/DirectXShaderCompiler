@@ -1,14 +1,13 @@
 //===- FuzzerLoop.cpp - Fuzzer's main loop --------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FuzzerLoop.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Fuzzer's main loop.                                                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// Fuzzer's main loop.
+//===----------------------------------------------------------------------===//
 
 #include "FuzzerInternal.h"
 #include <sanitizer/coverage_interface.h>

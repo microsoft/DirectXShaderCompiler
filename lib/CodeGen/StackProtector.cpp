@@ -1,17 +1,18 @@
 //===-- StackProtector.cpp - Stack Protector Insertion --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StackProtector.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass inserts stack protectors into functions which need them. A variable//
-// with a random value in it is stored onto the stack before the local variables//
-// are allocated. Upon exiting the block, the stored value is checked. If it's//
-// changed, then there was some sort of violation and the program aborts.    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass inserts stack protectors into functions which need them. A variable
+// with a random value in it is stored onto the stack before the local variables
+// are allocated. Upon exiting the block, the stored value is checked. If it's
+// changed, then there was some sort of violation and the program aborts.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/ADT/SmallPtrSet.h"

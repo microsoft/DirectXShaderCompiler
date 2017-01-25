@@ -1,14 +1,15 @@
 //===--- ModuleBuilder.cpp - Emit LLVM Code from ASTs ---------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ModuleBuilder.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This builds an AST and converts it to LLVM Code.                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This builds an AST and converts it to LLVM Code.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/CodeGen/ModuleBuilder.h"
 #include "CGDebugInfo.h"

@@ -1,15 +1,16 @@
 //===- CodeGenDAGPatterns.cpp - Read DAG patterns from .td file -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeGenDAGPatterns.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the CodeGenDAGPatterns class, which is used to read and//
-// represent the patterns present in a .td file for instructions.            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the CodeGenDAGPatterns class, which is used to read and
+// represent the patterns present in a .td file for instructions.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenDAGPatterns.h"
 #include "llvm/ADT/STLExtras.h"

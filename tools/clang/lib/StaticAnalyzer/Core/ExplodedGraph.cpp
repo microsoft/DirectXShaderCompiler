@@ -1,15 +1,16 @@
 //=-- ExplodedGraph.cpp - Local, Path-Sens. "Exploded Graph" -*- C++ -*------=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExplodedGraph.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the template classes ExplodedNode and ExplodedGraph,   //
-//  which represent a path-sensitive, intra-procedural "exploded graph."     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the template classes ExplodedNode and ExplodedGraph,
+//  which represent a path-sensitive, intra-procedural "exploded graph."
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Core/PathSensitive/ExplodedGraph.h"
 #include "clang/AST/ParentMap.h"

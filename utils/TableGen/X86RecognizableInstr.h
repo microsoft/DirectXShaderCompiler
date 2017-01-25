@@ -1,17 +1,18 @@
 //===- X86RecognizableInstr.h - Disassembler instruction spec ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// X86RecognizableInstr.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file is part of the X86 Disassembler Emitter.                        //
-// It contains the interface of a single recognizable instruction.           //
-// Documentation for the disassembler emitter in general can be found in     //
-//  X86DisasemblerEmitter.h.                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file is part of the X86 Disassembler Emitter.
+// It contains the interface of a single recognizable instruction.
+// Documentation for the disassembler emitter in general can be found in
+//  X86DisasemblerEmitter.h.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_UTILS_TABLEGEN_X86RECOGNIZABLEINSTR_H
 #define LLVM_UTILS_TABLEGEN_X86RECOGNIZABLEINSTR_H

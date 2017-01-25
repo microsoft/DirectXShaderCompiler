@@ -1,18 +1,17 @@
 //===- BasicTTIImpl.h -------------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BasicTTIImpl.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file provides a helper that implements much of the TTI interface in //
-/// terms of the target-independent code generator and TargetLowering        //
-/// interfaces.                                                              //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file provides a helper that implements much of the TTI interface in
+/// terms of the target-independent code generator and TargetLowering
+/// interfaces.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_BASICTTIIMPL_H
 #define LLVM_CODEGEN_BASICTTIIMPL_H

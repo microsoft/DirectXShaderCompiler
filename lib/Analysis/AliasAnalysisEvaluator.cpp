@@ -1,20 +1,21 @@
 //===- AliasAnalysisEvaluator.cpp - Alias Analysis Accuracy Evaluator -----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AliasAnalysisEvaluator.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a simple N^2 alias analysis accuracy evaluator.      //
-// Basically, for each function in the program, it simply queries to see how the//
-// alias analysis implementation answers alias queries between each pair of  //
-// pointers in the function.                                                 //
-//                                                                           //
-// This is inspired and adapted from code by: Naveen Neelakantam, Francesco  //
-// Spadini, and Wojciech Stryjewski.                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a simple N^2 alias analysis accuracy evaluator.
+// Basically, for each function in the program, it simply queries to see how the
+// alias analysis implementation answers alias queries between each pair of
+// pointers in the function.
+//
+// This is inspired and adapted from code by: Naveen Neelakantam, Francesco
+// Spadini, and Wojciech Stryjewski.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ADT/SetVector.h"

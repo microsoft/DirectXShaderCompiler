@@ -1,30 +1,31 @@
 //===-- llvm-bcanalyzer.cpp - Bitcode Analyzer --------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-bcanalyzer.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This tool may be invoked in the following manner:                         //
-//  llvm-bcanalyzer [options]      - Read LLVM bitcode from stdin            //
-//  llvm-bcanalyzer [options] x.bc - Read LLVM bitcode from the x.bc file    //
-//                                                                           //
-//  Options:                                                                 //
-//      --help      - Output information about command line switches         //
-//      --dump      - Dump low-level bitcode structure in readable format    //
-//                                                                           //
-// This tool provides analytical information about a bitcode file. It is     //
-// intended as an aid to developers of bitcode reading and writing software. It//
-// produces on std::out a summary of the bitcode file that shows various     //
-// statistics about the contents of the file. By default this information is //
-// detailed and contains information about individual bitcode blocks and the //
-// functions in the module.                                                  //
-// The tool is also able to print a bitcode file in a straight forward text  //
-// format that shows the containment and relationships of the information in //
-// the bitcode file (-dump option).                                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This tool may be invoked in the following manner:
+//  llvm-bcanalyzer [options]      - Read LLVM bitcode from stdin
+//  llvm-bcanalyzer [options] x.bc - Read LLVM bitcode from the x.bc file
+//
+//  Options:
+//      --help      - Output information about command line switches
+//      --dump      - Dump low-level bitcode structure in readable format
+//
+// This tool provides analytical information about a bitcode file. It is
+// intended as an aid to developers of bitcode reading and writing software. It
+// produces on std::out a summary of the bitcode file that shows various
+// statistics about the contents of the file. By default this information is
+// detailed and contains information about individual bitcode blocks and the
+// functions in the module.
+// The tool is also able to print a bitcode file in a straight forward text
+// format that shows the containment and relationships of the information in
+// the bitcode file (-dump option).
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Bitcode/BitstreamReader.h"
 #include "llvm/ADT/Optional.h"

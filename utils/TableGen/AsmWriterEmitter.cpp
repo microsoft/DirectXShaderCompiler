@@ -1,15 +1,16 @@
 //===- AsmWriterEmitter.cpp - Generate an assembly writer -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AsmWriterEmitter.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This tablegen backend is emits an assembly printer for the current target.//
-// Note that this is currently fairly skeletal, but will grow over time.     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This tablegen backend is emits an assembly printer for the current target.
+// Note that this is currently fairly skeletal, but will grow over time.
+//
+//===----------------------------------------------------------------------===//
 
 #include "AsmWriterInst.h"
 #include "CodeGenTarget.h"

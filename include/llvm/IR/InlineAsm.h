@@ -1,16 +1,17 @@
 //===-- llvm/InlineAsm.h - Class to represent inline asm strings-*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InlineAsm.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class represents the inline asm strings, which are Value*'s that are //
-// used as the callee operand of call instructions.  InlineAsm's are uniqued //
-// like constants, and created via InlineAsm::get(...).                      //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class represents the inline asm strings, which are Value*'s that are
+// used as the callee operand of call instructions.  InlineAsm's are uniqued
+// like constants, and created via InlineAsm::get(...).
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_INLINEASM_H
 #define LLVM_IR_INLINEASM_H

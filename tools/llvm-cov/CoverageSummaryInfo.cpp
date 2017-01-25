@@ -1,15 +1,16 @@
 //===- CoverageSummaryInfo.cpp - Coverage summary for function/file -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CoverageSummaryInfo.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// These structures are used to represent code coverage metrics              //
-// for functions/files.                                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// These structures are used to represent code coverage metrics
+// for functions/files.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CoverageSummaryInfo.h"
 

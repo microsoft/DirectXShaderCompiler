@@ -1,16 +1,16 @@
 //===-------- llvm/IR/Value.def - File that describes Values ---v-*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Value.def                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains descriptions of the various LLVM values.  This is      //
-// used as a central place for enumerating the different values.             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// NOTE: NO INCLUDE GUARD DESIRED!                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains descriptions of the various LLVM values.  This is
+// used as a central place for enumerating the different values.
+//
+//===----------------------------------------------------------------------===//
 
 // Provide definitions of macros so that users of this file do not have to
 // define everything to use it...

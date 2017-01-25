@@ -1,14 +1,15 @@
 //===- FlattenCFGPass.cpp - CFG Flatten Pass ----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FlattenCFGPass.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements flattening of CFG.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements flattening of CFG.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/AliasAnalysis.h"

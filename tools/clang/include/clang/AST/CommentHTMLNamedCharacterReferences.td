@@ -1,11 +1,4 @@
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommentHTMLNamedCharacterReferences.td                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+// HTML Named Character Reference
 
 // HTML Named Character Reference
 class NCR<string spelling, int codePoint> {

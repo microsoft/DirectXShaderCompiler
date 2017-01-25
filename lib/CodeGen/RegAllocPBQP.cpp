@@ -1,32 +1,33 @@
 //===------ RegAllocPBQP.cpp ---- PBQP Register Allocator -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegAllocPBQP.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains a Partitioned Boolean Quadratic Programming (PBQP) based//
-// register allocator for LLVM. This allocator works by constructing a PBQP  //
-// problem representing the register allocation problem under consideration, //
-// solving this using a PBQP solver, and mapping the solution back to a      //
-// register assignment. If any variables are selected for spilling then spill//
-// code is inserted and the process repeated.                                //
-//                                                                           //
-// The PBQP solver (pbqp.c) provided for this allocator uses a heuristic tuned//
-// for register allocation. For more information on PBQP for register        //
-// allocation, see the following papers:                                     //
-//                                                                           //
-//   (1) Hames, L. and Scholz, B. 2006. Nearly optimal register allocation with//
-//   PBQP. In Proceedings of the 7th Joint Modular Languages Conference      //
-//   (JMLC'06). LNCS, vol. 4228. Springer, New York, NY, USA. 346-361.       //
-//                                                                           //
-//   (2) Scholz, B., Eckstein, E. 2002. Register allocation for irregular    //
-//   architectures. In Proceedings of the Joint Conference on Languages,     //
-//   Compilers and Tools for Embedded Systems (LCTES'02), ACM Press, New York,//
-//   NY, USA, 139-148.                                                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains a Partitioned Boolean Quadratic Programming (PBQP) based
+// register allocator for LLVM. This allocator works by constructing a PBQP
+// problem representing the register allocation problem under consideration,
+// solving this using a PBQP solver, and mapping the solution back to a
+// register assignment. If any variables are selected for spilling then spill
+// code is inserted and the process repeated.
+//
+// The PBQP solver (pbqp.c) provided for this allocator uses a heuristic tuned
+// for register allocation. For more information on PBQP for register
+// allocation, see the following papers:
+//
+//   (1) Hames, L. and Scholz, B. 2006. Nearly optimal register allocation with
+//   PBQP. In Proceedings of the 7th Joint Modular Languages Conference
+//   (JMLC'06). LNCS, vol. 4228. Springer, New York, NY, USA. 346-361.
+//
+//   (2) Scholz, B., Eckstein, E. 2002. Register allocation for irregular
+//   architectures. In Proceedings of the Joint Conference on Languages,
+//   Compilers and Tools for Embedded Systems (LCTES'02), ACM Press, New York,
+//   NY, USA, 139-148.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/RegAllocPBQP.h"
 #include "RegisterCoalescer.h"

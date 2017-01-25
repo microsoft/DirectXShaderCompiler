@@ -1,99 +1,100 @@
 //===- AsmMatcherEmitter.cpp - Generate an assembly matcher ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AsmMatcherEmitter.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This tablegen backend emits a target specifier matcher for converting parsed//
-// assembly operands in the MCInst structures. It also emits a matcher for   //
-// custom operand parsing.                                                   //
-//                                                                           //
-// Converting assembly operands into MCInst structures                       //
-// ---------------------------------------------------                       //
-//                                                                           //
-// The input to the target specific matcher is a list of literal tokens and  //
-// operands. The target specific parser should generally eliminate any syntax//
-// which is not relevant for matching; for example, comma tokens should have //
-// already been consumed and eliminated by the parser. Most instructions will//
-// end up with a single literal token (the instruction name) and some number of//
-// operands.                                                                 //
-//                                                                           //
-// Some example inputs, for X86:                                             //
-//   'addl' (immediate ...) (register ...)                                   //
-//   'add' (immediate ...) (memory ...)                                      //
-//   'call' '*' %epc                                                         //
-//                                                                           //
-// The assembly matcher is responsible for converting this input into a precise//
-// machine instruction (i.e., an instruction with a well defined encoding). This//
-// mapping has several properties which complicate matching:                 //
-//                                                                           //
-//  - It may be ambiguous; many architectures can legally encode particular  //
-//    variants of an instruction in different ways (for example, using a smaller//
-//    encoding for small immediates). Such ambiguities should never be       //
-//    arbitrarily resolved by the assembler, the assembler is always responsible//
-//    for choosing the "best" available instruction.                         //
-//                                                                           //
-//  - It may depend on the subtarget or the assembler context. Instructions  //
-//    which are invalid for the current mode, but otherwise unambiguous (e.g.,//
-//    an SSE instruction in a file being assembled for i486) should be accepted//
-//    and rejected by the assembler front end. However, if the proper encoding//
-//    for an instruction is dependent on the assembler context then the matcher//
-//    is responsible for selecting the correct machine instruction for the   //
-//    current mode.                                                          //
-//                                                                           //
-// The core matching algorithm attempts to exploit the regularity in most    //
-// instruction sets to quickly determine the set of possibly matching        //
-// instructions, and the simplify the generated code. Additionally, this helps//
-// to ensure that the ambiguities are intentionally resolved by the user.    //
-//                                                                           //
-// The matching is divided into two distinct phases:                         //
-//                                                                           //
-//   1. Classification: Each operand is mapped to the unique set which (a)   //
-//      contains it, and (b) is the largest such subset for which a single   //
-//      instruction could match all members.                                 //
-//                                                                           //
-//      For register classes, we can generate these subgroups automatically. For//
-//      arbitrary operands, we expect the user to define the classes and their//
-//      relations to one another (for example, 8-bit signed immediates as a  //
-//      subset of 32-bit immediates).                                        //
-//                                                                           //
-//      By partitioning the operands in this way, we guarantee that for any  //
-//      tuple of classes, any single instruction must match either all or none//
-//      of the sets of operands which could classify to that tuple.          //
-//                                                                           //
-//      In addition, the subset relation amongst classes induces a partial order//
-//      on such tuples, which we use to resolve ambiguities.                 //
-//                                                                           //
-//   2. The input can now be treated as a tuple of classes (static tokens are//
-//      simple singleton sets). Each such tuple should generally map to a single//
-//      instruction (we currently ignore cases where this isn't true, whee!!!),//
-//      which we can emit a simple matcher for.                              //
-//                                                                           //
-// Custom Operand Parsing                                                    //
-// ----------------------                                                    //
-//                                                                           //
-//  Some targets need a custom way to parse operands, some specific instructions//
-//  can contain arguments that can represent processor flags and other kinds of//
-//  identifiers that need to be mapped to specific values in the final encoded//
-//  instructions. The target specific custom operand parsing works in the    //
-//  following way:                                                           //
-//                                                                           //
-//   1. A operand match table is built, each entry contains a mnemonic, an   //
-//      operand class, a mask for all operand positions for that same        //
-//      class/mnemonic and target features to be checked while trying to match.//
-//                                                                           //
-//   2. The operand matcher will try every possible entry with the same      //
-//      mnemonic and will check if the target feature for this mnemonic also //
-//      matches. After that, if the operand to be matched has its index      //
-//      present in the mask, a successful match occurs. Otherwise, fallback  //
-//      to the regular operand parsing.                                      //
-//                                                                           //
-//   3. For a match success, each operand class that has a 'ParserMethod'    //
-//      becomes part of a switch from where the custom method is called.     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This tablegen backend emits a target specifier matcher for converting parsed
+// assembly operands in the MCInst structures. It also emits a matcher for
+// custom operand parsing.
+//
+// Converting assembly operands into MCInst structures
+// ---------------------------------------------------
+//
+// The input to the target specific matcher is a list of literal tokens and
+// operands. The target specific parser should generally eliminate any syntax
+// which is not relevant for matching; for example, comma tokens should have
+// already been consumed and eliminated by the parser. Most instructions will
+// end up with a single literal token (the instruction name) and some number of
+// operands.
+//
+// Some example inputs, for X86:
+//   'addl' (immediate ...) (register ...)
+//   'add' (immediate ...) (memory ...)
+//   'call' '*' %epc
+//
+// The assembly matcher is responsible for converting this input into a precise
+// machine instruction (i.e., an instruction with a well defined encoding). This
+// mapping has several properties which complicate matching:
+//
+//  - It may be ambiguous; many architectures can legally encode particular
+//    variants of an instruction in different ways (for example, using a smaller
+//    encoding for small immediates). Such ambiguities should never be
+//    arbitrarily resolved by the assembler, the assembler is always responsible
+//    for choosing the "best" available instruction.
+//
+//  - It may depend on the subtarget or the assembler context. Instructions
+//    which are invalid for the current mode, but otherwise unambiguous (e.g.,
+//    an SSE instruction in a file being assembled for i486) should be accepted
+//    and rejected by the assembler front end. However, if the proper encoding
+//    for an instruction is dependent on the assembler context then the matcher
+//    is responsible for selecting the correct machine instruction for the
+//    current mode.
+//
+// The core matching algorithm attempts to exploit the regularity in most
+// instruction sets to quickly determine the set of possibly matching
+// instructions, and the simplify the generated code. Additionally, this helps
+// to ensure that the ambiguities are intentionally resolved by the user.
+//
+// The matching is divided into two distinct phases:
+//
+//   1. Classification: Each operand is mapped to the unique set which (a)
+//      contains it, and (b) is the largest such subset for which a single
+//      instruction could match all members.
+//
+//      For register classes, we can generate these subgroups automatically. For
+//      arbitrary operands, we expect the user to define the classes and their
+//      relations to one another (for example, 8-bit signed immediates as a
+//      subset of 32-bit immediates).
+//
+//      By partitioning the operands in this way, we guarantee that for any
+//      tuple of classes, any single instruction must match either all or none
+//      of the sets of operands which could classify to that tuple.
+//
+//      In addition, the subset relation amongst classes induces a partial order
+//      on such tuples, which we use to resolve ambiguities.
+//
+//   2. The input can now be treated as a tuple of classes (static tokens are
+//      simple singleton sets). Each such tuple should generally map to a single
+//      instruction (we currently ignore cases where this isn't true, whee!!!),
+//      which we can emit a simple matcher for.
+//
+// Custom Operand Parsing
+// ----------------------
+//
+//  Some targets need a custom way to parse operands, some specific instructions
+//  can contain arguments that can represent processor flags and other kinds of
+//  identifiers that need to be mapped to specific values in the final encoded
+//  instructions. The target specific custom operand parsing works in the
+//  following way:
+//
+//   1. A operand match table is built, each entry contains a mnemonic, an
+//      operand class, a mask for all operand positions for that same
+//      class/mnemonic and target features to be checked while trying to match.
+//
+//   2. The operand matcher will try every possible entry with the same
+//      mnemonic and will check if the target feature for this mnemonic also
+//      matches. After that, if the operand to be matched has its index
+//      present in the mask, a successful match occurs. Otherwise, fallback
+//      to the regular operand parsing.
+//
+//   3. For a match success, each operand class that has a 'ParserMethod'
+//      becomes part of a switch from where the custom method is called.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenTarget.h"
 #include "llvm/ADT/PointerUnion.h"

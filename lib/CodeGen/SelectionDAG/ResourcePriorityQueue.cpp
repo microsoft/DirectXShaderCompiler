@@ -1,22 +1,23 @@
 //===- ResourcePriorityQueue.cpp - A DFA-oriented priority queue -*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ResourcePriorityQueue.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the ResourcePriorityQueue class, which is a          //
-// SchedulingPriorityQueue that prioritizes instructions using DFA state to  //
-// reduce the length of the critical path through the basic block            //
-// on VLIW platforms.                                                        //
-// The scheduler is basically a top-down adaptable list scheduler with DFA   //
-// resource tracking added to the cost function.                             //
-// DFA is queried as a state machine to model "packets/bundles" during       //
-// schedule. Currently packets/bundles are discarded at the end of           //
-// scheduling, affecting only order of instructions.                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the ResourcePriorityQueue class, which is a
+// SchedulingPriorityQueue that prioritizes instructions using DFA state to
+// reduce the length of the critical path through the basic block
+// on VLIW platforms.
+// The scheduler is basically a top-down adaptable list scheduler with DFA
+// resource tracking added to the cost function.
+// DFA is queried as a state machine to model "packets/bundles" during
+// schedule. Currently packets/bundles are discarded at the end of
+// scheduling, affecting only order of instructions.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/ResourcePriorityQueue.h"
 #include "llvm/CodeGen/MachineInstr.h"

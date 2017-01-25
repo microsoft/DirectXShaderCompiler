@@ -1,15 +1,16 @@
 //===- CallingConvEmitter.cpp - Generate calling conventions --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CallingConvEmitter.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This tablegen backend is responsible for emitting descriptions of the calling//
-// conventions supported by this target.                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This tablegen backend is responsible for emitting descriptions of the calling
+// conventions supported by this target.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenTarget.h"
 #include "llvm/TableGen/Error.h"

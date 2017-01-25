@@ -1,15 +1,16 @@
 //=== StackAddrEscapeChecker.cpp ----------------------------------*- C++ -*--//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StackAddrEscapeChecker.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines stack address leak checker, which checks if an invalid  //
-// stack address is stored into a global or heap location. See CERT DCL30-C. //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines stack address leak checker, which checks if an invalid 
+// stack address is stored into a global or heap location. See CERT DCL30-C.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/ExprCXX.h"

@@ -1,22 +1,23 @@
 //===- LiveDebugVariables.cpp - Tracking debug info variables -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveDebugVariables.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the LiveDebugVariables analysis.                     //
-//                                                                           //
-// Remove all DBG_VALUE instructions referencing virtual registers and replace//
-// them with a data structure tracking where live user variables are kept - in a//
-// virtual register or in a stack slot.                                      //
-//                                                                           //
-// Allow the data structure to be updated during register allocation when values//
-// are moved between registers and stack slots. Finally emit new DBG_VALUE   //
-// instructions after register allocation is complete.                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the LiveDebugVariables analysis.
+//
+// Remove all DBG_VALUE instructions referencing virtual registers and replace
+// them with a data structure tracking where live user variables are kept - in a
+// virtual register or in a stack slot.
+//
+// Allow the data structure to be updated during register allocation when values
+// are moved between registers and stack slots. Finally emit new DBG_VALUE
+// instructions after register allocation is complete.
+//
+//===----------------------------------------------------------------------===//
 
 #include "LiveDebugVariables.h"
 #include "llvm/ADT/IntervalMap.h"
