@@ -10,6 +10,7 @@
 |* Header file for llvm-c-test                                                *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
+#define LLVM_C_TEST_H
 
 // helpers.c
 void tokenize_stdin(void (*cb)(char **tokens, int ntokens));
