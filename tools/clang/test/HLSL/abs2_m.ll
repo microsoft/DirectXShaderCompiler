@@ -1,6 +1,8 @@
 ; RUN: %dxv %s | FileCheck %s
 
 ; CHECK: DXIL intrinsic overload must be valid
+; Change dx.op.loadInput.i32(i32 4 to dx.op.loadInput.i32(i32 3
+
 ;
 ; Input signature:
 ;

@@ -150,7 +150,6 @@ public:
   TEST_METHOD(WhenDepthNotFloatThenFail);
   TEST_METHOD(BarrierFail);
   TEST_METHOD(CBufferLegacyOutOfBoundFail);
-  TEST_METHOD(CBufferOutOfBoundFail);
   TEST_METHOD(CsThreadSizeFail);
   TEST_METHOD(DeadLoopFail);
   TEST_METHOD(EvalFail);
@@ -466,11 +465,38 @@ TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
 }
 
 TEST_F(ValidationTest, WhenInstrDisallowedThenFail) {
-  TestCheck(L"val-inst-disallowed.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+      {
+          "target triple = \"dxil-ms-dx\"",
+          "ret void",
+          "dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 3, i32 undef)",
+          "!\"ps\", i32 6, i32 0",
+      },
+      {
+          "target triple = \"dxil-ms-dx\"\n%dx.types.wave_t = type { i8* }",
+          "unreachable",
+          "dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 3, i32 undef)\n%wave_local = alloca %dx.types.wave_t",
+          "!\"vs\", i32 6, i32 0",
+      },
+      {"Semantic 'SV_Target' is invalid as vs Output",
+       "Declaration '%dx.types.wave_t = type { i8* }' uses a reserved prefix",
+       "Instructions must be of an allowed type",
+      }
+  );
 }
 
 TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
-  TestCheck(L"dxil_validation\\IntegerDepth.ll");
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\IntegerDepth2.hlsl", "ps_6_0",
+                          {
+                              "!\"SV_Depth\", i8 9",
+                          },
+                          {
+                              "!\"SV_Depth\", i8 4",
+                          },
+                          {
+                              "SV_Depth must be float",
+                          });
 }
 
 TEST_F(ValidationTest, BarrierFail) {
@@ -500,85 +526,317 @@ TEST_F(ValidationTest, BarrierFail) {
       });
 }
 TEST_F(ValidationTest, CBufferLegacyOutOfBoundFail) {
-  TestCheck(L"dxil_validation\\cbuffer1.50_legacy.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\cbuffer1.50.hlsl", "ps_6_0",
+      "cbufferLoadLegacy.f32(i32 61, %dx.types.Handle %Foo2_buffer, i32 0)",
+      "cbufferLoadLegacy.f32(i32 61, %dx.types.Handle %Foo2_buffer, i32 6)",
+      "Cbuffer access out of bound");
 }
-TEST_F(ValidationTest, CBufferOutOfBoundFail) {
-  TestCheck(L"dxil_validation\\cbuffer1.50.ll");
-}
+
 TEST_F(ValidationTest, CsThreadSizeFail) {
-  TestCheck(L"dxil_validation\\csThreadSize.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\share_mem1.hlsl", "cs_6_0",
+      {"!{i32 8, i32 8, i32 1",
+       "[256 x float]"},
+      {"!{i32 1025, i32 1025, i32 1025",
+       "[64000000 x float]"},
+      {"Declared Thread Group X size 1025 outside valid range",
+       "Declared Thread Group Y size 1025 outside valid range",
+       "Declared Thread Group Z size 1025 outside valid range",
+       "Declared Thread Group Count 1076890625 (X*Y*Z) is beyond the valid maximum",
+       "Total Thread Group Shared Memory storage is 256000000, exceeded 32768",
+      });
 }
 TEST_F(ValidationTest, DeadLoopFail) {
-  TestCheck(L"dxil_validation\\deadloop.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\loop1.hlsl", "ps_6_0",
+      {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
+       "%add.lcssa = phi float \\[ %add, %for.body \\]",
+       "!dx.entryPoints = !\\{!([0-9]+)\\}",
+       "\\[ %add.lcssa, %for.end.loopexit \\]"
+      },
+      {"br label %for.body",
+       "",
+       "!dx.entryPoints = !\\{!\\1\\}\n!dx.unused = !\\{!\\1\\}",
+       "[ 0.000000e+00, %for.end.loopexit ]"
+      },
+      {"Loop must have break",
+       "Named metadata 'dx.unused' is unknown",
+      },
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, EvalFail) {
-  TestCheck(L"dxil_validation\\Eval.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\Eval.hlsl", "ps_6_0",
+      "!\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4",
+      "!\"A\", i8 9, i8 0, !\\1, i8 0, i32 1, i8 4",
+      "Interpolation mode on A used with eval_\\* instruction must be ",
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, GetDimCalcLODFail) {
-  TestCheck(L"dxil_validation\\GetDimCalcLOD.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\GetDimCalcLOD.hlsl", "ps_6_0",
+      {"extractvalue %dx.types.Dimensions %2, 1",
+       "float 1.000000e+00, i1 true"
+      },
+      {"extractvalue %dx.types.Dimensions %2, 2",
+       "float undef, i1 true"
+      },
+      {"GetDimensions used undef dimension z on TextureCube",
+       "coord uninitialized"});
 }
 TEST_F(ValidationTest, HsAttributeFail) {
-  TestCheck(L"dxil_validation\\hsAttribute.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\hsAttribute.hlsl", "hs_6_0",
+      {"i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01"
+      },
+      {"i32 36, i32 36, i32 0, i32 0, i32 0, float 6.500000e+01"
+      },
+      {"HS input control point count must be [1..32].  36 specified",
+       "Invalid Tessellator Domain specified. Must be isoline, tri or quad",
+       "Invalid Tessellator Partitioning specified",
+       "Invalid Tessellator Output Primitive specified",
+       "Hull Shader MaxTessFactor must be [1.000000..64.000000].  65.000000 specified",
+       "output control point count must be [0..32].  36 specified"});
 }
 TEST_F(ValidationTest, InnerCoverageFail) {
-  TestCheck(L"dxil_validation\\InnerCoverage.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\InnerCoverage2.hlsl", "ps_6_0",
+      {"dx.op.coverage.i32(i32 93)",
+       "declare i32 @dx.op.coverage.i32(i32)"
+      },
+      {"dx.op.coverage.i32(i32 93)\n  %inner = call i32 @dx.op.innercoverage.i32(i32 94)",
+       "declare i32 @dx.op.coverage.i32(i32)\n"
+       "declare i32 @dx.op.innercoverage.i32(i32)"
+      },
+      "InnerCoverage and Coverage are mutually exclusive.");
 }
 TEST_F(ValidationTest, InterpChangeFail) {
-  TestCheck(L"dxil_validation\\interpChange.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\interpChange.hlsl", "ps_6_0",
+      "i32 1, i8 0, null}",
+      "i32 0, i8 2, null}",
+      "interpolation mode that differs from another element packed",
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, InterpOnIntFail) {
-  TestCheck(L"dxil_validation\\interpOnInt.ll");
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\interpOnInt2.hlsl", "ps_6_0",
+      "!\"A\", i8 5, i8 0, !([0-9]+), i8 1",
+      "!\"A\", i8 5, i8 0, !\\1, i8 2",
+      "signature element A specifies invalid interpolation mode for integer component type",
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, InvalidSigCompTyFail) {
-  TestCheck(L"dxil_validation\\invalidSigCompTy.ll");
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+      "!\"A\", i8 4",
+      "!\"A\", i8 0",
+      "A specifies unrecognized or invalid component type");
 }
 TEST_F(ValidationTest, MultiStream2Fail) {
-  TestCheck(L"dxil_validation\\multiStream2.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\multiStreamGS.hlsl", "gs_6_0",
+      "i32 1, i32 12, i32 7, i32 1, i32 1",
+      "i32 1, i32 12, i32 7, i32 2, i32 1",
+      "Multiple GS output streams are used but 'XXX' is not pointlist");
 }
 TEST_F(ValidationTest, PhiTGSMFail) {
-  TestCheck(L"dxil_validation\\phiTGSM.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\phiTGSM.hlsl", "cs_6_0",
+      "ret void",
+      "%arrayPhi = phi i32 addrspace(3)* [ %arrayidx, %if.then ], [ %arrayidx2, %if.else ]\n"
+      "%phiAtom = atomicrmw add i32 addrspace(3)* %arrayPhi, i32 1 seq_cst\n"
+      "ret void",
+      "TGSM pointers must originate from an unambiguous TGSM global variable");
 }
 TEST_F(ValidationTest, ReducibleFail) {
-  TestCheck(L"dxil_validation\\reducible.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\reducible.hlsl", "ps_6_0",
+      {"%conv\n"
+       "  br label %if.end",
+       "to float\n"
+       "  br label %if.end"
+      },
+      {"%conv\n"
+      "  br i1 %cmp.i0, label %if.else, label %if.end",
+       "to float\n"
+       "  br i1 %cmp.i0, label %if.then, label %if.end"
+      },
+      "Execution flow must be reducible");
 }
 TEST_F(ValidationTest, SampleBiasFail) {
-  TestCheck(L"dxil_validation\\sampleBias.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\sampleBias.hlsl", "ps_6_0",
+      {"float -1.600000e+01"
+      },
+      {"float 1.800000e+01"
+      },
+      "bias amount for sample_b must be in the range [-16.000000,15.990000]");
 }
 TEST_F(ValidationTest, SamplerKindFail) {
-  TestCheck(L"dxil_validation\\samplerKind.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\samplerKind.hlsl", "ps_6_0",
+      {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 1",
+       "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0",
+       "\"g_samLinear\", i32 0, i32 0, i32 1, i32 0",
+       "\"g_samLinearC\", i32 0, i32 1, i32 1, i32 1",
+      },
+      {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0",
+       "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 1",
+       "\"g_samLinear\", i32 0, i32 0, i32 1, i32 3",
+       "\"g_samLinearC\", i32 0, i32 1, i32 1, i32 3",
+      },
+      {"Invalid sampler mode",
+       "require sampler declared in comparison mode",
+       "requires sampler declared in default mode",
+       "should on srv resource"});
 }
 TEST_F(ValidationTest, SemaOverlapFail) {
-  TestCheck(L"dxil_validation\\semaOverlap.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      {"!([0-9]+) = !\\{i32 0, !\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4, i32 0, i8 0, null\\}\n"
+      "!([0-9]+) = !\\{i32 0\\}\n"
+      "!([0-9]+) = !\\{i32 1, !\"A\", i8 9, i8 0, !([0-9]+)",
+      },
+      {"!\\1 = !\\{i32 0, !\"A\", i8 9, i8 0, !\\2, i8 2, i32 1, i8 4, i32 0, i8 0, null\\}\n"
+      "!\\3 = !\\{i32 0\\}\n"
+      "!\\4 = !\\{i32 1, !\"A\", i8 9, i8 0, !\\2",
+      },
+      {"Semantic 'A' overlap at 0"},
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, SigOutOfRangeFail) {
-  TestCheck(L"dxil_validation\\sigOutOfRange.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      {"i32 1, i8 0, null}",
+      },
+      {"i32 8000, i8 0, null}",
+      },
+      {"signature element A at location (8000,0) size (1,4) is out of range"});
 }
 TEST_F(ValidationTest, SigOverlapFail) {
-  TestCheck(L"dxil_validation\\sigOverlap.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      {"i32 1, i8 0, null}",
+      },
+      {"i32 0, i8 0, null}",
+      },
+      {"signature element A at location (0,0) size (1,4) overlaps another signature element"});
 }
 TEST_F(ValidationTest, SimpleHs1Fail) {
-  TestCheck(L"dxil_validation\\SimpleHs1.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
+      {"i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01}",
+       "\"SV_TessFactor\", i8 9, i8 25",
+       "\"SV_InsideTessFactor\", i8 9, i8 26",
+      },
+      {"i32 3, i32 3000, i32 2, i32 3, i32 3, float 6.400000e+01}",
+       "\"TessFactor\", i8 9, i8 0",
+       "\"InsideTessFactor\", i8 9, i8 0",
+      },
+      {"output control point count must be [0..32].  3000 specified",
+       "Required TessFactor for domain not found declared anywhere in Patch Constant data",
+       // TODO: enable this after support pass thru hull shader.
+       //"For pass thru hull shader, input control point count must match output control point count",
+       //"Total number of scalars across all HS output control points must not exceed",
+      });
 }
 TEST_F(ValidationTest, SimpleHs3Fail) {
-  TestCheck(L"dxil_validation\\SimpleHs3.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs3.hlsl", "hs_6_0",
+      {
+          "i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01}",
+      },
+      {
+          "i32 3, i32 3, i32 2, i32 3, i32 2, float 6.400000e+01}",
+      },
+      {"Hull Shader declared with Tri Domain must specify output primitive "
+       "point, triangle_cw or triangle_ccw. Line output is not compatible with "
+       "the Tri domain"});
 }
 TEST_F(ValidationTest, SimpleHs4Fail) {
-  TestCheck(L"dxil_validation\\SimpleHs4.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs4.hlsl", "hs_6_0",
+      {
+          "i32 2, i32 2, i32 1, i32 3, i32 2, float 6.400000e+01}",
+      },
+      {
+          "i32 2, i32 2, i32 1, i32 3, i32 3, float 6.400000e+01}",
+      },
+      {"Hull Shader declared with IsoLine Domain must specify output primitive "
+       "point or line. Triangle_cw or triangle_ccw output are not compatible "
+       "with the IsoLine Domain"});
 }
 TEST_F(ValidationTest, SimpleDs1Fail) {
-  TestCheck(L"dxil_validation\\SimpleDs1.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleDs1.hlsl", "ds_6_0",
+      {"!{i32 2, i32 3}"
+      },
+      {"!{i32 4, i32 36}"
+      },
+      {"DS input control point count must be [0..32].  36 specified",
+       "Invalid Tessellator Domain specified. Must be isoline, tri or quad",
+       "DomainLocation component index out of bounds for the domain"});
 }
 TEST_F(ValidationTest, SimpleGs1Fail) {
-  TestCheck(L"dxil_validation\\SimpleGs1.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
+      {"!{i32 1, i32 3, i32 1, i32 5, i32 1}",
+       "i8 4, i32 1, i8 4, i32 1, i8 0, null}"
+      },
+      {"!{i32 5, i32 1025, i32 1, i32 0, i32 33}",
+      "i8 4, i32 1, i8 4, i32 1, i8 0, !100}\n"
+      "!100 = !{i32 0, i32 5}"
+      },
+      {"GS output vertex count must be [0..1024].  1025 specified",
+       "GS instance count must be [1..32].  33 specified",
+       "GS output primitive topology unrecognized",
+       "GS input primitive unrecognized",
+       "Stream index (5) must between 0 and 3"});
 }
 TEST_F(ValidationTest, UavBarrierFail) {
-  TestCheck(L"dxil_validation\\uavBarrier.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\uavBarrier.hlsl", "ps_6_0",
+      {"dx.op.barrier(i32 82, i32 2)",
+       "textureLoad.f32(i32 68, %dx.types.Handle %uav1_UAV_2d, i32 undef",
+       "i32 undef, i32 undef, i32 undef, i32 undef)",
+       "float %add9.i3, i8 15)",
+      },
+      {"dx.op.barrier(i32 82, i32 9)",
+       "textureLoad.f32(i32 68, %dx.types.Handle %uav1_UAV_2d, i32 1",
+       "i32 1, i32 2, i32 undef, i32 undef)",
+       "float undef, i8 7)",
+      },
+      {"uav load don't support offset",
+       "uav load don't support mipLevel/sampleIndex",
+       "store on typed uav must write to all four components of the UAV",
+       "sync in a non-Compute Shader must only sync UAV (sync_uglobal)"});
 }
 TEST_F(ValidationTest, UndefValueFail) {
-  TestCheck(L"dxil_validation\\UndefValue.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\UndefValue.hlsl", "ps_6_0",
+      {"fadd fast float %([0-9]+)"
+      },
+      {"fadd fast float undef"
+      },
+      {"Instructions should not read uninitialized value"},
+      /*bRegex*/ true);
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
-  TestCheck(L"dxil_validation\\UpdateCounter.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\UpdateCounter2.hlsl", "ps_6_0",
+      {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
+       "%3 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 1)"
+      },
+      {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 -1)",
+       "%3 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 1)\n"
+       "%srvUpdate = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf1_texture_buf, i8 undef)"
+      },
+      {"BufferUpdateCounter valid only on UAV",
+       "BufferUpdateCounter valid only on structured buffers",
+       "inc of BufferUpdateCounter must be an immediate constant",
+       "RWStructuredBuffers may increment or decrement their counters, but not both"});
 }
 
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {

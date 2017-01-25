@@ -573,7 +573,8 @@ static DxilSignatureElement *ValidateSignatureAccess(Instruction *I, DxilSignatu
   if (isOutput && SE.GetSemantic()->GetKind() == DXIL::SemanticKind::Position) {
     unsigned mask = ValCtx.OutputPositionMask[SE.GetOutputStream()];
     mask |= 1<<col;
-    ValCtx.OutputPositionMask[SE.GetOutputStream()] = mask;
+    if (SE.GetOutputStream() < DXIL::kNumOutputStreams)
+      ValCtx.OutputPositionMask[SE.GetOutputStream()] = mask;
   }
   return &SE;
 }
@@ -924,6 +925,7 @@ static void ValidateGather(CallInst *CI, Value *srvHandle, Value *samplerHandle,
 
   if (resClass != DXIL::ResourceClass::SRV) {
     ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForSamplerGather);
+    return;
   }
 
   // Coord match resource kind.
@@ -1317,6 +1319,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     if (resClass != DXIL::ResourceClass::SRV) {
       ValCtx.EmitInstrError(CI,
                             ValidationRule::InstrResourceClassForSamplerGather);
+      return;
     }
     // Coord match resource.
     ValidateCalcLODResourceDimensionCoord(
