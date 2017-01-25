@@ -37,13 +37,13 @@ if "%2"=="" (
   goto :showhelp
 )
 
-if not exist "%1\utils\hct\hctstart.cmd" (
-  echo %1 does not look like a directory with sources - cannot find %1\utils\hct\hctstart.cmd
+if not exist "%~f1\utils\hct\hctstart.cmd" (
+  echo %1 does not look like a directory with sources - cannot find %~f1\utils\hct\hctstart.cmd
   exit /b 1
 )
 
-set HLSL_SRC_DIR=%1
-set HLSL_BLD_DIR=%2
+set HLSL_SRC_DIR=%~f1
+set HLSL_BLD_DIR=%~f2
 echo HLSL source directory set to HLSL_SRC_DIR=%HLSL_SRC_DIR%
 echo HLSL source directory set to HLSL_BLD_DIR=%HLSL_BLD_DIR%
 echo.
