@@ -1,13 +1,15 @@
 //===---- MachineCombiner.cpp - Instcombining on SSA form machine code ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineCombiner.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The machine combiner pass uses machine trace metrics to ensure the combined//
-// instructions does not lengthen the critical path or the resource depth.   //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The machine combiner pass uses machine trace metrics to ensure the combined
+// instructions does not lengthen the critical path or the resource depth.
+//===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "machine-combiner"
 //                                                                           //

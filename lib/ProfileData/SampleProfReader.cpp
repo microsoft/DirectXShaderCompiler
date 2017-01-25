@@ -1,97 +1,98 @@
 //===- SampleProfReader.cpp - Read LLVM sample profile data ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SampleProfReader.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the class that reads LLVM sample profiles. It        //
-// supports two file formats: text and binary. The textual representation    //
-// is useful for debugging and testing purposes. The binary representation   //
-// is more compact, resulting in smaller file sizes. However, they can       //
-// both be used interchangeably.                                             //
-//                                                                           //
-// NOTE: If you are making changes to the file format, please remember       //
-//       to document them in the Clang documentation at                      //
-//       tools/clang/docs/UsersManual.rst.                                   //
-//                                                                           //
-// Text format                                                               //
-// -----------                                                               //
-//                                                                           //
-// Sample profiles are written as ASCII text. The file is divided into       //
-// sections, which correspond to each of the functions executed at runtime.  //
-// Each section has the following format                                     //
-//                                                                           //
-//     function1:total_samples:total_head_samples                            //
-//     offset1[.discriminator]: number_of_samples [fn1:num fn2:num ... ]     //
-//     offset2[.discriminator]: number_of_samples [fn3:num fn4:num ... ]     //
-//     ...                                                                   //
-//     offsetN[.discriminator]: number_of_samples [fn5:num fn6:num ... ]     //
-//                                                                           //
-// The file may contain blank lines between sections and within a            //
-// section. However, the spacing within a single line is fixed. Additional   //
-// spaces will result in an error while reading the file.                    //
-//                                                                           //
-// Function names must be mangled in order for the profile loader to         //
-// match them in the current translation unit. The two numbers in the        //
-// function header specify how many total samples were accumulated in the    //
-// function (first number), and the total number of samples accumulated      //
-// in the prologue of the function (second number). This head sample         //
-// count provides an indicator of how frequently the function is invoked.    //
-//                                                                           //
-// Each sampled line may contain several items. Some are optional (marked    //
-// below):                                                                   //
-//                                                                           //
-// a. Source line offset. This number represents the line number             //
-//    in the function where the sample was collected. The line number is     //
-//    always relative to the line where symbol of the function is            //
-//    defined. So, if the function has its header at line 280, the offset    //
-//    13 is at line 293 in the file.                                         //
-//                                                                           //
-//    Note that this offset should never be a negative number. This could    //
-//    happen in cases like macros. The debug machinery will register the     //
-//    line number at the point of macro expansion. So, if the macro was      //
-//    expanded in a line before the start of the function, the profile       //
-//    converter should emit a 0 as the offset (this means that the optimizers//
-//    will not be able to associate a meaningful weight to the instructions  //
-//    in the macro).                                                         //
-//                                                                           //
-// b. [OPTIONAL] Discriminator. This is used if the sampled program          //
-//    was compiled with DWARF discriminator support                          //
-//    (http://wiki.dwarfstd.org/index.php?title=Path_Discriminators).        //
-//    DWARF discriminators are unsigned integer values that allow the        //
-//    compiler to distinguish between multiple execution paths on the        //
-//    same source line location.                                             //
-//                                                                           //
-//    For example, consider the line of code ``if (cond) foo(); else bar();``.//
-//    If the predicate ``cond`` is true 80% of the time, then the edge       //
-//    into function ``foo`` should be considered to be taken most of the     //
-//    time. But both calls to ``foo`` and ``bar`` are at the same source     //
-//    line, so a sample count at that line is not sufficient. The            //
-//    compiler needs to know which part of that line is taken more           //
-//    frequently.                                                            //
-//                                                                           //
-//    This is what discriminators provide. In this case, the calls to        //
-//    ``foo`` and ``bar`` will be at the same line, but will have            //
-//    different discriminator values. This allows the compiler to correctly  //
-//    set edge weights into ``foo`` and ``bar``.                             //
-//                                                                           //
-// c. Number of samples. This is an integer quantity representing the        //
-//    number of samples collected by the profiler at this source             //
-//    location.                                                              //
-//                                                                           //
-// d. [OPTIONAL] Potential call targets and samples. If present, this        //
-//    line contains a call instruction. This models both direct and          //
-//    number of samples. For example,                                        //
-//                                                                           //
-//      130: 7  foo:3  bar:2  baz:7                                          //
-//                                                                           //
-//    The above means that at relative line offset 130 there is a call       //
-//    instruction that calls one of ``foo()``, ``bar()`` and ``baz()``,      //
-//    with ``baz()`` being the relatively more frequently called target.     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                      The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the class that reads LLVM sample profiles. It
+// supports two file formats: text and binary. The textual representation
+// is useful for debugging and testing purposes. The binary representation
+// is more compact, resulting in smaller file sizes. However, they can
+// both be used interchangeably.
+//
+// NOTE: If you are making changes to the file format, please remember
+//       to document them in the Clang documentation at
+//       tools/clang/docs/UsersManual.rst.
+//
+// Text format
+// -----------
+//
+// Sample profiles are written as ASCII text. The file is divided into
+// sections, which correspond to each of the functions executed at runtime.
+// Each section has the following format
+//
+//     function1:total_samples:total_head_samples
+//     offset1[.discriminator]: number_of_samples [fn1:num fn2:num ... ]
+//     offset2[.discriminator]: number_of_samples [fn3:num fn4:num ... ]
+//     ...
+//     offsetN[.discriminator]: number_of_samples [fn5:num fn6:num ... ]
+//
+// The file may contain blank lines between sections and within a
+// section. However, the spacing within a single line is fixed. Additional
+// spaces will result in an error while reading the file.
+//
+// Function names must be mangled in order for the profile loader to
+// match them in the current translation unit. The two numbers in the
+// function header specify how many total samples were accumulated in the
+// function (first number), and the total number of samples accumulated
+// in the prologue of the function (second number). This head sample
+// count provides an indicator of how frequently the function is invoked.
+//
+// Each sampled line may contain several items. Some are optional (marked
+// below):
+//
+// a. Source line offset. This number represents the line number
+//    in the function where the sample was collected. The line number is
+//    always relative to the line where symbol of the function is
+//    defined. So, if the function has its header at line 280, the offset
+//    13 is at line 293 in the file.
+//
+//    Note that this offset should never be a negative number. This could
+//    happen in cases like macros. The debug machinery will register the
+//    line number at the point of macro expansion. So, if the macro was
+//    expanded in a line before the start of the function, the profile
+//    converter should emit a 0 as the offset (this means that the optimizers
+//    will not be able to associate a meaningful weight to the instructions
+//    in the macro).
+//
+// b. [OPTIONAL] Discriminator. This is used if the sampled program
+//    was compiled with DWARF discriminator support
+//    (http://wiki.dwarfstd.org/index.php?title=Path_Discriminators).
+//    DWARF discriminators are unsigned integer values that allow the
+//    compiler to distinguish between multiple execution paths on the
+//    same source line location.
+//
+//    For example, consider the line of code ``if (cond) foo(); else bar();``.
+//    If the predicate ``cond`` is true 80% of the time, then the edge
+//    into function ``foo`` should be considered to be taken most of the
+//    time. But both calls to ``foo`` and ``bar`` are at the same source
+//    line, so a sample count at that line is not sufficient. The
+//    compiler needs to know which part of that line is taken more
+//    frequently.
+//
+//    This is what discriminators provide. In this case, the calls to
+//    ``foo`` and ``bar`` will be at the same line, but will have
+//    different discriminator values. This allows the compiler to correctly
+//    set edge weights into ``foo`` and ``bar``.
+//
+// c. Number of samples. This is an integer quantity representing the
+//    number of samples collected by the profiler at this source
+//    location.
+//
+// d. [OPTIONAL] Potential call targets and samples. If present, this
+//    line contains a call instruction. This models both direct and
+//    number of samples. For example,
+//
+//      130: 7  foo:3  bar:2  baz:7
+//
+//    The above means that at relative line offset 130 there is a call
+//    instruction that calls one of ``foo()``, ``bar()`` and ``baz()``,
+//    with ``baz()`` being the relatively more frequently called target.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ProfileData/SampleProfReader.h"
 #include "llvm/Support/Debug.h"

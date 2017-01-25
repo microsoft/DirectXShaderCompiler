@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 set(LLVM_OPTIONAL_SOURCES legalizevectorops.cpp) # HLSL Change - ignore file
 
 add_llvm_library(LLVMSelectionDAG

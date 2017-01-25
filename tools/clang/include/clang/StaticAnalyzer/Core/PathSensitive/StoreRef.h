@@ -1,14 +1,15 @@
 //== StoreRef.h - Smart pointer for store objects ---------------*- C++ -*--==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StoreRef.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defined the type StoreRef.                                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defined the type StoreRef.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_STOREREF_H
 #define LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_STOREREF_H

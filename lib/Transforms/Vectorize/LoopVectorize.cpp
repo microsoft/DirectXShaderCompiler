@@ -1,47 +1,50 @@
 //===- LoopVectorize.cpp - A Loop Vectorizer ------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopVectorize.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is the LLVM loop vectorizer. This pass modifies 'vectorizable' loops //
-// and generates target-independent LLVM-IR.                                 //
-// The vectorizer uses the TargetTransformInfo analysis to estimate the costs//
-// of instructions in order to estimate the profitability of vectorization.  //
-//                                                                           //
-// The loop vectorizer combines consecutive loop iterations into a single    //
-// 'wide' iteration. After this transformation the index is incremented      //
-// by the SIMD vector width, and not by one.                                 //
-//                                                                           //
-// This pass has three parts:                                                //
-// 1. The main loop pass that drives the different parts.                    //
-// 2. LoopVectorizationLegality - A unit that checks for the legality        //
-//    of the vectorization.                                                  //
-// 3. InnerLoopVectorizer - A unit that performs the actual                  //
-//    widening of instructions.                                              //
-// 4. LoopVectorizationCostModel - A unit that checks for the profitability  //
-//    of vectorization. It decides on the optimal vector width, which        //
-//    can be one, if vectorization is not profitable.                        //
-//                                                                           //
-// The reduction-variable vectorization is based on the paper:               //
-//  D. Nuzman and R. Henderson. Multi-platform Auto-vectorization.           //
-//                                                                           //
-// Variable uniformity checks are inspired by:                               //
-//  Karrenberg, R. and Hack, S. Whole Function Vectorization.                //
-//                                                                           //
-// The interleaved access vectorization is based on the paper:               //
-//  Dorit Nuzman, Ira Rosen and Ayal Zaks.  Auto-Vectorization of Interleaved//
-//  Data for SIMD                                                            //
-//                                                                           //
-// Other ideas/concepts are from:                                            //
-//  A. Zaks and D. Nuzman. Autovectorization in GCC-two years later.         //
-//                                                                           //
-//  S. Maleki, Y. Gao, M. Garzaran, T. Wong and D. Padua.  An Evaluation of  //
-//  Vectorizing Compilers.                                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is the LLVM loop vectorizer. This pass modifies 'vectorizable' loops
+// and generates target-independent LLVM-IR.
+// The vectorizer uses the TargetTransformInfo analysis to estimate the costs
+// of instructions in order to estimate the profitability of vectorization.
+//
+// The loop vectorizer combines consecutive loop iterations into a single
+// 'wide' iteration. After this transformation the index is incremented
+// by the SIMD vector width, and not by one.
+//
+// This pass has three parts:
+// 1. The main loop pass that drives the different parts.
+// 2. LoopVectorizationLegality - A unit that checks for the legality
+//    of the vectorization.
+// 3. InnerLoopVectorizer - A unit that performs the actual
+//    widening of instructions.
+// 4. LoopVectorizationCostModel - A unit that checks for the profitability
+//    of vectorization. It decides on the optimal vector width, which
+//    can be one, if vectorization is not profitable.
+//
+//===----------------------------------------------------------------------===//
+//
+// The reduction-variable vectorization is based on the paper:
+//  D. Nuzman and R. Henderson. Multi-platform Auto-vectorization.
+//
+// Variable uniformity checks are inspired by:
+//  Karrenberg, R. and Hack, S. Whole Function Vectorization.
+//
+// The interleaved access vectorization is based on the paper:
+//  Dorit Nuzman, Ira Rosen and Ayal Zaks.  Auto-Vectorization of Interleaved
+//  Data for SIMD
+//
+// Other ideas/concepts are from:
+//  A. Zaks and D. Nuzman. Autovectorization in GCC-two years later.
+//
+//  S. Maleki, Y. Gao, M. Garzaran, T. Wong and D. Padua.  An Evaluation of
+//  Vectorizing Compilers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/ADT/DenseMap.h"

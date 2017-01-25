@@ -1,25 +1,26 @@
 //===-- llvm/SymbolTableListTraits.h - Traits for iplist --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SymbolTableListTraits.h                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a generic class that is used to implement the automatic //
-// symbol table manipulation that occurs when you put (for example) a named  //
-// instruction into a basic block.                                           //
 //
-// The way that this is implemented is by using a special traits class with the//
-// intrusive list that makes up the list of instructions in a basic block.  When//
-// a new element is added to the list of instructions, the traits class is   //
-// notified, allowing the symbol table to be updated.                        //
+//                     The LLVM Compiler Infrastructure
 //
-// This generic class implements the traits class.  It must be generic so that//
-// it can work for all uses it, which include lists of instructions, basic   //
-// blocks, arguments, functions, global variables, etc...                    //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// This file defines a generic class that is used to implement the automatic
+// symbol table manipulation that occurs when you put (for example) a named
+// instruction into a basic block.
+//
+// The way that this is implemented is by using a special traits class with the
+// intrusive list that makes up the list of instructions in a basic block.  When
+// a new element is added to the list of instructions, the traits class is
+// notified, allowing the symbol table to be updated.
+//
+// This generic class implements the traits class.  It must be generic so that
+// it can work for all uses it, which include lists of instructions, basic
+// blocks, arguments, functions, global variables, etc...
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_SYMBOLTABLELISTTRAITS_H
 #define LLVM_IR_SYMBOLTABLELISTTRAITS_H

@@ -1,11 +1,4 @@
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// c-index-test.c                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+/* c-index-test.c */
 
 #include "clang/Config/config.h"
 #include "clang-c/Index.h"

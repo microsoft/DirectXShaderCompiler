@@ -1,16 +1,17 @@
 //===-- llvm/CodeGen/MachinePassRegistry.h ----------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachinePassRegistry.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the mechanics for machine function pass registries.  A //
-// function pass registry (MachinePassRegistry) is auto filled by the static //
-// constructors of MachinePassRegistryNode.  Further there is a command line //
-// parser (RegisterPassParser) which listens to each registry for additions  //
-// and deletions, so that the appropriate command option is updated.         //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the mechanics for machine function pass registries.  A
+// function pass registry (MachinePassRegistry) is auto filled by the static
+// constructors of MachinePassRegistryNode.  Further there is a command line
+// parser (RegisterPassParser) which listens to each registry for additions
+// and deletions, so that the appropriate command option is updated.
 //
 //===----------------------------------------------------------------------===//
 

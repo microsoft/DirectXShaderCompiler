@@ -1,19 +1,20 @@
 //===-- ConstantFolding.cpp - Fold instructions into constants ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantFolding.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines routines for folding instructions into constants.       //
-//                                                                           //
-// Also, to supplement the basic IR ConstantExpr simplifications,            //
-// this file defines some additional folding routines that can make use of   //
-// DataLayout information. These functions cannot go in IR due to library    //
-// dependency issues.                                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines routines for folding instructions into constants.
+//
+// Also, to supplement the basic IR ConstantExpr simplifications,
+// this file defines some additional folding routines that can make use of
+// DataLayout information. These functions cannot go in IR due to library
+// dependency issues.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/ADT/SmallPtrSet.h"

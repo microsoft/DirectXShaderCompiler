@@ -1,15 +1,16 @@
 //===- BitstreamWriter.h - Low-level bitstream writer interface -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BitstreamWriter.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header defines the BitstreamWriter class.  This class can be used to //
-// write an arbitrary bitstream, regardless of its contents.                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header defines the BitstreamWriter class.  This class can be used to
+// write an arbitrary bitstream, regardless of its contents.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_BITCODE_BITSTREAMWRITER_H
 #define LLVM_BITCODE_BITSTREAMWRITER_H

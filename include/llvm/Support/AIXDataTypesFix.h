@@ -1,16 +1,17 @@
 //===-- llvm/Support/AIXDataTypesFix.h - Fix datatype defs ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AIXDataTypesFix.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file overrides default system-defined types and limits which cannot be//
-// done in DataTypes.h.in because it is processed by autoheader first, which //
-// comments out any #undef statement                                         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file overrides default system-defined types and limits which cannot be
+// done in DataTypes.h.in because it is processed by autoheader first, which
+// comments out any #undef statement
+//
+//===----------------------------------------------------------------------===//
 
 // No include guards desired!
 

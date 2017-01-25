@@ -1,21 +1,20 @@
 //===- FuzzerSHA1.h - Private copy of the SHA1 implementation ---*- C++ -* ===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FuzzerSHA1.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This code is taken from public domain                                     //
-// (http://oauth.googlecode.com/svn/code/c/liboauth/src/sha1.c)              //
-// and modified by adding anonymous namespace, adding an interface           //
-// function fuzzer::ComputeSHA1() and removing unnecessary code.             //
-//                                                                           //
-// lib/Fuzzer can not use SHA1 implementation from openssl because           //
-// openssl may not be available and because we may be fuzzing openssl itself.//
-// For the same reason we do not want to depend on SHA1 from LLVM tree.      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This code is taken from public domain
+// (http://oauth.googlecode.com/svn/code/c/liboauth/src/sha1.c)
+// and modified by adding anonymous namespace, adding an interface
+// function fuzzer::ComputeSHA1() and removing unnecessary code.
+//
+// lib/Fuzzer can not use SHA1 implementation from openssl because
+// openssl may not be available and because we may be fuzzing openssl itself.
+// For the same reason we do not want to depend on SHA1 from LLVM tree.
+//===----------------------------------------------------------------------===//
 
 #include "FuzzerInternal.h"
 

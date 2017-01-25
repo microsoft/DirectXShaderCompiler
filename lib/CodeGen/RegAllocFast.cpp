@@ -1,15 +1,16 @@
 //===-- RegAllocFast.cpp - A fast register allocator for debug code -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegAllocFast.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This register allocator allocates registers to a basic block at a time,   //
-// attempting to keep values in registers and reusing registers as appropriate.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This register allocator allocates registers to a basic block at a time,
+// attempting to keep values in registers and reusing registers as appropriate.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseMap.h"

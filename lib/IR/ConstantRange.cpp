@@ -1,24 +1,25 @@
 //===-- ConstantRange.cpp - ConstantRange implementation ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantRange.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Represent a range of possible values that may occur when the program is run//
-// for an integral value.  This keeps track of a lower and upper bound for the//
-// constant, which MAY wrap around the end of the numeric range.  To do this, it//
-// keeps track of a [lower, upper) bound, which specifies an interval just like//
-// STL iterators.  When used with boolean values, the following are important//
-// ranges (other integral ranges use min/max values for special range values)://
-//                                                                           //
-//  [F, F) = {}     = Empty set                                              //
-//  [T, F) = {T}                                                             //
-//  [F, T) = {F}                                                             //
-//  [T, T) = {F, T} = Full set                                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Represent a range of possible values that may occur when the program is run
+// for an integral value.  This keeps track of a lower and upper bound for the
+// constant, which MAY wrap around the end of the numeric range.  To do this, it
+// keeps track of a [lower, upper) bound, which specifies an interval just like
+// STL iterators.  When used with boolean values, the following are important
+// ranges (other integral ranges use min/max values for special range values):
+//
+//  [F, F) = {}     = Empty set
+//  [T, F) = {T}
+//  [F, T) = {F}
+//  [T, T) = {F, T} = Full set
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/ConstantRange.h"

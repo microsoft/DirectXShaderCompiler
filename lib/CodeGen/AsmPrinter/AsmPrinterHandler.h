@@ -1,15 +1,16 @@
 //===-- lib/CodeGen/AsmPrinter/AsmPrinterHandler.h -------------*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AsmPrinterHandler.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains a generic interface for AsmPrinter handlers,           //
-// like debug and EH info emitters.                                          //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains a generic interface for AsmPrinter handlers,
+// like debug and EH info emitters.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_CODEGEN_ASMPRINTER_ASMPRINTERHANDLER_H
 #define LLVM_LIB_CODEGEN_ASMPRINTER_ASMPRINTERHANDLER_H

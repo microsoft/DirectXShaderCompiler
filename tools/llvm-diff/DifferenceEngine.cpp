@@ -1,15 +1,16 @@
 //===-- DifferenceEngine.cpp - Structural function/module comparison ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DifferenceEngine.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header defines the implementation of the LLVM difference             //
-// engine, which structurally compares global values within a module.        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header defines the implementation of the LLVM difference
+// engine, which structurally compares global values within a module.
+//
+//===----------------------------------------------------------------------===//
 
 #include "DifferenceEngine.h"
 #include "llvm/ADT/DenseMap.h"

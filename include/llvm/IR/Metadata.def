@@ -1,14 +1,15 @@
 //===- llvm/IR/Metadata.def - Metadata definitions --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Metadata.def                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Macros for running through all types of metadata.                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Macros for running through all types of metadata.
+//
+//===----------------------------------------------------------------------===//
 
 #if !(defined HANDLE_METADATA || defined HANDLE_METADATA_LEAF ||               \
       defined HANDLE_METADATA_BRANCH || defined HANDLE_MDNODE_LEAF ||          \

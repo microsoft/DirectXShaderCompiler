@@ -1,15 +1,16 @@
 //===- LowerAtomic.cpp - Lower atomic intrinsics --------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LowerAtomic.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass lowers atomic intrinsics to non-atomic form for use in a known  //
-// non-preemptible environment.                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass lowers atomic intrinsics to non-atomic form for use in a known
+// non-preemptible environment.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/Function.h"

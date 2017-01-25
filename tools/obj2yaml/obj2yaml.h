@@ -1,12 +1,14 @@
 //===------ utils/obj2yaml.hpp - obj2yaml conversion tool -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// obj2yaml.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+// This file declares some helper routines, and also the format-specific
+// writers. To add a new format, add the declaration here, and, in a separate
+// source file, implement it.
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TOOLS_OBJ2YAML_OBJ2YAML_H
 #define LLVM_TOOLS_OBJ2YAML_OBJ2YAML_H

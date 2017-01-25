@@ -1,20 +1,19 @@
 //===- BasicTargetTransformInfo.cpp - Basic target-independent TTI impl ---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BasicTargetTransformInfo.cpp                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file provides the implementation of a basic TargetTransformInfo pass//
-/// predicated on the target abstractions present in the target independent  //
-/// code generator. It uses these (primarily TargetLowering) to model as much//
-/// of the TTI query interface as possible. It is included by most targets so//
-/// that they can specialize only a small subset of the query space.         //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file provides the implementation of a basic TargetTransformInfo pass
+/// predicated on the target abstractions present in the target independent
+/// code generator. It uses these (primarily TargetLowering) to model as much
+/// of the TTI query interface as possible. It is included by most targets so
+/// that they can specialize only a small subset of the query space.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/Analysis/LoopInfo.h"

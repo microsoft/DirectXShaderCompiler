@@ -1,14 +1,15 @@
 //===--- AnalysisConsumer.cpp - ASTConsumer for running Analyses ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AnalysisConsumer.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// "Meta" ASTConsumer for running different source analyses.                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// "Meta" ASTConsumer for running different source analyses.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Frontend/AnalysisConsumer.h"
 #include "ModelInjector.h"

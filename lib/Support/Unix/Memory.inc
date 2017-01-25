@@ -1,14 +1,15 @@
 //===- Unix/Memory.cpp - Generic UNIX System Configuration ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Memory.inc                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines some functions for various memory management utilities. //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines some functions for various memory management utilities.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Unix.h"
 #include "llvm/Support/DataTypes.h"

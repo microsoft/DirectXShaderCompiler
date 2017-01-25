@@ -1,16 +1,17 @@
 //===- RegisterInfoEmitter.cpp - Generate a Register File Desc. -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegisterInfoEmitter.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This tablegen backend is responsible for emitting a description of a target//
-// register file for a code generator.  It uses instances of the Register,   //
-// RegisterAliases, and RegisterClass classes to gather this information.    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This tablegen backend is responsible for emitting a description of a target
+// register file for a code generator.  It uses instances of the Register,
+// RegisterAliases, and RegisterClass classes to gather this information.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenRegisters.h"
 #include "CodeGenTarget.h"

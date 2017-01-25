@@ -1,6 +1,4 @@
 #!/usr/bin/python
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 #
 # Checks files to make sure they conform to LLVM standards which can be applied
 # to any programming language: at present, line length and trailing whitespace.

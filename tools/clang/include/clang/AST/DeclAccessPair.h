@@ -1,18 +1,19 @@
 //===--- DeclAccessPair.h - A decl bundled with its path access -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DeclAccessPair.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the DeclAccessPair class, which provides an            //
-//  efficient representation of a pair of a NamedDecl* and an                //
-//  AccessSpecifier.  Generally the access specifier gives the               //
-//  natural access of a declaration when named in a class, as                //
-//  defined in C++ [class.access.base]p1.                                    //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the DeclAccessPair class, which provides an
+//  efficient representation of a pair of a NamedDecl* and an
+//  AccessSpecifier.  Generally the access specifier gives the
+//  natural access of a declaration when named in a class, as
+//  defined in C++ [class.access.base]p1.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_AST_DECLACCESSPAIR_H
 #define LLVM_CLANG_AST_DECLACCESSPAIR_H

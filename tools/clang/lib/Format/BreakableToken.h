@@ -1,19 +1,18 @@
 //===--- BreakableToken.h - Format C++ code -------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BreakableToken.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Declares BreakableToken, BreakableStringLiteral, and              //
-/// BreakableBlockComment classes, that contain token type-specific logic to //
-/// break long lines in tokens.                                              //
+/// \file
+/// \brief Declares BreakableToken, BreakableStringLiteral, and
+/// BreakableBlockComment classes, that contain token type-specific logic to
+/// break long lines in tokens.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_FORMAT_BREAKABLETOKEN_H
 #define LLVM_CLANG_LIB_FORMAT_BREAKABLETOKEN_H

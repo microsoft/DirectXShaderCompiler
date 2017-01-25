@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 # Make sure that the path to libffi headers is on the command
 # line. That path can be a compiler's non-default path even when
 # FFI_INCLUDE_DIR was not used, because cmake has its own paths for

@@ -1,14 +1,15 @@
 //===- Intrinsics.td - Defines all LLVM intrinsics ---------*- tablegen -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Intrinsics.td                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines properties of all LLVM intrinsics.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines properties of all LLVM intrinsics.
+//
+//===----------------------------------------------------------------------===//
 
 include "llvm/CodeGen/ValueTypes.td"
 

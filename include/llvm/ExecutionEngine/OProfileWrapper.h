@@ -1,21 +1,21 @@
 //===-- OProfileWrapper.h - OProfile JIT API Wrapper ------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// OProfileWrapper.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a OProfileWrapper object that detects if the oprofile   //
-// daemon is running, and provides wrappers for opagent functions used to    //
-// communicate with the oprofile JIT interface. The dynamic library libopagent//
-// does not need to be linked directly as this object lazily loads the library//
-// when the first op_ function is called.                                    //
 //
-// See http://oprofile.sourceforge.net/doc/devel/jit-interface.html for the  //
-// definition of the interface.                                              //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This file defines a OProfileWrapper object that detects if the oprofile
+// daemon is running, and provides wrappers for opagent functions used to
+// communicate with the oprofile JIT interface. The dynamic library libopagent
+// does not need to be linked directly as this object lazily loads the library
+// when the first op_ function is called.
+//
+// See http://oprofile.sourceforge.net/doc/devel/jit-interface.html for the
+// definition of the interface.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_EXECUTIONENGINE_OPROFILEWRAPPER_H
 #define LLVM_EXECUTIONENGINE_OPROFILEWRAPPER_H

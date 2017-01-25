@@ -1,14 +1,15 @@
 //===- ConstantPool.h - Keep track of assembler-generated  ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantPools.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the ConstantPool and AssemblerConstantPools classes.   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the ConstantPool and AssemblerConstantPools classes.
+//
+//===----------------------------------------------------------------------===//
 
 
 #ifndef LLVM_MC_CONSTANTPOOLS_H

@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 # This file is a minimal clang-format sublime-integration. To install:
 # - Change 'binary' if clang-format is not on the path (see below).
 # - Put this file into your sublime Packages directory, e.g. on Linux:

@@ -1,15 +1,16 @@
 //===- GCOV.cpp - LLVM coverage tool --------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GCOV.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// GCOV implements the interface to read and write coverage files that use   //
-// 'gcov' format.                                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// GCOV implements the interface to read and write coverage files that use
+// 'gcov' format.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/GCOV.h"
 #include "llvm/ADT/STLExtras.h"

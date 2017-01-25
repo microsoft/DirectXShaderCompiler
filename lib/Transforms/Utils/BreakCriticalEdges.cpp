@@ -1,18 +1,19 @@
 //===- BreakCriticalEdges.cpp - Critical Edge Elimination Pass ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BreakCriticalEdges.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// BreakCriticalEdges pass - Break all of the critical edges in the CFG by   //
-// inserting a dummy basic block.  This pass may be "required" by passes that//
-// cannot deal with critical edges.  For this usage, the structure type is   //
-// forward declared.  This pass obviously invalidates the CFG, but can update//
-// dominator trees.                                                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// BreakCriticalEdges pass - Break all of the critical edges in the CFG by
+// inserting a dummy basic block.  This pass may be "required" by passes that
+// cannot deal with critical edges.  For this usage, the structure type is
+// forward declared.  This pass obviously invalidates the CFG, but can update
+// dominator trees.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SmallVector.h"

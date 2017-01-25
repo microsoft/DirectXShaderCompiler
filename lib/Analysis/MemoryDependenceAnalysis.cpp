@@ -1,17 +1,18 @@
 //===- MemoryDependenceAnalysis.cpp - Mem Deps Implementation -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MemoryDependenceAnalysis.cpp                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements an analysis that determines, for a given memory      //
-// operation, what preceding memory operations it depends on.  It builds on  //
-// alias analysis information, and tries to provide a lazy, caching interface to//
-// a common kind of alias information query.                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements an analysis that determines, for a given memory
+// operation, what preceding memory operations it depends on.  It builds on
+// alias analysis information, and tries to provide a lazy, caching interface to
+// a common kind of alias information query.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/ADT/STLExtras.h"

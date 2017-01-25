@@ -1,17 +1,18 @@
 //===- LoopDeletion.cpp - Dead Loop Deletion Pass ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopDeletion.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Dead Loop Deletion Pass. This pass is responsible//
-// for eliminating loops with non-infinite computable trip counts that have no//
-// side effects or volatile instructions, and do not contribute to the       //
-// computation of the function's return value.                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Dead Loop Deletion Pass. This pass is responsible
+// for eliminating loops with non-infinite computable trip counts that have no
+// side effects or volatile instructions, and do not contribute to the
+// computation of the function's return value.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SmallVector.h"

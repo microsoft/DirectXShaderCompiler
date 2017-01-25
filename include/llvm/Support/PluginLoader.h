@@ -1,17 +1,18 @@
 //===-- llvm/Support/PluginLoader.h - Plugin Loader for Tools ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PluginLoader.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// A tool can #include this file to get a -load option that allows the user to//
-// load arbitrary shared objects into the tool's address space.  Note that this//
-// header can only be included by a program ONCE, so it should never to used by//
-// library authors.                                                          //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// A tool can #include this file to get a -load option that allows the user to
+// load arbitrary shared objects into the tool's address space.  Note that this
+// header can only be included by a program ONCE, so it should never to used by
+// library authors.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_PLUGINLOADER_H
 #define LLVM_SUPPORT_PLUGINLOADER_H

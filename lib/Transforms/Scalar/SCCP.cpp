@@ -1,20 +1,21 @@
 //===- SCCP.cpp - Sparse Conditional Constant Propagation -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SCCP.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements sparse conditional constant propagation and merging: //
-//                                                                           //
-// Specifically, this:                                                       //
-//   * Assumes values are constant unless proven otherwise                   //
-//   * Assumes BasicBlocks are dead unless proven otherwise                  //
-//   * Proves values to be constant, and replaces them with constants        //
-//   * Proves conditional branches to be unconditional                       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements sparse conditional constant propagation and merging:
+//
+// Specifically, this:
+//   * Assumes values are constant unless proven otherwise
+//   * Assumes BasicBlocks are dead unless proven otherwise
+//   * Proves values to be constant, and replaces them with constants
+//   * Proves conditional branches to be unconditional
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseMap.h"

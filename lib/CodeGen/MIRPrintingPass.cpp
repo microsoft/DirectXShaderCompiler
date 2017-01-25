@@ -1,15 +1,16 @@
 //===- MIRPrintingPass.cpp - Pass that prints out using the MIR format ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MIRPrintingPass.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a pass that prints out the LLVM module using the MIR //
-// serialization format.                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a pass that prints out the LLVM module using the MIR
+// serialization format.
+//
+//===----------------------------------------------------------------------===//
 
 #include "MIRPrinter.h"
 #include "llvm/CodeGen/Passes.h"

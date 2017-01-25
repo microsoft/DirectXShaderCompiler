@@ -1,15 +1,16 @@
 //===-- llvm/Support/Compiler.h - Compiler abstraction support --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Compiler.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines several macros, based on the current compiler.  This allows//
-// use of compiler-specific features in a way that remains portable.         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines several macros, based on the current compiler.  This allows
+// use of compiler-specific features in a way that remains portable.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_COMPILER_H
 #define LLVM_SUPPORT_COMPILER_H

@@ -1,15 +1,16 @@
 //===--- PrintPreprocessedOutput.cpp - Implement the -E mode --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PrintPreprocessedOutput.cpp                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This code simply runs the preprocessor on the input file and prints out the//
-// result.  This is the traditional behavior of the -E option.               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This code simply runs the preprocessor on the input file and prints out the
+// result.  This is the traditional behavior of the -E option.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/Utils.h"
 #include "clang/Basic/CharInfo.h"

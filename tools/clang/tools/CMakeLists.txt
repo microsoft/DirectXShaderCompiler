@@ -1,6 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
-# add_subdirectory(diagtool)        # HLSL Change
 add_subdirectory(driver)
 # add_subdirectory(clang-format)    # HLSL Change
 # add_subdirectory(clang-format-vs) # HLSL Change

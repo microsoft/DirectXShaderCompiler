@@ -1,14 +1,13 @@
 //===- FuzzerInterface.h - Interface header for the Fuzzer ------*- C++ -* ===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FuzzerInterface.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Define the interface between the Fuzzer and the library being tested.     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// Define the interface between the Fuzzer and the library being tested.
+//===----------------------------------------------------------------------===//
 
 // WARNING: keep the interface free of STL or any other header-based C++ lib,
 // to avoid bad interactions between the code used in the fuzzer and

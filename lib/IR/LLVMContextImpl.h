@@ -1,15 +1,16 @@
 //===-- LLVMContextImpl.h - The LLVMContextImpl opaque class ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LLVMContextImpl.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file declares LLVMContextImpl, the opaque implementation            //
-//  of LLVMContext.                                                          //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file declares LLVMContextImpl, the opaque implementation 
+//  of LLVMContext.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_IR_LLVMCONTEXTIMPL_H
 #define LLVM_LIB_IR_LLVMCONTEXTIMPL_H

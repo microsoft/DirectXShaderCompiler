@@ -1,15 +1,14 @@
 //===--- yaml2obj.h - -------------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// yaml2obj.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// \brief Common declarations for yaml2obj                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// \brief Common declarations for yaml2obj
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_TOOLS_YAML2OBJ_YAML2OBJ_H
 #define LLVM_TOOLS_YAML2OBJ_YAML2OBJ_H
 

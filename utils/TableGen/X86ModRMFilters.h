@@ -1,18 +1,19 @@
 //===- X86ModRMFilters.h - Disassembler ModR/M filterss ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// X86ModRMFilters.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file is part of the X86 Disassembler Emitter.                        //
-// It contains ModR/M filters that determine which values of the ModR/M byte //
-//  are valid for a partiuclar instruction.                                  //
-// Documentation for the disassembler emitter in general can be found in     //
-//  X86DisasemblerEmitter.h.                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file is part of the X86 Disassembler Emitter.
+// It contains ModR/M filters that determine which values of the ModR/M byte
+//  are valid for a partiuclar instruction.
+// Documentation for the disassembler emitter in general can be found in
+//  X86DisasemblerEmitter.h.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_UTILS_TABLEGEN_X86MODRMFILTERS_H
 #define LLVM_UTILS_TABLEGEN_X86MODRMFILTERS_H

@@ -1,56 +1,57 @@
 //===- LoopStrengthReduce.cpp - Strength Reduce IVs in Loops --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopStrengthReduce.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This transformation analyzes and transforms the induction variables (and  //
-// computations derived from them) into forms suitable for efficient execution//
-// on the target.                                                            //
-//                                                                           //
-// This pass performs a strength reduction on array references inside loops that//
-// have as one or more of their components the loop induction variable, it   //
-// rewrites expressions to take advantage of scaled-index addressing modes   //
-// available on the target, and it performs a variety of other optimizations //
-// related to loop induction variables.                                      //
-//                                                                           //
-// Terminology note: this code has a lot of handling for "post-increment" or //
-// "post-inc" users. This is not talking about post-increment addressing modes;//
-// it is instead talking about code like this:                               //
-//                                                                           //
-//   %i = phi [ 0, %entry ], [ %i.next, %latch ]                             //
-//   ...                                                                     //
-//   %i.next = add %i, 1                                                     //
-//   %c = icmp eq %i.next, %n                                                //
-//                                                                           //
-// The SCEV for %i is {0,+,1}<%L>. The SCEV for %i.next is {1,+,1}<%L>, however//
-// it's useful to think about these as the same register, with some uses using//
-// the value of the register before the add and some using it after. In this //
-// example, the icmp is a post-increment user, since it uses %i.next, which is//
-// the value of the induction variable after the increment. The other common //
-// case of post-increment users is users outside the loop.                   //
-//                                                                           //
-// TODO: More sophistication in the way Formulae are generated and filtered. //
-//                                                                           //
-// TODO: Handle multiple loops at a time.                                    //
-//                                                                           //
-// TODO: Should the addressing mode BaseGV be changed to a ConstantExpr instead//
-//       of a GlobalValue?                                                   //
-//                                                                           //
-// TODO: When truncation is free, truncate ICmp users' operands to make it a //
-//       smaller encoding (on x86 at least).                                 //
-//                                                                           //
-// TODO: When a negated register is used by an add (such as in a list of     //
-//       multiple base registers, or as the increment expression in an addrec),//
-//       we may not actually need both reg and (-1 * reg) in registers; the  //
-//       negation can be implemented by using a sub instead of an add. The   //
-//       lack of support for taking this into consideration when making      //
-//       register pressure decisions is partly worked around by the "Special"//
-//       use kind.                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This transformation analyzes and transforms the induction variables (and
+// computations derived from them) into forms suitable for efficient execution
+// on the target.
+//
+// This pass performs a strength reduction on array references inside loops that
+// have as one or more of their components the loop induction variable, it
+// rewrites expressions to take advantage of scaled-index addressing modes
+// available on the target, and it performs a variety of other optimizations
+// related to loop induction variables.
+//
+// Terminology note: this code has a lot of handling for "post-increment" or
+// "post-inc" users. This is not talking about post-increment addressing modes;
+// it is instead talking about code like this:
+//
+//   %i = phi [ 0, %entry ], [ %i.next, %latch ]
+//   ...
+//   %i.next = add %i, 1
+//   %c = icmp eq %i.next, %n
+//
+// The SCEV for %i is {0,+,1}<%L>. The SCEV for %i.next is {1,+,1}<%L>, however
+// it's useful to think about these as the same register, with some uses using
+// the value of the register before the add and some using it after. In this
+// example, the icmp is a post-increment user, since it uses %i.next, which is
+// the value of the induction variable after the increment. The other common
+// case of post-increment users is users outside the loop.
+//
+// TODO: More sophistication in the way Formulae are generated and filtered.
+//
+// TODO: Handle multiple loops at a time.
+//
+// TODO: Should the addressing mode BaseGV be changed to a ConstantExpr instead
+//       of a GlobalValue?
+//
+// TODO: When truncation is free, truncate ICmp users' operands to make it a
+//       smaller encoding (on x86 at least).
+//
+// TODO: When a negated register is used by an add (such as in a list of
+//       multiple base registers, or as the increment expression in an addrec),
+//       we may not actually need both reg and (-1 * reg) in registers; the
+//       negation can be implemented by using a sub instead of an add. The
+//       lack of support for taking this into consideration when making
+//       register pressure decisions is partly worked around by the "Special"
+//       use kind.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseSet.h"

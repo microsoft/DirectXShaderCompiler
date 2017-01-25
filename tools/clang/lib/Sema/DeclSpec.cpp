@@ -1,14 +1,15 @@
 //===--- SemaDeclSpec.cpp - Declaration Specifier Semantic Analysis -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DeclSpec.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file implements semantic analysis for declaration specifiers.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements semantic analysis for declaration specifiers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/DeclSpec.h"
 #include "clang/AST/ASTContext.h"

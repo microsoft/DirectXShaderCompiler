@@ -1,16 +1,17 @@
 //===-- llvm/Instrinsics.h - LLVM Intrinsic Function Handling ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Intrinsics.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a set of enums which allow processing of intrinsic      //
-// functions.  Values of these enum types are returned by                    //
-// Function::getIntrinsicID.                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a set of enums which allow processing of intrinsic
+// functions.  Values of these enum types are returned by
+// Function::getIntrinsicID.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_INTRINSICS_H
 #define LLVM_IR_INTRINSICS_H

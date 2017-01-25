@@ -1,15 +1,16 @@
 //== ArrayBoundCheckerV2.cpp ------------------------------------*- C++ -*--==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ArrayBoundCheckerV2.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines ArrayBoundCheckerV2, which is a path-sensitive check    //
-// which looks for an out-of-bound array element access.                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines ArrayBoundCheckerV2, which is a path-sensitive check
+// which looks for an out-of-bound array element access.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/CharUnits.h"

@@ -1,17 +1,18 @@
 //===- LegacyPassManager.h - Legacy Container for Passes --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegacyPassManager.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the legacy PassManager class.  This class is used to hold,//
-// maintain, and optimize execution of Passes.  The PassManager class ensures//
-// that analysis results are available before a pass runs, and that Pass's are//
-// destroyed when the PassManager is destroyed.                              //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the legacy PassManager class.  This class is used to hold,
+// maintain, and optimize execution of Passes.  The PassManager class ensures
+// that analysis results are available before a pass runs, and that Pass's are
+// destroyed when the PassManager is destroyed.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_LEGACYPASSMANAGER_H
 #define LLVM_IR_LEGACYPASSMANAGER_H

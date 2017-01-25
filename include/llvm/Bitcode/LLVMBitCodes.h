@@ -1,18 +1,19 @@
 //===- LLVMBitCodes.h - Enum values for the LLVM bitcode format -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LLVMBitCodes.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header defines Bitcode enum values for LLVM IR bitcode files.        //
 //
-// The enum values defined in this file should be considered permanent.  If  //
-// new features are added, they should have values added at the end of the   //
-// respective lists.                                                         //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header defines Bitcode enum values for LLVM IR bitcode files.
+//
+// The enum values defined in this file should be considered permanent.  If
+// new features are added, they should have values added at the end of the
+// respective lists.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_BITCODE_LLVMBITCODES_H
 #define LLVM_BITCODE_LLVMBITCODES_H

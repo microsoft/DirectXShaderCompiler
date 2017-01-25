@@ -1,19 +1,20 @@
 //===-- llvm-objdump.cpp - Object file dumping utility for llvm -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-objdump.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This program is a utility that works like binutils "objdump", that is, it //
-// dumps out a plethora of information about an object file depending on the //
-// flags.                                                                    //
-//                                                                           //
-// The flags and output of this program should be near identical to those of //
-// binutils objdump.                                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This program is a utility that works like binutils "objdump", that is, it
+// dumps out a plethora of information about an object file depending on the
+// flags.
+//
+// The flags and output of this program should be near identical to those of
+// binutils objdump.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm-objdump.h"
 #include "llvm/ADT/Optional.h"

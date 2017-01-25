@@ -1,24 +1,25 @@
 //===-- UnrollLoopRuntime.cpp - Runtime Loop unrolling utilities ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopUnrollRuntime.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements some loop unrolling utilities for loops with run-time//
-// trip counts.  See LoopUnroll.cpp for unrolling loops with compile-time    //
-// trip counts.                                                              //
-//                                                                           //
-// The functions in this file are used to generate extra code when the       //
-// run-time trip count modulo the unroll factor is not 0.  When this is the  //
-// case, we need to generate code to execute these 'left over' iterations.   //
-//                                                                           //
-// The current strategy generates an if-then-else sequence prior to the      //
-// unrolled loop to execute the 'left over' iterations.  Other strategies    //
-// include generate a loop before or after the unrolled loop.                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements some loop unrolling utilities for loops with run-time
+// trip counts.  See LoopUnroll.cpp for unrolling loops with compile-time
+// trip counts.
+//
+// The functions in this file are used to generate extra code when the
+// run-time trip count modulo the unroll factor is not 0.  When this is the
+// case, we need to generate code to execute these 'left over' iterations.
+//
+// The current strategy generates an if-then-else sequence prior to the
+// unrolled loop to execute the 'left over' iterations.  Other strategies
+// include generate a loop before or after the unrolled loop.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 #include "llvm/ADT/Statistic.h"

@@ -1,29 +1,30 @@
 //===-- llvm/CodeGen/LiveVariables.h - Live Variable Analysis ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveVariables.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the LiveVariables analysis pass.  For each machine   //
-// instruction in the function, this pass calculates the set of registers that//
-// are immediately dead after the instruction (i.e., the instruction calculates//
-// the value, but it is never used) and the set of registers that are used by//
-// the instruction, but are never used after the instruction (i.e., they are //
-// killed).                                                                  //
 //
-// This class computes live variables using a sparse implementation based on //
-// the machine code SSA form.  This class computes live variable information for//
-// each virtual and _register allocatable_ physical register in a function.  It//
-// uses the dominance properties of SSA form to efficiently compute live     //
-// variables for virtual registers, and assumes that physical registers are only//
-// live within a single basic block (allowing it to do a single local analysis//
-// to resolve physical register lifetimes in each basic block).  If a physical//
-// register is not register allocatable, it is not tracked.  This is useful for//
-// things like the stack pointer and condition codes.                        //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the LiveVariables analysis pass.  For each machine
+// instruction in the function, this pass calculates the set of registers that
+// are immediately dead after the instruction (i.e., the instruction calculates
+// the value, but it is never used) and the set of registers that are used by
+// the instruction, but are never used after the instruction (i.e., they are
+// killed).
+//
+// This class computes live variables using a sparse implementation based on
+// the machine code SSA form.  This class computes live variable information for
+// each virtual and _register allocatable_ physical register in a function.  It
+// uses the dominance properties of SSA form to efficiently compute live
+// variables for virtual registers, and assumes that physical registers are only
+// live within a single basic block (allowing it to do a single local analysis
+// to resolve physical register lifetimes in each basic block).  If a physical
+// register is not register allocatable, it is not tracked.  This is useful for
+// things like the stack pointer and condition codes.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_LIVEVARIABLES_H
 #define LLVM_CODEGEN_LIVEVARIABLES_H

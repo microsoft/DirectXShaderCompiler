@@ -1,15 +1,16 @@
 //===--- CommentCommandTraits.h - Comment command properties ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommentCommandTraits.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the class that provides information about comment      //
-//  commands.                                                                //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the class that provides information about comment
+//  commands.
+//
+//===----------------------------------------------------------------------===//
 
 
 #ifndef LLVM_CLANG_AST_COMMENTCOMMANDTRAITS_H

@@ -1,17 +1,18 @@
 //===- GCOVProfiling.cpp - Insert edge counters for gcov profiling --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GCOVProfiling.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass implements GCOV-style profiling. When this pass is run it emits //
-// "gcno" files next to the existing source, and instruments the code that runs//
-// to records the edges between blocks that run and emit a complementary "gcda"//
-// file on exit.                                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                      The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass implements GCOV-style profiling. When this pass is run it emits
+// "gcno" files next to the existing source, and instruments the code that runs
+// to records the edges between blocks that run and emit a complementary "gcda"
+// file on exit.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/ADT/DenseMap.h"

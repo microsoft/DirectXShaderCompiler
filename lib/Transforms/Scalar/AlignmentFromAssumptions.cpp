@@ -1,18 +1,20 @@
 //===----------------------- AlignmentFromAssumptions.cpp -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AlignmentFromAssumptions.cpp                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a ScalarEvolution-based transformation to set        //
-// the alignments of load, stores and memory intrinsics based on the truth   //
-// expressions of assume intrinsics. The primary motivation is to handle     //
-// complex alignment assumptions that apply to vector loads and stores that  //
-// appear after vectorization and unrolling.                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//                  Set Load/Store Alignments From Assumptions
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a ScalarEvolution-based transformation to set
+// the alignments of load, stores and memory intrinsics based on the truth
+// expressions of assume intrinsics. The primary motivation is to handle
+// complex alignment assumptions that apply to vector loads and stores that
+// appear after vectorization and unrolling.
+//
+//===----------------------------------------------------------------------===//
 
 #define AA_NAME "alignment-from-assumptions"
 #define DEBUG_TYPE AA_NAME

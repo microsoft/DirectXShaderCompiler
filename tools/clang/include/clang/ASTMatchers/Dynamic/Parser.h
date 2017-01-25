@@ -1,36 +1,35 @@
 //===--- Parser.h - Matcher expression parser -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Parser.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Simple matcher expression parser.                                 //
+/// \file
+/// \brief Simple matcher expression parser.
 ///
-/// The parser understands matcher expressions of the form:                  //
-///   MatcherName(Arg0, Arg1, ..., ArgN)                                     //
-/// as well as simple types like strings.                                    //
-/// The parser does not know how to process the matchers. It delegates this task//
-/// to a Sema object received as an argument.                                //
+/// The parser understands matcher expressions of the form:
+///   MatcherName(Arg0, Arg1, ..., ArgN)
+/// as well as simple types like strings.
+/// The parser does not know how to process the matchers. It delegates this task
+/// to a Sema object received as an argument.
 ///
-/// \code                                                                    //
-/// Grammar for the expressions supported:                                   //
-/// <Expression>        := <Literal> | <NamedValue> | <MatcherExpression>    //
-/// <Literal>           := <StringLiteral> | <Unsigned>                      //
-/// <StringLiteral>     := "quoted string"                                   //
-/// <Unsigned>          := [0-9]+                                            //
-/// <NamedValue>        := <Identifier>                                      //
-/// <MatcherExpression> := <Identifier>(<ArgumentList>) |                    //
-///                        <Identifier>(<ArgumentList>).bind(<StringLiteral>)//
-/// <Identifier>        := [a-zA-Z]+                                         //
-/// <ArgumentList>      := <Expression> | <Expression>,<ArgumentList>        //
-/// \endcode                                                                 //
+/// \code
+/// Grammar for the expressions supported:
+/// <Expression>        := <Literal> | <NamedValue> | <MatcherExpression>
+/// <Literal>           := <StringLiteral> | <Unsigned>
+/// <StringLiteral>     := "quoted string"
+/// <Unsigned>          := [0-9]+
+/// <NamedValue>        := <Identifier>
+/// <MatcherExpression> := <Identifier>(<ArgumentList>) |
+///                        <Identifier>(<ArgumentList>).bind(<StringLiteral>)
+/// <Identifier>        := [a-zA-Z]+
+/// <ArgumentList>      := <Expression> | <Expression>,<ArgumentList>
+/// \endcode
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ASTMATCHERS_DYNAMIC_PARSER_H
 #define LLVM_CLANG_ASTMATCHERS_DYNAMIC_PARSER_H

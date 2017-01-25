@@ -1,23 +1,22 @@
 //===- CGSCCPassManager.h - Call graph pass management ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CGSCCPassManager.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// This header provides classes for managing passes over SCCs of the call   //
-/// graph. These passes form an important component of LLVM's interprocedural//
-/// optimizations. Because they operate on the SCCs of the call graph, and they//
-/// wtraverse the graph in post order, they can effectively do pair-wise     //
-/// interprocedural optimizations for all call edges in the program. At each //
-/// call site edge, the callee has already been optimized as much as is      //
-/// possible. This in turn allows very accurate analysis of it for IPO.      //
+/// This header provides classes for managing passes over SCCs of the call
+/// graph. These passes form an important component of LLVM's interprocedural
+/// optimizations. Because they operate on the SCCs of the call graph, and they
+/// wtraverse the graph in post order, they can effectively do pair-wise
+/// interprocedural optimizations for all call edges in the program. At each
+/// call site edge, the callee has already been optimized as much as is
+/// possible. This in turn allows very accurate analysis of it for IPO.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_CGSCCPASSMANAGER_H
 #define LLVM_ANALYSIS_CGSCCPASSMANAGER_H

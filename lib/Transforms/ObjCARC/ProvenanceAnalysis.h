@@ -1,27 +1,26 @@
 //===- ProvenanceAnalysis.h - ObjC ARC Optimization ---*- C++ -*-----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ProvenanceAnalysis.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// This file declares a special form of Alias Analysis called ``Provenance  //
-/// Analysis''. The word ``provenance'' refers to the history of the ownership//
-/// of an object. Thus ``Provenance Analysis'' is an analysis which attempts to//
-/// use various techniques to determine if locally                           //
+/// This file declares a special form of Alias Analysis called ``Provenance
+/// Analysis''. The word ``provenance'' refers to the history of the ownership
+/// of an object. Thus ``Provenance Analysis'' is an analysis which attempts to
+/// use various techniques to determine if locally
 ///
-/// WARNING: This file knows about certain library functions. It recognizes them//
-/// by name, and hardwires knowledge of their semantics.                     //
+/// WARNING: This file knows about certain library functions. It recognizes them
+/// by name, and hardwires knowledge of their semantics.
 ///
-/// WARNING: This file knows about how certain Objective-C library functions are//
-/// used. Naive LLVM IR transformations which would otherwise be             //
-/// behavior-preserving may break these assumptions.                         //
+/// WARNING: This file knows about how certain Objective-C library functions are
+/// used. Naive LLVM IR transformations which would otherwise be
+/// behavior-preserving may break these assumptions.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_TRANSFORMS_OBJCARC_PROVENANCEANALYSIS_H
 #define LLVM_LIB_TRANSFORMS_OBJCARC_PROVENANCEANALYSIS_H

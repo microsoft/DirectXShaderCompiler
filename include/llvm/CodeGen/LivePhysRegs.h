@@ -1,30 +1,30 @@
 //===- llvm/CodeGen/LivePhysRegs.h - Live Physical Register Set -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LivePhysRegs.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the LivePhysRegs utility for tracking liveness of    //
-// physical registers. This can be used for ad-hoc liveness tracking after   //
-// register allocation. You can start with the live-ins/live-outs at the     //
-// beginning/end of a block and update the information while walking the     //
-// instructions inside the block. This implementation tracks the liveness on a//
-// sub-register granularity.                                                 //
 //
-// We assume that the high bits of a physical super-register are not preserved//
-// unless the instruction has an implicit-use operand reading the super-     //
-// register.                                                                 //
+//                     The LLVM Compiler Infrastructure
 //
-// X86 Example:                                                              //
-// %YMM0<def> = ...                                                          //
-// %XMM0<def> = ... (Kills %XMM0, all %XMM0s sub-registers, and %YMM0)       //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// %YMM0<def> = ...                                                          //
-// %XMM0<def> = ..., %YMM0<imp-use> (%YMM0 and all its sub-registers are alive)//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// This file implements the LivePhysRegs utility for tracking liveness of
+// physical registers. This can be used for ad-hoc liveness tracking after
+// register allocation. You can start with the live-ins/live-outs at the
+// beginning/end of a block and update the information while walking the
+// instructions inside the block. This implementation tracks the liveness on a
+// sub-register granularity.
+//
+// We assume that the high bits of a physical super-register are not preserved
+// unless the instruction has an implicit-use operand reading the super-
+// register.
+//
+// X86 Example:
+// %YMM0<def> = ...
+// %XMM0<def> = ... (Kills %XMM0, all %XMM0s sub-registers, and %YMM0)
+//
+// %YMM0<def> = ...
+// %XMM0<def> = ..., %YMM0<imp-use> (%YMM0 and all its sub-registers are alive)
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_LIVEPHYSREGS_H
 #define LLVM_CODEGEN_LIVEPHYSREGS_H

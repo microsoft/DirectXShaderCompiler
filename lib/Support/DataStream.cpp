@@ -1,17 +1,18 @@
 //===--- llvm/Support/DataStream.cpp - Lazy streamed data -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DataStream.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements DataStreamer, which fetches bytes of Data from       //
-// a stream source. It provides support for streaming (lazy reading) of      //
-// bitcode. An example implementation of streaming from a file or stdin      //
-// is included.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements DataStreamer, which fetches bytes of Data from
+// a stream source. It provides support for streaming (lazy reading) of
+// bitcode. An example implementation of streaming from a file or stdin
+// is included.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/DataStream.h"
 #include "llvm/ADT/Statistic.h"

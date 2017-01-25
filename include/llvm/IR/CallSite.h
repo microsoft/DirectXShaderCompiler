@@ -1,26 +1,27 @@
 //===- CallSite.h - Abstract Call & Invoke instrs ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CallSite.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the CallSite class, which is a handy wrapper for code that//
-// wants to treat Call and Invoke instructions in a generic way. When in non-//
-// mutation context (e.g. an analysis) ImmutableCallSite should be used.     //
-// Finally, when some degree of customization is necessary between these two //
-// extremes, CallSiteBase<> can be supplied with fine-tuned parameters.      //
 //
-// NOTE: These classes are supposed to have "value semantics". So they should be//
-// passed by value, not by reference; they should not be "new"ed or "delete"d.//
-// They are efficiently copyable, assignable and constructable, with cost    //
-// equivalent to copying a pointer (notice that they have only a single data //
-// member). The internal representation carries a flag which indicates which of//
-// the two variants is enclosed. This allows for cheaper checks when various //
-// accessors of CallSite are employed.                                       //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the CallSite class, which is a handy wrapper for code that
+// wants to treat Call and Invoke instructions in a generic way. When in non-
+// mutation context (e.g. an analysis) ImmutableCallSite should be used.
+// Finally, when some degree of customization is necessary between these two
+// extremes, CallSiteBase<> can be supplied with fine-tuned parameters.
+//
+// NOTE: These classes are supposed to have "value semantics". So they should be
+// passed by value, not by reference; they should not be "new"ed or "delete"d.
+// They are efficiently copyable, assignable and constructable, with cost
+// equivalent to copying a pointer (notice that they have only a single data
+// member). The internal representation carries a flag which indicates which of
+// the two variants is enclosed. This allows for cheaper checks when various
+// accessors of CallSite are employed.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_CALLSITE_H
 #define LLVM_IR_CALLSITE_H

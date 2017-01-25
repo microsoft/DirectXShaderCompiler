@@ -1,15 +1,16 @@
 //===- Mem2Reg.cpp - The -mem2reg pass, a wrapper around the Utils lib ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Mem2Reg.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass is a simple pass wrapper around the PromoteMemToReg function call//
-// exposed by the Utils library.                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass is a simple pass wrapper around the PromoteMemToReg function call
+// exposed by the Utils library.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/Statistic.h"

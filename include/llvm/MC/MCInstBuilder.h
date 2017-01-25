@@ -1,15 +1,16 @@
 //===-- llvm/MC/MCInstBuilder.h - Simplify creation of MCInsts --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCInstBuilder.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the MCInstBuilder class for convenient creation of     //
-// MCInsts.                                                                  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the MCInstBuilder class for convenient creation of
+// MCInsts.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCINSTBUILDER_H
 #define LLVM_MC_MCINSTBUILDER_H

@@ -1,15 +1,16 @@
 //===--- ModuleMap.h - Describe the layout of modules -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ModuleMap.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the ModuleMap interface, which describes the layout of a//
-// module as it relates to headers.                                          //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the ModuleMap interface, which describes the layout of a
+// module as it relates to headers.
+//
+//===----------------------------------------------------------------------===//
 
 
 #ifndef LLVM_CLANG_LEX_MODULEMAP_H

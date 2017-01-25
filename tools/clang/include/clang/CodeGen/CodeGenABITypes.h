@@ -1,24 +1,25 @@
 //==---- CodeGenABITypes.h - Convert Clang types to LLVM types for ABI -----==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeGenABITypes.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// CodeGenABITypes is a simple interface for getting LLVM types for          //
-// the parameters and the return value of a function given the Clang         //
-// types.                                                                    //
 //
-// The class is implemented as a public wrapper around the private           //
-// CodeGenTypes class in lib/CodeGen.                                        //
+//                     The LLVM Compiler Infrastructure
 //
-// It allows other clients, like LLDB, to determine the LLVM types that are  //
-// actually used in function calls, which makes it possible to then determine//
-// the acutal ABI locations (e.g. registers, stack locations, etc.) that     //
-// these parameters are stored in.                                           //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// CodeGenABITypes is a simple interface for getting LLVM types for
+// the parameters and the return value of a function given the Clang
+// types.
+//
+// The class is implemented as a public wrapper around the private
+// CodeGenTypes class in lib/CodeGen.
+//
+// It allows other clients, like LLDB, to determine the LLVM types that are
+// actually used in function calls, which makes it possible to then determine
+// the acutal ABI locations (e.g. registers, stack locations, etc.) that
+// these parameters are stored in.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_CODEGEN_CODEGENABITYPES_H
 #define LLVM_CLANG_CODEGEN_CODEGENABITYPES_H

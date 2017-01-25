@@ -1,14 +1,15 @@
 //===--- LogicalDylib.h - Simulates dylib-style symbol lookup ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LogicalDylib.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Simulates symbol resolution inside a dylib.                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Simulates symbol resolution inside a dylib.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_EXECUTIONENGINE_ORC_LOGICALDYLIB_H
 #define LLVM_EXECUTIONENGINE_ORC_LOGICALDYLIB_H

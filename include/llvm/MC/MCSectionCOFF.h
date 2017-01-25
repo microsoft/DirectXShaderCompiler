@@ -1,14 +1,15 @@
 //===- MCSectionCOFF.h - COFF Machine Code Sections -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCSectionCOFF.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the MCSectionCOFF class.                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the MCSectionCOFF class.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCSECTIONCOFF_H
 #define LLVM_MC_MCSECTIONCOFF_H

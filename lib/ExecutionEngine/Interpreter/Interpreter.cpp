@@ -1,16 +1,17 @@
 //===- Interpreter.cpp - Top-Level LLVM Interpreter Implementation --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Interpreter.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the top-level functionality for the LLVM interpreter.//
-// This interpreter is designed to be a very simple, portable, inefficient   //
-// interpreter.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the top-level functionality for the LLVM interpreter.
+// This interpreter is designed to be a very simple, portable, inefficient
+// interpreter.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Interpreter.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"

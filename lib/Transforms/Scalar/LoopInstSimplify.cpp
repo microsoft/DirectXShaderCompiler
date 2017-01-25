@@ -1,14 +1,15 @@
 //===- LoopInstSimplify.cpp - Loop Instruction Simplification Pass --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopInstSimplify.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass performs lightweight instruction simplification on loop bodies. //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass performs lightweight instruction simplification on loop bodies.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/STLExtras.h"

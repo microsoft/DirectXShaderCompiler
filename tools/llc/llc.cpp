@@ -1,16 +1,17 @@
 //===-- llc.cpp - Implement the LLVM Native Code Generator ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llc.cpp                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is the llc code generator driver. It provides a convenient           //
-// command-line interface for generating native assembly-language code       //
-// or C code, given LLVM bitcode.                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is the llc code generator driver. It provides a convenient
+// command-line interface for generating native assembly-language code
+// or C code, given LLVM bitcode.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Triple.h"

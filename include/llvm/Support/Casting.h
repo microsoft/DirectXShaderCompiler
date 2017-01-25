@@ -1,13 +1,14 @@
 //===-- llvm/Support/Casting.h - Allow flexible, checked, casts -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Casting.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the isa<X>(), cast<X>(), dyn_cast<X>(), cast_or_null<X>(),//
-// and dyn_cast_or_null<X>() templates.                                      //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the isa<X>(), cast<X>(), dyn_cast<X>(), cast_or_null<X>(),
+// and dyn_cast_or_null<X>() templates.
 //
 //===----------------------------------------------------------------------===//
 

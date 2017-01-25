@@ -1,15 +1,16 @@
 //===--- ASTReaderStmt.cpp - Stmt/Expr Deserialization ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTReaderStmt.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Statement/expression deserialization.  This implements the                //
-// ASTReader::ReadStmt method.                                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Statement/expression deserialization.  This implements the
+// ASTReader::ReadStmt method.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Serialization/ASTReader.h"
 #include "clang/AST/ASTContext.h"

@@ -1,17 +1,18 @@
 //===- AsmWriterInst.h - Classes encapsulating a printable inst -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AsmWriterInst.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// These classes implement a parser for assembly strings.  The parser splits //
-// the string into operands, which can be literal strings (the constant bits of//
-// the string), actual operands (i.e., operands from the MachineInstr), and  //
-// dynamically-generated text, specified by raw C++ code.                    //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// These classes implement a parser for assembly strings.  The parser splits
+// the string into operands, which can be literal strings (the constant bits of
+// the string), actual operands (i.e., operands from the MachineInstr), and
+// dynamically-generated text, specified by raw C++ code.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_UTILS_TABLEGEN_ASMWRITERINST_H
 #define LLVM_UTILS_TABLEGEN_ASMWRITERINST_H

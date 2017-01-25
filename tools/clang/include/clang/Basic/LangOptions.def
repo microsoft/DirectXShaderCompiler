@@ -1,35 +1,35 @@
 //===--- LangOptions.def - Language option database -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LangOptions.def                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the language options. Users of this file must           //
-// define the LANGOPT macro to make use of this information.                 //
-//                                                                           //
-// Optionally, the user may also define:                                     //
-//                                                                           //
-// BENIGN_LANGOPT: for options that don't affect the construction of the AST in//
-//     any way (that is, the value can be different between an implicit module//
-//     and the user of that module).                                         //
-//                                                                           //
-// COMPATIBLE_LANGOPT: for options that affect the construction of the AST in//
-//     a way that doesn't prevent interoperability (that is, the value can be//
-//     different between an explicit module and the user of that module).    //
-//                                                                           //
-// ENUM_LANGOPT: for options that have enumeration, rather than unsigned, type.//
-//                                                                           //
-// VALUE_LANGOPT: for options that describe a value rather than a flag.      //
-//                                                                           //
-// BENIGN_ENUM_LANGOPT, COMPATIBLE_ENUM_LANGOPT: combinations of the above.  //
-//                                                                           //
-// FIXME: Clients should be able to more easily select whether they want     //
-// different levels of compatibility versus how to handle different kinds    //
-// of option.                                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the language options. Users of this file must
+// define the LANGOPT macro to make use of this information.
+//
+// Optionally, the user may also define:
+//
+// BENIGN_LANGOPT: for options that don't affect the construction of the AST in
+//     any way (that is, the value can be different between an implicit module
+//     and the user of that module).
+//
+// COMPATIBLE_LANGOPT: for options that affect the construction of the AST in
+//     a way that doesn't prevent interoperability (that is, the value can be
+//     different between an explicit module and the user of that module).
+//
+// ENUM_LANGOPT: for options that have enumeration, rather than unsigned, type.
+//
+// VALUE_LANGOPT: for options that describe a value rather than a flag.
+//
+// BENIGN_ENUM_LANGOPT, COMPATIBLE_ENUM_LANGOPT: combinations of the above.
+//
+// FIXME: Clients should be able to more easily select whether they want
+// different levels of compatibility versus how to handle different kinds
+// of option.
+//===----------------------------------------------------------------------===//
 
 #ifndef LANGOPT
 #  error Define the LANGOPT macro to handle language options

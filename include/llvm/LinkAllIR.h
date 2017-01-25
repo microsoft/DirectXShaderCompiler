@@ -1,15 +1,17 @@
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LinkAllIR.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header file pulls in all the object modules of the VMCore library so //
-// that tools like llc, opt, and lli can ensure they are linked with all symbols//
-// from libVMCore.a It should only be used from a tool's main program.       //
+//===----- LinkAllIR.h - Reference All VMCore Code --------------*- C++ -*-===//
 //
-///////////////////////////////////////////////////////////////////////////////
+//                      The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header file pulls in all the object modules of the VMCore library so
+// that tools like llc, opt, and lli can ensure they are linked with all symbols
+// from libVMCore.a It should only be used from a tool's main program.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LINKALLIR_H
 #define LLVM_LINKALLIR_H

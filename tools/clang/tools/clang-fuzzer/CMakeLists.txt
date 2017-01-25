@@ -1,5 +1,3 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 if( LLVM_USE_SANITIZE_COVERAGE )
   set(LLVM_LINK_COMPONENTS support)
 

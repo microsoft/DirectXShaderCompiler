@@ -1,50 +1,51 @@
 //===--- OperatorKinds.def - C++ Overloaded Operator Database ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// OperatorKinds.def                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the OverloadedOperator database, which includes         //
-// all of the overloadable C++ operators.                                    //
-//                                                                           //
-/// @file OperatorKinds.def                                                  //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the OverloadedOperator database, which includes
+// all of the overloadable C++ operators.
+//
+//===----------------------------------------------------------------------===//
+//
+/// @file OperatorKinds.def
 ///
-/// In this file, each of the overloadable C++ operators is enumerated       //
-/// with either the OVERLOADED_OPERATOR or OVERLOADED_OPERATOR_MULTI         //
-/// macro, each of which can be specified by the code including this         //
-/// file. OVERLOADED_OPERATOR is used for single-token operators             //
-/// (e.g., "+"), and has six arguments:                                      //
+/// In this file, each of the overloadable C++ operators is enumerated
+/// with either the OVERLOADED_OPERATOR or OVERLOADED_OPERATOR_MULTI
+/// macro, each of which can be specified by the code including this
+/// file. OVERLOADED_OPERATOR is used for single-token operators
+/// (e.g., "+"), and has six arguments:
 ///
-/// Name: The name of the token. OO_Name will be the name of the             //
-/// corresponding enumerator in OverloadedOperatorKind in                    //
-/// OperatorKinds.h.                                                         //
+/// Name: The name of the token. OO_Name will be the name of the
+/// corresponding enumerator in OverloadedOperatorKind in
+/// OperatorKinds.h.
 ///
-/// Spelling: A string that provides a canonical spelling for the            //
-/// operator, e.g., "operator+".                                             //
+/// Spelling: A string that provides a canonical spelling for the
+/// operator, e.g., "operator+".
 ///
-/// Token: The name of the token that specifies the operator, e.g.,          //
-/// "plus" for operator+ or "greatergreaterequal" for                        //
-/// "operator>>=". With a "kw_" prefix, the token name can be used as        //
-/// an enumerator into the TokenKind enumeration.                            //
+/// Token: The name of the token that specifies the operator, e.g.,
+/// "plus" for operator+ or "greatergreaterequal" for
+/// "operator>>=". With a "kw_" prefix, the token name can be used as
+/// an enumerator into the TokenKind enumeration.
 ///
-/// Unary: True if the operator can be declared as a unary operator.         //
+/// Unary: True if the operator can be declared as a unary operator.
 ///
-/// Binary: True if the operator can be declared as a binary                 //
-/// operator. Note that some operators (e.g., "operator+" and                //
-/// "operator*") can be both unary and binary.                               //
+/// Binary: True if the operator can be declared as a binary
+/// operator. Note that some operators (e.g., "operator+" and
+/// "operator*") can be both unary and binary.
 ///
-/// MemberOnly: True if this operator can only be declared as a              //
-/// non-static member function. False if the operator can be both a          //
-/// non-member function and a non-static member function.                    //
+/// MemberOnly: True if this operator can only be declared as a
+/// non-static member function. False if the operator can be both a
+/// non-member function and a non-static member function.
 ///
-/// OVERLOADED_OPERATOR_MULTI is used to enumerate the multi-token           //
-/// overloaded operator names, e.g., "operator delete []". The macro         //
-/// has all of the parameters of OVERLOADED_OPERATOR except Token,           //
-/// which is omitted.                                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+/// OVERLOADED_OPERATOR_MULTI is used to enumerate the multi-token
+/// overloaded operator names, e.g., "operator delete []". The macro
+/// has all of the parameters of OVERLOADED_OPERATOR except Token,
+/// which is omitted.
 
 #ifndef OVERLOADED_OPERATOR
 #  define OVERLOADED_OPERATOR(Name,Spelling,Token,Unary,Binary,MemberOnly)

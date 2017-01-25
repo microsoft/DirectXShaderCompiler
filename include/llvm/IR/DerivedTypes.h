@@ -1,18 +1,19 @@
 //===-- llvm/DerivedTypes.h - Classes for handling data types ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DerivedTypes.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declarations of classes that represent "derived    //
-// types".  These are things like "arrays of x" or "structure of x, y, z" or //
-// "function returning x taking (y,z) as parameters", etc...                 //
 //
-// The implementations of these classes live in the Type.cpp file.           //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declarations of classes that represent "derived
+// types".  These are things like "arrays of x" or "structure of x, y, z" or
+// "function returning x taking (y,z) as parameters", etc...
+//
+// The implementations of these classes live in the Type.cpp file.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_DERIVEDTYPES_H
 #define LLVM_IR_DERIVEDTYPES_H

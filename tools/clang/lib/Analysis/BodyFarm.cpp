@@ -1,15 +1,16 @@
 //== BodyFarm.cpp  - Factory for conjuring up fake bodies ----------*- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BodyFarm.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// BodyFarm is a factory for creating faux implementations for functions/methods//
-// for analysis purposes.                                                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// BodyFarm is a factory for creating faux implementations for functions/methods
+// for analysis purposes.
+//
+//===----------------------------------------------------------------------===//
 
 #include "BodyFarm.h"
 #include "clang/AST/ASTContext.h"

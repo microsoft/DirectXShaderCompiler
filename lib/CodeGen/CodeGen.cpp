@@ -1,15 +1,16 @@
 //===-- CodeGen.cpp -------------------------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeGen.cpp                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the common initialization routines for the           //
-// CodeGen library.                                                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the common initialization routines for the
+// CodeGen library.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/InitializePasses.h"
 #include "llvm-c/Initialization.h"

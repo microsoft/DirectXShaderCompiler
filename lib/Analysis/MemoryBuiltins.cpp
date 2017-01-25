@@ -1,15 +1,16 @@
 //===------ MemoryBuiltins.cpp - Identify calls to memory builtins --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MemoryBuiltins.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This family of functions identifies calls to builtin functions that allocate//
-// or free memory.                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This family of functions identifies calls to builtin functions that allocate
+// or free memory.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/ADT/STLExtras.h"

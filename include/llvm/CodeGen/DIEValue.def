@@ -1,14 +1,15 @@
 //===- llvm/CodeGen/DIEValue.def - DIEValue types ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DIEValue.def                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Macros for running through all types of DIEValue.                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Macros for running through all types of DIEValue.
+//
+//===----------------------------------------------------------------------===//
 
 #if !(defined HANDLE_DIEVALUE || defined HANDLE_DIEVALUE_SMALL ||              \
       defined HANDLE_DIEVALUE_LARGE)

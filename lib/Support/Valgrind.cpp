@@ -1,16 +1,17 @@
 //===-- Valgrind.cpp - Implement Valgrind communication ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Valgrind.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Defines Valgrind communication methods, if HAVE_VALGRIND_VALGRIND_H is   //
-//  defined.  If we have valgrind.h but valgrind isn't running, its macros are//
-//  no-ops.                                                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  Defines Valgrind communication methods, if HAVE_VALGRIND_VALGRIND_H is
+//  defined.  If we have valgrind.h but valgrind isn't running, its macros are
+//  no-ops.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Config/config.h"

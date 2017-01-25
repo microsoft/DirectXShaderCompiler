@@ -1,14 +1,15 @@
 //===--- SemaCXXScopeSpec.cpp - Semantic Analysis for C++ scope specifiers-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaCXXScopeSpec.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements C++ semantic analysis for scope specifiers.          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements C++ semantic analysis for scope specifiers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaInternal.h"
 #include "TypeLocBuilder.h"

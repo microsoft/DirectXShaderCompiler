@@ -1,15 +1,3 @@
-//===--- CFG.cpp - Classes for representing and building CFGs----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CFG.cpp                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the CFG and CFGBuilder classes for representing and    //
-//  building Control-Flow Graphs (CFGs) from ASTs.                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 
 #include "clang/Analysis/CFG.h"
 #include "clang/AST/ASTContext.h"

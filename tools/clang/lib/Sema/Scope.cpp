@@ -1,15 +1,16 @@
 //===- Scope.cpp - Lexical scope information --------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Scope.cpp                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Scope class, which is used for recording         //
-// information about a lexical scope.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Scope class, which is used for recording
+// information about a lexical scope.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/Scope.h"
 #include "clang/AST/Decl.h"

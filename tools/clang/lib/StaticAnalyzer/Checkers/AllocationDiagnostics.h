@@ -1,14 +1,15 @@
 //=--- AllocationDiagnostics.h - Config options for allocation diags *- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AllocationDiagnostics.h                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Declares the configuration functions for leaks/allocation diagnostics.    //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Declares the configuration functions for leaks/allocation diagnostics.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_STATICANALYZER_CHECKERS_ALLOCATIONDIAGNOSTICS_H
 #define LLVM_CLANG_LIB_STATICANALYZER_CHECKERS_ALLOCATIONDIAGNOSTICS_H

@@ -1,16 +1,15 @@
 //===--- ParseOpenMP.cpp - OpenMP directives parsing ----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ParseOpenMP.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// \brief This file implements parsing of all OpenMP directives and clauses.//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// \brief This file implements parsing of all OpenMP directives and clauses.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "RAIIObjectsForParser.h"
 #include "clang/AST/ASTConsumer.h"

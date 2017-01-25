@@ -1,12 +1,11 @@
 //===- PDBSymbolTypeBaseClass.h - base class type information ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PDBSymbolTypeBaseClass.h                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_DEBUGINFO_PDB_PDBSYMBOLTYPEBASECLASS_H
 #define LLVM_DEBUGINFO_PDB_PDBSYMBOLTYPEBASECLASS_H

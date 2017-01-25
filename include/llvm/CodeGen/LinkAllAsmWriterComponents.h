@@ -1,15 +1,16 @@
 //===- llvm/Codegen/LinkAllAsmWriterComponents.h ----------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LinkAllAsmWriterComponents.h                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header file pulls in all assembler writer related passes for tools like//
-// llc that need this functionality.                                         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                      The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This header file pulls in all assembler writer related passes for tools like
+// llc that need this functionality.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_LINKALLASMWRITERCOMPONENTS_H
 #define LLVM_CODEGEN_LINKALLASMWRITERCOMPONENTS_H

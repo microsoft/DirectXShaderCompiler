@@ -1,33 +1,34 @@
 //===- IntervalIterator.h - Interval Iterator Declaration -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntervalIterator.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines an iterator that enumerates the intervals in a control flow//
-// graph of some sort.  This iterator is parametric, allowing iterator over the//
-// following types of graphs:                                                //
 //
-//  1. A Function* object, composed of BasicBlock nodes.                     //
-//  2. An IntervalPartition& object, composed of Interval nodes.             //
+//                     The LLVM Compiler Infrastructure
 //
-// This iterator is defined to walk the control flow graph, returning intervals//
-// in depth first order.  These intervals are completely filled in except for//
-// the predecessor fields (the successor information is filled in however).  //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// By default, the intervals created by this iterator are deleted after they //
-// are no longer any use to the iterator.  This behavior can be changed by   //
-// passing a false value into the intervals_begin() function. This causes the//
-// IOwnMem member to be set, and the intervals to not be deleted.            //
+//===----------------------------------------------------------------------===//
 //
-// It is only safe to use this if all of the intervals are deleted by the caller//
-// and all of the intervals are processed.  However, the user of the iterator is//
-// not allowed to modify or delete the intervals until after the iterator has//
-// been used completely.  The IntervalPartition class uses this functionality.//
+// This file defines an iterator that enumerates the intervals in a control flow
+// graph of some sort.  This iterator is parametric, allowing iterator over the
+// following types of graphs:
 //
-///////////////////////////////////////////////////////////////////////////////
+//  1. A Function* object, composed of BasicBlock nodes.
+//  2. An IntervalPartition& object, composed of Interval nodes.
+//
+// This iterator is defined to walk the control flow graph, returning intervals
+// in depth first order.  These intervals are completely filled in except for
+// the predecessor fields (the successor information is filled in however).
+//
+// By default, the intervals created by this iterator are deleted after they
+// are no longer any use to the iterator.  This behavior can be changed by
+// passing a false value into the intervals_begin() function. This causes the
+// IOwnMem member to be set, and the intervals to not be deleted.
+//
+// It is only safe to use this if all of the intervals are deleted by the caller
+// and all of the intervals are processed.  However, the user of the iterator is
+// not allowed to modify or delete the intervals until after the iterator has
+// been used completely.  The IntervalPartition class uses this functionality.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_INTERVALITERATOR_H
 #define LLVM_ANALYSIS_INTERVALITERATOR_H

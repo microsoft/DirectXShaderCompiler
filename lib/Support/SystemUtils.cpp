@@ -1,15 +1,16 @@
 //===- SystemUtils.cpp - Utilities for low-level system tasks -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SystemUtils.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains functions used to do a variety of low-level, often     //
-// system-specific, tasks.                                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains functions used to do a variety of low-level, often
+// system-specific, tasks.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/raw_ostream.h"

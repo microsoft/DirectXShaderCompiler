@@ -1,16 +1,17 @@
 //===- llvm/Analysis/AssumptionCache.h - Track @llvm.assume ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AssumptionCache.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains a pass that keeps track of @llvm.assume intrinsics in  //
-// the functions of a module (allowing assumptions within any function to be //
-// found cheaply by other parts of the optimizer).                           //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains a pass that keeps track of @llvm.assume intrinsics in
+// the functions of a module (allowing assumptions within any function to be
+// found cheaply by other parts of the optimizer).
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_ASSUMPTIONCACHE_H
 #define LLVM_ANALYSIS_ASSUMPTIONCACHE_H

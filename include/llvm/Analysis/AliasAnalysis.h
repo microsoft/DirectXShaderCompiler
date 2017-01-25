@@ -1,38 +1,39 @@
 //===- llvm/Analysis/AliasAnalysis.h - Alias Analysis Interface -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AliasAnalysis.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the generic AliasAnalysis interface, which is used as the//
-// common interface used by all clients of alias analysis information, and   //
-// implemented by all alias analysis implementations.  Mod/Ref information is//
-// also captured by this interface.                                          //
 //
-// Implementations of this interface must implement the various virtual methods,//
-// which automatically provides functionality for the entire suite of client //
-// APIs.                                                                     //
+//                     The LLVM Compiler Infrastructure
 //
-// This API identifies memory regions with the MemoryLocation class. The pointer//
-// component specifies the base memory address of the region. The Size specifies//
-// the maximum size (in address units) of the memory region, or              //
-// MemoryLocation::UnknownSize if the size is not known. The TBAA tag        //
-// identifies the "type" of the memory reference; see the                    //
-// TypeBasedAliasAnalysis class for details.                                 //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// Some non-obvious details include:                                         //
-//  - Pointers that point to two completely different objects in memory never//
-//    alias, regardless of the value of the Size component.                  //
-//  - NoAlias doesn't imply inequal pointers. The most obvious example of this//
-//    is two pointers to constant memory. Even if they are equal, constant   //
-//    memory is never stored to, so there will never be any dependencies.    //
-//    In this and other situations, the pointers may be both NoAlias and     //
-//    MustAlias at the same time. The current API can only return one result,//
-//    though this is rarely a problem in practice.                           //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file defines the generic AliasAnalysis interface, which is used as the
+// common interface used by all clients of alias analysis information, and
+// implemented by all alias analysis implementations.  Mod/Ref information is
+// also captured by this interface.
+//
+// Implementations of this interface must implement the various virtual methods,
+// which automatically provides functionality for the entire suite of client
+// APIs.
+//
+// This API identifies memory regions with the MemoryLocation class. The pointer
+// component specifies the base memory address of the region. The Size specifies
+// the maximum size (in address units) of the memory region, or
+// MemoryLocation::UnknownSize if the size is not known. The TBAA tag
+// identifies the "type" of the memory reference; see the
+// TypeBasedAliasAnalysis class for details.
+//
+// Some non-obvious details include:
+//  - Pointers that point to two completely different objects in memory never
+//    alias, regardless of the value of the Size component.
+//  - NoAlias doesn't imply inequal pointers. The most obvious example of this
+//    is two pointers to constant memory. Even if they are equal, constant
+//    memory is never stored to, so there will never be any dependencies.
+//    In this and other situations, the pointers may be both NoAlias and
+//    MustAlias at the same time. The current API can only return one result,
+//    though this is rarely a problem in practice.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_ALIASANALYSIS_H
 #define LLVM_ANALYSIS_ALIASANALYSIS_H

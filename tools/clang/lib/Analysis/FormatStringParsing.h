@@ -1,12 +1,3 @@
-//===- FormatStringParsing.h ------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FormatStringParsing.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 
 #ifndef LLVM_CLANG_LIB_ANALYSIS_FORMATSTRINGPARSING_H
 #define LLVM_CLANG_LIB_ANALYSIS_FORMATSTRINGPARSING_H

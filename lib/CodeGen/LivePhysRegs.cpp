@@ -1,16 +1,17 @@
 //===--- LivePhysRegs.cpp - Live Physical Register Set --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LivePhysRegs.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the LivePhysRegs utility for tracking liveness of    //
-// physical registers across machine instructions in forward or backward order.//
-// A more detailed description can be found in the corresponding header file.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the LivePhysRegs utility for tracking liveness of
+// physical registers across machine instructions in forward or backward order.
+// A more detailed description can be found in the corresponding header file.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"

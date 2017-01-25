@@ -1,14 +1,15 @@
 //=- MachineBranchProbabilityInfo.h - Branch Probability Analysis -*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineBranchProbabilityInfo.h                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass is used to evaluate branch probabilties on machine basic blocks.//
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass is used to evaluate branch probabilties on machine basic blocks.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINEBRANCHPROBABILITYINFO_H
 #define LLVM_CODEGEN_MACHINEBRANCHPROBABILITYINFO_H

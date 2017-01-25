@@ -1,17 +1,18 @@
 //===-- RegisterClassInfo.cpp - Dynamic Register Class Info ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegisterClassInfo.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the RegisterClassInfo class which provides dynamic   //
-// information about target register classes. Callee-saved vs. caller-saved and//
-// reserved registers depend on calling conventions and other dynamic        //
-// information, so some things cannot be determined statically.              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the RegisterClassInfo class which provides dynamic
+// information about target register classes. Callee-saved vs. caller-saved and
+// reserved registers depend on calling conventions and other dynamic
+// information, so some things cannot be determined statically.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"

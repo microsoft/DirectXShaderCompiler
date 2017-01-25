@@ -1,22 +1,23 @@
 //===- llvm-readobj.cpp - Dump contents of an Object File -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-readobj.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is a tool similar to readelf, except it works on multiple object file//
-// formats. The main purpose of this tool is to provide detailed output suitable//
-// for FileCheck.                                                            //
-//                                                                           //
-// Flags should be similar to readelf where supported, but the output format //
-// does not need to be identical. The point is to not make users learn yet   //
-// another set of flags.                                                     //
-//                                                                           //
-// Output should be specialized for each format where appropriate.           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is a tool similar to readelf, except it works on multiple object file
+// formats. The main purpose of this tool is to provide detailed output suitable
+// for FileCheck.
+//
+// Flags should be similar to readelf where supported, but the output format
+// does not need to be identical. The point is to not make users learn yet
+// another set of flags.
+//
+// Output should be specialized for each format where appropriate.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm-readobj.h"
 #include "Error.h"

@@ -1,16 +1,17 @@
 //===-- CommandFlags.h - Command Line Flags Interface -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommandFlags.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains codegen-specific flags that are shared between different//
-// command line tools. The tools "llc" and "opt" both use this file to prevent//
-// flag duplication.                                                         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains codegen-specific flags that are shared between different
+// command line tools. The tools "llc" and "opt" both use this file to prevent
+// flag duplication.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_COMMANDFLAGS_H
 #define LLVM_CODEGEN_COMMANDFLAGS_H

@@ -1,21 +1,20 @@
 //===- iterator_range.h - A range adaptor for iterators ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// iterator_range.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This provides a very simple, boring adaptor for a begin and end iterator //
-/// into a range type. This should be used to build range views that work well//
-/// with range based for loops and range based constructors.                 //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This provides a very simple, boring adaptor for a begin and end iterator
+/// into a range type. This should be used to build range views that work well
+/// with range based for loops and range based constructors.
 ///
-/// Note that code here follows more standards-based coding conventions as it//
-/// is mirroring proposed interfaces for standardization.                    //
+/// Note that code here follows more standards-based coding conventions as it
+/// is mirroring proposed interfaces for standardization.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_ITERATOR_RANGE_H
 #define LLVM_ADT_ITERATOR_RANGE_H

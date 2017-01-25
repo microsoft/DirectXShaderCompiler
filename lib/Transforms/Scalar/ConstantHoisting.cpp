@@ -1,37 +1,37 @@
 //===- ConstantHoisting.cpp - Prepare code for expensive constants --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantHoisting.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass identifies expensive constants to hoist and coalesces them to   //
-// better prepare it for SelectionDAG-based code generation. This works around//
-// the limitations of the basic-block-at-a-time approach.                    //
-//                                                                           //
-// First it scans all instructions for integer constants and calculates its  //
-// cost. If the constant can be folded into the instruction (the cost is     //
-// TCC_Free) or the cost is just a simple operation (TCC_BASIC), then we don't//
-// consider it expensive and leave it alone. This is the default behavior and//
-// the default implementation of getIntImmCost will always return TCC_Free.  //
-//                                                                           //
-// If the cost is more than TCC_BASIC, then the integer constant can't be folded//
-// into the instruction and it might be beneficial to hoist the constant.    //
-// Similar constants are coalesced to reduce register pressure and           //
-// materialization code.                                                     //
-//                                                                           //
-// When a constant is hoisted, it is also hidden behind a bitcast to force it to//
-// be live-out of the basic block. Otherwise the constant would be just      //
-// duplicated and each basic block would have its own copy in the SelectionDAG.//
-// The SelectionDAG recognizes such constants as opaque and doesn't perform  //
-// certain transformations on them, which would create a new expensive constant.//
-//                                                                           //
-// This optimization is only applied to integer constants in instructions and//
-// simple (this means not nested) constant cast expressions. For example:    //
-// %0 = load i64* inttoptr (i64 big_constant to i64*)                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass identifies expensive constants to hoist and coalesces them to
+// better prepare it for SelectionDAG-based code generation. This works around
+// the limitations of the basic-block-at-a-time approach.
+//
+// First it scans all instructions for integer constants and calculates its
+// cost. If the constant can be folded into the instruction (the cost is
+// TCC_Free) or the cost is just a simple operation (TCC_BASIC), then we don't
+// consider it expensive and leave it alone. This is the default behavior and
+// the default implementation of getIntImmCost will always return TCC_Free.
+//
+// If the cost is more than TCC_BASIC, then the integer constant can't be folded
+// into the instruction and it might be beneficial to hoist the constant.
+// Similar constants are coalesced to reduce register pressure and
+// materialization code.
+//
+// When a constant is hoisted, it is also hidden behind a bitcast to force it to
+// be live-out of the basic block. Otherwise the constant would be just
+// duplicated and each basic block would have its own copy in the SelectionDAG.
+// The SelectionDAG recognizes such constants as opaque and doesn't perform
+// certain transformations on them, which would create a new expensive constant.
+//
+// This optimization is only applied to integer constants in instructions and
+// simple (this means not nested) constant cast expressions. For example:
+// %0 = load i64* inttoptr (i64 big_constant to i64*)
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SmallSet.h"

@@ -1,15 +1,16 @@
 //===-- llvm/CodeGen/SelectionDAGISel.h - Common Base Class------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SelectionDAGISel.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the SelectionDAGISel class, which is used as the common//
-// base class for SelectionDAG-based instruction selectors.                  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the SelectionDAGISel class, which is used as the common
+// base class for SelectionDAG-based instruction selectors.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_SELECTIONDAGISEL_H
 #define LLVM_CODEGEN_SELECTIONDAGISEL_H

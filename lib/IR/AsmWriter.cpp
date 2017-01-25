@@ -1,17 +1,18 @@
 //===-- AsmWriter.cpp - Printing LLVM as an assembly file -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AsmWriter.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This library implements the functionality defined in llvm/IR/Writer.h     //
-//                                                                           //
-// Note that these routines must be extremely tolerant of various errors in the//
-// LLVM code, because it can be used for debugging transformations.          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This library implements the functionality defined in llvm/IR/Writer.h
+//
+// Note that these routines must be extremely tolerant of various errors in the
+// LLVM code, because it can be used for debugging transformations.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"

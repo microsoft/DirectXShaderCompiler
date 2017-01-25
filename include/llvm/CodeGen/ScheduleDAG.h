@@ -1,16 +1,17 @@
 //===------- llvm/CodeGen/ScheduleDAG.h - Common Base Class------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScheduleDAG.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the ScheduleDAG class, which is used as the common   //
-// base class for instruction schedulers. This encapsulates the scheduling DAG,//
-// which is shared between SelectionDAG and MachineInstr scheduling.         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the ScheduleDAG class, which is used as the common
+// base class for instruction schedulers. This encapsulates the scheduling DAG,
+// which is shared between SelectionDAG and MachineInstr scheduling.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_SCHEDULEDAG_H
 #define LLVM_CODEGEN_SCHEDULEDAG_H

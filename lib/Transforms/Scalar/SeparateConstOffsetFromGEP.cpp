@@ -1,159 +1,160 @@
 //===-- SeparateConstOffsetFromGEP.cpp - ------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SeparateConstOffsetFromGEP.cpp                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Loop unrolling may create many similar GEPs for array accesses.           //
-// e.g., a 2-level loop                                                      //
-//                                                                           //
-// float a[32][32]; // global variable                                       //
-//                                                                           //
-// for (int i = 0; i < 2; ++i) {                                             //
-//   for (int j = 0; j < 2; ++j) {                                           //
-//     ...                                                                   //
-//     ... = a[x + i][y + j];                                                //
-//     ...                                                                   //
-//   }                                                                       //
-// }                                                                         //
-//                                                                           //
-// will probably be unrolled to:                                             //
-//                                                                           //
-// gep %a, 0, %x, %y; load                                                   //
-// gep %a, 0, %x, %y + 1; load                                               //
-// gep %a, 0, %x + 1, %y; load                                               //
-// gep %a, 0, %x + 1, %y + 1; load                                           //
-//                                                                           //
-// LLVM's GVN does not use partial redundancy elimination yet, and is thus   //
-// unable to reuse (gep %a, 0, %x, %y). As a result, this misoptimization incurs//
-// significant slowdown in targets with limited addressing modes. For instance,//
-// because the PTX target does not support the reg+reg addressing mode, the  //
-// NVPTX backend emits PTX code that literally computes the pointer address of//
-// each GEP, wasting tons of registers. It emits the following PTX for the   //
-// first load and similar PTX for other loads.                               //
-//                                                                           //
-// mov.u32         %r1, %x;                                                  //
-// mov.u32         %r2, %y;                                                  //
-// mul.wide.u32    %rl2, %r1, 128;                                           //
-// mov.u64         %rl3, a;                                                  //
-// add.s64         %rl4, %rl3, %rl2;                                         //
-// mul.wide.u32    %rl5, %r2, 4;                                             //
-// add.s64         %rl6, %rl4, %rl5;                                         //
-// ld.global.f32   %f1, [%rl6];                                              //
-//                                                                           //
-// To reduce the register pressure, the optimization implemented in this file//
-// merges the common part of a group of GEPs, so we can compute each pointer //
-// address by adding a simple offset to the common part, saving many registers.//
-//                                                                           //
-// It works by splitting each GEP into a variadic base and a constant offset.//
-// The variadic base can be computed once and reused by multiple GEPs, and the//
-// constant offsets can be nicely folded into the reg+immediate addressing mode//
-// (supported by most targets) without using any extra register.             //
-//                                                                           //
-// For instance, we transform the four GEPs and four loads in the above example//
-// into:                                                                     //
-//                                                                           //
-// base = gep a, 0, x, y                                                     //
-// load base                                                                 //
-// laod base + 1  * sizeof(float)                                            //
-// load base + 32 * sizeof(float)                                            //
-// load base + 33 * sizeof(float)                                            //
-//                                                                           //
-// Given the transformed IR, a backend that supports the reg+immediate       //
-// addressing mode can easily fold the pointer arithmetics into the loads. For//
-// example, the NVPTX backend can easily fold the pointer arithmetics into the//
-// ld.global.f32 instructions, and the resultant PTX uses much fewer registers.//
-//                                                                           //
-// mov.u32         %r1, %tid.x;                                              //
-// mov.u32         %r2, %tid.y;                                              //
-// mul.wide.u32    %rl2, %r1, 128;                                           //
-// mov.u64         %rl3, a;                                                  //
-// add.s64         %rl4, %rl3, %rl2;                                         //
-// mul.wide.u32    %rl5, %r2, 4;                                             //
-// add.s64         %rl6, %rl4, %rl5;                                         //
-// ld.global.f32   %f1, [%rl6]; // so far the same as unoptimized PTX        //
-// ld.global.f32   %f2, [%rl6+4]; // much better                             //
-// ld.global.f32   %f3, [%rl6+128]; // much better                           //
-// ld.global.f32   %f4, [%rl6+132]; // much better                           //
-//                                                                           //
-// Another improvement enabled by the LowerGEP flag is to lower a GEP with   //
-// multiple indices to either multiple GEPs with a single index or arithmetic//
-// operations (depending on whether the target uses alias analysis in codegen).//
-// Such transformation can have following benefits:                          //
-// (1) It can always extract constants in the indices of structure type.     //
-// (2) After such Lowering, there are more optimization opportunities such as//
-//     CSE, LICM and CGP.                                                    //
-//                                                                           //
-// E.g. The following GEPs have multiple indices:                            //
-//  BB1:                                                                     //
-//    %p = getelementptr [10 x %struct]* %ptr, i64 %i, i64 %j1, i32 3        //
-//    load %p                                                                //
-//    ...                                                                    //
-//  BB2:                                                                     //
-//    %p2 = getelementptr [10 x %struct]* %ptr, i64 %i, i64 %j1, i32 2       //
-//    load %p2                                                               //
-//    ...                                                                    //
-//                                                                           //
-// We can not do CSE for to the common part related to index "i64 %i". Lowering//
-// GEPs can achieve such goals.                                              //
-// If the target does not use alias analysis in codegen, this pass will      //
-// lower a GEP with multiple indices into arithmetic operations:             //
-//  BB1:                                                                     //
-//    %1 = ptrtoint [10 x %struct]* %ptr to i64    ; CSE opportunity         //
-//    %2 = mul i64 %i, length_of_10xstruct         ; CSE opportunity         //
-//    %3 = add i64 %1, %2                          ; CSE opportunity         //
-//    %4 = mul i64 %j1, length_of_struct                                     //
-//    %5 = add i64 %3, %4                                                    //
-//    %6 = add i64 %3, struct_field_3              ; Constant offset         //
-//    %p = inttoptr i64 %6 to i32*                                           //
-//    load %p                                                                //
-//    ...                                                                    //
-//  BB2:                                                                     //
-//    %7 = ptrtoint [10 x %struct]* %ptr to i64    ; CSE opportunity         //
-//    %8 = mul i64 %i, length_of_10xstruct         ; CSE opportunity         //
-//    %9 = add i64 %7, %8                          ; CSE opportunity         //
-//    %10 = mul i64 %j2, length_of_struct                                    //
-//    %11 = add i64 %9, %10                                                  //
-//    %12 = add i64 %11, struct_field_2            ; Constant offset         //
-//    %p = inttoptr i64 %12 to i32*                                          //
-//    load %p2                                                               //
-//    ...                                                                    //
-//                                                                           //
-// If the target uses alias analysis in codegen, this pass will lower a GEP  //
-// with multiple indices into multiple GEPs with a single index:             //
-//  BB1:                                                                     //
-//    %1 = bitcast [10 x %struct]* %ptr to i8*     ; CSE opportunity         //
-//    %2 = mul i64 %i, length_of_10xstruct         ; CSE opportunity         //
-//    %3 = getelementptr i8* %1, i64 %2            ; CSE opportunity         //
-//    %4 = mul i64 %j1, length_of_struct                                     //
-//    %5 = getelementptr i8* %3, i64 %4                                      //
-//    %6 = getelementptr i8* %5, struct_field_3    ; Constant offset         //
-//    %p = bitcast i8* %6 to i32*                                            //
-//    load %p                                                                //
-//    ...                                                                    //
-//  BB2:                                                                     //
-//    %7 = bitcast [10 x %struct]* %ptr to i8*     ; CSE opportunity         //
-//    %8 = mul i64 %i, length_of_10xstruct         ; CSE opportunity         //
-//    %9 = getelementptr i8* %7, i64 %8            ; CSE opportunity         //
-//    %10 = mul i64 %j2, length_of_struct                                    //
-//    %11 = getelementptr i8* %9, i64 %10                                    //
-//    %12 = getelementptr i8* %11, struct_field_2  ; Constant offset         //
-//    %p2 = bitcast i8* %12 to i32*                                          //
-//    load %p2                                                               //
-//    ...                                                                    //
-//                                                                           //
-// Lowering GEPs can also benefit other passes such as LICM and CGP.         //
-// LICM (Loop Invariant Code Motion) can not hoist/sink a GEP of multiple    //
-// indices if one of the index is variant. If we lower such GEP into invariant//
-// parts and variant parts, LICM can hoist/sink those invariant parts.       //
-// CGP (CodeGen Prepare) tries to sink address calculations that match the   //
-// target's addressing modes. A GEP with multiple indices may not match and will//
-// not be sunk. If we lower such GEP into smaller parts, CGP may sink some of//
-// them. So we end up with a better addressing mode.                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Loop unrolling may create many similar GEPs for array accesses.
+// e.g., a 2-level loop
+//
+// float a[32][32]; // global variable
+//
+// for (int i = 0; i < 2; ++i) {
+//   for (int j = 0; j < 2; ++j) {
+//     ...
+//     ... = a[x + i][y + j];
+//     ...
+//   }
+// }
+//
+// will probably be unrolled to:
+//
+// gep %a, 0, %x, %y; load
+// gep %a, 0, %x, %y + 1; load
+// gep %a, 0, %x + 1, %y; load
+// gep %a, 0, %x + 1, %y + 1; load
+//
+// LLVM's GVN does not use partial redundancy elimination yet, and is thus
+// unable to reuse (gep %a, 0, %x, %y). As a result, this misoptimization incurs
+// significant slowdown in targets with limited addressing modes. For instance,
+// because the PTX target does not support the reg+reg addressing mode, the
+// NVPTX backend emits PTX code that literally computes the pointer address of
+// each GEP, wasting tons of registers. It emits the following PTX for the
+// first load and similar PTX for other loads.
+//
+// mov.u32         %r1, %x;
+// mov.u32         %r2, %y;
+// mul.wide.u32    %rl2, %r1, 128;
+// mov.u64         %rl3, a;
+// add.s64         %rl4, %rl3, %rl2;
+// mul.wide.u32    %rl5, %r2, 4;
+// add.s64         %rl6, %rl4, %rl5;
+// ld.global.f32   %f1, [%rl6];
+//
+// To reduce the register pressure, the optimization implemented in this file
+// merges the common part of a group of GEPs, so we can compute each pointer
+// address by adding a simple offset to the common part, saving many registers.
+//
+// It works by splitting each GEP into a variadic base and a constant offset.
+// The variadic base can be computed once and reused by multiple GEPs, and the
+// constant offsets can be nicely folded into the reg+immediate addressing mode
+// (supported by most targets) without using any extra register.
+//
+// For instance, we transform the four GEPs and four loads in the above example
+// into:
+//
+// base = gep a, 0, x, y
+// load base
+// laod base + 1  * sizeof(float)
+// load base + 32 * sizeof(float)
+// load base + 33 * sizeof(float)
+//
+// Given the transformed IR, a backend that supports the reg+immediate
+// addressing mode can easily fold the pointer arithmetics into the loads. For
+// example, the NVPTX backend can easily fold the pointer arithmetics into the
+// ld.global.f32 instructions, and the resultant PTX uses much fewer registers.
+//
+// mov.u32         %r1, %tid.x;
+// mov.u32         %r2, %tid.y;
+// mul.wide.u32    %rl2, %r1, 128;
+// mov.u64         %rl3, a;
+// add.s64         %rl4, %rl3, %rl2;
+// mul.wide.u32    %rl5, %r2, 4;
+// add.s64         %rl6, %rl4, %rl5;
+// ld.global.f32   %f1, [%rl6]; // so far the same as unoptimized PTX
+// ld.global.f32   %f2, [%rl6+4]; // much better
+// ld.global.f32   %f3, [%rl6+128]; // much better
+// ld.global.f32   %f4, [%rl6+132]; // much better
+//
+// Another improvement enabled by the LowerGEP flag is to lower a GEP with
+// multiple indices to either multiple GEPs with a single index or arithmetic
+// operations (depending on whether the target uses alias analysis in codegen).
+// Such transformation can have following benefits:
+// (1) It can always extract constants in the indices of structure type.
+// (2) After such Lowering, there are more optimization opportunities such as
+//     CSE, LICM and CGP.
+//
+// E.g. The following GEPs have multiple indices:
+//  BB1:
+//    %p = getelementptr [10 x %struct]* %ptr, i64 %i, i64 %j1, i32 3
+//    load %p
+//    ...
+//  BB2:
+//    %p2 = getelementptr [10 x %struct]* %ptr, i64 %i, i64 %j1, i32 2
+//    load %p2
+//    ...
+//
+// We can not do CSE for to the common part related to index "i64 %i". Lowering
+// GEPs can achieve such goals.
+// If the target does not use alias analysis in codegen, this pass will
+// lower a GEP with multiple indices into arithmetic operations:
+//  BB1:
+//    %1 = ptrtoint [10 x %struct]* %ptr to i64    ; CSE opportunity
+//    %2 = mul i64 %i, length_of_10xstruct         ; CSE opportunity
+//    %3 = add i64 %1, %2                          ; CSE opportunity
+//    %4 = mul i64 %j1, length_of_struct
+//    %5 = add i64 %3, %4
+//    %6 = add i64 %3, struct_field_3              ; Constant offset
+//    %p = inttoptr i64 %6 to i32*
+//    load %p
+//    ...
+//  BB2:
+//    %7 = ptrtoint [10 x %struct]* %ptr to i64    ; CSE opportunity
+//    %8 = mul i64 %i, length_of_10xstruct         ; CSE opportunity
+//    %9 = add i64 %7, %8                          ; CSE opportunity
+//    %10 = mul i64 %j2, length_of_struct
+//    %11 = add i64 %9, %10
+//    %12 = add i64 %11, struct_field_2            ; Constant offset
+//    %p = inttoptr i64 %12 to i32*
+//    load %p2
+//    ...
+//
+// If the target uses alias analysis in codegen, this pass will lower a GEP
+// with multiple indices into multiple GEPs with a single index:
+//  BB1:
+//    %1 = bitcast [10 x %struct]* %ptr to i8*     ; CSE opportunity
+//    %2 = mul i64 %i, length_of_10xstruct         ; CSE opportunity
+//    %3 = getelementptr i8* %1, i64 %2            ; CSE opportunity
+//    %4 = mul i64 %j1, length_of_struct
+//    %5 = getelementptr i8* %3, i64 %4
+//    %6 = getelementptr i8* %5, struct_field_3    ; Constant offset
+//    %p = bitcast i8* %6 to i32*
+//    load %p
+//    ...
+//  BB2:
+//    %7 = bitcast [10 x %struct]* %ptr to i8*     ; CSE opportunity
+//    %8 = mul i64 %i, length_of_10xstruct         ; CSE opportunity
+//    %9 = getelementptr i8* %7, i64 %8            ; CSE opportunity
+//    %10 = mul i64 %j2, length_of_struct
+//    %11 = getelementptr i8* %9, i64 %10
+//    %12 = getelementptr i8* %11, struct_field_2  ; Constant offset
+//    %p2 = bitcast i8* %12 to i32*
+//    load %p2
+//    ...
+//
+// Lowering GEPs can also benefit other passes such as LICM and CGP.
+// LICM (Loop Invariant Code Motion) can not hoist/sink a GEP of multiple
+// indices if one of the index is variant. If we lower such GEP into invariant
+// parts and variant parts, LICM can hoist/sink those invariant parts.
+// CGP (CodeGen Prepare) tries to sink address calculations that match the
+// target's addressing modes. A GEP with multiple indices may not match and will
+// not be sunk. If we lower such GEP into smaller parts, CGP may sink some of
+// them. So we end up with a better addressing mode.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"

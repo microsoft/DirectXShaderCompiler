@@ -1,16 +1,17 @@
 //===- PrettyDeclStackTrace.h - Stack trace for decl processing -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PrettyDeclStackTrace.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines an llvm::PrettyStackTraceEntry object for showing       //
-// that a particular declaration was being processed when a crash            //
-// occurred.                                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines an llvm::PrettyStackTraceEntry object for showing
+// that a particular declaration was being processed when a crash
+// occurred.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SEMA_PRETTYDECLSTACKTRACE_H
 #define LLVM_CLANG_SEMA_PRETTYDECLSTACKTRACE_H

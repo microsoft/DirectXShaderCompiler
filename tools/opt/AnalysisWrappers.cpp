@@ -1,20 +1,21 @@
 //===- AnalysisWrappers.cpp - Wrappers around non-pass analyses -----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AnalysisWrappers.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines pass wrappers around LLVM analyses that don't make sense to//
-// be passes.  It provides a nice standard pass interface to these classes so//
-// that they can be printed out by analyze.                                  //
-//                                                                           //
-// These classes are separated out of analyze.cpp so that it is more clear which//
-// code is the integral part of the analyze tool, and which part of the code is//
-// just making it so more passes are available.                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines pass wrappers around LLVM analyses that don't make sense to
+// be passes.  It provides a nice standard pass interface to these classes so
+// that they can be printed out by analyze.
+//
+// These classes are separated out of analyze.cpp so that it is more clear which
+// code is the integral part of the analyze tool, and which part of the code is
+// just making it so more passes are available.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/CallSite.h"

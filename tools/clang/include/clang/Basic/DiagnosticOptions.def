@@ -1,19 +1,21 @@
 //===--- DiagOptions.def - Diagnostic option database ------------- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DiagnosticOptions.def                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the diagnostic options. Users of this file              //
-// must define the DIAGOPT macro to make use of this information.            //
-// Optionally, the user may also define ENUM_DIAGOPT (for options            //
-// that have enumeration type and VALUE_DIAGOPT (for options that            //
-// describe a value rather than a flag). The SEMANTIC_* variants of these macros//
-// indicate options that affect the processing of the program, rather than   //
-// simply the output.                                                        //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the diagnostic options. Users of this file
+// must define the DIAGOPT macro to make use of this information.
+// Optionally, the user may also define ENUM_DIAGOPT (for options
+// that have enumeration type and VALUE_DIAGOPT (for options that
+// describe a value rather than a flag). The SEMANTIC_* variants of these macros
+// indicate options that affect the processing of the program, rather than
+// simply the output.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef DIAGOPT
 #  error Define the DIAGOPT macro to handle language options

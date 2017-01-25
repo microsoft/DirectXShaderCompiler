@@ -1,17 +1,19 @@
 //== RegionStore.cpp - Field-sensitive store model --------------*- C++ -*--==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegionStore.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a basic region store model. In this model, we do have field//
-// sensitivity. But we assume nothing about the heap shape. So recursive data//
-// structures are largely ignored. Basically we do 1-limiting analysis.      //
-// Parameter pointers are assumed with no aliasing. Pointee objects of       //
-// parameters are created lazily.                                            //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a basic region store model. In this model, we do have field
+// sensitivity. But we assume nothing about the heap shape. So recursive data
+// structures are largely ignored. Basically we do 1-limiting analysis.
+// Parameter pointers are assumed with no aliasing. Pointee objects of
+// parameters are created lazily.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/Attr.h"
 #include "clang/AST/CharUnits.h"

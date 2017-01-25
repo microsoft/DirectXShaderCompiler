@@ -1,16 +1,17 @@
 //===-- PhiElimination.cpp - Eliminate PHI nodes by inserting copies ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PHIElimination.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass eliminates machine instruction PHI nodes by inserting copy      //
-// instructions.  This destroys SSA information, but is the desired input for//
-// some register allocators.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass eliminates machine instruction PHI nodes by inserting copy
+// instructions.  This destroys SSA information, but is the desired input for
+// some register allocators.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "PHIEliminationUtils.h"

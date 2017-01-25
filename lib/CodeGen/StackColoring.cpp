@@ -1,24 +1,25 @@
 //===-- StackColoring.cpp -------------------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StackColoring.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass implements the stack-coloring optimization that looks for       //
-// lifetime markers machine instructions (LIFESTART_BEGIN and LIFESTART_END),//
-// which represent the possible lifetime of stack slots. It attempts to      //
-// merge disjoint stack slots and reduce the used stack space.               //
-// NOTE: This pass is not StackSlotColoring, which optimizes spill slots.    //
-//                                                                           //
-// TODO: In the future we plan to improve stack coloring in the following ways://
-// 1. Allow merging multiple small slots into a single larger slot at different//
-//    offsets.                                                               //
-// 2. Merge this pass with StackSlotColoring and allow merging of allocas with//
-//    spill slots.                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass implements the stack-coloring optimization that looks for
+// lifetime markers machine instructions (LIFESTART_BEGIN and LIFESTART_END),
+// which represent the possible lifetime of stack slots. It attempts to
+// merge disjoint stack slots and reduce the used stack space.
+// NOTE: This pass is not StackSlotColoring, which optimizes spill slots.
+//
+// TODO: In the future we plan to improve stack coloring in the following ways:
+// 1. Allow merging multiple small slots into a single larger slot at different
+//    offsets.
+// 2. Merge this pass with StackSlotColoring and allow merging of allocas with
+//    spill slots.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/BitVector.h"

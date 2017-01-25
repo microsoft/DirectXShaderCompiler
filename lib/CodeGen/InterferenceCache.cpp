@@ -1,14 +1,15 @@
 //===-- InterferenceCache.cpp - Caching per-block interference ---------*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InterferenceCache.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// InterferenceCache remembers per-block interference in LiveIntervalUnions. //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// InterferenceCache remembers per-block interference in LiveIntervalUnions.
+//
+//===----------------------------------------------------------------------===//
 
 #include "InterferenceCache.h"
 #include "llvm/CodeGen/LiveIntervalAnalysis.h"

@@ -1,15 +1,16 @@
 //===--- ParseStmt.cpp - Statement and Block Parser -----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ParseStmt.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Statement and Block portions of the Parser       //
-// interface.                                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Statement and Block portions of the Parser
+// interface.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Parse/Parser.h"
 #include "RAIIObjectsForParser.h"

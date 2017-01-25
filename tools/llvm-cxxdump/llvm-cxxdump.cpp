@@ -1,14 +1,15 @@
 //===- llvm-cxxdump.cpp - Dump C++ data in an Object File -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-cxxdump.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Dumps C++ data resident in object files and archives.                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Dumps C++ data resident in object files and archives.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm-cxxdump.h"
 #include "Error.h"

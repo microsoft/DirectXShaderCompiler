@@ -1,14 +1,15 @@
 //===-- llvm/InstrTypes.h - Important Instruction subclasses ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstrTypes.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines various meta classes of instructions that exist in the VM//
-// representation.  Specific concrete subclasses of these may be found in the//
-// i*.h files...                                                             //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines various meta classes of instructions that exist in the VM
+// representation.  Specific concrete subclasses of these may be found in the
+// i*.h files...
 //
 //===----------------------------------------------------------------------===//
 

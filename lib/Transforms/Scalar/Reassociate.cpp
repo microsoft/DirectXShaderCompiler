@@ -1,23 +1,24 @@
 //===- Reassociate.cpp - Reassociate binary expressions -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Reassociate.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass reassociates commutative expressions in an order that is designed//
-// to promote better constant propagation, GCSE, LICM, PRE, etc.             //
-//                                                                           //
-// For example: 4 + (x + 5) -> x + (4 + 5)                                   //
-//                                                                           //
-// In the implementation of this algorithm, constants are assigned rank = 0, //
-// function arguments are rank = 1, and other values are assigned ranks      //
-// corresponding to the reverse post order traversal of current function     //
-// (starting at 2), which effectively gives values in deep loops higher rank //
-// than values not in loops.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass reassociates commutative expressions in an order that is designed
+// to promote better constant propagation, GCSE, LICM, PRE, etc.
+//
+// For example: 4 + (x + 5) -> x + (4 + 5)
+//
+// In the implementation of this algorithm, constants are assigned rank = 0,
+// function arguments are rank = 1, and other values are assigned ranks
+// corresponding to the reverse post order traversal of current function
+// (starting at 2), which effectively gives values in deep loops higher rank
+// than values not in loops.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseMap.h"

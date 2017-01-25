@@ -1,18 +1,17 @@
 //===--- Lambda.h - Types for C++ Lambdas -----------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Lambda.h                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Defines several types used to describe C++ lambda expressions     //
-/// that are shared between the parser and AST.                              //
+/// \file
+/// \brief Defines several types used to describe C++ lambda expressions
+/// that are shared between the parser and AST.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 
 #ifndef LLVM_CLANG_BASIC_LAMBDA_H

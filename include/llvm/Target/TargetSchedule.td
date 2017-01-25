@@ -1,55 +1,54 @@
 //===- TargetSchedule.td - Target Independent Scheduling ---*- tablegen -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetSchedule.td                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the target-independent scheduling interfaces which should//
-// be implemented by each target which is using TableGen based scheduling.   //
-//                                                                           //
-// The SchedMachineModel is defined by subtargets for three categories of data://
-// 1. Basic properties for coarse grained instruction cost model.            //
-// 2. Scheduler Read/Write resources for simple per-opcode cost model.       //
-// 3. Instruction itineraties for detailed reservation tables.               //
-//                                                                           //
-// (1) Basic properties are defined by the SchedMachineModel                 //
-// class. Target hooks allow subtargets to associate opcodes with            //
-// those properties.                                                         //
-//                                                                           //
-// (2) A per-operand machine model can be implemented in any                 //
-// combination of the following ways:                                        //
-//                                                                           //
-// A. Associate per-operand SchedReadWrite types with Instructions by        //
-// modifying the Instruction definition to inherit from Sched. For           //
-// each subtarget, define WriteRes and ReadAdvance to associate              //
-// processor resources and latency with each SchedReadWrite type.            //
-//                                                                           //
-// B. In each instruction definition, name an ItineraryClass. For each       //
-// subtarget, define ItinRW entries to map ItineraryClass to                 //
-// per-operand SchedReadWrite types. Unlike method A, these types may        //
-// be subtarget specific and can be directly associated with resources       //
-// by defining SchedWriteRes and SchedReadAdvance.                           //
-//                                                                           //
-// C. In the subtarget, map SchedReadWrite types to specific                 //
-// opcodes. This overrides any SchedReadWrite types or                       //
-// ItineraryClasses defined by the Instruction. As in method B, the          //
-// subtarget can directly associate resources with SchedReadWrite            //
-// types by defining SchedWriteRes and SchedReadAdvance.                     //
-//                                                                           //
-// D. In either the target or subtarget, define SchedWriteVariant or         //
-// SchedReadVariant to map one SchedReadWrite type onto another              //
-// sequence of SchedReadWrite types. This allows dynamic selection of        //
-// an instruction's machine model via custom C++ code. It also allows        //
-// a machine-independent SchedReadWrite type to map to a sequence of         //
-// machine-dependent types.                                                  //
-//                                                                           //
-// (3) A per-pipeline-stage machine model can be implemented by providing    //
-// Itineraries in addition to mapping instructions to ItineraryClasses.      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// Include legacy support for instruction itineraries.                       //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the target-independent scheduling interfaces which should
+// be implemented by each target which is using TableGen based scheduling.
+//
+// The SchedMachineModel is defined by subtargets for three categories of data:
+// 1. Basic properties for coarse grained instruction cost model.
+// 2. Scheduler Read/Write resources for simple per-opcode cost model.
+// 3. Instruction itineraties for detailed reservation tables.
+//
+// (1) Basic properties are defined by the SchedMachineModel
+// class. Target hooks allow subtargets to associate opcodes with
+// those properties.
+//
+// (2) A per-operand machine model can be implemented in any
+// combination of the following ways:
+//
+// A. Associate per-operand SchedReadWrite types with Instructions by
+// modifying the Instruction definition to inherit from Sched. For
+// each subtarget, define WriteRes and ReadAdvance to associate
+// processor resources and latency with each SchedReadWrite type.
+//
+// B. In each instruction definition, name an ItineraryClass. For each
+// subtarget, define ItinRW entries to map ItineraryClass to
+// per-operand SchedReadWrite types. Unlike method A, these types may
+// be subtarget specific and can be directly associated with resources
+// by defining SchedWriteRes and SchedReadAdvance.
+//
+// C. In the subtarget, map SchedReadWrite types to specific
+// opcodes. This overrides any SchedReadWrite types or
+// ItineraryClasses defined by the Instruction. As in method B, the
+// subtarget can directly associate resources with SchedReadWrite
+// types by defining SchedWriteRes and SchedReadAdvance.
+//
+// D. In either the target or subtarget, define SchedWriteVariant or
+// SchedReadVariant to map one SchedReadWrite type onto another
+// sequence of SchedReadWrite types. This allows dynamic selection of
+// an instruction's machine model via custom C++ code. It also allows
+// a machine-independent SchedReadWrite type to map to a sequence of
+// machine-dependent types.
+//
+// (3) A per-pipeline-stage machine model can be implemented by providing
+// Itineraries in addition to mapping instructions to ItineraryClasses.
+//===----------------------------------------------------------------------===//
 
 include "llvm/Target/TargetItinerary.td"
 

@@ -1,18 +1,17 @@
 //===- Parsing, selection, and construction of pass pipelines --*- C++ -*--===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PassBuilder.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// Interfaces for registering analysis passes, producing common pass manager//
-/// configurations, and parsing of pass pipelines.                           //
+/// Interfaces for registering analysis passes, producing common pass manager
+/// configurations, and parsing of pass pipelines.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_PASSES_PASSBUILDER_H
 #define LLVM_PASSES_PASSBUILDER_H

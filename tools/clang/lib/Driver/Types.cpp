@@ -1,12 +1,11 @@
 //===--- Types.cpp - Driver input & temporary type information ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Types.cpp                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Driver/Types.h"
 #include "llvm/ADT/STLExtras.h"

@@ -1,16 +1,17 @@
 //===-- llvm/IR/Statepoint.h - gc.statepoint utilities ------ --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Statepoint.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains utility functions and a wrapper class analogous to     //
-// CallSite for accessing the fields of gc.statepoint, gc.relocate, and      //
-// gc.result intrinsics                                                      //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains utility functions and a wrapper class analogous to
+// CallSite for accessing the fields of gc.statepoint, gc.relocate, and
+// gc.result intrinsics
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_STATEPOINT_H
 #define LLVM_IR_STATEPOINT_H

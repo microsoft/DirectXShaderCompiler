@@ -1,79 +1,80 @@
 //===- NaryReassociate.cpp - Reassociate n-ary expressions ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// NaryReassociate.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass reassociates n-ary add expressions and eliminates the redundancy//
-// exposed by the reassociation.                                             //
-//                                                                           //
-// A motivating example:                                                     //
-//                                                                           //
-//   void foo(int a, int b) {                                                //
-//     bar(a + b);                                                           //
-//     bar((a + 2) + b);                                                     //
-//   }                                                                       //
-//                                                                           //
-// An ideal compiler should reassociate (a + 2) + b to (a + b) + 2 and simplify//
-// the above code to                                                         //
-//                                                                           //
-//   int t = a + b;                                                          //
-//   bar(t);                                                                 //
-//   bar(t + 2);                                                             //
-//                                                                           //
-// However, the Reassociate pass is unable to do that because it processes each//
-// instruction individually and believes (a + 2) + b is the best form according//
-// to its rank system.                                                       //
-//                                                                           //
-// To address this limitation, NaryReassociate reassociates an expression in a//
-// form that reuses existing instructions. As a result, NaryReassociate can  //
-// reassociate (a + 2) + b in the example to (a + b) + 2 because it detects that//
-// (a + b) is computed before.                                               //
-//                                                                           //
-// NaryReassociate works as follows. For every instruction in the form of (a +//
-// b) + c, it checks whether a + c or b + c is already computed by a dominating//
-// instruction. If so, it then reassociates (a + b) + c into (a + c) + b or (b +//
-// c) + a and removes the redundancy accordingly. To efficiently look up whether//
-// an expression is computed before, we store each instruction seen and its SCEV//
-// into an SCEV-to-instruction map.                                          //
-//                                                                           //
-// Although the algorithm pattern-matches only ternary additions, it         //
-// automatically handles many >3-ary expressions by walking through the function//
-// in the depth-first order. For example, given                              //
-//                                                                           //
-//   (a + c) + d                                                             //
-//   ((a + b) + c) + d                                                       //
-//                                                                           //
-// NaryReassociate first rewrites (a + b) + c to (a + c) + b, and then rewrites//
-// ((a + c) + b) + d into ((a + c) + d) + b.                                 //
-//                                                                           //
-// Finally, the above dominator-based algorithm may need to be run multiple  //
-// iterations before emitting optimal code. One source of this need is that we//
-// only split an operand when it is used only once. The above algorithm can  //
-// eliminate an instruction and decrease the usage count of its operands. As a//
-// result, an instruction that previously had multiple uses may become a     //
-// single-use instruction and thus eligible for split consideration. For     //
-// example,                                                                  //
-//                                                                           //
-//   ac = a + c                                                              //
-//   ab = a + b                                                              //
-//   abc = ab + c                                                            //
-//   ab2 = ab + b                                                            //
-//   ab2c = ab2 + c                                                          //
-//                                                                           //
-// In the first iteration, we cannot reassociate abc to ac+b because ab is used//
-// twice. However, we can reassociate ab2c to abc+b in the first iteration. As a//
-// result, ab2 becomes dead and ab will be used only once in the second      //
-// iteration.                                                                //
-//                                                                           //
-// Limitations and TODO items:                                               //
-//                                                                           //
-// 1) We only considers n-ary adds for now. This should be extended and      //
-// generalized.                                                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass reassociates n-ary add expressions and eliminates the redundancy
+// exposed by the reassociation.
+//
+// A motivating example:
+//
+//   void foo(int a, int b) {
+//     bar(a + b);
+//     bar((a + 2) + b);
+//   }
+//
+// An ideal compiler should reassociate (a + 2) + b to (a + b) + 2 and simplify
+// the above code to
+//
+//   int t = a + b;
+//   bar(t);
+//   bar(t + 2);
+//
+// However, the Reassociate pass is unable to do that because it processes each
+// instruction individually and believes (a + 2) + b is the best form according
+// to its rank system.
+//
+// To address this limitation, NaryReassociate reassociates an expression in a
+// form that reuses existing instructions. As a result, NaryReassociate can
+// reassociate (a + 2) + b in the example to (a + b) + 2 because it detects that
+// (a + b) is computed before.
+//
+// NaryReassociate works as follows. For every instruction in the form of (a +
+// b) + c, it checks whether a + c or b + c is already computed by a dominating
+// instruction. If so, it then reassociates (a + b) + c into (a + c) + b or (b +
+// c) + a and removes the redundancy accordingly. To efficiently look up whether
+// an expression is computed before, we store each instruction seen and its SCEV
+// into an SCEV-to-instruction map.
+//
+// Although the algorithm pattern-matches only ternary additions, it
+// automatically handles many >3-ary expressions by walking through the function
+// in the depth-first order. For example, given
+//
+//   (a + c) + d
+//   ((a + b) + c) + d
+//
+// NaryReassociate first rewrites (a + b) + c to (a + c) + b, and then rewrites
+// ((a + c) + b) + d into ((a + c) + d) + b.
+//
+// Finally, the above dominator-based algorithm may need to be run multiple
+// iterations before emitting optimal code. One source of this need is that we
+// only split an operand when it is used only once. The above algorithm can
+// eliminate an instruction and decrease the usage count of its operands. As a
+// result, an instruction that previously had multiple uses may become a
+// single-use instruction and thus eligible for split consideration. For
+// example,
+//
+//   ac = a + c
+//   ab = a + b
+//   abc = ab + c
+//   ab2 = ab + b
+//   ab2c = ab2 + c
+//
+// In the first iteration, we cannot reassociate abc to ac+b because ab is used
+// twice. However, we can reassociate ab2c to abc+b in the first iteration. As a
+// result, ab2 becomes dead and ab will be used only once in the second
+// iteration.
+//
+// Limitations and TODO items:
+//
+// 1) We only considers n-ary adds for now. This should be extended and
+// generalized.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/ScalarEvolution.h"

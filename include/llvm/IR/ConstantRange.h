@@ -1,32 +1,33 @@
 //===- ConstantRange.h - Represent a range ----------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantRange.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Represent a range of possible values that may occur when the program is run//
-// for an integral value.  This keeps track of a lower and upper bound for the//
-// constant, which MAY wrap around the end of the numeric range.  To do this, it//
-// keeps track of a [lower, upper) bound, which specifies an interval just like//
-// STL iterators.  When used with boolean values, the following are important//
-// ranges: :                                                                 //
 //
-//  [F, F) = {}     = Empty set                                              //
-//  [T, F) = {T}                                                             //
-//  [F, T) = {F}                                                             //
-//  [T, T) = {F, T} = Full set                                               //
+//                     The LLVM Compiler Infrastructure
 //
-// The other integral ranges use min/max values for special range values. For//
-// example, for 8-bit types, it uses:                                        //
-// [0, 0)     = {}       = Empty set                                         //
-// [255, 255) = {0..255} = Full Set                                          //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// Note that ConstantRange can be used to represent either signed or         //
-// unsigned ranges.                                                          //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// Represent a range of possible values that may occur when the program is run
+// for an integral value.  This keeps track of a lower and upper bound for the
+// constant, which MAY wrap around the end of the numeric range.  To do this, it
+// keeps track of a [lower, upper) bound, which specifies an interval just like
+// STL iterators.  When used with boolean values, the following are important
+// ranges: :
+//
+//  [F, F) = {}     = Empty set
+//  [T, F) = {T}
+//  [F, T) = {F}
+//  [T, T) = {F, T} = Full set
+//
+// The other integral ranges use min/max values for special range values. For
+// example, for 8-bit types, it uses:
+// [0, 0)     = {}       = Empty set
+// [255, 255) = {0..255} = Full Set
+//
+// Note that ConstantRange can be used to represent either signed or
+// unsigned ranges.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_CONSTANTRANGE_H
 #define LLVM_IR_CONSTANTRANGE_H

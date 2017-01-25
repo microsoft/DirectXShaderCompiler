@@ -1,18 +1,19 @@
 //===-- IntelJITEventsWrapper.h - Intel JIT Events API Wrapper --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntelJITEventsWrapper.h                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a wrapper for the Intel JIT Events API. It allows for the//
-// implementation of the jitprofiling library to be swapped with an alternative//
-// implementation (for testing). To include this file, you must have the     //
-// jitprofiling.h header available; it is available in Intel(R) VTune(TM)    //
-// Amplifier XE 2011.                                                        //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a wrapper for the Intel JIT Events API. It allows for the
+// implementation of the jitprofiling library to be swapped with an alternative
+// implementation (for testing). To include this file, you must have the
+// jitprofiling.h header available; it is available in Intel(R) VTune(TM)
+// Amplifier XE 2011.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef INTEL_JIT_EVENTS_WRAPPER_H
 #define INTEL_JIT_EVENTS_WRAPPER_H

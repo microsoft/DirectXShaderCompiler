@@ -1,18 +1,17 @@
 //===-- ClangFuzzer.cpp - Fuzz Clang --------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ClangFuzzer.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief This file implements a function that runs Clang on a single       //
-///  input. This function is then linked into the Fuzzer library.            //
+/// \file
+/// \brief This file implements a function that runs Clang on a single
+///  input. This function is then linked into the Fuzzer library.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/Tooling.h"
 #include "clang/Frontend/FrontendActions.h"

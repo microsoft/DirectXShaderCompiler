@@ -1,25 +1,24 @@
 //===-- llvm/Target/TargetLowering.h - Target Lowering Info -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetLowering.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// This file describes how to lower LLVM code to machine code.  This has two//
-/// main components:                                                         //
+/// \file
+/// This file describes how to lower LLVM code to machine code.  This has two
+/// main components:
 ///
-///  1. Which ValueTypes are natively supported by the target.               //
-///  2. Which operations are supported for supported ValueTypes.             //
-///  3. Cost thresholds for alternative implementations of certain operations.//
+///  1. Which ValueTypes are natively supported by the target.
+///  2. Which operations are supported for supported ValueTypes.
+///  3. Cost thresholds for alternative implementations of certain operations.
 ///
-/// In addition it has a few other components, like information about FP     //
-/// immediates.                                                              //
+/// In addition it has a few other components, like information about FP
+/// immediates.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TARGET_TARGETLOWERING_H
 #define LLVM_TARGET_TARGETLOWERING_H

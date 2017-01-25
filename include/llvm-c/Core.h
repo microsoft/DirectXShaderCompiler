@@ -1,15 +1,16 @@
 /*===-- llvm-c/Core.h - Core Library C Interface ------------------*- C -*-===*\
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Core.h                                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This header declares the C interface to libLLVMCore.a, which implements   //
-// the LLVM intermediate representation.                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+|*                                                                            *|
+|*                     The LLVM Compiler Infrastructure                       *|
+|*                                                                            *|
+|* This file is distributed under the University of Illinois Open Source      *|
+|* License. See LICENSE.TXT for details.                                      *|
+|*                                                                            *|
+|*===----------------------------------------------------------------------===*|
+|*                                                                            *|
+|* This header declares the C interface to libLLVMCore.a, which implements    *|
+|* the LLVM intermediate representation.                                      *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
 
 #ifndef LLVM_C_CORE_H
 #define LLVM_C_CORE_H

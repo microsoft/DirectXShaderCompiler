@@ -1,16 +1,17 @@
 //===-- MachineCSE.cpp - Machine Common Subexpression Elimination Pass ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineCSE.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass performs global common subexpression elimination on machine     //
-// instructions using a scoped hash table based value numbering scheme. It   //
-// must be run while the machine function is still in SSA form.              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass performs global common subexpression elimination on machine
+// instructions using a scoped hash table based value numbering scheme. It
+// must be run while the machine function is still in SSA form.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseMap.h"

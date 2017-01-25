@@ -1,15 +1,15 @@
 //===-- llvm/Attributes.h - Container for Attributes ------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Attributes.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief This file contains the simple types necessary to represent the    //
-/// attributes associated with functions and their calls.                    //
+/// \file
+/// \brief This file contains the simple types necessary to represent the
+/// attributes associated with functions and their calls.
 ///
 //===----------------------------------------------------------------------===//
 

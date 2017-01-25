@@ -1,24 +1,23 @@
 //===- PtrUseVisitor.h - InstVisitors over a pointers uses ------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PtrUseVisitor.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file provides a collection of visitors which walk the (instruction) //
-/// uses of a pointer. These visitors all provide the same essential behavior//
-/// as an InstVisitor with similar template-based flexibility and            //
-/// implementation strategies.                                               //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file provides a collection of visitors which walk the (instruction)
+/// uses of a pointer. These visitors all provide the same essential behavior
+/// as an InstVisitor with similar template-based flexibility and
+/// implementation strategies.
 ///
-/// These can be used, for example, to quickly analyze the uses of an alloca,//
-/// global variable, or function argument.                                   //
+/// These can be used, for example, to quickly analyze the uses of an alloca,
+/// global variable, or function argument.
 ///
-/// FIXME: Provide a variant which doesn't track offsets and is cheaper.     //
+/// FIXME: Provide a variant which doesn't track offsets and is cheaper.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_PTRUSEVISITOR_H
 #define LLVM_ANALYSIS_PTRUSEVISITOR_H

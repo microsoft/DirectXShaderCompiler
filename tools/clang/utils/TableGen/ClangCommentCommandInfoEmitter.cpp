@@ -1,15 +1,16 @@
 //===--- ClangCommentCommandInfoEmitter.cpp - Generate command lists -----====//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ClangCommentCommandInfoEmitter.cpp                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This tablegen backend emits command lists and efficient matchers for command//
-// names that are used in documentation comments.                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This tablegen backend emits command lists and efficient matchers for command
+// names that are used in documentation comments.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/StringMatcher.h"

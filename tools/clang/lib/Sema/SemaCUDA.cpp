@@ -1,16 +1,15 @@
 //===--- SemaCUDA.cpp - Semantic Analysis for CUDA constructs -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaCUDA.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// \brief This file implements semantic analysis for CUDA constructs.       //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// \brief This file implements semantic analysis for CUDA constructs.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "clang/Sema/Sema.h"
 #include "clang/AST/ASTContext.h"

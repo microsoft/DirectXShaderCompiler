@@ -1,15 +1,16 @@
 //== AnalysisDeclContext.cpp - Analysis context for Path Sens analysis -*- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// AnalysisDeclContext.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines AnalysisDeclContext, a class that manages the analysis context//
-// data for path sensitive analysis.                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines AnalysisDeclContext, a class that manages the analysis context
+// data for path sensitive analysis.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/AnalysisContext.h"
 #include "BodyFarm.h"

@@ -1,15 +1,16 @@
 //===- MachOObjectFile.cpp - Mach-O object file binding ---------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachOObjectFile.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the MachOObjectFile class, which binds the MachOObject  //
-// class to the generic ObjectFile wrapper.                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the MachOObjectFile class, which binds the MachOObject
+// class to the generic ObjectFile wrapper.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Object/MachO.h"
 #include "llvm/ADT/STLExtras.h"

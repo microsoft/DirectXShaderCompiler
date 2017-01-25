@@ -1,21 +1,22 @@
 //===- ConstantProp.cpp - Code to perform Simple Constant Propagation -----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ConstantProp.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements constant propagation and merging:                    //
-//                                                                           //
-// Specifically, this:                                                       //
-//   * Converts instructions like "add int 1, 2" into 3                      //
-//                                                                           //
-// Notice that:                                                              //
-//   * This pass has a habit of making definitions be dead.  It is a good idea//
-//     to run a DIE pass sometime after running this pass.                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements constant propagation and merging:
+//
+// Specifically, this:
+//   * Converts instructions like "add int 1, 2" into 3
+//
+// Notice that:
+//   * This pass has a habit of making definitions be dead.  It is a good idea
+//     to run a DIE pass sometime after running this pass.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/Statistic.h"

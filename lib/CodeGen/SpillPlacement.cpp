@@ -1,30 +1,31 @@
 //===-- SpillPlacement.cpp - Optimal Spill Code Placement -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SpillPlacement.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the spill code placement analysis.                   //
-//                                                                           //
-// Each edge bundle corresponds to a node in a Hopfield network. Constraints on//
-// basic blocks are weighted by the block frequency and added to become the node//
-// bias.                                                                     //
-//                                                                           //
-// Transparent basic blocks have the variable live through, but don't care if it//
-// is spilled or in a register. These blocks become connections in the Hopfield//
-// network, again weighted by block frequency.                               //
-//                                                                           //
-// The Hopfield network minimizes (possibly locally) its energy function:    //
-//                                                                           //
-//   E = -sum_n V_n * ( B_n + sum_{n, m linked by b} V_m * F_b )             //
-//                                                                           //
-// The energy function represents the expected spill code execution frequency,//
-// or the cost of spilling. This is a Lyapunov function which never increases//
-// when a node is updated. It is guaranteed to converge to a local minimum.  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the spill code placement analysis.
+//
+// Each edge bundle corresponds to a node in a Hopfield network. Constraints on
+// basic blocks are weighted by the block frequency and added to become the node
+// bias.
+//
+// Transparent basic blocks have the variable live through, but don't care if it
+// is spilled or in a register. These blocks become connections in the Hopfield
+// network, again weighted by block frequency.
+//
+// The Hopfield network minimizes (possibly locally) its energy function:
+//
+//   E = -sum_n V_n * ( B_n + sum_{n, m linked by b} V_m * F_b )
+//
+// The energy function represents the expected spill code execution frequency,
+// or the cost of spilling. This is a Lyapunov function which never increases
+// when a node is updated. It is guaranteed to converge to a local minimum.
+//
+//===----------------------------------------------------------------------===//
 
 #include "SpillPlacement.h"
 #include "llvm/ADT/BitVector.h"

@@ -1,19 +1,20 @@
 //===--- Replacement.h - Framework for clang refactoring tools --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Replacement.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Classes supporting refactorings that span multiple translation units.    //
-//  While single translation unit refactorings are supported via the Rewriter,//
-//  when refactoring multiple translation units changes must be stored in a  //
-//  SourceManager independent form, duplicate changes need to be removed, and//
-//  all changes must be applied at once at the end of the refactoring so that//
-//  the code is always parseable.                                            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  Classes supporting refactorings that span multiple translation units.
+//  While single translation unit refactorings are supported via the Rewriter,
+//  when refactoring multiple translation units changes must be stored in a
+//  SourceManager independent form, duplicate changes need to be removed, and
+//  all changes must be applied at once at the end of the refactoring so that
+//  the code is always parseable.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_TOOLING_CORE_REPLACEMENT_H
 #define LLVM_CLANG_TOOLING_CORE_REPLACEMENT_H

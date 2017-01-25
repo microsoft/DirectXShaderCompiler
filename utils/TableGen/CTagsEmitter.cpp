@@ -1,16 +1,17 @@
 //===- CTagsEmitter.cpp - Generate ctags-compatible index ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CTagsEmitter.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This tablegen backend emits an index of definitions in ctags(1) format.   //
-// A helper script, utils/TableGen/tdtags, provides an easier-to-use         //
-// interface; run 'tdtags -H' for documentation.                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This tablegen backend emits an index of definitions in ctags(1) format.
+// A helper script, utils/TableGen/tdtags, provides an easier-to-use
+// interface; run 'tdtags -H' for documentation.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/MemoryBuffer.h"

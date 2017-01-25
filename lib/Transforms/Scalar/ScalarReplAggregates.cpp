@@ -1,22 +1,23 @@
 //===- ScalarReplAggregates.cpp - Scalar Replacement of Aggregates --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScalarReplAggregates.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This transformation implements the well known scalar replacement of       //
-// aggregates transformation.  This xform breaks up alloca instructions of   //
-// aggregate type (structure or array) into individual alloca instructions for//
-// each member (if possible).  Then, if possible, it transforms the individual//
-// alloca instructions into nice clean scalar SSA form.                      //
-//                                                                           //
-// This combines a simple SRoA algorithm with the Mem2Reg algorithm because they//
-// often interact, especially for C++ programs.  As such, iterating between  //
-// SRoA, then Mem2Reg until we run out of things to promote works well.      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This transformation implements the well known scalar replacement of
+// aggregates transformation.  This xform breaks up alloca instructions of
+// aggregate type (structure or array) into individual alloca instructions for
+// each member (if possible).  Then, if possible, it transforms the individual
+// alloca instructions into nice clean scalar SSA form.
+//
+// This combines a simple SRoA algorithm with the Mem2Reg algorithm because they
+// often interact, especially for C++ programs.  As such, iterating between
+// SRoA, then Mem2Reg until we run out of things to promote works well.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SetVector.h"

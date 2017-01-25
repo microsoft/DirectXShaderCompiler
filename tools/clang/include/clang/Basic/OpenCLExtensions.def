@@ -1,15 +1,15 @@
 //===--- OpenCLExtensions.def - OpenCL extension list -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// OpenCLExtensions.def                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the list of supported OpenCL extensions.                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// OpenCL 1.1.                                                               //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the list of supported OpenCL extensions.
+//
+//===----------------------------------------------------------------------===//
 
 OPENCLEXT(cl_khr_fp64)
 OPENCLEXT(cl_khr_int64_base_atomics)

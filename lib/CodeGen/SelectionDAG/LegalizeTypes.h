@@ -1,14 +1,15 @@
 //===-- LegalizeTypes.h - DAG Type Legalizer class definition ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegalizeTypes.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the DAGTypeLegalizer class.  This is a private interface//
-// shared between the code that implements the SelectionDAG::LegalizeTypes   //
-// method.                                                                   //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the DAGTypeLegalizer class.  This is a private interface
+// shared between the code that implements the SelectionDAG::LegalizeTypes
+// method.
 //
 //===----------------------------------------------------------------------===//
 

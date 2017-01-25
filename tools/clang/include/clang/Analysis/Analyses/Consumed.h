@@ -1,15 +1,16 @@
 //===- Consumed.h ----------------------------------------------*- C++ --*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Consumed.h                                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// A intra-procedural analysis for checking consumed properties.  This is based,//
-// in part, on research on linear types.                                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// A intra-procedural analysis for checking consumed properties.  This is based,
+// in part, on research on linear types.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ANALYSIS_ANALYSES_CONSUMED_H
 #define LLVM_CLANG_ANALYSIS_ANALYSES_CONSUMED_H

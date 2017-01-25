@@ -1,22 +1,23 @@
 //===- ThreadSafetyCommon.h ------------------------------------*- C++ --*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ThreadSafetyCommon.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Parts of thread safety analysis that are not specific to thread safety    //
-// itself have been factored into classes here, where they can be potentially//
-// used by other analyses.  Currently these include:                         //
 //
-// * Generalize clang CFG visitors.                                          //
-// * Conversion of the clang CFG to SSA form.                                //
-// * Translation of clang Exprs to TIL SExprs                                //
+//                     The LLVM Compiler Infrastructure
 //
-// UNDER CONSTRUCTION.  USE AT YOUR OWN RISK.                                //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
+//
+// Parts of thread safety analysis that are not specific to thread safety
+// itself have been factored into classes here, where they can be potentially
+// used by other analyses.  Currently these include:
+//
+// * Generalize clang CFG visitors.
+// * Conversion of the clang CFG to SSA form.
+// * Translation of clang Exprs to TIL SExprs
+//
+// UNDER CONSTRUCTION.  USE AT YOUR OWN RISK.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ANALYSIS_ANALYSES_THREADSAFETYCOMMON_H
 #define LLVM_CLANG_ANALYSIS_ANALYSES_THREADSAFETYCOMMON_H

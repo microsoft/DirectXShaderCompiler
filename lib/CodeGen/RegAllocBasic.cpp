@@ -1,15 +1,16 @@
 //===-- RegAllocBasic.cpp - Basic Register Allocator ----------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegAllocBasic.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the RABasic function pass, which provides a minimal     //
-// implementation of the basic register allocator.                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the RABasic function pass, which provides a minimal
+// implementation of the basic register allocator.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "AllocationOrder.h"

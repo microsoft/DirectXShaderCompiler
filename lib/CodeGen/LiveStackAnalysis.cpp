@@ -1,16 +1,17 @@
 //===-- LiveStackAnalysis.cpp - Live Stack Slot Analysis ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveStackAnalysis.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the live stack slot analysis pass. It is analogous to//
-// live interval analysis except it's analyzing liveness of stack slots rather//
-// than registers.                                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the live stack slot analysis pass. It is analogous to
+// live interval analysis except it's analyzing liveness of stack slots rather
+// than registers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/LiveStackAnalysis.h"
 #include "llvm/ADT/Statistic.h"

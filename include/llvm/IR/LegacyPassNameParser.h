@@ -1,24 +1,25 @@
 //===- LegacyPassNameParser.h -----------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegacyPassNameParser.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the PassNameParser and FilteredPassNameParser<> classes,//
-// which are used to add command line arguments to a utility for all of the  //
-// passes that have been registered into the system.                         //
 //
-// The PassNameParser class adds ALL passes linked into the system (that are //
-// creatable) as command line arguments to the tool (when instantiated with the//
-// appropriate command line option template).  The FilteredPassNameParser<>  //
-// template is used for the same purposes as PassNameParser, except that it only//
-// includes passes that have a PassType that are compatible with the filter  //
-// (which is the template argument).                                         //
+//                     The LLVM Compiler Infrastructure
 //
-// Note that this is part of the legacy pass manager infrastructure and will be//
-// (eventually) going away.                                                  //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the PassNameParser and FilteredPassNameParser<> classes,
+// which are used to add command line arguments to a utility for all of the
+// passes that have been registered into the system.
+//
+// The PassNameParser class adds ALL passes linked into the system (that are
+// creatable) as command line arguments to the tool (when instantiated with the
+// appropriate command line option template).  The FilteredPassNameParser<>
+// template is used for the same purposes as PassNameParser, except that it only
+// includes passes that have a PassType that are compatible with the filter
+// (which is the template argument).
+//
+// Note that this is part of the legacy pass manager infrastructure and will be
+// (eventually) going away.
 //
 //===----------------------------------------------------------------------===//
 

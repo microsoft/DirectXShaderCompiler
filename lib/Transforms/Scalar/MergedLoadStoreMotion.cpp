@@ -1,71 +1,76 @@
 //===- MergedLoadStoreMotion.cpp - merge and hoist/sink load/stores -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MergedLoadStoreMotion.cpp                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//! \file                                                                    //
-//! \brief This pass performs merges of loads and stores on both sides of a  //
-//  diamond (hammock). It hoists the loads and sinks the stores.             //
-//                                                                           //
-// The algorithm iteratively hoists two loads to the same address out of a   //
-// diamond (hammock) and merges them into a single load in the header. Similar//
-// it sinks and merges two stores to the tail block (footer). The algorithm  //
-// iterates over the instructions of one side of the diamond and attempts to //
-// find a matching load/store on the other side. It hoists / sinks when it   //
-// thinks it safe to do so.  This optimization helps with eg. hiding load    //
-// latencies, triggering if-conversion, and reducing static code size.       //
-//                                                                           //
-// Example:                                                                  //
-// Diamond shaped code before merge:                                         //
-//                                                                           //
-//            header:                                                        //
-//                     br %cond, label %if.then, label %if.else              //
-//                        +                    +                             //
-//                       +                      +                            //
-//                      +                        +                           //
-//            if.then:                         if.else:                      //
-//               %lt = load %addr_l               %le = load %addr_l         //
-//               <use %lt>                        <use %le>                  //
-//               <...>                            <...>                      //
-//               store %st, %addr_s               store %se, %addr_s         //
-//               br label %if.end                 br label %if.end           //
-//                     +                         +                           //
-//                      +                       +                            //
-//                       +                     +                             //
-//            if.end ("footer"):                                             //
-//                     <...>                                                 //
-//                                                                           //
-// Diamond shaped code after merge:                                          //
-//                                                                           //
-//            header:                                                        //
-//                     %l = load %addr_l                                     //
-//                     br %cond, label %if.then, label %if.else              //
-//                        +                    +                             //
-//                       +                      +                            //
-//                      +                        +                           //
-//            if.then:                         if.else:                      //
-//               <use %l>                         <use %l>                   //
-//               <...>                            <...>                      //
-//               br label %if.end                 br label %if.end           //
-//                      +                        +                           //
-//                       +                      +                            //
-//                        +                    +                             //
-//            if.end ("footer"):                                             //
-//                     %s.sink = phi [%st, if.then], [%se, if.else]          //
-//                     <...>                                                 //
-//                     store %s.sink, %addr_s                                //
-//                     <...>                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//! \file
+//! \brief This pass performs merges of loads and stores on both sides of a
+//  diamond (hammock). It hoists the loads and sinks the stores.
+//
+// The algorithm iteratively hoists two loads to the same address out of a
+// diamond (hammock) and merges them into a single load in the header. Similar
+// it sinks and merges two stores to the tail block (footer). The algorithm
+// iterates over the instructions of one side of the diamond and attempts to
+// find a matching load/store on the other side. It hoists / sinks when it
+// thinks it safe to do so.  This optimization helps with eg. hiding load
+// latencies, triggering if-conversion, and reducing static code size.
+//
+//===----------------------------------------------------------------------===//
+//
+//
+// Example:
+// Diamond shaped code before merge:
+//
+//            header:
+//                     br %cond, label %if.then, label %if.else
+//                        +                    +
+//                       +                      +
+//                      +                        +
+//            if.then:                         if.else:
+//               %lt = load %addr_l               %le = load %addr_l
+//               <use %lt>                        <use %le>
+//               <...>                            <...>
+//               store %st, %addr_s               store %se, %addr_s
+//               br label %if.end                 br label %if.end
+//                     +                         +
+//                      +                       +
+//                       +                     +
+//            if.end ("footer"):
+//                     <...>
+//
+// Diamond shaped code after merge:
+//
+//            header:
+//                     %l = load %addr_l
+//                     br %cond, label %if.then, label %if.else
+//                        +                    +
+//                       +                      +
+//                      +                        +
+//            if.then:                         if.else:
+//               <use %l>                         <use %l>
+//               <...>                            <...>
+//               br label %if.end                 br label %if.end
+//                      +                        +
+//                       +                      +
+//                        +                    +
+//            if.end ("footer"):
+//                     %s.sink = phi [%st, if.then], [%se, if.else]
+//                     <...>
+//                     store %s.sink, %addr_s
+//                     <...>
+//
+//
 //===----------------------- TODO -----------------------------------------===//
-//                                                                           //
-// 1) Generalize to regions other than diamonds                              //
-// 2) Be more aggressive merging memory operations                           //
-// Note that both changes require register pressure control                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+// 1) Generalize to regions other than diamonds
+// 2) Be more aggressive merging memory operations
+// Note that both changes require register pressure control
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SetVector.h"

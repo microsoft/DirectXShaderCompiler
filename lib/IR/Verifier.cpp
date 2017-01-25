@@ -1,48 +1,49 @@
 //===-- Verifier.cpp - Implement the Module Verifier -----------------------==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Verifier.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the function verifier interface, that can be used for some//
-// sanity checking of input to the system.                                   //
-//                                                                           //
-// Note that this does not provide full `Java style' security and verifications,//
-// instead it just tries to ensure that code is well-formed.                 //
-//                                                                           //
-//  * Both of a binary operator's parameters are of the same type            //
-//  * Verify that the indices of mem access instructions match other operands//
-//  * Verify that arithmetic and other things are only performed on first-class//
-//    types.  Verify that shifts & logicals only happen on integrals f.e.    //
-//  * All of the constants in a switch statement are of the correct type     //
-//  * The code is in valid SSA form                                          //
-//  * It should be illegal to put a label into any other type (like a structure)//
-//    or to return one. [except constant arrays!]                            //
-//  * Only phi nodes can be self referential: 'add i32 %0, %0 ; <int>:0' is bad//
-//  * PHI nodes must have an entry for each predecessor, with no extras.     //
-//  * PHI nodes must be the first thing in a basic block, all grouped together//
-//  * PHI nodes must have at least one entry                                 //
-//  * All basic blocks should only end with terminator insts, not contain them//
-//  * The entry node to a function must not have predecessors                //
-//  * All Instructions must be embedded into a basic block                   //
-//  * Functions cannot take a void-typed parameter                           //
-//  * Verify that a function's argument list agrees with it's declared type. //
-//  * It is illegal to specify a name for a void value.                      //
-//  * It is illegal to have a internal global value with no initializer      //
-//  * It is illegal to have a ret instruction that returns a value that does not//
-//    agree with the function return value type.                             //
-//  * Function call argument types match the function prototype              //
-//  * A landing pad is defined by a landingpad instruction, and can be jumped to//
-//    only by the unwind edge of an invoke instruction.                      //
-//  * A landingpad instruction must be the first non-PHI instruction in the  //
-//    block.                                                                 //
-//  * All landingpad instructions must use the same personality function with//
-//    the same function.                                                     //
-//  * All other things that are tested by asserts spread about the code...   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the function verifier interface, that can be used for some
+// sanity checking of input to the system.
+//
+// Note that this does not provide full `Java style' security and verifications,
+// instead it just tries to ensure that code is well-formed.
+//
+//  * Both of a binary operator's parameters are of the same type
+//  * Verify that the indices of mem access instructions match other operands
+//  * Verify that arithmetic and other things are only performed on first-class
+//    types.  Verify that shifts & logicals only happen on integrals f.e.
+//  * All of the constants in a switch statement are of the correct type
+//  * The code is in valid SSA form
+//  * It should be illegal to put a label into any other type (like a structure)
+//    or to return one. [except constant arrays!]
+//  * Only phi nodes can be self referential: 'add i32 %0, %0 ; <int>:0' is bad
+//  * PHI nodes must have an entry for each predecessor, with no extras.
+//  * PHI nodes must be the first thing in a basic block, all grouped together
+//  * PHI nodes must have at least one entry
+//  * All basic blocks should only end with terminator insts, not contain them
+//  * The entry node to a function must not have predecessors
+//  * All Instructions must be embedded into a basic block
+//  * Functions cannot take a void-typed parameter
+//  * Verify that a function's argument list agrees with it's declared type.
+//  * It is illegal to specify a name for a void value.
+//  * It is illegal to have a internal global value with no initializer
+//  * It is illegal to have a ret instruction that returns a value that does not
+//    agree with the function return value type.
+//  * Function call argument types match the function prototype
+//  * A landing pad is defined by a landingpad instruction, and can be jumped to
+//    only by the unwind edge of an invoke instruction.
+//  * A landingpad instruction must be the first non-PHI instruction in the
+//    block.
+//  * All landingpad instructions must use the same personality function with
+//    the same function.
+//  * All other things that are tested by asserts spread about the code...
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Verifier.h"
 #include "llvm/ADT/STLExtras.h"

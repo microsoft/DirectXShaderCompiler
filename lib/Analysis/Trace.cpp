@@ -1,18 +1,19 @@
 //===- Trace.cpp - Implementation of Trace class --------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Trace.cpp                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class represents a single trace of LLVM basic blocks.  A trace is a  //
-// single entry, multiple exit, region of code that is often hot.  Trace-based//
-// optimizations treat traces almost like they are a large, strange, basic   //
-// block: because the trace path is assumed to be hot, optimizations for the //
-// fall-through path are made at the expense of the non-fall-through paths.  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class represents a single trace of LLVM basic blocks.  A trace is a
+// single entry, multiple exit, region of code that is often hot.  Trace-based
+// optimizations treat traces almost like they are a large, strange, basic
+// block: because the trace path is assumed to be hot, optimizations for the
+// fall-through path are made at the expense of the non-fall-through paths.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Trace.h"
 #include "llvm/IR/Function.h"

@@ -1,15 +1,16 @@
 //===- MCWin64EH.h - Machine Code Win64 EH support --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCWin64EH.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains declarations to support the Win64 Exception Handling   //
-// scheme in MC.                                                             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains declarations to support the Win64 Exception Handling
+// scheme in MC.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCWIN64EH_H
 #define LLVM_MC_MCWIN64EH_H

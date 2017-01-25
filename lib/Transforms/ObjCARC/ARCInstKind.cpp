@@ -1,24 +1,23 @@
 //===- ARCInstKind.cpp - ObjC ARC Optimization ----------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ARCInstKind.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file defines several utility functions used by various ARC          //
-/// optimizations which are IMHO too big to be in a header file.             //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file defines several utility functions used by various ARC
+/// optimizations which are IMHO too big to be in a header file.
 ///
-/// WARNING: This file knows about certain library functions. It recognizes them//
-/// by name, and hardwires knowledge of their semantics.                     //
+/// WARNING: This file knows about certain library functions. It recognizes them
+/// by name, and hardwires knowledge of their semantics.
 ///
-/// WARNING: This file knows about how certain Objective-C library functions are//
-/// used. Naive LLVM IR transformations which would otherwise be             //
-/// behavior-preserving may break these assumptions.                         //
+/// WARNING: This file knows about how certain Objective-C library functions are
+/// used. Naive LLVM IR transformations which would otherwise be
+/// behavior-preserving may break these assumptions.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "ObjCARC.h"
 #include "llvm/IR/Intrinsics.h"

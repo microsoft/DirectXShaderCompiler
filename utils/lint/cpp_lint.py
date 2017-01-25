@@ -1,6 +1,4 @@
 #!/usr/bin/python
-# Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 #
 # Checks C++ files to make sure they conform to LLVM standards, as specified in
 # http://llvm.org/docs/CodingStandards.html .

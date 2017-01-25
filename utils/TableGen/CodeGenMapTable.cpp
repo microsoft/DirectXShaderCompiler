@@ -1,80 +1,80 @@
 //===- CodeGenMapTable.cpp - Instruction Mapping Table Generator ----------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeGenMapTable.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// CodeGenMapTable provides functionality for the TabelGen to create         //
-// relation mapping between instructions. Relation models are defined using  //
-// InstrMapping as a base class. This file implements the functionality which//
-// parses these definitions and generates relation maps using the information//
-// specified there. These maps are emitted as tables in the XXXGenInstrInfo.inc//
-// file along with the functions to query them.                              //
-//                                                                           //
-// A relationship model to relate non-predicate instructions with their      //
-// predicated true/false forms can be defined as follows:                    //
-//                                                                           //
-// def getPredOpcode : InstrMapping {                                        //
-//  let FilterClass = "PredRel";                                             //
-//  let RowFields = ["BaseOpcode"];                                          //
-//  let ColFields = ["PredSense"];                                           //
-//  let KeyCol = ["none"];                                                   //
-//  let ValueCols = [["true"], ["false"]]; }                                 //
-//                                                                           //
-// CodeGenMapTable parses this map and generates a table in XXXGenInstrInfo.inc//
-// file that contains the instructions modeling this relationship. This table//
-// is defined in the function                                                //
-// "int getPredOpcode(uint16_t Opcode, enum PredSense inPredSense)"          //
-// that can be used to retrieve the predicated form of the instruction by    //
-// passing its opcode value and the predicate sense (true/false) of the desired//
-// instruction as arguments.                                                 //
-//                                                                           //
-// Short description of the algorithm:                                       //
-//                                                                           //
-// 1) Iterate through all the records that derive from "InstrMapping" class. //
-// 2) For each record, filter out instructions based on the FilterClass value.//
-// 3) Iterate through this set of instructions and insert them into          //
-// RowInstrMap map based on their RowFields values. RowInstrMap is keyed by the//
-// vector of RowFields values and contains vectors of Records (instructions) as//
-// values. RowFields is a list of fields that are required to have the same  //
-// values for all the instructions appearing in the same row of the relation //
-// table. All the instructions in a given row of the relation table have some//
-// sort of relationship with the key instruction defined by the corresponding//
-// relationship model.                                                       //
-//                                                                           //
-// Ex: RowInstrMap(RowVal1, RowVal2, ...) -> [Instr1, Instr2, Instr3, ... ]  //
-// Here Instr1, Instr2, Instr3 have same values (RowVal1, RowVal2) for       //
-// RowFields. These groups of instructions are later matched against ValueCols//
-// to determine the column they belong to, if any.                           //
-//                                                                           //
-// While building the RowInstrMap map, collect all the key instructions in   //
-// KeyInstrVec. These are the instructions having the same values as KeyCol  //
-// for all the fields listed in ColFields.                                   //
-//                                                                           //
-// For Example:                                                              //
-//                                                                           //
-// Relate non-predicate instructions with their predicated true/false forms. //
-//                                                                           //
-// def getPredOpcode : InstrMapping {                                        //
-//  let FilterClass = "PredRel";                                             //
-//  let RowFields = ["BaseOpcode"];                                          //
-//  let ColFields = ["PredSense"];                                           //
-//  let KeyCol = ["none"];                                                   //
-//  let ValueCols = [["true"], ["false"]]; }                                 //
-//                                                                           //
-// Here, only instructions that have "none" as PredSense will be selected as key//
-// instructions.                                                             //
-//                                                                           //
-// 4) For each key instruction, get the group of instructions that share the //
-// same key-value as the key instruction from RowInstrMap. Iterate over the list//
-// of columns in ValueCols (it is defined as a list<list<string> >. Therefore,//
-// it can specify multi-column relationships). For each column, find the     //
-// instruction from the group that matches all the values for the column.    //
-// Multiple matches are not allowed.                                         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// CodeGenMapTable provides functionality for the TabelGen to create
+// relation mapping between instructions. Relation models are defined using
+// InstrMapping as a base class. This file implements the functionality which
+// parses these definitions and generates relation maps using the information
+// specified there. These maps are emitted as tables in the XXXGenInstrInfo.inc
+// file along with the functions to query them.
+//
+// A relationship model to relate non-predicate instructions with their
+// predicated true/false forms can be defined as follows:
+//
+// def getPredOpcode : InstrMapping {
+//  let FilterClass = "PredRel";
+//  let RowFields = ["BaseOpcode"];
+//  let ColFields = ["PredSense"];
+//  let KeyCol = ["none"];
+//  let ValueCols = [["true"], ["false"]]; }
+//
+// CodeGenMapTable parses this map and generates a table in XXXGenInstrInfo.inc
+// file that contains the instructions modeling this relationship. This table
+// is defined in the function
+// "int getPredOpcode(uint16_t Opcode, enum PredSense inPredSense)"
+// that can be used to retrieve the predicated form of the instruction by
+// passing its opcode value and the predicate sense (true/false) of the desired
+// instruction as arguments.
+//
+// Short description of the algorithm:
+//
+// 1) Iterate through all the records that derive from "InstrMapping" class.
+// 2) For each record, filter out instructions based on the FilterClass value.
+// 3) Iterate through this set of instructions and insert them into
+// RowInstrMap map based on their RowFields values. RowInstrMap is keyed by the
+// vector of RowFields values and contains vectors of Records (instructions) as
+// values. RowFields is a list of fields that are required to have the same
+// values for all the instructions appearing in the same row of the relation
+// table. All the instructions in a given row of the relation table have some
+// sort of relationship with the key instruction defined by the corresponding
+// relationship model.
+//
+// Ex: RowInstrMap(RowVal1, RowVal2, ...) -> [Instr1, Instr2, Instr3, ... ]
+// Here Instr1, Instr2, Instr3 have same values (RowVal1, RowVal2) for
+// RowFields. These groups of instructions are later matched against ValueCols
+// to determine the column they belong to, if any.
+//
+// While building the RowInstrMap map, collect all the key instructions in
+// KeyInstrVec. These are the instructions having the same values as KeyCol
+// for all the fields listed in ColFields.
+//
+// For Example:
+//
+// Relate non-predicate instructions with their predicated true/false forms.
+//
+// def getPredOpcode : InstrMapping {
+//  let FilterClass = "PredRel";
+//  let RowFields = ["BaseOpcode"];
+//  let ColFields = ["PredSense"];
+//  let KeyCol = ["none"];
+//  let ValueCols = [["true"], ["false"]]; }
+//
+// Here, only instructions that have "none" as PredSense will be selected as key
+// instructions.
+//
+// 4) For each key instruction, get the group of instructions that share the
+// same key-value as the key instruction from RowInstrMap. Iterate over the list
+// of columns in ValueCols (it is defined as a list<list<string> >. Therefore,
+// it can specify multi-column relationships). For each column, find the
+// instruction from the group that matches all the values for the column.
+// Multiple matches are not allowed.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenTarget.h"
 #include "llvm/Support/Format.h"

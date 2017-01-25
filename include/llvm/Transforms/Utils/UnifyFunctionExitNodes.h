@@ -1,18 +1,19 @@
 //===-- UnifyFunctionExitNodes.h - Ensure fn's have one return --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// UnifyFunctionExitNodes.h                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass is used to ensure that functions have at most one return and one//
-// unwind instruction in them.  Additionally, it keeps track of which node is//
-// the new exit node of the CFG.  If there are no return or unwind instructions//
-// in the function, the getReturnBlock/getUnwindBlock methods will return a null//
-// pointer.                                                                  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass is used to ensure that functions have at most one return and one
+// unwind instruction in them.  Additionally, it keeps track of which node is
+// the new exit node of the CFG.  If there are no return or unwind instructions
+// in the function, the getReturnBlock/getUnwindBlock methods will return a null
+// pointer.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_UTILS_UNIFYFUNCTIONEXITNODES_H
 #define LLVM_TRANSFORMS_UTILS_UNIFYFUNCTIONEXITNODES_H

@@ -1,14 +1,16 @@
 //== TraversalChecker.cpp -------------------------------------- -*- C++ -*--=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TraversalChecker.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// These checkers print various aspects of the ExprEngine's traversal of the CFG//
-// as it builds the ExplodedGraph.                                           //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// These checkers print various aspects of the ExprEngine's traversal of the CFG
+// as it builds the ExplodedGraph.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/ParentMap.h"

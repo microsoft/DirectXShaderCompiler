@@ -1,14 +1,15 @@
-//= UndefCapturedBlockVarChecker.cpp - Uninitialized captured vars -*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// UndefCapturedBlockVarChecker.cpp                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This checker detects blocks that capture uninitialized values.            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+// UndefCapturedBlockVarChecker.cpp - Uninitialized captured vars -*- C++ -*-=//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This checker detects blocks that capture uninitialized values.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/Attr.h"

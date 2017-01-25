@@ -1,15 +1,16 @@
 //=- llvm/CodeGen/MachineDominators.h - Machine Dom Calculation --*- C++ -*-==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineDominators.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines classes mirroring those in llvm/Analysis/Dominators.h,  //
-// but for target-specific code rather than target-independent IR.           //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines classes mirroring those in llvm/Analysis/Dominators.h,
+// but for target-specific code rather than target-independent IR.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINEDOMINATORS_H
 #define LLVM_CODEGEN_MACHINEDOMINATORS_H

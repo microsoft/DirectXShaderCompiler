@@ -1,19 +1,20 @@
 //===-- llvm/Constants.h - Constant class subclass definitions --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Constants.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// @file                                                                    //
-/// This file contains the declarations for the subclasses of Constant,      //
-/// which represent the different flavors of constant values that live in LLVM.//
-/// Note that Constants are immutable (once created they never change) and are//
-/// fully shared by structural equivalence.  This means that two structurally//
-/// equivalent constants will always have the same address.  Constants are   //
-/// created on demand as needed and never deleted: thus clients don't have to//
-/// worry about the lifetime of the objects.                                 //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+/// @file
+/// This file contains the declarations for the subclasses of Constant,
+/// which represent the different flavors of constant values that live in LLVM.
+/// Note that Constants are immutable (once created they never change) and are
+/// fully shared by structural equivalence.  This means that two structurally
+/// equivalent constants will always have the same address.  Constants are
+/// created on demand as needed and never deleted: thus clients don't have to
+/// worry about the lifetime of the objects.
 //
 //===----------------------------------------------------------------------===//
 

@@ -1,30 +1,31 @@
 //===-- TwoAddressInstructionPass.cpp - Two-Address instruction pass ------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TwoAddressInstructionPass.cpp                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the TwoAddress instruction pass which is used        //
-// by most register allocators. Two-Address instructions are rewritten       //
-// from:                                                                     //
-//                                                                           //
-//     A = B op C                                                            //
-//                                                                           //
-// to:                                                                       //
-//                                                                           //
-//     A = B                                                                 //
-//     A op= C                                                               //
-//                                                                           //
-// Note that if a register allocator chooses to use this pass, that it       //
-// has to be capable of handling the non-SSA nature of these rewritten       //
-// virtual registers.                                                        //
-//                                                                           //
-// It is also worth noting that the duplicate operand of the two             //
-// address instruction is removed.                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the TwoAddress instruction pass which is used
+// by most register allocators. Two-Address instructions are rewritten
+// from:
+//
+//     A = B op C
+//
+// to:
+//
+//     A = B
+//     A op= C
+//
+// Note that if a register allocator chooses to use this pass, that it
+// has to be capable of handling the non-SSA nature of these rewritten
+// virtual registers.
+//
+// It is also worth noting that the duplicate operand of the two
+// address instruction is removed.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/BitVector.h"

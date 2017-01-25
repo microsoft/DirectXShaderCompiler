@@ -1,23 +1,24 @@
 //===-- llvm/Support/COFF.h -------------------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// COFF.h                                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains an definitions used in Windows COFF Files.             //
 //
-// Structures and enums defined within this file where created using         //
-// information from Microsoft's publicly available PE/COFF format document:  //
+//                     The LLVM Compiler Infrastructure
 //
-// Microsoft Portable Executable and Common Object File Format Specification //
-// Revision 8.1 - February 15, 2008                                          //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// As of 5/2/2010, hosted by Microsoft at:                                   //
-// http://www.microsoft.com/whdc/system/platform/firmware/pecoff.mspx        //
+//===----------------------------------------------------------------------===//
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file contains an definitions used in Windows COFF Files.
+//
+// Structures and enums defined within this file where created using
+// information from Microsoft's publicly available PE/COFF format document:
+//
+// Microsoft Portable Executable and Common Object File Format Specification
+// Revision 8.1 - February 15, 2008
+//
+// As of 5/2/2010, hosted by Microsoft at:
+// http://www.microsoft.com/whdc/system/platform/firmware/pecoff.mspx
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_COFF_H
 #define LLVM_SUPPORT_COFF_H

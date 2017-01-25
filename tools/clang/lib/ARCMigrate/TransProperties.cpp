@@ -1,33 +1,34 @@
 //===--- TransProperties.cpp - Transformations to ARC mode ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TransProperties.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// rewriteProperties:                                                        //
-//                                                                           //
-// - Adds strong/weak/unsafe_unretained ownership specifier to properties that//
-//   are missing one.                                                        //
-// - Migrates properties from (retain) to (strong) and (assign) to           //
-//   (unsafe_unretained/weak).                                               //
-// - If a property is synthesized, adds the ownership specifier in the ivar  //
-//   backing the property.                                                   //
-//                                                                           //
-//  @interface Foo : NSObject {                                              //
-//      NSObject *x;                                                         //
-//  }                                                                        //
-//  @property (assign) id x;                                                 //
-//  @end                                                                     //
-// ---->                                                                     //
-//  @interface Foo : NSObject {                                              //
-//      NSObject *__weak x;                                                  //
-//  }                                                                        //
-//  @property (weak) id x;                                                   //
-//  @end                                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// rewriteProperties:
+//
+// - Adds strong/weak/unsafe_unretained ownership specifier to properties that
+//   are missing one.
+// - Migrates properties from (retain) to (strong) and (assign) to
+//   (unsafe_unretained/weak).
+// - If a property is synthesized, adds the ownership specifier in the ivar
+//   backing the property.
+//
+//  @interface Foo : NSObject {
+//      NSObject *x;
+//  }
+//  @property (assign) id x;
+//  @end
+// ---->
+//  @interface Foo : NSObject {
+//      NSObject *__weak x;
+//  }
+//  @property (weak) id x;
+//  @end
+//
+//===----------------------------------------------------------------------===//
 
 #include "Transforms.h"
 #include "Internals.h"

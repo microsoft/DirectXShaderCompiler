@@ -1,23 +1,23 @@
 //===-- ThreadSanitizer.cpp - race detector -------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ThreadSanitizer.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file is a part of ThreadSanitizer, a race detector.                  //
-//                                                                           //
-// The tool is under development, for the details about previous versions see//
-// http://code.google.com/p/data-race-test                                   //
-//                                                                           //
-// The instrumentation phase is quite simple:                                //
-//   - Insert calls to run-time library before every memory access.          //
-//      - Optimizations may apply to avoid instrumenting some of the accesses.//
-//   - Insert calls at function entry/exit.                                  //
-// The rest is handled by the run-time library.                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file is a part of ThreadSanitizer, a race detector.
+//
+// The tool is under development, for the details about previous versions see
+// http://code.google.com/p/data-race-test
+//
+// The instrumentation phase is quite simple:
+//   - Insert calls to run-time library before every memory access.
+//      - Optimizations may apply to avoid instrumenting some of the accesses.
+//   - Insert calls at function entry/exit.
+// The rest is handled by the run-time library.
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/ADT/SmallSet.h"

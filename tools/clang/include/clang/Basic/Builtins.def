@@ -1,17 +1,16 @@
 //===--- Builtins.def - Builtin function info database ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Builtins.def                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the standard builtin function database.  Users of this file//
-// must define the BUILTIN macro to make use of this information.            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// FIXME: This should really be a .td file, but that requires modifying tblgen.//
-// Perhaps tblgen should have plugins.                                       //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the standard builtin function database.  Users of this file
+// must define the BUILTIN macro to make use of this information.
+//
+//===----------------------------------------------------------------------===//
 
 // The first value provided to the macro specifies the function name of the
 // builtin, and results in a clang::builtin::BIXX enum value for XX.

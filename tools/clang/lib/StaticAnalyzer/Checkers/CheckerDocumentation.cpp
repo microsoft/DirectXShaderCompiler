@@ -1,15 +1,16 @@
 //= CheckerDocumentation.cpp - Documentation checker ---------------*- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CheckerDocumentation.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This checker lists all the checker callbacks and provides documentation for//
-// checker writers.                                                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This checker lists all the checker callbacks and provides documentation for
+// checker writers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"

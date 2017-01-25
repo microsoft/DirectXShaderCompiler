@@ -1,15 +1,16 @@
-//= FormatString.cpp - Common stuff for handling printf/scanf formats -*- C++ -*-
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FormatString.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Shared details for processing format strings of printf and scanf          //
-// (and friends).                                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+// FormatString.cpp - Common stuff for handling printf/scanf formats -*- C++ -*-
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Shared details for processing format strings of printf and scanf
+// (and friends).
+//
+//===----------------------------------------------------------------------===//
 
 #include "FormatStringParsing.h"
 #include "clang/Basic/LangOptions.h"

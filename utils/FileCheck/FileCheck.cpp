@@ -1,19 +1,20 @@
 //===- FileCheck.cpp - Check that File's Contents match what is expected --===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FileCheck.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// FileCheck does a line-by line check of a file that validates whether it   //
-// contains the expected content.  This is useful for regression tests etc.  //
-//                                                                           //
-// This program exits with an error status of 2 on error, exit status of 0 if//
-// the file matched the expected contents, and exit status of 1 if it did not//
-// contain the expected contents.                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// FileCheck does a line-by line check of a file that validates whether it
+// contains the expected content.  This is useful for regression tests etc.
+//
+// This program exits with an error status of 2 on error, exit status of 0 if
+// the file matched the expected contents, and exit status of 1 if it did not
+// contain the expected contents.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"

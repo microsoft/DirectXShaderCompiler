@@ -1,31 +1,31 @@
 //===- CFLAliasAnalysis.cpp - CFL-Based Alias Analysis Implementation ------==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CFLAliasAnalysis.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a CFL-based context-insensitive alias analysis       //
-// algorithm. It does not depend on types. The algorithm is a mixture of the one//
-// described in "Demand-driven alias analysis for C" by Xin Zheng and Radu   //
-// Rugina, and "Fast algorithms for Dyck-CFL-reachability with applications to//
-// Alias Analysis" by Zhang Q, Lyu M R, Yuan H, and Su Z. -- to summarize the//
-// papers, we build a graph of the uses of a variable, where each node is a  //
-// memory location, and each edge is an action that happened on that memory  //
-// location.  The "actions" can be one of Dereference, Reference, or Assign. //
-//                                                                           //
-// Two variables are considered as aliasing iff you can reach one value's node//
-// from the other value's node and the language formed by concatenating all of//
-// the edge labels (actions) conforms to a context-free grammar.             //
-//                                                                           //
-// Because this algorithm requires a graph search on each query, we execute the//
-// algorithm outlined in "Fast algorithms..." (mentioned above)              //
-// in order to transform the graph into sets of variables that may alias in  //
-// ~nlogn time (n = number of variables.), which makes queries take constant //
-// time.                                                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a CFL-based context-insensitive alias analysis
+// algorithm. It does not depend on types. The algorithm is a mixture of the one
+// described in "Demand-driven alias analysis for C" by Xin Zheng and Radu
+// Rugina, and "Fast algorithms for Dyck-CFL-reachability with applications to
+// Alias Analysis" by Zhang Q, Lyu M R, Yuan H, and Su Z. -- to summarize the
+// papers, we build a graph of the uses of a variable, where each node is a
+// memory location, and each edge is an action that happened on that memory
+// location.  The "actions" can be one of Dereference, Reference, or Assign.
+//
+// Two variables are considered as aliasing iff you can reach one value's node
+// from the other value's node and the language formed by concatenating all of
+// the edge labels (actions) conforms to a context-free grammar.
+//
+// Because this algorithm requires a graph search on each query, we execute the
+// algorithm outlined in "Fast algorithms..." (mentioned above)
+// in order to transform the graph into sets of variables that may alias in
+// ~nlogn time (n = number of variables.), which makes queries take constant
+// time.
+//===----------------------------------------------------------------------===//
 
 #include "StratifiedSets.h"
 #include "llvm/ADT/BitVector.h"

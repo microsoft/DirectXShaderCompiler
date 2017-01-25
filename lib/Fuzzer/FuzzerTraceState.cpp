@@ -1,66 +1,65 @@
 //===- FuzzerTraceState.cpp - Trace-based fuzzer mutator ------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// FuzzerTraceState.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a mutation algorithm based on instruction traces and //
-// on taint analysis feedback from DFSan.                                    //
-//                                                                           //
-// Instruction traces are special hooks inserted by the compiler around      //
-// interesting instructions. Currently supported traces:                     //
-//   * __sanitizer_cov_trace_cmp -- inserted before every ICMP instruction,  //
-//    receives the type, size and arguments of ICMP.                         //
-//                                                                           //
-// Every time a traced event is intercepted we analyse the data involved     //
-// in the event and suggest a mutation for future executions.                //
-// For example if 4 bytes of data that derive from input bytes {4,5,6,7}     //
-// are compared with a constant 12345,                                       //
-// we try to insert 12345, 12344, 12346 into bytes                           //
-// {4,5,6,7} of the next fuzzed inputs.                                      //
-//                                                                           //
-// The fuzzer can work only with the traces, or with both traces and DFSan.  //
-//                                                                           //
-// DataFlowSanitizer (DFSan) is a tool for                                   //
-// generalised dynamic data flow (taint) analysis:                           //
-// http://clang.llvm.org/docs/DataFlowSanitizer.html .                       //
-//                                                                           //
-// The approach with DFSan-based fuzzing has some similarity to              //
-// "Taint-based Directed Whitebox Fuzzing"                                   //
-// by Vijay Ganesh & Tim Leek & Martin Rinard:                               //
-// http://dspace.mit.edu/openaccess-disseminate/1721.1/59320,                //
-// but it uses a full blown LLVM IR taint analysis and separate instrumentation//
-// to analyze all of the "attack points" at once.                            //
-//                                                                           //
-// Workflow with DFSan:                                                      //
-//   * lib/Fuzzer/Fuzzer*.cpp is compiled w/o any instrumentation.           //
-//   * The code under test is compiled with DFSan *and* with instruction traces.//
-//   * Every call to HOOK(a,b) is replaced by DFSan with                     //
-//     __dfsw_HOOK(a, b, label(a), label(b)) so that __dfsw_HOOK             //
-//     gets all the taint labels for the arguments.                          //
-//   * At the Fuzzer startup we assign a unique DFSan label                  //
-//     to every byte of the input string (Fuzzer::CurrentUnit) so that for any//
-//     chunk of data we know which input bytes it has derived from.          //
-//   * The __dfsw_* functions (implemented in this file) record the          //
-//     parameters (i.e. the application data and the corresponding taint labels)//
-//     in a global state.                                                    //
-//   * Fuzzer::ApplyTraceBasedMutation() tries to use the data recorded      //
-//     by __dfsw_* hooks to guide the fuzzing towards new application states.//
-//                                                                           //
-// Parts of this code will not function when DFSan is not linked in.         //
-// Instead of using ifdefs and thus requiring a separate build of lib/Fuzzer //
-// we redeclare the dfsan_* interface functions as weak and check if they    //
-// are nullptr before calling.                                               //
-// If this approach proves to be useful we may add attribute(weak) to the    //
-// dfsan declarations in dfsan_interface.h                                   //
-//                                                                           //
-// This module is in the "proof of concept" stage.                           //
-// It is capable of solving only the simplest puzzles                        //
-// like test/dfsan/DFSanSimpleCmpTest.cpp.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+// This file implements a mutation algorithm based on instruction traces and
+// on taint analysis feedback from DFSan.
+//
+// Instruction traces are special hooks inserted by the compiler around
+// interesting instructions. Currently supported traces:
+//   * __sanitizer_cov_trace_cmp -- inserted before every ICMP instruction,
+//    receives the type, size and arguments of ICMP.
+//
+// Every time a traced event is intercepted we analyse the data involved
+// in the event and suggest a mutation for future executions.
+// For example if 4 bytes of data that derive from input bytes {4,5,6,7}
+// are compared with a constant 12345,
+// we try to insert 12345, 12344, 12346 into bytes
+// {4,5,6,7} of the next fuzzed inputs.
+//
+// The fuzzer can work only with the traces, or with both traces and DFSan.
+//
+// DataFlowSanitizer (DFSan) is a tool for
+// generalised dynamic data flow (taint) analysis:
+// http://clang.llvm.org/docs/DataFlowSanitizer.html .
+//
+// The approach with DFSan-based fuzzing has some similarity to
+// "Taint-based Directed Whitebox Fuzzing"
+// by Vijay Ganesh & Tim Leek & Martin Rinard:
+// http://dspace.mit.edu/openaccess-disseminate/1721.1/59320,
+// but it uses a full blown LLVM IR taint analysis and separate instrumentation
+// to analyze all of the "attack points" at once.
+//
+// Workflow with DFSan:
+//   * lib/Fuzzer/Fuzzer*.cpp is compiled w/o any instrumentation.
+//   * The code under test is compiled with DFSan *and* with instruction traces.
+//   * Every call to HOOK(a,b) is replaced by DFSan with
+//     __dfsw_HOOK(a, b, label(a), label(b)) so that __dfsw_HOOK
+//     gets all the taint labels for the arguments.
+//   * At the Fuzzer startup we assign a unique DFSan label
+//     to every byte of the input string (Fuzzer::CurrentUnit) so that for any
+//     chunk of data we know which input bytes it has derived from.
+//   * The __dfsw_* functions (implemented in this file) record the
+//     parameters (i.e. the application data and the corresponding taint labels)
+//     in a global state.
+//   * Fuzzer::ApplyTraceBasedMutation() tries to use the data recorded
+//     by __dfsw_* hooks to guide the fuzzing towards new application states.
+//
+// Parts of this code will not function when DFSan is not linked in.
+// Instead of using ifdefs and thus requiring a separate build of lib/Fuzzer
+// we redeclare the dfsan_* interface functions as weak and check if they
+// are nullptr before calling.
+// If this approach proves to be useful we may add attribute(weak) to the
+// dfsan declarations in dfsan_interface.h
+//
+// This module is in the "proof of concept" stage.
+// It is capable of solving only the simplest puzzles
+// like test/dfsan/DFSanSimpleCmpTest.cpp.
+//===----------------------------------------------------------------------===//
 
 /* Example of manual usage (-fsanitize=dataflow is optional):
 (

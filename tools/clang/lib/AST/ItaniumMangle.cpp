@@ -1,17 +1,19 @@
 //===--- ItaniumMangle.cpp - Itanium C++ Name Mangling ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ItaniumMangle.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Implements C++ name mangling according to the Itanium C++ ABI,            //
-// which is used in GCC 3.2 and newer (and many compilers that are           //
-// ABI-compatible with GCC):                                                 //
-//                                                                           //
-//   http://mentorembedded.github.io/cxx-abi/abi.html#mangling               //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Implements C++ name mangling according to the Itanium C++ ABI,
+// which is used in GCC 3.2 and newer (and many compilers that are
+// ABI-compatible with GCC):
+//
+//   http://mentorembedded.github.io/cxx-abi/abi.html#mangling
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/Mangle.h"
 #include "clang/AST/ASTContext.h"

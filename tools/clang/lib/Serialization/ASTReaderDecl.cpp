@@ -1,15 +1,16 @@
 //===--- ASTReaderDecl.cpp - Decl Deserialization ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTReaderDecl.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the ASTReader::ReadDeclRecord method, which is the   //
-// entrypoint for loading a decl.                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the ASTReader::ReadDeclRecord method, which is the
+// entrypoint for loading a decl.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Serialization/ASTReader.h"
 #include "ASTCommon.h"

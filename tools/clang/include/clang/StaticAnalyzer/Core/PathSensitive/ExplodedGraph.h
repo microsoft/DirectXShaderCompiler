@@ -1,17 +1,18 @@
 //=-- ExplodedGraph.h - Local, Path-Sens. "Exploded Graph" -*- C++ -*-------==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ExplodedGraph.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the template classes ExplodedNode and ExplodedGraph,   //
-//  which represent a path-sensitive, intra-procedural "exploded graph."     //
-//  See "Precise interprocedural dataflow analysis via graph reachability"   //
-//  by Reps, Horwitz, and Sagiv                                              //
-//  (http://portal.acm.org/citation.cfm?id=199462) for the definition of an  //
-//  exploded graph.                                                          //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the template classes ExplodedNode and ExplodedGraph,
+//  which represent a path-sensitive, intra-procedural "exploded graph."
+//  See "Precise interprocedural dataflow analysis via graph reachability"
+//  by Reps, Horwitz, and Sagiv
+//  (http://portal.acm.org/citation.cfm?id=199462) for the definition of an
+//  exploded graph.
 //
 //===----------------------------------------------------------------------===//
 

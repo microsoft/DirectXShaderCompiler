@@ -1,14 +1,15 @@
 //== SubEngine.h - Interface of the subengine of CoreEngine --------*- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SubEngine.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the interface of a subengine of the CoreEngine.         //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the interface of a subengine of the CoreEngine.
+//
+//===----------------------------------------------------------------------===//
 #ifndef LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_SUBENGINE_H
 #define LLVM_CLANG_STATICANALYZER_CORE_PATHSENSITIVE_SUBENGINE_H
 

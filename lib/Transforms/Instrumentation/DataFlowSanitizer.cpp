@@ -1,50 +1,48 @@
 //===-- DataFlowSanitizer.cpp - dynamic data flow analysis ----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DataFlowSanitizer.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file is a part of DataFlowSanitizer, a generalised dynamic data flow//
-/// analysis.                                                                //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file is a part of DataFlowSanitizer, a generalised dynamic data flow
+/// analysis.
 ///
-/// Unlike other Sanitizer tools, this tool is not designed to detect a specific//
-/// class of bugs on its own.  Instead, it provides a generic dynamic data flow//
-/// analysis framework to be used by clients to help detect application-specific//
-/// issues within their own code.                                            //
+/// Unlike other Sanitizer tools, this tool is not designed to detect a specific
+/// class of bugs on its own.  Instead, it provides a generic dynamic data flow
+/// analysis framework to be used by clients to help detect application-specific
+/// issues within their own code.
 ///
-/// The analysis is based on automatic propagation of data flow labels (also //
-/// known as taint labels) through a program as it performs computation.  Each//
-/// byte of application memory is backed by two bytes of shadow memory which //
-/// hold the label.  On Linux/x86_64, memory is laid out as follows:         //
+/// The analysis is based on automatic propagation of data flow labels (also
+/// known as taint labels) through a program as it performs computation.  Each
+/// byte of application memory is backed by two bytes of shadow memory which
+/// hold the label.  On Linux/x86_64, memory is laid out as follows:
 ///
-/// +--------------------+ 0x800000000000 (top of memory)                    //
-/// | application memory |                                                   //
-/// +--------------------+ 0x700000008000 (kAppAddr)                         //
-/// |                    |                                                   //
-/// |       unused       |                                                   //
-/// |                    |                                                   //
-/// +--------------------+ 0x200200000000 (kUnusedAddr)                      //
-/// |    union table     |                                                   //
-/// +--------------------+ 0x200000000000 (kUnionTableAddr)                  //
-/// |   shadow memory    |                                                   //
-/// +--------------------+ 0x000000010000 (kShadowAddr)                      //
-/// | reserved by kernel |                                                   //
-/// +--------------------+ 0x000000000000                                    //
+/// +--------------------+ 0x800000000000 (top of memory)
+/// | application memory |
+/// +--------------------+ 0x700000008000 (kAppAddr)
+/// |                    |
+/// |       unused       |
+/// |                    |
+/// +--------------------+ 0x200200000000 (kUnusedAddr)
+/// |    union table     |
+/// +--------------------+ 0x200000000000 (kUnionTableAddr)
+/// |   shadow memory    |
+/// +--------------------+ 0x000000010000 (kShadowAddr)
+/// | reserved by kernel |
+/// +--------------------+ 0x000000000000
 ///
-/// To derive a shadow memory address from an application memory address,    //
-/// bits 44-46 are cleared to bring the address into the range               //
-/// [0x000000008000,0x100000000000).  Then the address is shifted left by 1 to//
-/// account for the double byte representation of shadow labels and move the //
-/// address into the shadow memory range.  See the function                  //
-/// DataFlowSanitizer::getShadowAddress below.                               //
+/// To derive a shadow memory address from an application memory address,
+/// bits 44-46 are cleared to bring the address into the range
+/// [0x000000008000,0x100000000000).  Then the address is shifted left by 1 to
+/// account for the double byte representation of shadow labels and move the
+/// address into the shadow memory range.  See the function
+/// DataFlowSanitizer::getShadowAddress below.
 ///
-/// For more information, please refer to the design document:               //
-/// http://clang.llvm.org/docs/DataFlowSanitizerDesign.html                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+/// For more information, please refer to the design document:
+/// http://clang.llvm.org/docs/DataFlowSanitizerDesign.html
 
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/ADT/DenseMap.h"

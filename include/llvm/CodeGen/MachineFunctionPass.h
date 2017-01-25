@@ -1,19 +1,20 @@
 //===-- MachineFunctionPass.h - Pass for MachineFunctions --------*-C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineFunctionPass.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the MachineFunctionPass class.  MachineFunctionPass's are//
-// just FunctionPass's, except they operate on machine code as part of a code//
-// generator.  Because they operate on machine code, not the LLVM            //
-// representation, MachineFunctionPass's are not allowed to modify the LLVM  //
-// representation.  Due to this limitation, the MachineFunctionPass class takes//
-// care of declaring that no LLVM passes are invalidated.                    //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the MachineFunctionPass class.  MachineFunctionPass's are
+// just FunctionPass's, except they operate on machine code as part of a code
+// generator.  Because they operate on machine code, not the LLVM
+// representation, MachineFunctionPass's are not allowed to modify the LLVM
+// representation.  Due to this limitation, the MachineFunctionPass class takes
+// care of declaring that no LLVM passes are invalidated.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINEFUNCTIONPASS_H
 #define LLVM_CODEGEN_MACHINEFUNCTIONPASS_H

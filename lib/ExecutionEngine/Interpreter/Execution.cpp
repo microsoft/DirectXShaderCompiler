@@ -1,14 +1,15 @@
 //===-- Execution.cpp - Implement code to simulate the program ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Execution.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file contains the actual instruction interpreter.                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file contains the actual instruction interpreter.
+//
+//===----------------------------------------------------------------------===//
 
 #include "Interpreter.h"
 #include "llvm/ADT/APInt.h"

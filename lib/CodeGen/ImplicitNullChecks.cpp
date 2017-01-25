@@ -1,28 +1,29 @@
 //===-- ImplicitNullChecks.cpp - Fold null checks into memory accesses ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ImplicitNullChecks.cpp                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass turns explicit null checks of the form                          //
-//                                                                           //
-//   test %r10, %r10                                                         //
-//   je throw_npe                                                            //
-//   movl (%r10), %esi                                                       //
-//   ...                                                                     //
-//                                                                           //
-// to                                                                        //
-//                                                                           //
-//   faulting_load_op("movl (%r10), %esi", throw_npe)                        //
-//   ...                                                                     //
-//                                                                           //
-// With the help of a runtime that understands the .fault_maps section,      //
-// faulting_load_op branches to throw_npe if executing movl (%r10), %esi incurs//
-// a page fault.                                                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass turns explicit null checks of the form
+//
+//   test %r10, %r10
+//   je throw_npe
+//   movl (%r10), %esi
+//   ...
+//
+// to
+//
+//   faulting_load_op("movl (%r10), %esi", throw_npe)
+//   ...
+//
+// With the help of a runtime that understands the .fault_maps section,
+// faulting_load_op branches to throw_npe if executing movl (%r10), %esi incurs
+// a page fault.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallVector.h"

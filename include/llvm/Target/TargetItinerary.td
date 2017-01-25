@@ -1,25 +1,19 @@
 //===- TargetItinerary.td - Target Itinierary Description --*- tablegen -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetItinerary.td                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the target-independent scheduling interfaces            //
-// which should be implemented by each target that uses instruction          //
-// itineraries for scheduling. Itineraries are details reservation           //
-// tables for each instruction class. They are most appropriate for          //
-// in-order machine with complicated scheduling or bundling constraints.     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// Processor functional unit - These values represent the function units     //
-// available across all chip sets for the target.  Eg., IntUnit, FPUnit, ... //
-// These may be independent values for each chip set or may be shared across //
-// all chip sets of the target.  Each functional unit is treated as a resource//
-// during scheduling and has an affect instruction order based on availability//
-// during a time interval.                                                   //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the target-independent scheduling interfaces
+// which should be implemented by each target that uses instruction
+// itineraries for scheduling. Itineraries are details reservation
+// tables for each instruction class. They are most appropriate for
+// in-order machine with complicated scheduling or bundling constraints.
+//
+//===----------------------------------------------------------------------===//
 
 class FuncUnit;
 

@@ -1,49 +1,51 @@
 //===-- ShrinkWrap.cpp - Compute safe point for prolog/epilog insertion ---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ShrinkWrap.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass looks for safe point where the prologue and epilogue can be     //
-// inserted.                                                                 //
-// The safe point for the prologue (resp. epilogue) is called Save           //
-// (resp. Restore).                                                          //
-// A point is safe for prologue (resp. epilogue) if and only if              //
-// it 1) dominates (resp. post-dominates) all the frame related operations and//
-// between 2) two executions of the Save (resp. Restore) point there is an   //
-// execution of the Restore (resp. Save) point.                              //
-//                                                                           //
-// For instance, the following points are safe:                              //
-// for (int i = 0; i < 10; ++i) {                                            //
-//   Save                                                                    //
-//   ...                                                                     //
-//   Restore                                                                 //
-// }                                                                         //
-// Indeed, the execution looks like Save -> Restore -> Save -> Restore ...   //
-// And the following points are not:                                         //
-// for (int i = 0; i < 10; ++i) {                                            //
-//   Save                                                                    //
-//   ...                                                                     //
-// }                                                                         //
-// for (int i = 0; i < 10; ++i) {                                            //
-//   ...                                                                     //
-//   Restore                                                                 //
-// }                                                                         //
-// Indeed, the execution looks like Save -> Save -> ... -> Restore -> Restore.//
-//                                                                           //
-// This pass also ensures that the safe points are 3) cheaper than the regular//
-// entry and exits blocks.                                                   //
-//                                                                           //
-// Property #1 is ensured via the use of MachineDominatorTree and            //
-// MachinePostDominatorTree.                                                 //
-// Property #2 is ensured via property #1 and MachineLoopInfo, i.e., both    //
-// points must be in the same loop.                                          //
-// Property #3 is ensured via the MachineBlockFrequencyInfo.                 //
-//                                                                           //
-// If this pass found points matching all this properties, then              //
-// MachineFrameInfo is updated this that information.                        //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass looks for safe point where the prologue and epilogue can be
+// inserted.
+// The safe point for the prologue (resp. epilogue) is called Save
+// (resp. Restore).
+// A point is safe for prologue (resp. epilogue) if and only if
+// it 1) dominates (resp. post-dominates) all the frame related operations and
+// between 2) two executions of the Save (resp. Restore) point there is an
+// execution of the Restore (resp. Save) point.
+//
+// For instance, the following points are safe:
+// for (int i = 0; i < 10; ++i) {
+//   Save
+//   ...
+//   Restore
+// }
+// Indeed, the execution looks like Save -> Restore -> Save -> Restore ...
+// And the following points are not:
+// for (int i = 0; i < 10; ++i) {
+//   Save
+//   ...
+// }
+// for (int i = 0; i < 10; ++i) {
+//   ...
+//   Restore
+// }
+// Indeed, the execution looks like Save -> Save -> ... -> Restore -> Restore.
+//
+// This pass also ensures that the safe points are 3) cheaper than the regular
+// entry and exits blocks.
+//
+// Property #1 is ensured via the use of MachineDominatorTree and
+// MachinePostDominatorTree.
+// Property #2 is ensured via property #1 and MachineLoopInfo, i.e., both
+// points must be in the same loop.
+// Property #3 is ensured via the MachineBlockFrequencyInfo.
+//
+// If this pass found points matching all this properties, then
+// MachineFrameInfo is updated this that information.
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Statistic.h"
 // To check for profitability.

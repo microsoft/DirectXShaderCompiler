@@ -1,19 +1,20 @@
 //===-- EarlyIfConversion.cpp - If-conversion on SSA form machine code ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// EarlyIfConversion.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Early if-conversion is for out-of-order CPUs that don't have a lot of     //
-// predicable instructions. The goal is to eliminate conditional branches that//
-// may mispredict.                                                           //
-//                                                                           //
-// Instructions from both sides of the branch are executed specutatively, and a//
-// cmov instruction selects the result.                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Early if-conversion is for out-of-order CPUs that don't have a lot of
+// predicable instructions. The goal is to eliminate conditional branches that
+// may mispredict.
+//
+// Instructions from both sides of the branch are executed specutatively, and a
+// cmov instruction selects the result.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/PostOrderIterator.h"

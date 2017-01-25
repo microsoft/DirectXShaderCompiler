@@ -1,18 +1,19 @@
 //===- GVN.cpp - Eliminate redundant values and loads ---------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GVN.cpp                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass performs global value numbering to eliminate fully redundant    //
-// instructions.  It also performs simple dead load elimination.             //
-//                                                                           //
-// Note that this pass does the value numbering itself; it does not use the  //
-// ValueNumbering analysis passes.                                           //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass performs global value numbering to eliminate fully redundant
+// instructions.  It also performs simple dead load elimination.
+//
+// Note that this pass does the value numbering itself; it does not use the
+// ValueNumbering analysis passes.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseMap.h"

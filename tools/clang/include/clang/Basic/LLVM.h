@@ -1,17 +1,17 @@
 //===--- LLVM.h - Import various common LLVM datatypes ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LLVM.h                                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// \brief Forward-declares and imports various common LLVM datatypes that   //
-/// clang wants to use unqualified.                                          //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+/// \file
+/// \brief Forward-declares and imports various common LLVM datatypes that
+/// clang wants to use unqualified.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_BASIC_LLVM_H
 #define LLVM_CLANG_BASIC_LLVM_H

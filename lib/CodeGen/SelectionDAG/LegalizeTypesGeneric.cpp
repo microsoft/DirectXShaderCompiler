@@ -1,22 +1,23 @@
 //===-------- LegalizeTypesGeneric.cpp - Generic type legalization --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LegalizeTypesGeneric.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements generic type expansion and splitting for LegalizeTypes.//
-// The routines here perform legalization when the details of the type (such as//
-// whether it is an integer or a float) do not matter.                       //
-// Expansion is the act of changing a computation in an illegal type to be a //
-// computation in two identical registers of a smaller type.  The Lo/Hi part //
-// is required to be stored first in memory on little/big-endian machines.   //
-// Splitting is the act of changing a computation in an illegal type to be a //
-// computation in two not necessarily identical registers of a smaller type. //
-// There are no requirements on how the type is represented in memory.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements generic type expansion and splitting for LegalizeTypes.
+// The routines here perform legalization when the details of the type (such as
+// whether it is an integer or a float) do not matter.
+// Expansion is the act of changing a computation in an illegal type to be a
+// computation in two identical registers of a smaller type.  The Lo/Hi part
+// is required to be stored first in memory on little/big-endian machines.
+// Splitting is the act of changing a computation in an illegal type to be a
+// computation in two not necessarily identical registers of a smaller type.
+// There are no requirements on how the type is represented in memory.
+//
+//===----------------------------------------------------------------------===//
 
 #include "LegalizeTypes.h"
 #include "llvm/IR/DataLayout.h"

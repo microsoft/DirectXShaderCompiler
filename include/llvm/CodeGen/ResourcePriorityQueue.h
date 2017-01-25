@@ -1,17 +1,18 @@
 //===----- ResourcePriorityQueue.h - A DFA-oriented priority queue -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ResourcePriorityQueue.h                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the ResourcePriorityQueue class, which is a          //
-// SchedulingPriorityQueue that schedules using DFA state to                 //
-// reduce the length of the critical path through the basic block            //
-// on VLIW platforms.                                                        //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the ResourcePriorityQueue class, which is a
+// SchedulingPriorityQueue that schedules using DFA state to
+// reduce the length of the critical path through the basic block
+// on VLIW platforms.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_RESOURCEPRIORITYQUEUE_H
 #define LLVM_CODEGEN_RESOURCEPRIORITYQUEUE_H

@@ -1,14 +1,15 @@
 //===- LiveVariables.h - Live Variable Analysis for Source CFGs -*- C++ --*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveVariables.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements Live Variables analysis for source-level CFGs.       //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements Live Variables analysis for source-level CFGs.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ANALYSIS_ANALYSES_LIVEVARIABLES_H
 #define LLVM_CLANG_ANALYSIS_ANALYSES_LIVEVARIABLES_H

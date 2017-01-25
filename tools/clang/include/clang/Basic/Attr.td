@@ -1,14 +1,11 @@
 //==--- Attr.td - attribute definitions -----------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Attr.td                                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// The documentation is organized by category. Attributes can have category- //
-// specific documentation that is collated within the larger document.       //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 class DocumentationCategory<string name> {
   string Name = name;

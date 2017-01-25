@@ -1,15 +1,16 @@
 //= CStringChecker.cpp - Checks calls to C string functions --------*- C++ -*-//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CStringChecker.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This defines CStringChecker, which is an assortment of checks on calls    //
-// to functions in <string.h>.                                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This defines CStringChecker, which is an assortment of checks on calls
+// to functions in <string.h>.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "InterCheckerAPI.h"

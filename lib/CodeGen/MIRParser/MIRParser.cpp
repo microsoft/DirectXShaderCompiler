@@ -1,15 +1,16 @@
 //===- MIRParser.cpp - MIR serialization format parser implementation -----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MIRParser.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the class that parses the optional LLVM IR and machine//
-// functions that are stored in MIR files.                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the class that parses the optional LLVM IR and machine
+// functions that are stored in MIR files.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/MIRParser/MIRParser.h"
 #include "MIParser.h"

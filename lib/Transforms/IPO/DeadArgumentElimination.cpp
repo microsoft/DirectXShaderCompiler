@@ -1,20 +1,21 @@
 //===-- DeadArgumentElimination.cpp - Eliminate dead arguments ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DeadArgumentElimination.cpp                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass deletes dead arguments from internal functions.  Dead argument  //
-// elimination removes arguments which are directly dead, as well as arguments//
-// only passed into function calls as dead arguments of other functions.  This//
-// pass also deletes dead return values in a similar way.                    //
-//                                                                           //
-// This pass is often useful as a cleanup pass to run after aggressive       //
-// interprocedural passes, which add possibly-dead arguments or return values.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass deletes dead arguments from internal functions.  Dead argument
+// elimination removes arguments which are directly dead, as well as arguments
+// only passed into function calls as dead arguments of other functions.  This
+// pass also deletes dead return values in a similar way.
+//
+// This pass is often useful as a cleanup pass to run after aggressive
+// interprocedural passes, which add possibly-dead arguments or return values.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/DenseMap.h"

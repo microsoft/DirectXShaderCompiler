@@ -1,15 +1,16 @@
 //===- unittests/AST/EvaluateAsRValueTest.cpp -----------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// EvaluateAsRValueTest.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// \file                                                                     //
-// \brief Unit tests for evaluation of constant initializers.                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// \file
+// \brief Unit tests for evaluation of constant initializers.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTConsumer.h"

@@ -1,15 +1,16 @@
 //==- BlockFrequencyInfoImpl.h - Block Frequency Implementation -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// BlockFrequencyInfoImpl.h                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Shared implementation of BlockFrequency for IR and Machine Instructions.  //
-// See the documentation below for BlockFrequencyInfoImpl for details.       //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Shared implementation of BlockFrequency for IR and Machine Instructions.
+// See the documentation below for BlockFrequencyInfoImpl for details.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_BLOCKFREQUENCYINFOIMPL_H
 #define LLVM_ANALYSIS_BLOCKFREQUENCYINFOIMPL_H

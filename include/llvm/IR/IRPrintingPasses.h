@@ -1,21 +1,20 @@
 //===- IRPrintingPasses.h - Passes to print out IR constructs ---*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IRPrintingPasses.h                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
 ///
-/// This file defines passes to print out IR in various granularities. The   //
-/// PrintModulePass pass simply prints out the entire module when it is      //
-/// executed. The PrintFunctionPass class is designed to be pipelined with   //
-/// other FunctionPass's, and prints out the functions of the module as they //
-/// are processed.                                                           //
+/// This file defines passes to print out IR in various granularities. The
+/// PrintModulePass pass simply prints out the entire module when it is
+/// executed. The PrintFunctionPass class is designed to be pipelined with
+/// other FunctionPass's, and prints out the functions of the module as they
+/// are processed.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_IRPRINTINGPASSES_H
 #define LLVM_IR_IRPRINTINGPASSES_H

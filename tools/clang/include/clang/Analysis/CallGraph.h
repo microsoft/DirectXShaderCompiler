@@ -1,18 +1,18 @@
 //== CallGraph.h - AST-based Call graph  ------------------------*- C++ -*--==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CallGraph.h                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file declares the AST-based CallGraph.                              //
 //
-//  A call graph for functions whose definitions/bodies are available in the //
-//  current translation unit. The graph has a "virtual" root node that contains//
-//  edges to all externally available functions.                             //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file declares the AST-based CallGraph.
+//
+//  A call graph for functions whose definitions/bodies are available in the
+//  current translation unit. The graph has a "virtual" root node that contains
+//  edges to all externally available functions.
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ANALYSIS_CALLGRAPH_H
 #define LLVM_CLANG_ANALYSIS_CALLGRAPH_H

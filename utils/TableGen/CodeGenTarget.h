@@ -1,17 +1,18 @@
 //===- CodeGenTarget.h - Target Class Wrapper -------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeGenTarget.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines wrappers for the Target class and related global        //
-// functionality.  This makes it easier to access the data and provides a single//
-// place that needs to check it for validity.  All of these classes abort    //
-// on error conditions.                                                      //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines wrappers for the Target class and related global
+// functionality.  This makes it easier to access the data and provides a single
+// place that needs to check it for validity.  All of these classes abort
+// on error conditions.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_UTILS_TABLEGEN_CODEGENTARGET_H
 #define LLVM_UTILS_TABLEGEN_CODEGENTARGET_H

@@ -1,17 +1,18 @@
 //===- CodeGenTarget.cpp - CodeGen Target Class Wrapper -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeGenTarget.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class wraps target description classes used by the various code      //
-// generation TableGen backends.  This makes it easier to access the data and//
-// provides a single place that needs to check it for validity.  All of these//
-// classes abort on error conditions.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class wraps target description classes used by the various code
+// generation TableGen backends.  This makes it easier to access the data and
+// provides a single place that needs to check it for validity.  All of these
+// classes abort on error conditions.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenTarget.h"
 #include "CodeGenIntrinsics.h"

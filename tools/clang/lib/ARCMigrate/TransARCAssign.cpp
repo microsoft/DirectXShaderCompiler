@@ -1,24 +1,25 @@
 //===--- TransARCAssign.cpp - Transformations to ARC mode -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TransARCAssign.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// makeAssignARCSafe:                                                        //
-//                                                                           //
-// Add '__strong' where appropriate.                                         //
-//                                                                           //
-//  for (id x in collection) {                                               //
-//    x = 0;                                                                 //
-//  }                                                                        //
-// ---->                                                                     //
-//  for (__strong id x in collection) {                                      //
-//    x = 0;                                                                 //
-//  }                                                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// makeAssignARCSafe:
+//
+// Add '__strong' where appropriate.
+//
+//  for (id x in collection) {
+//    x = 0;
+//  }
+// ---->
+//  for (__strong id x in collection) {
+//    x = 0;
+//  }
+//
+//===----------------------------------------------------------------------===//
 
 #include "Transforms.h"
 #include "Internals.h"

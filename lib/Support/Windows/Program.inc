@@ -1,14 +1,15 @@
 //===- Win32/Program.cpp - Win32 Program Implementation ------- -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Program.inc                                                               //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provides the Win32 specific implementation of the Program class.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provides the Win32 specific implementation of the Program class.
+//
+//===----------------------------------------------------------------------===//
 
 #include "WindowsSupport.h"
 #include "llvm/ADT/StringExtras.h"

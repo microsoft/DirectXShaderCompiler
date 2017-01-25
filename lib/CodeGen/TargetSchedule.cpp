@@ -1,15 +1,16 @@
 //===-- llvm/Target/TargetSchedule.cpp - Sched Machine Model ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetSchedule.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a wrapper around MCSchedModel that allows the interface//
-// to benefit from information currently only available in TargetInstrInfo.  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a wrapper around MCSchedModel that allows the interface
+// to benefit from information currently only available in TargetInstrInfo.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/Support/CommandLine.h"

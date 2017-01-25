@@ -1,30 +1,31 @@
 //===- verify-uselistorder.cpp - The LLVM Modular Optimizer ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// verify-uselistorder.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Verify that use-list order can be serialized correctly.  After reading the//
-// provided IR, this tool shuffles the use-lists and then writes and reads to a//
-// separate Module whose use-list orders are compared to the original.       //
-//                                                                           //
-// The shuffles are deterministic, but guarantee that use-lists will change. //
-// The algorithm per iteration is as follows:                                //
-//                                                                           //
-//  1. Seed the random number generator.  The seed is different for each     //
-//     shuffle.  Shuffle 0 uses default+0, shuffle 1 uses default+1, and so on.//
-//                                                                           //
-//  2. Visit every Value in a deterministic order.                           //
-//                                                                           //
-//  3. Assign a random number to each Use in the Value's use-list in order.  //
-//                                                                           //
-//  4. If the numbers are already in order, reassign numbers until they aren't.//
-//                                                                           //
-//  5. Sort the use-list using Value::sortUseList(), which is a stable sort. //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Verify that use-list order can be serialized correctly.  After reading the
+// provided IR, this tool shuffles the use-lists and then writes and reads to a
+// separate Module whose use-list orders are compared to the original.
+//
+// The shuffles are deterministic, but guarantee that use-lists will change.
+// The algorithm per iteration is as follows:
+//
+//  1. Seed the random number generator.  The seed is different for each
+//     shuffle.  Shuffle 0 uses default+0, shuffle 1 uses default+1, and so on.
+//
+//  2. Visit every Value in a deterministic order.
+//
+//  3. Assign a random number to each Use in the Value's use-list in order.
+//
+//  4. If the numbers are already in order, reassign numbers until they aren't.
+//
+//  5. Sort the use-list using Value::sortUseList(), which is a stable sort.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"

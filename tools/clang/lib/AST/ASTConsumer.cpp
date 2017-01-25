@@ -1,14 +1,15 @@
 //===--- ASTConsumer.cpp - Abstract interface for reading ASTs --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTConsumer.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the ASTConsumer class.                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the ASTConsumer class.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTConsumer.h"
 #include "llvm/Bitcode/BitstreamReader.h"

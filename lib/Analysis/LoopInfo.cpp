@@ -1,17 +1,18 @@
 //===- LoopInfo.cpp - Natural Loop Calculator -----------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopInfo.cpp                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the LoopInfo class that is used to identify natural loops//
-// and determine the loop depth of various nodes of the CFG.  Note that the  //
-// loops identified may actually be several natural loops that share the same//
-// header node... not just a single natural loop.                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the LoopInfo class that is used to identify natural loops
+// and determine the loop depth of various nodes of the CFG.  Note that the
+// loops identified may actually be several natural loops that share the same
+// header node... not just a single natural loop.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/DepthFirstIterator.h"

@@ -1,16 +1,17 @@
 //===-- llvm/Support/Win64EH.h ---Win64 EH Constants-------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Win64EH.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains constants and structures used for implementing         //
-// exception handling on Win64 platforms. For more information, see          //
-// http://msdn.microsoft.com/en-us/library/1eyas8tf.aspx                     //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains constants and structures used for implementing
+// exception handling on Win64 platforms. For more information, see
+// http://msdn.microsoft.com/en-us/library/1eyas8tf.aspx
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_WIN64EH_H
 #define LLVM_SUPPORT_WIN64EH_H

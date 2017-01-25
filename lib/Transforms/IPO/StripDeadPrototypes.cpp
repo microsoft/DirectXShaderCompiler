@@ -1,17 +1,18 @@
 //===-- StripDeadPrototypes.cpp - Remove unused function declarations ----===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// StripDeadPrototypes.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass loops over all of the functions in the input module, looking for //
-// dead declarations and removes them. Dead declarations are declarations of //
-// functions for which no implementation is available (i.e., declarations for//
-// unused library functions).                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass loops over all of the functions in the input module, looking for 
+// dead declarations and removes them. Dead declarations are declarations of
+// functions for which no implementation is available (i.e., declarations for
+// unused library functions).
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/Statistic.h"

@@ -1,15 +1,16 @@
 //===-- TargetParser - Parser for target features ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetParser.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a target parser to recognise hardware features such as//
-// FPU/CPU/ARCH names as well as specific support such as HDIV, etc.         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a target parser to recognise hardware features such as
+// FPU/CPU/ARCH names as well as specific support such as HDIV, etc.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ARMBuildAttributes.h"
 #include "llvm/Support/TargetParser.h"

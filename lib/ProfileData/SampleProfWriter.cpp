@@ -1,21 +1,22 @@
 //===- SampleProfWriter.cpp - Write LLVM sample profile data --------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SampleProfWriter.cpp                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the class that writes LLVM sample profiles. It       //
-// supports two file formats: text and binary. The textual representation    //
-// is useful for debugging and testing purposes. The binary representation   //
-// is more compact, resulting in smaller file sizes. However, they can       //
-// both be used interchangeably.                                             //
-//                                                                           //
-// See lib/ProfileData/SampleProfReader.cpp for documentation on each of the //
-// supported formats.                                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                      The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the class that writes LLVM sample profiles. It
+// supports two file formats: text and binary. The textual representation
+// is useful for debugging and testing purposes. The binary representation
+// is more compact, resulting in smaller file sizes. However, they can
+// both be used interchangeably.
+//
+// See lib/ProfileData/SampleProfReader.cpp for documentation on each of the
+// supported formats.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ProfileData/SampleProfWriter.h"
 #include "llvm/Support/Debug.h"

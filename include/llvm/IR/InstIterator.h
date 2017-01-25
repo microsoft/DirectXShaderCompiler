@@ -1,19 +1,20 @@
 //===- InstIterator.h - Classes for inst iteration --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstIterator.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains definitions of two iterators for iterating over the    //
-// instructions in a function.  This is effectively a wrapper around a two level//
-// iterator that can probably be genericized later.                          //
 //
-// Note that this iterator gets invalidated any time that basic blocks or    //
-// instructions are moved around.                                            //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains definitions of two iterators for iterating over the
+// instructions in a function.  This is effectively a wrapper around a two level
+// iterator that can probably be genericized later.
+//
+// Note that this iterator gets invalidated any time that basic blocks or
+// instructions are moved around.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_IR_INSTITERATOR_H
 #define LLVM_IR_INSTITERATOR_H

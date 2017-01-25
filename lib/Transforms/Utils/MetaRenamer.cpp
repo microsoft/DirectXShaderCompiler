@@ -1,16 +1,17 @@
 //===- MetaRenamer.cpp - Rename everything with metasyntatic names --------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MetaRenamer.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass renames everything with metasyntatic names. The intent is to use//
-// this pass after bugpoint reduction to conceal the nature of the original  //
-// program.                                                                  //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass renames everything with metasyntatic names. The intent is to use
+// this pass after bugpoint reduction to conceal the nature of the original
+// program.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/STLExtras.h"

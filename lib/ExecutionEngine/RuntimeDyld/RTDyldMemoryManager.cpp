@@ -1,14 +1,15 @@
 //===-- RTDyldMemoryManager.cpp - Memory manager for MC-JIT -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RTDyldMemoryManager.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Implementation of the runtime dynamic memory manager base class.          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Implementation of the runtime dynamic memory manager base class.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Config/config.h"
 #include "llvm/ExecutionEngine/RTDyldMemoryManager.h"

@@ -1,19 +1,20 @@
 //===-- DAGCombiner.cpp - Implement a DAG node combiner -------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DAGCombiner.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass combines dag nodes to form fewer, simpler DAG nodes.  It can be run//
-// both before and after the DAG is legalized.                               //
-//                                                                           //
-// This pass is not a substitute for the LLVM IR instcombine pass. This pass is//
-// primarily intended to handle simplification opportunities that are implicit//
-// in the LLVM IR and exposed by the various codegen lowering phases.        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass combines dag nodes to form fewer, simpler DAG nodes.  It can be run
+// both before and after the DAG is legalized.
+//
+// This pass is not a substitute for the LLVM IR instcombine pass. This pass is
+// primarily intended to handle simplification opportunities that are implicit
+// in the LLVM IR and exposed by the various codegen lowering phases.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/ADT/SetVector.h"

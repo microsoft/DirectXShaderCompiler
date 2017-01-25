@@ -1,17 +1,18 @@
 //===- GlobalsModRef.cpp - Simple Mod/Ref Analysis for Globals ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GlobalsModRef.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This simple pass provides alias and mod/ref information for global values //
-// that do not have their address taken, and keeps track of whether functions//
-// read or write memory (are "pure").  For this simple (but very common) case,//
-// we can provide pretty accurate and useful information.                    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This simple pass provides alias and mod/ref information for global values
+// that do not have their address taken, and keeps track of whether functions
+// read or write memory (are "pure").  For this simple (but very common) case,
+// we can provide pretty accurate and useful information.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ADT/SCCIterator.h"

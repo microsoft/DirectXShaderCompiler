@@ -1,15 +1,16 @@
 //===- SjLjEHPrepare.cpp - Eliminate Invoke & Unwind instructions ---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SjLjEHPrepare.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This transformation is designed for use by code generators which use SjLj //
-// based exception handling.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This transformation is designed for use by code generators which use SjLj
+// based exception handling.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/ADT/DenseMap.h"

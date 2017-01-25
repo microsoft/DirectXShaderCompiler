@@ -1,15 +1,15 @@
 //===-- LiveRangeEdit.cpp - Basic tools for editing a register live range -===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LiveRangeEdit.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// The LiveRangeEdit class represents changes done to a virtual register when it//
-// is spilled or split.                                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The LiveRangeEdit class represents changes done to a virtual register when it
+// is spilled or split.
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/LiveRangeEdit.h"
 #include "llvm/ADT/Statistic.h"

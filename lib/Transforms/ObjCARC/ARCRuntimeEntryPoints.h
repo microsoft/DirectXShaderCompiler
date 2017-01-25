@@ -1,24 +1,23 @@
 //===- ARCRuntimeEntryPoints.h - ObjC ARC Optimization --*- C++ -*---------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ARCRuntimeEntryPoints.h                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// This file contains a class ARCRuntimeEntryPoints for use in              //
-/// creating/managing references to entry points to the arc objective c runtime.//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// This file contains a class ARCRuntimeEntryPoints for use in
+/// creating/managing references to entry points to the arc objective c runtime.
 ///
-/// WARNING: This file knows about certain library functions. It recognizes them//
-/// by name, and hardwires knowledge of their semantics.                     //
+/// WARNING: This file knows about certain library functions. It recognizes them
+/// by name, and hardwires knowledge of their semantics.
 ///
-/// WARNING: This file knows about how certain Objective-C library functions are//
-/// used. Naive LLVM IR transformations which would otherwise be             //
-/// behavior-preserving may break these assumptions.                         //
+/// WARNING: This file knows about how certain Objective-C library functions are
+/// used. Naive LLVM IR transformations which would otherwise be
+/// behavior-preserving may break these assumptions.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_TRANSFORMS_OBJCARC_ARCRUNTIMEENTRYPOINTS_H
 #define LLVM_LIB_TRANSFORMS_OBJCARC_ARCRUNTIMEENTRYPOINTS_H

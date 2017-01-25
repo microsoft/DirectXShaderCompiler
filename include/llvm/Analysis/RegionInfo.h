@@ -1,35 +1,36 @@
 //===- RegionInfo.h - SESE region analysis ----------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// RegionInfo.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Calculate a program structure tree built out of single entry single exit  //
-// regions.                                                                  //
-// The basic ideas are taken from "The Program Structure Tree - Richard Johnson,//
-// David Pearson, Keshav Pingali - 1994", however enriched with ideas from "The//
-// Refined Process Structure Tree - Jussi Vanhatalo, Hagen Voelyer, Jana     //
-// Koehler - 2009".                                                          //
-// The algorithm to calculate these data structures however is completely    //
-// different, as it takes advantage of existing information already available//
-// in (Post)dominace tree and dominance frontier passes. This leads to a simpler//
-// and in practice hopefully better performing algorithm. The runtime of the //
-// algorithms described in the papers above are both linear in graph size,   //
-// O(V+E), whereas this algorithm is not, as the dominance frontier information//
-// itself is not, but in practice runtime seems to be in the order of magnitude//
-// of dominance tree calculation.                                            //
 //
-// WARNING: LLVM is generally very concerned about compile time such that    //
-//          the use of additional analysis passes in the default             //
-//          optimization sequence is avoided as much as possible.            //
-//          Specifically, if you do not need the RegionInfo, but dominance   //
-//          information could be sufficient please base your work only on    //
-//          the dominator tree. Most passes maintain it, such that using     //
-//          it has often near zero cost. In contrast RegionInfo is by        //
-//          default not available, is not maintained by existing             //
-//          transformations and there is no intention to do so.              //
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Calculate a program structure tree built out of single entry single exit
+// regions.
+// The basic ideas are taken from "The Program Structure Tree - Richard Johnson,
+// David Pearson, Keshav Pingali - 1994", however enriched with ideas from "The
+// Refined Process Structure Tree - Jussi Vanhatalo, Hagen Voelyer, Jana
+// Koehler - 2009".
+// The algorithm to calculate these data structures however is completely
+// different, as it takes advantage of existing information already available
+// in (Post)dominace tree and dominance frontier passes. This leads to a simpler
+// and in practice hopefully better performing algorithm. The runtime of the
+// algorithms described in the papers above are both linear in graph size,
+// O(V+E), whereas this algorithm is not, as the dominance frontier information
+// itself is not, but in practice runtime seems to be in the order of magnitude
+// of dominance tree calculation.
+//
+// WARNING: LLVM is generally very concerned about compile time such that
+//          the use of additional analysis passes in the default
+//          optimization sequence is avoided as much as possible.
+//          Specifically, if you do not need the RegionInfo, but dominance
+//          information could be sufficient please base your work only on
+//          the dominator tree. Most passes maintain it, such that using
+//          it has often near zero cost. In contrast RegionInfo is by
+//          default not available, is not maintained by existing
+//          transformations and there is no intention to do so.
 //
 //===----------------------------------------------------------------------===//
 

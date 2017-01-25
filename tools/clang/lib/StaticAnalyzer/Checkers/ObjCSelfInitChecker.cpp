@@ -1,37 +1,16 @@
 //== ObjCSelfInitChecker.cpp - Checker for 'self' initialization -*- C++ -*--=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjCSelfInitChecker.cpp                                                   //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This defines ObjCSelfInitChecker, a builtin check that checks for uses of //
-// 'self' before proper initialization.                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// This checks initialization methods to verify that they assign 'self' to the//
-// result of an initialization call (e.g. [super init], or [self initWith..])//
-// before using 'self' or any instance variable.                             //
-//                                                                           //
-// To perform the required checking, values are tagged with flags that indicate//
-// 1) if the object is the one pointed to by 'self', and 2) if the object    //
-// is the result of an initializer (e.g. [super init]).                      //
-//                                                                           //
-// Uses of an object that is true for 1) but not 2) trigger a diagnostic.    //
-// The uses that are currently checked are:                                  //
-//  - Using instance variables.                                              //
-//  - Returning the object.                                                  //
-//                                                                           //
-// Note that we don't check for an invalid 'self' that is the receiver of an //
-// obj-c message expression to cut down false positives where logging functions//
-// get information from self (like its class) or doing "invalidation" on self//
-// when the initialization fails.                                            //
-//                                                                           //
-// Because the object that 'self' points to gets invalidated when a call     //
-// receives a reference to 'self', the checker keeps track and passes the flags//
-// for 1) and 2) to the new object that 'self' points to after the call.     //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This defines ObjCSelfInitChecker, a builtin check that checks for uses of
+// 'self' before proper initialization.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/ParentMap.h"

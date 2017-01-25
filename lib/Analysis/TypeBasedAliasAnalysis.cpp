@@ -1,124 +1,125 @@
 //===- TypeBasedAliasAnalysis.cpp - Type-Based Alias Analysis -------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TypeBasedAliasAnalysis.cpp                                                //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the TypeBasedAliasAnalysis pass, which implements       //
-// metadata-based TBAA.                                                      //
-//                                                                           //
-// In LLVM IR, memory does not have types, so LLVM's own type system is not  //
-// suitable for doing TBAA. Instead, metadata is added to the IR to describe //
-// a type system of a higher level language. This can be used to implement   //
-// typical C/C++ TBAA, but it can also be used to implement custom alias     //
-// analysis behavior for other languages.                                    //
-//                                                                           //
-// We now support two types of metadata format: scalar TBAA and struct-path  //
-// aware TBAA. After all testing cases are upgraded to use struct-path aware //
-// TBAA and we can auto-upgrade existing bc files, the support for scalar TBAA//
-// can be dropped.                                                           //
-//                                                                           //
-// The scalar TBAA metadata format is very simple. TBAA MDNodes have up to   //
-// three fields, e.g.:                                                       //
-//   !0 = metadata !{ metadata !"an example type tree" }                     //
-//   !1 = metadata !{ metadata !"int", metadata !0 }                         //
-//   !2 = metadata !{ metadata !"float", metadata !0 }                       //
-//   !3 = metadata !{ metadata !"const float", metadata !2, i64 1 }          //
-//                                                                           //
-// The first field is an identity field. It can be any value, usually        //
-// an MDString, which uniquely identifies the type. The most important       //
-// name in the tree is the name of the root node. Two trees with             //
-// different root node names are entirely disjoint, even if they             //
-// have leaves with common names.                                            //
-//                                                                           //
-// The second field identifies the type's parent node in the tree, or        //
-// is null or omitted for a root node. A type is considered to alias         //
-// all of its descendants and all of its ancestors in the tree. Also,        //
-// a type is considered to alias all types in other trees, so that           //
-// bitcode produced from multiple front-ends is handled conservatively.      //
-//                                                                           //
-// If the third field is present, it's an integer which if equal to 1        //
-// indicates that the type is "constant" (meaning pointsToConstantMemory     //
-// should return true; see                                                   //
-// http://llvm.org/docs/AliasAnalysis.html#OtherItfs).                       //
-//                                                                           //
-// With struct-path aware TBAA, the MDNodes attached to an instruction using //
-// "!tbaa" are called path tag nodes.                                        //
-//                                                                           //
-// The path tag node has 4 fields with the last field being optional.        //
-//                                                                           //
-// The first field is the base type node, it can be a struct type node       //
-// or a scalar type node. The second field is the access type node, it       //
-// must be a scalar type node. The third field is the offset into the base type.//
-// The last field has the same meaning as the last field of our scalar TBAA: //
-// it's an integer which if equal to 1 indicates that the access is "constant".//
-//                                                                           //
-// The struct type node has a name and a list of pairs, one pair for each member//
-// of the struct. The first element of each pair is a type node (a struct type//
-// node or a sclar type node), specifying the type of the member, the second //
-// element of each pair is the offset of the member.                         //
-//                                                                           //
-// Given an example                                                          //
-// typedef struct {                                                          //
-//   short s;                                                                //
-// } A;                                                                      //
-// typedef struct {                                                          //
-//   uint16_t s;                                                             //
-//   A a;                                                                    //
-// } B;                                                                      //
-//                                                                           //
-// For an acess to B.a.s, we attach !5 (a path tag node) to the load/store   //
-// instruction. The base type is !4 (struct B), the access type is !2 (scalar//
-// type short) and the offset is 4.                                          //
-//                                                                           //
-// !0 = metadata !{metadata !"Simple C/C++ TBAA"}                            //
-// !1 = metadata !{metadata !"omnipotent char", metadata !0} // Scalar type node//
-// !2 = metadata !{metadata !"short", metadata !1}           // Scalar type node//
-// !3 = metadata !{metadata !"A", metadata !2, i64 0}        // Struct type node//
-// !4 = metadata !{metadata !"B", metadata !2, i64 0, metadata !3, i64 4}    //
-//                                                           // Struct type node//
-// !5 = metadata !{metadata !4, metadata !2, i64 4}          // Path tag node//
-//                                                                           //
-// The struct type nodes and the scalar type nodes form a type DAG.          //
-//         Root (!0)                                                         //
-//         char (!1)  -- edge to Root                                        //
-//         short (!2) -- edge to char                                        //
-//         A (!3) -- edge with offset 0 to short                             //
-//         B (!4) -- edge with offset 0 to short and edge with offset 4 to A //
-//                                                                           //
-// To check if two tags (tagX and tagY) can alias, we start from the base type//
-// of tagX, follow the edge with the correct offset in the type DAG and adjust//
-// the offset until we reach the base type of tagY or until we reach the Root//
-// node.                                                                     //
-// If we reach the base type of tagY, compare the adjusted offset with       //
-// offset of tagY, return Alias if the offsets are the same, return NoAlias  //
-// otherwise.                                                                //
-// If we reach the Root node, perform the above starting from base type of tagY//
-// to see if we reach base type of tagX.                                     //
-//                                                                           //
-// If they have different roots, they're part of different potentially       //
-// unrelated type systems, so we return Alias to be conservative.            //
-// If neither node is an ancestor of the other and they have the same root,  //
-// then we say NoAlias.                                                      //
-//                                                                           //
-// TODO: The current metadata format doesn't support struct                  //
-// fields. For example:                                                      //
-//   struct X {                                                              //
-//     double d;                                                             //
-//     int i;                                                                //
-//   };                                                                      //
-//   void foo(struct X *x, struct X *y, double *p) {                         //
-//     *x = *y;                                                              //
-//     *p = 0.0;                                                             //
-//   }                                                                       //
-// Struct X has a double member, so the store to *x can alias the store to *p.//
-// Currently it's not possible to precisely describe all the things struct X //
-// aliases, so struct assignments must use conservative TBAA nodes. There's  //
-// no scheme for attaching metadata to @llvm.memcpy yet either.              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the TypeBasedAliasAnalysis pass, which implements
+// metadata-based TBAA.
+//
+// In LLVM IR, memory does not have types, so LLVM's own type system is not
+// suitable for doing TBAA. Instead, metadata is added to the IR to describe
+// a type system of a higher level language. This can be used to implement
+// typical C/C++ TBAA, but it can also be used to implement custom alias
+// analysis behavior for other languages.
+//
+// We now support two types of metadata format: scalar TBAA and struct-path
+// aware TBAA. After all testing cases are upgraded to use struct-path aware
+// TBAA and we can auto-upgrade existing bc files, the support for scalar TBAA
+// can be dropped.
+//
+// The scalar TBAA metadata format is very simple. TBAA MDNodes have up to
+// three fields, e.g.:
+//   !0 = metadata !{ metadata !"an example type tree" }
+//   !1 = metadata !{ metadata !"int", metadata !0 }
+//   !2 = metadata !{ metadata !"float", metadata !0 }
+//   !3 = metadata !{ metadata !"const float", metadata !2, i64 1 }
+//
+// The first field is an identity field. It can be any value, usually
+// an MDString, which uniquely identifies the type. The most important
+// name in the tree is the name of the root node. Two trees with
+// different root node names are entirely disjoint, even if they
+// have leaves with common names.
+//
+// The second field identifies the type's parent node in the tree, or
+// is null or omitted for a root node. A type is considered to alias
+// all of its descendants and all of its ancestors in the tree. Also,
+// a type is considered to alias all types in other trees, so that
+// bitcode produced from multiple front-ends is handled conservatively.
+//
+// If the third field is present, it's an integer which if equal to 1
+// indicates that the type is "constant" (meaning pointsToConstantMemory
+// should return true; see
+// http://llvm.org/docs/AliasAnalysis.html#OtherItfs).
+//
+// With struct-path aware TBAA, the MDNodes attached to an instruction using
+// "!tbaa" are called path tag nodes.
+//
+// The path tag node has 4 fields with the last field being optional.
+//
+// The first field is the base type node, it can be a struct type node
+// or a scalar type node. The second field is the access type node, it
+// must be a scalar type node. The third field is the offset into the base type.
+// The last field has the same meaning as the last field of our scalar TBAA:
+// it's an integer which if equal to 1 indicates that the access is "constant".
+//
+// The struct type node has a name and a list of pairs, one pair for each member
+// of the struct. The first element of each pair is a type node (a struct type
+// node or a sclar type node), specifying the type of the member, the second
+// element of each pair is the offset of the member.
+//
+// Given an example
+// typedef struct {
+//   short s;
+// } A;
+// typedef struct {
+//   uint16_t s;
+//   A a;
+// } B;
+//
+// For an acess to B.a.s, we attach !5 (a path tag node) to the load/store
+// instruction. The base type is !4 (struct B), the access type is !2 (scalar
+// type short) and the offset is 4.
+//
+// !0 = metadata !{metadata !"Simple C/C++ TBAA"}
+// !1 = metadata !{metadata !"omnipotent char", metadata !0} // Scalar type node
+// !2 = metadata !{metadata !"short", metadata !1}           // Scalar type node
+// !3 = metadata !{metadata !"A", metadata !2, i64 0}        // Struct type node
+// !4 = metadata !{metadata !"B", metadata !2, i64 0, metadata !3, i64 4}
+//                                                           // Struct type node
+// !5 = metadata !{metadata !4, metadata !2, i64 4}          // Path tag node
+//
+// The struct type nodes and the scalar type nodes form a type DAG.
+//         Root (!0)
+//         char (!1)  -- edge to Root
+//         short (!2) -- edge to char
+//         A (!3) -- edge with offset 0 to short
+//         B (!4) -- edge with offset 0 to short and edge with offset 4 to A
+//
+// To check if two tags (tagX and tagY) can alias, we start from the base type
+// of tagX, follow the edge with the correct offset in the type DAG and adjust
+// the offset until we reach the base type of tagY or until we reach the Root
+// node.
+// If we reach the base type of tagY, compare the adjusted offset with
+// offset of tagY, return Alias if the offsets are the same, return NoAlias
+// otherwise.
+// If we reach the Root node, perform the above starting from base type of tagY
+// to see if we reach base type of tagX.
+//
+// If they have different roots, they're part of different potentially
+// unrelated type systems, so we return Alias to be conservative.
+// If neither node is an ancestor of the other and they have the same root,
+// then we say NoAlias.
+//
+// TODO: The current metadata format doesn't support struct
+// fields. For example:
+//   struct X {
+//     double d;
+//     int i;
+//   };
+//   void foo(struct X *x, struct X *y, double *p) {
+//     *x = *y;
+//     *p = 0.0;
+//   }
+// Struct X has a double member, so the store to *x can alias the store to *p.
+// Currently it's not possible to precisely describe all the things struct X
+// aliases, so struct assignments must use conservative TBAA nodes. There's
+// no scheme for attaching metadata to @llvm.memcpy yet either.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/AliasAnalysis.h"

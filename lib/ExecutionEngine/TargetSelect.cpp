@@ -1,17 +1,18 @@
 //===-- TargetSelect.cpp - Target Chooser Code ----------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetSelect.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This just asks the TargetRegistry for the appropriate target to use, and  //
-// allows the user to specify a specific one on the commandline with -march=x,//
-// -mcpu=y, and -mattr=a,-b,+c. Clients should initialize targets prior to   //
-// calling selectTarget().                                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This just asks the TargetRegistry for the appropriate target to use, and
+// allows the user to specify a specific one on the commandline with -march=x,
+// -mcpu=y, and -mattr=a,-b,+c. Clients should initialize targets prior to
+// calling selectTarget().
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ADT/Triple.h"

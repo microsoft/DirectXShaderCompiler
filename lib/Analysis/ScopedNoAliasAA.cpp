@@ -1,35 +1,36 @@
 //===- ScopedNoAliasAA.cpp - Scoped No-Alias Alias Analysis ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ScopedNoAliasAA.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the ScopedNoAlias alias-analysis pass, which implements //
-// metadata-based scoped no-alias support.                                   //
-//                                                                           //
-// Alias-analysis scopes are defined by an id (which can be a string or some //
-// other metadata node), a domain node, and an optional descriptive string.  //
-// A domain is defined by an id (which can be a string or some other metadata//
-// node), and an optional descriptive string.                                //
-//                                                                           //
-// !dom0 =   metadata !{ metadata !"domain of foo()" }                       //
-// !scope1 = metadata !{ metadata !scope1, metadata !dom0, metadata !"scope 1" }//
-// !scope2 = metadata !{ metadata !scope2, metadata !dom0, metadata !"scope 2" }//
-//                                                                           //
-// Loads and stores can be tagged with an alias-analysis scope, and also, with//
-// a noalias tag for a specific scope:                                       //
-//                                                                           //
-// ... = load %ptr1, !alias.scope !{ !scope1 }                               //
-// ... = load %ptr2, !alias.scope !{ !scope1, !scope2 }, !noalias !{ !scope1 }//
-//                                                                           //
-// When evaluating an aliasing query, if one of the instructions is associated//
-// has a set of noalias scopes in some domain that is superset of the alias  //
-// scopes in that domain of some other instruction, then the two memory      //
-// accesses are assumed not to alias.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the ScopedNoAlias alias-analysis pass, which implements
+// metadata-based scoped no-alias support.
+//
+// Alias-analysis scopes are defined by an id (which can be a string or some
+// other metadata node), a domain node, and an optional descriptive string.
+// A domain is defined by an id (which can be a string or some other metadata
+// node), and an optional descriptive string.
+//
+// !dom0 =   metadata !{ metadata !"domain of foo()" }
+// !scope1 = metadata !{ metadata !scope1, metadata !dom0, metadata !"scope 1" }
+// !scope2 = metadata !{ metadata !scope2, metadata !dom0, metadata !"scope 2" }
+//
+// Loads and stores can be tagged with an alias-analysis scope, and also, with
+// a noalias tag for a specific scope:
+//
+// ... = load %ptr1, !alias.scope !{ !scope1 }
+// ... = load %ptr2, !alias.scope !{ !scope1, !scope2 }, !noalias !{ !scope1 }
+//
+// When evaluating an aliasing query, if one of the instructions is associated
+// has a set of noalias scopes in some domain that is superset of the alias
+// scopes in that domain of some other instruction, then the two memory
+// accesses are assumed not to alias.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"

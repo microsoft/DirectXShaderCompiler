@@ -1,16 +1,17 @@
 //===- CodeGen/ValueTypes.h - Low-Level Target independ. types --*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ValueTypes.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the set of low-level target independent types which various//
-// values in the code generator are.  This allows the target specific behavior//
-// of instructions to be described to target independent passes.             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the set of low-level target independent types which various
+// values in the code generator are.  This allows the target specific behavior
+// of instructions to be described to target independent passes.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_VALUETYPES_H
 #define LLVM_CODEGEN_VALUETYPES_H

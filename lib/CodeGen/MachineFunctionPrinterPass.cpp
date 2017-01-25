@@ -1,14 +1,15 @@
 //===-- MachineFunctionPrinterPass.cpp ------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineFunctionPrinterPass.cpp                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// MachineFunctionPrinterPass implementation.                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// MachineFunctionPrinterPass implementation.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/MachineFunction.h"

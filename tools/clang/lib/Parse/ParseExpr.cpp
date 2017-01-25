@@ -1,26 +1,25 @@
 //===--- ParseExpr.cpp - Expression Parsing -------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ParseExpr.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Provides the Expression parsing implementation.                   //
+/// \file
+/// \brief Provides the Expression parsing implementation.
 ///
-/// Expressions in C99 basically consist of a bunch of binary operators with //
-/// unary operators and other random stuff at the leaves.                    //
+/// Expressions in C99 basically consist of a bunch of binary operators with
+/// unary operators and other random stuff at the leaves.
 ///
-/// In the C99 grammar, these unary operators bind tightest and are represented//
-/// as the 'cast-expression' production.  Everything else is either a binary //
-/// operator (e.g. '/') or a ternary operator ("?:").  The unary leaves are  //
-/// handled by ParseCastExpression, the higher level pieces are handled by   //
-/// ParseBinaryExpression.                                                   //
+/// In the C99 grammar, these unary operators bind tightest and are represented
+/// as the 'cast-expression' production.  Everything else is either a binary
+/// operator (e.g. '/') or a ternary operator ("?:").  The unary leaves are
+/// handled by ParseCastExpression, the higher level pieces are handled by
+/// ParseBinaryExpression.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "clang/Parse/Parser.h"
 #include "RAIIObjectsForParser.h"

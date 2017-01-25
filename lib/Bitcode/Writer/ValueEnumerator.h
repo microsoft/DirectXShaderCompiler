@@ -1,14 +1,15 @@
 //===-- Bitcode/Writer/ValueEnumerator.h - Number values --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ValueEnumerator.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This class gives values and types Unique ID's.                            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class gives values and types Unique ID's.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_BITCODE_WRITER_VALUEENUMERATOR_H
 #define LLVM_LIB_BITCODE_WRITER_VALUEENUMERATOR_H

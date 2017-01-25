@@ -1,15 +1,16 @@
 //===-- cc1as_main.cpp - Clang Assembler  ---------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// cc1as_main.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This is the entry point to the clang -cc1as functionality, which implements//
-// the direct interface to the LLVM MC based assembler.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This is the entry point to the clang -cc1as functionality, which implements
+// the direct interface to the LLVM MC based assembler.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticOptions.h"

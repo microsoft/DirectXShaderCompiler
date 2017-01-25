@@ -1,15 +1,16 @@
 //=-- InstrProfWriter.h - Instrumented profiling writer -----------*- C++ -*-=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstrProfWriter.h                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains support for writing profiling data for instrumentation //
-// based PGO and coverage.                                                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains support for writing profiling data for instrumentation
+// based PGO and coverage.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_PROFILEDATA_INSTRPROFWRITER_H
 #define LLVM_PROFILEDATA_INSTRPROFWRITER_H

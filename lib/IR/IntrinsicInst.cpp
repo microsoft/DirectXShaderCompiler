@@ -1,24 +1,25 @@
 //===-- InstrinsicInst.cpp - Intrinsic Instruction Wrappers ---------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntrinsicInst.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements methods that make it really easy to deal with intrinsic//
-// functions.                                                                //
-//                                                                           //
-// All intrinsic function calls are instances of the call instruction, so these//
-// are all subclasses of the CallInst class.  Note that none of these classes//
-// has state or virtual methods, which is an important part of this gross/neat//
-// hack working.                                                             //
-//                                                                           //
-// In some cases, arguments to intrinsics need to be generic and are defined as//
-// type pointer to empty struct { }*.  To access the real item of interest the//
-// cast instruction needs to be stripped away.                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements methods that make it really easy to deal with intrinsic
+// functions.
+//
+// All intrinsic function calls are instances of the call instruction, so these
+// are all subclasses of the CallInst class.  Note that none of these classes
+// has state or virtual methods, which is an important part of this gross/neat
+// hack working.
+// 
+// In some cases, arguments to intrinsics need to be generic and are defined as
+// type pointer to empty struct { }*.  To access the real item of interest the
+// cast instruction needs to be stripped away. 
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Constants.h"

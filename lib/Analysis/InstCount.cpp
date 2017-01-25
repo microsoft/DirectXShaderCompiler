@@ -1,14 +1,15 @@
 //===-- InstCount.cpp - Collects the count of all instructions ------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstCount.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass collects the count of all instructions and reports them         //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass collects the count of all instructions and reports them
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ADT/Statistic.h"

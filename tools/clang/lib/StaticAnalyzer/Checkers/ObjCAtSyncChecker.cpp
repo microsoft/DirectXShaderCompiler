@@ -1,15 +1,16 @@
 //== ObjCAtSyncChecker.cpp - nil mutex checker for @synchronized -*- C++ -*--=//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ObjCAtSyncChecker.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This defines ObjCAtSyncChecker, a builtin check that checks for null pointers//
-// used as mutexes for @synchronized.                                        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This defines ObjCAtSyncChecker, a builtin check that checks for null pointers
+// used as mutexes for @synchronized.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ClangSACheckers.h"
 #include "clang/AST/StmtObjC.h"

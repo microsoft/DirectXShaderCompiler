@@ -1,16 +1,17 @@
 //===-- llvm/CodeGen/TargetSchedule.h - Sched Machine Model -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetSchedule.h                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines a wrapper around MCSchedModel that allows the interface to//
-// benefit from information currently only available in TargetInstrInfo.     //
-// Ideally, the scheduling interface would be fully defined in the MC layer. //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines a wrapper around MCSchedModel that allows the interface to
+// benefit from information currently only available in TargetInstrInfo.
+// Ideally, the scheduling interface would be fully defined in the MC layer.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_TARGETSCHEDULE_H
 #define LLVM_CODEGEN_TARGETSCHEDULE_H

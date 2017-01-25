@@ -1,15 +1,16 @@
 //===- SectionMemoryManager.h - Memory manager for MCJIT/RtDyld -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SectionMemoryManager.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of a section-based memory manager used by//
-// the MCJIT execution engine and RuntimeDyld.                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of a section-based memory manager used by
+// the MCJIT execution engine and RuntimeDyld.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_EXECUTIONENGINE_SECTIONMEMORYMANAGER_H
 #define LLVM_EXECUTIONENGINE_SECTIONMEMORYMANAGER_H

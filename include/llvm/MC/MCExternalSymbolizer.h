@@ -1,16 +1,17 @@
 //===-- llvm/MC/MCExternalSymbolizer.h - ------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCExternalSymbolizer.h                                                    //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of the MCExternalSymbolizer class, which//
-// enables library users to provide callbacks (through the C API) to do the  //
-// symbolization externally.                                                 //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of the MCExternalSymbolizer class, which
+// enables library users to provide callbacks (through the C API) to do the
+// symbolization externally.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCEXTERNALSYMBOLIZER_H
 #define LLVM_MC_MCEXTERNALSYMBOLIZER_H

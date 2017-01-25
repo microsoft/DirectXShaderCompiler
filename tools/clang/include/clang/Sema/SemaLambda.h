@@ -1,18 +1,17 @@
 //===--- SemaLambda.h - Lambda Helper Functions --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SemaLambda.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief This file provides some common utility functions for processing   //
-/// Lambdas.                                                                 //
+/// \file
+/// \brief This file provides some common utility functions for processing
+/// Lambdas.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_SEMA_SEMALAMBDA_H
 #define LLVM_CLANG_SEMA_SEMALAMBDA_H

@@ -1,46 +1,47 @@
 //===-- TypeNodes.def - Metadata about Type AST nodes -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TypeNodes.def                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines the AST type info database. Each type node is          //
-//  enumerated by providing its name (e.g., "Builtin" or "Enum") and         //
-//  base class (e.g., "Type" or "TagType"). Depending on where in the        //
-//  abstract syntax tree the type will show up, the enumeration uses         //
-//  one of five different macros:                                            //
-//                                                                           //
-//    TYPE(Class, Base) - A type that can show up anywhere in the AST,       //
-//    and might be dependent, canonical, or non-canonical. All clients       //
-//    will need to understand these types.                                   //
-//                                                                           //
-//    ABSTRACT_TYPE(Class, Base) - An abstract class that shows up in        //
-//    the type hierarchy but has no concrete instances.                      //
-//                                                                           //
-//    NON_CANONICAL_TYPE(Class, Base) - A type that can show up              //
-//    anywhere in the AST but will never be a part of a canonical            //
-//    type. Clients that only need to deal with canonical types              //
-//    (ignoring, e.g., typedefs and other type alises used for               //
-//    pretty-printing) can ignore these types.                               //
-//                                                                           //
-//    DEPENDENT_TYPE(Class, Base) - A type that will only show up            //
-//    within a C++ template that has not been instantiated, e.g., a          //
-//    type that is always dependent. Clients that do not need to deal        //
-//    with uninstantiated C++ templates can ignore these types.              //
-//                                                                           //
-//    NON_CANONICAL_UNLESS_DEPENDENT_TYPE(Class, Base) - A type that         //
-//    is non-canonical unless it is dependent.  Defaults to TYPE because     //
-//    it is neither reliably dependent nor reliably non-canonical.           //
-//                                                                           //
-//  There is a sixth macro, independent of the others.  Most clients         //
-//  will not need to use it.                                                 //
-//                                                                           //
-//    LEAF_TYPE(Class) - A type that never has inner types.  Clients         //
-//    which can operate on such types more efficiently may wish to do so.    //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines the AST type info database. Each type node is
+//  enumerated by providing its name (e.g., "Builtin" or "Enum") and
+//  base class (e.g., "Type" or "TagType"). Depending on where in the
+//  abstract syntax tree the type will show up, the enumeration uses
+//  one of five different macros:
+//
+//    TYPE(Class, Base) - A type that can show up anywhere in the AST,
+//    and might be dependent, canonical, or non-canonical. All clients
+//    will need to understand these types.
+//
+//    ABSTRACT_TYPE(Class, Base) - An abstract class that shows up in
+//    the type hierarchy but has no concrete instances.
+//
+//    NON_CANONICAL_TYPE(Class, Base) - A type that can show up
+//    anywhere in the AST but will never be a part of a canonical
+//    type. Clients that only need to deal with canonical types
+//    (ignoring, e.g., typedefs and other type alises used for
+//    pretty-printing) can ignore these types.
+//
+//    DEPENDENT_TYPE(Class, Base) - A type that will only show up
+//    within a C++ template that has not been instantiated, e.g., a
+//    type that is always dependent. Clients that do not need to deal
+//    with uninstantiated C++ templates can ignore these types.
+//
+//    NON_CANONICAL_UNLESS_DEPENDENT_TYPE(Class, Base) - A type that
+//    is non-canonical unless it is dependent.  Defaults to TYPE because
+//    it is neither reliably dependent nor reliably non-canonical.
+//
+//  There is a sixth macro, independent of the others.  Most clients
+//  will not need to use it.
+//
+//    LEAF_TYPE(Class) - A type that never has inner types.  Clients
+//    which can operate on such types more efficiently may wish to do so.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef ABSTRACT_TYPE
 #  define ABSTRACT_TYPE(Class, Base) TYPE(Class, Base)

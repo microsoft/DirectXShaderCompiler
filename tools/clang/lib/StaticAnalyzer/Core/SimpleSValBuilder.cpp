@@ -1,14 +1,15 @@
-//= SimpleSValBuilder.cpp - A basic SValBuilder -----------------------*- C++ -*-
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SimpleSValBuilder.cpp                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defines SimpleSValBuilder, a basic implementation of SValBuilder.//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+// SimpleSValBuilder.cpp - A basic SValBuilder -----------------------*- C++ -*-
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defines SimpleSValBuilder, a basic implementation of SValBuilder.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Core/PathSensitive/SValBuilder.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/APSIntType.h"

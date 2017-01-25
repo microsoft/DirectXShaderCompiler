@@ -1,16 +1,17 @@
 //===- llvm/ADT/PostOrderIterator.h - PostOrder iterator --------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PostOrderIterator.h                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file builds on the ADT/GraphTraits.h file to build a generic graph   //
-// post order iterator.  This should work over any graph type that has a     //
-// GraphTraits specialization.                                               //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file builds on the ADT/GraphTraits.h file to build a generic graph
+// post order iterator.  This should work over any graph type that has a
+// GraphTraits specialization.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_POSTORDERITERATOR_H
 #define LLVM_ADT_POSTORDERITERATOR_H

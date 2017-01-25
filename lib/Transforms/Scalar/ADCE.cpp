@@ -1,17 +1,18 @@
 //===- DCE.cpp - Code to perform dead code elimination --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ADCE.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the Aggressive Dead Code Elimination pass.  This pass//
-// optimistically assumes that all instructions are dead until proven otherwise,//
-// allowing it to eliminate dead computations that other DCE passes do not   //
-// catch, particularly involving loop computations.                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the Aggressive Dead Code Elimination pass.  This pass
+// optimistically assumes that all instructions are dead until proven otherwise,
+// allowing it to eliminate dead computations that other DCE passes do not
+// catch, particularly involving loop computations.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DepthFirstIterator.h"

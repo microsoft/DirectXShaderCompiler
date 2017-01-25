@@ -1,22 +1,21 @@
 //===--- Marshallers.h - Generic matcher function marshallers -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Marshallers.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Functions templates and classes to wrap matcher construct functions.//
+/// \file
+/// \brief Functions templates and classes to wrap matcher construct functions.
 ///
-/// A collection of template function and classes that provide a generic     //
-/// marshalling layer on top of matcher construct functions.                 //
-/// These are used by the registry to export all marshaller constructors with//
-/// the same generic interface.                                              //
+/// A collection of template function and classes that provide a generic
+/// marshalling layer on top of matcher construct functions.
+/// These are used by the registry to export all marshaller constructors with
+/// the same generic interface.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_LIB_ASTMATCHERS_DYNAMIC_MARSHALLERS_H
 #define LLVM_CLANG_LIB_ASTMATCHERS_DYNAMIC_MARSHALLERS_H

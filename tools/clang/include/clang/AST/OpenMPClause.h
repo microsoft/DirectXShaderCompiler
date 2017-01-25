@@ -1,15 +1,15 @@
 //===- OpenMPClause.h - Classes for OpenMP clauses --------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// OpenMPClause.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-/// \file                                                                    //
-/// \brief This file defines OpenMP AST classes for clauses.                 //
-/// There are clauses for executable directives, clauses for declarative     //
-/// directives and clauses which can be used in both kinds of directives.    //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+/// \file
+/// \brief This file defines OpenMP AST classes for clauses.
+/// There are clauses for executable directives, clauses for declarative
+/// directives and clauses which can be used in both kinds of directives.
 ///
 //===----------------------------------------------------------------------===//
 

@@ -1,16 +1,17 @@
 //===-- llvm/MC/MCSymbolizer.h - MCSymbolizer class -------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCSymbolizer.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of the MCSymbolizer class, which is used//
-// to symbolize instructions decoded from an object, that is, transform their//
-// immediate operands to MCExprs.                                            //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of the MCSymbolizer class, which is used
+// to symbolize instructions decoded from an object, that is, transform their
+// immediate operands to MCExprs.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCSYMBOLIZER_H
 #define LLVM_MC_MCSYMBOLIZER_H

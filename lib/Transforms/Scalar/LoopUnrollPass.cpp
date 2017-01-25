@@ -1,16 +1,16 @@
 //===-- LoopUnroll.cpp - Loop unroller pass -------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LoopUnrollPass.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass implements a simple loop unroller.  It works best when loops have//
-// been canonicalized by the -indvars pass, allowing it to determine the trip//
-// counts of loops easily.                                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass implements a simple loop unroller.  It works best when loops have
+// been canonicalized by the -indvars pass, allowing it to determine the trip
+// counts of loops easily.
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SetVector.h"

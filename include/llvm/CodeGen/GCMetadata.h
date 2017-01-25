@@ -1,33 +1,34 @@
 //===-- GCMetadata.h - Garbage collector metadata ---------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GCMetadata.h                                                              //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file declares the GCFunctionInfo and GCModuleInfo classes, which are //
-// used as a communication channel from the target code generator to the target//
-// garbage collectors. This interface allows code generators and garbage     //
-// collectors to be developed independently.                                 //
 //
-// The GCFunctionInfo class logs the data necessary to build a type accurate //
-// stack map. The code generator outputs:                                    //
+//                     The LLVM Compiler Infrastructure
 //
-//   - Safe points as specified by the GCStrategy's NeededSafePoints.        //
-//   - Stack offsets for GC roots, as specified by calls to llvm.gcroot      //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// As a refinement, liveness analysis calculates the set of live roots at each//
-// safe point. Liveness analysis is not presently performed by the code      //
-// generator, so all roots are assumed live.                                 //
+//===----------------------------------------------------------------------===//
 //
-// GCModuleInfo simply collects GCFunctionInfo instances for each Function as//
-// they are compiled. This accretion is necessary for collectors which must emit//
-// a stack map for the compilation unit as a whole. Therefore, GCFunctionInfo//
-// outlives the MachineFunction from which it is derived and must not refer to//
-// any code generator data structures.                                       //
+// This file declares the GCFunctionInfo and GCModuleInfo classes, which are
+// used as a communication channel from the target code generator to the target
+// garbage collectors. This interface allows code generators and garbage
+// collectors to be developed independently.
 //
-///////////////////////////////////////////////////////////////////////////////
+// The GCFunctionInfo class logs the data necessary to build a type accurate
+// stack map. The code generator outputs:
+//
+//   - Safe points as specified by the GCStrategy's NeededSafePoints.
+//   - Stack offsets for GC roots, as specified by calls to llvm.gcroot
+//
+// As a refinement, liveness analysis calculates the set of live roots at each
+// safe point. Liveness analysis is not presently performed by the code
+// generator, so all roots are assumed live.
+//
+// GCModuleInfo simply collects GCFunctionInfo instances for each Function as
+// they are compiled. This accretion is necessary for collectors which must emit
+// a stack map for the compilation unit as a whole. Therefore, GCFunctionInfo
+// outlives the MachineFunction from which it is derived and must not refer to
+// any code generator data structures.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_GCMETADATA_H
 #define LLVM_CODEGEN_GCMETADATA_H

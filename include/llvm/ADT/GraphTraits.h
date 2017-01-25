@@ -1,18 +1,19 @@
 //===-- llvm/ADT/GraphTraits.h - Graph traits template ----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// GraphTraits.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the little GraphTraits<X> template class that should be //
-// specialized by classes that want to be iteratable by generic graph iterators.//
 //
-// This file also defines the marker class Inverse that is used to iterate over//
-// graphs in a graph defined, inverse ordering...                            //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the little GraphTraits<X> template class that should be
+// specialized by classes that want to be iteratable by generic graph iterators.
+//
+// This file also defines the marker class Inverse that is used to iterate over
+// graphs in a graph defined, inverse ordering...
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_GRAPHTRAITS_H
 #define LLVM_ADT_GRAPHTRAITS_H

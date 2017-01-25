@@ -1,11 +1,3 @@
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CommentNodes.td                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
 
 class Comment<bit abstract = 0> {
   bit Abstract = abstract;

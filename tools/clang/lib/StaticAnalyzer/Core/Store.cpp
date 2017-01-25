@@ -1,14 +1,15 @@
 //== Store.cpp - Interface for maps from Locations to Values ----*- C++ -*--==//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Store.cpp                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  This file defined the types Store and StoreManager.                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file defined the types Store and StoreManager.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Core/PathSensitive/Store.h"
 #include "clang/AST/CXXInheritance.h"

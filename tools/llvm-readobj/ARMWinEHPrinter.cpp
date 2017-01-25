@@ -1,66 +1,11 @@
 //===-- ARMWinEHPrinter.cpp - Windows on ARM EH Data Printer ----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ARMWinEHPrinter.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// Windows on ARM uses a series of serialised data structures (RuntimeFunction)//
-// to create a table of information for unwinding.  In order to conserve space,//
-// there are two different ways that this data is represented.               //
-//                                                                           //
-// For functions with canonical forms for the prologue and epilogue, the data//
-// can be stored in a "packed" form.  In this case, the data is packed into the//
-// RuntimeFunction's remaining 30-bits and can fully describe the entire frame.//
-//                                                                           //
-//        +---------------------------------------+                          //
-//        |         Function Entry Address        |                          //
-//        +---------------------------------------+                          //
-//        |           Packed Form Data            |                          //
-//        +---------------------------------------+                          //
-//                                                                           //
-// This layout is parsed by Decoder::dumpPackedEntry.  No unwind bytecode is //
-// associated with such a frame as they can be derived from the provided data.//
-// The decoder does not synthesize this data as it is unnecessary for the    //
-// purposes of validation, with the synthesis being required only by a proper//
-// unwinder.                                                                 //
-//                                                                           //
-// For functions that are large or do not match canonical forms, the data is //
-// split up into two portions, with the actual data residing in the "exception//
-// data" table (.xdata) with a reference to the entry from the "procedure data"//
-// (.pdata) entry.                                                           //
-//                                                                           //
-// The exception data contains information about the frame setup, all of the //
-// epilouge scopes (for functions for which there are multiple exit points) and//
-// the associated exception handler.  Additionally, the entry contains byte-code//
-// describing how to unwind the function (c.f. Decoder::decodeOpcodes).      //
-//                                                                           //
-//        +---------------------------------------+                          //
-//        |         Function Entry Address        |                          //
-//        +---------------------------------------+                          //
-//        |      Exception Data Entry Address     |                          //
-//        +---------------------------------------+                          //
-//                                                                           //
-// This layout is parsed by Decoder::dumpUnpackedEntry.  Such an entry must  //
-// first resolve the exception data entry address.  This structure           //
-// (ExceptionDataRecord) has a variable sized header                         //
-// (c.f. ARM::WinEH::HeaderWords) and encodes most of the same information as//
-// the packed form.  However, because this information is insufficient to    //
-// synthesize the unwinding, there are associated unwinding bytecode which make//
-// up the bulk of the Decoder.                                               //
-//                                                                           //
-// The decoder itself is table-driven, using the first byte to determine the //
-// opcode and dispatching to the associated printing routine.  The bytecode  //
-// itself is a variable length instruction encoding that can fully describe the//
-// state of the stack and the necessary operations for unwinding to the      //
-// beginning of the frame.                                                   //
-//                                                                           //
-// The byte-code maintains a 1-1 instruction mapping, indicating both the width//
-// of the instruction (Thumb2 instructions are variable length, 16 or 32 bits//
-// wide) allowing the program to unwind from any point in the prologue, body, or//
-// epilogue of the function.                                                 //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "ARMWinEHPrinter.h"
 #include "Error.h"

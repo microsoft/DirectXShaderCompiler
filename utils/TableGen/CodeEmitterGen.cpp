@@ -1,16 +1,17 @@
 //===- CodeEmitterGen.cpp - Code Emitter Generator ------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CodeEmitterGen.cpp                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// CodeEmitterGen uses the descriptions of instructions and their fields to  //
-// construct an automated code emitter: a function that, given a MachineInstr,//
-// returns the (currently, 32-bit unsigned) value of the instruction.        //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// CodeEmitterGen uses the descriptions of instructions and their fields to
+// construct an automated code emitter: a function that, given a MachineInstr,
+// returns the (currently, 32-bit unsigned) value of the instruction.
+//
+//===----------------------------------------------------------------------===//
 
 #include "CodeGenTarget.h"
 #include "llvm/ADT/StringExtras.h"

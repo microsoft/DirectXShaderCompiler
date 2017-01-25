@@ -1,47 +1,48 @@
 //===- lib/CodeGen/MachineTraceMetrics.h - Super-scalar metrics -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineTraceMetrics.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the interface for the MachineTraceMetrics analysis pass //
-// that estimates CPU resource usage and critical data dependency paths through//
-// preferred traces. This is useful for super-scalar CPUs where execution speed//
-// can be limited both by data dependencies and by limited execution resources.//
 //
-// Out-of-order CPUs will often be executing instructions from multiple basic//
-// blocks at the same time. This makes it difficult to estimate the resource //
-// usage accurately in a single basic block. Resources can be estimated better//
-// by looking at a trace through the current basic block.                    //
+//                     The LLVM Compiler Infrastructure
 //
-// For every block, the MachineTraceMetrics pass will pick a preferred trace //
-// that passes through the block. The trace is chosen based on loop structure,//
-// branch probabilities, and resource usage. The intention is to pick likely //
-// traces that would be the most affected by code transformations.           //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-// It is expensive to compute a full arbitrary trace for every block, so to  //
-// save some computations, traces are chosen to be convergent. This means that//
-// if the traces through basic blocks A and B ever cross when moving away from//
-// A and B, they never diverge again. This applies in both directions - If the//
-// traces meet above A and B, they won't diverge when going further back.    //
+//===----------------------------------------------------------------------===//
 //
-// Traces tend to align with loops. The trace through a block in an inner loop//
-// will begin at the loop entry block and end at a back edge. If there are   //
-// nested loops, the trace may begin and end at those instead.               //
+// This file defines the interface for the MachineTraceMetrics analysis pass
+// that estimates CPU resource usage and critical data dependency paths through
+// preferred traces. This is useful for super-scalar CPUs where execution speed
+// can be limited both by data dependencies and by limited execution resources.
 //
-// For each trace, we compute the critical path length, which is the number of//
-// cycles required to execute the trace when execution is limited by data    //
-// dependencies only. We also compute the resource height, which is the number//
-// of cycles required to execute all instructions in the trace when ignoring //
-// data dependencies.                                                        //
+// Out-of-order CPUs will often be executing instructions from multiple basic
+// blocks at the same time. This makes it difficult to estimate the resource
+// usage accurately in a single basic block. Resources can be estimated better
+// by looking at a trace through the current basic block.
 //
-// Every instruction in the current block has a slack - the number of cycles //
-// execution of the instruction can be delayed without extending the critical//
-// path.                                                                     //
+// For every block, the MachineTraceMetrics pass will pick a preferred trace
+// that passes through the block. The trace is chosen based on loop structure,
+// branch probabilities, and resource usage. The intention is to pick likely
+// traces that would be the most affected by code transformations.
 //
-///////////////////////////////////////////////////////////////////////////////
+// It is expensive to compute a full arbitrary trace for every block, so to
+// save some computations, traces are chosen to be convergent. This means that
+// if the traces through basic blocks A and B ever cross when moving away from
+// A and B, they never diverge again. This applies in both directions - If the
+// traces meet above A and B, they won't diverge when going further back.
+//
+// Traces tend to align with loops. The trace through a block in an inner loop
+// will begin at the loop entry block and end at a back edge. If there are
+// nested loops, the trace may begin and end at those instead.
+//
+// For each trace, we compute the critical path length, which is the number of
+// cycles required to execute the trace when execution is limited by data
+// dependencies only. We also compute the resource height, which is the number
+// of cycles required to execute all instructions in the trace when ignoring
+// data dependencies.
+//
+// Every instruction in the current block has a slack - the number of cycles
+// execution of the instruction can be delayed without extending the critical
+// path.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINETRACEMETRICS_H
 #define LLVM_CODEGEN_MACHINETRACEMETRICS_H

@@ -1,17 +1,18 @@
 //===- LowerInvoke.cpp - Eliminate Invoke instructions --------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LowerInvoke.cpp                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This transformation is designed for use by code generators which do not yet//
-// support stack unwinding.  This pass converts 'invoke' instructions to 'call'//
-// instructions, so that any exception-handling 'landingpad' blocks become dead//
-// code (which can be removed by running the '-simplifycfg' pass afterwards).//
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This transformation is designed for use by code generators which do not yet
+// support stack unwinding.  This pass converts 'invoke' instructions to 'call'
+// instructions, so that any exception-handling 'landingpad' blocks become dead
+// code (which can be removed by running the '-simplifycfg' pass afterwards).
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SmallVector.h"

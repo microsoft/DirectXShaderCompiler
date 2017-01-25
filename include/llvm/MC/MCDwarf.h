@@ -1,15 +1,16 @@
 //===- MCDwarf.h - Machine Code Dwarf support -------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCDwarf.h                                                                 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file contains the declaration of the MCDwarfFile to support the dwarf//
-// .file directive and the .loc directive.                                   //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the declaration of the MCDwarfFile to support the dwarf
+// .file directive and the .loc directive.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCDWARF_H
 #define LLVM_MC_MCDWARF_H

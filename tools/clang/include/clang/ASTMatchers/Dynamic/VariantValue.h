@@ -1,20 +1,18 @@
 //===--- VariantValue.h - Polymorphic value type -*- C++ -*-===/
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// VariantValue.h                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Polymorphic value type.                                           //
+/// \file
+/// \brief Polymorphic value type.
 ///
-/// Supports all the types required for dynamic Matcher construction.        //
-///  Used by the registry to construct matchers in a generic way.            //
+/// Supports all the types required for dynamic Matcher construction.
+///  Used by the registry to construct matchers in a generic way.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ASTMATCHERS_DYNAMIC_VARIANTVALUE_H
 #define LLVM_CLANG_ASTMATCHERS_DYNAMIC_VARIANTVALUE_H

@@ -1,17 +1,16 @@
 //===--- ASTWriterStmt.cpp - Statement and Expression Serialization -------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTWriterStmt.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Implements serialization for Statements and Expressions.          //
+/// \file
+/// \brief Implements serialization for Statements and Expressions.
 ///
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//===----------------------------------------------------------------------===//
 
 #include "clang/Serialization/ASTWriter.h"
 #include "clang/AST/ASTContext.h"

@@ -1,15 +1,16 @@
 //===-- llvm/MC/MCCodeGenInfo.h - Target CodeGen Info -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MCCodeGenInfo.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file tracks information about the target which can affect codegen,   //
-// asm parsing, and asm printing. For example, relocation model.             //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file tracks information about the target which can affect codegen,
+// asm parsing, and asm printing. For example, relocation model.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_MC_MCCODEGENINFO_H
 #define LLVM_MC_MCCODEGENINFO_H

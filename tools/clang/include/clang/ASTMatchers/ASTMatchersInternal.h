@@ -1,35 +1,36 @@
 //===--- ASTMatchersInternal.h - Structural query framework -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// ASTMatchersInternal.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-//  Implements the base layer of the matcher framework.                      //
 //
-//  Matchers are methods that return a Matcher<T> which provides a method    //
-//  Matches(...) which is a predicate on an AST node. The Matches method's   //
-//  parameters define the context of the match, which allows matchers to recurse//
-//  or store the current node as bound to a specific string, so that it can be//
-//  retrieved later.                                                         //
+//                     The LLVM Compiler Infrastructure
 //
-//  In general, matchers have two parts:                                     //
-//  1. A function Matcher<T> MatcherName(<arguments>) which returns a Matcher<T>//
-//     based on the arguments and optionally on template type deduction based//
-//     on the arguments. Matcher<T>s form an implicit reverse hierarchy      //
-//     to clang's AST class hierarchy, meaning that you can use a Matcher<Base>//
-//     everywhere a Matcher<Derived> is required.                            //
-//  2. An implementation of a class derived from MatcherInterface<T>.        //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
-//  The matcher functions are defined in ASTMatchers.h. To make it possible  //
-//  to implement both the matcher function and the implementation of the matcher//
-//  interface in one place, ASTMatcherMacros.h defines macros that allow     //
-//  implementing a matcher in a single place.                                //
+//===----------------------------------------------------------------------===//
 //
-//  This file contains the base classes needed to construct the actual matchers.//
+//  Implements the base layer of the matcher framework.
 //
-///////////////////////////////////////////////////////////////////////////////
+//  Matchers are methods that return a Matcher<T> which provides a method
+//  Matches(...) which is a predicate on an AST node. The Matches method's
+//  parameters define the context of the match, which allows matchers to recurse
+//  or store the current node as bound to a specific string, so that it can be
+//  retrieved later.
+//
+//  In general, matchers have two parts:
+//  1. A function Matcher<T> MatcherName(<arguments>) which returns a Matcher<T>
+//     based on the arguments and optionally on template type deduction based
+//     on the arguments. Matcher<T>s form an implicit reverse hierarchy
+//     to clang's AST class hierarchy, meaning that you can use a Matcher<Base>
+//     everywhere a Matcher<Derived> is required.
+//  2. An implementation of a class derived from MatcherInterface<T>.
+//
+//  The matcher functions are defined in ASTMatchers.h. To make it possible
+//  to implement both the matcher function and the implementation of the matcher
+//  interface in one place, ASTMatcherMacros.h defines macros that allow
+//  implementing a matcher in a single place.
+//
+//  This file contains the base classes needed to construct the actual matchers.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CLANG_ASTMATCHERS_ASTMATCHERSINTERNAL_H
 #define LLVM_CLANG_ASTMATCHERS_ASTMATCHERSINTERNAL_H

@@ -1,14 +1,15 @@
 //===-- llvm/Target/TargetFrameLowering.h ---------------------------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// TargetFrameLowering.h                                                     //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Interface to describe the layout of a stack frame on the target machine.  //
 //
-///////////////////////////////////////////////////////////////////////////////
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Interface to describe the layout of a stack frame on the target machine.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TARGET_TARGETFRAMELOWERING_H
 #define LLVM_TARGET_TARGETFRAMELOWERING_H

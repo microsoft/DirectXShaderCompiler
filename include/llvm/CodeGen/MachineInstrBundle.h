@@ -1,13 +1,14 @@
 //===-- CodeGen/MachineInstBundle.h - MI bundle utilities -------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// MachineInstrBundle.h                                                      //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file provide utility functions to manipulate machine instruction     //
-// bundles.                                                                  //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file provide utility functions to manipulate machine instruction
+// bundles.
 //
 //===----------------------------------------------------------------------===//
 

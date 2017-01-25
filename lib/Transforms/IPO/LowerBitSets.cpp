@@ -1,15 +1,16 @@
 //===-- LowerBitSets.cpp - Bitset lowering pass ---------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// LowerBitSets.cpp                                                          //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This pass lowers bitset metadata and calls to the llvm.bitset.test intrinsic.//
-// See http://llvm.org/docs/LangRef.html#bitsets for more information.       //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass lowers bitset metadata and calls to the llvm.bitset.test intrinsic.
+// See http://llvm.org/docs/LangRef.html#bitsets for more information.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/LowerBitSets.h"
 #include "llvm/Transforms/IPO.h"

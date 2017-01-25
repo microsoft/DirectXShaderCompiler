@@ -1,16 +1,17 @@
 //===-- Attributes.cpp - Implement AttributesList -------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Attributes.cpp                                                            //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// \file                                                                     //
-// \brief This file implements the Attribute, AttributeImpl, AttrBuilder,    //
-// AttributeSetImpl, and AttributeSet classes.                               //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// \file
+// \brief This file implements the Attribute, AttributeImpl, AttrBuilder,
+// AttributeSetImpl, and AttributeSet classes.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Attributes.h"
 #include "AttributeImpl.h"

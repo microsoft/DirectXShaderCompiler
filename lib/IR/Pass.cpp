@@ -1,16 +1,17 @@
 //===- Pass.cpp - LLVM Pass Infrastructure Implementation -----------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// Pass.cpp                                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements the LLVM Pass infrastructure.  It is primarily       //
-// responsible with ensuring that passes are executed and batched together   //
-// optimally.                                                                //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the LLVM Pass infrastructure.  It is primarily
+// responsible with ensuring that passes are executed and batched together
+// optimally.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"

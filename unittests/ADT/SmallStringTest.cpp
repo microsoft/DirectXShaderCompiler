@@ -1,14 +1,15 @@
 //===- llvm/unittest/ADT/SmallStringTest.cpp ------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SmallStringTest.cpp                                                       //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// SmallString unit tests.                                                   //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// SmallString unit tests.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallString.h"
 #include "gtest/gtest.h"

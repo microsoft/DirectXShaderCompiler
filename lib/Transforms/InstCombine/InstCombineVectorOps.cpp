@@ -1,15 +1,16 @@
 //===- InstCombineVectorOps.cpp -------------------------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// InstCombineVectorOps.cpp                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements instcombine for ExtractElement, InsertElement and    //
-// ShuffleVector.                                                            //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements instcombine for ExtractElement, InsertElement and
+// ShuffleVector.
+//
+//===----------------------------------------------------------------------===//
 
 #include "InstCombineInternal.h"
 #include "llvm/ADT/DenseMap.h"

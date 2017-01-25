@@ -1,18 +1,19 @@
 //===---------- CostAllocator.h - PBQP Cost Allocator -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CostAllocator.h                                                           //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Defines classes conforming to the PBQP cost value manager concept.        //
 //
-// Cost value managers are memory managers for PBQP cost values (vectors and //
-// matrices). Since PBQP graphs can grow very large (E.g. hundreds of thousands//
-// of edges on the largest function in SPEC2006).                            //
+//                     The LLVM Compiler Infrastructure
 //
-///////////////////////////////////////////////////////////////////////////////
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Defines classes conforming to the PBQP cost value manager concept.
+//
+// Cost value managers are memory managers for PBQP cost values (vectors and
+// matrices). Since PBQP graphs can grow very large (E.g. hundreds of thousands
+// of edges on the largest function in SPEC2006).
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_PBQP_COSTALLOCATOR_H
 #define LLVM_CODEGEN_PBQP_COSTALLOCATOR_H

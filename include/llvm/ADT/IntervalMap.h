@@ -1,97 +1,98 @@
 //===- llvm/ADT/IntervalMap.h - A sorted interval map -----------*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// IntervalMap.h                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements a coalescing interval map for small objects.         //
 //
-// KeyT objects are mapped to ValT objects. Intervals of keys that map to the//
-// same value are represented in a compressed form.                          //
+//                     The LLVM Compiler Infrastructure
 //
-// Iterators provide ordered access to the compressed intervals rather than the//
-// individual keys, and insert and erase operations use key intervals as well.//
-//
-// Like SmallVector, IntervalMap will store the first N intervals in the map //
-// object itself without any allocations. When space is exhausted it switches to//
-// a B+-tree representation with very small overhead for small key and value //
-// objects.                                                                  //
-//
-// A Traits class specifies how keys are compared. It also allows IntervalMap to//
-// work with both closed and half-open intervals.                            //
-//
-// Keys and values are not stored next to each other in a std::pair, so we don't//
-// provide such a value_type. Dereferencing iterators only returns the mapped//
-// value. The interval bounds are accessible through the start() and stop()  //
-// iterator methods.                                                         //
-//
-// IntervalMap is optimized for small key and value objects, 4 or 8 bytes each//
-// is the optimal size. For large objects use std::map instead.              //
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
-// Synopsis:                                                                 //
+// This file implements a coalescing interval map for small objects.
 //
-// template <typename KeyT, typename ValT, unsigned N, typename Traits>      //
-// class IntervalMap {                                                       //
-// public:                                                                   //
-//   typedef KeyT key_type;                                                  //
-//   typedef ValT mapped_type;                                               //
-//   typedef RecyclingAllocator<...> Allocator;                              //
-//   class iterator;                                                         //
-//   class const_iterator;                                                   //
+// KeyT objects are mapped to ValT objects. Intervals of keys that map to the
+// same value are represented in a compressed form.
 //
-//   explicit IntervalMap(Allocator&);                                       //
-//   ~IntervalMap():                                                         //
+// Iterators provide ordered access to the compressed intervals rather than the
+// individual keys, and insert and erase operations use key intervals as well.
 //
-//   bool empty() const;                                                     //
-//   KeyT start() const;                                                     //
-//   KeyT stop() const;                                                      //
-//   ValT lookup(KeyT x, Value NotFound = Value()) const;                    //
+// Like SmallVector, IntervalMap will store the first N intervals in the map
+// object itself without any allocations. When space is exhausted it switches to
+// a B+-tree representation with very small overhead for small key and value
+// objects.
 //
-//   const_iterator begin() const;                                           //
-//   const_iterator end() const;                                             //
-//   iterator begin();                                                       //
-//   iterator end();                                                         //
-//   const_iterator find(KeyT x) const;                                      //
-//   iterator find(KeyT x);                                                  //
+// A Traits class specifies how keys are compared. It also allows IntervalMap to
+// work with both closed and half-open intervals.
 //
-//   void insert(KeyT a, KeyT b, ValT y);                                    //
-//   void clear();                                                           //
-// };                                                                        //
+// Keys and values are not stored next to each other in a std::pair, so we don't
+// provide such a value_type. Dereferencing iterators only returns the mapped
+// value. The interval bounds are accessible through the start() and stop()
+// iterator methods.
 //
-// template <typename KeyT, typename ValT, unsigned N, typename Traits>      //
-// class IntervalMap::const_iterator :                                       //
-//   public std::iterator<std::bidirectional_iterator_tag, ValT> {           //
-// public:                                                                   //
-//   bool operator==(const const_iterator &) const;                          //
-//   bool operator!=(const const_iterator &) const;                          //
-//   bool valid() const;                                                     //
+// IntervalMap is optimized for small key and value objects, 4 or 8 bytes each
+// is the optimal size. For large objects use std::map instead.
 //
-//   const KeyT &start() const;                                              //
-//   const KeyT &stop() const;                                               //
-//   const ValT &value() const;                                              //
-//   const ValT &operator*() const;                                          //
-//   const ValT *operator->() const;                                         //
+//===----------------------------------------------------------------------===//
 //
-//   const_iterator &operator++();                                           //
-//   const_iterator &operator++(int);                                        //
-//   const_iterator &operator--();                                           //
-//   const_iterator &operator--(int);                                        //
-//   void goToBegin();                                                       //
-//   void goToEnd();                                                         //
-//   void find(KeyT x);                                                      //
-//   void advanceTo(KeyT x);                                                 //
-// };                                                                        //
+// Synopsis:
 //
-// template <typename KeyT, typename ValT, unsigned N, typename Traits>      //
-// class IntervalMap::iterator : public const_iterator {                     //
-// public:                                                                   //
-//   void insert(KeyT a, KeyT b, Value y);                                   //
-//   void erase();                                                           //
-// };                                                                        //
+// template <typename KeyT, typename ValT, unsigned N, typename Traits>
+// class IntervalMap {
+// public:
+//   typedef KeyT key_type;
+//   typedef ValT mapped_type;
+//   typedef RecyclingAllocator<...> Allocator;
+//   class iterator;
+//   class const_iterator;
+//
+//   explicit IntervalMap(Allocator&);
+//   ~IntervalMap():
+//
+//   bool empty() const;
+//   KeyT start() const;
+//   KeyT stop() const;
+//   ValT lookup(KeyT x, Value NotFound = Value()) const;
+//
+//   const_iterator begin() const;
+//   const_iterator end() const;
+//   iterator begin();
+//   iterator end();
+//   const_iterator find(KeyT x) const;
+//   iterator find(KeyT x);
+//
+//   void insert(KeyT a, KeyT b, ValT y);
+//   void clear();
+// };
+//
+// template <typename KeyT, typename ValT, unsigned N, typename Traits>
+// class IntervalMap::const_iterator :
+//   public std::iterator<std::bidirectional_iterator_tag, ValT> {
+// public:
+//   bool operator==(const const_iterator &) const;
+//   bool operator!=(const const_iterator &) const;
+//   bool valid() const;
+//
+//   const KeyT &start() const;
+//   const KeyT &stop() const;
+//   const ValT &value() const;
+//   const ValT &operator*() const;
+//   const ValT *operator->() const;
+//
+//   const_iterator &operator++();
+//   const_iterator &operator++(int);
+//   const_iterator &operator--();
+//   const_iterator &operator--(int);
+//   void goToBegin();
+//   void goToEnd();
+//   void find(KeyT x);
+//   void advanceTo(KeyT x);
+// };
+//
+// template <typename KeyT, typename ValT, unsigned N, typename Traits>
+// class IntervalMap::iterator : public const_iterator {
+// public:
+//   void insert(KeyT a, KeyT b, Value y);
+//   void erase();
+// };
 //
 //===----------------------------------------------------------------------===//
 

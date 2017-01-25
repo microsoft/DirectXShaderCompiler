@@ -1,14 +1,15 @@
 //===- llvm-profdata.cpp - LLVM profile data tool -------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// llvm-profdata.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// llvm-profdata merges .profdata files.                                     //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// llvm-profdata merges .profdata files.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/LLVMContext.h"

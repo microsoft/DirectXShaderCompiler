@@ -1,15 +1,16 @@
 //===--- PPLexerChange.cpp - Handle changing lexers in the preprocessor ---===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// PPLexerChange.cpp                                                         //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file implements pieces of the Preprocessor interface that manage the //
-// current lexer stack.                                                      //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements pieces of the Preprocessor interface that manage the
+// current lexer stack.
+//
+//===----------------------------------------------------------------------===//
 
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Basic/FileManager.h"

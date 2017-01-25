@@ -1,15 +1,15 @@
 //===- llvm/IR/DebugInfoFlags.def - Debug info flag definitions -*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// DebugInfoFlags.def                                                        //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// Macros for running through debug info flags.                              //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
-// TODO: Add other DW-based macros.                                          //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Macros for running through debug info flags.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef HANDLE_DI_FLAG
 #error "Missing macro definition of HANDLE_DI_FLAG"

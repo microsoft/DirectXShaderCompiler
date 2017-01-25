@@ -1,14 +1,14 @@
 //===--- SourceManagerInternals.h - SourceManager Internals -----*- C++ -*-===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// SourceManagerInternals.h                                                  //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 ///
-/// \file                                                                    //
-/// \brief Defines implementation details of the clang::SourceManager class. //
+/// \file
+/// \brief Defines implementation details of the clang::SourceManager class.
 ///
 //===----------------------------------------------------------------------===//
 

@@ -1,20 +1,21 @@
 //===- CostModel.cpp ------ Cost Model Analysis ---------------------------===//
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// CostModel.cpp                                                             //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
-//                                                                           //
-// This file defines the cost model analysis. It provides a very basic cost  //
-// estimation for LLVM-IR. This analysis uses the services of the codegen    //
-// to approximate the cost of any IR instruction when lowered to machine     //
-// instructions. The cost results are unit-less and the cost number represents//
-// the throughput of the machine assuming that all loads hit the cache, all  //
-// branches are predicted, etc. The cost numbers can be added in order to    //
-// compare two or more transformation alternatives.                          //
-//                                                                           //
-///////////////////////////////////////////////////////////////////////////////
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the cost model analysis. It provides a very basic cost
+// estimation for LLVM-IR. This analysis uses the services of the codegen
+// to approximate the cost of any IR instruction when lowered to machine
+// instructions. The cost results are unit-less and the cost number represents
+// the throughput of the machine assuming that all loads hit the cache, all
+// branches are predicted, etc. The cost numbers can be added in order to
+// compare two or more transformation alternatives.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/Passes.h"
