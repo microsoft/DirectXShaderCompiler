@@ -548,15 +548,7 @@ void DxilMDHelper::EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, vector<GlobalV
     // Emit struct type field annotations.
     Metadata *pMD = EmitDxilStructAnnotation(*pA);
 
-    // Declare a global dummy variable.
-    string GVName = string(kDxilTypeSystemHelperVariablePrefix) + std::to_string(GVIdx);
-    GlobalVariable *pGV = new GlobalVariable(*m_pModule, pStructType, true, GlobalValue::ExternalLinkage, 
-                                             nullptr, GVName, nullptr,
-                                             GlobalVariable::NotThreadLocal, DXIL::kDeviceMemoryAddrSpace);
-    // Mark GV as being used for LLVM.
-    LLVMUsed.emplace_back(pGV);
-
-    MDVals.push_back(ValueAsMetadata::get(pGV));
+    MDVals.push_back(ValueAsMetadata::get(UndefValue::get(pStructType)));
     MDVals.push_back(pMD);
   }
 
@@ -597,11 +589,11 @@ void DxilMDHelper::LoadDxilTypeSystemNode(const llvm::MDTuple &MDT,
     IFTBOOL((MDT.getNumOperands() & 0x1) == 1, DXC_E_INCORRECT_DXIL_METADATA);
 
     for (unsigned i = 1; i < MDT.getNumOperands(); i += 2) {
-      GlobalVariable *pGV =
-          dyn_cast<GlobalVariable>(ValueMDToValue(MDT.getOperand(i)));
+      Constant *pGV =
+          dyn_cast<Constant>(ValueMDToValue(MDT.getOperand(i)));
       IFTBOOL(pGV != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
       StructType *pGVType =
-          dyn_cast<StructType>(pGV->getType()->getPointerElementType());
+          dyn_cast<StructType>(pGV->getType());
       IFTBOOL(pGVType != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
 
       DxilStructAnnotation *pSA = TypeSystem.AddStructAnnotation(pGVType);
