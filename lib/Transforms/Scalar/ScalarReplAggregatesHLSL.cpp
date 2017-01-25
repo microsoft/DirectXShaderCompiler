@@ -4069,8 +4069,11 @@ void SROA_Parameter_HLSL::flattenArgument(
                 DXASSERT(data->getType()->isPointerTy(),
                          "Append value must be pointer.");
                 IRBuilder<> Builder(CI);
-                Value *ldInst = Builder.CreateLoad(data);
-                Builder.CreateStore(ldInst, outputVal);
+
+                llvm::SmallVector<llvm::Value *, 16> idxList;
+                SplitCpy(data->getType(), outputVal, data, idxList,
+                         /*bAllowReplace*/ false, Builder);
+
                 CI->setArgOperand(HLOperandIndex::kStreamAppendDataOpIndex, outputVal);
               }
               else {
@@ -4089,9 +4092,13 @@ void SROA_Parameter_HLSL::flattenArgument(
                 DXASSERT_LOCALVAR(eltCount, eltCount == EltPtrList.size(), "invalid element count");
 
                 for (unsigned i = HLOperandIndex::kStreamAppendDataOpIndex; i < CI->getNumArgOperands(); i++) {
-                  Value *Elt = Builder.CreateLoad(CI->getArgOperand(i));
-                  Value *EltPtr = EltPtrList[i-HLOperandIndex::kStreamAppendDataOpIndex];
-                  Builder.CreateStore(Elt, EltPtr);
+                  Value *DataPtr = CI->getArgOperand(i);
+                  Value *EltPtr =
+                      EltPtrList[i - HLOperandIndex::kStreamAppendDataOpIndex];
+
+                  llvm::SmallVector<llvm::Value *, 16> idxList;
+                  SplitCpy(DataPtr->getType(), EltPtr, DataPtr, idxList,
+                           /*bAllowReplace*/ false, Builder);
                   CI->setArgOperand(i, EltPtr);
                 }
               }
@@ -4255,6 +4262,17 @@ static void LegalizeDxilInputOutputs(Function *F, DxilFunctionAnnotation *EntryA
       bNeedTemp = true;
       bLoadOutputFromTemp = true;
       bStoreInputToTemp = true;
+    } else if (bLoad && bStore) {
+      bNeedTemp = true;
+      switch (qual) {
+      case DxilParamInputQual::InputPrimitive:
+      case DxilParamInputQual::InputPatch:
+      case DxilParamInputQual::OutputPatch:
+        bStoreInputToTemp = true;
+        break;
+      default:
+        DXASSERT(0, "invalid input qual here");
+      }
     }
 
     if (HLMatrixLower::IsMatrixType(Ty)) {
