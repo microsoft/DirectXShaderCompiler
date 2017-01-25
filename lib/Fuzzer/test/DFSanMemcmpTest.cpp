@@ -1,6 +1,4 @@
 // Simple test for a fuzzer. The fuzzer must find a particular string.
-
-// Simple test for a fuzzer. The fuzzer must find a particular string.
 #include <cstring>
 #include <cstdint>
 #include <cstdio>

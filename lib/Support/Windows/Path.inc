@@ -11,6 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+//===----------------------------------------------------------------------===//
+//=== WARNING: Implementation here must contain only generic Windows code that
+//===          is guaranteed to work on *all* Windows variants.
+//===----------------------------------------------------------------------===//
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/WindowsError.h"
 #include <fcntl.h>

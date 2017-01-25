@@ -1,8 +1,5 @@
 // Test for a fuzzer: must find the case where a particular basic block is
 // executed many times.
-
-// Test for a fuzzer: must find the case where a particular basic block is
-// executed many times.
 #include <iostream>
 
 extern "C" void LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {

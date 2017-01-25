@@ -1,4 +1,3 @@
-
 class AttrSubject;
 
 class Decl<bit abstract = 0> : AttrSubject {

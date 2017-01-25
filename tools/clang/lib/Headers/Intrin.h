@@ -20,6 +20,8 @@
  *
  *===-----------------------------------------------------------------------===
  */
+
+/* Only include this if we're compiling for the windows platform. */
 #ifndef _MSC_VER
 #include_next <Intrin.h>
 #else
@@ -954,4 +956,3 @@ __writecr3(unsigned int __cr3_val) {
 
 #endif /* __INTRIN_H */
 #endif /* _MSC_VER */
-

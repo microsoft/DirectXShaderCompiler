@@ -1,4 +1,3 @@
-
 class AttrSubject;
 
 class Stmt<bit abstract = 0> : AttrSubject {

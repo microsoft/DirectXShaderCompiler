@@ -20,6 +20,7 @@
  *
  *===-----------------------------------------------------------------------===
  */
+#ifndef _WMMINTRIN_AES_H
 #define _WMMINTRIN_AES_H
 
 #include <emmintrin.h>
@@ -69,4 +70,3 @@ _mm_aesimc_si128(__m128i __V)
 #endif
 
 #endif  /* _WMMINTRIN_AES_H */
-
