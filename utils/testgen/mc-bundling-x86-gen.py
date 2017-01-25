@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-#!/usr/bin/python
-
 # Auto-generates an exhaustive and repetitive test for correct bundle-locked
 # alignment on x86.
 # For every possible offset in an aligned bundle, a bundle-locked group of every

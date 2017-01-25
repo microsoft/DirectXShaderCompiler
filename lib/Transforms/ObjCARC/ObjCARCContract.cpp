@@ -23,6 +23,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+// TODO: ObjCARCContract could insert PHI nodes when uses aren't
+// dominated by single calls.
+
 #include "ObjCARC.h"
 #include "ARCRuntimeEntryPoints.h"
 #include "DependencyAnalysis.h"

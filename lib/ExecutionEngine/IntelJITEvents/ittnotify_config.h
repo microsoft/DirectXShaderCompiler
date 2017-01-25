@@ -16,6 +16,7 @@
  * subsequent merges and contributions from the original source base eaiser.
  *
  *===----------------------------------------------------------------------===*/
+#ifndef _ITTNOTIFY_CONFIG_H_
 #define _ITTNOTIFY_CONFIG_H_
 
 /** @cond exclude_from_documentation */

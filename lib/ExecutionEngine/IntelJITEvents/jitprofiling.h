@@ -16,6 +16,7 @@
  * subsequent merges and contributions from the original source base eaiser.
  *
  *===----------------------------------------------------------------------===*/
+#ifndef __JITPROFILING_H__
 #define __JITPROFILING_H__
 
 /*

@@ -1,6 +1,4 @@
 // Simple test for a fuzzer. The fuzzer must find several narrow ranges.
-
-// Simple test for a fuzzer. The fuzzer must find several narrow ranges.
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>

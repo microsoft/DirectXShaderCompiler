@@ -1,6 +1,4 @@
 // HTML Named Character Reference
-
-// HTML Named Character Reference
 class NCR<string spelling, int codePoint> {
   string Spelling = spelling;
   int CodePoint = codePoint;

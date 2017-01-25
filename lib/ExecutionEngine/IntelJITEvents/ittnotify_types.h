@@ -13,6 +13,7 @@
  * subsequent merges and contributions from the original source base eaiser.
  *
  *===----------------------------------------------------------------------===*/
+#ifndef _ITTNOTIFY_TYPES_H_
 #define _ITTNOTIFY_TYPES_H_
 
 typedef enum ___itt_group_id

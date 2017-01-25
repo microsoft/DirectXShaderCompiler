@@ -20,6 +20,7 @@
  *
  *===-----------------------------------------------------------------------===
  */
+#ifndef _WMMINTRIN_PCLMUL_H
 #define _WMMINTRIN_PCLMUL_H
 
 #if !defined (__PCLMUL__)
@@ -31,4 +32,3 @@
 #endif
 
 #endif /* _WMMINTRIN_PCLMUL_H */
-

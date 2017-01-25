@@ -21,6 +21,9 @@
  *
  *===-----------------------------------------------------------------------===
  */
+#ifndef __IMMINTRIN_H
+#error "Never use <avx512cdintrin.h> directly; include <immintrin.h> instead."
+#endif
 
 #ifndef __AVX512CDINTRIN_H
 #define __AVX512CDINTRIN_H
@@ -126,4 +129,3 @@ _mm512_maskz_lzcnt_epi64 (__mmask8 __U, __m512i __A)
 #undef __DEFAULT_FN_ATTRS
 
 #endif
-
