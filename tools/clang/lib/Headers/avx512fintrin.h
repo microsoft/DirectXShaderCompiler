@@ -20,6 +20,9 @@
  *
  *===-----------------------------------------------------------------------===
  */
+#ifndef __IMMINTRIN_H
+#error "Never use <avx512fintrin.h> directly; include <immintrin.h> instead."
+#endif
 
 #ifndef __AVX512FINTRIN_H
 #define __AVX512FINTRIN_H
@@ -2452,4 +2455,3 @@ _mm512_mask_cmpneq_epu64_mask(__mmask8 __u, __m512i __a, __m512i __b) {
 #undef __DEFAULT_FN_ATTRS
 
 #endif // __AVX512FINTRIN_H
-

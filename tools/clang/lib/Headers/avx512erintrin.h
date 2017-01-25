@@ -20,6 +20,9 @@
  *
  *===-----------------------------------------------------------------------===
  */
+#ifndef __IMMINTRIN_H
+#error "Never use <avx512erintrin.h> directly; include <immintrin.h> instead."
+#endif
 
 #ifndef __AVX512ERINTRIN_H
 #define __AVX512ERINTRIN_H
@@ -280,4 +283,3 @@
   _mm_maskz_rcp28_round_sd((M), (A), (B), _MM_FROUND_CUR_DIRECTION)
 
 #endif // __AVX512ERINTRIN_H
-

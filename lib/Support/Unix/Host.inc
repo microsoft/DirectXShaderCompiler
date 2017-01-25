@@ -11,6 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+//===----------------------------------------------------------------------===//
+//=== WARNING: Implementation here must contain only generic UNIX code that
+//===          is guaranteed to work on *all* UNIX variants.
+//===----------------------------------------------------------------------===//
+
 #include "Unix.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Config/config.h"

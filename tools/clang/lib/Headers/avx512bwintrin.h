@@ -21,6 +21,9 @@
  *
  *===-----------------------------------------------------------------------===
  */
+#ifndef __IMMINTRIN_H
+#error "Never use <avx512bwintrin.h> directly; include <immintrin.h> instead."
+#endif
 
 #ifndef __AVX512BWINTRIN_H
 #define __AVX512BWINTRIN_H
@@ -1245,4 +1248,3 @@ _mm512_maskz_permutex2var_epi16 (__mmask32 __U, __m512i __A,
 #undef __DEFAULT_FN_ATTRS
 
 #endif
-

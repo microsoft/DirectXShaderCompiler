@@ -1,4 +1,3 @@
-
 class Comment<bit abstract = 0> {
   bit Abstract = abstract;
 }

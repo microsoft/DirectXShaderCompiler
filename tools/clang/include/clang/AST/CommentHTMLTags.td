@@ -1,4 +1,3 @@
-
 class Tag<string spelling> {
   string Spelling = spelling;
   bit EndTagOptional = 0;
