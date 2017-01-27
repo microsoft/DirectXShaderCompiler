@@ -2054,7 +2054,10 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
       for (auto U : GV->users()) {
         // Must CBufferSubscript.
         CallInst *CI = cast<CallInst>((U));
-        IRBuilder<> Builder(CI);
+        // Put createHandle to entry block.
+        auto InsertPt =
+            CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt();
+        IRBuilder<> Builder(InsertPt);
 
         CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
         if (m_HasDbgInfo) {
@@ -2068,8 +2071,17 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
         // Must CBufferSubscript.
         CallInst *CI = cast<CallInst>(U);
         IRBuilder<> Builder(CI);
+        Value *CBIndex = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
         args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
-            CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
+            CBIndex;
+        if (isa<ConstantInt>(CBIndex)) {
+          // Put createHandle to entry block for const index.
+          auto InsertPt = CI->getParent()
+                              ->getParent()
+                              ->getEntryBlock()
+                              .getFirstInsertionPt();
+          Builder.SetInsertPoint(InsertPt);
+        }
         CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
         handleMap[CI] = handle;
       }
