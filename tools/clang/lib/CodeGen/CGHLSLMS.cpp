@@ -1908,6 +1908,52 @@ static void CollectScalarTypes(std::vector<llvm::Type *> &scalarTys, llvm::Type 
   }
 }
 
+
+static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
+  if (Ty->isRecordType()) {
+    if (hlsl::IsHLSLMatType(Ty)) {
+      QualType EltTy = hlsl::GetHLSLMatElementType(Ty);
+      unsigned row = 0;
+      unsigned col = 0;
+      hlsl::GetRowsAndCols(Ty, row, col);
+      unsigned size = col*row;
+      for (unsigned i = 0; i < size; i++) {
+        CollectScalarTypes(ScalarTys, EltTy);
+      }
+    } else if (hlsl::IsHLSLVecType(Ty)) {
+      QualType EltTy = hlsl::GetHLSLVecElementType(Ty);
+      unsigned row = 0;
+      unsigned col = 0;
+      hlsl::GetRowsAndColsForAny(Ty, row, col);
+      unsigned size = col;
+      for (unsigned i = 0; i < size; i++) {
+        CollectScalarTypes(ScalarTys, EltTy);
+      }
+    } else {
+      const RecordType *RT = Ty->getAsStructureType();
+      // For CXXRecord.
+      if (!RT)
+        RT = Ty->getAs<RecordType>();
+      RecordDecl *RD = RT->getDecl();
+      for (FieldDecl *field : RD->fields())
+        CollectScalarTypes(ScalarTys, field->getType());
+    }
+  } else if (Ty->isArrayType()) {
+    const clang::ArrayType *AT = Ty->getAsArrayTypeUnsafe();
+    QualType EltTy = AT->getElementType();
+    // Set it to 5 for unsized array.
+    unsigned size = 5;
+    if (AT->isConstantArrayType()) {
+      size = cast<ConstantArrayType>(AT)->getSize().getLimitedValue();
+    }
+    for (unsigned i=0;i<size;i++) {
+      CollectScalarTypes(ScalarTys, EltTy);
+    }
+  } else {
+    ScalarTys.emplace_back(Ty);
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
                                     hlsl::DxilResourceBase::Class resClass) {
   llvm::GlobalVariable *val =
@@ -1988,11 +2034,43 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
   if (kind != hlsl::DxilResource::Kind::StructuredBuffer) {
     QualType Ty = resultTy;
     QualType EltTy = Ty;
-    if (hlsl::IsHLSLMatType(Ty))
-      EltTy = hlsl::GetHLSLMatElementType(Ty);
-
-    if (hlsl::IsHLSLVecType(Ty))
+    if (hlsl::IsHLSLVecType(Ty)) {
       EltTy = hlsl::GetHLSLVecElementType(Ty);
+    } else if (hlsl::IsHLSLMatType(Ty)) {
+      EltTy = hlsl::GetHLSLMatElementType(Ty);
+    } else if (resultTy->isAggregateType()) {
+      // Struct or array in a none-struct resource.
+      std::vector<QualType> ScalarTys;
+      CollectScalarTypes(ScalarTys, resultTy);
+      unsigned size = ScalarTys.size();
+      if (size == 0) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "object's templated type must have at least one element");
+        Diags.Report(decl->getLocation(), DiagID);
+        return 0;
+      }
+      if (size > 4) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "elements of typed buffers and textures "
+                                      "must fit in four 32-bit quantities");
+        Diags.Report(decl->getLocation(), DiagID);
+        return 0;
+      }
+
+      EltTy = ScalarTys[0];
+      for (QualType ScalarTy : ScalarTys) {
+        if (ScalarTy != EltTy) {
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "all template type components must have the same type");
+          Diags.Report(decl->getLocation(), DiagID);
+          return 0;
+        }
+      }
+    }
 
     EltTy = EltTy.getCanonicalType();
     bool bSNorm = false;
@@ -2017,51 +2095,6 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
       CompType::Kind kind = BuiltinTyToCompTy(BTy, bSNorm, bUNorm);
       hlslRes->SetCompType(kind);
     } else {
-      llvm::Type *RetType = hlslRes->GetRetType();
-      if (RetType->isAggregateType()) {
-        // Struct or array in a none-struct resource.
-        std::vector<llvm::Type *> ScalarTys;
-        CollectScalarTypes(ScalarTys, RetType);
-        if (!ScalarTys.empty()) {
-          llvm::Type *EltTy = ScalarTys[0];
-          for (llvm::Type *ScalarTy : ScalarTys) {
-            if (ScalarTy != EltTy) {
-              DiagnosticsEngine &Diags = CGM.getDiags();
-              unsigned DiagID = Diags.getCustomDiagID(
-                  DiagnosticsEngine::Error, "all template type components must have the same type");
-              Diags.Report(decl->getLocation(), DiagID);
-              return 0;
-            }
-          }
-          CompType::Kind kind = CompType::Kind::Invalid;
-          if (llvm::IntegerType *IT = dyn_cast<llvm::IntegerType>(EltTy)) {
-            switch (IT->getBitWidth()) {
-            case 1:
-              kind = CompType::Kind::I1;
-              break;
-            case 16:
-              kind = CompType::Kind::I16;
-              break;
-            case 32:
-              kind = CompType::Kind::I32;
-              break;
-            case 64:
-              kind = CompType::Kind::I64;
-              break;
-            default:
-              DXASSERT(0, "invalid integer type.");
-            }
-          } else if (EltTy->isFloatTy()) {
-            kind = CompType::Kind::F32;
-          } else if (EltTy->isHalfTy()) {
-            kind = CompType::Kind::F16;
-          } else {
-            DXASSERT_NOMSG(EltTy->isDoubleTy());
-            kind = CompType::Kind::F64;
-          }
-          hlslRes->SetCompType(kind);
-        }
-      }
       DXASSERT(!bSNorm && !bUNorm, "snorm/unorm on invalid type");
     }
   }

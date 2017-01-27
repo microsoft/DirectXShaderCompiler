@@ -484,6 +484,8 @@ public:
   TEST_METHOD(CodeGenStructCast)
   TEST_METHOD(CodeGenStructCast2)
   TEST_METHOD(CodeGenStructInBuffer)
+  TEST_METHOD(CodeGenStructInBuffer2)
+  TEST_METHOD(CodeGenStructInBuffer3)
   TEST_METHOD(CodeGenSwitchFloat)
   TEST_METHOD(CodeGenSwitch1)
   TEST_METHOD(CodeGenSwitch2)
@@ -2433,6 +2435,14 @@ TEST_F(CompilerTest, CodeGenStructCast2) {
 
 TEST_F(CompilerTest, CodeGenStructInBuffer) {
   CodeGenTest(L"..\\CodeGenHLSL\\structInBuffer.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructInBuffer2) {
+  CodeGenTest(L"..\\CodeGenHLSL\\structInBuffer2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructInBuffer3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\structInBuffer3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSwitchFloat) {

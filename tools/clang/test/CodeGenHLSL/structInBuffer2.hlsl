@@ -1,10 +1,8 @@
 // RUN: %dxc -E main  -T cs_6_0 %s
 
 struct Foo {
-    int a;
-    int b;
-    int c;
-    int d;
+    int a[2];
+    int d[2];
 };
 
 Buffer<Foo> inputs : register(t1);
@@ -17,6 +15,6 @@ void main( uint GI : SV_GroupIndex)
 {
 	sharedData = inputs[GI];
 	int rtn;
-	InterlockedAdd(sharedData.d, g_Intensities[GI], rtn);
-	g_Intensities[GI] = rtn + sharedData.d;
+	InterlockedAdd(sharedData.d[0], g_Intensities[GI], rtn);
+	g_Intensities[GI] = rtn + sharedData.d[0];
 }
