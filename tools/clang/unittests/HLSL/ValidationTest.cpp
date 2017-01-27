@@ -576,14 +576,15 @@ TEST_F(ValidationTest, EvalFail) {
 TEST_F(ValidationTest, GetDimCalcLODFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\GetDimCalcLOD.hlsl", "ps_6_0",
-      {"extractvalue %dx.types.Dimensions %2, 1",
-       "float 1.000000e+00, i1 true"
+      {"extractvalue %dx.types.Dimensions %([0-9]+), 1",
+       "float 1.000000e\\+00, i1 true"
       },
-      {"extractvalue %dx.types.Dimensions %2, 2",
+      {"extractvalue %dx.types.Dimensions %\\1, 2",
        "float undef, i1 true"
       },
       {"GetDimensions used undef dimension z on TextureCube",
-       "coord uninitialized"});
+       "coord uninitialized"},
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, HsAttributeFail) {
   RewriteAssemblyCheckMsg(
@@ -1172,17 +1173,19 @@ TEST_F(ValidationTest, InfiniteLog) {
 TEST_F(ValidationTest, InfiniteAsin) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 16, float %1)",
+      "op.unary.f32\\(i32 16, float %[0-9]+\\)",
       "op.unary.f32(i32 16, float 0x7FF0000000000000)",
-      "No indefinite arcsine");
+      "No indefinite arcsine",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, InfiniteAcos) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 15, float %1)",
+      "op.unary.f32\\(i32 15, float %[0-9]+\\)",
       "op.unary.f32(i32 15, float 0x7FF0000000000000)",
-      "No indefinite arccosine");
+      "No indefinite arccosine",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, InfiniteDdxDdy) {
@@ -1197,17 +1200,19 @@ TEST_F(ValidationTest, InfiniteDdxDdy) {
 TEST_F(ValidationTest, IDivByZero) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "sdiv i32 %6, %7",
-      "sdiv i32 %6, 0",
-      "No signed integer division by zero");
+      "sdiv i32 %([0-9]+), %[0-9]+",
+      "sdiv i32 %\\1, 0",
+      "No signed integer division by zero",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, UDivByZero) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "udiv i32 %3, %4",
-      "udiv i32 %3, 0",
-      "No unsigned integer division by zero");
+      "udiv i32 %([0-9]+), %[0-9]+",
+      "udiv i32 %\\1, 0",
+      "No unsigned integer division by zero",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, UnusedMetadata) {
@@ -1226,48 +1231,52 @@ TEST_F(ValidationTest, MemoryOutOfBound) {
 
 TEST_F(ValidationTest, AddrSpaceCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  store float %10, float* %11, align 4",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  %X = addrspacecast float* %11 to float addrspace(1)*    \n"
-                          "  store float %10, float addrspace(1)* %X, align 4",
-                          "generic address space");
+                          "%([0-9]+) = getelementptr \\[4 x float\\], \\[4 x float\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store float %([0-9]+), float\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x float], [4 x float]* %\\2, i32 0, i32 0\n"
+                          "  %X = addrspacecast float* %\\1 to float addrspace(1)*    \n"
+                          "  store float %\\3, float addrspace(1)* %X, align 4",
+                          "generic address space",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, PtrBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  store float %10, float* %11, align 4",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  %X = bitcast float* %11 to double*    \n"
-                          "  store float %10, float* %11, align 4",
-                          "Pointer type bitcast must be have same size");
+                          "%([0-9]+) = getelementptr \\[4 x float\\], \\[4 x float\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store float %([0-9]+), float\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x float], [4 x float]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast float* %\\1 to double*    \n"
+                          "  store float %\\3, float* %\\1, align 4",
+                          "Pointer type bitcast must be have same size",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, MinPrecisionBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  store float %10, float* %11, align 4",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  %X = bitcast float* %11 to [2 x half]*    \n"
-                          "  store float %10, float* %11, align 4",
-                          "Bitcast on minprecison types is not allowed");
+                          "%([0-9]+) = getelementptr \\[4 x float\\], \\[4 x float\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store float %([0-9]+), float\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x float], [4 x float]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast float* %\\1 to [2 x half]*    \n"
+                          "  store float %\\3, float* %\\1, align 4",
+                          "Bitcast on minprecison types is not allowed",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, StructBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  store float %10, float* %11, align 4",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  %X = bitcast float* %11 to %dx.types.Handle*    \n"
-                          "  store float %10, float* %11, align 4",
-                          "Bitcast on struct types is not allowed");
+                          "%([0-9]+) = getelementptr \\[4 x float\\], \\[4 x float\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store float %([0-9]+), float\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x float], [4 x float]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast float* %\\1 to %dx.types.Handle*    \n"
+                          "  store float %\\3, float* %\\1, align 4",
+                          "Bitcast on struct types is not allowed",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, MultiDimArray) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%0 = alloca [4 x float]",
-                          "%0 = alloca [4 x float]\n"
+                          "= alloca [4 x float]",
+                          "= alloca [4 x float]\n"
                           "  %md = alloca [2 x [4 x float]]",
                           "Only one dimension allowed for array type");
 }
