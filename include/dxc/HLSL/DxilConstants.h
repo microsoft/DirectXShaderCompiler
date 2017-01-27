@@ -626,6 +626,11 @@ namespace DXIL {
     // DomainLocation.
     const unsigned kDomainLocationColOpIdx = 1;
 
+    // BufferLoad.
+    const unsigned kBufferLoadHandleOpIdx = 1;
+    const unsigned kBufferLoadCoord0OpIdx = 2;
+    const unsigned kBufferLoadCoord1OpIdx = 3;
+
     // BufferStore.
     const unsigned kBufferStoreHandleOpIdx = 1;
     const unsigned kBufferStoreCoord0OpIdx = 2;
