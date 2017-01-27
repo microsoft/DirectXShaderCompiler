@@ -123,6 +123,8 @@ public:
   TEST_METHOD(MultiDimArray)
   TEST_METHOD(NoFunctionParam)
   TEST_METHOD(I8Type)
+  TEST_METHOD(EmptyStructInBuffer)
+  TEST_METHOD(BigStructInBuffer)
 
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
@@ -1287,6 +1289,14 @@ TEST_F(ValidationTest, I8Type) {
                           "  %m8 = alloca i8",
                           "I8 can only used as immediate value for intrinsic",
     /*bRegex*/true);
+}
+
+TEST_F(ValidationTest, EmptyStructInBuffer) {
+  TestCheck(L"..\\CodeGenHLSL\\EmptyStructInBuffer.hlsl");
+}
+
+TEST_F(ValidationTest, BigStructInBuffer) {
+  TestCheck(L"..\\CodeGenHLSL\\BigStructInBuffer.hlsl");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
