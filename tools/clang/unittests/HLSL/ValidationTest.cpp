@@ -1292,11 +1292,11 @@ TEST_F(ValidationTest, I8Type) {
 }
 
 TEST_F(ValidationTest, EmptyStructInBuffer) {
-  TestCheck(L"..\\CodeGenHLSL\\staticGlobals.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\EmptyStructInBuffer.hlsl");
 }
 
 TEST_F(ValidationTest, BigStructInBuffer) {
-  TestCheck(L"..\\CodeGenHLSL\\staticGlobals.hlsl");
+  TestCheck(L"..\\CodeGenHLSL\\BigStructInBuffer.hlsl");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
