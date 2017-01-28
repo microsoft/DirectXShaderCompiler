@@ -3,8 +3,8 @@
 //                                                                           //
 // BuiltinsDXIL.def                                                          //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // This file defines the PTX-specific builtin function database.  Users of   //
 // this file must define the BUILTIN macro to make use of this information.  //
