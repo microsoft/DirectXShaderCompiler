@@ -1,5 +1,5 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 """hcttest-system-values.py - Test all system values with each signature point through fxc.
 Builds csv tables for the results for each shader model from 4.0 through 5.1.
 """

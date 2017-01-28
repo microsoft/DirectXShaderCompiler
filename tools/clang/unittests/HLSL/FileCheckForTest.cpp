@@ -3,8 +3,8 @@
 //                                                                           //
 // FileCheckForTest.cpp                                                      //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // This is effectively a touched up FileCheck.cpp file suitable for running  //
 // in-memory as part of a unit test suite.                                   //
