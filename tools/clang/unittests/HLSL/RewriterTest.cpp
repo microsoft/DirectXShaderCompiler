@@ -2,8 +2,8 @@
 //                                                                           //
 // RewriterTest.cpp                                                          //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // The following HLSL tests contain static_asserts and are not useful for    //
 // the HLSL rewriter: more-operators.hlsl, object-operators.hlsl,            //

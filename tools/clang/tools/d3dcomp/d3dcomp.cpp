@@ -2,8 +2,8 @@
 //                                                                           //
 // d3dcomp.cpp                                                               //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // Provides functions to bridge from d3dcompiler_47 to dxcompiler.           //
 //                                                                           //
