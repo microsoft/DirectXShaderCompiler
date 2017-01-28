@@ -1774,76 +1774,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
 
 }
 
-static Type *GetOverloadTyForDxilOperation(CallInst *CI, DXIL::OpCode opcode) {
-  Type *Ty = CI->getType();
-  if (Ty->isVoidTy()) {
-    switch (opcode) {
-    case DXIL::OpCode::StoreOutput:
-    case DXIL::OpCode::StorePatchConstant:
-      if (CI->getNumArgOperands() < DXIL::OperandIndex::kStoreOutputValOpIdx) {
-        // Will emit error later when cannot find valid dxil function.
-        return CI->getType();
-      }
-      return CI->getArgOperand(DXIL::OperandIndex::kStoreOutputValOpIdx)->getType();
-    case DXIL::OpCode::BufferStore:
-      return CI->getArgOperand(DXIL::OperandIndex::kBufferStoreVal0OpIdx)->getType();
-    case DXIL::OpCode::TextureStore:
-      return CI->getArgOperand(DXIL::OperandIndex::kTextureStoreVal0OpIdx)->getType();
-    default:
-      return Ty;
-    }
-  } else if (Ty->isAggregateType()) {
-    switch (opcode) {
-    case DXIL::OpCode::CreateHandle:
-    case DXIL::OpCode::GetDimensions:
-    case DXIL::OpCode::Texture2DMSGetSamplePosition:
-    case DXIL::OpCode::RenderTargetGetSamplePosition:
-      return Type::getVoidTy(CI->getContext());
-    case DXIL::OpCode::CBufferLoadLegacy:
-    case DXIL::OpCode::BufferLoad:
-    case DXIL::OpCode::TextureLoad:
-    case DXIL::OpCode::Sample:
-    case DXIL::OpCode::SampleBias:
-    case DXIL::OpCode::SampleCmp:
-    case DXIL::OpCode::SampleCmpLevelZero:
-    case DXIL::OpCode::SampleGrad:
-    case DXIL::OpCode::SampleLevel:
-    case DXIL::OpCode::TextureGather:
-    case DXIL::OpCode::TextureGatherCmp:
-    {
-      StructType *ST = cast<StructType>(CI->getType());
-      return ST->getElementType(0);
-    }
-    case DXIL::OpCode::SplitDouble:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType();
-    default:
-      return Ty;
-    }
-  } else
-    switch (opcode) {
-    case DXIL::OpCode::BufferUpdateCounter:
-    case DXIL::OpCode::RenderTargetGetSampleCount:
-      return Type::getVoidTy(CI->getContext());
-    case DXIL::OpCode::CheckAccessFullyMapped:
-      return Type::getInt32Ty(CI->getContext());
-    case DXIL::OpCode::IsFinite:
-    case DXIL::OpCode::IsInf:
-    case DXIL::OpCode::IsNaN:
-    case DXIL::OpCode::IsNormal:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType();
-    case DXIL::OpCode::WaveActiveAllEqual:
-      // TODO: build this whole function from hctdb.py
-      return CI->getArgOperand(1)->getType()->getScalarType();
-    case DXIL::OpCode::Countbits:
-    case DXIL::OpCode::FirstbitLo:
-    case DXIL::OpCode::FirstbitHi:
-    case DXIL::OpCode::FirstbitSHi:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType()->getScalarType();
-    default:
-      return Ty;
-    }
-}
-
 static bool IsDxilFunction(llvm::Function *F) {
   unsigned argSize = F->getArgumentList().size();
   if (argSize < 1) {
@@ -1896,7 +1826,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
       dxilFunc = hlslOP->GetOpFunc(dxilOpcode, voidTy);
     }
     else {
-      Type *Ty = GetOverloadTyForDxilOperation(CI, dxilOpcode);
+      Type *Ty = hlslOP->GetOverloadType(dxilOpcode, CI->getCalledFunction());
       try {
         if (!hlslOP->IsOverloadLegal(dxilOpcode, Ty)) {
           ValCtx.EmitInstrError(CI, ValidationRule::InstrOload);
