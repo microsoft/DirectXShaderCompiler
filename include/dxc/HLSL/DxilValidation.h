@@ -96,6 +96,7 @@ enum class ValidationRule : unsigned {
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
   InstrStructBitCast, // Bitcast on struct types is not allowed
+  InstrTGSMRaceCond, // Race condition writing to shared memory detected, consider making this write conditional
   InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
   InstrUndefResultForGetDimension, // GetDimensions used undef dimension %0 on %1
   InstrWriteMaskForTypedUAVStore, // store on typed uav must write to all four components of the UAV
