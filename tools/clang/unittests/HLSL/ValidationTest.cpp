@@ -125,6 +125,7 @@ public:
   TEST_METHOD(I8Type)
   TEST_METHOD(EmptyStructInBuffer)
   TEST_METHOD(BigStructInBuffer)
+  TEST_METHOD(AddUint64Odd)
 
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
@@ -1297,6 +1298,10 @@ TEST_F(ValidationTest, EmptyStructInBuffer) {
 
 TEST_F(ValidationTest, BigStructInBuffer) {
   TestCheck(L"..\\CodeGenHLSL\\BigStructInBuffer.hlsl");
+}
+
+TEST_F(ValidationTest, AddUint64Odd) {
+  TestCheck(L"..\\CodeGenHLSL\\AddUint64Odd.hlsl");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
