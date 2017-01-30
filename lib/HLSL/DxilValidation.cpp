@@ -1931,8 +1931,10 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
     StringRef Name = ST->getName();
     if (Name.startswith("dx.")) {
       hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
-      if (IsDxilBuiltinStructType(ST, hlslOP))
-        return true;
+      if (IsDxilBuiltinStructType(ST, hlslOP)) {
+        ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
+        result = false;
+      }
 
       ValCtx.EmitTypeError(Ty, ValidationRule::DeclDxilNsReserved);
       result = false;

@@ -178,6 +178,7 @@ public:
   TEST_METHOD(UavBarrierFail);
   TEST_METHOD(UndefValueFail);
   TEST_METHOD(UpdateCounterFail);
+  TEST_METHOD(LocalResCopy);
 
   TEST_METHOD(WhenSmUnknownThenFail);
   TEST_METHOD(WhenSmLegacyThenFail);
@@ -840,6 +841,14 @@ TEST_F(ValidationTest, UpdateCounterFail) {
        "BufferUpdateCounter valid only on structured buffers",
        "inc of BufferUpdateCounter must be an immediate constant",
        "RWStructuredBuffers may increment or decrement their counters, but not both"});
+}
+
+TEST_F(ValidationTest, LocalResCopy) {
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\resCopy.hlsl", "cs_6_0", {"ret void"},
+      {"%H = alloca %dx.types.Handle\n"
+       "ret void"},
+      {"Dxil struct types should only used by ExtractValue"});
 }
 
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {
