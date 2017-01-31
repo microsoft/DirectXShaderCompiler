@@ -354,6 +354,54 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
   return Builder.CreateBitCast(byte4, CI->getType());
 }
 
+Value *TranslateAddUint64(CallInst *CI, IntrinsicOp IOP,
+                                 OP::OpCode opcode,
+                                 HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  Type *Ty = val->getType();
+  VectorType *VT = dyn_cast<VectorType>(Ty);
+  if (!VT) {
+    CI->getContext().emitError(
+        CI, "AddUint64 can only be applied to uint2 and uint4 operands");
+    return UndefValue::get(Ty);
+  }
+
+  unsigned size = VT->getNumElements();
+  if (size != 2 && size != 4) {
+    CI->getContext().emitError(
+        CI, "AddUint64 can only be applied to uint2 and uint4 operands");
+    return UndefValue::get(Ty);
+  }
+  Value *op0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *op1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+
+  Value *RetVal = UndefValue::get(Ty);
+
+  Function *AddC = hlslOP->GetOpFunc(DXIL::OpCode::UAddc, helper.i32Ty);
+  Value *opArg = Builder.getInt32(static_cast<unsigned>(DXIL::OpCode::UAddc));
+  for (unsigned i=0; i<size; i+=2) {
+    Value *low0 = Builder.CreateExtractElement(op0, i);
+    Value *low1 = Builder.CreateExtractElement(op1, i);
+    Value *lowWithC = Builder.CreateCall(AddC, { opArg, low0, low1});
+    Value *low = Builder.CreateExtractValue(lowWithC, 0);
+    RetVal = Builder.CreateInsertElement(RetVal, low, i);
+
+    Value *carry = Builder.CreateExtractValue(lowWithC, 1);
+    // Ext i1 to i32
+    carry = Builder.CreateZExt(carry, helper.i32Ty);
+
+    Value *hi0 = Builder.CreateExtractElement(op0, i+1);
+    Value *hi1 = Builder.CreateExtractElement(op1, i+1);
+    Value *hi = Builder.CreateAdd(hi0, hi1);
+    hi = Builder.CreateAdd(hi, carry);
+    RetVal = Builder.CreateInsertElement(RetVal, hi, i+1);
+  }
+  return RetVal;
+}
+
+
 CallInst *ValidateLoadInput(Value *V) {
   // Must be load input.
   CallInst *CI = cast<CallInst>(V);
@@ -3637,7 +3685,7 @@ Value *StreamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
 }
 
 IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] = {
-    {IntrinsicOp::IOP_AddUint64,  EmptyLower,  DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_CheckAccessFullyMapped, TrivialUnaryOperation, DXIL::OpCode::CheckAccessFullyMapped},

@@ -688,6 +688,111 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   return F;
 }
 
+llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
+  DXASSERT(F, "not work on nullptr");
+  Type *Ty = F->getReturnType();
+  FunctionType *FT = F->getFunctionType();
+/* <py::lines('OPCODE-OLOAD-TYPES')>hctdb_instrhelp.get_funcs_oload_type()</py>*/
+  switch (OpCode) {            // return     OpCode
+  // OPCODE-OLOAD-TYPES:BEGIN
+  case OpCode::IsNaN:
+  case OpCode::IsInf:
+  case OpCode::IsFinite:
+  case OpCode::IsNormal:
+  case OpCode::Countbits:
+  case OpCode::FirstbitLo:
+  case OpCode::FirstbitHi:
+  case OpCode::FirstbitSHi:
+  case OpCode::IMul:
+  case OpCode::UMul:
+  case OpCode::UDiv:
+  case OpCode::IAddc:
+  case OpCode::UAddc:
+  case OpCode::ISubc:
+  case OpCode::USubc:
+  case OpCode::WaveActiveAllEqual:
+    return FT->getParamType(1);
+  case OpCode::TempRegStore:
+    return FT->getParamType(2);
+  case OpCode::MinPrecXRegStore:
+  case OpCode::StoreOutput:
+  case OpCode::BufferStore:
+  case OpCode::StorePatchConstant:
+    return FT->getParamType(4);
+  case OpCode::TextureStore:
+    return FT->getParamType(5);
+  case OpCode::MakeDouble:
+  case OpCode::SplitDouble:
+    return Type::getDoubleTy(m_Ctx);
+  case OpCode::CheckAccessFullyMapped:
+  case OpCode::AtomicBinOp:
+  case OpCode::AtomicCompareExchange:
+  case OpCode::SampleIndex:
+  case OpCode::Coverage:
+  case OpCode::InnerCoverage:
+  case OpCode::ThreadId:
+  case OpCode::GroupId:
+  case OpCode::ThreadIdInGroup:
+  case OpCode::FlattenedThreadIdInGroup:
+  case OpCode::GSInstanceID:
+  case OpCode::OutputControlPointID:
+  case OpCode::PrimitiveID:
+    return IntegerType::get(m_Ctx, 32);
+  case OpCode::CalculateLOD:
+  case OpCode::DomainLocation:
+    return Type::getFloatTy(m_Ctx);
+  case OpCode::CreateHandle:
+  case OpCode::BufferUpdateCounter:
+  case OpCode::GetDimensions:
+  case OpCode::Texture2DMSGetSamplePosition:
+  case OpCode::RenderTargetGetSamplePosition:
+  case OpCode::RenderTargetGetSampleCount:
+  case OpCode::Barrier:
+  case OpCode::Discard:
+  case OpCode::EmitStream:
+  case OpCode::CutStream:
+  case OpCode::EmitThenCutStream:
+  case OpCode::CycleCounterLegacy:
+  case OpCode::WaveIsFirstLane:
+  case OpCode::WaveGetLaneIndex:
+  case OpCode::WaveGetLaneCount:
+  case OpCode::WaveAnyTrue:
+  case OpCode::WaveAllTrue:
+  case OpCode::WaveActiveBallot:
+  case OpCode::BitcastI16toF16:
+  case OpCode::BitcastF16toI16:
+  case OpCode::BitcastI32toF32:
+  case OpCode::BitcastF32toI32:
+  case OpCode::BitcastI64toF64:
+  case OpCode::BitcastF64toI64:
+  case OpCode::LegacyF32ToF16:
+  case OpCode::LegacyF16ToF32:
+  case OpCode::LegacyDoubleToFloat:
+  case OpCode::LegacyDoubleToSInt32:
+  case OpCode::LegacyDoubleToUInt32:
+  case OpCode::WaveAllBitCount:
+  case OpCode::WavePrefixBitCount:
+    return Type::getVoidTy(m_Ctx);
+  case OpCode::CBufferLoadLegacy:
+  case OpCode::Sample:
+  case OpCode::SampleBias:
+  case OpCode::SampleLevel:
+  case OpCode::SampleGrad:
+  case OpCode::SampleCmp:
+  case OpCode::SampleCmpLevelZero:
+  case OpCode::TextureLoad:
+  case OpCode::BufferLoad:
+  case OpCode::TextureGather:
+  case OpCode::TextureGatherCmp:
+  {
+    StructType *ST = cast<StructType>(Ty);
+    return ST->getElementType(0);
+  }
+  // OPCODE-OLOAD-TYPES:END
+  default: return Ty;
+  }
+}
+
 Type *OP::GetHandleType() const {
   return m_pHandleType;
 }

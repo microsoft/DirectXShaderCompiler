@@ -37,6 +37,7 @@ public:
   OP(llvm::LLVMContext &Ctx, llvm::Module *pModule);
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
+  llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
   llvm::Type *GetDimensionsType() const;
