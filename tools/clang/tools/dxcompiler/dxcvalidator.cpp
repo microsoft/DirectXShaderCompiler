@@ -61,6 +61,22 @@ static void PrintDiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
   reinterpret_cast<PrintDiagnosticContext *>(Context)->Handle(DI);
 }
 
+// Utility class for setting and restoring the diagnostic context so we may capture errors/warnings
+struct DiagRestore {
+  LLVMContext &Ctx;
+  void *OrigDiagContext;
+  LLVMContext::DiagnosticHandlerTy OrigHandler;
+
+  DiagRestore(llvm::LLVMContext &Ctx, void *DiagContext) : Ctx(Ctx) {
+    OrigHandler = Ctx.getDiagnosticHandler();
+    OrigDiagContext = Ctx.getDiagnosticContext();
+    Ctx.setDiagnosticHandler(PrintDiagnosticHandler, DiagContext);
+  }
+  ~DiagRestore() {
+    Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext);
+  }
+};
+
 class DxcValidator : public IDxcValidator, public IDxcVersionInfo {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -68,7 +84,7 @@ private:
   HRESULT RunValidation(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ llvm::Module *pModule,                   // Module to validate, if available.
-    _In_ llvm::Module *pDiagModule,               // Diag module to validate, if available
+    _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
     _In_ AbstractMemoryStream *pDiagStream);
 
 public:
@@ -84,7 +100,7 @@ public:
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ UINT32 Flags,                            // Validation flags.
     _In_ llvm::Module *pModule,                   // Module to validate, if available.
-    _In_ llvm::Module *pDiagModule,               // Diag module to validate, if available
+    _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
   );
 
@@ -115,7 +131,7 @@ HRESULT DxcValidator::ValidateWithOptModules(
   _In_ IDxcBlob *pShader,                       // Shader to validate.
   _In_ UINT32 Flags,                            // Validation flags.
   _In_ llvm::Module *pModule,                   // Module to validate, if available.
-  _In_ llvm::Module *pDiagModule,               // Diag module to validate, if available
+  _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
   _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
 ) {
   *ppResult = nullptr;
@@ -130,7 +146,7 @@ HRESULT DxcValidator::ValidateWithOptModules(
 
     // Run validation may throw, but that indicates an inability to validate,
     // not that the validation failed (eg out of memory).
-    validationStatus = RunValidation(pShader, pModule, pDiagModule, pDiagStream);
+    validationStatus = RunValidation(pShader, pModule, pDebugModule, pDiagStream);
 
     // Assemble the result object.
     CComPtr<IDxcBlob> pDiagBlob;
@@ -173,95 +189,29 @@ HRESULT DxcValidator::RunValidation(
   // not that the validation failed (eg out of memory). That is indicated
   // by a failing HRESULT, and possibly error messages in the diagnostics stream.
 
-  llvm::LLVMContext llvmContext;
-  std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf;
-  std::unique_ptr<llvm::Module> pLoadedModule;
-  std::unique_ptr<llvm::MemoryBuffer> pDbgBitcodeBuf;
-  std::unique_ptr<llvm::Module> pLoadedDbgModule;
   raw_stream_ostream DiagStream(pDiagStream);
+
+  if (!pModule) {
+    DXASSERT_NOMSG(pDebugModule == nullptr);
+    if (IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize())) {
+      return ValidateDxilContainer(pShader->GetBufferPointer(), pShader->GetBufferSize(), DiagStream);
+    } else {
+      return ValidateDxilBitcode((const char*)pShader->GetBufferPointer(), (uint32_t)pShader->GetBufferSize(), DiagStream);
+    }
+  }
+
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
-  if (pModule == nullptr) {
-    DXASSERT_NOMSG(pDebugModule == nullptr);
-    // Accept a bitcode buffer or a DXIL container.
-    const char *pIL = (const char*)pShader->GetBufferPointer();
-    uint32_t pILLength = pShader->GetBufferSize();
-    const char *pDbgIL = nullptr;
-    uint32_t pDbgILLength = 0;
-    if (const DxilContainerHeader *pContainer =
-      IsDxilContainerLike(pIL, pILLength)) {
-      if (!IsValidDxilContainer(pContainer, pILLength)) {
-        IFR(DXC_E_CONTAINER_INVALID);
-      }
+  DiagRestore DR(pModule->getContext(), &DiagContext);
 
-      DxilPartIterator it = std::find_if(begin(pContainer), end(pContainer),
-        DxilPartIsType(DFCC_DXIL));
-      if (it == end(pContainer)) {
-        IFR(DXC_E_CONTAINER_MISSING_DXIL);
-      }
+  IFR(hlsl::ValidateDxilModule(pModule, pDebugModule));
+  IFR(ValidateDxilContainerParts(pModule, pDebugModule,
+                    IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()),
+                    (uint32_t)pShader->GetBufferSize()));
 
-      const DxilProgramHeader *pProgramHeader =
-        reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
-      if (!IsValidDxilProgramHeader(pProgramHeader, (*it)->PartSize)) {
-        IFR(DXC_E_CONTAINER_INVALID);
-      }
-      GetDxilProgramBitcode(pProgramHeader, &pIL, &pILLength);
-
-      // Look for an optional debug version of the module. If it's there,
-      // it should be valid.
-      DxilPartIterator dbgit = std::find_if(begin(pContainer), end(pContainer),
-        DxilPartIsType(DFCC_ShaderDebugInfoDXIL));
-      if (dbgit != end(pContainer)) {
-        const DxilProgramHeader *pDbgHeader =
-          reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*dbgit));
-        if (!IsValidDxilProgramHeader(pDbgHeader, (*dbgit)->PartSize)) {
-          IFR(DXC_E_CONTAINER_INVALID);
-        }
-        GetDxilProgramBitcode(pDbgHeader, &pDbgIL, &pDbgILLength);
-      }
-    }
-
-    llvmContext.setDiagnosticHandler(PrintDiagnosticHandler, &DiagContext, true);
-    pBitcodeBuf.reset(llvm::MemoryBuffer::getMemBuffer(
-        llvm::StringRef(pIL, pILLength), "", false).release());
-    ErrorOr<std::unique_ptr<llvm::Module>> loadedModuleResult(llvm::parseBitcodeFile(
-      pBitcodeBuf->getMemBufferRef(), llvmContext));
-
-    // DXIL disallows some LLVM bitcode constructs, like unaccounted-for sub-blocks.
-    // These appear as warnings, which the validator should reject.
-    if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
-      IFR(DXC_E_IR_VERIFICATION_FAILED);
-    }
-    if (std::error_code ec = loadedModuleResult.getError()) {
-      IFR(DXC_E_IR_VERIFICATION_FAILED);
-    }
-    pLoadedModule.swap(loadedModuleResult.get());
-
-    if (pDbgIL != nullptr) {
-      pDbgBitcodeBuf.reset(llvm::MemoryBuffer::getMemBuffer(
-          llvm::StringRef(pDbgIL, pDbgILLength), "", false).release());
-      ErrorOr<std::unique_ptr<llvm::Module>> loadedDbgModuleResult(
-          llvm::parseBitcodeFile(pDbgBitcodeBuf->getMemBufferRef(), llvmContext));
-      if (std::error_code ec = loadedDbgModuleResult.getError()) {
-        IFR(DXC_E_IR_VERIFICATION_FAILED);
-      }
-      pLoadedDbgModule.swap(loadedDbgModuleResult.get());
-    }
-    pModule = pLoadedModule.get();
-    pDebugModule = pLoadedDbgModule.get();
+  if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
+    return DXC_E_IR_VERIFICATION_FAILED;
   }
-  else {
-    // Install the diagnostic handler on the
-    pModule->getContext().setDiagnosticHandler(PrintDiagnosticHandler,
-                                               &DiagContext, true);
-  }
-
-  if (std::error_code ec = hlsl::ValidateDxilModule(pModule, pDebugModule)) {
-    IFR(DXC_E_IR_VERIFICATION_FAILED);
-  }
-
-  // TODO: run validation that cross-references other parts in the
-  // DxilContainer if available.
 
   return S_OK;
 }

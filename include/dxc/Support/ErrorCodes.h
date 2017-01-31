@@ -83,3 +83,9 @@
 
 // 0x80AA0012 - Error finding part in dxil container.
 #define DXC_E_MISSING_PART                            DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0012))
+
+// 0x80AA0013 - Malformed DXIL Container.
+#define DXC_E_MALFORMED_CONTAINER                     DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0013))
+
+// 0x80AA0014 - Incorrect Root Signature for shader.
+#define DXC_E_INCORRECT_ROOT_SIGNATURE                DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0014))

@@ -22,6 +22,8 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include <unordered_set>
 
@@ -30,6 +32,21 @@ using std::string;
 using std::vector;
 using std::unique_ptr;
 
+
+namespace {
+class DxilErrorDiagnosticInfo : public DiagnosticInfo {
+private:
+  const char *m_message;
+public:
+  DxilErrorDiagnosticInfo(const char *str)
+    : DiagnosticInfo(DK_FirstPluginKind, DiagnosticSeverity::DS_Error),
+    m_message(str) { }
+
+  __override void print(DiagnosticPrinter &DP) const {
+    DP << m_message;
+  }
+};
+} // anon namespace
 
 namespace hlsl {
 
@@ -808,6 +825,27 @@ const RootSignatureHandle &DxilModule::GetRootSignature() const {
   return *m_RootSignature;
 }
 
+void DxilModule::StripRootSignatureFromMetadata() {
+  const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
+  IFTBOOL(pEntries->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+  Function *pEntryFunc;
+  string EntryName;
+  const llvm::MDOperand *pSignatures, *pResources, *pProperties;
+  m_pMDHelper->GetDxilEntryPoint(pEntries->getOperand(0), pEntryFunc, EntryName, pSignatures, pResources, pProperties);
+
+  MDTuple *pMDSignatures = pSignatures->get() ? dyn_cast<MDTuple>(pSignatures->get()) : nullptr;
+  MDTuple *pMDResources = pResources->get() ? dyn_cast<MDTuple>(pResources->get()) : nullptr;
+
+  MDTuple *pMDProperties = EmitDxilShaderProperties(/*bStripRootSignature*/true);
+  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(pEntryFunc, m_EntryName, pMDSignatures, pMDResources, pMDProperties);
+  vector<MDNode *> Entries;
+  Entries.emplace_back(pEntry);
+  NamedMDNode *pEntryPointsNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilEntryPointsMDName);
+  GetModule()->eraseNamedMetadata(pEntryPointsNamedMD);
+  m_pMDHelper->EmitDxilEntryPoints(Entries);
+}
+
 void DxilModule::ResetInputSignature(DxilSignature *pValue) {
   m_InputSignature.reset(pValue);
 }
@@ -880,7 +918,7 @@ void DxilModule::EmitDxilMetadata() {
                                                            *m_OutputSignature,
                                                            *m_PatchConstantSignature);
   MDTuple *pMDResources = EmitDxilResources();
-  MDTuple *pMDProperties = EmitDxilShaderProperties();
+  MDTuple *pMDProperties = EmitDxilShaderProperties(/*bStripRootSignature*/false);
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
@@ -1010,7 +1048,7 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   }
 }
 
-MDTuple *DxilModule::EmitDxilShaderProperties() {
+MDTuple *DxilModule::EmitDxilShaderProperties(bool bStripRootSignature) {
   vector<Metadata *> MDVals;
 
   // DXIL shader flags.
@@ -1062,7 +1100,7 @@ MDTuple *DxilModule::EmitDxilShaderProperties() {
     MDVals.emplace_back(pMDTuple);
   }
 
-  if (!m_RootSignature->IsEmpty()) {
+  if (!bStripRootSignature && !m_RootSignature->IsEmpty()) {
     MDVals.emplace_back(m_pMDHelper->Uint32ToConstMD(DxilMDHelper::kDxilRootSignatureTag));
     MDVals.emplace_back(m_pMDHelper->EmitRootSignature(*m_RootSignature.get()));
   }
@@ -1188,6 +1226,34 @@ DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {
   }
   return *m_pDebugInfoFinder;
 }
+
+hlsl::DxilModule *hlsl::DxilModule::TryGetDxilModule(llvm::Module *pModule) {
+  LLVMContext &Ctx = pModule->getContext();
+  std::string diagStr;
+  raw_string_ostream diagStream(diagStr);
+
+  hlsl::DxilModule *pDxilModule = nullptr;
+  // TODO: add detail error in DxilMDHelper.
+  try {
+    pDxilModule = &pModule->GetOrCreateDxilModule();
+  } catch (const ::hlsl::Exception &hlslException) {
+    diagStream << "load dxil metadata failed -";
+    try {
+      const char *msg = hlslException.what();
+      if (msg == nullptr || *msg == '\0')
+        diagStream << " error code " << hlslException.hr << "\n";
+      else
+        diagStream << msg;
+    } catch (...) {
+      diagStream << " unable to retrieve error message.\n";
+    }
+    Ctx.diagnose(DxilErrorDiagnosticInfo(diagStream.str().c_str()));
+  } catch (...) {
+    Ctx.diagnose(DxilErrorDiagnosticInfo("load dxil metadata failed - unknown error.\n"));
+  }
+  return pDxilModule;
+}
+
 } // namespace hlsl
 
 namespace llvm {
