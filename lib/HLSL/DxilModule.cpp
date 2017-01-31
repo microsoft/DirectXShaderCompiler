@@ -66,7 +66,7 @@ DxilModule::DxilModule(Module *pModule)
 
   m_NumThreads[0] = m_NumThreads[1] = m_NumThreads[2] = 0;
 
-#if defined(_DEBUG) || defined(DBG)
+#ifdef _DEBUG
   // Pin LLVM dump methods.
   void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
   void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;

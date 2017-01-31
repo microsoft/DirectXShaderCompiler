@@ -17,6 +17,7 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/HLSL/DxilValidation.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -25,8 +26,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include <array>
-
-#include "dxc/Support/WinIncludes.h"
 
 using namespace llvm;
 using std::string;
@@ -132,10 +131,10 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
   ShaderModelName += "_" + std::to_string(Major) + "_" + std::to_string(Minor);
   pSM = ShaderModel::GetByName(ShaderModelName.c_str());
   if (!pSM->IsValid()) {
-    char ErrorMsgTxt[40];
-    StringCchPrintfA(ErrorMsgTxt, _countof(ErrorMsgTxt),
-                     "Unknown shader model '%s'", ShaderModelName.c_str());
-    string ErrorMsg(ErrorMsgTxt);
+    string ErrorMsg = hlsl::GetValidationRuleText(hlsl::ValidationRule::SmName);
+    size_t offset = ErrorMsg.find("%0");
+    if (offset != string::npos)
+      ErrorMsg.replace(offset, 2, ShaderModelName);
     throw hlsl::Exception(DXC_E_INCORRECT_DXIL_METADATA, ErrorMsg);
   }
 }
@@ -548,7 +547,15 @@ void DxilMDHelper::EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, vector<GlobalV
     // Emit struct type field annotations.
     Metadata *pMD = EmitDxilStructAnnotation(*pA);
 
-    MDVals.push_back(ValueAsMetadata::get(UndefValue::get(pStructType)));
+    // Declare a global dummy variable.
+    string GVName = string(kDxilTypeSystemHelperVariablePrefix) + std::to_string(GVIdx);
+    GlobalVariable *pGV = new GlobalVariable(*m_pModule, pStructType, true, GlobalValue::ExternalLinkage, 
+                                             nullptr, GVName, nullptr,
+                                             GlobalVariable::NotThreadLocal, DXIL::kDeviceMemoryAddrSpace);
+    // Mark GV as being used for LLVM.
+    LLVMUsed.emplace_back(pGV);
+
+    MDVals.push_back(ValueAsMetadata::get(pGV));
     MDVals.push_back(pMD);
   }
 
@@ -589,11 +596,11 @@ void DxilMDHelper::LoadDxilTypeSystemNode(const llvm::MDTuple &MDT,
     IFTBOOL((MDT.getNumOperands() & 0x1) == 1, DXC_E_INCORRECT_DXIL_METADATA);
 
     for (unsigned i = 1; i < MDT.getNumOperands(); i += 2) {
-      Constant *pGV =
-          dyn_cast<Constant>(ValueMDToValue(MDT.getOperand(i)));
+      GlobalVariable *pGV =
+          dyn_cast<GlobalVariable>(ValueMDToValue(MDT.getOperand(i)));
       IFTBOOL(pGV != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
       StructType *pGVType =
-          dyn_cast<StructType>(pGV->getType());
+          dyn_cast<StructType>(pGV->getType()->getPointerElementType());
       IFTBOOL(pGVType != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
 
       DxilStructAnnotation *pSA = TypeSystem.AddStructAnnotation(pGVType);

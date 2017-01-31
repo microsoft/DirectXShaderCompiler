@@ -63,7 +63,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::Atan,                    "Atan",                     OCC::Unary,                    "unary",                      false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::Hcos,                    "Hcos",                     OCC::Unary,                    "unary",                      false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::Hsin,                    "Hsin",                     OCC::Unary,                    "unary",                      false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::Htan,                    "Htan",                     OCC::Unary,                    "unary",                      false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::Exp,                     "Exp",                      OCC::Unary,                    "unary",                      false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::Frc,                     "Frc",                      OCC::Unary,                    "unary",                      false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::Log,                     "Log",                      OCC::Unary,                    "unary",                      false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
@@ -149,6 +148,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::TextureGather,           "TextureGather",            OCC::TextureGather,            "textureGather",              false, false,  true, false, false, false, false,  true, false, Attribute::ReadOnly, },
   {  OC::TextureGatherCmp,        "TextureGatherCmp",         OCC::TextureGatherCmp,         "textureGatherCmp",           false, false,  true, false, false, false, false,  true, false, Attribute::ReadOnly, },
 
+  //                                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::ToDelete5,               "ToDelete5",                OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::ToDelete6,               "ToDelete6",                OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
+
   // Resources - sample                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::Texture2DMSGetSamplePosition, "Texture2DMSGetSamplePosition", OCC::Texture2DMSGetSamplePosition, "texture2DMSGetSamplePosition",   true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
   {  OC::RenderTargetGetSamplePosition, "RenderTargetGetSamplePosition", OCC::RenderTargetGetSamplePosition, "renderTargetGetSamplePosition",   true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
@@ -169,9 +172,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::EvalSnapped,             "EvalSnapped",              OCC::EvalSnapped,              "evalSnapped",                false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::EvalSampleIndex,         "EvalSampleIndex",          OCC::EvalSampleIndex,          "evalSampleIndex",            false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::EvalCentroid,            "EvalCentroid",             OCC::EvalCentroid,             "evalCentroid",               false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::SampleIndex,             "SampleIndex",              OCC::SampleIndex,              "sampleIndex",                false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
-  {  OC::Coverage,                "Coverage",                 OCC::Coverage,                 "coverage",                   false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
-  {  OC::InnerCoverage,           "InnerCoverage",            OCC::InnerCoverage,            "innerCoverage",              false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 
   // Compute shader                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::ThreadId,                "ThreadId",                 OCC::ThreadId,                 "threadId",                   false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
@@ -183,11 +183,20 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::EmitStream,              "EmitStream",               OCC::EmitStream,               "emitStream",                  true, false, false, false, false, false, false, false, false, Attribute::None,     },
   {  OC::CutStream,               "CutStream",                OCC::CutStream,                "cutStream",                   true, false, false, false, false, false, false, false, false, Attribute::None,     },
   {  OC::EmitThenCutStream,       "EmitThenCutStream",        OCC::EmitThenCutStream,        "emitThenCutStream",           true, false, false, false, false, false, false, false, false, Attribute::None,     },
-  {  OC::GSInstanceID,            "GSInstanceID",             OCC::GSInstanceID,             "gsInstanceID",               false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 
   // Double precision                                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::MakeDouble,              "MakeDouble",               OCC::MakeDouble,               "makeDouble",                 false, false, false,  true, false, false, false, false, false, Attribute::ReadNone, },
+
+  //                                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::ToDelete1,               "ToDelete1",                OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::ToDelete2,               "ToDelete2",                OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
+
+  // Double precision                                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::SplitDouble,             "SplitDouble",              OCC::SplitDouble,              "splitDouble",                false, false, false,  true, false, false, false, false, false, Attribute::ReadNone, },
+
+  //                                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::ToDelete3,               "ToDelete3",                OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::ToDelete4,               "ToDelete4",                OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
 
   // Domain and hull shader                                                                                                 void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::LoadOutputControlPoint,  "LoadOutputControlPoint",   OCC::LoadOutputControlPoint,   "loadOutputControlPoint",     false,  true,  true, false, false, false,  true,  true, false, Attribute::ReadNone, },
@@ -204,10 +213,15 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Other                                                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::CycleCounterLegacy,      "CycleCounterLegacy",       OCC::CycleCounterLegacy,       "cycleCounterLegacy",          true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
 
+  // Unary float                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::Htan,                    "Htan",                     OCC::Unary,                    "unary",                      false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
+
   // Wave                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::WaveCaptureReserved,     "WaveCaptureReserved",      OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
   {  OC::WaveIsFirstLane,         "WaveIsFirstLane",          OCC::WaveIsFirstLane,          "waveIsFirstLane",             true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
   {  OC::WaveGetLaneIndex,        "WaveGetLaneIndex",         OCC::WaveGetLaneIndex,         "waveGetLaneIndex",            true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
   {  OC::WaveGetLaneCount,        "WaveGetLaneCount",         OCC::WaveGetLaneCount,         "waveGetLaneCount",            true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
+  {  OC::WaveIsHelperLaneReserved, "WaveIsHelperLaneReserved", OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
   {  OC::WaveAnyTrue,             "WaveAnyTrue",              OCC::WaveAnyTrue,              "waveAnyTrue",                 true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
   {  OC::WaveAllTrue,             "WaveAllTrue",              OCC::WaveAllTrue,              "waveAllTrue",                 true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
   {  OC::WaveActiveAllEqual,      "WaveActiveAllEqual",       OCC::WaveActiveAllEqual,       "waveActiveAllEqual",         false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::ReadOnly, },
@@ -217,6 +231,12 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WaveActiveOp,            "WaveActiveOp",             OCC::WaveActiveOp,             "waveActiveOp",               false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::ReadOnly, },
   {  OC::WaveActiveBit,           "WaveActiveBit",            OCC::WaveActiveBit,            "waveActiveBit",              false, false, false, false, false,  true,  true,  true,  true, Attribute::ReadOnly, },
   {  OC::WavePrefixOp,            "WavePrefixOp",             OCC::WavePrefixOp,             "wavePrefixOp",               false,  true,  true,  true, false,  true,  true,  true,  true, Attribute::ReadOnly, },
+  {  OC::WaveGetOrderedIndex,     "WaveGetOrderedIndex",      OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
+
+  //                                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::GlobalOrderedCountIncReserved, "GlobalOrderedCountIncReserved", OCC::Reserved,                 "reserved",                    true, false, false, false, false, false, false, false, false, Attribute::None,     },
+
+  // Wave                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::QuadReadLaneAt,          "QuadReadLaneAt",           OCC::QuadReadLaneAt,           "quadReadLaneAt",             false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::ReadOnly, },
   {  OC::QuadOp,                  "QuadOp",                   OCC::QuadOp,                   "quadOp",                     false,  true,  true,  true, false,  true,  true,  true,  true, Attribute::ReadOnly, },
 
@@ -227,6 +247,9 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::BitcastF32toI32,         "BitcastF32toI32",          OCC::BitcastF32toI32,          "bitcastF32toI32",             true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::BitcastI64toF64,         "BitcastI64toF64",          OCC::BitcastI64toF64,          "bitcastI64toF64",             true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::BitcastF64toI64,         "BitcastF64toI64",          OCC::BitcastF64toI64,          "bitcastF64toI64",             true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
+
+  // GS                                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::GSInstanceID,            "GSInstanceID",             OCC::GSInstanceID,             "gsInstanceID",               false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 
   // Legacy floating-point                                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::LegacyF32ToF16,          "LegacyF32ToF16",           OCC::LegacyF32ToF16,           "legacyF32ToF16",              true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
@@ -240,6 +263,11 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Wave                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::WaveAllBitCount,         "WaveAllBitCount",          OCC::WaveAllOp,                "waveAllOp",                   true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
   {  OC::WavePrefixBitCount,      "WavePrefixBitCount",       OCC::WavePrefixOp,             "wavePrefixOp",                true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
+
+  // Pixel shader                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::SampleIndex,             "SampleIndex",              OCC::SampleIndex,              "sampleIndex",                false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
+  {  OC::Coverage,                "Coverage",                 OCC::Coverage,                 "coverage",                   false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
+  {  OC::InnerCoverage,           "InnerCoverage",            OCC::InnerCoverage,            "innerCoverage",              false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -351,13 +379,14 @@ bool OP::IsDxilOpWave(OpCode C) {
   unsigned op = (unsigned)C;
   /* <py::lines('OPCODE-WAVE')>hctdb_instrhelp.get_instrs_pred("op", "is_wave")</py>*/
   // OPCODE-WAVE:BEGIN
-  // Instructions: WaveIsFirstLane=112, WaveGetLaneIndex=113,
-  // WaveGetLaneCount=114, WaveAnyTrue=115, WaveAllTrue=116,
-  // WaveActiveAllEqual=117, WaveActiveBallot=118, WaveReadLaneAt=119,
-  // WaveReadLaneFirst=120, WaveActiveOp=121, WaveActiveBit=122,
-  // WavePrefixOp=123, QuadReadLaneAt=124, QuadOp=125, WaveAllBitCount=137,
-  // WavePrefixBitCount=138
-  return 112 <= op && op <= 125 || 137 <= op && op <= 138;
+  // Instructions: WaveCaptureReserved=114, WaveIsFirstLane=115,
+  // WaveGetLaneIndex=116, WaveGetLaneCount=117, WaveIsHelperLaneReserved=118,
+  // WaveAnyTrue=119, WaveAllTrue=120, WaveActiveAllEqual=121,
+  // WaveActiveBallot=122, WaveReadLaneAt=123, WaveReadLaneFirst=124,
+  // WaveActiveOp=125, WaveActiveBit=126, WavePrefixOp=127,
+  // WaveGetOrderedIndex=128, QuadReadLaneAt=130, QuadOp=131,
+  // WaveAllBitCount=144, WavePrefixBitCount=145
+  return 114 <= op && op <= 128 || 130 <= op && op <= 131 || 144 <= op && op <= 145;
   // OPCODE-WAVE:END
 }
 
@@ -365,10 +394,10 @@ bool OP::IsDxilOpGradient(OpCode C) {
   unsigned op = (unsigned)C;
   /* <py::lines('OPCODE-GRADIENT')>hctdb_instrhelp.get_instrs_pred("op", "is_gradient")</py>*/
   // OPCODE-GRADIENT:BEGIN
-  // Instructions: Sample=62, SampleBias=63, SampleCmp=66, TextureGather=75,
-  // TextureGatherCmp=76, CalculateLOD=83, DerivCoarseX=85, DerivCoarseY=86,
-  // DerivFineX=87, DerivFineY=88
-  return 62 <= op && op <= 63 || op == 66 || 75 <= op && op <= 76 || op == 83 || 85 <= op && op <= 88;
+  // Instructions: Sample=61, SampleBias=62, SampleCmp=65, TextureGather=74,
+  // TextureGatherCmp=75, CalculateLOD=84, DerivCoarseX=86, DerivCoarseY=87,
+  // DerivFineX=88, DerivFineY=89
+  return 61 <= op && op <= 62 || op == 65 || 74 <= op && op <= 75 || op == 84 || 86 <= op && op <= 89;
   // OPCODE-GRADIENT:END
 }
 
@@ -485,7 +514,6 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::Atan:                   A(pETy);     A(pI32); A(pETy); break;
   case OpCode::Hcos:                   A(pETy);     A(pI32); A(pETy); break;
   case OpCode::Hsin:                   A(pETy);     A(pI32); A(pETy); break;
-  case OpCode::Htan:                   A(pETy);     A(pI32); A(pETy); break;
   case OpCode::Exp:                    A(pETy);     A(pI32); A(pETy); break;
   case OpCode::Frc:                    A(pETy);     A(pI32); A(pETy); break;
   case OpCode::Log:                    A(pETy);     A(pI32); A(pETy); break;
@@ -571,6 +599,10 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::TextureGather:          RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); break;
   case OpCode::TextureGatherCmp:       RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); break;
 
+    // 
+  case OpCode::ToDelete5:              A(pV);       A(pI32); break;
+  case OpCode::ToDelete6:              A(pV);       A(pI32); break;
+
     // Resources - sample
   case OpCode::Texture2DMSGetSamplePosition:A(pPos);     A(pI32); A(pRes); A(pI32); break;
   case OpCode::RenderTargetGetSamplePosition:A(pPos);     A(pI32); A(pI32); break;
@@ -591,9 +623,6 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::EvalSnapped:            A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); A(pI32); break;
   case OpCode::EvalSampleIndex:        A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); break;
   case OpCode::EvalCentroid:           A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
-  case OpCode::SampleIndex:            A(pI32);     A(pI32); break;
-  case OpCode::Coverage:               A(pI32);     A(pI32); break;
-  case OpCode::InnerCoverage:          A(pI32);     A(pI32); break;
 
     // Compute shader
   case OpCode::ThreadId:               A(pI32);     A(pI32); A(pI32); break;
@@ -605,11 +634,20 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::EmitStream:             A(pV);       A(pI32); A(pI8);  break;
   case OpCode::CutStream:              A(pV);       A(pI32); A(pI8);  break;
   case OpCode::EmitThenCutStream:      A(pV);       A(pI32); A(pI8);  break;
-  case OpCode::GSInstanceID:           A(pI32);     A(pI32); break;
 
     // Double precision
   case OpCode::MakeDouble:             A(pF64);     A(pI32); A(pI32); A(pI32); break;
+
+    // 
+  case OpCode::ToDelete1:              A(pV);       A(pI32); break;
+  case OpCode::ToDelete2:              A(pV);       A(pI32); break;
+
+    // Double precision
   case OpCode::SplitDouble:            A(pSDT);     A(pI32); A(pF64); break;
+
+    // 
+  case OpCode::ToDelete3:              A(pV);       A(pI32); break;
+  case OpCode::ToDelete4:              A(pV);       A(pI32); break;
 
     // Domain and hull shader
   case OpCode::LoadOutputControlPoint: A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); break;
@@ -626,10 +664,15 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
     // Other
   case OpCode::CycleCounterLegacy:     A(p2I32);    A(pI32); break;
 
+    // Unary float
+  case OpCode::Htan:                   A(pETy);     A(pI32); A(pETy); break;
+
     // Wave
+  case OpCode::WaveCaptureReserved:    A(pV);       A(pI32); break;
   case OpCode::WaveIsFirstLane:        A(pI1);      A(pI32); break;
   case OpCode::WaveGetLaneIndex:       A(pI32);     A(pI32); break;
   case OpCode::WaveGetLaneCount:       A(pI32);     A(pI32); break;
+  case OpCode::WaveIsHelperLaneReserved:A(pV);       A(pI32); break;
   case OpCode::WaveAnyTrue:            A(pI1);      A(pI32); A(pI1);  break;
   case OpCode::WaveAllTrue:            A(pI1);      A(pI32); A(pI1);  break;
   case OpCode::WaveActiveAllEqual:     A(pI1);      A(pI32); A(pETy); break;
@@ -639,6 +682,12 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::WaveActiveOp:           A(pETy);     A(pI32); A(pETy); A(pI8);  A(pI8);  break;
   case OpCode::WaveActiveBit:          A(pETy);     A(pI32); A(pETy); A(pI8);  break;
   case OpCode::WavePrefixOp:           A(pETy);     A(pI32); A(pETy); A(pI8);  A(pI8);  break;
+  case OpCode::WaveGetOrderedIndex:    A(pV);       A(pI32); break;
+
+    // 
+  case OpCode::GlobalOrderedCountIncReserved:A(pV);       A(pI32); break;
+
+    // Wave
   case OpCode::QuadReadLaneAt:         A(pETy);     A(pI32); A(pETy); A(pI32); break;
   case OpCode::QuadOp:                 A(pETy);     A(pI32); A(pETy); A(pI8);  break;
 
@@ -649,6 +698,9 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::BitcastF32toI32:        A(pI32);     A(pI32); A(pF32); break;
   case OpCode::BitcastI64toF64:        A(pF64);     A(pI32); A(pI64); break;
   case OpCode::BitcastF64toI64:        A(pI64);     A(pI32); A(pF64); break;
+
+    // GS
+  case OpCode::GSInstanceID:           A(pI32);     A(pI32); break;
 
     // Legacy floating-point
   case OpCode::LegacyF32ToF16:         A(pI32);     A(pI32); A(pF32); break;
@@ -662,6 +714,11 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
     // Wave
   case OpCode::WaveAllBitCount:        A(pI32);     A(pI32); A(pI1);  break;
   case OpCode::WavePrefixBitCount:     A(pI32);     A(pI32); A(pI1);  break;
+
+    // Pixel shader
+  case OpCode::SampleIndex:            A(pI32);     A(pI32); break;
+  case OpCode::Coverage:               A(pI32);     A(pI32); break;
+  case OpCode::InnerCoverage:          A(pI32);     A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }

@@ -1413,7 +1413,6 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // Atan
   "(value)",  // Hcos
   "(value)",  // Hsin
-  "(value)",  // Htan
   "(value)",  // Exp
   "(value)",  // Frc
   "(value)",  // Log
@@ -1470,6 +1469,8 @@ static const char *OpCodeSignatures[] = {
   "(handle,mipLevel)",  // GetDimensions
   "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel)",  // TextureGather
   "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel,compareVale)",  // TextureGatherCmp
+  "()",  // ToDelete5
+  "()",  // ToDelete6
   "(srv,index)",  // Texture2DMSGetSamplePosition
   "(index)",  // RenderTargetGetSamplePosition
   "()",  // RenderTargetGetSampleCount
@@ -1485,9 +1486,6 @@ static const char *OpCodeSignatures[] = {
   "(inputSigId,inputRowIndex,inputColIndex,offsetX,offsetY)",  // EvalSnapped
   "(inputSigId,inputRowIndex,inputColIndex,sampleIndex)",  // EvalSampleIndex
   "(inputSigId,inputRowIndex,inputColIndex)",  // EvalCentroid
-  "()",  // SampleIndex
-  "()",  // Coverage
-  "()",  // InnerCoverage
   "(component)",  // ThreadId
   "(component)",  // GroupId
   "(component)",  // ThreadIdInGroup
@@ -1495,9 +1493,12 @@ static const char *OpCodeSignatures[] = {
   "(streamId)",  // EmitStream
   "(streamId)",  // CutStream
   "(streamId)",  // EmitThenCutStream
-  "()",  // GSInstanceID
   "(lo,hi)",  // MakeDouble
+  "()",  // ToDelete1
+  "()",  // ToDelete2
   "(value)",  // SplitDouble
+  "()",  // ToDelete3
+  "()",  // ToDelete4
   "(inputSigId,row,col,index)",  // LoadOutputControlPoint
   "(inputSigId,row,col)",  // LoadPatchConstant
   "(component)",  // DomainLocation
@@ -1505,9 +1506,12 @@ static const char *OpCodeSignatures[] = {
   "()",  // OutputControlPointID
   "()",  // PrimitiveID
   "()",  // CycleCounterLegacy
+  "(value)",  // Htan
+  "()",  // WaveCaptureReserved
   "()",  // WaveIsFirstLane
   "()",  // WaveGetLaneIndex
   "()",  // WaveGetLaneCount
+  "()",  // WaveIsHelperLaneReserved
   "(cond)",  // WaveAnyTrue
   "(cond)",  // WaveAllTrue
   "(value)",  // WaveActiveAllEqual
@@ -1517,6 +1521,8 @@ static const char *OpCodeSignatures[] = {
   "(value,op,sop)",  // WaveActiveOp
   "(value,op)",  // WaveActiveBit
   "(value,op,sop)",  // WavePrefixOp
+  "()",  // WaveGetOrderedIndex
+  "()",  // GlobalOrderedCountIncReserved
   "(value,quadLane)",  // QuadReadLaneAt
   "(value,op)",  // QuadOp
   "(value)",  // BitcastI16toF16
@@ -1525,13 +1531,17 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // BitcastF32toI32
   "(value)",  // BitcastI64toF64
   "(value)",  // BitcastF64toI64
+  "()",  // GSInstanceID
   "(value)",  // LegacyF32ToF16
   "(value)",  // LegacyF16ToF32
   "(value)",  // LegacyDoubleToFloat
   "(value)",  // LegacyDoubleToSInt32
   "(value)",  // LegacyDoubleToUInt32
   "(value)",  // WaveAllBitCount
-  "(value)"  // WavePrefixBitCount
+  "(value)",  // WavePrefixBitCount
+  "()",  // SampleIndex
+  "()",  // Coverage
+  "()"  // InnerCoverage
 };
 // OPCODE-SIGS:END
 

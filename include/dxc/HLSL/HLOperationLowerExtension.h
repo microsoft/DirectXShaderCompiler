@@ -14,19 +14,15 @@
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "llvm/ADT/StringRef.h"
 #include <string>
-#include <unordered_map>
 
 namespace llvm {
   class Value;
   class CallInst;
   class Function;
   class StringRef;
-  class Instruction;
 }
 
 namespace hlsl {
-  class OP;
-
   // Lowers HLSL extensions from HL operation to DXIL operation.
   class ExtensionLowering {
   public:
@@ -36,14 +32,11 @@ namespace hlsl {
       NoTranslation,  // Propagate the call arguments as is down to dxil.
       Replicate,      // Scalarize the vector arguments and replicate the call.
       Pack,           // Convert the vector arguments into structs.
-      Resource,       // Convert return value to resource return and explode vectors.
     };
 
-    typedef std::unordered_map<llvm::Instruction *, llvm::Value *> HandleMap;
-
     // Create the lowering using the given strategy and custom codegen helper.
-    ExtensionLowering(llvm::StringRef strategy, HLSLExtensionsCodegenHelper *helper, const HandleMap &handleMap, OP& hlslOp);
-    ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, const HandleMap &handleMap, OP& hlslOp);
+    ExtensionLowering(llvm::StringRef strategy, HLSLExtensionsCodegenHelper *helper);
+    ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper);
 
     // Translate the HL op call to a DXIL op call.
     // Returns a new value if translation was successful.
@@ -69,14 +62,11 @@ namespace hlsl {
   private:
     Strategy m_strategy;
     HLSLExtensionsCodegenHelper *m_helper;
-    const HandleMap &m_handleMap;
-    OP &m_hlslOp;
 
     llvm::Value *Unknown(llvm::CallInst *CI);
     llvm::Value *NoTranslation(llvm::CallInst *CI);
     llvm::Value *Replicate(llvm::CallInst *CI);
     llvm::Value *Pack(llvm::CallInst *CI);
-    llvm::Value *Resource(llvm::CallInst *CI);
 
     // Translate the HL call by replicating the call for each vector element.
     //

@@ -344,8 +344,8 @@ void Scalarizer::transferMetadata(Instruction *Op, const ValueVector &CV) {
       // HLSL Change Begins
       // Transfer FPMath flag.
       if (FPMathOperator *FPMath = dyn_cast<FPMathOperator>(New)) {
-        if (FPMathOperator *FPMathOp = dyn_cast<FPMathOperator>(Op))
-          New->copyFastMathFlags(FPMathOp->getFastMathFlags());
+        FPMathOperator *FPMathOp = dyn_cast<FPMathOperator>(Op);
+        New->copyFastMathFlags(FPMathOp->getFastMathFlags());
       }
       // HLSL Change Ends
     }

@@ -1,8 +1,6 @@
 ; RUN: %dxv %s | FileCheck %s
 
 ; CHECK: DXIL intrinsic overload must be valid
-; Change dx.op.loadInput.i32(i32 4 to dx.op.loadInput.i32(i32 3
-
 ;
 ; Input signature:
 ;
@@ -84,7 +82,7 @@ attributes #1 = { nounwind readnone }
 !dx.entryPoints = !{!12}
 
 !0 = !{!"clang version 3.7.0 (tags/RELEASE_370/final)"}
-!1 = !{i32 1, i32 0}
+!1 = !{i32 0, i32 4}
 !2 = !{!"ps", i32 6, i32 0}
 !3 = !{i32 1, void (<4 x i32>, <4 x i32>*)* @"\01?main@@YA?AV?$vector@H$03@@V1@@Z.flat", !4}
 !4 = !{!5, !7, !10}

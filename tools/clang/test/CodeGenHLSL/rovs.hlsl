@@ -34,21 +34,21 @@ float4 main() : SV_TARGET {
 // CHECK: rob_UAV_buf_ROV
 
   float4 result = 0;
-// CHECK: dx.op.bufferLoad.f32(i32 70,
+// CHECK: dx.op.bufferLoad.f32(i32 69,
   result += rob[0];
-// CHECK: dx.op.bufferLoad.i32(i32 70
+// CHECK: dx.op.bufferLoad.i32(i32 69
   result += rba.Load(0);
-// CHECK: dx.op.bufferLoad.f32(i32 70,
+// CHECK: dx.op.bufferLoad.f32(i32 69,
   result += rsb[0].f4;
-// CHECK: dx.op.textureLoad.f32(i32 68,
+// CHECK: dx.op.textureLoad.f32(i32 67,
   result += rt1[0];
-// CHECK: dx.op.textureLoad.f32(i32 68,
+// CHECK: dx.op.textureLoad.f32(i32 67,
   result += rt1a[uint2(0, 0)];
-// CHECK: dx.op.textureLoad.f32(i32 68,
+// CHECK: dx.op.textureLoad.f32(i32 67,
   result += rt2[uint2(0, 1)];
-// CHECK: dx.op.textureLoad.f32(i32 68,
+// CHECK: dx.op.textureLoad.f32(i32 67,
   result += rt2a[uint3(0, 0, 0)];
-// CHECK: dx.op.textureLoad.f32(i32 68,
+// CHECK: dx.op.textureLoad.f32(i32 67,
   result += rt3[uint3(1, 2, 3)];
 
   result += rt4[uint3(1, 2, 3)];

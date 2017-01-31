@@ -2607,6 +2607,7 @@ static void ReplaceBoolVectorSubscript(CallInst *CI) {
   Value *Ptr = CI->getArgOperand(0);
   Value *Idx = CI->getArgOperand(1);
   Value *IdxList[] = {ConstantInt::get(Idx->getType(), 0), Idx};
+  llvm::Type *i1Ty = llvm::Type::getInt1Ty(Idx->getContext());
 
   for (auto It = CI->user_begin(), E = CI->user_end(); It != E;) {
     Instruction *user = cast<Instruction>(*(It++));
@@ -2623,8 +2624,7 @@ static void ReplaceBoolVectorSubscript(CallInst *CI) {
       // Must be a store inst here.
       StoreInst *SI = cast<StoreInst>(user);
       Value *V = SI->getValueOperand();
-      Value *cast =
-          Builder.CreateICmpNE(V, llvm::ConstantInt::get(V->getType(), 0));
+      Value *cast = Builder.CreateTrunc(V, i1Ty);
       Builder.CreateStore(cast, GEP);
       SI->eraseFromParent();
     }
@@ -3141,9 +3141,9 @@ static void SimplifyArrayToVector(BitCastInst *BCI, std::vector<Instruction *> &
 
 static void SimplifyBoolCast(BitCastInst *BCI, llvm::Type *i1Ty, std::vector<Instruction *> &deadInsts) {
   // Transform
-  //%22 = bitcast i1* %21 to i32*
-  //%23 = load i32, i32* %22, !tbaa !3, !range !7
-  //%tobool5 = icmp ne i32 %23, 0
+  //%22 = bitcast i1* %21 to i8*
+  //%23 = load i8, i8* %22, !tbaa !3, !range !7
+  //%tobool5 = trunc i8 %23 to i1
   // To
   //%tobool5 = load i1, i1* %21, !tbaa !3, !range !7
   Value *i1Ptr = BCI->getOperand(0);
@@ -3152,21 +3152,17 @@ static void SimplifyBoolCast(BitCastInst *BCI, llvm::Type *i1Ty, std::vector<Ins
       if (!LI->hasOneUse()) {
         continue;
       }
-      if (ICmpInst *II = dyn_cast<ICmpInst>(*LI->user_begin())) {
-        if (ConstantInt *CI = dyn_cast<ConstantInt>(II->getOperand(1))) {
-          if (CI->getLimitedValue() == 0 &&
-              II->getPredicate() == CmpInst::ICMP_NE) {
-            IRBuilder<> Builder(LI);
-            Value *i1Val = Builder.CreateLoad(i1Ptr);
-            II->replaceAllUsesWith(i1Val);
-            deadInsts.emplace_back(LI);
-            deadInsts.emplace_back(II);
-          }
+      if (TruncInst *TI = dyn_cast<TruncInst>(*LI->user_begin())) {
+        if (TI->getType() == i1Ty) {
+          IRBuilder<> Builder(LI);
+          Value *i1Val = Builder.CreateLoad(i1Ptr);
+          TI->replaceAllUsesWith(i1Val);
+          deadInsts.emplace_back(LI);
+          deadInsts.emplace_back(TI);
         }
       }
     }
   }
-  deadInsts.emplace_back(BCI);
 }
 
 typedef float(__cdecl *FloatUnaryEvalFuncType)(float);
@@ -5120,8 +5116,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     BasicBlock *EntryBlock = &F->getEntryBlock();
 
     if (ParamTy->isBooleanType()) {
-      // Create i32 for bool.
-      ParamTy = CGM.getContext().IntTy;
+      // Create i8 for bool.
+      ParamTy = CGM.getContext().CharTy;
     }
     // Make sure the alloca is in entry block to stop inline create stacksave.
     IRBuilder<> Builder(EntryBlock->getFirstInsertionPt());

@@ -461,7 +461,6 @@ public:
   TEST_METHOD(CodeGenSimpleGS2)
   TEST_METHOD(CodeGenSimpleGS3)
   TEST_METHOD(CodeGenSimpleGS4)
-  TEST_METHOD(CodeGenSimpleGS5)
   TEST_METHOD(CodeGenSimpleHS1)
   TEST_METHOD(CodeGenSimpleHS2)
   TEST_METHOD(CodeGenSimpleHS3)
@@ -2339,10 +2338,6 @@ TEST_F(CompilerTest, CodeGenSimpleGS3) {
 
 TEST_F(CompilerTest, CodeGenSimpleGS4) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleGS4.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenSimpleGS5) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleGS5.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS1) {

@@ -73,7 +73,7 @@ void main( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid :
     GroupMemoryBarrierWithGroupSync();
     float2x2 f2x2 = dataC[8*8-1-tid.y%(8*8)];
   AllMemoryBarrier();
-       fA[gidx+2] = f2x2;
+       fA[gidx+2] = f2x2; 
   AllMemoryBarrierWithGroupSync();
       fA[gidx+1] = f2x2;
   DeviceMemoryBarrier();

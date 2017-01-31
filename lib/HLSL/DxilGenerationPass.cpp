@@ -154,8 +154,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     b->SetSize(C->GetSize());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-
-    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
+    else
+      b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddCBuffer(std::move(b));
   }
   for (auto && C : H.GetUAVs()) {
@@ -163,8 +163,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     InitResource(C.get(), b.get());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-
-    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
+    else
+      b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddUAV(std::move(b));
   }
   for (auto && C : H.GetSRVs()) {
@@ -172,8 +172,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     InitResource(C.get(), b.get());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-
-    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
+    else
+      b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddSRV(std::move(b));
   }
   for (auto && C : H.GetSamplers()) {
@@ -182,8 +182,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     b->SetSamplerKind(C->GetSamplerKind());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-
-    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
+    else
+      b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddSampler(std::move(b));
   }
 

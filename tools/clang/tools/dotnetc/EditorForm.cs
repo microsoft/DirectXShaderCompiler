@@ -221,8 +221,8 @@ namespace MainNs
                 "  <InputElement SemanticName='POSITION' Format='R32G32B32_FLOAT' AlignedByteOffset='0' />\r\n" +
                 "  <InputElement SemanticName='COLOR' Format='R32G32B32A32_FLOAT' AlignedByteOffset='12' />\r\n" +
                 " </InputElements>\r\n" +
-                " <Shader Name='VS' Target='vs_6_0' EntryPoint='VSMain' />\r\n" +
-                " <Shader Name='PS' Target='ps_6_0' EntryPoint='PSMain' />\r\n" +
+                " <Shader Name='VS' Target='vs_5_1' EntryPoint='VSMain' />\r\n" +
+                " <Shader Name='PS' Target='ps_5_1' EntryPoint='PSMain' />\r\n" +
                 "</ShaderOp>\r\n";
 
             this.CodeBox.Text =
@@ -670,7 +670,7 @@ namespace MainNs
                 result.SetFromText = options.Count > 0;
                 result.Mode = GetValueOrDefault(options, "mode", "hlsl");
                 result.Entry = GetValueOrDefault(options, "hlsl-entry", "main");
-                result.Target = GetValueOrDefault(options, "hlsl-target", "ps_6_0");
+                result.Target = GetValueOrDefault(options, "hlsl-target", "ps_5_1");
                 result.Arguments = GetValueOrDefault(options, "hlsl-args", "").Split(' ').Select(a => a.Trim()).ToArray();
                 return result;
             }
