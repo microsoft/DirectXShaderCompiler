@@ -183,6 +183,7 @@ class db_instrhelp_gen:
             "i32": "int32_t",
             "u32": "uint32_t"
             }
+        self.IsDxilOpFuncCallInst = "hlsl::OP::IsDxilOpFuncCallInst"
 
     def print_content(self):
         self.print_header()
@@ -238,7 +239,7 @@ class db_instrhelp_gen:
             print("  operator bool() const {")
             if i.is_dxil_op:
                 op_name = i.fully_qualified_name()
-                print("    return hlsl::OP::IsDxilOpFuncCallInst(Instr, %s);" % op_name)
+                print("    return %s(Instr, %s);" % (self.IsDxilOpFuncCallInst, op_name))
             else:
                 print("    return Instr->getOpcode() == llvm::Instruction::%s;" % i.name)
             print("  }")

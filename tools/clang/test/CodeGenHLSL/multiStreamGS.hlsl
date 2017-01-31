@@ -17,14 +17,14 @@
 
 // CHECK: OutputStreamMask=7
 
-// CHECK: emitStream(i32 97, i8 0)
-// CHECK: cutStream(i32 98, i8 0)
-// CHECK: emitStream(i32 97, i8 1)
-// CHECK: cutStream(i32 98, i8 1)
-// CHECK: emitStream(i32 97, i8 1)
-// CHECK: cutStream(i32 98, i8 1)
-// CHECK: emitStream(i32 97, i8 2)
-// CHECK: cutStream(i32 98, i8 2)
+// CHECK: emitStream(i32 99, i8 0)
+// CHECK: cutStream(i32 100, i8 0)
+// CHECK: emitStream(i32 99, i8 1)
+// CHECK: cutStream(i32 100, i8 1)
+// CHECK: emitStream(i32 99, i8 1)
+// CHECK: cutStream(i32 100, i8 1)
+// CHECK: emitStream(i32 99, i8 2)
+// CHECK: cutStream(i32 100, i8 2)
 
 struct MyStruct
 {

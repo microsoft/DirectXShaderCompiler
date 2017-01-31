@@ -1251,7 +1251,11 @@ llvm::Value *CodeGenFunction::EmitFromMemory(llvm::Value *Value, QualType Ty) {
   if (hasBooleanRepresentation(Ty)) {
     assert(Value->getType()->isIntegerTy(getContext().getTypeSize(Ty)) &&
            "wrong value rep of bool");
-    return Builder.CreateTrunc(Value, Builder.getInt1Ty(), "tobool");
+    // HLSL Change Begin.
+    // Use ne v, 0 to convert to i1 instead of trunc.
+    return Builder.CreateICmpNE(
+        Value, llvm::ConstantInt::get(Value->getType(), 0), "tobool");
+    // HLSL Change End.
   }
 
   return Value;
