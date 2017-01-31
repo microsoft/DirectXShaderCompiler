@@ -2,8 +2,8 @@
 //                                                                           //
 // HLOperationLower.cpp                                                      //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // Lower functions to lower HL operations to DXIL operations.                //
 //                                                                           //
@@ -353,6 +353,54 @@ Value *TranslateD3DColorToUByte4(CallInst *CI, IntrinsicOp IOP,
       TrivialDxilUnaryOperation(OP::OpCode::Round_z, byte4, hlslOP, Builder);
   return Builder.CreateBitCast(byte4, CI->getType());
 }
+
+Value *TranslateAddUint64(CallInst *CI, IntrinsicOp IOP,
+                                 OP::OpCode opcode,
+                                 HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  Type *Ty = val->getType();
+  VectorType *VT = dyn_cast<VectorType>(Ty);
+  if (!VT) {
+    CI->getContext().emitError(
+        CI, "AddUint64 can only be applied to uint2 and uint4 operands");
+    return UndefValue::get(Ty);
+  }
+
+  unsigned size = VT->getNumElements();
+  if (size != 2 && size != 4) {
+    CI->getContext().emitError(
+        CI, "AddUint64 can only be applied to uint2 and uint4 operands");
+    return UndefValue::get(Ty);
+  }
+  Value *op0 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *op1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+
+  Value *RetVal = UndefValue::get(Ty);
+
+  Function *AddC = hlslOP->GetOpFunc(DXIL::OpCode::UAddc, helper.i32Ty);
+  Value *opArg = Builder.getInt32(static_cast<unsigned>(DXIL::OpCode::UAddc));
+  for (unsigned i=0; i<size; i+=2) {
+    Value *low0 = Builder.CreateExtractElement(op0, i);
+    Value *low1 = Builder.CreateExtractElement(op1, i);
+    Value *lowWithC = Builder.CreateCall(AddC, { opArg, low0, low1});
+    Value *low = Builder.CreateExtractValue(lowWithC, 0);
+    RetVal = Builder.CreateInsertElement(RetVal, low, i);
+
+    Value *carry = Builder.CreateExtractValue(lowWithC, 1);
+    // Ext i1 to i32
+    carry = Builder.CreateZExt(carry, helper.i32Ty);
+
+    Value *hi0 = Builder.CreateExtractElement(op0, i+1);
+    Value *hi1 = Builder.CreateExtractElement(op1, i+1);
+    Value *hi = Builder.CreateAdd(hi0, hi1);
+    hi = Builder.CreateAdd(hi, carry);
+    RetVal = Builder.CreateInsertElement(RetVal, hi, i+1);
+  }
+  return RetVal;
+}
+
 
 CallInst *ValidateLoadInput(Value *V) {
   // Must be load input.
@@ -3041,14 +3089,14 @@ void TranslateAtomicCmpXChg(AtomicHelper &helper, IRBuilder<> &Builder,
     _Analysis_assume_(vectorNumElements <= 3);
     for (unsigned i = 0; i < vectorNumElements; i++) {
       Value *Elt = Builder.CreateExtractElement(addr, i);
-      args[DXIL::OperandIndex::kAtomicBinOpCoord0OpIdx + i] = Elt;
+      args[DXIL::OperandIndex::kAtomicCmpExchangeCoord0OpIdx + i] = Elt;
     }
   } else
-    args[DXIL::OperandIndex::kAtomicBinOpCoord0OpIdx] = addr;
+    args[DXIL::OperandIndex::kAtomicCmpExchangeCoord0OpIdx] = addr;
 
   // Set offset for structured buffer.
   if (helper.offset)
-    args[DXIL::OperandIndex::kAtomicBinOpCoord1OpIdx] = helper.offset;
+    args[DXIL::OperandIndex::kAtomicCmpExchangeCoord1OpIdx] = helper.offset;
 
   Value *origVal = Builder.CreateCall(dxilAtomic, args);
   if (helper.originalValue) {
@@ -3637,7 +3685,7 @@ Value *StreamOutputLower(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
 }
 
 IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] = {
-    {IntrinsicOp::IOP_AddUint64,  EmptyLower,  DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_AddUint64,  TranslateAddUint64,  DXIL::OpCode::UAddc},
     {IntrinsicOp::IOP_AllMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync, TrivialBarrier, DXIL::OpCode::Barrier},
     {IntrinsicOp::IOP_CheckAccessFullyMapped, TrivialUnaryOperation, DXIL::OpCode::CheckAccessFullyMapped},
@@ -5629,10 +5677,43 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
       Value *handle = pObjHelper->handleMap[ptrInst];
       DXIL::ResourceKind RK = pObjHelper->GetRK(ptrInst->getType());
       Translated = true;
-      if (RK == DxilResource::Kind::StructuredBuffer)
-        TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP, helper.legacyDataLayout);
-      else
+      Type *ObjTy = ptrInst->getType();
+      Type *RetTy = ObjTy->getStructElementType(0);
+      if (RK == DxilResource::Kind::StructuredBuffer) {
+        TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
+                                    helper.legacyDataLayout);
+      } else if (RetTy->isAggregateType() &&
+                 RK == DxilResource::Kind::TypedBuffer) {
+        TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
+                                    helper.legacyDataLayout);
+        // Clear offset for typed buf.
+        for (auto User : handle->users()) {
+          CallInst *CI = cast<CallInst>(User);
+          switch (hlslOP->GetDxilOpFuncCallInst(CI)) {
+          case DXIL::OpCode::BufferLoad: {
+            CI->setArgOperand(DXIL::OperandIndex::kBufferLoadCoord1OpIdx,
+                              UndefValue::get(helper.i32Ty));
+          } break;
+          case DXIL::OpCode::BufferStore: {
+            CI->setArgOperand(DXIL::OperandIndex::kBufferStoreCoord1OpIdx,
+                              UndefValue::get(helper.i32Ty));
+          } break;
+          case DXIL::OpCode::AtomicBinOp: {
+            CI->setArgOperand(DXIL::OperandIndex::kAtomicBinOpCoord1OpIdx,
+                              UndefValue::get(helper.i32Ty));
+          } break;
+          case DXIL::OpCode::AtomicCompareExchange: {
+            CI->setArgOperand(DXIL::OperandIndex::kAtomicCmpExchangeCoord1OpIdx,
+                              UndefValue::get(helper.i32Ty));
+          } break;
+          default:
+            DXASSERT(0, "Invalid operation on resource handle");
+            break;
+          }
+        }
+      } else {
         TranslateDefaultSubscript(CI, helper, pObjHelper, Translated);
+      }
       return;
     }
   }

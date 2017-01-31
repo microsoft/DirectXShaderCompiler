@@ -2,8 +2,8 @@
 //                                                                           //
 // ValidationTest.cpp                                                        //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,6 +123,11 @@ public:
   TEST_METHOD(MultiDimArray)
   TEST_METHOD(NoFunctionParam)
   TEST_METHOD(I8Type)
+  TEST_METHOD(EmptyStructInBuffer)
+  TEST_METHOD(BigStructInBuffer)
+  TEST_METHOD(TGSMRaceCond)
+  TEST_METHOD(TGSMRaceCond2)
+  TEST_METHOD(AddUint64Odd)
 
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
@@ -175,6 +180,7 @@ public:
   TEST_METHOD(UavBarrierFail);
   TEST_METHOD(UndefValueFail);
   TEST_METHOD(UpdateCounterFail);
+  TEST_METHOD(LocalResCopy);
 
   TEST_METHOD(WhenSmUnknownThenFail);
   TEST_METHOD(WhenSmLegacyThenFail);
@@ -840,6 +846,14 @@ TEST_F(ValidationTest, UpdateCounterFail) {
        "RWStructuredBuffers may increment or decrement their counters, but not both"});
 }
 
+TEST_F(ValidationTest, LocalResCopy) {
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\resCopy.hlsl", "cs_6_0", {"ret void"},
+      {"%H = alloca %dx.types.Handle\n"
+       "ret void"},
+      {"Dxil struct types should only used by ExtractValue"});
+}
+
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {
   TestCheck(L"val-failures.hlsl");
 }
@@ -1296,6 +1310,30 @@ TEST_F(ValidationTest, I8Type) {
                           "  %m8 = alloca i8",
                           "I8 can only used as immediate value for intrinsic",
     /*bRegex*/true);
+}
+
+TEST_F(ValidationTest, EmptyStructInBuffer) {
+  TestCheck(L"..\\CodeGenHLSL\\EmptyStructInBuffer.hlsl");
+}
+
+TEST_F(ValidationTest, BigStructInBuffer) {
+  TestCheck(L"..\\CodeGenHLSL\\BigStructInBuffer.hlsl");
+}
+
+TEST_F(ValidationTest, TGSMRaceCond) {
+  TestCheck(L"..\\CodeGenHLSL\\RaceCond.hlsl");
+}
+
+TEST_F(ValidationTest, TGSMRaceCond2) {
+    RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\structInBuffer.hlsl", "cs_6_0",
+        "ret void",
+        "store i32 0, i32 addrspace(3)* @\"\\01?sharedData@@3UFoo@@A.3\", align 4\n"
+        "ret void",
+        "Race condition writing to shared memory detected, consider making this write conditional");
+}
+
+TEST_F(ValidationTest, AddUint64Odd) {
+  TestCheck(L"..\\CodeGenHLSL\\AddUint64Odd.hlsl");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {

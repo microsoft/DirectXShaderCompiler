@@ -2,8 +2,8 @@
 //                                                                           //
 // DxilValidation.cpp                                                        //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // This file provides support for validating DXIL shaders.                   //
 //                                                                           //
@@ -25,6 +25,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
@@ -36,6 +37,7 @@
 #include <unordered_set>
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include <algorithm>
@@ -158,6 +160,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrCBufferClassForCBufferHandle: return "Expect Cbuffer for CBufferLoad handle";
     case hlsl::ValidationRule::InstrFailToResloveTGSMPointer: return "TGSM pointers must originate from an unambiguous TGSM global variable.";
     case hlsl::ValidationRule::InstrExtractValue: return "ExtractValue should only be used on dxil struct types and cmpxchg";
+    case hlsl::ValidationRule::InstrTGSMRaceCond: return "Race condition writing to shared memory detected, consider making this write conditional";
     case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed";
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
@@ -1774,76 +1777,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
 
 }
 
-static Type *GetOverloadTyForDxilOperation(CallInst *CI, DXIL::OpCode opcode) {
-  Type *Ty = CI->getType();
-  if (Ty->isVoidTy()) {
-    switch (opcode) {
-    case DXIL::OpCode::StoreOutput:
-    case DXIL::OpCode::StorePatchConstant:
-      if (CI->getNumArgOperands() < DXIL::OperandIndex::kStoreOutputValOpIdx) {
-        // Will emit error later when cannot find valid dxil function.
-        return CI->getType();
-      }
-      return CI->getArgOperand(DXIL::OperandIndex::kStoreOutputValOpIdx)->getType();
-    case DXIL::OpCode::BufferStore:
-      return CI->getArgOperand(DXIL::OperandIndex::kBufferStoreVal0OpIdx)->getType();
-    case DXIL::OpCode::TextureStore:
-      return CI->getArgOperand(DXIL::OperandIndex::kTextureStoreVal0OpIdx)->getType();
-    default:
-      return Ty;
-    }
-  } else if (Ty->isAggregateType()) {
-    switch (opcode) {
-    case DXIL::OpCode::CreateHandle:
-    case DXIL::OpCode::GetDimensions:
-    case DXIL::OpCode::Texture2DMSGetSamplePosition:
-    case DXIL::OpCode::RenderTargetGetSamplePosition:
-      return Type::getVoidTy(CI->getContext());
-    case DXIL::OpCode::CBufferLoadLegacy:
-    case DXIL::OpCode::BufferLoad:
-    case DXIL::OpCode::TextureLoad:
-    case DXIL::OpCode::Sample:
-    case DXIL::OpCode::SampleBias:
-    case DXIL::OpCode::SampleCmp:
-    case DXIL::OpCode::SampleCmpLevelZero:
-    case DXIL::OpCode::SampleGrad:
-    case DXIL::OpCode::SampleLevel:
-    case DXIL::OpCode::TextureGather:
-    case DXIL::OpCode::TextureGatherCmp:
-    {
-      StructType *ST = cast<StructType>(CI->getType());
-      return ST->getElementType(0);
-    }
-    case DXIL::OpCode::SplitDouble:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType();
-    default:
-      return Ty;
-    }
-  } else
-    switch (opcode) {
-    case DXIL::OpCode::BufferUpdateCounter:
-    case DXIL::OpCode::RenderTargetGetSampleCount:
-      return Type::getVoidTy(CI->getContext());
-    case DXIL::OpCode::CheckAccessFullyMapped:
-      return Type::getInt32Ty(CI->getContext());
-    case DXIL::OpCode::IsFinite:
-    case DXIL::OpCode::IsInf:
-    case DXIL::OpCode::IsNaN:
-    case DXIL::OpCode::IsNormal:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType();
-    case DXIL::OpCode::WaveActiveAllEqual:
-      // TODO: build this whole function from hctdb.py
-      return CI->getArgOperand(1)->getType()->getScalarType();
-    case DXIL::OpCode::Countbits:
-    case DXIL::OpCode::FirstbitLo:
-    case DXIL::OpCode::FirstbitHi:
-    case DXIL::OpCode::FirstbitSHi:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType()->getScalarType();
-    default:
-      return Ty;
-    }
-}
-
 static bool IsDxilFunction(llvm::Function *F) {
   unsigned argSize = F->getArgumentList().size();
   if (argSize < 1) {
@@ -1896,7 +1829,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
       dxilFunc = hlslOP->GetOpFunc(dxilOpcode, voidTy);
     }
     else {
-      Type *Ty = GetOverloadTyForDxilOperation(CI, dxilOpcode);
+      Type *Ty = hlslOP->GetOverloadType(dxilOpcode, CI->getCalledFunction());
       try {
         if (!hlslOP->IsOverloadLegal(dxilOpcode, Ty)) {
           ValCtx.EmitInstrError(CI, ValidationRule::InstrOload);
@@ -2001,8 +1934,10 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
     StringRef Name = ST->getName();
     if (Name.startswith("dx.")) {
       hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
-      if (IsDxilBuiltinStructType(ST, hlslOP))
-        return true;
+      if (IsDxilBuiltinStructType(ST, hlslOP)) {
+        ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
+        result = false;
+      }
 
       ValCtx.EmitTypeError(Ty, ValidationRule::DeclDxilNsReserved);
       result = false;
@@ -2619,15 +2554,57 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
   }
 }
 
+static void
+CollectFixAddressAccess(Value *V, std::vector<Instruction *> &fixAddrTGSMList) {
+  for (User *U : V->users()) {
+    if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      if (isa<ConstantExpr>(GEP) || GEP->hasAllConstantIndices()) {
+        CollectFixAddressAccess(GEP, fixAddrTGSMList);
+      }
+	} else if (isa<StoreInst>(U)) {
+	}
+  }
+}
+
+static void
+ValidateTGSMRaceCondition(std::vector<Instruction *> &fixAddrTGSMList,
+                          ValidationContext &ValCtx) {
+  std::unordered_set<Function *> fixAddrTGSMFuncSet;
+  for (Instruction *I : fixAddrTGSMList) {
+	BasicBlock *BB = I->getParent();
+	fixAddrTGSMFuncSet.insert(BB->getParent());
+  }
+
+  for (auto &F : ValCtx.DxilMod.GetModule()->functions()) {
+      continue;
+
+    PostDominatorTree PDT;
+    PDT.runOnFunction(F);
+
+    BasicBlock *Entry = &F.getEntryBlock();
+
+    for (Instruction *I : fixAddrTGSMList) {
+      BasicBlock *BB = I->getParent();
+      if (BB->getParent() == &F) {
+        if (PDT.dominates(BB, Entry)) {
+          ValCtx.EmitInstrError(I, ValidationRule::InstrTGSMRaceCond);
+        }
+      }
+    }
+  }
+}
+
 static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   DxilModule &M = ValCtx.DxilMod;
 
   unsigned TGSMSize = 0;
+  std::vector<Instruction*> fixAddrTGSMList;
   const DataLayout &DL = M.GetModule()->getDataLayout();
   for (GlobalVariable &GV : M.GetModule()->globals()) {
     ValidateGlobalVariable(GV, ValCtx);
     if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
       TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
+      CollectFixAddressAccess(&GV, fixAddrTGSMList);
     }
   }
 
@@ -2635,6 +2612,9 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     ValCtx.EmitFormatError(ValidationRule::SmMaxTGSMSize,
                            {std::to_string(TGSMSize).c_str(),
                             std::to_string(DXIL::kMaxTGSMSize).c_str()});
+  }
+  if (!fixAddrTGSMList.empty()) {
+    ValidateTGSMRaceCondition(fixAddrTGSMList, ValCtx);
   }
 }
 

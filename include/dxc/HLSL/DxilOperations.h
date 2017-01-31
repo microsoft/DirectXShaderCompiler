@@ -2,8 +2,8 @@
 //                                                                           //
 // DxilOperations.h                                                          //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // Implementation of DXIL operation tables.                                  //
 //                                                                           //
@@ -37,6 +37,7 @@ public:
   OP(llvm::LLVMContext &Ctx, llvm::Module *pModule);
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
+  llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
   llvm::Type *GetDimensionsType() const;

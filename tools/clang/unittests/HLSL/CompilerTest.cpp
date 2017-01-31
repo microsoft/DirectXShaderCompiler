@@ -2,8 +2,8 @@
 //                                                                           //
 // CompilerTest.cpp                                                          //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // Provides tests for the compiler API.                                      //
 //                                                                           //
@@ -297,6 +297,7 @@ public:
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
+  TEST_METHOD(CodeGenAddUint64)
   TEST_METHOD(CodeGenArrayArg)
   TEST_METHOD(CodeGenArrayOfStruct)
   TEST_METHOD(CodeGenAsUint)
@@ -325,6 +326,7 @@ public:
   TEST_METHOD(CodeGenCbuffer6_51)
   TEST_METHOD(CodeGenCbufferAlloc)
   TEST_METHOD(CodeGenCbufferAllocLegacy)
+  TEST_METHOD(CodeGenCbufferInLoop)
   TEST_METHOD(CodeGenClipPlanes)
   TEST_METHOD(CodeGenConstoperand1)
   TEST_METHOD(CodeGenDiscard)
@@ -430,6 +432,8 @@ public:
   TEST_METHOD(CodeGenPrecise2)
   TEST_METHOD(CodeGenPrecise3)
   TEST_METHOD(CodeGenPrecise4)
+  TEST_METHOD(CodeGenPreciseOnCall)
+  TEST_METHOD(CodeGenPreciseOnCallNot)
   TEST_METHOD(CodeGenRaw_Buf1)
   TEST_METHOD(CodeGenRcp1)
   TEST_METHOD(CodeGenReadFromOutput)
@@ -485,6 +489,9 @@ public:
   TEST_METHOD(CodeGenStruct_BufHasCounter2)
   TEST_METHOD(CodeGenStructCast)
   TEST_METHOD(CodeGenStructCast2)
+  TEST_METHOD(CodeGenStructInBuffer)
+  TEST_METHOD(CodeGenStructInBuffer2)
+  TEST_METHOD(CodeGenStructInBuffer3)
   TEST_METHOD(CodeGenSwitchFloat)
   TEST_METHOD(CodeGenSwitch1)
   TEST_METHOD(CodeGenSwitch2)
@@ -1829,6 +1836,10 @@ TEST_F(CompilerTest, CodeGenAbs2) {
   CodeGenTest(L"..\\CodeGenHLSL\\abs2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenAddUint64) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\AddUint64.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenArrayArg){
   CodeGenTest(L"..\\CodeGenHLSL\\arrayArg.hlsl");
 }
@@ -1939,6 +1950,10 @@ TEST_F(CompilerTest, CodeGenCbufferAlloc) {
 
 TEST_F(CompilerTest, CodeGenCbufferAllocLegacy) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferAlloc_legacy.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferInLoop) {
+  CodeGenTest(L"..\\CodeGenHLSL\\cbufferInLoop.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenClipPlanes) {
@@ -2344,6 +2359,14 @@ TEST_F(CompilerTest, CodeGenPrecise4) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\precise4.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenPreciseOnCall) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\precise_call.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenPreciseOnCallNot) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\precise_call_not.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenRaw_Buf1) {
   CodeGenTest(L"..\\CodeGenHLSL\\raw_buf1.hlsl");
 }
@@ -2562,6 +2585,18 @@ TEST_F(CompilerTest, CodeGenStructCast) {
 
 TEST_F(CompilerTest, CodeGenStructCast2) {
   CodeGenTest(L"..\\CodeGenHLSL\\StructCast2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructInBuffer) {
+  CodeGenTest(L"..\\CodeGenHLSL\\structInBuffer.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructInBuffer2) {
+  CodeGenTest(L"..\\CodeGenHLSL\\structInBuffer2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructInBuffer3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\structInBuffer3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSwitchFloat) {

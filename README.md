@@ -87,9 +87,9 @@ You can find documentation for this project in the `docs` directory. These conta
 
 ## License
 
-DirectX Shader Compiler is distributed under the terms of the MIT license.
+DirectX Shader Compiler is distributed under the terms of the University of Illinois Open Source License.
 
-See LICENSE-MIT and COPYRIGHT for details.
+See LICENSE.txt and ThirdPartyNotices.txt for details.
 
 ## Code of Conduct
 

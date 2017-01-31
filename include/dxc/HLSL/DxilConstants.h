@@ -2,8 +2,8 @@
 //                                                                           //
 // DxilConstants.h                                                           //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // Essential DXIL constants.                                                 //
 //                                                                           //
@@ -625,6 +625,11 @@ namespace DXIL {
 
     // DomainLocation.
     const unsigned kDomainLocationColOpIdx = 1;
+
+    // BufferLoad.
+    const unsigned kBufferLoadHandleOpIdx = 1;
+    const unsigned kBufferLoadCoord0OpIdx = 2;
+    const unsigned kBufferLoadCoord1OpIdx = 3;
 
     // BufferStore.
     const unsigned kBufferStoreHandleOpIdx = 1;

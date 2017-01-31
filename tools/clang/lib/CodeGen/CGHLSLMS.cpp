@@ -3,8 +3,8 @@
 //                                                                           //
 // CGHLSLMS.cpp                                                              //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 //  This provides a class for HLSL code generation.                          //
 //                                                                           //
@@ -1888,6 +1888,72 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   return m_pHLModule->AddSampler(std::move(hlslRes));
 }
 
+static void CollectScalarTypes(std::vector<llvm::Type *> &scalarTys, llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    for (llvm::Type *EltTy : ST->elements()) {
+      CollectScalarTypes(scalarTys, EltTy);
+    }
+  } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
+    llvm::Type *EltTy = AT->getElementType();
+    for (unsigned i=0;i<AT->getNumElements();i++) {
+      CollectScalarTypes(scalarTys, EltTy);
+    }
+  } else if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
+    llvm::Type *EltTy = VT->getElementType();
+    for (unsigned i=0;i<VT->getNumElements();i++) {
+      CollectScalarTypes(scalarTys, EltTy);
+    }
+  } else {
+    scalarTys.emplace_back(Ty);
+  }
+}
+
+
+static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
+  if (Ty->isRecordType()) {
+    if (hlsl::IsHLSLMatType(Ty)) {
+      QualType EltTy = hlsl::GetHLSLMatElementType(Ty);
+      unsigned row = 0;
+      unsigned col = 0;
+      hlsl::GetRowsAndCols(Ty, row, col);
+      unsigned size = col*row;
+      for (unsigned i = 0; i < size; i++) {
+        CollectScalarTypes(ScalarTys, EltTy);
+      }
+    } else if (hlsl::IsHLSLVecType(Ty)) {
+      QualType EltTy = hlsl::GetHLSLVecElementType(Ty);
+      unsigned row = 0;
+      unsigned col = 0;
+      hlsl::GetRowsAndColsForAny(Ty, row, col);
+      unsigned size = col;
+      for (unsigned i = 0; i < size; i++) {
+        CollectScalarTypes(ScalarTys, EltTy);
+      }
+    } else {
+      const RecordType *RT = Ty->getAsStructureType();
+      // For CXXRecord.
+      if (!RT)
+        RT = Ty->getAs<RecordType>();
+      RecordDecl *RD = RT->getDecl();
+      for (FieldDecl *field : RD->fields())
+        CollectScalarTypes(ScalarTys, field->getType());
+    }
+  } else if (Ty->isArrayType()) {
+    const clang::ArrayType *AT = Ty->getAsArrayTypeUnsafe();
+    QualType EltTy = AT->getElementType();
+    // Set it to 5 for unsized array.
+    unsigned size = 5;
+    if (AT->isConstantArrayType()) {
+      size = cast<ConstantArrayType>(AT)->getSize().getLimitedValue();
+    }
+    for (unsigned i=0;i<size;i++) {
+      CollectScalarTypes(ScalarTys, EltTy);
+    }
+  } else {
+    ScalarTys.emplace_back(Ty);
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
                                     hlsl::DxilResourceBase::Class resClass) {
   llvm::GlobalVariable *val =
@@ -1968,11 +2034,43 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
   if (kind != hlsl::DxilResource::Kind::StructuredBuffer) {
     QualType Ty = resultTy;
     QualType EltTy = Ty;
-    if (hlsl::IsHLSLMatType(Ty))
-      EltTy = hlsl::GetHLSLMatElementType(Ty);
-
-    if (hlsl::IsHLSLVecType(Ty))
+    if (hlsl::IsHLSLVecType(Ty)) {
       EltTy = hlsl::GetHLSLVecElementType(Ty);
+    } else if (hlsl::IsHLSLMatType(Ty)) {
+      EltTy = hlsl::GetHLSLMatElementType(Ty);
+    } else if (resultTy->isAggregateType()) {
+      // Struct or array in a none-struct resource.
+      std::vector<QualType> ScalarTys;
+      CollectScalarTypes(ScalarTys, resultTy);
+      unsigned size = ScalarTys.size();
+      if (size == 0) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "object's templated type must have at least one element");
+        Diags.Report(decl->getLocation(), DiagID);
+        return 0;
+      }
+      if (size > 4) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "elements of typed buffers and textures "
+                                      "must fit in four 32-bit quantities");
+        Diags.Report(decl->getLocation(), DiagID);
+        return 0;
+      }
+
+      EltTy = ScalarTys[0];
+      for (QualType ScalarTy : ScalarTys) {
+        if (ScalarTy != EltTy) {
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "all template type components must have the same type");
+          Diags.Report(decl->getLocation(), DiagID);
+          return 0;
+        }
+      }
+    }
 
     EltTy = EltTy.getCanonicalType();
     bool bSNorm = false;
@@ -1996,8 +2094,9 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
       const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
       CompType::Kind kind = BuiltinTyToCompTy(BTy, bSNorm, bUNorm);
       hlslRes->SetCompType(kind);
-    } else
+    } else {
       DXASSERT(!bSNorm && !bUNorm, "snorm/unorm on invalid type");
+    }
   }
   // TODO: set resource
   // hlslRes.SetGloballyCoherent();
