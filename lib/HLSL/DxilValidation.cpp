@@ -2561,8 +2561,9 @@ CollectFixAddressAccess(Value *V, std::vector<Instruction *> &fixAddrTGSMList) {
       if (isa<ConstantExpr>(GEP) || GEP->hasAllConstantIndices()) {
         CollectFixAddressAccess(GEP, fixAddrTGSMList);
       }
-	} else if (isa<StoreInst>(U)) {
-	}
+    } else if (isa<StoreInst>(U)) {
+      fixAddrTGSMList.emplace_back(cast<Instruction>(U));
+    }
   }
 }
 
@@ -2576,6 +2577,7 @@ ValidateTGSMRaceCondition(std::vector<Instruction *> &fixAddrTGSMList,
   }
 
   for (auto &F : ValCtx.DxilMod.GetModule()->functions()) {
+    if (F.isDeclaration() || !fixAddrTGSMFuncSet.count(&F))
       continue;
 
     PostDominatorTree PDT;
