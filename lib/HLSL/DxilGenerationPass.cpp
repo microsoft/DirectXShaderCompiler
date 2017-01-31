@@ -2724,6 +2724,9 @@ static void PropagatePreciseAttributeOnOperand(Value *V, DxilTypeSystem &typeSys
 
   // Clear fast math.
   I->copyFastMathFlags(FastMathFlags());
+  // Fast math not work on call, use metadata.
+  if (CallInst *CI = dyn_cast<CallInst>(I))
+    HLModule::MarkPreciseAttributeWithMetadata(CI);
   PropagatePreciseAttribute(I, typeSys);
 }
 
