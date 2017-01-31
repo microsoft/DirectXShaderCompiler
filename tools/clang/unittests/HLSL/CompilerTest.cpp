@@ -423,6 +423,7 @@ public:
   TEST_METHOD(CodeGenOutput4)
   TEST_METHOD(CodeGenOutput5)
   TEST_METHOD(CodeGenOutput6)
+  TEST_METHOD(CodeGenOutputArray)
   TEST_METHOD(CodeGenPassthrough1)
   TEST_METHOD(CodeGenPassthrough2)
   TEST_METHOD(CodeGenPrecise1)
@@ -2194,6 +2195,10 @@ TEST_F(CompilerTest, CodeGenOutput5) {
 
 TEST_F(CompilerTest, CodeGenOutput6) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\output6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenOutputArray) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\outputArray.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenPassthrough1) {
