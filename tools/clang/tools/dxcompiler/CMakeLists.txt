@@ -1,4 +1,4 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
+﻿# Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
 find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 
@@ -47,6 +47,8 @@ set(SOURCES
   DXCompiler.cpp
   DXCompiler.rc
   DXCompiler.def
+  dxillib.cpp
+  dxcontainerbuilder.cpp
   )
 
 set(LIBRARIES
