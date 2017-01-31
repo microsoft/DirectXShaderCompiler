@@ -1443,6 +1443,14 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Point;
       dxilInputQ = DxilParamInputQual::InputPrimitive;
       primitiveCount++;
+    } else if (parmDecl->hasAttr<HLSLLineAdjAttr>()) {
+      funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::LineWithAdjacency;
+      dxilInputQ = DxilParamInputQual::InputPrimitive;
+      primitiveCount++;
+    } else if (parmDecl->hasAttr<HLSLLineAttr>()) {
+      funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Line;
+      dxilInputQ = DxilParamInputQual::InputPrimitive;
+      primitiveCount++;
     }
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
