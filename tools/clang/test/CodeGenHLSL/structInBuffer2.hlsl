@@ -13,6 +13,7 @@ groupshared Foo sharedData;
 [ numthreads( 64, 2, 2 ) ]
 void main( uint GI : SV_GroupIndex)
 {
+  if (GI==0)
 	sharedData = inputs[GI];
 	int rtn;
 	InterlockedAdd(sharedData.d[0], g_Intensities[GI], rtn);

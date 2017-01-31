@@ -25,6 +25,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
@@ -36,6 +37,7 @@
 #include <unordered_set>
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include <algorithm>
@@ -158,6 +160,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrCBufferClassForCBufferHandle: return "Expect Cbuffer for CBufferLoad handle";
     case hlsl::ValidationRule::InstrFailToResloveTGSMPointer: return "TGSM pointers must originate from an unambiguous TGSM global variable.";
     case hlsl::ValidationRule::InstrExtractValue: return "ExtractValue should only be used on dxil struct types and cmpxchg";
+    case hlsl::ValidationRule::InstrTGSMRaceCond: return "Race condition writing to shared memory detected, consider making this write conditional";
     case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed";
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
@@ -2551,15 +2554,57 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
   }
 }
 
+static void
+CollectFixAddressAccess(Value *V, std::vector<Instruction *> &fixAddrTGSMList) {
+  for (User *U : V->users()) {
+    if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      if (isa<ConstantExpr>(GEP) || GEP->hasAllConstantIndices()) {
+        CollectFixAddressAccess(GEP, fixAddrTGSMList);
+      }
+	} else if (isa<StoreInst>(U)) {
+	}
+  }
+}
+
+static void
+ValidateTGSMRaceCondition(std::vector<Instruction *> &fixAddrTGSMList,
+                          ValidationContext &ValCtx) {
+  std::unordered_set<Function *> fixAddrTGSMFuncSet;
+  for (Instruction *I : fixAddrTGSMList) {
+	BasicBlock *BB = I->getParent();
+	fixAddrTGSMFuncSet.insert(BB->getParent());
+  }
+
+  for (auto &F : ValCtx.DxilMod.GetModule()->functions()) {
+      continue;
+
+    PostDominatorTree PDT;
+    PDT.runOnFunction(F);
+
+    BasicBlock *Entry = &F.getEntryBlock();
+
+    for (Instruction *I : fixAddrTGSMList) {
+      BasicBlock *BB = I->getParent();
+      if (BB->getParent() == &F) {
+        if (PDT.dominates(BB, Entry)) {
+          ValCtx.EmitInstrError(I, ValidationRule::InstrTGSMRaceCond);
+        }
+      }
+    }
+  }
+}
+
 static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   DxilModule &M = ValCtx.DxilMod;
 
   unsigned TGSMSize = 0;
+  std::vector<Instruction*> fixAddrTGSMList;
   const DataLayout &DL = M.GetModule()->getDataLayout();
   for (GlobalVariable &GV : M.GetModule()->globals()) {
     ValidateGlobalVariable(GV, ValCtx);
     if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
       TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
+      CollectFixAddressAccess(&GV, fixAddrTGSMList);
     }
   }
 
@@ -2567,6 +2612,9 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     ValCtx.EmitFormatError(ValidationRule::SmMaxTGSMSize,
                            {std::to_string(TGSMSize).c_str(),
                             std::to_string(DXIL::kMaxTGSMSize).c_str()});
+  }
+  if (!fixAddrTGSMList.empty()) {
+    ValidateTGSMRaceCondition(fixAddrTGSMList, ValCtx);
   }
 }
 
