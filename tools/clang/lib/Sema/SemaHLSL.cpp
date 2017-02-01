@@ -3,8 +3,8 @@
 //                                                                           //
 // SemaHLSL.cpp                                                              //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 //  This file implements the semantic support for HLSL.                      //
 //                                                                           //
@@ -7292,6 +7292,21 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   // Handle Assign and Comma operators and return
   switch (Opc)
   {
+  case BO_AddAssign:
+  case BO_AndAssign:
+  case BO_DivAssign:
+  case BO_MulAssign:
+  case BO_RemAssign:
+  case BO_ShlAssign:
+  case BO_ShrAssign:
+  case BO_SubAssign:
+  case BO_XorAssign: {
+    extern bool CheckForModifiableLvalue(Expr * E, SourceLocation Loc,
+                                         Sema & S);
+    if (CheckForModifiableLvalue(LHS.get(), OpLoc, *m_sema)) {
+      return;
+    }
+  } break;
   case BO_Assign: {
       extern bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S);
       if (CheckForModifiableLvalue(LHS.get(), OpLoc, *m_sema)) {

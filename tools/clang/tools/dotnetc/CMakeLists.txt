@@ -1,5 +1,5 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} )
 file(TO_NATIVE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" DOS_STYLE_OUTPUT_DIRECTORY)
 file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" DOS_STYLE_SOURCE_DIR)

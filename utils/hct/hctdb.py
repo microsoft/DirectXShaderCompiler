@@ -1,5 +1,5 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT license. See COPYRIGHT in the project root for full license information.
+# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 ###############################################################################
 # DXIL information.                                                           #
 ###############################################################################
@@ -1562,6 +1562,7 @@ class db_dxil(object):
         self.add_valrule("Instr.CBufferClassForCBufferHandle", "Expect Cbuffer for CBufferLoad handle")
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
         self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg")
+        self.add_valrule("Instr.TGSMRaceCond", "Race condition writing to shared memory detected, consider making this write conditional")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher

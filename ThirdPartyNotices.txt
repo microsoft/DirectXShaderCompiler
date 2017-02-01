@@ -1,13 +1,3 @@
-DirectX Shader Compiler is copyright 2016, Microsoft Corporation.
-
-Licensed under the MIT license (see LICENSE-MIT). All files in the project
-carrying such notice may not be copied, modified, or distributed except
-according to those terms.
-
-DirectX Shader Compiler includes packages written by third parties. The
-following third party packages are included, and carry their own copyright
-notices and license terms:
-
 * LLVM
 
 ==============================================================================

@@ -2,8 +2,8 @@
 //                                                                           //
 // DxilGenerationPass.cpp                                                    //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// Licensed under the MIT license. See COPYRIGHT in the project root for     //
-// full license information.                                                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 // DxilGenerationPass implementation.                                        //
 //                                                                           //
@@ -1199,7 +1199,6 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
     if (!GV->getType()->isPointerTy()) {
       DXASSERT(bInput, "direct parameter must be input");
       Value *vertexID = undefVertexIdx;
-      Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
       Value *args[] = {OpArg, ID, /*rowIdx*/constZero, /*colIdx*/nullptr, vertexID};
       replaceDirectInputParameter(GV, dxilFunc, cols, args, bI1Cast, hlslOP, EntryBuilder);
       continue;
@@ -1222,7 +1221,6 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
       }
 
       if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
-        Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
         Value *args[] = {OpArg, ID, idxVal, info.vectorIdx, vertexID};
         replaceLdWithLdInput(dxilFunc, ldInst, cols, args, bI1Cast, hlslOP);
       }
@@ -1230,10 +1228,47 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
         if (bInput) {
           DXASSERT_LOCALVAR(bIsInout, bIsInout, "input should not have store use.");
         } else {
-          DXASSERT(!info.vectorIdx,
-                   "not implement vector indexing on output yet.");
-          replaceStWithStOutput(dxilFunc, stInst, opcode, ID, idxVal, cols,
-                                bI1Cast, hlslOP);
+          if (!info.vectorIdx) {
+            replaceStWithStOutput(dxilFunc, stInst, opcode, ID, idxVal, cols,
+                                  bI1Cast, hlslOP);
+          } else {
+            Value *V = stInst->getValueOperand();
+            Type *Ty = V->getType();
+            DXASSERT(Ty == Ty->getScalarType() && !Ty->isAggregateType(),
+                     "only support scalar here");
+
+            if (ConstantInt *ColIdx = dyn_cast<ConstantInt>(info.vectorIdx)) {
+              IRBuilder<> Builder(stInst);
+              Value *args[] = {OpArg, ID, idxVal, ColIdx, V};
+              GenerateStOutput(dxilFunc, args, Builder, bI1Cast);
+            } else {
+              BasicBlock *BB = stInst->getParent();
+              BasicBlock *EndBB = BB->splitBasicBlock(stInst);
+
+              TerminatorInst *TI = BB->getTerminator();
+              IRBuilder<> SwitchBuilder(TI);
+              LLVMContext &Ctx = m_pHLModule->GetCtx();
+              SwitchInst *Switch =
+                  SwitchBuilder.CreateSwitch(info.vectorIdx, EndBB, cols);
+              TI->eraseFromParent();
+
+              Function *F = EndBB->getParent();
+              for (unsigned i = 0; i < cols; i++) {
+                BasicBlock *CaseBB = BasicBlock::Create(Ctx, "case", F, EndBB);
+                Switch->addCase(SwitchBuilder.getInt32(i), CaseBB);
+                IRBuilder<> CaseBuilder(CaseBB);
+
+                ConstantInt *CaseIdx = SwitchBuilder.getInt8(i);
+
+                Value *args[] = {OpArg, ID, idxVal, CaseIdx, V};
+                GenerateStOutput(dxilFunc, args, CaseBuilder, bI1Cast);
+
+                CaseBuilder.CreateBr(EndBB);
+              }
+            }
+            // remove stInst
+            stInst->eraseFromParent();
+          }
         }
       } else if (CallInst *CI = dyn_cast<CallInst>(info.user)) {
         HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -2054,7 +2089,10 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
       for (auto U : GV->users()) {
         // Must CBufferSubscript.
         CallInst *CI = cast<CallInst>((U));
-        IRBuilder<> Builder(CI);
+        // Put createHandle to entry block.
+        auto InsertPt =
+            CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt();
+        IRBuilder<> Builder(InsertPt);
 
         CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
         if (m_HasDbgInfo) {
@@ -2068,8 +2106,17 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
         // Must CBufferSubscript.
         CallInst *CI = cast<CallInst>(U);
         IRBuilder<> Builder(CI);
+        Value *CBIndex = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
         args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
-            CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
+            CBIndex;
+        if (isa<ConstantInt>(CBIndex)) {
+          // Put createHandle to entry block for const index.
+          auto InsertPt = CI->getParent()
+                              ->getParent()
+                              ->getEntryBlock()
+                              .getFirstInsertionPt();
+          Builder.SetInsertPoint(InsertPt);
+        }
         CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
         handleMap[CI] = handle;
       }
@@ -2712,6 +2759,9 @@ static void PropagatePreciseAttributeOnOperand(Value *V, DxilTypeSystem &typeSys
 
   // Clear fast math.
   I->copyFastMathFlags(FastMathFlags());
+  // Fast math not work on call, use metadata.
+  if (CallInst *CI = dyn_cast<CallInst>(I))
+    HLModule::MarkPreciseAttributeWithMetadata(CI);
   PropagatePreciseAttribute(I, typeSys);
 }
 
