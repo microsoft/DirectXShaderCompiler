@@ -250,12 +250,6 @@ namespace DXIL {
     FMax = 35, // returns the FMax of the input values
     FMin = 36, // returns the FMin of the input values
   
-    // Binary int with carry
-    IAddc = 44, // returns the IAddc of the input values
-    ISubc = 46, // returns the ISubc of the input values
-    UAddc = 45, // returns the UAddc of the input values
-    USubc = 47, // returns the USubc of the input values
-  
     // Binary int with two outputs
     IMul = 41, // returns the IMul of the input values
     UDiv = 43, // returns the UDiv of the input values
@@ -267,105 +261,109 @@ namespace DXIL {
     UMax = 39, // returns the UMax of the input values
     UMin = 40, // returns the UMin of the input values
   
+    // Binary uint with carry or borrow
+    UAddc = 44, // returns the UAddc of the input values
+    USubb = 45, // returns the USubb of the input values
+  
     // Bitcasts with different sizes
-    BitcastF16toI16 = 127, // bitcast between different sizes
-    BitcastF32toI32 = 129, // bitcast between different sizes
-    BitcastF64toI64 = 131, // bitcast between different sizes
-    BitcastI16toF16 = 126, // bitcast between different sizes
-    BitcastI32toF32 = 128, // bitcast between different sizes
-    BitcastI64toF64 = 130, // bitcast between different sizes
+    BitcastF16toI16 = 125, // bitcast between different sizes
+    BitcastF32toI32 = 127, // bitcast between different sizes
+    BitcastF64toI64 = 129, // bitcast between different sizes
+    BitcastI16toF16 = 124, // bitcast between different sizes
+    BitcastI32toF32 = 126, // bitcast between different sizes
+    BitcastI64toF64 = 128, // bitcast between different sizes
   
     // Compute shader
-    FlattenedThreadIdInGroup = 98, // provides a flattened index for a given thread within a given group (SV_GroupIndex)
-    GroupId = 96, // reads the group ID (SV_GroupID)
-    ThreadId = 95, // reads the thread ID
-    ThreadIdInGroup = 97, // reads the thread ID within the group (SV_GroupThreadID)
+    FlattenedThreadIdInGroup = 96, // provides a flattened index for a given thread within a given group (SV_GroupIndex)
+    GroupId = 94, // reads the group ID (SV_GroupID)
+    ThreadId = 93, // reads the thread ID
+    ThreadIdInGroup = 95, // reads the thread ID within the group (SV_GroupThreadID)
   
     // Domain and hull shader
-    LoadOutputControlPoint = 105, // LoadOutputControlPoint
-    LoadPatchConstant = 106, // LoadPatchConstant
+    LoadOutputControlPoint = 103, // LoadOutputControlPoint
+    LoadPatchConstant = 104, // LoadPatchConstant
   
     // Domain shader
-    DomainLocation = 107, // DomainLocation
+    DomainLocation = 105, // DomainLocation
   
     // Dot
-    Dot2 = 56, // two-dimensional vector dot-product
-    Dot3 = 57, // three-dimensional vector dot-product
-    Dot4 = 58, // four-dimensional vector dot-product
+    Dot2 = 54, // two-dimensional vector dot-product
+    Dot3 = 55, // three-dimensional vector dot-product
+    Dot4 = 56, // four-dimensional vector dot-product
   
     // Double precision
-    LegacyDoubleToFloat = 134, // legacy fuction to convert double to float
-    LegacyDoubleToSInt32 = 135, // legacy fuction to convert double to int32
-    LegacyDoubleToUInt32 = 136, // legacy fuction to convert double to uint32
-    MakeDouble = 103, // creates a double value
-    SplitDouble = 104, // splits a double into low and high parts
+    LegacyDoubleToFloat = 132, // legacy fuction to convert double to float
+    LegacyDoubleToSInt32 = 133, // legacy fuction to convert double to int32
+    LegacyDoubleToUInt32 = 134, // legacy fuction to convert double to uint32
+    MakeDouble = 101, // creates a double value
+    SplitDouble = 102, // splits a double into low and high parts
   
     // Geometry shader
-    CutStream = 100, // completes the current primitive topology at the specified stream
-    EmitStream = 99, // emits a vertex to a given stream
-    EmitThenCutStream = 101, // equivalent to an EmitStream followed by a CutStream
-    GSInstanceID = 102, // GSInstanceID
+    CutStream = 98, // completes the current primitive topology at the specified stream
+    EmitStream = 97, // emits a vertex to a given stream
+    EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
+    GSInstanceID = 100, // GSInstanceID
   
     // Hull shader
-    OutputControlPointID = 109, // OutputControlPointID
-    PrimitiveID = 110, // PrimitiveID
-    StorePatchConstant = 108, // StorePatchConstant
+    OutputControlPointID = 107, // OutputControlPointID
+    PrimitiveID = 108, // PrimitiveID
+    StorePatchConstant = 106, // StorePatchConstant
   
     // Legacy floating-point
-    LegacyF16ToF32 = 133, // legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
-    LegacyF32ToF16 = 132, // legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
+    LegacyF16ToF32 = 131, // legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
+    LegacyF32ToF16 = 130, // legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
   
     // Other
-    CycleCounterLegacy = 111, // CycleCounterLegacy
+    CycleCounterLegacy = 109, // CycleCounterLegacy
   
     // Pixel shader
-    CalculateLOD = 83, // calculates the level of detail
-    Coverage = 93, // returns the coverage mask input in a pixel shader
-    DerivCoarseX = 85, // computes the rate of change of components per stamp
-    DerivCoarseY = 86, // computes the rate of change of components per stamp
-    DerivFineX = 87, // computes the rate of change of components per pixel
-    DerivFineY = 88, // computes the rate of change of components per pixel
-    Discard = 84, // discard the current pixel
-    EvalCentroid = 91, // evaluates an input attribute at pixel center
-    EvalSampleIndex = 90, // evaluates an input attribute at a sample location
-    EvalSnapped = 89, // evaluates an input attribute at pixel center with an offset
-    InnerCoverage = 94, // returns underestimated coverage input from conservative rasterization in a pixel shader
-    SampleIndex = 92, // returns the sample index in a sample-frequency pixel shader
+    CalculateLOD = 81, // calculates the level of detail
+    Coverage = 91, // returns the coverage mask input in a pixel shader
+    DerivCoarseX = 83, // computes the rate of change of components per stamp
+    DerivCoarseY = 84, // computes the rate of change of components per stamp
+    DerivFineX = 85, // computes the rate of change of components per pixel
+    DerivFineY = 86, // computes the rate of change of components per pixel
+    Discard = 82, // discard the current pixel
+    EvalCentroid = 89, // evaluates an input attribute at pixel center
+    EvalSampleIndex = 88, // evaluates an input attribute at a sample location
+    EvalSnapped = 87, // evaluates an input attribute at pixel center with an offset
+    InnerCoverage = 92, // returns underestimated coverage input from conservative rasterization in a pixel shader
+    SampleIndex = 90, // returns the sample index in a sample-frequency pixel shader
   
     // Quaternary
-    Bfi = 55, // given a bit range from the LSB of a number, places that number of bits in another number at any offset
+    Bfi = 53, // given a bit range from the LSB of a number, places that number of bits in another number at any offset
   
     // Resources - gather
-    TextureGather = 75, // gathers the four texels that would be used in a bi-linear filtering operation
-    TextureGatherCmp = 76, // same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+    TextureGather = 73, // gathers the four texels that would be used in a bi-linear filtering operation
+    TextureGatherCmp = 74, // same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
   
     // Resources - sample
-    RenderTargetGetSampleCount = 79, // gets the number of samples for a render target
-    RenderTargetGetSamplePosition = 78, // gets the position of the specified sample
-    Sample = 62, // samples a texture
-    SampleBias = 63, // samples a texture after applying the input bias to the mipmap level
-    SampleCmp = 66, // samples a texture and compares a single component against the specified comparison value
-    SampleCmpLevelZero = 67, // samples a texture and compares a single component against the specified comparison value
-    SampleGrad = 65, // samples a texture using a gradient to influence the way the sample location is calculated
-    SampleLevel = 64, // samples a texture using a mipmap-level offset
-    Texture2DMSGetSamplePosition = 77, // gets the position of the specified sample
+    RenderTargetGetSampleCount = 77, // gets the number of samples for a render target
+    RenderTargetGetSamplePosition = 76, // gets the position of the specified sample
+    Sample = 60, // samples a texture
+    SampleBias = 61, // samples a texture after applying the input bias to the mipmap level
+    SampleCmp = 64, // samples a texture and compares a single component against the specified comparison value
+    SampleCmpLevelZero = 65, // samples a texture and compares a single component against the specified comparison value
+    SampleGrad = 63, // samples a texture using a gradient to influence the way the sample location is calculated
+    SampleLevel = 62, // samples a texture using a mipmap-level offset
+    Texture2DMSGetSamplePosition = 75, // gets the position of the specified sample
   
     // Resources
-    BufferLoad = 70, // reads from a TypedBuffer
-    BufferStore = 71, // writes to a RWTypedBuffer
-    BufferUpdateCounter = 72, // atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
-    CBufferLoad = 60, // loads a value from a constant buffer resource
-    CBufferLoadLegacy = 61, // loads a value from a constant buffer resource
-    CheckAccessFullyMapped = 73, // determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
-    CreateHandle = 59, // creates the handle to a resource
-    GetDimensions = 74, // gets texture size information
-    TextureLoad = 68, // reads texel data without any filtering or sampling
-    TextureStore = 69, // reads texel data without any filtering or sampling
+    BufferLoad = 68, // reads from a TypedBuffer
+    BufferStore = 69, // writes to a RWTypedBuffer
+    BufferUpdateCounter = 70, // atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
+    CBufferLoad = 58, // loads a value from a constant buffer resource
+    CBufferLoadLegacy = 59, // loads a value from a constant buffer resource
+    CheckAccessFullyMapped = 71, // determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
+    CreateHandle = 57, // creates the handle to a resource
+    GetDimensions = 72, // gets texture size information
+    TextureLoad = 66, // reads texel data without any filtering or sampling
+    TextureStore = 67, // reads texel data without any filtering or sampling
   
     // Synchronization
-    AtomicBinOp = 80, // performs an atomic operation on two operands
-    AtomicCompareExchange = 81, // atomic compare and exchange to memory
-    Barrier = 82, // inserts a memory barrier in the shader
+    AtomicBinOp = 78, // performs an atomic operation on two operands
+    AtomicCompareExchange = 79, // atomic compare and exchange to memory
+    Barrier = 80, // inserts a memory barrier in the shader
   
     // Temporary, indexable, input, output registers
     LoadInput = 4, // loads the value from shader input
@@ -376,15 +374,15 @@ namespace DXIL {
     TempRegStore = 1, // helper store operation
   
     // Tertiary float
-    FMad = 48, // performs a fused multiply add (FMA) of the form a * b + c
-    Fma = 49, // performs a fused multiply add (FMA) of the form a * b + c
+    FMad = 46, // performs a fused multiply add (FMA) of the form a * b + c
+    Fma = 47, // performs a fused multiply add (FMA) of the form a * b + c
   
     // Tertiary int
-    IMad = 50, // performs an integral IMad
-    Ibfe = 53, // performs an integral Ibfe
-    Msad = 52, // performs an integral Msad
-    UMad = 51, // performs an integral UMad
-    Ubfe = 54, // performs an integral Ubfe
+    IMad = 48, // performs an integral IMad
+    Ibfe = 51, // performs an integral Ibfe
+    Msad = 50, // performs an integral Msad
+    UMad = 49, // performs an integral UMad
+    Ubfe = 52, // performs an integral Ubfe
   
     // Unary float - rounding
     Round_ne = 26, // returns the Round_ne
@@ -422,24 +420,24 @@ namespace DXIL {
     FirstbitSHi = 34, // returns src != 0? (BitWidth-1 - FirstbitSHi) : -1
   
     // Wave
-    QuadOp = 125, // returns the result of a quad-level operation
-    QuadReadLaneAt = 124, // reads from a lane in the quad
-    WaveActiveAllEqual = 117, // returns 1 if all the lanes have the same value
-    WaveActiveBallot = 118, // returns a struct with a bit set for each lane where the condition is true
-    WaveActiveBit = 122, // returns the result of the operation across all lanes
-    WaveActiveOp = 121, // returns the result the operation across waves
-    WaveAllBitCount = 137, // returns the count of bits set to 1 across the wave
-    WaveAllTrue = 116, // returns 1 if all the lanes evaluate the value to true
-    WaveAnyTrue = 115, // returns 1 if any of the lane evaluates the value to true
-    WaveGetLaneCount = 114, // returns the number of lanes in the wave
-    WaveGetLaneIndex = 113, // returns the index of the current lane in the wave
-    WaveIsFirstLane = 112, // returns 1 for the first lane in the wave
-    WavePrefixBitCount = 138, // returns the count of bits set to 1 on prior lanes
-    WavePrefixOp = 123, // returns the result of the operation on prior lanes
-    WaveReadLaneAt = 119, // returns the value from the specified lane
-    WaveReadLaneFirst = 120, // returns the value from the first lane
+    QuadOp = 123, // returns the result of a quad-level operation
+    QuadReadLaneAt = 122, // reads from a lane in the quad
+    WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
+    WaveActiveBallot = 116, // returns a struct with a bit set for each lane where the condition is true
+    WaveActiveBit = 120, // returns the result of the operation across all lanes
+    WaveActiveOp = 119, // returns the result the operation across waves
+    WaveAllBitCount = 135, // returns the count of bits set to 1 across the wave
+    WaveAllTrue = 114, // returns 1 if all the lanes evaluate the value to true
+    WaveAnyTrue = 113, // returns 1 if any of the lane evaluates the value to true
+    WaveGetLaneCount = 112, // returns the number of lanes in the wave
+    WaveGetLaneIndex = 111, // returns the index of the current lane in the wave
+    WaveIsFirstLane = 110, // returns 1 for the first lane in the wave
+    WavePrefixBitCount = 136, // returns the count of bits set to 1 on prior lanes
+    WavePrefixOp = 121, // returns the result of the operation on prior lanes
+    WaveReadLaneAt = 117, // returns the value from the specified lane
+    WaveReadLaneFirst = 118, // returns the value from the first lane
   
-    NumOpCodes = 139 // exclusive last value of enumeration
+    NumOpCodes = 137 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -447,14 +445,14 @@ namespace DXIL {
   // OPCODECLASS-ENUM:BEGIN
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
-    // Binary int with carry
-    BinaryWithCarry,
-  
     // Binary int with two outputs
     BinaryWithTwoOuts,
   
     // Binary int
     Binary,
+  
+    // Binary uint with carry or borrow
+    BinaryWithCarryOrBorrow,
   
     // Bitcasts with different sizes
     BitcastF16toI16,

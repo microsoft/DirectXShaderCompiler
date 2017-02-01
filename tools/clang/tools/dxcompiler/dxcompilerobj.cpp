@@ -1438,10 +1438,8 @@ static const char *OpCodeSignatures[] = {
   "(a,b)",  // IMul
   "(a,b)",  // UMul
   "(a,b)",  // UDiv
-  "(a,b)",  // IAddc
   "(a,b)",  // UAddc
-  "(a,b)",  // ISubc
-  "(a,b)",  // USubc
+  "(a,b)",  // USubb
   "(a,b,c)",  // FMad
   "(a,b,c)",  // Fma
   "(a,b,c)",  // IMad

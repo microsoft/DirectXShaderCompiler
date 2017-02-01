@@ -1943,101 +1943,99 @@ ID  Name                          Description
 41  IMul                          returns the IMul of the input values
 42  UMul                          returns the UMul of the input values
 43  UDiv                          returns the UDiv of the input values
-44  IAddc                         returns the IAddc of the input values
-45  UAddc                         returns the UAddc of the input values
-46  ISubc                         returns the ISubc of the input values
-47  USubc                         returns the USubc of the input values
-48  FMad                          performs a fused multiply add (FMA) of the form a * b + c
-49  Fma                           performs a fused multiply add (FMA) of the form a * b + c
-50  IMad                          performs an integral IMad
-51  UMad                          performs an integral UMad
-52  Msad                          performs an integral Msad
-53  Ibfe                          performs an integral Ibfe
-54  Ubfe                          performs an integral Ubfe
-55  Bfi                           given a bit range from the LSB of a number, places that number of bits in another number at any offset
-56  Dot2                          two-dimensional vector dot-product
-57  Dot3                          three-dimensional vector dot-product
-58  Dot4                          four-dimensional vector dot-product
-59  CreateHandle                  creates the handle to a resource
-60  CBufferLoad                   loads a value from a constant buffer resource
-61  CBufferLoadLegacy             loads a value from a constant buffer resource
-62  Sample                        samples a texture
-63  SampleBias                    samples a texture after applying the input bias to the mipmap level
-64  SampleLevel                   samples a texture using a mipmap-level offset
-65  SampleGrad                    samples a texture using a gradient to influence the way the sample location is calculated
-66  SampleCmp                     samples a texture and compares a single component against the specified comparison value
-67  SampleCmpLevelZero            samples a texture and compares a single component against the specified comparison value
-68  TextureLoad                   reads texel data without any filtering or sampling
-69  TextureStore                  reads texel data without any filtering or sampling
-70  BufferLoad                    reads from a TypedBuffer
-71  BufferStore                   writes to a RWTypedBuffer
-72  BufferUpdateCounter           atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
-73  CheckAccessFullyMapped        determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
-74  GetDimensions                 gets texture size information
-75  TextureGather                 gathers the four texels that would be used in a bi-linear filtering operation
-76  TextureGatherCmp              same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
-77  Texture2DMSGetSamplePosition  gets the position of the specified sample
-78  RenderTargetGetSamplePosition gets the position of the specified sample
-79  RenderTargetGetSampleCount    gets the number of samples for a render target
-80  AtomicBinOp                   performs an atomic operation on two operands
-81  AtomicCompareExchange         atomic compare and exchange to memory
-82  Barrier                       inserts a memory barrier in the shader
-83  CalculateLOD                  calculates the level of detail
-84  Discard                       discard the current pixel
-85  DerivCoarseX                  computes the rate of change of components per stamp
-86  DerivCoarseY                  computes the rate of change of components per stamp
-87  DerivFineX                    computes the rate of change of components per pixel
-88  DerivFineY                    computes the rate of change of components per pixel
-89  EvalSnapped                   evaluates an input attribute at pixel center with an offset
-90  EvalSampleIndex               evaluates an input attribute at a sample location
-91  EvalCentroid                  evaluates an input attribute at pixel center
-92  SampleIndex                   returns the sample index in a sample-frequency pixel shader
-93  Coverage                      returns the coverage mask input in a pixel shader
-94  InnerCoverage                 returns underestimated coverage input from conservative rasterization in a pixel shader
-95  ThreadId                      reads the thread ID
-96  GroupId                       reads the group ID (SV_GroupID)
-97  ThreadIdInGroup               reads the thread ID within the group (SV_GroupThreadID)
-98  FlattenedThreadIdInGroup      provides a flattened index for a given thread within a given group (SV_GroupIndex)
-99  EmitStream                    emits a vertex to a given stream
-100 CutStream                     completes the current primitive topology at the specified stream
-101 EmitThenCutStream             equivalent to an EmitStream followed by a CutStream
-102 GSInstanceID                  GSInstanceID
-103 MakeDouble                    creates a double value
-104 SplitDouble                   splits a double into low and high parts
-105 LoadOutputControlPoint        LoadOutputControlPoint
-106 LoadPatchConstant             LoadPatchConstant
-107 DomainLocation                DomainLocation
-108 StorePatchConstant            StorePatchConstant
-109 OutputControlPointID          OutputControlPointID
-110 PrimitiveID                   PrimitiveID
-111 CycleCounterLegacy            CycleCounterLegacy
-112 WaveIsFirstLane               returns 1 for the first lane in the wave
-113 WaveGetLaneIndex              returns the index of the current lane in the wave
-114 WaveGetLaneCount              returns the number of lanes in the wave
-115 WaveAnyTrue                   returns 1 if any of the lane evaluates the value to true
-116 WaveAllTrue                   returns 1 if all the lanes evaluate the value to true
-117 WaveActiveAllEqual            returns 1 if all the lanes have the same value
-118 WaveActiveBallot              returns a struct with a bit set for each lane where the condition is true
-119 WaveReadLaneAt                returns the value from the specified lane
-120 WaveReadLaneFirst             returns the value from the first lane
-121 WaveActiveOp                  returns the result the operation across waves
-122 WaveActiveBit                 returns the result of the operation across all lanes
-123 WavePrefixOp                  returns the result of the operation on prior lanes
-124 QuadReadLaneAt                reads from a lane in the quad
-125 QuadOp                        returns the result of a quad-level operation
-126 BitcastI16toF16               bitcast between different sizes
-127 BitcastF16toI16               bitcast between different sizes
-128 BitcastI32toF32               bitcast between different sizes
-129 BitcastF32toI32               bitcast between different sizes
-130 BitcastI64toF64               bitcast between different sizes
-131 BitcastF64toI64               bitcast between different sizes
-132 LegacyF32ToF16                legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
-133 LegacyF16ToF32                legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
-134 LegacyDoubleToFloat           legacy fuction to convert double to float
-135 LegacyDoubleToSInt32          legacy fuction to convert double to int32
-136 LegacyDoubleToUInt32          legacy fuction to convert double to uint32
-137 WaveAllBitCount               returns the count of bits set to 1 across the wave
-138 WavePrefixBitCount            returns the count of bits set to 1 on prior lanes
+44  UAddc                         returns the UAddc of the input values
+45  USubb                         returns the USubb of the input values
+46  FMad                          performs a fused multiply add (FMA) of the form a * b + c
+47  Fma                           performs a fused multiply add (FMA) of the form a * b + c
+48  IMad                          performs an integral IMad
+49  UMad                          performs an integral UMad
+50  Msad                          performs an integral Msad
+51  Ibfe                          performs an integral Ibfe
+52  Ubfe                          performs an integral Ubfe
+53  Bfi                           given a bit range from the LSB of a number, places that number of bits in another number at any offset
+54  Dot2                          two-dimensional vector dot-product
+55  Dot3                          three-dimensional vector dot-product
+56  Dot4                          four-dimensional vector dot-product
+57  CreateHandle                  creates the handle to a resource
+58  CBufferLoad                   loads a value from a constant buffer resource
+59  CBufferLoadLegacy             loads a value from a constant buffer resource
+60  Sample                        samples a texture
+61  SampleBias                    samples a texture after applying the input bias to the mipmap level
+62  SampleLevel                   samples a texture using a mipmap-level offset
+63  SampleGrad                    samples a texture using a gradient to influence the way the sample location is calculated
+64  SampleCmp                     samples a texture and compares a single component against the specified comparison value
+65  SampleCmpLevelZero            samples a texture and compares a single component against the specified comparison value
+66  TextureLoad                   reads texel data without any filtering or sampling
+67  TextureStore                  reads texel data without any filtering or sampling
+68  BufferLoad                    reads from a TypedBuffer
+69  BufferStore                   writes to a RWTypedBuffer
+70  BufferUpdateCounter           atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
+71  CheckAccessFullyMapped        determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
+72  GetDimensions                 gets texture size information
+73  TextureGather                 gathers the four texels that would be used in a bi-linear filtering operation
+74  TextureGatherCmp              same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+75  Texture2DMSGetSamplePosition  gets the position of the specified sample
+76  RenderTargetGetSamplePosition gets the position of the specified sample
+77  RenderTargetGetSampleCount    gets the number of samples for a render target
+78  AtomicBinOp                   performs an atomic operation on two operands
+79  AtomicCompareExchange         atomic compare and exchange to memory
+80  Barrier                       inserts a memory barrier in the shader
+81  CalculateLOD                  calculates the level of detail
+82  Discard                       discard the current pixel
+83  DerivCoarseX                  computes the rate of change of components per stamp
+84  DerivCoarseY                  computes the rate of change of components per stamp
+85  DerivFineX                    computes the rate of change of components per pixel
+86  DerivFineY                    computes the rate of change of components per pixel
+87  EvalSnapped                   evaluates an input attribute at pixel center with an offset
+88  EvalSampleIndex               evaluates an input attribute at a sample location
+89  EvalCentroid                  evaluates an input attribute at pixel center
+90  SampleIndex                   returns the sample index in a sample-frequency pixel shader
+91  Coverage                      returns the coverage mask input in a pixel shader
+92  InnerCoverage                 returns underestimated coverage input from conservative rasterization in a pixel shader
+93  ThreadId                      reads the thread ID
+94  GroupId                       reads the group ID (SV_GroupID)
+95  ThreadIdInGroup               reads the thread ID within the group (SV_GroupThreadID)
+96  FlattenedThreadIdInGroup      provides a flattened index for a given thread within a given group (SV_GroupIndex)
+97  EmitStream                    emits a vertex to a given stream
+98  CutStream                     completes the current primitive topology at the specified stream
+99  EmitThenCutStream             equivalent to an EmitStream followed by a CutStream
+100 GSInstanceID                  GSInstanceID
+101 MakeDouble                    creates a double value
+102 SplitDouble                   splits a double into low and high parts
+103 LoadOutputControlPoint        LoadOutputControlPoint
+104 LoadPatchConstant             LoadPatchConstant
+105 DomainLocation                DomainLocation
+106 StorePatchConstant            StorePatchConstant
+107 OutputControlPointID          OutputControlPointID
+108 PrimitiveID                   PrimitiveID
+109 CycleCounterLegacy            CycleCounterLegacy
+110 WaveIsFirstLane               returns 1 for the first lane in the wave
+111 WaveGetLaneIndex              returns the index of the current lane in the wave
+112 WaveGetLaneCount              returns the number of lanes in the wave
+113 WaveAnyTrue                   returns 1 if any of the lane evaluates the value to true
+114 WaveAllTrue                   returns 1 if all the lanes evaluate the value to true
+115 WaveActiveAllEqual            returns 1 if all the lanes have the same value
+116 WaveActiveBallot              returns a struct with a bit set for each lane where the condition is true
+117 WaveReadLaneAt                returns the value from the specified lane
+118 WaveReadLaneFirst             returns the value from the first lane
+119 WaveActiveOp                  returns the result the operation across waves
+120 WaveActiveBit                 returns the result of the operation across all lanes
+121 WavePrefixOp                  returns the result of the operation on prior lanes
+122 QuadReadLaneAt                reads from a lane in the quad
+123 QuadOp                        returns the result of a quad-level operation
+124 BitcastI16toF16               bitcast between different sizes
+125 BitcastF16toI16               bitcast between different sizes
+126 BitcastI32toF32               bitcast between different sizes
+127 BitcastF32toI32               bitcast between different sizes
+128 BitcastI64toF64               bitcast between different sizes
+129 BitcastF64toI64               bitcast between different sizes
+130 LegacyF32ToF16                legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
+131 LegacyF16ToF32                legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
+132 LegacyDoubleToFloat           legacy fuction to convert double to float
+133 LegacyDoubleToSInt32          legacy fuction to convert double to int32
+134 LegacyDoubleToUInt32          legacy fuction to convert double to uint32
+135 WaveAllBitCount               returns the count of bits set to 1 across the wave
+136 WavePrefixBitCount            returns the count of bits set to 1 on prior lanes
 === ============================= ================================================================================================================
 
 

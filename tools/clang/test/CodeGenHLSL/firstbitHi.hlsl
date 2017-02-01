@@ -12,8 +12,8 @@
 // CHECK: select
 // CHECK: i32 -1
 
-// CHECK: op.bufferStore.i32(i32 71, %dx.types.Handle %outputUAV_UAV_rawbuf, i32 2, i32 undef, i32 26
-// CHECK: op.bufferStore.i32(i32 71, %dx.types.Handle %outputUAV_UAV_rawbuf, i32 3, i32 undef, i32 23
+// CHECK: op.bufferStore.i32(i32 69, %dx.types.Handle %outputUAV_UAV_rawbuf, i32 2, i32 undef, i32 26
+// CHECK: op.bufferStore.i32(i32 69, %dx.types.Handle %outputUAV_UAV_rawbuf, i32 3, i32 undef, i32 23
 
 // CHECK: dx.op.unaryBits.i64(i32 33, i64
 // CHECK: sub i32 63

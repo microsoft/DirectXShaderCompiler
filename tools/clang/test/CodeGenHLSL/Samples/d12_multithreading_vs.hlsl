@@ -3,7 +3,7 @@
 // The constant buffer should be allocated with ID zero and referenced as such.
 
 // CHECK: cb0
-// CHECK: dx.op.createHandle(i32 59, i8 2, i32 0, i32 0
+// CHECK: dx.op.createHandle(i32 57, i8 2, i32 0, i32 0
 
 //*********************************************************
 //

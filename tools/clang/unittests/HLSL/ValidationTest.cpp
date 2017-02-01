@@ -502,19 +502,19 @@ TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
 TEST_F(ValidationTest, BarrierFail) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\barrier.hlsl", "cs_6_0",
-      {"dx.op.barrier(i32 82, i32 8)",
-        "dx.op.barrier(i32 82, i32 9)",
-        "dx.op.barrier(i32 82, i32 11)",
+      {"dx.op.barrier(i32 80, i32 8)",
+        "dx.op.barrier(i32 80, i32 9)",
+        "dx.op.barrier(i32 80, i32 11)",
         "%class.RWStructuredBuffer = type { %class.matrix.float.2.2 }\n",
-        "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 98)",
+        "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)",
       },
-      {"dx.op.barrier(i32 82, i32 15)",
-        "dx.op.barrier(i32 82, i32 0)",
-        "dx.op.barrier(i32 82, i32 %rem)",
+      {"dx.op.barrier(i32 80, i32 15)",
+        "dx.op.barrier(i32 80, i32 0)",
+        "dx.op.barrier(i32 80, i32 %rem)",
         "%class.RWStructuredBuffer = type { %class.matrix.float.2.2 }\n"
         "@dx.typevar.8 = external addrspace(1) constant %class.RWStructuredBuffer\n"
         "@\"internalGV\" = internal global [64 x <4 x float>] undef\n",
-        "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 98)\n"
+        "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
         "%load = load %class.RWStructuredBuffer, %class.RWStructuredBuffer addrspace(1)* @dx.typevar.8",
       },
       {"Internal declaration 'internalGV' is unused",
@@ -528,8 +528,8 @@ TEST_F(ValidationTest, BarrierFail) {
 TEST_F(ValidationTest, CBufferLegacyOutOfBoundFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\cbuffer1.50.hlsl", "ps_6_0",
-      "cbufferLoadLegacy.f32(i32 61, %dx.types.Handle %Foo2_buffer, i32 0)",
-      "cbufferLoadLegacy.f32(i32 61, %dx.types.Handle %Foo2_buffer, i32 6)",
+      "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_buffer, i32 0)",
+      "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_buffer, i32 6)",
       "Cbuffer access out of bound");
 }
 
@@ -603,10 +603,10 @@ TEST_F(ValidationTest, HsAttributeFail) {
 TEST_F(ValidationTest, InnerCoverageFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\InnerCoverage2.hlsl", "ps_6_0",
-      {"dx.op.coverage.i32(i32 93)",
+      {"dx.op.coverage.i32(i32 91)",
        "declare i32 @dx.op.coverage.i32(i32)"
       },
-      {"dx.op.coverage.i32(i32 93)\n  %inner = call i32 @dx.op.innercoverage.i32(i32 94)",
+      {"dx.op.coverage.i32(i32 91)\n  %inner = call i32 @dx.op.innercoverage.i32(i32 92)",
        "declare i32 @dx.op.coverage.i32(i32)\n"
        "declare i32 @dx.op.innercoverage.i32(i32)"
       },
@@ -678,13 +678,13 @@ TEST_F(ValidationTest, SampleBiasFail) {
 TEST_F(ValidationTest, SamplerKindFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\samplerKind.hlsl", "ps_6_0",
-      {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 1",
-       "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0",
+      {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1",
+       "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0",
        "\"g_samLinear\", i32 0, i32 0, i32 1, i32 0",
        "\"g_samLinearC\", i32 0, i32 1, i32 1, i32 1",
       },
-      {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 0",
-       "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 59, i8 1",
+      {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0",
+       "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1",
        "\"g_samLinear\", i32 0, i32 0, i32 1, i32 3",
        "\"g_samLinearC\", i32 0, i32 1, i32 1, i32 3",
       },
@@ -799,13 +799,13 @@ TEST_F(ValidationTest, SimpleGs1Fail) {
 TEST_F(ValidationTest, UavBarrierFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\uavBarrier.hlsl", "ps_6_0",
-      {"dx.op.barrier(i32 82, i32 2)",
-       "textureLoad.f32(i32 68, %dx.types.Handle %uav1_UAV_2d, i32 undef",
+      {"dx.op.barrier(i32 80, i32 2)",
+       "textureLoad.f32(i32 66, %dx.types.Handle %uav1_UAV_2d, i32 undef",
        "i32 undef, i32 undef, i32 undef, i32 undef)",
        "float %add9.i3, i8 15)",
       },
-      {"dx.op.barrier(i32 82, i32 9)",
-       "textureLoad.f32(i32 68, %dx.types.Handle %uav1_UAV_2d, i32 1",
+      {"dx.op.barrier(i32 80, i32 9)",
+       "textureLoad.f32(i32 66, %dx.types.Handle %uav1_UAV_2d, i32 1",
        "i32 1, i32 2, i32 undef, i32 undef)",
        "float undef, i8 7)",
       },
@@ -827,12 +827,12 @@ TEST_F(ValidationTest, UndefValueFail) {
 TEST_F(ValidationTest, UpdateCounterFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\UpdateCounter2.hlsl", "ps_6_0",
-      {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
-       "%3 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 1)"
+      {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
+       "%3 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)"
       },
-      {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 -1)",
-       "%3 = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf2_UAV_structbuf, i8 1)\n"
-       "%srvUpdate = call i32 @dx.op.bufferUpdateCounter(i32 72, %dx.types.Handle %buf1_texture_buf, i8 undef)"
+      {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 -1)",
+       "%3 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)\n"
+       "%srvUpdate = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf1_texture_buf, i8 undef)"
       },
       {"BufferUpdateCounter valid only on UAV",
        "BufferUpdateCounter valid only on structured buffers",
@@ -879,8 +879,8 @@ TEST_F(ValidationTest, GsVertexIDOutOfBound) {
 TEST_F(ValidationTest, StreamIDOutOfBound) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
-      "dx.op.emitStream(i32 99, i8 0)",
-      "dx.op.emitStream(i32 99, i8 1)", 
+      "dx.op.emitStream(i32 97, i8 0)",
+      "dx.op.emitStream(i32 97, i8 1)", 
       "expect StreamID between 0 , got 1");
 }
 
@@ -1043,16 +1043,16 @@ TEST_F(ValidationTest, StructBufStrideOutOfBound) {
 TEST_F(ValidationTest, StructBufLoadCoordinates) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
-      "bufferLoad.f32(i32 70, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
+      "bufferLoad.f32(i32 68, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
+      "bufferLoad.f32(i32 68, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
       "structured buffer require 2 coordinates");
 }
 
 TEST_F(ValidationTest, StructBufStoreCoordinates) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "bufferStore.f32(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
-      "bufferStore.f32(i32 71, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
+      "bufferStore.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
+      "bufferStore.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
       "structured buffer require 2 coordinates");
 }
 
@@ -1356,7 +1356,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0", 
       "dx.op.storeOutput.f32(i32 5",
-      "dx.op.storePatchConstant.f32(i32 108",
+      "dx.op.storePatchConstant.f32(i32 106",
       "opcode 'StorePatchConstant' should only used in 'PatchConstant function'");
 }
 
@@ -1407,7 +1407,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0",
       "dx.op.loadInput.f32(i32 4",
-      "dx.op.loadOutputControlPoint.f32(i32 105",
+      "dx.op.loadOutputControlPoint.f32(i32 103",
       "opcode 'LoadOutputControlPoint' should only used in 'PatchConstant function'");
 }
 
@@ -1458,7 +1458,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0",
       "ret void",
-      "call i32 @dx.op.outputControlPointID.i32(i32 109)\n ret void",
+      "call i32 @dx.op.outputControlPointID.i32(i32 107)\n ret void",
       "opcode 'OutputControlPointID' should only used in 'hull function'");
 }
 
