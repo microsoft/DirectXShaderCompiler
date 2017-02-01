@@ -506,7 +506,7 @@ void DxcContext::WriteHeader(IDxcBlobEncoding *pDisassembly, IDxcBlob *pCode,
   {
     std::string s;
     llvm::raw_string_ostream OS(s);
-    OS << "\r\nconst BYTE " << pVariableName << "[] = {";
+    OS << "\r\nconst unsigned char " << pVariableName << "[] = {";
     const uint8_t *pBytes = (const uint8_t *)pCode->GetBufferPointer();
     size_t len = pCode->GetBufferSize();
     s.reserve(100 + len * 6 + (len / 12) * 3); // rough estimate
