@@ -1375,6 +1375,7 @@ TEST_F(CompilerTest, CompileWhenDebugWorksThenStripDebug) {
   VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
   VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
   VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL));
+  pResult.Release();
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
   pHeader = (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
@@ -1407,6 +1408,7 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
   CreateBlobFromText(privateTxt.c_str(), &pPrivate);
   VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
   VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DxilFourCC::DFCC_PrivateData, pPrivate));
+  pResult.Release();
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
 
   CComPtr<IDxcBlob> pNewProgram;
@@ -1425,6 +1427,7 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
   VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
   VERIFY_SUCCEEDED(pBuilder->Load(pNewProgram));
   VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_PrivateData));
+  pResult.Release();
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
 
   pNewProgram.Release();
@@ -1468,6 +1471,7 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
   VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
   VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_RootSignature));
+  pResult.Release();
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
   pContainerHeader = (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
