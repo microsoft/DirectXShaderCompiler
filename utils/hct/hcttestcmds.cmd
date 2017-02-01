@@ -59,7 +59,7 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /D "semantic = SV_Position" /T vs_6_0 /Zi /Fo smoke.cso 1> nul
+dxc.exe smoke.hlsl /D "semantic = SV_Position" /T vs_6_0 /Zi /DDX12 /Fo smoke.cso 1> nul
 if %errorlevel% neq 0 (
   echo Failed to compile smoke.hlsl with command line defines
   exit /b 1
@@ -68,6 +68,49 @@ if %errorlevel% neq 0 (
 dxc.exe smoke.cso /recompile 1> nul
 if %errorlevel% neq 0 (
   echo Failed to recompile smoke.cso with command line defines
+  exit /b 1
+)
+
+dxc.exe smoke.cso /dumpbin /Qstrip_debug /Fo nodebug.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to strip debug part from DXIL container blob
+  exit /b 1
+)
+
+dxc.exe smoke.cso /dumpbin /Qstrip_rootsignature /Fo norootsignature.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to strip rootsignature from DXIL container blob
+  exit /b 1
+)
+
+echo private data > private.txt
+dxc.exe smoke.cso /dumpbin /setprivate private.txt /Fo private.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to set private data from DXIL container blob
+  exit /b 1
+)
+
+dxc.exe private.cso /dumpbin /Qstrip_priv /Fo noprivate.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to strip private data from DXIL container blob
+  exit /b 1
+)
+
+dxc.exe private.cso /dumpbin /getprivate private1.txt 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to get private data from DXIL container blob
+  exit /b 1
+)
+
+FC smoke.cso noprivate.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Appending and removing blob roundtrip failed.
+  exit /b 1
+)
+
+dxc.exe private.cso /Dumpbin /Qstrip_priv /Qstrip_debug /Qstrip_rootsignature /Fo noprivdebugroot.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to extract multiple parts from DXIL container blob
   exit /b 1
 )
 
@@ -131,9 +174,15 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-
 rem Clean up.
 del %CD%\smoke.hlsl.h
 del %CD%\smoke.cso
+del %CD%\private.cso
+del %CD%\private.txt
+del %CD%\private1.txt
+del %CD%\noprivate.cso
+del %CD%\nodebug.cso
+del %CD%\noprivdebugroot.cso
+del %CD%\norootsignature.cso
 
 exit /b 0

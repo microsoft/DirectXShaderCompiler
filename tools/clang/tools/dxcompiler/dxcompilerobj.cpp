@@ -73,6 +73,7 @@
 #include "dxc/Support/DxcLangExtensionsHelper.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxcetw.h"
+#include "dxillib.h"
 #include <algorithm>
 
 #define CP_UTF16 1200
@@ -2042,13 +2043,11 @@ public:
       // validator can be used as a fallback.
       bool needsValidation = !opts.CodeGenHighLevel && !opts.DisableValidation;
       bool internalValidator = false;
-      dxc::DxcDllSupport lib;
       CComPtr<IDxcValidator> pValidator;
       CComPtr<IDxcOperationResult> pValResult;
       if (needsValidation) {
-        if (SUCCEEDED(lib.InitializeForDll(L"dxil.dll", "DxcCreateInstance"))) {
-          // If the DLL is found but doesn't work, warn.
-          if (FAILED(lib.CreateInstance(CLSID_DxcValidator, &pValidator))) {
+        if (DxilLibIsEnabled()) {
+          if (FAILED(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator))) {
             w << "Unable to create validator from dxil.dll, fallback to built-in.";
           }
         }
