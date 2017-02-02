@@ -702,10 +702,8 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::IMul:
   case OpCode::UMul:
   case OpCode::UDiv:
-  case OpCode::IAddc:
   case OpCode::UAddc:
-  case OpCode::ISubc:
-  case OpCode::USubc:
+  case OpCode::USubb:
   case OpCode::WaveActiveAllEqual:
     return FT->getParamType(1);
   case OpCode::TempRegStore:
