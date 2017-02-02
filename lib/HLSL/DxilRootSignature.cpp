@@ -1341,29 +1341,306 @@ SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
   switch (pRootSignature->Version)
   {
   case DxilRootSignatureVersion::Version_1_0:
-    SerializeRootSignatureTemplate<
+    IFT((SerializeRootSignatureTemplate<
       DxilRootSignatureDesc,
       DxilRootParameter,
       DxilRootDescriptor,
       DxilContainerDescriptorRange>(&pRootSignature->Desc_1_0,
         DxilRootSignatureVersion::Version_1_0,
         ppBlob, pErrors,
-        bAllowReservedRegisterSpace);
+        bAllowReservedRegisterSpace)));
     break;
 
   case DxilRootSignatureVersion::Version_1_1:
   default:
     DXASSERT(pRootSignature->Version == DxilRootSignatureVersion::Version_1_1, "else VerifyRootSignature didn't validate");
-    SerializeRootSignatureTemplate<
+    IFT((SerializeRootSignatureTemplate<
       DxilRootSignatureDesc1,
       DxilRootParameter1,
       DxilContainerRootDescriptor1,
       DxilContainerDescriptorRange1>(&pRootSignature->Desc_1_1,
         DxilRootSignatureVersion::Version_1_1,
         ppBlob, pErrors,
-        bAllowReservedRegisterSpace);
+        bAllowReservedRegisterSpace)));
     break;
   }
+}
+
+//QQQ
+//=============================================================================
+//
+// CVersionedRootSignatureDeserializer.
+//
+//=============================================================================
+class CVersionedRootSignatureDeserializer {
+protected:
+  const DxilVersionedRootSignatureDesc *m_pRootSignature;
+  const DxilVersionedRootSignatureDesc *m_pRootSignature10;
+  const DxilVersionedRootSignatureDesc *m_pRootSignature11;
+
+public:
+  CVersionedRootSignatureDeserializer();
+  ~CVersionedRootSignatureDeserializer();
+
+  void Initialize(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
+                  __in uint32_t SrcDataSizeInBytes);
+
+  const DxilVersionedRootSignatureDesc *GetRootSignatureDescAtVersion(DxilRootSignatureVersion convertToVersion);
+
+  const DxilVersionedRootSignatureDesc *GetUnconvertedRootSignatureDesc();
+};
+
+CVersionedRootSignatureDeserializer::CVersionedRootSignatureDeserializer()
+  : m_pRootSignature(nullptr)
+  , m_pRootSignature10(nullptr)
+  , m_pRootSignature11(nullptr) {
+}
+
+CVersionedRootSignatureDeserializer::~CVersionedRootSignatureDeserializer() {
+  DeleteRootSignature(m_pRootSignature10);
+  DeleteRootSignature(m_pRootSignature11);
+}
+
+//QQQ
+#if 0
+  // Ensure this gets deleted as necessary.
+  struct SigGuard {
+    const DxilVersionedRootSignatureDesc *Orig, *Guard;
+    SigGuard(const DxilVersionedRootSignatureDesc *pOrig, const DxilVersionedRootSignatureDesc *pGuard)
+      : Orig(pOrig), Guard(pGuard) { }
+    ~SigGuard() {
+      if (Orig != Guard) {
+        DeleteRootSignature(Guard);
+      }
+    }
+  };
+  SigGuard S(pVersionedRootSignature, pUpconvertedRS);
+#endif
+
+void CVersionedRootSignatureDeserializer::Initialize(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
+                                                     __in uint32_t SrcDataSizeInBytes) {
+  DxilVersionedRootSignatureDesc *pRootSignature = nullptr;
+  DeserializeRootSignature(pSrcData, SrcDataSizeInBytes, &pRootSignature);
+
+  switch (pRootSignature->Version) {
+  case DxilRootSignatureVersion::Version_1_0:
+    m_pRootSignature10 = pRootSignature;
+    break;
+
+  case DxilRootSignatureVersion::Version_1_1:
+    m_pRootSignature11 = pRootSignature;
+    break;
+
+  default:
+    DeleteRootSignature(pRootSignature);
+    return;
+  }
+
+  m_pRootSignature = pRootSignature;
+}
+
+const DxilVersionedRootSignatureDesc *
+CVersionedRootSignatureDeserializer::GetUnconvertedRootSignatureDesc() {
+  return m_pRootSignature;
+}
+
+const DxilVersionedRootSignatureDesc *
+CVersionedRootSignatureDeserializer::GetRootSignatureDescAtVersion(DxilRootSignatureVersion ConvertToVersion) {
+  switch (ConvertToVersion) {
+  case DxilRootSignatureVersion::Version_1_0:
+    if (m_pRootSignature10 == nullptr) {
+      ConvertRootSignature(m_pRootSignature,
+                           ConvertToVersion,
+                           (const DxilVersionedRootSignatureDesc **)&m_pRootSignature10);
+    }
+    return m_pRootSignature10;
+
+  case DxilRootSignatureVersion::Version_1_1:
+    if (m_pRootSignature11 == nullptr) {
+      ConvertRootSignature(m_pRootSignature,
+                           ConvertToVersion,
+                           (const DxilVersionedRootSignatureDesc **)&m_pRootSignature11);
+    }
+    return m_pRootSignature11;
+
+  default:
+    IFTBOOL(false, E_FAIL);
+  }
+
+  return nullptr;
+}
+
+//QQQ
+#if 0
+        hr = DeserializeRootSignatureTemplate<
+                D3D12_ROOT_SIGNATURE_DESC,
+                D3D12_ROOT_PARAMETER,
+                D3D12_ROOT_DESCRIPTOR,
+                D3D12_ROOT_DESCRIPTOR,
+                D3D12_DESCRIPTOR_RANGE,
+                D3D12_DESCRIPTOR_RANGE_INTERNAL>(pSrcData,
+#endif
+
+template<typename T_ROOT_SIGNATURE_DESC,
+         typename T_ROOT_PARAMETER,
+         typename T_ROOT_DESCRIPTOR,
+         typename T_ROOT_DESCRIPTOR_INTERNAL,
+         typename T_DESCRIPTOR_RANGE,
+         typename T_DESCRIPTOR_RANGE_INTERNAL>
+HRESULT DeserializeRootSignatureTemplate(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
+                                         __in uint32_t SrcDataSizeInBytes,
+                                         DxilRootSignatureVersion DescVersion,
+                                         T_ROOT_SIGNATURE_DESC &RootSignatureDesc) {
+  HRESULT hr = S_OK;
+  T_ROOT_SIGNATURE_DESC *pRootSignature = &RootSignatureDesc;
+  const char *pData = (const char *)pSrcData;
+  const char *pMaxPtr = pData + SrcDataSizeInBytes;
+  UNREFERENCED_PARAMETER(DescVersion);
+  DXASSERT_NOMSG(((UINT*)pData)[0] == (UINT)DescVersion);
+
+  // Root signature.
+  IFCBOOL(pData + sizeof(DxilContainerRootSignatureDesc) <= pMaxPtr, E_FAIL);
+  DxilContainerRootSignatureDesc *pRS = (DxilContainerRootSignatureDesc *)pData;
+  pRootSignature->Flags = (DxilRootSignatureFlags)pRS->Flags;
+  pRootSignature->NumParameters = pRS->NumParameters;
+  pRootSignature->NumStaticSamplers = pRS->NumStaticSamplers;
+  // Intialize all pointers early so that clean up works properly.
+  pRootSignature->pParameters = nullptr;
+  pRootSignature->pStaticSamplers = nullptr;
+
+  size_t s = sizeof(DxilContainerRootParameter)*pRS->NumParameters;
+  DxilContainerRootParameter *pInRTS = (DxilContainerRootParameter *)(pData + pRS->RootParametersOffset);
+  IFCBOOL(((char*)pInRTS) + s <= pMaxPtr, E_FAIL);
+  if (pRootSignature->NumParameters) {
+      pRootSignature->pParameters = new (std::nothrow) T_ROOT_PARAMETER[pRootSignature->NumParameters];
+    IFCOOM(pRootSignature->pParameters);
+  }
+  memset((void *)pRootSignature->pParameters, 0, s);
+
+  for(unsigned iRP = 0; iRP < pRootSignature->NumParameters; iRP++) {
+    DxilRootParameterType ParameterType = (DxilRootParameterType)pInRTS[iRP].ParameterType;
+    T_ROOT_PARAMETER *pOutRTS = (T_ROOT_PARAMETER *)&pRootSignature->pParameters[iRP];
+    pOutRTS->ParameterType = ParameterType;
+    pOutRTS->ShaderVisibility = (DxilShaderVisibility)pInRTS[iRP].ShaderVisibility;
+    switch(ParameterType) {
+    case DxilRootParameterType::DescriptorTable: {
+      DxilContainerRootDescriptorTable *p1 = (DxilContainerRootDescriptorTable*)(pData + pInRTS[iRP].PayloadOffset);
+      IFCBOOL((char*)p1 + sizeof(DxilContainerRootDescriptorTable) <= pMaxPtr, E_FAIL);
+      pOutRTS->DescriptorTable.NumDescriptorRanges = p1->NumDescriptorRanges;
+      T_DESCRIPTOR_RANGE_INTERNAL *p2 = (T_DESCRIPTOR_RANGE_INTERNAL*)(pData + p1->DescriptorRangesOffset);
+      IFCBOOL((char*)p2 + sizeof(T_DESCRIPTOR_RANGE_INTERNAL) <= pMaxPtr, E_FAIL);
+      if (p1->NumDescriptorRanges) {
+        pOutRTS->DescriptorTable.pDescriptorRanges = new (std::nothrow) T_DESCRIPTOR_RANGE[p1->NumDescriptorRanges];
+        IFCOOM(pOutRTS->DescriptorTable.pDescriptorRanges);
+      }
+      else {
+        pOutRTS->DescriptorTable.pDescriptorRanges = nullptr;
+      }
+      for (unsigned i = 0; i < p1->NumDescriptorRanges; i++) {
+        T_DESCRIPTOR_RANGE *p3 = (T_DESCRIPTOR_RANGE *)&pOutRTS->DescriptorTable.pDescriptorRanges[i];
+        p3->RangeType                         = (DxilDescriptorRangeType)p2[i].RangeType;
+        p3->NumDescriptors                    = p2[i].NumDescriptors;
+        p3->BaseShaderRegister                = p2[i].BaseShaderRegister;
+        p3->RegisterSpace                     = p2[i].RegisterSpace;
+        p3->OffsetInDescriptorsFromTableStart = p2[i].OffsetInDescriptorsFromTableStart;
+        DxilDescriptorRangeFlags Flags = GetFlags(p2[i]);
+        SetFlags(*p3, Flags);
+      }
+      break;
+    }
+    case DxilRootParameterType::Constants32Bit: {
+      DxilRootConstants *p = (DxilRootConstants*)(pData + pInRTS[iRP].PayloadOffset);
+      IFCBOOL((char*)p + sizeof(DxilRootConstants) <= pMaxPtr, E_FAIL);
+      pOutRTS->Constants.Num32BitValues = p->Num32BitValues;
+      pOutRTS->Constants.ShaderRegister = p->ShaderRegister;
+      pOutRTS->Constants.RegisterSpace  = p->RegisterSpace;
+      break;
+    }
+    case DxilRootParameterType::CBV:
+    case DxilRootParameterType::SRV:
+    case DxilRootParameterType::UAV: {
+      T_ROOT_DESCRIPTOR *p = (T_ROOT_DESCRIPTOR *)(pData + pInRTS[iRP].PayloadOffset);
+      IFCBOOL((char*)p + sizeof(T_ROOT_DESCRIPTOR) <= pMaxPtr, E_FAIL);
+      pOutRTS->Descriptor.ShaderRegister = p->ShaderRegister;
+      pOutRTS->Descriptor.RegisterSpace  = p->RegisterSpace;
+      DxilRootDescriptorFlags Flags = GetFlags(*p);
+      SetFlags(pOutRTS->Descriptor, Flags);
+      break;
+    }
+    default:
+      IFCBOOL(false, E_FAIL);
+    }
+  }
+
+  s = sizeof(DxilStaticSamplerDesc)*pRS->NumStaticSamplers;
+  DxilStaticSamplerDesc *pInSS = (DxilStaticSamplerDesc *)(pData + pRS->StaticSamplersOffset);
+  IFCBOOL(((char*)pInSS) + s <= pMaxPtr, E_FAIL);
+  if (pRootSignature->NumStaticSamplers) {
+    pRootSignature->pStaticSamplers = new (std::nothrow) DxilStaticSamplerDesc[pRootSignature->NumStaticSamplers];
+    IFCOOM(pRootSignature->pStaticSamplers);
+  }
+  memcpy((void*)pRootSignature->pStaticSamplers, pInSS, s);
+
+Cleanup:
+  // Note that in case of failure, outside code must deallocate memory.
+  return hr;
+}
+
+//QQQ
+void DeserializeRootSignature(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
+                              __in uint32_t SrcDataSizeInBytes,
+                              __out DxilVersionedRootSignatureDesc **ppRootSignature) {
+  DxilVersionedRootSignatureDesc *pRootSignature = NULL;
+  const char *pData = (const char *)pSrcData;
+  IFTBOOL(pData + sizeof(uint32_t) < pData + SrcDataSizeInBytes, E_FAIL);
+  IFTBOOL(pSrcData == nullptr || SrcDataSizeInBytes == 0 || ppRootSignature == nullptr, E_FAIL);
+  *ppRootSignature = nullptr;
+
+  DxilRootSignatureVersion Version = (DxilRootSignatureVersion)((uint32_t*)pData)[0];
+
+  pRootSignature = new DxilVersionedRootSignatureDesc();
+
+  HRESULT hr = S_OK;
+  switch (Version) {
+  case DxilRootSignatureVersion::Version_1_0:
+    pRootSignature->Version = DxilRootSignatureVersion::Version_1_0;
+    hr = DeserializeRootSignatureTemplate<
+            DxilRootSignatureDesc,
+            DxilRootParameter,
+            DxilRootDescriptor,
+            DxilRootDescriptor,
+            DxilDescriptorRange,
+            DxilContainerDescriptorRange>(pSrcData,
+                                          SrcDataSizeInBytes,
+                                          DxilRootSignatureVersion::Version_1_0,
+                                          pRootSignature->Desc_1_0);
+    break;
+
+  case DxilRootSignatureVersion::Version_1_1:
+    pRootSignature->Version = DxilRootSignatureVersion::Version_1_1;
+    hr = DeserializeRootSignatureTemplate<
+            DxilRootSignatureDesc1,
+            DxilRootParameter1,
+            DxilRootDescriptor1,
+            DxilContainerRootDescriptor1,
+            DxilDescriptorRange1,
+            DxilContainerDescriptorRange1>(pSrcData,
+                                           SrcDataSizeInBytes,
+                                           DxilRootSignatureVersion::Version_1_1,
+                                           pRootSignature->Desc_1_1);
+    break;
+
+  default:
+    hr = E_FAIL;
+    break;
+  }
+
+  if (FAILED(hr)) {
+    DeleteRootSignature(pRootSignature);
+    IFT(hr);
+  }
+
+  *ppRootSignature = pRootSignature;
 }
 
 } // namespace hlsl

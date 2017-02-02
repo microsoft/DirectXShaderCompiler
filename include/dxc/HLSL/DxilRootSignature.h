@@ -323,7 +323,7 @@ public:
 
   void Assign(const DxilVersionedRootSignatureDesc *pDesc, IDxcBlob *pSerialized);
   void Clear();
-  void LoadSerialized(const uint8_t *pData, unsigned length);
+  void LoadSerialized(const uint8_t *pData, uint32_t length);
   void EnsureSerializedAvailable();
 };
 
@@ -338,6 +338,11 @@ void SerializeRootSignature(
     const DxilVersionedRootSignatureDesc *pRootSignature,
     _Outptr_ IDxcBlob **ppBlob, _Outptr_ IDxcBlobEncoding **ppErrorBlob,
     bool bAllowReservedRegisterSpace);
+
+//QQQ
+void DeserializeRootSignature(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
+                              __in uint32_t SrcDataSizeInBytes,
+                              __out DxilVersionedRootSignatureDesc **ppRootSignature);
 
 } // namespace hlsl
 
