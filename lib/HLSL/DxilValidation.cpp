@@ -1557,8 +1557,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                           texSt.get_value2(), texSt.get_value3()});
 
     if (stValMask != uMask) {
-      ValCtx.EmitInstrError(
-          CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore);
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
+          {std::to_string(uMask).c_str(), std::to_string(stValMask).c_str()});
     }
 
     switch (resKind) {
