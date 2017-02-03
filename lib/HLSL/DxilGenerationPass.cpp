@@ -1827,24 +1827,27 @@ static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *>
   }
 }
 
+static bool IsResourceAlloc(AllocaInst *AI) {
+  bool isResource = HLModule::IsHLSLObjectType(AI->getAllocatedType());
+
+  if (ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType())) {
+    Type *EltTy = AT->getElementType();
+    while (isa<ArrayType>(EltTy)) {
+      EltTy = EltTy->getArrayElementType();
+    }
+    isResource = HLModule::IsHLSLObjectType(EltTy);
+    // TODO: support local resource array.
+    DXASSERT(!isResource, "local resource array");
+  }
+  return isResource;
+}
+
 void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unordered_map<Instruction *, Value *> &handleMap) {
   BasicBlock &BB = F->getEntryBlock(); // Get the entry node for the function
   std::unordered_set<AllocaInst *> localResources;
   for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
     if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-
-      bool isResource = HLModule::IsHLSLObjectType(AI->getAllocatedType());
-
-      if (ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType())) {
-        Type *EltTy = AT->getElementType();
-        while (isa<ArrayType>(EltTy)) {
-          EltTy = EltTy->getArrayElementType();
-        }
-        isResource = HLModule::IsHLSLObjectType(EltTy);
-        // TODO: support local resource array.
-        DXASSERT(!isResource, "local resource array");
-      }
-      if (isResource) {
+      if (IsResourceAlloc(AI)) {
         localResources.insert(AI);
       }
     }
@@ -1874,19 +1877,7 @@ void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
   std::unordered_set<AllocaInst *> localResources;
   for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
     if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-
-      bool isResource = HLModule::IsHLSLObjectType(AI->getAllocatedType());
-
-      if (ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType())) {
-        Type *EltTy = AT->getElementType();
-        while (isa<ArrayType>(EltTy)) {
-          EltTy = EltTy->getArrayElementType();
-        }
-        isResource = HLModule::IsHLSLObjectType(EltTy);
-        // TODO: support local resource array.
-        DXASSERT(!isResource, "local resource array");
-      }
-      if (isResource) {
+      if (IsResourceAlloc(AI)) {
         localResources.insert(AI);
       }
     }
