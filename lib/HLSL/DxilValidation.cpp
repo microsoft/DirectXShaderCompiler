@@ -386,7 +386,7 @@ struct ValidationContext {
   }
 
   void EmitGlobalValueError(GlobalValue *GV, ValidationRule rule) {
-    EmitFormatError(rule, { GV->getName().str().c_str() });
+    EmitFormatError(rule, { GV->getName().str() });
   }
 
   // This is the least desirable mechanism, as it has no context.
@@ -395,12 +395,12 @@ struct ValidationContext {
     Failed = true;
   }
 
-  void FormatRuleText(std::string &ruleText, ArrayRef<const char *> args) {
+  void FormatRuleText(std::string &ruleText, ArrayRef<StringRef> args) {
     // Consider changing const char * to StringRef
     for (unsigned i = 0; i < args.size(); i++) {
       std::string argIdx = "%" + std::to_string(i);
-      const char *pArg = args[i];
-      if (pArg == nullptr)
+      StringRef pArg = args[i];
+      if (pArg == "")
         pArg = "<null>";
 
       std::string::size_type offset = ruleText.find(argIdx);
@@ -412,7 +412,7 @@ struct ValidationContext {
     }
   }
 
-  void EmitFormatError(ValidationRule rule, ArrayRef<const char *> args) {
+  void EmitFormatError(ValidationRule rule, ArrayRef<StringRef> args) {
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
     DiagPrinter << ruleText << '\n';
@@ -435,7 +435,7 @@ struct ValidationContext {
 
   void EmitResourceFormatError(const hlsl::DxilResourceBase *Res,
                                ValidationRule rule,
-                               ArrayRef<const char *> args) {
+                               ArrayRef<StringRef> args) {
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
     DiagPrinter << ruleText;
@@ -515,7 +515,7 @@ struct ValidationContext {
     Failed = true;
   }
 
-  void EmitInstrFormatError(Instruction *I, ValidationRule rule, ArrayRef<const char *> args) {
+  void EmitInstrFormatError(Instruction *I, ValidationRule rule, ArrayRef<StringRef> args) {
     if (!EmitInstrLoc(I, rule)) return;
 
     std::string ruleText = GetValidationRuleText(rule);
@@ -525,7 +525,7 @@ struct ValidationContext {
     Failed = true;
   }
 
-  void EmitOperandOutOfRange(Instruction *I, const char *name, const char * range, const char * v) {
+  void EmitOperandOutOfRange(Instruction *I, StringRef name, StringRef range, StringRef v) {
     if (!EmitInstrLoc(I, ValidationRule::InstrOperandRange)) return;
 
     std::string ruleText = GetValidationRuleText(ValidationRule::InstrOperandRange);
@@ -543,7 +543,7 @@ struct ValidationContext {
     std::string O;
     raw_string_ostream OSS(O);
     Ty->print(OSS);
-    EmitFormatError(rule, { OSS.str().c_str() });
+    EmitFormatError(rule, { OSS.str() });
   }
 };
 
@@ -1159,8 +1159,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
         if (immVertexID < low || immVertexID >= high) {
           std::string range = std::to_string(low)+"~"+
                                        std::to_string(high);
-          ValCtx.EmitOperandOutOfRange(CI, "VertexID", range.c_str(),
-                                       std::to_string(immVertexID).c_str());
+          ValCtx.EmitOperandOutOfRange(CI, "VertexID", range,
+                                       std::to_string(immVertexID));
         }
       }
     }
@@ -1459,9 +1459,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       if (fBias < DXIL::kMinMipLodBias || fBias > DXIL::kMaxMipLodBias) {
         ValCtx.EmitInstrFormatError(
             CI, ValidationRule::InstrImmBiasForSampleB,
-            {std::to_string(DXIL::kMinMipLodBias).c_str(),
-             std::to_string(DXIL::kMaxMipLodBias).c_str(),
-             std::to_string(cBias->getValueAPF().convertToFloat()).c_str()});
+            {std::to_string(DXIL::kMinMipLodBias),
+             std::to_string(DXIL::kMaxMipLodBias),
+             std::to_string(cBias->getValueAPF().convertToFloat())});
       }
     }
 
@@ -1553,7 +1553,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     if (stValMask != uMask) {
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
-          {std::to_string(uMask).c_str(), std::to_string(stValMask).c_str()});
+          {std::to_string(uMask), std::to_string(stValMask)});
     }
 
     Value *offset = bufSt.get_coord1();
@@ -1619,8 +1619,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                           texSt.get_value2(), texSt.get_value3()});
 
     if (stValMask != uMask) {
-      ValCtx.EmitInstrError(
-          CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore);
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
+          {std::to_string(uMask), std::to_string(stValMask)});
     }
 
     switch (resKind) {
@@ -1732,7 +1733,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
         int immStreamID = cStreamID->getValue().getLimitedValue();
         if (cStreamID->getValue().isNegative() || immStreamID >= 4) {
           ValCtx.EmitOperandOutOfRange(CI, "StreamID","0~4",
-                                       std::to_string(immStreamID).c_str());
+                                       std::to_string(immStreamID));
         } else {
           unsigned immMask = 1 << immStreamID;
           if ((streamMask & immMask) == 0) {
@@ -1742,8 +1743,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                 range += std::to_string(i) + " ";
               }
             }
-            ValCtx.EmitOperandOutOfRange(CI, "StreamID", range.c_str(),
-                                         std::to_string(immStreamID).c_str());
+            ValCtx.EmitOperandOutOfRange(CI, "StreamID", range,
+                                         std::to_string(immStreamID));
           }
         }
 
@@ -2537,13 +2538,13 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
   } else {
     if (!F.arg_empty())
       ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall,
-                             {F.getName().str().c_str()});
+                             {F.getName().str()});
 
     DxilFunctionAnnotation *funcAnnotation =
         ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
     if (!funcAnnotation) {
       ValCtx.EmitFormatError(ValidationRule::MetaFunctionAnnotation,
-                             {F.getName().str().c_str()});
+                             {F.getName().str()});
       return;
     }
 
@@ -2564,11 +2565,11 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
         if (arg.hasName())
           ValCtx.EmitFormatError(
               ValidationRule::DeclFnFlattenParam,
-              {arg.getName().str().c_str(), F.getName().str().c_str()});
+              {arg.getName().str(), F.getName().str()});
         else
           ValCtx.EmitFormatError(ValidationRule::DeclFnFlattenParam,
-                                 {std::to_string(arg.getArgNo()).c_str(),
-                                  F.getName().str().c_str()});
+                                 {std::to_string(arg.getArgNo()),
+                                  F.getName().str()});
         break;
       }
     }
@@ -2674,8 +2675,8 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
 
   if (TGSMSize > DXIL::kMaxTGSMSize) {
     ValCtx.EmitFormatError(ValidationRule::SmMaxTGSMSize,
-                           {std::to_string(TGSMSize).c_str(),
-                            std::to_string(DXIL::kMaxTGSMSize).c_str()});
+                           {std::to_string(TGSMSize),
+                            std::to_string(DXIL::kMaxTGSMSize)});
   }
   if (!fixAddrTGSMList.empty()) {
     ValidateTGSMRaceCondition(fixAddrTGSMList, ValCtx);
@@ -2711,7 +2712,7 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
   Module *pModule = &ValCtx.M;
   const std::string &target = pModule->getTargetTriple();
   if (target != "dxil-ms-dx") {
-    ValCtx.EmitFormatError(ValidationRule::MetaTarget, {target.c_str()});
+    ValCtx.EmitFormatError(ValidationRule::MetaTarget, {target});
   }
 
   StringMap<bool> llvmNamedMeta;
@@ -2730,11 +2731,11 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
     if (!DxilModule::IsKnownNamedMetaData(NamedMetaNode)) {
       StringRef name = NamedMetaNode.getName();
       if (!name.startswith_lower("llvm."))
-        ValCtx.EmitFormatError(ValidationRule::MetaKnown, {name.str().c_str()});
+        ValCtx.EmitFormatError(ValidationRule::MetaKnown, {name.str()});
       else {
         if (llvmNamedMeta.count(name) == 0) {
           ValCtx.EmitFormatError(ValidationRule::MetaKnown,
-                                 {name.str().c_str()});
+                                 {name.str()});
         }
       }
     }
@@ -2766,11 +2767,11 @@ static void ValidateResourceOverlap(
   if (conflictRes) {
     ValCtx.EmitFormatError(
         ValidationRule::SmResourceRangeOverlap,
-        {res.GetGlobalName().c_str(), std::to_string(base).c_str(),
-         std::to_string(size).c_str(),
-         std::to_string(conflictRes->GetLowerBound()).c_str(),
-         std::to_string(conflictRes->GetRangeSize()).c_str(),
-         std::to_string(space).c_str()});
+        {res.GetGlobalName(), std::to_string(base),
+         std::to_string(size),
+         std::to_string(conflictRes->GetLowerBound()),
+         std::to_string(conflictRes->GetRangeSize()),
+         std::to_string(space)});
   }
 }
 
@@ -2825,13 +2826,13 @@ static void ValidateResource(hlsl::DxilResource &res,
     if (!alignedTo4Bytes) {
       ValCtx.EmitResourceFormatError(
           &res, ValidationRule::MetaStructBufAlignment,
-          {std::to_string(4).c_str(), std::to_string(stride).c_str()});
+          {std::to_string(4), std::to_string(stride)});
     }
     if (stride > DXIL::kMaxStructBufferStride) {
       ValCtx.EmitResourceFormatError(
           &res, ValidationRule::MetaStructBufAlignmentOutOfBound,
-          {std::to_string(DXIL::kMaxStructBufferStride).c_str(),
-           std::to_string(stride).c_str()});
+          {std::to_string(DXIL::kMaxStructBufferStride),
+           std::to_string(stride)});
     }
   }
 
@@ -2847,7 +2848,7 @@ static void ValidateResource(hlsl::DxilResource &res,
 static void
 CollectCBufferRanges(DxilStructAnnotation *annotation,
                      SpanAllocator<unsigned, DxilFieldAnnotation> &constAllocator,
-                     unsigned base, DxilTypeSystem &typeSys, const char *cbName,
+                     unsigned base, DxilTypeSystem &typeSys, StringRef cbName,
                      ValidationContext &ValCtx) {
   unsigned cbSize = annotation->GetCBufferSize();
 
@@ -2870,7 +2871,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
                                   base + offset + EltSize - 1)) {
           ValCtx.EmitFormatError(
               ValidationRule::SmCBufferOffsetOverlap,
-              {cbName, std::to_string(base + offset).c_str()});
+              {cbName, std::to_string(base + offset)});
         }
       }
     } else if (isa<ArrayType>(EltTy)) {
@@ -2901,7 +2902,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
                                     arrayBase + EltSize - 1)) {
             ValCtx.EmitFormatError(
                 ValidationRule::SmCBufferOffsetOverlap,
-                {cbName, std::to_string(base + offset).c_str()});
+                {cbName, std::to_string(base + offset)});
           }
 
         } else {
@@ -2918,7 +2919,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
 
     if (bOutOfBound) {
       ValCtx.EmitFormatError(ValidationRule::SmCBufferElementOverflow,
-                             {cbName, std::to_string(base + offset).c_str()});
+                             {cbName, std::to_string(base + offset)});
     }
   }
 }
@@ -2946,7 +2947,7 @@ static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
       DXIL::kMaxCBufferSize << 4);
   CollectCBufferRanges(annotation, constAllocator,
                        0, typeSys,
-                       cb.GetGlobalName().c_str(), ValCtx);
+                       cb.GetGlobalName(), ValCtx);
 }
 
 static void ValidateResources(ValidationContext &ValCtx) {
@@ -3111,7 +3112,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   if (!bAllowedInSig) {
     ValCtx.EmitFormatError(
         ValidationRule::SmSemantic,
-        {SE.GetName(), ValCtx.DxilMod.GetShaderModel()->GetKindName().c_str(), inputOutput});
+        {SE.GetName(), ValCtx.DxilMod.GetShaderModel()->GetKindName(), inputOutput});
   } else if (bShouldBeAllocated && !SE.IsAllocated()) {
     ValCtx.EmitFormatError(ValidationRule::MetaSemanticShouldBeAllocated,
       {inputOutput, SE.GetName()});
@@ -3207,13 +3208,13 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   if (ValCtx.DxilMod.GetShaderModel()->IsGS() && SE.IsOutput()) {
     if (SE.GetOutputStream() >= DXIL::kNumOutputStreams) {
       ValCtx.EmitFormatError(ValidationRule::SmStreamIndexRange,
-                             {std::to_string(SE.GetOutputStream()).c_str(),
-                              std::to_string(DXIL::kNumOutputStreams - 1).c_str()});
+                             {std::to_string(SE.GetOutputStream()),
+                              std::to_string(DXIL::kNumOutputStreams - 1)});
     }
   } else {
     if (SE.GetOutputStream() > 0) {
       ValCtx.EmitFormatError(ValidationRule::SmStreamIndexRange,
-                             {std::to_string(SE.GetOutputStream()).c_str(),
+                             {std::to_string(SE.GetOutputStream()),
                               "0"});
     }
   }
@@ -3260,9 +3261,9 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     unsigned size = (SE.GetRows() - 1) * 4 + SE.GetCols();
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureOutOfRange,
                             {SE.GetName(),
-                            std::to_string(SE.GetStartRow()).c_str(),
-                            std::to_string(SE.GetStartCol()).c_str(),
-                            std::to_string(size).c_str()});
+                            std::to_string(SE.GetStartRow()),
+                            std::to_string(SE.GetStartCol()),
+                            std::to_string(size)});
   }
 
   if (!SE.GetInterpolationMode()->IsValid()) {
@@ -3297,26 +3298,26 @@ static void ValidateSignatureOverlap(
   case DxilSignatureAllocator::kConflictsWithIndexed:
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureIndexConflict,
                             {E.GetName(),
-                            std::to_string(E.GetStartRow()).c_str(),
-                            std::to_string(E.GetStartCol()).c_str(),
-                            std::to_string(E.GetRows()).c_str(),
-                            std::to_string(E.GetCols()).c_str()});
+                            std::to_string(E.GetStartRow()),
+                            std::to_string(E.GetStartCol()),
+                            std::to_string(E.GetRows()),
+                            std::to_string(E.GetCols())});
     break;
   case DxilSignatureAllocator::kConflictsWithIndexedTessFactor:
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureIndexConflict,
                             {E.GetName(),
-                            std::to_string(E.GetStartRow()).c_str(),
-                            std::to_string(E.GetStartCol()).c_str(),
-                            std::to_string(E.GetRows()).c_str(),
-                            std::to_string(E.GetCols()).c_str()});
+                            std::to_string(E.GetStartRow()),
+                            std::to_string(E.GetStartCol()),
+                            std::to_string(E.GetRows()),
+                            std::to_string(E.GetCols())});
     break;
   case DxilSignatureAllocator::kConflictsWithInterpolationMode:
     ValCtx.EmitFormatError(ValidationRule::MetaInterpModeInOneRow,
                             {E.GetName(),
-                            std::to_string(E.GetStartRow()).c_str(),
-                            std::to_string(E.GetStartCol()).c_str(),
-                            std::to_string(E.GetRows()).c_str(),
-                            std::to_string(E.GetCols()).c_str()});
+                            std::to_string(E.GetStartRow()),
+                            std::to_string(E.GetStartCol()),
+                            std::to_string(E.GetRows()),
+                            std::to_string(E.GetCols())});
     break;
   case DxilSignatureAllocator::kInsufficientFreeComponents:
     DXASSERT(false, "otherwise, conflict not translated");
@@ -3324,26 +3325,26 @@ static void ValidateSignatureOverlap(
   case DxilSignatureAllocator::kOverlapElement:
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureOverlap,
                             {E.GetName(),
-                            std::to_string(E.GetStartRow()).c_str(),
-                            std::to_string(E.GetStartCol()).c_str(),
-                            std::to_string(E.GetRows()).c_str(),
-                            std::to_string(E.GetCols()).c_str()});
+                            std::to_string(E.GetStartRow()),
+                            std::to_string(E.GetStartCol()),
+                            std::to_string(E.GetRows()),
+                            std::to_string(E.GetCols())});
     break;
   case DxilSignatureAllocator::kIllegalComponentOrder:
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureIllegalComponentOrder,
                             {E.GetName(),
-                            std::to_string(E.GetStartRow()).c_str(),
-                            std::to_string(E.GetStartCol()).c_str(),
-                            std::to_string(E.GetRows()).c_str(),
-                            std::to_string(E.GetCols()).c_str()});
+                            std::to_string(E.GetStartRow()),
+                            std::to_string(E.GetStartCol()),
+                            std::to_string(E.GetRows()),
+                            std::to_string(E.GetCols())});
     break;
   case DxilSignatureAllocator::kConflictFit:
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureOutOfRange,
                             {E.GetName(),
-                            std::to_string(E.GetStartRow()).c_str(),
-                            std::to_string(E.GetStartCol()).c_str(),
-                            std::to_string(E.GetRows()).c_str(),
-                            std::to_string(E.GetCols()).c_str()});
+                            std::to_string(E.GetStartRow()),
+                            std::to_string(E.GetStartCol()),
+                            std::to_string(E.GetRows()),
+                            std::to_string(E.GetCols())});
     break;
   default:
     DXASSERT(false, "otherwise, unrecognized conflict type from DxilSignatureAllocator");
@@ -3381,7 +3382,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
     for (unsigned semIdx : E->GetSemanticIndexVec()) {
       if (semIdxSet.count(semIdx) > 0) {
         ValCtx.EmitFormatError(ValidationRule::MetaNoSemanticOverlap,
-                               {E->GetName(), std::to_string(semIdx).c_str()});
+                               {E->GetName(), std::to_string(semIdx)});
         return;
       } else
         semIdxSet.insert(semIdx);
@@ -3394,7 +3395,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
         unsigned mask = ((1 << E->GetRows()) - 1) << E->GetStartRow();
         if (TargetMask & mask) {
           ValCtx.EmitFormatError(ValidationRule::MetaNoSemanticOverlap,
-                                 {"SV_Target", std::to_string(E->GetStartRow()).c_str()});
+                                 {"SV_Target", std::to_string(E->GetStartRow())});
         }
         TargetMask = TargetMask | mask;
       }
@@ -3564,10 +3565,10 @@ static void ValidateSignatures(ValidationContext &ValCtx) {
     if (totalOutputScalars > DXIL::kMaxGSOutputTotalScalars) {
       ValCtx.EmitFormatError(
           ValidationRule::SmGSTotalOutputVertexDataRange,
-          {std::to_string(maxVertexCount).c_str(),
-           std::to_string(outputScalarCount).c_str(),
-           std::to_string(totalOutputScalars).c_str(),
-           std::to_string(DXIL::kMaxGSOutputTotalScalars).c_str()});
+          {std::to_string(maxVertexCount),
+           std::to_string(outputScalarCount),
+           std::to_string(totalOutputScalars),
+           std::to_string(DXIL::kMaxGSOutputTotalScalars)});
     }
   }
 
@@ -3640,19 +3641,19 @@ static void CheckPatchConstantSemantic(ValidationContext &ValCtx)
       bFoundEdgeSemantic = true;
       if (SE->GetRows() != edgeSize || SE->GetCols() > 1) {
         ValCtx.EmitFormatError(ValidationRule::SmTessFactorSizeMatchDomain,
-                               {std::to_string(SE->GetRows()).c_str(),
-                                std::to_string(SE->GetCols()).c_str(),
+                               {std::to_string(SE->GetRows()),
+                                std::to_string(SE->GetCols()),
                                 domainName,
-                                std::to_string(edgeSize).c_str()});
+                                std::to_string(edgeSize)});
       }
     } else if (kind == kInsideSemantic) {
       bFoundInsideSemantic = true;
       if (SE->GetRows() != insideSize || SE->GetCols() > 1) {
         ValCtx.EmitFormatError(ValidationRule::SmInsideTessFactorSizeMatchDomain,
-                               {std::to_string(SE->GetRows()).c_str(),
-                                std::to_string(SE->GetCols()).c_str(),
+                               {std::to_string(SE->GetRows()),
+                                std::to_string(SE->GetCols()),
                                 domainName,
-                                std::to_string(insideSize).c_str()});
+                                std::to_string(insideSize)});
       }
     }
   }
@@ -3681,30 +3682,30 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     if ((x < DXIL::kMinCSThreadGroupX) || (x > DXIL::kMaxCSThreadGroupX)) {
       ValCtx.EmitFormatError(
           ValidationRule::SmThreadGroupChannelRange,
-          {"X", std::to_string(x).c_str(),
-           std::to_string(DXIL::kMinCSThreadGroupX).c_str(),
-           std::to_string(DXIL::kMaxCSThreadGroupX).c_str()});
+          {"X", std::to_string(x),
+           std::to_string(DXIL::kMinCSThreadGroupX),
+           std::to_string(DXIL::kMaxCSThreadGroupX)});
     }
     if ((y < DXIL::kMinCSThreadGroupY) || (y > DXIL::kMaxCSThreadGroupY)) {
       ValCtx.EmitFormatError(
           ValidationRule::SmThreadGroupChannelRange,
-          {"Y", std::to_string(y).c_str(),
-           std::to_string(DXIL::kMinCSThreadGroupY).c_str(),
-           std::to_string(DXIL::kMaxCSThreadGroupY).c_str()});
+          {"Y", std::to_string(y),
+           std::to_string(DXIL::kMinCSThreadGroupY),
+           std::to_string(DXIL::kMaxCSThreadGroupY)});
     }
     if ((z < DXIL::kMinCSThreadGroupZ) || (z > DXIL::kMaxCSThreadGroupZ)) {
       ValCtx.EmitFormatError(
           ValidationRule::SmThreadGroupChannelRange,
-          {"Z", std::to_string(z).c_str(),
-           std::to_string(DXIL::kMinCSThreadGroupZ).c_str(),
-           std::to_string(DXIL::kMaxCSThreadGroupZ).c_str()});
+          {"Z", std::to_string(z),
+           std::to_string(DXIL::kMinCSThreadGroupZ),
+           std::to_string(DXIL::kMaxCSThreadGroupZ)});
     }
 
     if (threadsInGroup > DXIL::kMaxCSThreadsPerGroup) {
       ValCtx.EmitFormatError(
           ValidationRule::SmMaxTheadGroup,
-          {std::to_string(threadsInGroup).c_str(),
-           std::to_string(DXIL::kMaxCSThreadsPerGroup).c_str()});
+          {std::to_string(threadsInGroup),
+           std::to_string(DXIL::kMaxCSThreadsPerGroup)});
     }
 
     // type of threadID, thread group ID take care by DXIL operation overload
@@ -3718,8 +3719,8 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     if (inputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
       ValCtx.EmitFormatError(
           ValidationRule::SmDSInputControlPointCountRange,
-          {std::to_string(DXIL::kMaxIAPatchControlPointCount).c_str(),
-           std::to_string(inputControlPointCount).c_str()});
+          {std::to_string(DXIL::kMaxIAPatchControlPointCount),
+           std::to_string(inputControlPointCount)});
     }
     if (domain == DXIL::TessellatorDomain::Undefined) {
       ValCtx.EmitError(ValidationRule::SmValidDomain);
@@ -3734,8 +3735,8 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
         inputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
       ValCtx.EmitFormatError(
           ValidationRule::SmHSInputControlPointCountRange,
-          {std::to_string(DXIL::kMaxIAPatchControlPointCount).c_str(),
-           std::to_string(inputControlPointCount).c_str()});
+          {std::to_string(DXIL::kMaxIAPatchControlPointCount),
+           std::to_string(inputControlPointCount)});
     }
     if (domain == DXIL::TessellatorDomain::Undefined) {
       ValCtx.EmitError(ValidationRule::SmValidDomain);
@@ -3757,9 +3758,9 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
         maxTessFactor > DXIL::kHSMaxTessFactorUpperBound) {
       ValCtx.EmitFormatError(
           ValidationRule::MetaMaxTessFactor,
-          {std::to_string(DXIL::kHSMaxTessFactorLowerBound).c_str(),
-           std::to_string(DXIL::kHSMaxTessFactorUpperBound).c_str(),
-           std::to_string(maxTessFactor).c_str()});
+          {std::to_string(DXIL::kHSMaxTessFactorLowerBound),
+           std::to_string(DXIL::kHSMaxTessFactorUpperBound),
+           std::to_string(maxTessFactor)});
     }
     // Domain and OutPrimivtive match.
     switch (domain) {
@@ -3820,15 +3821,15 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     if (maxVertexCount > DXIL::kMaxGSOutputVertexCount) {
       ValCtx.EmitFormatError(
           ValidationRule::SmGSOutputVertexCountRange,
-          {std::to_string(DXIL::kMaxGSOutputVertexCount).c_str(),
-           std::to_string(maxVertexCount).c_str()});
+          {std::to_string(DXIL::kMaxGSOutputVertexCount),
+           std::to_string(maxVertexCount)});
     }
 
     unsigned instanceCount = M.GetGSInstanceCount();
     if (instanceCount > DXIL::kMaxGSInstanceCount || instanceCount < 1) {
       ValCtx.EmitFormatError(ValidationRule::SmGSInstanceCountRange,
-                             {std::to_string(DXIL::kMaxGSInstanceCount).c_str(),
-                              std::to_string(instanceCount).c_str()});
+                             {std::to_string(DXIL::kMaxGSInstanceCount),
+                              std::to_string(instanceCount)});
     }
 
     DXIL::PrimitiveTopology topo = M.GetStreamPrimitiveTopology();
@@ -3853,8 +3854,8 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
   if (outputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
     ValCtx.EmitFormatError(
         ValidationRule::SmOutputControlPointCountRange,
-        {std::to_string(DXIL::kMaxIAPatchControlPointCount).c_str(),
-         std::to_string(outputControlPointCount).c_str()});
+        {std::to_string(DXIL::kMaxIAPatchControlPointCount),
+         std::to_string(outputControlPointCount)});
   }
 }
 

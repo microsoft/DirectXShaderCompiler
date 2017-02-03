@@ -2,7 +2,8 @@
 
 // CHECK: Typed UAV Load Additional Formats
 // CHECK: 64-Bit integer
-// CHECK: dx.op.bufferStore.i64
+// CHECK: dx.op.bufferStore.i32
+// CHECK: dx.op.bufferStore.i32
 // CHECK: !{i32 0, i64 1056768
 
 // Note: a change in the internal layout will produce
