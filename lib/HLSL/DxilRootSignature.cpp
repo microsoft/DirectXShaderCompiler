@@ -87,6 +87,11 @@ void RootSignatureHandle::EnsureSerializedAvailable() {
   }
 }
 
+void RootSignatureHandle::Deserialize() {
+  DXASSERT_NOMSG(m_pSerialized && !m_pDesc);
+  DeserializeRootSignature((uint8_t*)m_pSerialized->GetBufferPointer(), (uint32_t)m_pSerialized->GetBufferSize(), &m_pDesc);
+}
+
 void RootSignatureHandle::LoadSerialized(const uint8_t *pData,
                                          unsigned length) {
   DXASSERT_NOMSG(IsEmpty());
@@ -1431,7 +1436,7 @@ CVersionedRootSignatureDeserializer::~CVersionedRootSignatureDeserializer() {
 
 void CVersionedRootSignatureDeserializer::Initialize(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
                                                      __in uint32_t SrcDataSizeInBytes) {
-  DxilVersionedRootSignatureDesc *pRootSignature = nullptr;
+  const DxilVersionedRootSignatureDesc *pRootSignature = nullptr;
   DeserializeRootSignature(pSrcData, SrcDataSizeInBytes, &pRootSignature);
 
   switch (pRootSignature->Version) {
@@ -1581,12 +1586,12 @@ void DeserializeRootSignatureTemplate(__in_bcount(SrcDataSizeInBytes) const void
 _Use_decl_annotations_
 void DeserializeRootSignature(const void *pSrcData,
                               uint32_t SrcDataSizeInBytes,
-                              DxilVersionedRootSignatureDesc **ppRootSignature) {
+                              const DxilVersionedRootSignatureDesc **ppRootSignature) {
   DxilVersionedRootSignatureDesc *pRootSignature = nullptr;
+  IFTBOOL(pSrcData != nullptr && SrcDataSizeInBytes != 0 && ppRootSignature != nullptr, E_INVALIDARG);
+  IFTBOOL(*ppRootSignature == nullptr, E_INVALIDARG);
   const char *pData = (const char *)pSrcData;
   IFTBOOL(pData + sizeof(uint32_t) < pData + SrcDataSizeInBytes, E_FAIL);
-  IFTBOOL(pSrcData != nullptr && SrcDataSizeInBytes != 0 && ppRootSignature != nullptr, E_FAIL);
-  *ppRootSignature = nullptr;
 
   DxilRootSignatureVersion Version = (DxilRootSignatureVersion)((uint32_t*)pData)[0];
 

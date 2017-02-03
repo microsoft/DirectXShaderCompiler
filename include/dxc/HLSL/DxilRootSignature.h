@@ -348,7 +348,7 @@ void SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature
 
 void DeserializeRootSignature(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
                               __in uint32_t SrcDataSizeInBytes,
-                              __out DxilVersionedRootSignatureDesc **ppRootSignature);
+                              __out const DxilVersionedRootSignatureDesc **ppRootSignature);
 
 // Takes PSV - pipeline state validation data, not shader container.
 bool VerifyRootSignatureWithShaderPSV(__in const DxilVersionedRootSignatureDesc *pDesc,

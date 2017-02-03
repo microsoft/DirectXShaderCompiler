@@ -4275,23 +4275,15 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
   // Validate Root Signature
   if (pPSVPart) {
     if (pRootSignaturePart) {
-      DxilVersionedRootSignatureDesc* pDesc = nullptr;
       try {
-        DeserializeRootSignature(GetDxilPartData(pRootSignaturePart), pRootSignaturePart->PartSize, &pDesc);
+        RootSignatureHandle RS;
+        RS.LoadSerialized((const uint8_t*)GetDxilPartData(pRootSignaturePart), pRootSignaturePart->PartSize);
+        RS.Deserialize();
+        IFTBOOL(VerifyRootSignatureWithShaderPSV(RS.GetDesc(),
+                                                  pDxilModule->GetShaderModel()->GetKind(),
+                                                  GetDxilPartData(pPSVPart), pPSVPart->PartSize,
+                                                  DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
       } catch (...) {
-        pDesc = nullptr;
-      }
-      if (pDesc) {
-        try {
-          IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc,
-                                                   pDxilModule->GetShaderModel()->GetKind(),
-                                                   GetDxilPartData(pPSVPart), pPSVPart->PartSize,
-                                                   DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
-        } catch (...) {
-          DeleteRootSignature(pDesc);
-          ValCtx.EmitError(ValidationRule::ContainerRootSignatureIncompatible);
-        }
-      } else {
         ValCtx.EmitError(ValidationRule::ContainerRootSignatureIncompatible);
       }
     }
@@ -4384,23 +4376,24 @@ HRESULT ValidateDxilBitcode(
 
   DxilModule &dxilModule = pModule->GetDxilModule();
   if (!dxilModule.GetRootSignature().IsEmpty()) {
-    const RootSignatureHandle &RS = dxilModule.GetRootSignature();
     unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule));
     DXASSERT_NOMSG(pWriter->size());
     unique_ptr<unsigned char[]> pPSVData(new unsigned char[pWriter->size()]);
-    DxilVersionedRootSignatureDesc* pDesc = nullptr;
-    if (!RS.GetDesc()) {
-      DeserializeRootSignature(RS.GetSerializedBytes(), RS.GetSerializedSize(), &pDesc);
-      if (!pDesc)
-        return DXC_E_INCORRECT_ROOT_SIGNATURE;
-    }
+    const DxilVersionedRootSignatureDesc* pDesc = dxilModule.GetRootSignature().GetDesc();
+    RootSignatureHandle RS;
     try {
-      IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc ? pDesc : RS.GetDesc(),
+      if (!pDesc) {
+        RS.Assign(nullptr, dxilModule.GetRootSignature().GetSerialized());
+        RS.Deserialize();
+        pDesc = RS.GetDesc();
+        if (!pDesc)
+          return DXC_E_INCORRECT_ROOT_SIGNATURE;
+      }
+      IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc,
                                                dxilModule.GetShaderModel()->GetKind(),
                                                pPSVData.get(), pWriter->size(),
                                                DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
     } catch (...) {
-      DeleteRootSignature(pDesc);
       return DXC_E_INCORRECT_ROOT_SIGNATURE;
     }
   }
