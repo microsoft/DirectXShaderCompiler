@@ -702,22 +702,7 @@ MDTuple *HLModule::EmitHLShaderProperties() {
 }
 
 void HLModule::LoadHLShaderProperties(const MDOperand &MDO) {
-  if (MDO.get() == nullptr)
-    return;
-
-  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
-  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  IFTBOOL((pTupleMD->getNumOperands() & 0x1) == 0, DXC_E_INCORRECT_DXIL_METADATA);
-  for (unsigned iNode = 0; iNode < pTupleMD->getNumOperands(); iNode += 2) {
-    unsigned Tag = DxilMDHelper::ConstMDToUint32(pTupleMD->getOperand(iNode));
-    const MDOperand &MDO = pTupleMD->getOperand(iNode + 1);
-    IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-    switch (Tag) {
-    default:
-      // Ignore other extended properties for now.
-      break;
-    }
-  }
+  return;
 }
 
 // TODO: Don't check names.
