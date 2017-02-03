@@ -1,5 +1,6 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+
 find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 
 set(LLVM_LINK_COMPONENTS
@@ -47,6 +48,8 @@ set(SOURCES
   DXCompiler.cpp
   DXCompiler.rc
   DXCompiler.def
+  dxillib.cpp
+  dxcontainerbuilder.cpp
   )
 
 set(LIBRARIES

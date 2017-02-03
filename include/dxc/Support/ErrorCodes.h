@@ -77,3 +77,9 @@
 
 // 0x80AA0010 - Error parsing DDI signature.
 #define DXC_E_INCORRECT_DDI_SIGNATURE                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0010))
+
+// 0x80AA0011 - Duplicate part exists in dxil container.
+#define DXC_E_DUPLICATE_PART                          DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0011))
+
+// 0x80AA0012 - Error finding part in dxil container.
+#define DXC_E_MISSING_PART                            DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0012))
