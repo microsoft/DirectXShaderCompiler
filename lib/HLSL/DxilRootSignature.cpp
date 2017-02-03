@@ -9,15 +9,22 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/dxcapi.h"
 
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/DiagnosticPrinter.h"
+
 #include <algorithm>
 #include <utility>
 #include <vector>
+
+using namespace llvm;
 
 namespace hlsl {
 
@@ -305,12 +312,18 @@ public:
   RootSignatureVerifier();
   ~RootSignatureVerifier();
 
-  // Call this before calling VerifyShader, as it accumulates root signature
-  // state.
-  HRESULT
-  VerifyRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
-                      IStream *pErrors);
   void AllowReservedRegisterSpace(bool bAllow);
+
+  //QQQ
+  // Call this before calling VerifyShader, as it accumulates root signature state.
+  HRESULT VerifyRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
+                              IStream *pErrors);
+
+  //QQQ
+  HRESULT VerifyShader(DxilShaderVisibility VisType,
+                       const void *pPSVData,
+                       uint32_t PSVSize,
+                       raw_ostream &DiagStream);
 
   typedef enum NODE_TYPE {
     DESCRIPTOR_TABLE_ENTRY,
@@ -353,6 +366,13 @@ private:
                            DxilShaderVisibility VisType,
                            unsigned NumRegisters, unsigned BaseRegister,
                            unsigned RegisterSpace, IStream *pErrors);
+
+  //QQQ
+  RegisterRange *FindCoveringInterval(DxilDescriptorRangeType RangeType,
+                                      DxilShaderVisibility VisType,
+                                      unsigned Num,
+                                      unsigned LB,
+                                      unsigned Space);
 
   RegisterRanges &
   GetRanges(DxilShaderVisibility VisType, DxilDescriptorRangeType DescType) {
@@ -483,15 +503,14 @@ static bool IsDxilShaderVisibility(DxilShaderVisibility v) {
 }
 
 HRESULT RootSignatureVerifier::AddRegisterRange(unsigned iRP,
-  NODE_TYPE nt,
-  unsigned iDTS,
-  DxilDescriptorRangeType DescType,
-  DxilShaderVisibility VisType,
-  unsigned NumRegisters,
-  unsigned BaseRegister,
-  unsigned RegisterSpace,
-  IStream *pErrors)
-{
+                                                NODE_TYPE nt,
+                                                unsigned iDTS,
+                                                DxilDescriptorRangeType DescType,
+                                                DxilShaderVisibility VisType,
+                                                unsigned NumRegisters,
+                                                unsigned BaseRegister,
+                                                unsigned RegisterSpace,
+                                                IStream *pErrors) {
   RegisterRange interval;
   interval.space = RegisterSpace;
   interval.lb = BaseRegister;
@@ -502,8 +521,7 @@ HRESULT RootSignatureVerifier::AddRegisterRange(unsigned iRP,
 
   if (!m_bAllowReservedRegisterSpace &&
     (RegisterSpace >= DxilSystemReservedRegisterSpaceValuesStart) &&
-    (RegisterSpace <= DxilSystemReservedRegisterSpaceValuesEnd))
-  {
+    (RegisterSpace <= DxilSystemReservedRegisterSpaceValuesEnd)) {
     if (nt == DESCRIPTOR_TABLE_ENTRY)
     {
       ErrorRootSignature(pErrors,
@@ -598,6 +616,20 @@ HRESULT RootSignatureVerifier::AddRegisterRange(unsigned iRP,
   return S_OK;
 }
 
+//QQQ
+RootSignatureVerifier::RegisterRange *
+RootSignatureVerifier::FindCoveringInterval(DxilDescriptorRangeType RangeType,
+                                            DxilShaderVisibility VisType,
+                                            unsigned Num,
+                                            unsigned LB,
+                                            unsigned Space) {
+  RegisterRange RR;
+  RR.space = Space;
+  RR.lb = LB;
+  RR.ub = LB + Num - 1;
+  return GetRanges(VisType, RangeType).FindIntersectingInterval(RR);
+}
+
 static DxilDescriptorRangeType GetRangeType(DxilRootParameterType RPT) {
   switch (RPT) {
   case DxilRootParameterType::CBV: return DxilDescriptorRangeType::CBV;
@@ -609,9 +641,9 @@ static DxilDescriptorRangeType GetRangeType(DxilRootParameterType RPT) {
   return DxilDescriptorRangeType::SRV;
 }
 
-HRESULT RootSignatureVerifier::VerifyRootSignature(const DxilVersionedRootSignatureDesc *pVersionedRootSignature,
-  IStream *pErrors)
-{
+HRESULT RootSignatureVerifier::VerifyRootSignature(
+                                const DxilVersionedRootSignatureDesc *pVersionedRootSignature,
+                                IStream *pErrors) {
   const DxilVersionedRootSignatureDesc *pUpconvertedRS = NULL;
   if (pVersionedRootSignature == nullptr) {
     return E_INVALIDARG;
@@ -801,6 +833,156 @@ HRESULT RootSignatureVerifier::VerifyRootSignature(const DxilVersionedRootSignat
 
   return S_OK;
 }
+
+//QQQ
+HRESULT RootSignatureVerifier::VerifyShader(DxilShaderVisibility VisType,
+                                            const void *pPSVData,
+                                            uint32_t PSVSize,
+                                            raw_ostream &DiagStream) {
+  HRESULT hr = S_OK;
+  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+
+  DxilPipelineStateValidation PSV;
+  if (!PSV.InitFromPSV0((void*)pPSVData, PSVSize)) {
+    return E_INVALIDARG;
+  }
+
+  bool bShaderDeniedByRootSig = false;
+  switch (VisType) {
+  case DxilShaderVisibility::Vertex:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyVertexShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Hull:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyHullShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Domain:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyDomainShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Geometry:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyGeometryShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Pixel:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyPixelShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  }
+
+  bool bShaderHasRootBindings = false;
+
+  for (unsigned iResource = 0; iResource < PSV.GetBindCount(); iResource++) {
+    const PSVResourceBindInfo0 *pBindInfo0 = PSV.GetPSVResourceBindInfo0(iResource);
+    DXASSERT_NOMSG(pBindInfo0);
+
+    unsigned Space = pBindInfo0->Space;
+    unsigned LB = pBindInfo0->LowerBound;
+    unsigned UB = pBindInfo0->UpperBound;
+    unsigned Num = (UB != UINT_MAX) ? (UB - LB + 1) : 1;
+    PSVResourceType ResType = (PSVResourceType)pBindInfo0->ResType;
+
+    switch(ResType) {
+    case PSVResourceType::Sampler: {
+      bShaderHasRootBindings = true;
+      auto pCoveringRange = FindCoveringInterval(DxilDescriptorRangeType::Sampler, VisType, Num, LB, Space);
+      if(!pCoveringRange)
+        DiagPrinter << "Shader sampler descriptor range (RegisterSpace=" << Space 
+                    << ", NumDescriptors=" << Num << ", BaseShaderRegister=" << LB 
+                    << ") is not fully bound in root signature\n";
+      break;
+    }
+
+    //QQQ
+#if 0
+    case PSVResourceType::SRVTyped:
+    case PSVResourceType::SRVRaw:
+    case PSVResourceType::SRVStructured: {
+      bShaderHasRootBindings = true;
+      UINT Num = (UB != UINT_MAX) ? (UB - LB + 1) : 1;
+      TreeNode *pNode = FindRegisterRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, VisType, Num, LB, Space);
+      if(pNode) {
+          if(pNode->nt == ROOT_DESCRIPTOR && pBindInfo0->ResType == (UINT)PSVResourceType::SRVTyped) {
+              VH(ErrorRootSignature(ppErrorBlob, 
+                  "A Shader is declaring a resource object as a texture using a register mapped to a root descriptor SRV (RegisterSpace=%u, ShaderRegister=%u).  "
+                  "SRV or UAV root descriptors can only be Raw or Structured buffers.\n",
+                  Space, LB));
+          }
+      }
+      else {
+          VH(ErrorRootSignature(ppErrorBlob, 
+              "Shader SRV descriptor range (RegisterSpace=%u, NumDescriptors=%u, BaseShaderRegister=%u) is not fully bound in root signature\n",
+              Space, Num, LB));
+      }
+      break;
+    }
+
+    case PSVResourceType::UAVTyped:
+    case PSVResourceType::UAVRaw:
+    case PSVResourceType::UAVStructured:
+    case PSVResourceType::UAVStructuredWithCounter: {
+      bShaderHasRootBindings = true;
+      UINT Num = (UB != UINT_MAX) ? (UB - LB + 1) : 1;
+      TreeNode *pNode = FindRegisterRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, VisType, Num, LB, Space);
+      if(pNode) {
+          if(pNode->nt == ROOT_DESCRIPTOR) {
+              if(pBindInfo0->ResType == (UINT)PSVResourceType::UAVTyped) {
+                  VH(ErrorRootSignature(ppErrorBlob, 
+                      "A Shader is declaring a typed UAV using a register mapped to a root descriptor UAV (RegisterSpace=%u, ShaderRegister=%u).  "
+                      "SRV or UAV root descriptors can only be Raw or Structured buffers.",
+                      Space, LB));
+              }
+              if(pBindInfo0->ResType == (UINT)PSVResourceType::UAVStructuredWithCounter) {
+                  VH(ErrorRootSignature(ppErrorBlob, 
+                      "A Shader is declaring a structured UAV with counter using a register mapped to a root descriptor UAV (RegisterSpace=%u, ShaderRegister=%u).  "
+                      "SRV or UAV root descriptors can only be Raw or Structured buffers.",
+                      Space, LB));
+              }
+          }
+      }
+      else {
+          VH(ErrorRootSignature(ppErrorBlob, 
+              "Shader UAV descriptor range (RegisterSpace=%u, NumDescriptors=%u, BaseShaderRegister=%u) is not fully bound in root signature",
+              Space, Num, LB));
+      }
+      break;
+    }
+
+    case PSVResourceType::CBV: {
+      bShaderHasRootBindings = true;
+      UINT Num = (UB != UINT_MAX) ? (UB - LB + 1) : 1;
+      TreeNode *pNode = FindRegisterRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, VisType, Num, LB, Space);
+      if(!pNode) {
+          VH(ErrorRootSignature(ppErrorBlob, 
+              "Shader CBV descriptor range (RegisterSpace=%u, NumDescriptors=%u, BaseShaderRegister=%u) is not fully bound in root signature\n",
+              Space, Num, LB));
+      }
+      break;
+    }
+#endif
+    default:
+      break;
+    }
+  }
+
+  //QQQ
+#if 0
+  if (bShaderHasRootBindings && bShaderDeniedByRootSig) {
+    VH(ErrorRootSignature(ppErrorBlob, 
+        "Shader has root bindings but root signature uses a DENY flag to disallow root binding access to the shader stage.\n"));
+  }
+#endif
+
+//Cleanup:
+  return hr;
+}
+
 
 BOOL isNaN(const float &a) {
   static const unsigned exponentMask = 0x7f800000;
@@ -1641,6 +1823,35 @@ void DeserializeRootSignature(__in_bcount(SrcDataSizeInBytes) const void *pSrcDa
   }
 
   *ppRootSignature = pRootSignature;
+}
+
+//QQQ
+static DxilShaderVisibility GetVisibilityType(DXIL::ShaderKind ShaderKind) {
+  switch(ShaderKind) {
+  case DXIL::ShaderKind::Pixel:       return DxilShaderVisibility::Pixel;
+  case DXIL::ShaderKind::Vertex:      return DxilShaderVisibility::Vertex;
+  case DXIL::ShaderKind::Geometry:    return DxilShaderVisibility::Geometry;
+  case DXIL::ShaderKind::Hull:        return DxilShaderVisibility::Hull;
+  case DXIL::ShaderKind::Domain:      return DxilShaderVisibility::Domain;
+  default:                            return DxilShaderVisibility::All;
+  }
+}
+
+bool VerifyRootSignatureWithShaderPSV(__in const DxilVersionedRootSignatureDesc *pDesc,
+                                      __in DXIL::ShaderKind ShaderKind,
+                                      _In_reads_bytes_(PSVSize) const void *pPSVData,
+                                      __in uint32_t PSVSize,
+                                      __in llvm::raw_ostream &DiagStream) {
+  try {
+    RootSignatureVerifier RSV;
+    //QQQ
+    IFT(RSV.VerifyRootSignature(pDesc, nullptr));
+    IFT(RSV.VerifyShader(GetVisibilityType(ShaderKind), pPSVData, PSVSize, DiagStream));
+  } catch (...) {
+    return false;
+  }
+
+  return true;
 }
 
 } // namespace hlsl

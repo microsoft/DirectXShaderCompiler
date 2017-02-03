@@ -19,6 +19,10 @@
 struct IDxcBlob;
 struct IDxcBlobEncoding;
 
+namespace llvm {
+  class raw_ostream;
+}
+
 namespace hlsl {
 
 // Forward declarations.
@@ -318,6 +322,7 @@ public:
   bool IsEmpty() const {
     return m_pDesc == nullptr && m_pSerialized == nullptr;
   }
+  IDxcBlob *GetSerialized() const { return m_pSerialized; }
   const uint8_t *GetSerializedBytes() const;
   unsigned GetSerializedSize() const;
 
@@ -325,6 +330,9 @@ public:
   void Clear();
   void LoadSerialized(const uint8_t *pData, uint32_t length);
   void EnsureSerializedAvailable();
+  void Deserialize();
+
+  const DxilVersionedRootSignatureDesc *GetDesc() const { return m_pDesc; }
 };
 
 void DeleteRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature);  
@@ -334,15 +342,20 @@ void ConvertRootSignature(const DxilVersionedRootSignatureDesc* pRootSignatureIn
                           DxilRootSignatureVersion RootSignatureVersionOut,  
                           const DxilVersionedRootSignatureDesc ** ppRootSignatureOut);
 
-void SerializeRootSignature(
-    const DxilVersionedRootSignatureDesc *pRootSignature,
-    _Outptr_ IDxcBlob **ppBlob, _Outptr_ IDxcBlobEncoding **ppErrorBlob,
-    bool bAllowReservedRegisterSpace);
+void SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
+                            _Outptr_ IDxcBlob **ppBlob, _Outptr_ IDxcBlobEncoding **ppErrorBlob,
+                            bool bAllowReservedRegisterSpace);
 
-//QQQ
 void DeserializeRootSignature(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
                               __in uint32_t SrcDataSizeInBytes,
                               __out DxilVersionedRootSignatureDesc **ppRootSignature);
+
+// Takes PSV - pipeline state validation data, not shader container.
+bool VerifyRootSignatureWithShaderPSV(__in const DxilVersionedRootSignatureDesc *pDesc,
+                                      __in DXIL::ShaderKind ShaderKind,
+                                      _In_reads_bytes_(PSVSize) const void *pPSVData,
+                                      __in uint32_t PSVSize,
+                                      __in llvm::raw_ostream &DiagStream);
 
 } // namespace hlsl
 
