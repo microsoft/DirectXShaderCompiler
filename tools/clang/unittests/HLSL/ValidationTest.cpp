@@ -77,6 +77,7 @@ public:
   TEST_METHOD(TypedUAVStoreFullMask1)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
+  TEST_METHOD(Recursive3)
   TEST_METHOD(UserDefineFunction)
   TEST_METHOD(ResourceRangeOverlap0)
   TEST_METHOD(ResourceRangeOverlap1)
@@ -928,6 +929,10 @@ TEST_F(ValidationTest, Recursive) {
 
 TEST_F(ValidationTest, Recursive2) {
     TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
+}
+
+TEST_F(ValidationTest, Recursive3) {
+    TestCheck(L"..\\CodeGenHLSL\\recursive3.hlsl");
 }
 
 TEST_F(ValidationTest, UserDefineFunction) {

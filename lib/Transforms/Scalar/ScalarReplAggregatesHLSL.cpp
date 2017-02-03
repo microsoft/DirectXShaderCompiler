@@ -4647,8 +4647,7 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
        DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0,  funcDI);
        DIB.insertDeclare(retValAddr, RetVar, Expr, DL, CI);
     }
-    // Create store after call.
-    RetBuilder.CreateStore(CI, retValAddr);
+
     // Load ret value and replace CI.
     Value *newRetVal = RetBuilder.CreateLoad(retValAddr);
     CI->replaceAllUsesWith(newRetVal);
