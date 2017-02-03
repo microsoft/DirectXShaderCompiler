@@ -4283,10 +4283,10 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
       }
       if (pDesc) {
         try {
-          VerifyRootSignatureWithShaderPSV(pDesc,
-                                            pDxilModule->GetShaderModel()->GetKind(),
-                                            GetDxilPartData(pPSVPart), pPSVPart->PartSize,
-                                            DiagStream);
+          IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc,
+                                                   pDxilModule->GetShaderModel()->GetKind(),
+                                                   GetDxilPartData(pPSVPart), pPSVPart->PartSize,
+                                                   DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
         } catch (...) {
           DeleteRootSignature(pDesc);
           ValCtx.EmitError(ValidationRule::ContainerRootSignatureIncompatible);
@@ -4395,10 +4395,10 @@ HRESULT ValidateDxilBitcode(
         return DXC_E_INCORRECT_ROOT_SIGNATURE;
     }
     try {
-      VerifyRootSignatureWithShaderPSV(pDesc ? pDesc : RS.GetDesc(),
-                                       dxilModule.GetShaderModel()->GetKind(),
-                                       pPSVData.get(), pWriter->size(),
-                                       DiagStream);
+      IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc ? pDesc : RS.GetDesc(),
+                                               dxilModule.GetShaderModel()->GetKind(),
+                                               pPSVData.get(), pWriter->size(),
+                                               DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
     } catch (...) {
       DeleteRootSignature(pDesc);
       return DXC_E_INCORRECT_ROOT_SIGNATURE;
