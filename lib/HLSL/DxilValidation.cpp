@@ -34,7 +34,6 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/ADT/BitVector.h"
-#include <winerror.h>
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -4104,29 +4103,6 @@ bool VerifySignatureMatches(llvm::Module *pModule,
   }
   return !ValCtx.Failed;
 }
-
-//static void VerifyRootSignatureMatches(_In_ ValidationContext &ValCtx,
-//                                             _In_reads_bytes_(RSSize) const void *pRSData,
-//                                             _In_ unsigned RSSize) {
-//  // Write root signature from module and memcmp
-//  unique_ptr<DxilPartWriter> pWriter(NewRootSignatureWriter(ValCtx.DxilMod.GetRootSignature()));
-//  VerifyBlobPartMatches(ValCtx, "Root Signature", pWriter.get(), pRSData, RSSize);
-//}
-//
-//_Use_decl_annotations_
-//bool VerifyRootSignatureMatches(llvm::Module *pModule,
-//                                const void *pRSData,
-//                                unsigned RSSize) {
-//  std::string diagStr;
-//  raw_string_ostream diagStream(diagStr);
-//  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
-//  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
-//  VerifyRootSignatureMatches(ValCtx, pRSData, RSSize);
-//  if (ValCtx.Failed) {
-//    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
-//  }
-//  return !ValCtx.Failed;
-//}
 
 static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
                              _In_reads_bytes_(PSVSize) const void *pPSVData,

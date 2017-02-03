@@ -23,6 +23,7 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/HLSL/DxilRootSignature.h"
 #include "dxcetw.h"
 
 using namespace llvm;
@@ -87,6 +88,10 @@ private:
     _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
     _In_ AbstractMemoryStream *pDiagStream);
 
+  HRESULT RunRootSignatureValidation(
+    _In_ IDxcBlob *pShader,                       // Shader to validate.
+    _In_ AbstractMemoryStream *pDiagStream);
+
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   DxcValidator() : m_dwRef(0) {}
@@ -146,7 +151,11 @@ HRESULT DxcValidator::ValidateWithOptModules(
 
     // Run validation may throw, but that indicates an inability to validate,
     // not that the validation failed (eg out of memory).
-    validationStatus = RunValidation(pShader, pModule, pDebugModule, pDiagStream);
+    if (Flags & DxcValidatorFlags_RootSignatureOnly) {
+      validationStatus = RunRootSignatureValidation(pShader, pDiagStream);
+    } else {
+      validationStatus = RunValidation(pShader, pModule, pDebugModule, pDiagStream);
+    }
 
     // Assemble the result object.
     CComPtr<IDxcBlob> pDiagBlob;
@@ -210,6 +219,38 @@ HRESULT DxcValidator::RunValidation(
                     (uint32_t)pShader->GetBufferSize()));
 
   if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
+
+  return S_OK;
+}
+
+HRESULT DxcValidator::RunRootSignatureValidation(
+  _In_ IDxcBlob *pShader,
+  _In_ AbstractMemoryStream *pDiagStream) {
+
+  const DxilContainerHeader *pDxilContainer = IsDxilContainerLike(
+    pShader->GetBufferPointer(), pShader->GetBufferSize());
+  if (!pDxilContainer) {
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
+
+  const DxilProgramHeader *pProgramHeader = GetDxilProgramHeader(pDxilContainer, DFCC_DXIL);
+  const DxilPartHeader *pPSVPart = GetDxilPartByType(pDxilContainer, DFCC_PipelineStateValidation);
+  const DxilPartHeader *pRSPart = GetDxilPartByType(pDxilContainer, DFCC_RootSignature);
+  IFRBOOL(!pPSVPart || !pRSPart, DXC_E_MISSING_PART);
+  try {
+    RootSignatureHandle RSH;
+    RSH.LoadSerialized((const uint8_t*)GetDxilPartData(pRSPart), pRSPart->PartSize);
+    RSH.Deserialize();
+    raw_stream_ostream DiagStream(pDiagStream);
+    IFRBOOL(VerifyRootSignatureWithShaderPSV(RSH.GetDesc(),
+                                             GetVersionShaderType(pProgramHeader->ProgramVersion),
+                                             GetDxilPartData(pPSVPart),
+                                             pPSVPart->PartSize,
+                                             DiagStream),
+      DXC_E_INCORRECT_ROOT_SIGNATURE);
+  } catch(...) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 

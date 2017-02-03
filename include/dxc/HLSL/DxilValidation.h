@@ -239,10 +239,6 @@ bool VerifySignatureMatches(_In_ llvm::Module *pModule,
                             _In_reads_bytes_(SigSize) void *pSigData,
                             _In_ unsigned SigSize);
 
-//bool VerifyRootSignatureMatches(_In_ llvm::Module *pModule,
-//                                  _In_reads_bytes_(RSSize) void *pRSData,
-//                                  _In_ unsigned RSSize);
-
 // PSV = data for Pipeline State Validation
 bool VerifyPSVMatches(_In_ llvm::Module *pModule,
                       _In_reads_bytes_(PSVSize) void *pPSVData,
