@@ -531,7 +531,7 @@ public:
 
   __override uint32_t size() const {
     uint32_t partSize = 0;
-    for (auto &&part : m_Parts) {
+    for (auto &part : m_Parts) {
       partSize += part.Header.PartSize;
     }
     return (uint32_t)GetDxilContainerSizeFromParts((uint32_t)m_Parts.size(), partSize);

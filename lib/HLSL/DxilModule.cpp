@@ -826,24 +826,10 @@ const RootSignatureHandle &DxilModule::GetRootSignature() const {
 }
 
 void DxilModule::StripRootSignatureFromMetadata() {
-  const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
-  IFTBOOL(pEntries->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
-
-  Function *pEntryFunc;
-  string EntryName;
-  const llvm::MDOperand *pSignatures, *pResources, *pProperties;
-  m_pMDHelper->GetDxilEntryPoint(pEntries->getOperand(0), pEntryFunc, EntryName, pSignatures, pResources, pProperties);
-
-  MDTuple *pMDSignatures = pSignatures->get() ? dyn_cast<MDTuple>(pSignatures->get()) : nullptr;
-  MDTuple *pMDResources = pResources->get() ? dyn_cast<MDTuple>(pResources->get()) : nullptr;
-
-  MDTuple *pMDProperties = EmitDxilShaderProperties(/*bStripRootSignature*/true);
-  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(pEntryFunc, m_EntryName, pMDSignatures, pMDResources, pMDProperties);
-  vector<MDNode *> Entries;
-  Entries.emplace_back(pEntry);
-  NamedMDNode *pEntryPointsNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilEntryPointsMDName);
-  GetModule()->eraseNamedMetadata(pEntryPointsNamedMD);
-  m_pMDHelper->EmitDxilEntryPoints(Entries);
+  NamedMDNode *pRootSignatureNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilRootSignatureMDName);
+  if (pRootSignatureNamedMD) {
+    GetModule()->eraseNamedMetadata(pRootSignatureNamedMD);
+  }
 }
 
 void DxilModule::ResetInputSignature(DxilSignature *pValue) {
@@ -918,13 +904,17 @@ void DxilModule::EmitDxilMetadata() {
                                                            *m_OutputSignature,
                                                            *m_PatchConstantSignature);
   MDTuple *pMDResources = EmitDxilResources();
-  MDTuple *pMDProperties = EmitDxilShaderProperties(/*bStripRootSignature*/false);
+  MDTuple *pMDProperties = EmitDxilShaderProperties();
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
   Entries.emplace_back(pEntry);
   m_pMDHelper->EmitDxilEntryPoints(Entries);
+
+  if (!m_RootSignature->IsEmpty()) {
+    m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
+  }
 }
 
 bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
@@ -954,6 +944,8 @@ void DxilModule::LoadDxilMetadata() {
   LoadDxilResources(*pResources);
   LoadDxilShaderProperties(*pProperties);
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
+
+  m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
 }
 
 MDTuple *DxilModule::EmitDxilResources() {
@@ -1048,7 +1040,7 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   }
 }
 
-MDTuple *DxilModule::EmitDxilShaderProperties(bool bStripRootSignature) {
+MDTuple *DxilModule::EmitDxilShaderProperties() {
   vector<Metadata *> MDVals;
 
   // DXIL shader flags.
@@ -1098,11 +1090,6 @@ MDTuple *DxilModule::EmitDxilShaderProperties(bool bStripRootSignature) {
                                                      m_TessellatorOutputPrimitive,
                                                      m_MaxTessellationFactor);
     MDVals.emplace_back(pMDTuple);
-  }
-
-  if (!bStripRootSignature && !m_RootSignature->IsEmpty()) {
-    MDVals.emplace_back(m_pMDHelper->Uint32ToConstMD(DxilMDHelper::kDxilRootSignatureTag));
-    MDVals.emplace_back(m_pMDHelper->EmitRootSignature(*m_RootSignature.get()));
   }
 
   if (!MDVals.empty())
@@ -1156,10 +1143,6 @@ void DxilModule::LoadDxilShaderProperties(const MDOperand &MDO) {
                                    m_TessellatorPartitioning,
                                    m_TessellatorOutputPrimitive,
                                    m_MaxTessellationFactor);
-      break;
-
-    case DxilMDHelper::kDxilRootSignatureTag:
-      m_pMDHelper->LoadRootSignature(MDO, *m_RootSignature.get());
       break;
 
     default:

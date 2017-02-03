@@ -287,7 +287,7 @@ private:
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();
   void LoadDxilResources(const llvm::MDOperand &MDO);
-  llvm::MDTuple *EmitDxilShaderProperties(bool bStripRootSignature);
+  llvm::MDTuple *EmitDxilShaderProperties();
   void LoadDxilShaderProperties(const llvm::MDOperand &MDO);
 
   // Helpers.

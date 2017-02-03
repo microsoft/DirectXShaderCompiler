@@ -236,24 +236,24 @@ HRESULT ValidateDxilModule(_In_ llvm::Module *pModule,
 
 bool VerifySignatureMatches(_In_ llvm::Module *pModule,
                             hlsl::DXIL::SignatureKind SigKind,
-                            _In_reads_bytes_(SigSize) void *pSigData,
-                            _In_ unsigned SigSize);
+                            _In_reads_bytes_(SigSize) const void *pSigData,
+                            _In_ uint32_t SigSize);
 
 // PSV = data for Pipeline State Validation
 bool VerifyPSVMatches(_In_ llvm::Module *pModule,
-                      _In_reads_bytes_(PSVSize) void *pPSVData,
-                      _In_ unsigned PSVSize);
+                      _In_reads_bytes_(PSVSize) const void *pPSVData,
+                      _In_ uint32_t PSVSize);
 
 bool VerifyFeatureInfoMatches(_In_ llvm::Module *pModule,
                               _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,
-                              _In_ unsigned FeatureInfoSize);
+                              _In_ uint32_t FeatureInfoSize);
 
 // Validate the container parts, assuming supplied module is valid, loaded from the container provided
 struct DxilContainerHeader;
 HRESULT ValidateDxilContainerParts(_In_ llvm::Module *pModule,
                                    _In_opt_ llvm::Module *pDebugModule,
                                    _In_reads_bytes_(ContainerSize) const DxilContainerHeader *pContainer,
-                                   _In_ unsigned ContainerSize);
+                                   _In_ uint32_t ContainerSize);
 
 // Loads module, validating load, but not module.
 HRESULT ValidateLoadModule(_In_reads_bytes_(ILLength) const char *pIL,
@@ -269,7 +269,7 @@ HRESULT ValidateDxilBitcode(_In_reads_bytes_(ILLength) const char *pIL,
 
 // Full container validation, including ValidateDxilModule
 HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
-                              _In_ unsigned ContainerSize,
+                              _In_ uint32_t ContainerSize,
                               _In_ llvm::raw_ostream &DiagStream);
 
 }

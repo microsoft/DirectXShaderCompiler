@@ -4034,7 +4034,7 @@ static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
                                   _In_ LPCSTR pName,
                                   DxilPartWriter *pWriter,
                                   _In_reads_bytes_opt_(Size) const void *pData,
-                                  _In_ unsigned Size) {
+                                  _In_ uint32_t Size) {
   if (!pData && pWriter->size()) {
     // No blob part, but writer says non-zero size is expected.
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, pName);
@@ -4067,7 +4067,7 @@ static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
 static void VerifySignatureMatches(_In_ ValidationContext &ValCtx,
                                    DXIL::SignatureKind SigKind,
                                    _In_reads_bytes_opt_(SigSize) const void *pSigData,
-                                   _In_ unsigned SigSize) {
+                                   _In_ uint32_t SigSize) {
   // Generate corresponding signature from module and memcmp
 
   const char *pName = nullptr;
@@ -4092,7 +4092,7 @@ _Use_decl_annotations_
 bool VerifySignatureMatches(llvm::Module *pModule,
                             DXIL::SignatureKind SigKind,
                             const void *pSigData,
-                            unsigned SigSize) {
+                            uint32_t SigSize) {
   std::string diagStr;
   raw_string_ostream diagStream(diagStr);
   DiagnosticPrinterRawOStream DiagPrinter(diagStream);
@@ -4106,7 +4106,7 @@ bool VerifySignatureMatches(llvm::Module *pModule,
 
 static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
                              _In_reads_bytes_(PSVSize) const void *pPSVData,
-                             _In_ unsigned PSVSize) {
+                             _In_ uint32_t PSVSize) {
   // generate PSV data from module and memcmp
   unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(ValCtx.DxilMod));
   VerifyBlobPartMatches(ValCtx, "Pipeline State Validation", pWriter.get(), pPSVData, PSVSize);
@@ -4115,7 +4115,7 @@ static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
 _Use_decl_annotations_
 bool VerifyPSVMatches(llvm::Module *pModule,
                       const void *pPSVData,
-                      unsigned PSVSize) {
+                      uint32_t PSVSize) {
   std::string diagStr;
   raw_string_ostream diagStream(diagStr);
   DiagnosticPrinterRawOStream DiagPrinter(diagStream);
@@ -4129,7 +4129,7 @@ bool VerifyPSVMatches(llvm::Module *pModule,
 
 static void VerifyFeatureInfoMatches(_In_ ValidationContext &ValCtx,
                                      _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,
-                                     _In_ unsigned FeatureInfoSize) {
+                                     _In_ uint32_t FeatureInfoSize) {
   // generate Feature Info data from module and memcmp
   unique_ptr<DxilPartWriter> pWriter(NewFeatureInfoWriter(ValCtx.DxilMod));
   VerifyBlobPartMatches(ValCtx, "Feature Info", pWriter.get(), pFeatureInfoData, FeatureInfoSize);
@@ -4138,7 +4138,7 @@ static void VerifyFeatureInfoMatches(_In_ ValidationContext &ValCtx,
 _Use_decl_annotations_
 bool VerifyFeatureInfoMatches(llvm::Module *pModule,
                               const void *pFeatureInfoData,
-                              unsigned FeatureInfoSize) {
+                              uint32_t FeatureInfoSize) {
   std::string diagStr;
   raw_string_ostream diagStream(diagStr);
   DiagnosticPrinterRawOStream DiagPrinter(diagStream);
@@ -4154,7 +4154,7 @@ _Use_decl_annotations_
 HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
                                    llvm::Module *pDebugModule,
                                    const DxilContainerHeader *pContainer,
-                                   unsigned ContainerSize) {
+                                   uint32_t ContainerSize) {
 
   DXASSERT_NOMSG(pModule);
   if (!pContainer || !IsValidDxilContainer(pContainer, ContainerSize)) {
@@ -4383,7 +4383,7 @@ HRESULT ValidateDxilBitcode(
 
 _Use_decl_annotations_
 HRESULT ValidateDxilContainer(const void *pContainer,
-                              unsigned ContainerSize,
+                              uint32_t ContainerSize,
                               llvm::raw_ostream &DiagStream) {
 
   LLVMContext Ctx, DbgCtx;

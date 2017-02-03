@@ -467,6 +467,10 @@ void HLModule::EmitHLMetadata() {
     NamedMDNode * resTyAnnotations = m_pModule->getOrInsertNamedMetadata(kHLDxilResourceTypeAnnotationMDName);
     resTyAnnotations->addOperand(EmitResTyAnnotations());
   }
+
+  if (!m_RootSignature->IsEmpty()) {
+    m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
+  }
 }
 
 void HLModule::LoadHLMetadata() {
@@ -541,6 +545,8 @@ void HLModule::LoadHLMetadata() {
     if (MDResTyAnnotations->getNumOperands())
       LoadResTyAnnotations(MDResTyAnnotations->getOperand(0));
   }
+
+  m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
 }
 
 void HLModule::ClearHLMetadata(llvm::Module &M) {
@@ -553,6 +559,7 @@ void HLModule::ClearHLMetadata(llvm::Module &M) {
     if (name == DxilMDHelper::kDxilVersionMDName ||
         name == DxilMDHelper::kDxilShaderModelMDName ||
         name == DxilMDHelper::kDxilEntryPointsMDName ||
+        name == DxilMDHelper::kDxilRootSignatureMDName ||
         name == DxilMDHelper::kDxilResourcesMDName ||
         name == DxilMDHelper::kDxilTypeSystemMDName ||
         name == kHLDxilFunctionPropertiesMDName || // TODO: adjust to proper name
@@ -691,12 +698,7 @@ void HLModule::LoadResTyAnnotations(const llvm::MDOperand &MDO) {
 }
 
 MDTuple *HLModule::EmitHLShaderProperties() {
-  vector<Metadata *> MDVals;
-  if (!m_RootSignature->IsEmpty()) {
-    MDVals.emplace_back(m_pMDHelper->Uint32ToConstMD(DxilMDHelper::kDxilRootSignatureTag));
-    MDVals.emplace_back(m_pMDHelper->EmitRootSignature(*m_RootSignature.get()));
-  }
-  return MDNode::get(m_Ctx, MDVals);
+  return nullptr;
 }
 
 void HLModule::LoadHLShaderProperties(const MDOperand &MDO) {
@@ -711,9 +713,6 @@ void HLModule::LoadHLShaderProperties(const MDOperand &MDO) {
     const MDOperand &MDO = pTupleMD->getOperand(iNode + 1);
     IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
     switch (Tag) {
-    case DxilMDHelper::kDxilRootSignatureTag:
-      m_pMDHelper->LoadRootSignature(MDO, *m_RootSignature.get());
-      break;
     default:
       // Ignore other extended properties for now.
       break;
