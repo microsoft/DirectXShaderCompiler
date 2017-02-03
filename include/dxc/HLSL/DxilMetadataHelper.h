@@ -184,7 +184,6 @@ public:
   static const unsigned kDxilDSStateTag         = 2;
   static const unsigned kDxilHSStateTag         = 3;
   static const unsigned kDxilNumThreadsTag      = 4;
-  static const unsigned kDxilRootSignatureTag   = 5;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;
