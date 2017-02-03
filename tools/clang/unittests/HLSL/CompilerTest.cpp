@@ -442,6 +442,7 @@ public:
   TEST_METHOD(CodeGenReadFromOutput2)
   TEST_METHOD(CodeGenReadFromOutput3)
   TEST_METHOD(CodeGenRedundantinput1)
+  TEST_METHOD(CodeGenRes64bit)
   TEST_METHOD(CodeGenRovs)
   TEST_METHOD(CodeGenRValSubscript)
   TEST_METHOD(CodeGenSample1)
@@ -2406,6 +2407,10 @@ TEST_F(CompilerTest, CodeGenReadFromOutput3) {
 
 TEST_F(CompilerTest, CodeGenRedundantinput1) {
   CodeGenTest(L"..\\CodeGenHLSL\\redundantinput1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRes64bit) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\res64bit.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRovs) {

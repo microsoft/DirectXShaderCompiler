@@ -1976,6 +1976,22 @@ Value *ScalarizeResRet(Type *RetTy, Value *ResRet, IRBuilder<> &Builder) {
   return retVal;
 }
 
+Value *ScalarizeElements(Type *RetTy, ArrayRef<Value*> Elts, IRBuilder<> &Builder) {
+  // Extract value part.
+  Value *retVal = llvm::UndefValue::get(RetTy);
+  if (RetTy->isVectorTy()) {
+    unsigned vecSize = RetTy->getVectorNumElements();
+    DXASSERT(vecSize <= Elts.size(), "vector size mismatch");
+    for (unsigned i = 0; i < vecSize; i++) {
+      Value *retComp = Elts[i];
+      retVal = Builder.CreateInsertElement(retVal, retComp, i);
+    }
+  } else {
+    retVal = Elts[0];
+  }
+  return retVal;
+}
+
 void UpdateStatus(Value *ResRet, Value *status, IRBuilder<> &Builder) {
   if (status && !isa<UndefValue>(status)) {
     Value *statusVal = Builder.CreateExtractValue(ResRet, 4);
@@ -2673,6 +2689,35 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
 void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
                                  hlsl::OP *OP, const DataLayout &DL);
 
+// Create { v0, v1 } from { v0.lo, v0.hi, v1.lo, v1.hi }
+void Make64bitResultForLoad(Type *EltTy, ArrayRef<Value *> resultElts32,
+                            unsigned size, MutableArrayRef<Value *> resultElts,
+                            hlsl::OP *hlslOP, IRBuilder<> &Builder) {
+  Type *i64Ty = Builder.getInt64Ty();
+  Type *doubleTy = Builder.getDoubleTy();
+  if (EltTy == doubleTy) {
+    Function *makeDouble =
+        hlslOP->GetOpFunc(DXIL::OpCode::MakeDouble, doubleTy);
+    Value *makeDoubleOpArg =
+        Builder.getInt32((unsigned)DXIL::OpCode::MakeDouble);
+    for (unsigned i = 0; i < size; i++) {
+      Value *lo = resultElts32[2 * i];
+      Value *hi = resultElts32[2 * i + 1];
+      Value *V = Builder.CreateCall(makeDouble, {makeDoubleOpArg, lo, hi});
+      resultElts[i] = V;
+    }
+  } else {
+    for (unsigned i = 0; i < size; i++) {
+      Value *lo = resultElts32[2 * i];
+      Value *hi = resultElts32[2 * i + 1];
+      lo = Builder.CreateZExt(lo, i64Ty);
+      hi = Builder.CreateZExt(hi, i64Ty);
+      hi = Builder.CreateShl(hi, 32);
+      resultElts[i] = Builder.CreateOr(lo, hi);
+    }
+  }
+}
+
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
                    IRBuilder<> &Builder, hlsl::OP *OP, const DataLayout &DL) {
 
@@ -2685,11 +2730,19 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
   OP::OpCode opcode = helper.opcode;
 
-  Function *F = OP->GetOpFunc(opcode, Ty->getScalarType());
+  Type *i32Ty = Builder.getInt32Ty();
+  Type *i64Ty = Builder.getInt64Ty();
+  Type *doubleTy = Builder.getDoubleTy();
+  Type *EltTy = Ty->getScalarType();
+  bool is64 = EltTy == i64Ty || EltTy == doubleTy;
+  if (is64) {
+    EltTy = i32Ty;
+  }
+
+  Function *F = OP->GetOpFunc(opcode, EltTy);
   llvm::Constant *opArg = OP->GetU32Const((unsigned)opcode);
 
-  llvm::Value *undefI =
-      llvm::UndefValue::get(llvm::Type::getInt32Ty(Ty->getContext()));
+  llvm::Value *undefI = llvm::UndefValue::get(i32Ty);
 
   SmallVector<Value *, 12> loadArgs;
   loadArgs.emplace_back(opArg);         // opcode
@@ -2752,10 +2805,32 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
     loadArgs.emplace_back(
         OP->GetU32Const(0)); // For case use built-in types in structure buffer.
 
-  llvm::Value *ResRet =
+  Value *ResRet =
       Builder.CreateCall(F, loadArgs, OP->GetOpCodeName(opcode));
 
-  llvm::Value *retValNew = ScalarizeResRet(Ty, ResRet, Builder);
+  Value *retValNew = nullptr;
+  if (!is64) {
+    retValNew = ScalarizeResRet(Ty, ResRet, Builder);
+  } else {
+    unsigned size = 1;
+    if (Ty->isVectorTy()) {
+      size = Ty->getVectorNumElements();
+    }
+    DXASSERT(size <= 2, "typed buffer only allow 4 dwords");
+    EltTy = Ty->getScalarType();
+    Value *Elts[2];
+
+    Make64bitResultForLoad(Ty->getScalarType(),
+                           {
+                               Builder.CreateExtractValue(ResRet, 0),
+                               Builder.CreateExtractValue(ResRet, 1),
+                               Builder.CreateExtractValue(ResRet, 2),
+                               Builder.CreateExtractValue(ResRet, 3),
+                           },
+                           size, Elts, OP, Builder);
+
+    retValNew = ScalarizeElements(Ty, Elts, Builder);
+  }
   // replace
   helper.retVal->replaceAllUsesWith(retValNew);
 
@@ -2782,6 +2857,45 @@ Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return nullptr;
 }
 
+// Split { v0, v1 } to { v0.lo, v0.hi, v1.lo, v1.hi }
+void Split64bitValForStore(Type *EltTy, ArrayRef<Value *> vals, unsigned size,
+                           MutableArrayRef<Value *> vals32, hlsl::OP *hlslOP,
+                           IRBuilder<> &Builder) {
+  Type *i32Ty = Builder.getInt32Ty();
+  Type *doubleTy = Builder.getDoubleTy();
+  Value *undefI32 = UndefValue::get(i32Ty);
+
+  if (EltTy == doubleTy) {
+    Function *dToU = hlslOP->GetOpFunc(DXIL::OpCode::SplitDouble, doubleTy);
+    Value *dToUOpArg = Builder.getInt32((unsigned)DXIL::OpCode::SplitDouble);
+    for (unsigned i = 0; i < size; i++) {
+      if (isa<UndefValue>(vals[i])) {
+        vals32[2 * i] = undefI32;
+        vals32[2 * i + 1] = undefI32;
+      } else {
+        Value *retVal = Builder.CreateCall(dToU, {dToUOpArg, vals[i]});
+        Value *lo = Builder.CreateExtractValue(retVal, 0);
+        Value *hi = Builder.CreateExtractValue(retVal, 1);
+        vals32[2 * i] = lo;
+        vals32[2 * i + 1] = hi;
+      }
+    }
+  } else {
+    for (unsigned i = 0; i < size; i++) {
+      if (isa<UndefValue>(vals[i])) {
+        vals32[2 * i] = undefI32;
+        vals32[2 * i + 1] = undefI32;
+      } else {
+        Value *lo = Builder.CreateTrunc(vals[i], i32Ty);
+        Value *hi = Builder.CreateLShr(vals[i], 32);
+        hi = Builder.CreateTrunc(hi, i32Ty);
+        vals32[2 * i] = lo;
+        vals32[2 * i + 1] = hi;
+      }
+    }
+  }
+}
+
 void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     Value *offset, IRBuilder<> &Builder, hlsl::OP *OP) {
   Type *Ty = val->getType();
@@ -2800,7 +2914,16 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     break;
   }
 
-  Function *F = OP->GetOpFunc(opcode, Ty->getScalarType());
+  Type *i32Ty = Builder.getInt32Ty();
+  Type *i64Ty = Builder.getInt64Ty();
+  Type *doubleTy = Builder.getDoubleTy();
+  Type *EltTy = Ty->getScalarType();
+  bool is64 = EltTy == i64Ty || EltTy == doubleTy;
+  if (is64) {
+    EltTy = i32Ty;
+  }
+
+  Function *F = OP->GetOpFunc(opcode, EltTy);
   llvm::Constant *opArg = OP->GetU32Const((unsigned)opcode);
 
   llvm::Value *undefI =
@@ -2877,6 +3000,33 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
       storeArgs.emplace_back(undefVal);
       storeArgs.emplace_back(undefVal);
       mask = DXIL::kCompMask_X;
+    }
+  }
+
+  if (is64) {
+    DXASSERT(mask == DXIL::kCompMask_All, "only typed buffer could have 64bit");
+    unsigned size = 1;
+    if (Ty->isVectorTy()) {
+      size = Ty->getVectorNumElements();
+    }
+    DXASSERT(size <= 2, "typed buffer only allow 4 dwords");
+    unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
+                             ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
+                             : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
+    Value *V0 = storeArgs[val0OpIdx];
+    Value *V1 = storeArgs[val0OpIdx+1];
+
+    Value *vals32[4];
+    EltTy = Ty->getScalarType();
+    Split64bitValForStore(EltTy, {V0, V1}, size, vals32, OP, Builder);
+    // Fill the uninit vals.
+    if (size == 1) {
+      vals32[2] = vals32[0];
+      vals32[3] = vals32[1];
+    }
+    // Change valOp to 32 version.
+    for (unsigned i = 0; i < 4; i++) {
+      storeArgs[val0OpIdx + i] = vals32[i];
     }
   }
 
@@ -4897,39 +5047,143 @@ Value *GEPIdxToOffset(GetElementPtrInst *GEP, IRBuilder<> &Builder,
   return addr;
 }
 
-Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
-                           Value *status, Type *EltTy, hlsl::OP *OP,
-                           IRBuilder<> &Builder) {
+void GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+                         Value *status, Type *EltTy,
+                         MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
+                         IRBuilder<> &Builder) {
   OP::OpCode opcode = OP::OpCode::BufferLoad;
-  SmallVector<Value *, 4> Args;
-  Args.emplace_back(OP->GetU32Const((unsigned)opcode));
-  Args.emplace_back(handle);
-  Args.emplace_back(bufIdx);
-  Args.emplace_back(offset);
-  Function *dxilF = OP->GetOpFunc(opcode, EltTy);
-  Value *Ld = Builder.CreateCall(dxilF, Args, OP::GetOpCodeName(opcode));
 
-  // status
-  UpdateStatus(Ld, status, Builder);
+  DXASSERT(resultElts.size() <= 4,
+           "buffer load cannot load more than 4 values");
 
-  return Ld;
+  Value *Args[] = {OP->GetU32Const((unsigned)opcode), handle, bufIdx, offset};
+
+  Type *i64Ty = Builder.getInt64Ty();
+  Type *doubleTy = Builder.getDoubleTy();
+  bool is64 = EltTy == i64Ty || EltTy == doubleTy;
+
+  if (!is64) {
+    Function *dxilF = OP->GetOpFunc(opcode, EltTy);
+    Value *Ld = Builder.CreateCall(dxilF, Args, OP::GetOpCodeName(opcode));
+
+    for (unsigned i = 0; i < resultElts.size(); i++) {
+      resultElts[i] = Builder.CreateExtractValue(Ld, i);
+    }
+
+    // status
+    UpdateStatus(Ld, status, Builder);
+    return;
+  } else {
+    // 64 bit.
+    Function *dxilF = OP->GetOpFunc(opcode, Builder.getInt32Ty());
+    Value *Ld = Builder.CreateCall(dxilF, Args, OP::GetOpCodeName(opcode));
+    Value *resultElts32[8];
+    unsigned size = resultElts.size();
+    unsigned eltBase = 0;
+    for (unsigned i = 0; i < size; i++) {
+      if (i == 2) {
+        // Update offset 4 by 4 bytes.
+        Args[DXIL::OperandIndex::kBufferLoadCoord1OpIdx] =
+            Builder.CreateAdd(offset, Builder.getInt32(4 * 4));
+        Ld = Builder.CreateCall(dxilF, Args, OP::GetOpCodeName(opcode));
+        eltBase = 4;
+      }
+      unsigned resBase = 2 * i;
+      resultElts32[resBase] = Builder.CreateExtractValue(Ld, resBase - eltBase);
+      resultElts32[resBase + 1] =
+          Builder.CreateExtractValue(Ld, resBase + 1 - eltBase);
+    }
+
+    Make64bitResultForLoad(EltTy, resultElts32, size, resultElts, OP, Builder);
+
+    // status
+    UpdateStatus(Ld, status, Builder);
+
+    return;
+  }
 }
 
 void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
                          Type *EltTy, hlsl::OP *OP, IRBuilder<> &Builder,
-                         Value *val0, Value *val1, Value *val2, Value *val3, uint8_t mask) {
+                         ArrayRef<Value *> vals, uint8_t mask) {
   OP::OpCode opcode = OP::OpCode::BufferStore;
-  Value *Args[] = {OP->GetU32Const((unsigned)opcode),
-                   handle,
-                   bufIdx,
-                   offset,
-                   val0,
-                   val1,
-                   val2,
-                   val3,
-                   OP->GetU8Const(mask)};
-  Function *dxilF = OP->GetOpFunc(opcode, EltTy);
-  Builder.CreateCall(dxilF, Args);
+  DXASSERT(vals.size() == 4, "buffer store need 4 values");
+  Type *i64Ty = Builder.getInt64Ty();
+  Type *doubleTy = Builder.getDoubleTy();
+  bool is64 = EltTy == i64Ty || EltTy == doubleTy;
+  if (!is64) {
+    Value *Args[] = {OP->GetU32Const((unsigned)opcode),
+                     handle,
+                     bufIdx,
+                     offset,
+                     vals[0],
+                     vals[1],
+                     vals[2],
+                     vals[3],
+                     OP->GetU8Const(mask)};
+    Function *dxilF = OP->GetOpFunc(opcode, EltTy);
+    Builder.CreateCall(dxilF, Args);
+  } else {
+    Type *i32Ty = Builder.getInt32Ty();
+    Function *dxilF = OP->GetOpFunc(opcode, i32Ty);
+
+    Value *undefI32 = UndefValue::get(i32Ty);
+    Value *vals32[8] = {undefI32, undefI32, undefI32, undefI32,
+                        undefI32, undefI32, undefI32, undefI32};
+
+    unsigned maskLo = 0;
+    unsigned maskHi = 0;
+    unsigned size = 0;
+    switch (mask) {
+    case 1:
+      maskLo = 3;
+      size = 1;
+      break;
+    case 3:
+      maskLo = 15;
+      size = 2;
+      break;
+    case 7:
+      maskLo = 15;
+      maskHi = 3;
+      size = 3;
+      break;
+    case 15:
+      maskLo = 15;
+      maskHi = 15;
+      size = 4;
+      break;
+    default:
+      DXASSERT(0, "invalid mask");
+    }
+
+    Split64bitValForStore(EltTy, vals, size, vals32, OP, Builder);
+
+    Value *Args[] = {OP->GetU32Const((unsigned)opcode),
+                     handle,
+                     bufIdx,
+                     offset,
+                     vals32[0],
+                     vals32[1],
+                     vals32[2],
+                     vals32[3],
+                     OP->GetU8Const(maskLo)};
+    Builder.CreateCall(dxilF, Args);
+    if (maskHi) {
+      // Update offset 4 by 4 bytes.
+      offset = Builder.CreateAdd(offset, Builder.getInt32(4 * 4));
+      Value *Args[] = {OP->GetU32Const((unsigned)opcode),
+                       handle,
+                       bufIdx,
+                       offset,
+                       vals32[4],
+                       vals32[5],
+                       vals32[6],
+                       vals32[7],
+                       OP->GetU8Const(maskHi)};
+      Builder.CreateCall(dxilF, Args);
+    }
+  }
 }
 
 Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
@@ -4948,20 +5202,20 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
 
   unsigned rest = (matSize % 4);
   if (rest) {
-    Value *ResRet =
-        GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, OP, Builder);
+    Value *ResultElts[4];
+    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder);
     for (unsigned i = 0; i < rest; i++)
-      elts[i] = Builder.CreateExtractValue(ResRet, i);
+      elts[i] = ResultElts[i];
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * rest));
   }
 
   for (unsigned i = rest; i < matSize; i += 4) {
-    Value *ResRet =
-        GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, OP, Builder);
-    elts[i] = Builder.CreateExtractValue(ResRet, 0);
-    elts[i + 1] = Builder.CreateExtractValue(ResRet, 1);
-    elts[i + 2] = Builder.CreateExtractValue(ResRet, 2);
-    elts[i + 3] = Builder.CreateExtractValue(ResRet, 3);
+    Value *ResultElts[4];
+    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder);
+    elts[i] = ResultElts[0];
+    elts[i + 1] = ResultElts[1];
+    elts[i + 2] = ResultElts[2];
+    elts[i + 3] = ResultElts[3];
 
     // Update offset by 4*4bytes.
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * 4));
@@ -5007,8 +5261,8 @@ void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
       if (elts[i+j] != undefElt)
         mask |= (1<<j);
     }
-    GenerateStructBufSt(handle, bufIdx, offset, EltTy, OP, Builder, elts[i],
-                        elts[i + 1], elts[i + 2], elts[i + 3], mask);
+    GenerateStructBufSt(handle, bufIdx, offset, EltTy, OP, Builder,
+                        {elts[i], elts[i + 1], elts[i + 2], elts[i + 3]}, mask);
     // Update offset by 4*4bytes.
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * 4));
   }
@@ -5187,13 +5441,14 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
           Value *EltVal = stBuilder.CreateExtractElement(Val, i);
           uint8_t mask = DXIL::kCompMask_X;
           GenerateStructBufSt(handle, bufIdx, idxList[i], EltTy, hlslOP,
-                              stBuilder, EltVal, undefElt, undefElt, undefElt,
+                              stBuilder, {EltVal, undefElt, undefElt, undefElt},
                               mask);
         }
       } else {
         uint8_t mask = DXIL::kCompMask_X;
-        GenerateStructBufSt(handle, bufIdx, idxList[0], EltTy, hlslOP, stBuilder,
-                            Val, undefElt, undefElt, undefElt, mask);
+        GenerateStructBufSt(handle, bufIdx, idxList[0], EltTy, hlslOP,
+                            stBuilder, {Val, undefElt, undefElt, undefElt},
+                            mask);
       }
 
       stUser->eraseFromParent();
@@ -5204,16 +5459,14 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
       Value *ldData = UndefValue::get(resultType);
       if (resultType->isVectorTy()) {
         for (unsigned i = 0; i < resultSize; i++) {
-          Value *eltData =
-              GenerateStructBufLd(handle, bufIdx, idxList[i],
-                                  /*status*/ nullptr, EltTy, hlslOP, ldBuilder);
-          eltData = ldBuilder.CreateExtractValue(eltData, 0);
-          ldData = ldBuilder.CreateInsertElement(ldData, eltData, i);
+          Value *ResultElt;
+          GenerateStructBufLd(handle, bufIdx, idxList[i],
+                                  /*status*/ nullptr, EltTy, ResultElt, hlslOP, ldBuilder);
+          ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
-        ldData =
-            GenerateStructBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
-                                EltTy, hlslOP, ldBuilder);
+        GenerateStructBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
+                                EltTy, ldData, hlslOP, ldBuilder);
       }
       ldUser->replaceAllUsesWith(ldData);
       ldUser->eraseFromParent();
@@ -5338,9 +5591,10 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
 
     if (ldInst) {
       auto LdElement = [&](Value *offset, IRBuilder<> &Builder) -> Value * {
-        Value *newLd = GenerateStructBufLd(handle, bufIdx, offset, status,
-                                           pOverloadTy, OP, Builder);
-        return ScalarizeResRet(Ty, newLd, Builder);
+        Value *ResultElts[4];
+        GenerateStructBufLd(handle, bufIdx, offset, status, pOverloadTy,
+                            ResultElts, OP, Builder);
+        return ScalarizeElements(Ty, ResultElts, Builder);
       };
 
       Value *newLd = LdElement(offset, Builder);
@@ -5375,7 +5629,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
         }
 
         GenerateStructBufSt(handle, bufIdx, offset, pOverloadTy, OP, Builder,
-                            vals[0], vals[1], vals[2], vals[3], mask);
+                            vals, mask);
       };
       if (arraySize > 1)
         val = Builder.CreateExtractValue(val, 0);
