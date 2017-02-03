@@ -2631,8 +2631,8 @@ static bool IsLoadFromConstant(CallInst *CI) {
         continue;
       return false;
     }
-    return false;
   }
+  // Be conservative now, if not know return true.
   return true;
 }
 
@@ -2641,7 +2641,8 @@ static bool IsLoadFromConstant(ExtractValueInst *EVI) {
   if (CallInst *CI = dyn_cast<CallInst>(Agg)) {
     return IsLoadFromConstant(CI);
   }
-  return false;
+  // Be conservative now, if not know return true.
+  return true;
 }
 
 static void
