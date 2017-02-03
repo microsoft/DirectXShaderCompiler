@@ -557,6 +557,7 @@ public:
   TEST_METHOD(CodeGenBindings1)
   TEST_METHOD(CodeGenBindings2)
   TEST_METHOD(CodeGenBindings3)
+  TEST_METHOD(CodeGenResCopy)
   TEST_METHOD(CodeGenResourceInStruct)
   TEST_METHOD(CodeGenResourceInCB)
   TEST_METHOD(CodeGenResourceInCBV)
@@ -2730,6 +2731,10 @@ TEST_F(CompilerTest, CodeGenBindings2) {
 
 TEST_F(CompilerTest, CodeGenBindings3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\bindings2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResCopy) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resCopy.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenResourceInStruct) {
