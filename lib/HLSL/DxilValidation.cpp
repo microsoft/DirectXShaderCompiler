@@ -2616,65 +2616,30 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
   }
 }
 
-static bool IsLoadFromConstant(CallInst *CI) {
-  // Skip intrinsic only have opcode arg.
-  if (CI->getNumArgOperands() < 2)
-    return false;
-  for (Use &arg : CI->arg_operands()) {
-    if (isa<ConstantInt>(arg))
-      continue;
-    if (isa<ConstantFP>(arg))
-      continue;
-    if (CallInst *argCI = dyn_cast<CallInst>(arg)) {
-      if (IsLoadFromConstant(argCI))
-        continue;
-      return false;
-    }
-  }
-  // Be conservative now, if not know return true.
-  return true;
-}
-
-static bool IsLoadFromConstant(ExtractValueInst *EVI) {
-  Value *Agg = EVI->getAggregateOperand();
-  if (CallInst *CI = dyn_cast<CallInst>(Agg)) {
-    return IsLoadFromConstant(CI);
-  }
-  // Be conservative now, if not know return true.
-  return true;
-}
-
-static void
-CollectFixAddressAccess(Value *V, std::vector<Instruction *> &fixAddrTGSMList) {
+static void CollectFixAddressAccess(Value *V,
+                                    std::vector<StoreInst *> &fixAddrTGSMList) {
   for (User *U : V->users()) {
     if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       if (isa<ConstantExpr>(GEP) || GEP->hasAllConstantIndices()) {
         CollectFixAddressAccess(GEP, fixAddrTGSMList);
       }
     } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      Value *V = SI->getValueOperand();
-      if (isa<Constant>(V)) {
-        continue;
-      } else if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(V)) {
-        if (IsLoadFromConstant(EVI))
-          continue;
-      } else if (CallInst *CI = dyn_cast<CallInst>(V)) {
-        if (IsLoadFromConstant(CI))
-          continue;
-      }
-
-      fixAddrTGSMList.emplace_back(cast<Instruction>(U));
+      fixAddrTGSMList.emplace_back(SI);
     }
   }
 }
 
-static void
-ValidateTGSMRaceCondition(std::vector<Instruction *> &fixAddrTGSMList,
-                          ValidationContext &ValCtx) {
+static bool IsDivergent(Value *V) {
+  // TODO: return correct result.
+  return false;
+}
+
+static void ValidateTGSMRaceCondition(std::vector<StoreInst *> &fixAddrTGSMList,
+                                      ValidationContext &ValCtx) {
   std::unordered_set<Function *> fixAddrTGSMFuncSet;
-  for (Instruction *I : fixAddrTGSMList) {
-	BasicBlock *BB = I->getParent();
-	fixAddrTGSMFuncSet.insert(BB->getParent());
+  for (StoreInst *I : fixAddrTGSMList) {
+    BasicBlock *BB = I->getParent();
+    fixAddrTGSMFuncSet.insert(BB->getParent());
   }
 
   for (auto &F : ValCtx.DxilMod.GetModule()->functions()) {
@@ -2686,11 +2651,12 @@ ValidateTGSMRaceCondition(std::vector<Instruction *> &fixAddrTGSMList,
 
     BasicBlock *Entry = &F.getEntryBlock();
 
-    for (Instruction *I : fixAddrTGSMList) {
-      BasicBlock *BB = I->getParent();
+    for (StoreInst *SI : fixAddrTGSMList) {
+      BasicBlock *BB = SI->getParent();
       if (BB->getParent() == &F) {
         if (PDT.dominates(BB, Entry)) {
-          ValCtx.EmitInstrError(I, ValidationRule::InstrTGSMRaceCond);
+          if (IsDivergent(SI->getValueOperand()))
+            ValCtx.EmitInstrError(SI, ValidationRule::InstrTGSMRaceCond);
         }
       }
     }
@@ -2701,7 +2667,7 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   DxilModule &M = ValCtx.DxilMod;
 
   unsigned TGSMSize = 0;
-  std::vector<Instruction*> fixAddrTGSMList;
+  std::vector<StoreInst*> fixAddrTGSMList;
   const DataLayout &DL = M.GetModule()->getDataLayout();
   for (GlobalVariable &GV : M.GetModule()->globals()) {
     ValidateGlobalVariable(GV, ValCtx);
