@@ -2101,6 +2101,14 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
     if (EltTy->isBuiltinType()) {
       const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
       CompType::Kind kind = BuiltinTyToCompTy(BTy, bSNorm, bUNorm);
+      // 64bits types are implemented with u32.
+      if (kind == CompType::Kind::U64 ||
+          kind == CompType::Kind::I64 ||
+          kind == CompType::Kind::SNormF64 ||
+          kind == CompType::Kind::UNormF64 ||
+          kind == CompType::Kind::F64) {
+        kind = CompType::Kind::U32;
+      }
       hlslRes->SetCompType(kind);
     } else {
       DXASSERT(!bSNorm && !bUNorm, "snorm/unorm on invalid type");
