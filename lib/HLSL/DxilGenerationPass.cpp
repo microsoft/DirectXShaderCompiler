@@ -106,8 +106,46 @@ public:
     // Mark handle map.
     // If cannot find, will return false in run();
     if (Instruction *I = dyn_cast<Instruction>(V)) {
-      if (handleMap.count(I))
-        handleMap[NewInst] = handleMap[I];
+      if (handleMap.count(I)) {
+        Instruction *handle = cast<Instruction>(handleMap[I]);
+        // Clone the handle to save debug info of LI.
+        handle = handle->clone();
+        Builder.Insert(handle);
+        handleMap[NewInst] = handle;
+      }
+    }
+  }
+};
+
+// Collect unused phi of resources and remove them.
+class ResourceRemover : public LoadAndStorePromoter {
+  AllocaInst *AI;
+  mutable std::unordered_set<PHINode *> unusedPhis;
+
+public:
+  ResourceRemover(ArrayRef<Instruction *> Insts, SSAUpdater &S)
+      : LoadAndStorePromoter(Insts, S), AI(nullptr) {}
+
+  void run(AllocaInst *AI, const SmallVectorImpl<Instruction *> &Insts) {
+    // Remember which alloca we're promoting (for isInstInList).
+    this->AI = AI;
+    LoadAndStorePromoter::run(Insts);
+    for (PHINode *P : unusedPhis) {
+      P->eraseFromParent();
+    }
+  }
+  bool
+  isInstInList(Instruction *I,
+               const SmallVectorImpl<Instruction *> &Insts) const override {
+    if (LoadInst *LI = dyn_cast<LoadInst>(I))
+      return LI->getOperand(0) == AI;
+    return cast<StoreInst>(I)->getPointerOperand() == AI;
+  }
+
+  void replaceLoadWithValue(LoadInst *LI, Value *V) const override {
+    if (PHINode *PHI = dyn_cast<PHINode>(V)) {
+      if (PHI->user_empty())
+        unusedPhis.insert(PHI);
     }
   }
 };
@@ -315,6 +353,16 @@ public:
 
     GenerateDxilOperations(M, handleMap);
 
+    if (NotOptimized || m_HasDbgInfo) {
+      // For module which not promote mem2reg.
+      // Remove local resource alloca/load/store/phi.
+      Module &M = *m_pHLModule->GetModule();
+      for (Function &F : M.functions()) {
+        if (!F.isDeclaration())
+          RemoveLocalDxilResourceAllocas(&F);
+      }
+    }
+
     // Translate precise on allocas into function call to keep the information after mem2reg.
     // The function calls will be removed after propagate precise attribute.
     TranslatePreciseAttribute();
@@ -351,6 +399,7 @@ private:
   bool HasClipPlanes();
 
   void TranslateLocalDxilResourceUses(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
+  void RemoveLocalDxilResourceAllocas(Function *F);
   void MapLocalDxilResourceHandles(
       std::unordered_map<Instruction *, Value *> &handleMap);
   void TranslateDxilResourceUses(
@@ -1778,24 +1827,27 @@ static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *>
   }
 }
 
+static bool IsResourceAlloc(AllocaInst *AI) {
+  bool isResource = HLModule::IsHLSLObjectType(AI->getAllocatedType());
+
+  if (ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType())) {
+    Type *EltTy = AT->getElementType();
+    while (isa<ArrayType>(EltTy)) {
+      EltTy = EltTy->getArrayElementType();
+    }
+    isResource = HLModule::IsHLSLObjectType(EltTy);
+    // TODO: support local resource array.
+    DXASSERT(!isResource, "local resource array");
+  }
+  return isResource;
+}
+
 void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unordered_map<Instruction *, Value *> &handleMap) {
   BasicBlock &BB = F->getEntryBlock(); // Get the entry node for the function
   std::unordered_set<AllocaInst *> localResources;
   for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
     if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-
-      bool isResource = HLModule::IsHLSLObjectType(AI->getAllocatedType());
-
-      if (ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType())) {
-        Type *EltTy = AT->getElementType();
-        while (isa<ArrayType>(EltTy)) {
-          EltTy = EltTy->getArrayElementType();
-        }
-        isResource = HLModule::IsHLSLObjectType(EltTy);
-        // TODO: support local resource array.
-        DXASSERT(!isResource, "local resource array");
-      }
-      if (isResource) {
+      if (IsResourceAlloc(AI)) {
         localResources.insert(AI);
       }
     }
@@ -1817,6 +1869,30 @@ void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unorde
 
       Insts.clear();
     }
+  }
+}
+
+void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
+  BasicBlock &BB = F->getEntryBlock(); // Get the entry node for the function
+  std::unordered_set<AllocaInst *> localResources;
+  for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
+      if (IsResourceAlloc(AI)) {
+        localResources.insert(AI);
+      }
+    }
+
+  SSAUpdater SSA;
+  SmallVector<Instruction *, 4> Insts;
+
+  for (AllocaInst *AI : localResources) {
+    // Build list of instructions to promote.
+    for (User *U : AI->users())
+      Insts.emplace_back(cast<Instruction>(U));
+
+    ResourceRemover(Insts, SSA).run(AI, Insts);
+
+    Insts.clear();
   }
 }
 
