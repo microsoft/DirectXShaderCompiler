@@ -54,6 +54,7 @@ void CheckLLVMErrorCode(const std::error_code &ec);
 #define IFTARG(x)   { if (!(x)) { throw ::hlsl::Exception(E_INVALIDARG); }}
 #define IFTLLVM(x)  { CheckLLVMErrorCode(x); }
 #define IFTMSG(x, msg) { HRESULT __hr = (x); if (DXC_FAILED(__hr)) throw ::hlsl::Exception(__hr, msg); }
+#define IFTBOOLMSG(x, y, msg) { if (!(x)) throw ::hlsl::Exception(y, msg); }
 
 // Propagate an C++ exception into an HRESULT.
 #define CATCH_CPP_ASSIGN_HRESULT() \

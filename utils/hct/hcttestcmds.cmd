@@ -18,6 +18,25 @@ if %errorlevel% neq  0 (
   exit /b 1
 )
 
+
+dxc.exe /T ps_6_0 smoke.hlsl /Fc smoke.hlsl.c 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Fc %CD%\smoke.hlsl.c
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd smoke.hlsl.d 2>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd %CD%\smoke.hlsl.d
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl /Fe smoke.hlsl.e 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Fe %CD%\smoke.hlsl.e
+  exit /b 1
+)
+
 echo Smoke test for dxc command line program ...
 dxc.exe /T ps_6_0 smoke.hlsl /Fh smoke.hlsl.h /Vn g_myvar 1> nul
 if %errorlevel% neq 0 (
@@ -36,14 +55,57 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fo smoke.cso 1> nul
+dxc.exe smoke.hlsl /P preprocessed.hlsl 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to compile to binary object from %CD%\smoke.hlsl.h
+  echo Failed to preprocess smoke.hlsl
   exit /b 1
 )
+
+dxc.exe /T ps_6_0 smoke.hlsl -force_rootsig_ver rootsig_1_0 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to compile with forcing rootsignature rootsig_1_0
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl -force_rootsig_ver rootsig_1_1 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to compile with forcing rootsignature rootsig_1_1
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl -force_rootsig_ver rootsig_2_0 2>nul
+if %errorlevel% equ 0 (
+  echo rootsig_2_0 is not supported but compilation passed
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl /HV 2016 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to compile with HLSL version 2016
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl /HV 2015 2>nul
+if %errorlevel% equ 0 (
+  echo Unsupported HLSL version 2015 should fail but did not fail
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fo smoke.cso 1> nul
+if %errorlevel% neq 0 (
+  echo Failed to compile to binary object from %CD%\smoke.hlsl
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fo smoke.cso /Cc /Ni /No /Lx 1> nul
+if %errorlevel% neq 0 (
+  echo Failed to compile to binary object from %CD%\smoke.hlsl with disassembly options
+  exit /b 1
+)
+
 dxc.exe -dumpbin smoke.cso 1> nul
 if %errorlevel% neq 0 (
-  echo Failed to disassemble binary object from %CD%\smoke.hlsl.h
+  echo Failed to disassemble binary object from %CD%\smoke.hlsl
   exit /b 1
 )
 
@@ -71,6 +133,7 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+
 dxc.exe smoke.cso /dumpbin /Qstrip_debug /Fo nodebug.cso 1>nul
 if %errorlevel% neq 0 (
   echo Failed to strip debug part from DXIL container blob
@@ -83,11 +146,33 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+dxc.exe smoke.cso /dumpbin /extractrootsignature /Fo rootsig.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to extract rootsignature from DXIL container blob
+  exit /b 1
+)
+
+dxc.exe norootsignature.cso /dumpbin /setrootsignature rootsig.cso /Fo smoke.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to setrootsignature to DXIL conatiner with no root signature
+  exit /b 1
+)
+
+dxc.exe smoke.cso /dumpbin /setrootsignature rootsig.cso /Fo smoke.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to setrootsignature to DXIL container that already contains root signature
+)
+
 echo private data > private.txt
 dxc.exe smoke.cso /dumpbin /setprivate private.txt /Fo private.cso 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to set private data from DXIL container blob
+  echo Failed to set private data to DXIL container with no private data
   exit /b 1
+)
+
+dxc.exe private.cso /dumpbin /setprivate private.txt /Fo private.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to set private data to DXIL container that already contains private data
 )
 
 dxc.exe private.cso /dumpbin /Qstrip_priv /Fo noprivate.cso 1>nul
@@ -102,13 +187,19 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+findstr "private data" %CD%\private1.txt 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to get private data content from DXIL container blob
+  exit /b 1
+)
+
 FC smoke.cso noprivate.cso 1>nul
 if %errorlevel% neq 0 (
   echo Appending and removing blob roundtrip failed.
   exit /b 1
 )
 
-dxc.exe private.cso /Dumpbin /Qstrip_priv /Qstrip_debug /Qstrip_rootsignature /Fo noprivdebugroot.cso 1>nul
+dxc.exe private.cso /dumpbin /Qstrip_priv /Qstrip_debug /Qstrip_rootsignature /Fo noprivdebugroot.cso 1>nul
 if %errorlevel% neq 0 (
   echo Failed to extract multiple parts from DXIL container blob
   exit /b 1
@@ -175,6 +266,10 @@ if %errorlevel% neq 0 (
 )
 
 rem Clean up.
+del %CD%\preprocessed.hlsl
+del %CD%\smoke.hlsl.c
+del %CD%\smoke.hlsl.d
+del %CD%\smoke.hlsl.e
 del %CD%\smoke.hlsl.h
 del %CD%\smoke.cso
 del %CD%\private.cso
@@ -184,5 +279,7 @@ del %CD%\noprivate.cso
 del %CD%\nodebug.cso
 del %CD%\noprivdebugroot.cso
 del %CD%\norootsignature.cso
+del %CD%\smoke.cso.inlined.ll
+del %CD%\smoke.cso.plain.ll
 
 exit /b 0

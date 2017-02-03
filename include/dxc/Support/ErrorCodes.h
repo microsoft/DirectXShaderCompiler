@@ -89,3 +89,6 @@
 
 // 0x80AA0014 - Incorrect Root Signature for shader.
 #define DXC_E_INCORRECT_ROOT_SIGNATURE                DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0014))
+
+// 0X80AA0015 - DXIL container is missing DebugInfo part.
+#define DXC_E_CONTAINER_MISSING_DEBUG                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0015))
