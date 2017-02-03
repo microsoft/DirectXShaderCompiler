@@ -1332,7 +1332,8 @@ TEST_F(ValidationTest, TGSMRaceCond) {
 TEST_F(ValidationTest, TGSMRaceCond2) {
     RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\structInBuffer.hlsl", "cs_6_0",
         "ret void",
-        "store i32 0, i32 addrspace(3)* @\"\\01?sharedData@@3UFoo@@A.3\", align 4\n"
+        "%TID = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
+        "store i32 %TID, i32 addrspace(3)* @\"\\01?sharedData@@3UFoo@@A.3\", align 4\n"
         "ret void",
         "Race condition writing to shared memory detected, consider making this write conditional");
 }

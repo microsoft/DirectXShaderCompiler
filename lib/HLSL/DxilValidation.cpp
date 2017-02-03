@@ -2617,6 +2617,33 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
   }
 }
 
+static bool IsLoadFromConstant(CallInst *CI) {
+  // Skip intrinsic only have opcode arg.
+  if (CI->getNumArgOperands() < 2)
+    return false;
+  for (Use &arg : CI->arg_operands()) {
+    if (isa<ConstantInt>(arg))
+      continue;
+    if (isa<ConstantFP>(arg))
+      continue;
+    if (CallInst *argCI = dyn_cast<CallInst>(arg)) {
+      if (IsLoadFromConstant(argCI))
+        continue;
+      return false;
+    }
+    return false;
+  }
+  return true;
+}
+
+static bool IsLoadFromConstant(ExtractValueInst *EVI) {
+  Value *Agg = EVI->getAggregateOperand();
+  if (CallInst *CI = dyn_cast<CallInst>(Agg)) {
+    return IsLoadFromConstant(CI);
+  }
+  return false;
+}
+
 static void
 CollectFixAddressAccess(Value *V, std::vector<Instruction *> &fixAddrTGSMList) {
   for (User *U : V->users()) {
@@ -2624,7 +2651,18 @@ CollectFixAddressAccess(Value *V, std::vector<Instruction *> &fixAddrTGSMList) {
       if (isa<ConstantExpr>(GEP) || GEP->hasAllConstantIndices()) {
         CollectFixAddressAccess(GEP, fixAddrTGSMList);
       }
-    } else if (isa<StoreInst>(U)) {
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      Value *V = SI->getValueOperand();
+      if (isa<Constant>(V)) {
+        continue;
+      } else if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(V)) {
+        if (IsLoadFromConstant(EVI))
+          continue;
+      } else if (CallInst *CI = dyn_cast<CallInst>(V)) {
+        if (IsLoadFromConstant(CI))
+          continue;
+      }
+
       fixAddrTGSMList.emplace_back(cast<Instruction>(U));
     }
   }
