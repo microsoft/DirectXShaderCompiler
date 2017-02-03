@@ -94,6 +94,7 @@ public:
   llvm::StringRef ExternalFn;   // OPT_external_fn
   llvm::StringRef ExternalLib;  // OPT_external_lib
   llvm::StringRef ExtractRootSignatureFile; // OPT_extractrootsignature
+  llvm::StringRef ExtractPrivateFile; // OPT_getprivate
   llvm::StringRef ForceRootSigVer; // OPT_force_rootsig_ver
   llvm::StringRef InputFile; // OPT_INPUT
   llvm::StringRef OutputHeader; // OPT_Fh
@@ -102,6 +103,8 @@ public:
   llvm::StringRef Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
+  llvm::StringRef PrivateSource; // OPT_setprivate
+  llvm::StringRef RootSignatureSource; // OPT_setrootsignature
 
   bool AllResourcesBound; // OPT_all_resources_bound
   bool AstDump; // OPT_ast_dump
@@ -132,6 +135,10 @@ public:
   bool NotUseLegacyCBufLoad;  // OPT_not_use_legacy_cbuf_load
   bool DisplayIncludeProcess; // OPT__vi
   bool RecompileFromBinary; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
+  bool StripDebug; // OPT Qstrip_debug
+  bool StripRootSignature; // OPT Qstrip_rootsignature
+  bool StripPrivate; // OPT Qstrip_priv
+  bool StripReflection; // OPT Qstrip_reflect
 };
 
 /// Use this class to capture, convert and handle the lifetime for the

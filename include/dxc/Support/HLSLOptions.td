@@ -273,17 +273,17 @@ def P : Separate<["-", "/"], "P">, Flags<[DriverOption]>, Group<hlslutil_Group>,
 
 def dumpbin : Flag<["-", "/"], "dumpbin">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Load a binary file rather than compiling">;
-def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Group<hlslutil_Group>,
+def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode">;
-def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Group<hlslutil_Group>,
+def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip debug information from 4_0+ shader bytecode">;
-def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Group<hlslutil_Group>,
+def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode">;
 
-def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">,     Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode">;
-def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;
-def extractrootsignature : JoinedOrSeparate<["-", "/"], "extractrootsignature">, MetaVarName<"<file>">, Group<hlslutil_Group>, HelpText<"Extract root signature from shader bytecode">;
-def verifyrootsignature  : JoinedOrSeparate<["-", "/"], "verifyrootsignature">,  MetaVarName<"<file>">, Group<hlslutil_Group>, HelpText<"Verify shader bytecode with root signature">;
+def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode">;
+def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;
+def extractrootsignature : JoinedOrSeparate<["-", "/"], "extractrootsignature">, MetaVarName<"<file>">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Extract root signature from shader bytecode">;
+def verifyrootsignature  : JoinedOrSeparate<["-", "/"], "verifyrootsignature">,  MetaVarName<"<file>">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Verify shader bytecode with root signature">;
 def force_rootsig_ver    : JoinedOrSeparate<["-", "/"], "force_rootsig_ver">,    Flags<[CoreOption]>, MetaVarName<"<profile>">, Group<hlslcomp_Group>, HelpText<"force root signature version (rootsig_1_1 if omitted)">;
 
 def shtemplate : JoinedOrSeparate<["-", "/"], "shtemplate">, MetaVarName<"<file>">, Group<hlslcomp_Group>,
@@ -299,9 +299,9 @@ def enable_unbounded_descriptor_tables : Flag<["-", "/"], "enable_unbounded_desc
 def all_resources_bound : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Enables agressive flattening">;
 
-def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, MetaVarName<"<file>">, Group<hlslutil_Group>,
+def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Private data to add to compiled shader blob">;
-def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, MetaVarName<"<file>">, Group<hlslutil_Group>,
+def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Save private data from shader blob">;
 
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>,

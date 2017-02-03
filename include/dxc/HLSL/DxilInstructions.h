@@ -1499,25 +1499,6 @@ struct DxilInst_UDiv {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the IAddc of the input values
-struct DxilInst_IAddc {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_IAddc(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::IAddc);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Accessors
-  llvm::Value *get_a() const { return Instr->getOperand(1); }
-  llvm::Value *get_b() const { return Instr->getOperand(2); }
-};
-
 /// This instruction returns the UAddc of the input values
 struct DxilInst_UAddc {
   const llvm::Instruction *Instr;
@@ -1537,32 +1518,13 @@ struct DxilInst_UAddc {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the ISubc of the input values
-struct DxilInst_ISubc {
+/// This instruction returns the USubb of the input values
+struct DxilInst_USubb {
   const llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_ISubc(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_USubb(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::ISubc);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Accessors
-  llvm::Value *get_a() const { return Instr->getOperand(1); }
-  llvm::Value *get_b() const { return Instr->getOperand(2); }
-};
-
-/// This instruction returns the USubc of the input values
-struct DxilInst_USubc {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_USubc(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::USubc);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::USubb);
   }
   // Validation support
   bool isAllowed() const { return true; }

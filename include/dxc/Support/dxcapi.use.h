@@ -62,9 +62,13 @@ public:
 
   template <typename TInterface>
   HRESULT CreateInstance(REFCLSID clsid, _Outptr_ TInterface** pResult) {
+    return CreateInstance(clsid, __uuidof(TInterface), (IUnknown**)pResult);
+  }
+
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, _Outptr_ IUnknown **pResult) {
     if (pResult == nullptr) return E_POINTER;
     if (m_dll == nullptr) return E_FAIL;
-    HRESULT hr = m_createFn(clsid, __uuidof(TInterface), (LPVOID*)pResult);
+    HRESULT hr = m_createFn(clsid, riid, (LPVOID*)pResult);
     return hr;
   }
 
@@ -78,6 +82,12 @@ public:
       FreeLibrary(m_dll);
       m_dll = nullptr;
     }
+  }
+
+  HMODULE Detach() {
+    HMODULE module = m_dll;
+    m_dll = nullptr;
+    return module;
   }
 };
 

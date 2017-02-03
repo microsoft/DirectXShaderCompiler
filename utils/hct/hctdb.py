@@ -220,8 +220,8 @@ class db_dxil(object):
             self.name_idx[i].category = "Binary int"
         for i in "IMul,UMul,UDiv".split(","):
             self.name_idx[i].category = "Binary int with two outputs"
-        for i in "IAddc,UAddc,ISubc,USubc".split(","):
-            self.name_idx[i].category = "Binary int with carry"
+        for i in "UAddc,USubb".split(","):
+            self.name_idx[i].category = "Binary uint with carry or borrow"
         for i in "FMad,Fma".split(","):
             self.name_idx[i].category = "Tertiary float"
         for i in "IMad,UMad,Msad,Ibfe,Ubfe".split(","):
@@ -453,9 +453,9 @@ class db_dxil(object):
             next_op_idx += 1
 
         # Binary int operations with carry
-        for i in "IAddc,UAddc,ISubc,USubc".split(","):
-            self.add_dxil_op(i, next_op_idx, "BinaryWithCarry", "returns the " + i + " of the input values", "i", "rn", [
-                db_dxil_param(0, "i32c", "", "operation result with carry value"),
+        for i in "UAddc,USubb".split(","):
+            self.add_dxil_op(i, next_op_idx, "BinaryWithCarryOrBorrow", "returns the " + i + " of the input values", "i", "rn", [
+                db_dxil_param(0, "i32c", "", "operation result with carry/borrow value"),
                 db_dxil_param(2, "$o", "a", "input value"),
                 db_dxil_param(3, "$o", "b", "input value")])
             next_op_idx += 1
@@ -1037,7 +1037,7 @@ class db_dxil(object):
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
 
-        assert next_op_idx == 139, "next operation index is %d rather than 143 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 137, "next operation index is %d rather than 143 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

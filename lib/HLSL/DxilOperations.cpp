@@ -98,11 +98,9 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::UMul,                    "UMul",                     OCC::BinaryWithTwoOuts,        "binaryWithTwoOuts",          false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
   {  OC::UDiv,                    "UDiv",                     OCC::BinaryWithTwoOuts,        "binaryWithTwoOuts",          false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 
-  // Binary int with carry                                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
-  {  OC::IAddc,                   "IAddc",                    OCC::BinaryWithCarry,          "binaryWithCarry",            false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
-  {  OC::UAddc,                   "UAddc",                    OCC::BinaryWithCarry,          "binaryWithCarry",            false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
-  {  OC::ISubc,                   "ISubc",                    OCC::BinaryWithCarry,          "binaryWithCarry",            false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
-  {  OC::USubc,                   "USubc",                    OCC::BinaryWithCarry,          "binaryWithCarry",            false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
+  // Binary uint with carry or borrow                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::UAddc,                   "UAddc",                    OCC::BinaryWithCarryOrBorrow,  "binaryWithCarryOrBorrow",    false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
+  {  OC::USubb,                   "USubb",                    OCC::BinaryWithCarryOrBorrow,  "binaryWithCarryOrBorrow",    false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 
   // Tertiary float                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::FMad,                    "FMad",                     OCC::Tertiary,                 "tertiary",                   false,  true,  true,  true, false, false, false, false, false, Attribute::ReadNone, },
@@ -351,13 +349,13 @@ bool OP::IsDxilOpWave(OpCode C) {
   unsigned op = (unsigned)C;
   /* <py::lines('OPCODE-WAVE')>hctdb_instrhelp.get_instrs_pred("op", "is_wave")</py>*/
   // OPCODE-WAVE:BEGIN
-  // Instructions: WaveIsFirstLane=112, WaveGetLaneIndex=113,
-  // WaveGetLaneCount=114, WaveAnyTrue=115, WaveAllTrue=116,
-  // WaveActiveAllEqual=117, WaveActiveBallot=118, WaveReadLaneAt=119,
-  // WaveReadLaneFirst=120, WaveActiveOp=121, WaveActiveBit=122,
-  // WavePrefixOp=123, QuadReadLaneAt=124, QuadOp=125, WaveAllBitCount=137,
-  // WavePrefixBitCount=138
-  return 112 <= op && op <= 125 || 137 <= op && op <= 138;
+  // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
+  // WaveGetLaneCount=112, WaveAnyTrue=113, WaveAllTrue=114,
+  // WaveActiveAllEqual=115, WaveActiveBallot=116, WaveReadLaneAt=117,
+  // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
+  // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
+  // WavePrefixBitCount=136
+  return 110 <= op && op <= 123 || 135 <= op && op <= 136;
   // OPCODE-WAVE:END
 }
 
@@ -365,10 +363,10 @@ bool OP::IsDxilOpGradient(OpCode C) {
   unsigned op = (unsigned)C;
   /* <py::lines('OPCODE-GRADIENT')>hctdb_instrhelp.get_instrs_pred("op", "is_gradient")</py>*/
   // OPCODE-GRADIENT:BEGIN
-  // Instructions: Sample=62, SampleBias=63, SampleCmp=66, TextureGather=75,
-  // TextureGatherCmp=76, CalculateLOD=83, DerivCoarseX=85, DerivCoarseY=86,
-  // DerivFineX=87, DerivFineY=88
-  return 62 <= op && op <= 63 || op == 66 || 75 <= op && op <= 76 || op == 83 || 85 <= op && op <= 88;
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, TextureGather=73,
+  // TextureGatherCmp=74, CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
+  // DerivFineX=85, DerivFineY=86
+  return 60 <= op && op <= 61 || op == 64 || 73 <= op && op <= 74 || op == 81 || 83 <= op && op <= 86;
   // OPCODE-GRADIENT:END
 }
 
@@ -520,11 +518,9 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::UMul:                   A(p2I32);    A(pI32); A(pETy); A(pETy); break;
   case OpCode::UDiv:                   A(p2I32);    A(pI32); A(pETy); A(pETy); break;
 
-    // Binary int with carry
-  case OpCode::IAddc:                  A(pI32C);    A(pI32); A(pETy); A(pETy); break;
+    // Binary uint with carry or borrow
   case OpCode::UAddc:                  A(pI32C);    A(pI32); A(pETy); A(pETy); break;
-  case OpCode::ISubc:                  A(pI32C);    A(pI32); A(pETy); A(pETy); break;
-  case OpCode::USubc:                  A(pI32C);    A(pI32); A(pETy); A(pETy); break;
+  case OpCode::USubb:                  A(pI32C);    A(pI32); A(pETy); A(pETy); break;
 
     // Tertiary float
   case OpCode::FMad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
@@ -706,10 +702,8 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::IMul:
   case OpCode::UMul:
   case OpCode::UDiv:
-  case OpCode::IAddc:
   case OpCode::UAddc:
-  case OpCode::ISubc:
-  case OpCode::USubc:
+  case OpCode::USubb:
   case OpCode::WaveActiveAllEqual:
     return FT->getParamType(1);
   case OpCode::TempRegStore:

@@ -384,6 +384,16 @@ inline char * PartKindToCharArray(uint32_t partKind, _Out_writes_(5) char* pText
   return pText;
 }
 
+inline size_t GetOffsetTableSize(uint32_t partCount) {
+  return sizeof(uint32_t) * partCount;
+}
+// Compute total size of the dxil container from parts information
+inline size_t GetDxilContainerSizeFromParts(uint32_t partCount, uint32_t partsSize) {
+  return partsSize + (uint32_t)sizeof(DxilContainerHeader) +
+         GetOffsetTableSize(partCount) +
+         (uint32_t)sizeof(DxilPartHeader) * partCount;
+}
+
 } // namespace hlsl
 
 #endif // __DXC_CONTAINER__

@@ -490,32 +490,32 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   unsigned op = (unsigned)opcode;
   /* <py::lines('VALOPCODESM-TEXT')>hctdb_instrhelp.get_valopcode_sm_text()</py>*/
   // VALOPCODESM-TEXT:BEGIN
-  // Instructions: ThreadId=95, GroupId=96, ThreadIdInGroup=97,
-  // FlattenedThreadIdInGroup=98
-  if (95 <= op && op <= 98)
+  // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
+  // FlattenedThreadIdInGroup=96
+  if (93 <= op && op <= 96)
     return pSM->IsCS();
-  // Instructions: DomainLocation=107
-  if (op == 107)
+  // Instructions: DomainLocation=105
+  if (op == 105)
     return pSM->IsDS();
-  // Instructions: LoadOutputControlPoint=105, LoadPatchConstant=106
-  if (105 <= op && op <= 106)
+  // Instructions: LoadOutputControlPoint=103, LoadPatchConstant=104
+  if (103 <= op && op <= 104)
     return pSM->IsDS() || pSM->IsHS();
-  // Instructions: EmitStream=99, CutStream=100, EmitThenCutStream=101,
-  // GSInstanceID=102
-  if (99 <= op && op <= 102)
+  // Instructions: EmitStream=97, CutStream=98, EmitThenCutStream=99,
+  // GSInstanceID=100
+  if (97 <= op && op <= 100)
     return pSM->IsGS();
-  // Instructions: PrimitiveID=110
-  if (op == 110)
+  // Instructions: PrimitiveID=108
+  if (op == 108)
     return pSM->IsGS() || pSM->IsDS() || pSM->IsHS() || pSM->IsPS();
-  // Instructions: StorePatchConstant=108, OutputControlPointID=109
-  if (108 <= op && op <= 109)
+  // Instructions: StorePatchConstant=106, OutputControlPointID=107
+  if (106 <= op && op <= 107)
     return pSM->IsHS();
-  // Instructions: Sample=62, SampleBias=63, SampleCmp=66, SampleCmpLevelZero=67,
-  // RenderTargetGetSamplePosition=78, RenderTargetGetSampleCount=79,
-  // CalculateLOD=83, Discard=84, DerivCoarseX=85, DerivCoarseY=86,
-  // DerivFineX=87, DerivFineY=88, EvalSnapped=89, EvalSampleIndex=90,
-  // EvalCentroid=91, SampleIndex=92, Coverage=93, InnerCoverage=94
-  if (62 <= op && op <= 63 || 66 <= op && op <= 67 || 78 <= op && op <= 79 || 83 <= op && op <= 94)
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, SampleCmpLevelZero=65,
+  // RenderTargetGetSamplePosition=76, RenderTargetGetSampleCount=77,
+  // CalculateLOD=81, Discard=82, DerivCoarseX=83, DerivCoarseY=84,
+  // DerivFineX=85, DerivFineY=86, EvalSnapped=87, EvalSampleIndex=88,
+  // EvalCentroid=89, SampleIndex=90, Coverage=91, InnerCoverage=92
+  if (60 <= op && op <= 61 || 64 <= op && op <= 65 || 76 <= op && op <= 77 || 81 <= op && op <= 92)
     return pSM->IsPS();
   return true;
   // VALOPCODESM-TEXT:END

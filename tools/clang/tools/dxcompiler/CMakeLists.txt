@@ -47,6 +47,8 @@ set(SOURCES
   DXCompiler.cpp
   DXCompiler.rc
   DXCompiler.def
+  dxillib.cpp
+  dxcontainerbuilder.cpp
   )
 
 set(LIBRARIES

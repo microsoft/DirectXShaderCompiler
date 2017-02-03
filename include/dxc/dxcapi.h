@@ -175,6 +175,14 @@ IDxcValidator : public IUnknown {
     ) = 0;
 };
 
+struct __declspec(uuid("334b1f50-2292-4b35-99a1-25588d8c17fe"))
+IDxcContainerBuilder : public IUnknown {
+  virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader) = 0;                // Loads DxilContainer to the builder
+  virtual HRESULT STDMETHODCALLTYPE AddPart(_In_ UINT32 fourCC, _In_ IDxcBlob *pSource) = 0;      // Part to add to the container
+  virtual HRESULT STDMETHODCALLTYPE RemovePart(_In_ UINT32 fourCC) = 0;                           // Remove the part with fourCC
+  virtual HRESULT STDMETHODCALLTYPE SerializeContainer(_Out_ IDxcOperationResult **ppResult) = 0; // Builds a container of the given container builder state
+};
+
 struct __declspec(uuid("091f7a26-1c1f-4948-904b-e6e3a8a771d5"))
 IDxcAssembler : public IUnknown {
   // Assemble dxil in ll or llvm bitcode to DXIL container.
@@ -278,4 +286,11 @@ __declspec(selectany) extern const GUID CLSID_DxcOptimizer = {
     {0x9b, 0x6b, 0xb1, 0x24, 0xe7, 0xa5, 0x20, 0x4c}
 };
 
+// {94134294-411f-4574-b4d0-8741e25240d2}
+__declspec(selectany) extern const GUID CLSID_DxcContainerBuilder = {
+  0x94134294,
+  0x411f,
+  0x4574,  
+  { 0xb4, 0xd0, 0x87, 0x41, 0xe2, 0x52, 0x40, 0xd2 }
+};
 #endif
