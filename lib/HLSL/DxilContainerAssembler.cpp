@@ -174,6 +174,7 @@ private:
       eltRows = pElement->GetRows() / eltCount;
 
     DxilProgramSignatureElement sig;
+    memset(&sig, 0, sizeof(DxilProgramSignatureElement));
     sig.Stream = pElement->GetOutputStream();
     sig.SemanticName = GetSemanticOffset(pElement);
     sig.SystemValue = KindToSystemValue(pElement->GetKind(), m_domain);
@@ -615,8 +616,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   DXASSERT_NOMSG(pModuleBitcode != nullptr);
   DXASSERT_NOMSG(pFinalStream != nullptr);
 
-  CComPtr<AbstractMemoryStream> pProgramStream;
-
   DxilProgramSignatureWriter inputSigWriter(pModule->GetInputSignature(),
                                             pModule->GetTessellatorDomain(),
                                             /*IsInput*/ true);
@@ -658,20 +657,27 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   // Write the root signature (RTS0) part.
   DxilProgramRootSignatureWriter rootSigWriter(pModule->GetRootSignature());
+  CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
   if (!pModule->GetRootSignature().IsEmpty()) {
     writer.AddPart(
         DFCC_RootSignature, rootSigWriter.size(),
         [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
     pModule->StripRootSignatureFromMetadata();
+    pInputProgramStream.Release();
+    CComPtr<IMalloc> pMalloc;
+    IFT(CoGetMalloc(1, &pMalloc));
+    IFT(CreateMemoryStream(pMalloc, &pInputProgramStream));
+    raw_stream_ostream outStream(pInputProgramStream.p);
+    WriteBitcodeToFile(pModule->GetModule(), outStream, true);
   }
 
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
-  pProgramStream = pModuleBitcode;
+  CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
   if (HasDebugInfo(*pModule->GetModule())) {
     uint32_t debugInUInt32, debugPaddingBytes;
-    GetPaddedProgramPartSize(pModuleBitcode, debugInUInt32, debugPaddingBytes);
+    GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-      WriteProgramPart(pModule->GetShaderModel(), pModuleBitcode, pStream);
+      WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
     });
 
     pProgramStream.Release();

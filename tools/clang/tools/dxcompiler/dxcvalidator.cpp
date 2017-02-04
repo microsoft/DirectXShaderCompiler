@@ -156,7 +156,11 @@ HRESULT DxcValidator::ValidateWithOptModules(
     } else {
       validationStatus = RunValidation(pShader, pModule, pDebugModule, pDiagStream);
     }
-
+    if (FAILED(validationStatus)) {
+      std::string msg("Validation failed.\n");
+      ULONG cbWritten;
+      pDiagStream->Write(msg.c_str(), msg.size(), &cbWritten);
+    }
     // Assemble the result object.
     CComPtr<IDxcBlob> pDiagBlob;
     CComPtr<IDxcBlobEncoding> pDiagBlobEnconding;

@@ -4419,7 +4419,7 @@ HRESULT ValidateDxilContainer(const void *pContainer,
 
   if (pDbgPart) {
     GetDxilProgramBitcode(
-      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart)),
+      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pDbgPart)),
       &pIL, &ILLength);
     if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pDebugModule, DbgCtx, DiagStream))) {
       return hr;
