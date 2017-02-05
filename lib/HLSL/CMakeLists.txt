@@ -22,8 +22,11 @@ add_llvm_library(LLVMHLSL
   DxilSignatureAllocator.cpp
   DxilSignatureElement.cpp
   DxilSigPoint.cpp
+  DxilTargetLowering.cpp
+  DxilTargetTransformInfo.cpp
   DxilTypeSystem.cpp
   DxilValidation.cpp
+  DxilValidationRaceCondCheck.cpp
   DxcOptimizer.cpp
   HLMatrixLowerPass.cpp
   HLModule.cpp
@@ -33,7 +36,6 @@ add_llvm_library(LLVMHLSL
   HLResource.cpp
   ReducibilityAnalysis.cpp
   WaveSensitivityAnalysis.cpp
-
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
 )

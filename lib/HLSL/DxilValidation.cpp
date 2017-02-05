@@ -31,6 +31,8 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Analysis/Passes.h"
 #include "llvm/ADT/BitVector.h"
 #include <winerror.h>
 #include "llvm/Support/raw_ostream.h"
@@ -41,10 +43,12 @@
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include <algorithm>
-
+#include "DxilTargetTransformInfo.h"
+#include "DxilValidationRaceCondCheck.h"
 
 using namespace llvm;
 using namespace std;
+using namespace hlsl;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Error messages.
@@ -2555,53 +2559,58 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
   }
 }
 
-static void
-CollectFixAddressAccess(Value *V, std::vector<Instruction *> &fixAddrTGSMList) {
+static void CollectFixAddressAccess(Value *V,
+                                    std::vector<StoreInst *> &fixAddrTGSMList) {
   for (User *U : V->users()) {
     if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       if (isa<ConstantExpr>(GEP) || GEP->hasAllConstantIndices()) {
         CollectFixAddressAccess(GEP, fixAddrTGSMList);
       }
-    } else if (isa<StoreInst>(U)) {
-      fixAddrTGSMList.emplace_back(cast<Instruction>(U));
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      fixAddrTGSMList.emplace_back(SI);
     }
   }
 }
 
-static void
-ValidateTGSMRaceCondition(std::vector<Instruction *> &fixAddrTGSMList,
-                          ValidationContext &ValCtx) {
+static void ValidateTGSMRaceCondition(std::vector<StoreInst *> &fixAddrTGSMList,
+                                      ValidationContext &ValCtx) {
   std::unordered_set<Function *> fixAddrTGSMFuncSet;
   for (Instruction *I : fixAddrTGSMList) {
 	BasicBlock *BB = I->getParent();
 	fixAddrTGSMFuncSet.insert(BB->getParent());
   }
 
-  for (auto &F : ValCtx.DxilMod.GetModule()->functions()) {
-    if (F.isDeclaration() || !fixAddrTGSMFuncSet.count(&F))
-      continue;
+  // DxilTTIImpl only used by DivergenceAnalysis now.
+  // Don't need TargetMachine.
+  // Just use nullptr here.
+  TargetMachine *TargetMach = nullptr;
 
-    PostDominatorTree PDT;
-    PDT.runOnFunction(F);
+  TargetIRAnalysis DxilIRAnalysis = TargetIRAnalysis([&](const Function &F) {
+    return TargetTransformInfo(
+        DxilTTIImpl(TargetMach, F, ValCtx.DxilMod, /*ThreadGroup*/true));
+  });
 
-    BasicBlock *Entry = &F.getEntryBlock();
+  legacy::PassManager PM;
+  PM.add(llvm::createPostDomTree());
+  PM.add(llvm::createTargetTransformInfoWrapperPass(DxilIRAnalysis));
+  PM.add(llvm::createDivergenceAnalysisPass());
 
-    for (Instruction *I : fixAddrTGSMList) {
-      BasicBlock *BB = I->getParent();
-      if (BB->getParent() == &F) {
-        if (PDT.dominates(BB, Entry)) {
-          ValCtx.EmitInstrError(I, ValidationRule::InstrTGSMRaceCond);
-        }
-      }
-    }
-  }
+  RaceConditionCheckPass::ErrorEmitter RaceCondErrorEmitter =
+      [&](Instruction *I) {
+        ValCtx.EmitInstrError(I, ValidationRule::InstrTGSMRaceCond);
+      };
+  auto RaceCondChecker = createRaceConditionCheckPass(
+      &fixAddrTGSMList, &fixAddrTGSMFuncSet, &RaceCondErrorEmitter);
+  PM.add(RaceCondChecker);
+
+  PM.run(*ValCtx.DxilMod.GetModule());
 }
 
 static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   DxilModule &M = ValCtx.DxilMod;
 
   unsigned TGSMSize = 0;
-  std::vector<Instruction*> fixAddrTGSMList;
+  std::vector<StoreInst*> fixAddrTGSMList;
   const DataLayout &DL = M.GetModule()->getDataLayout();
   for (GlobalVariable &GV : M.GetModule()->globals()) {
     ValidateGlobalVariable(GV, ValCtx);
