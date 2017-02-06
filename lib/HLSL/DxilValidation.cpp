@@ -1770,6 +1770,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::InnerCoverage:
     ValCtx.m_bInnerCoverageIn = true;
     break;
+  default:
+    // Skip opcodes don't need special check.
+    break;
   }
 
   if (ValCtx.m_bCoverageIn && ValCtx.m_bInnerCoverageIn) {
