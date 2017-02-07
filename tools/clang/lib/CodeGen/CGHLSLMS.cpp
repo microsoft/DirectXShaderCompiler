@@ -1344,13 +1344,14 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     else if (parmDecl->hasAttr<HLSLOutAttr>())
       dxilInputQ = DxilParamInputQual::Out;
 
-    bool GsInputPrimitiveMismatch = false;
+    DXIL::InputPrimitive inputPrimitive = DXIL::InputPrimitive::Undefined;
 
     if (IsHLSLOutputPatchType(parmDecl->getType())) {
       outputPatchCount++;
       if (dxilInputQ != DxilParamInputQual::In) {
         unsigned DiagID = Diags.getCustomDiagID(
-            DiagnosticsEngine::Error, "OutputPatch should not be out/inout parameter");
+            DiagnosticsEngine::Error,
+            "OutputPatch should not be out/inout parameter");
         Diags.Report(parmDecl->getLocation(), DiagID);
         continue;
       }
@@ -1358,12 +1359,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       if (isDS)
         funcProps->ShaderProps.DS.inputControlPoints =
             GetHLSLOutputPatchCount(parmDecl->getType());
-    }
-    else if (IsHLSLInputPatchType(parmDecl->getType())) {
+    } else if (IsHLSLInputPatchType(parmDecl->getType())) {
       inputPatchCount++;
       if (dxilInputQ != DxilParamInputQual::In) {
         unsigned DiagID = Diags.getCustomDiagID(
-            DiagnosticsEngine::Error, "InputPatch should not be out/inout parameter");
+            DiagnosticsEngine::Error,
+            "InputPatch should not be out/inout parameter");
         Diags.Report(parmDecl->getLocation(), DiagID);
         continue;
       }
@@ -1371,25 +1372,16 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       if (isHS) {
         funcProps->ShaderProps.HS.inputControlPoints =
             GetHLSLInputPatchCount(parmDecl->getType());
-      }
-      else if (isGS) {
-        DXIL::InputPrimitive inputPrimitive = (DXIL::InputPrimitive)(
+      } else if (isGS) {
+        inputPrimitive = (DXIL::InputPrimitive)(
             (unsigned)DXIL::InputPrimitive::ControlPointPatch1 +
-            GetHLSLInputPatchCount(parmDecl->getType())-1);
-
-        if (funcProps->ShaderProps.GS.inputPrimitive ==
-            DXIL::InputPrimitive::Undefined) {
-          funcProps->ShaderProps.GS.inputPrimitive = inputPrimitive;
-        } else if (funcProps->ShaderProps.GS.inputPrimitive != inputPrimitive) {
-          GsInputPrimitiveMismatch = true;
-        }
-        // Set to InputPrimitive for GS.
-        dxilInputQ = DxilParamInputQual::InputPrimitive;
+            GetHLSLInputPatchCount(parmDecl->getType()) - 1);
       }
-    }
-    else if (IsHLSLStreamOutputType(parmDecl->getType())) {
-      // TODO: validation this at ASTContext::getFunctionType in AST/ASTContext.cpp
-      DXASSERT(dxilInputQ == DxilParamInputQual::Inout, "stream output parameter must be inout");
+    } else if (IsHLSLStreamOutputType(parmDecl->getType())) {
+      // TODO: validation this at ASTContext::getFunctionType in
+      // AST/ASTContext.cpp
+      DXASSERT(dxilInputQ == DxilParamInputQual::Inout,
+               "stream output parameter must be inout");
       switch (streamIndex) {
       case 0:
         dxilInputQ = DxilParamInputQual::OutStream0;
@@ -1402,29 +1394,34 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         break;
       case 3:
       default:
-        // TODO: validation this at ASTContext::getFunctionType in AST/ASTContext.cpp
-        DXASSERT(streamIndex==3, "stream number out of bound");
+        // TODO: validation this at ASTContext::getFunctionType in
+        // AST/ASTContext.cpp
+        DXASSERT(streamIndex == 3, "stream number out of bound");
         dxilInputQ = DxilParamInputQual::OutStream3;
         break;
       }
-      DXIL::PrimitiveTopology &streamTopology = funcProps->ShaderProps.GS.streamPrimitiveTopologies[streamIndex];
+      DXIL::PrimitiveTopology &streamTopology =
+          funcProps->ShaderProps.GS.streamPrimitiveTopologies[streamIndex];
       if (IsHLSLPointStreamType(parmDecl->getType()))
         streamTopology = DXIL::PrimitiveTopology::PointList;
       else if (IsHLSLLineStreamType(parmDecl->getType()))
         streamTopology = DXIL::PrimitiveTopology::LineStrip;
       else {
-        DXASSERT(IsHLSLTriangleStreamType(parmDecl->getType()), "invalid StreamType");
+        DXASSERT(IsHLSLTriangleStreamType(parmDecl->getType()),
+                 "invalid StreamType");
         streamTopology = DXIL::PrimitiveTopology::TriangleStrip;
       }
-      
+
       if (streamIndex > 0) {
-        bool bAllPoint = streamTopology == DXIL::PrimitiveTopology::PointList &&
-            funcProps->ShaderProps.GS.streamPrimitiveTopologies[0] == DXIL::PrimitiveTopology::PointList;
+        bool bAllPoint =
+            streamTopology == DXIL::PrimitiveTopology::PointList &&
+            funcProps->ShaderProps.GS.streamPrimitiveTopologies[0] ==
+                DXIL::PrimitiveTopology::PointList;
         if (!bAllPoint) {
           DiagnosticsEngine &Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "when multiple GS output streams are used they must be pointlists.");
+              DiagnosticsEngine::Error, "when multiple GS output streams are "
+                                        "used they must be pointlists.");
           Diags.Report(FD->getLocation(), DiagID);
         }
       }
@@ -1434,61 +1431,35 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     unsigned GsInputArrayDim = 0;
     if (parmDecl->hasAttr<HLSLTriangleAttr>()) {
-      if (funcProps->ShaderProps.GS.inputPrimitive ==
-          DXIL::InputPrimitive::Undefined)
-        funcProps->ShaderProps.GS.inputPrimitive =
-            DXIL::InputPrimitive::Triangle;
-      else if (funcProps->ShaderProps.GS.inputPrimitive !=
-               DXIL::InputPrimitive::Triangle)
-        GsInputPrimitiveMismatch = true;
-      dxilInputQ = DxilParamInputQual::InputPrimitive;
+      inputPrimitive = DXIL::InputPrimitive::Triangle;
       GsInputArrayDim = 3;
     } else if (parmDecl->hasAttr<HLSLTriangleAdjAttr>()) {
-      if (funcProps->ShaderProps.GS.inputPrimitive ==
-          DXIL::InputPrimitive::Undefined)
-        funcProps->ShaderProps.GS.inputPrimitive =
-            DXIL::InputPrimitive::TriangleWithAdjacency;
-      else if (funcProps->ShaderProps.GS.inputPrimitive !=
-               DXIL::InputPrimitive::TriangleWithAdjacency)
-        GsInputPrimitiveMismatch = true;
-      dxilInputQ = DxilParamInputQual::InputPrimitive;
+      inputPrimitive = DXIL::InputPrimitive::TriangleWithAdjacency;
       GsInputArrayDim = 6;
     } else if (parmDecl->hasAttr<HLSLPointAttr>()) {
-      if (funcProps->ShaderProps.GS.inputPrimitive ==
-          DXIL::InputPrimitive::Undefined)
-        funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Point;
-      else if (funcProps->ShaderProps.GS.inputPrimitive !=
-               DXIL::InputPrimitive::Point)
-        GsInputPrimitiveMismatch = true;
-      dxilInputQ = DxilParamInputQual::InputPrimitive;
+      inputPrimitive = DXIL::InputPrimitive::Point;
       GsInputArrayDim = 1;
     } else if (parmDecl->hasAttr<HLSLLineAdjAttr>()) {
-      if (funcProps->ShaderProps.GS.inputPrimitive ==
-          DXIL::InputPrimitive::Undefined)
-        funcProps->ShaderProps.GS.inputPrimitive =
-            DXIL::InputPrimitive::LineWithAdjacency;
-      else if (funcProps->ShaderProps.GS.inputPrimitive !=
-               DXIL::InputPrimitive::LineWithAdjacency)
-        GsInputPrimitiveMismatch = true;
-      dxilInputQ = DxilParamInputQual::InputPrimitive;
+      inputPrimitive = DXIL::InputPrimitive::LineWithAdjacency;
       GsInputArrayDim = 4;
     } else if (parmDecl->hasAttr<HLSLLineAttr>()) {
-      if (funcProps->ShaderProps.GS.inputPrimitive ==
-          DXIL::InputPrimitive::Undefined)
-        funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Line;
-      else if (funcProps->ShaderProps.GS.inputPrimitive !=
-               DXIL::InputPrimitive::Line)
-        GsInputPrimitiveMismatch = true;
-      dxilInputQ = DxilParamInputQual::InputPrimitive;
+      inputPrimitive = DXIL::InputPrimitive::Line;
       GsInputArrayDim = 2;
     }
 
-    if (GsInputPrimitiveMismatch) {
-      DiagnosticsEngine &Diags = CGM.getDiags();
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "input parameter conflicts with geometry "
-                                    "specifier of previous input parameters");
-      Diags.Report(parmDecl->getLocation(), DiagID);
+    if (inputPrimitive != DXIL::InputPrimitive::Undefined) {
+      // Set to InputPrimitive for GS.
+      dxilInputQ = DxilParamInputQual::InputPrimitive;
+      if (funcProps->ShaderProps.GS.inputPrimitive ==
+          DXIL::InputPrimitive::Undefined) {
+        funcProps->ShaderProps.GS.inputPrimitive = inputPrimitive;
+      } else if (funcProps->ShaderProps.GS.inputPrimitive != inputPrimitive) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "input parameter conflicts with geometry "
+                                      "specifier of previous input parameters");
+        Diags.Report(parmDecl->getLocation(), DiagID);
+      }
     }
 
     if (GsInputArrayDim != 0) {
@@ -1502,6 +1473,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       } else {
         const ConstantArrayType *CAT = cast<ConstantArrayType>(Ty);
         if (CAT->getSize().getLimitedValue() != GsInputArrayDim) {
+          DXASSERT(GsInputArrayDim <= 6, "Invalid array dim");
           StringRef primtiveNames[] = {
               "invalid",     // 0
               "point",       // 1
