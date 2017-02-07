@@ -1473,7 +1473,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       } else {
         const ConstantArrayType *CAT = cast<ConstantArrayType>(Ty);
         if (CAT->getSize().getLimitedValue() != GsInputArrayDim) {
-          DXASSERT(GsInputArrayDim <= 6, "Invalid array dim");
           StringRef primtiveNames[] = {
               "invalid",     // 0
               "point",       // 1
@@ -1483,6 +1482,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
               "invalid",     // 5
               "triangleadj", // 6
           };
+          DXASSERT(GsInputArrayDim < llvm::array_lengthof(primtiveNames),
+                   "Invalid array dim");
           DiagnosticsEngine &Diags = CGM.getDiags();
           unsigned DiagID = Diags.getCustomDiagID(
               DiagnosticsEngine::Error, "array dimension for %0 must be %1");
