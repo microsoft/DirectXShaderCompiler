@@ -1052,6 +1052,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     isGS = true;
     funcProps->shaderKind = DXIL::ShaderKind::Geometry;
     funcProps->ShaderProps.GS.maxVertexCount = Attr->getCount();
+    funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Undefined;
 
     if (isEntry && !SM->IsGS()) {
       unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
@@ -1311,7 +1312,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   unsigned streamIndex = 0;
   unsigned inputPatchCount = 0;
   unsigned outputPatchCount = 0;
-  unsigned primitiveCount = 0;
+
   for (unsigned ArgNo = 0; ArgNo < F->arg_size(); ++ArgNo) {
     unsigned ParmIdx = ArgNo;
 
@@ -1343,6 +1344,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     else if (parmDecl->hasAttr<HLSLOutAttr>())
       dxilInputQ = DxilParamInputQual::Out;
 
+    bool GsInputPrimitiveMismatch = false;
+
     if (IsHLSLOutputPatchType(parmDecl->getType())) {
       outputPatchCount++;
       if (dxilInputQ != DxilParamInputQual::In) {
@@ -1370,17 +1373,16 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             GetHLSLInputPatchCount(parmDecl->getType());
       }
       else if (isGS) {
-        if (funcProps->ShaderProps.GS.inputPrimitive !=
-            DXIL::InputPrimitive::Undefined) {
-          DiagnosticsEngine &Diags = CGM.getDiags();
-          unsigned DiagID =
-              Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                    "may only have one InputPatch parameter");
-          Diags.Report(FD->getLocation(), DiagID);
-        }
-        funcProps->ShaderProps.GS.inputPrimitive = (DXIL::InputPrimitive)(
+        DXIL::InputPrimitive inputPrimitive = (DXIL::InputPrimitive)(
             (unsigned)DXIL::InputPrimitive::ControlPointPatch1 +
             GetHLSLInputPatchCount(parmDecl->getType())-1);
+
+        if (funcProps->ShaderProps.GS.inputPrimitive ==
+            DXIL::InputPrimitive::Undefined) {
+          funcProps->ShaderProps.GS.inputPrimitive = inputPrimitive;
+        } else if (funcProps->ShaderProps.GS.inputPrimitive != inputPrimitive) {
+          GsInputPrimitiveMismatch = true;
+        }
         // Set to InputPrimitive for GS.
         dxilInputQ = DxilParamInputQual::InputPrimitive;
       }
@@ -1430,27 +1432,92 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       streamIndex++;
     }
 
+    unsigned GsInputArrayDim = 0;
     if (parmDecl->hasAttr<HLSLTriangleAttr>()) {
-      funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Triangle;
+      if (funcProps->ShaderProps.GS.inputPrimitive ==
+          DXIL::InputPrimitive::Undefined)
+        funcProps->ShaderProps.GS.inputPrimitive =
+            DXIL::InputPrimitive::Triangle;
+      else if (funcProps->ShaderProps.GS.inputPrimitive !=
+               DXIL::InputPrimitive::Triangle)
+        GsInputPrimitiveMismatch = true;
       dxilInputQ = DxilParamInputQual::InputPrimitive;
-      primitiveCount++;
+      GsInputArrayDim = 3;
     } else if (parmDecl->hasAttr<HLSLTriangleAdjAttr>()) {
-      funcProps->ShaderProps.GS.inputPrimitive =
-          DXIL::InputPrimitive::TriangleWithAdjacency;
+      if (funcProps->ShaderProps.GS.inputPrimitive ==
+          DXIL::InputPrimitive::Undefined)
+        funcProps->ShaderProps.GS.inputPrimitive =
+            DXIL::InputPrimitive::TriangleWithAdjacency;
+      else if (funcProps->ShaderProps.GS.inputPrimitive !=
+               DXIL::InputPrimitive::TriangleWithAdjacency)
+        GsInputPrimitiveMismatch = true;
       dxilInputQ = DxilParamInputQual::InputPrimitive;
-      primitiveCount++;
+      GsInputArrayDim = 6;
     } else if (parmDecl->hasAttr<HLSLPointAttr>()) {
-      funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Point;
+      if (funcProps->ShaderProps.GS.inputPrimitive ==
+          DXIL::InputPrimitive::Undefined)
+        funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Point;
+      else if (funcProps->ShaderProps.GS.inputPrimitive !=
+               DXIL::InputPrimitive::Point)
+        GsInputPrimitiveMismatch = true;
       dxilInputQ = DxilParamInputQual::InputPrimitive;
-      primitiveCount++;
+      GsInputArrayDim = 1;
     } else if (parmDecl->hasAttr<HLSLLineAdjAttr>()) {
-      funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::LineWithAdjacency;
+      if (funcProps->ShaderProps.GS.inputPrimitive ==
+          DXIL::InputPrimitive::Undefined)
+        funcProps->ShaderProps.GS.inputPrimitive =
+            DXIL::InputPrimitive::LineWithAdjacency;
+      else if (funcProps->ShaderProps.GS.inputPrimitive !=
+               DXIL::InputPrimitive::LineWithAdjacency)
+        GsInputPrimitiveMismatch = true;
       dxilInputQ = DxilParamInputQual::InputPrimitive;
-      primitiveCount++;
+      GsInputArrayDim = 4;
     } else if (parmDecl->hasAttr<HLSLLineAttr>()) {
-      funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Line;
+      if (funcProps->ShaderProps.GS.inputPrimitive ==
+          DXIL::InputPrimitive::Undefined)
+        funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Line;
+      else if (funcProps->ShaderProps.GS.inputPrimitive !=
+               DXIL::InputPrimitive::Line)
+        GsInputPrimitiveMismatch = true;
       dxilInputQ = DxilParamInputQual::InputPrimitive;
-      primitiveCount++;
+      GsInputArrayDim = 2;
+    }
+
+    if (GsInputPrimitiveMismatch) {
+      DiagnosticsEngine &Diags = CGM.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "input parameter conflicts with geometry "
+                                    "specifier of previous input parameters");
+      Diags.Report(parmDecl->getLocation(), DiagID);
+    }
+
+    if (GsInputArrayDim != 0) {
+      QualType Ty = parmDecl->getType();
+      if (!Ty->isConstantArrayType()) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "input types for geometry shader must be constant size arrays");
+        Diags.Report(parmDecl->getLocation(), DiagID);
+      } else {
+        const ConstantArrayType *CAT = cast<ConstantArrayType>(Ty);
+        if (CAT->getSize().getLimitedValue() != GsInputArrayDim) {
+          StringRef primtiveNames[] = {
+              "invalid",     // 0
+              "point",       // 1
+              "line",        // 2
+              "triangle",    // 3
+              "lineadj",     // 4
+              "invalid",     // 5
+              "triangleadj", // 6
+          };
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error, "array dimension for %0 must be %1");
+          Diags.Report(parmDecl->getLocation(), DiagID)
+              << primtiveNames[GsInputArrayDim] << GsInputArrayDim;
+        }
+      }
     }
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
@@ -1469,13 +1536,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "may only have one OutputPatch parameter");
-    Diags.Report(FD->getLocation(), DiagID);
-  }
-  primitiveCount += inputPatchCount;
-  if (primitiveCount > 1 && inputPatchCount < 2) {
-    DiagnosticsEngine &Diags = CGM.getDiags();
-    unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error, "may only have one Primitive parameter");
     Diags.Report(FD->getLocation(), DiagID);
   }
 
