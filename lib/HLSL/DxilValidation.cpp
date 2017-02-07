@@ -2652,16 +2652,13 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
     ValCtx.EmitFormatError(ValidationRule::MetaTarget, {target.c_str()});
   }
 
+  // The llvm.dbg.(cu/contents/defines/mainFileName/arg) named metadata nodes
+  // are only available in debug modules, not in the validated ones.
+  // llvm.bitsets is also disallowed.
+  //
+  // These are verified in lib/IR/Verifier.cpp.
   StringMap<bool> llvmNamedMeta;
-  // These llvm named metadata is verified in lib/IR/Verifier.cpp.
-  llvmNamedMeta["llvm.dbg.cu"];
-  llvmNamedMeta["llvm.dbg.contents"];
-  llvmNamedMeta["llvm.dbg.defines"];
-  llvmNamedMeta["llvm.dbg.mainFileName"];
-  llvmNamedMeta["llvm.dbg.args"];
   llvmNamedMeta["llvm.ident"];
-  // Not for HLSL which does not have vtable.
-  // llvmNamedMeta["llvm.bitsets"];
   llvmNamedMeta["llvm.module.flags"];
 
   for (auto &NamedMetaNode : pModule->named_metadata()) {
