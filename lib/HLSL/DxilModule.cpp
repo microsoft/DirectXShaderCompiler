@@ -338,6 +338,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           case DXIL::OpCode::InnerCoverage:
             hasInnerCoverage = true;
             break;
+          default:
+            // Normal opcodes.
+            break;
           }
         }
       }
@@ -421,6 +424,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
     case DXIL::ResourceKind::StructuredBuffer:
       hasRawAndStructuredBuffer = true;
       break;
+    default:
+      // Not raw/structured.
+      break;
     }
   }
   for (auto &SRV : m_SRVs) {
@@ -428,6 +434,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
     case DXIL::ResourceKind::RawBuffer:
     case DXIL::ResourceKind::StructuredBuffer:
       hasRawAndStructuredBuffer = true;
+      break;
+    default:
+      // Not raw/structured.
       break;
     }
   }

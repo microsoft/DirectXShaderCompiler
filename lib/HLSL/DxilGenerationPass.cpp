@@ -565,6 +565,9 @@ void DxilGenerationPass::ProcessArgument(Function *func,
   case DxilParamInputQual::OutStream3:
     streamIdx = 3;
     break;
+  default:
+    // Use streamIdx = 0 by default.
+    break;
   }
 
   const SigPoint *sigPoint = SigPoint::GetSigPoint(

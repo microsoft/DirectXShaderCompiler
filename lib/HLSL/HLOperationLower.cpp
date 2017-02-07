@@ -325,6 +325,9 @@ Value *TrivialBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   case IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync:
     barrierMode = uglobal | t;
     break;
+  default:
+    DXASSERT(0, "invalid opcode for barrier");
+    break;
   }
   Value *src0 = OP->GetU32Const(static_cast<unsigned>(barrierMode));
 
@@ -2147,6 +2150,12 @@ SampleHelper::SampleHelper(
     SetClamp(CI, HLOperandIndex::kSampleGClampArgIndex);
     SetStatus(CI, HLOperandIndex::kSampleGStatusArgIndex);
     break;
+  case OP::OpCode::CalculateLOD:
+    // Only need coord for LOD calculation.
+    break;
+  default:
+    DXASSERT(0, "invalid opcode for Sample");
+    break;
   }
 }
 
@@ -2454,6 +2463,9 @@ GatherHelper::GatherHelper(
             : HLOperandIndex::kGatherCmpStatusArgIndex;
     SetStatus(CI, statusIdx);
   } break;
+  default:
+    DXASSERT(0, "invalid opcode for Gather");
+    break;
   }
 }
 
@@ -2565,6 +2577,9 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         gatherHelper.special};
     GenerateDxilGather(CI, F, gatherArgs, gatherHelper);
   } break;
+  default:
+    DXASSERT(0, "invalid opcode for Gather");
+    break;
   }
   // CI is replaced in GenerateDxilGather.
   return nullptr;
@@ -3741,6 +3756,9 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
   case IntrinsicOp::IOP_ProcessTriTessFactorsMin:
     factors = ApplyTriTessFactorOp(clean, tessFactorOp, hlslOP, Builder);
     break;
+  default:
+    DXASSERT(0, "invalid opcode for ProcessTessFactor");
+    break;
   }
 
   Value *scaledI = nullptr;
@@ -3782,6 +3800,9 @@ Value *TranslateProcessTessFactors(CallInst *CI, IntrinsicOp IOP, OP::OpCode opc
     case IntrinsicOp::IOP_ProcessTriTessFactorsMax:
     case IntrinsicOp::IOP_ProcessTriTessFactorsMin:
       avgFactorsI = ApplyTriTessFactorOp(clean, tessFactorOp, hlslOP, Builder);
+      break;
+    default:
+      DXASSERT(0, "invalid opcode for ProcessTessFactor");
       break;
     }
 

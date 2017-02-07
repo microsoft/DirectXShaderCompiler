@@ -2179,6 +2179,9 @@ void HLMatrixLowerPass::finalMatTranslation(Instruction *matInst) {
     case HLOpcodeGroup::HLSelect: {
       TranslateMatSelect(CI);
     } break;
+    default:
+      // Skip group already translated.
+      break;
     }
   }
 }
