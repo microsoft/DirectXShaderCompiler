@@ -61,7 +61,7 @@ void CheckLLVMErrorCode(const std::error_code &ec);
   catch (std::bad_alloc&)                   { hr = E_OUTOFMEMORY; } \
   catch (hlsl::Exception& _hlsl_exception_) {                       \
     _Analysis_assume_(DXC_FAILED(_hlsl_exception_.hr));             \
-    return hr = _hlsl_exception_.hr;                                \
+    hr = _hlsl_exception_.hr;                                       \
   }                                                                 \
   catch (...)                               { hr = E_FAIL; }
 #define CATCH_CPP_RETURN_HRESULT() \
