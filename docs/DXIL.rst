@@ -2104,6 +2104,11 @@ The set of validation rules that are known to hold for a DXIL program is identif
 Rule Code                             Description
 ===================================== =======================================================================================================================================================================================================================================================================================================
 BITCODE.VALID                         TODO - Module must be bitcode-valid
+CONTAINER.PARTINVALID                 DXIL Container must not contain unknown parts
+CONTAINER.PARTMATCHES                 DXIL Container Parts must match Module
+CONTAINER.PARTMISSING                 DXIL Container requires certain parts, corresponding to module
+CONTAINER.PARTREPEATED                DXIL Container must have only one of each part type
+CONTAINER.ROOTSIGNATUREINCOMPATIBLE   Root Signature in DXIL Container must be compatible with shader
 DECL.DXILFNEXTERN                     External function must be a DXIL function
 DECL.DXILNSRESERVED                   The DXIL reserved prefixes must only be used by built-in functions and types
 DECL.FNFLATTENPARAM                   Function parameters must not use struct types

@@ -163,7 +163,8 @@ IDxcCompiler : public IUnknown {
 
 static const UINT32 DxcValidatorFlags_Default = 0;
 static const UINT32 DxcValidatorFlags_InPlaceEdit = 1;  // Validator is allowed to update shader blob in-place.
-static const UINT32 DxcValidatorFlags_ValidMask = 0x1;
+static const UINT32 DxcValidatorFlags_RootSignatureOnly = 2;
+static const UINT32 DxcValidatorFlags_ValidMask = 0x3;
 
 struct __declspec(uuid("A6E82BD2-1FD7-4826-9811-2857E797F49A"))
 IDxcValidator : public IUnknown {

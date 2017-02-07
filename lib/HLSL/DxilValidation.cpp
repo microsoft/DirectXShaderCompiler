@@ -19,6 +19,8 @@
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/DxilInstructions.h"
 #include "dxc/HLSL/ReducibilityAnalysis.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/FileIOHelper.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -32,14 +34,16 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/ADT/BitVector.h"
-#include <winerror.h>
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include <unordered_set>
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
+#include "dxc/HLSL/DxilRootSignature.h"
 #include <algorithm>
 
 
@@ -54,6 +58,11 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
   // VALRULE-TEXT:BEGIN
   switch(value) {
     case hlsl::ValidationRule::BitcodeValid: return "Module bitcode is invalid";
+    case hlsl::ValidationRule::ContainerPartMatches: return "Container part '%0' does not match expected for module.";
+    case hlsl::ValidationRule::ContainerPartRepeated: return "More than one container part '%0'.";
+    case hlsl::ValidationRule::ContainerPartMissing: return "Missing part '%0' required by module.";
+    case hlsl::ValidationRule::ContainerPartInvalid: return "Unknown part '%0' found in DXIL container.";
+    case hlsl::ValidationRule::ContainerRootSignatureIncompatible: return "Root Signature in DXIL container is not compatible with shader.";
     case hlsl::ValidationRule::MetaRequired: return "TODO - Required metadata missing";
     case hlsl::ValidationRule::MetaKnown: return "Named metadata '%0' is unknown";
     case hlsl::ValidationRule::MetaUsed: return "All metadata must be used by dxil";
@@ -234,6 +243,57 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
   return "<unknown>";
 }
 
+namespace {
+
+class PrintDiagnosticContext {
+private:
+  DiagnosticPrinter &m_Printer;
+  bool m_errorsFound;
+  bool m_warningsFound;
+public:
+  PrintDiagnosticContext(DiagnosticPrinter &printer)
+      : m_Printer(printer), m_errorsFound(false), m_warningsFound(false) {}
+
+  bool HasErrors() const {
+    return m_errorsFound;
+  }
+  bool HasWarnings() const {
+    return m_warningsFound;
+  }
+  void Handle(const DiagnosticInfo &DI) {
+    DI.print(m_Printer);
+    switch (DI.getSeverity()) {
+    case llvm::DiagnosticSeverity::DS_Error:
+      m_errorsFound = true;
+      break;
+    case llvm::DiagnosticSeverity::DS_Warning:
+      m_warningsFound = true;
+      break;
+    }
+    m_Printer << "\n";
+  }
+};
+
+static void PrintDiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
+  reinterpret_cast<PrintDiagnosticContext *>(Context)->Handle(DI);
+}
+
+// Utility class for setting and restoring the diagnostic context so we may capture errors/warnings
+struct DiagRestore {
+  LLVMContext &Ctx;
+  void *OrigDiagContext;
+  LLVMContext::DiagnosticHandlerTy OrigHandler;
+
+  DiagRestore(llvm::LLVMContext &Ctx, void *DiagContext) : Ctx(Ctx) {
+    OrigHandler = Ctx.getDiagnosticHandler();
+    OrigDiagContext = Ctx.getDiagnosticContext();
+    Ctx.setDiagnosticHandler(PrintDiagnosticHandler, DiagContext);
+  }
+  ~DiagRestore() {
+    Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext);
+  }
+};
+
 class DxilErrorDiagnosticInfo : public DiagnosticInfo {
 private:
   const char *m_message;
@@ -261,6 +321,8 @@ static inline DiagnosticPrinter &operator<<(DiagnosticPrinter &OS, Type &T) {
   OS << OSS.str();
   return OS;
 }
+
+} // anon namespace
 
 namespace hlsl {
 
@@ -2559,25 +2621,29 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
 }
 
 static void
-CollectFixAddressAccess(Value *V, std::vector<Instruction *> &fixAddrTGSMList) {
+CollectFixAddressAccess(Value *V, std::vector<StoreInst *> &fixAddrTGSMList) {
   for (User *U : V->users()) {
     if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       if (isa<ConstantExpr>(GEP) || GEP->hasAllConstantIndices()) {
         CollectFixAddressAccess(GEP, fixAddrTGSMList);
       }
-    } else if (isa<StoreInst>(U)) {
-      fixAddrTGSMList.emplace_back(cast<Instruction>(U));
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      fixAddrTGSMList.emplace_back(SI);
     }
   }
 }
 
-static void
-ValidateTGSMRaceCondition(std::vector<Instruction *> &fixAddrTGSMList,
-                          ValidationContext &ValCtx) {
+static bool IsDivergent(Value *V) {
+  // TODO: implement this function.
+  return false;
+}
+
+static void ValidateTGSMRaceCondition(std::vector<StoreInst *> &fixAddrTGSMList,
+                                      ValidationContext &ValCtx) {
   std::unordered_set<Function *> fixAddrTGSMFuncSet;
   for (Instruction *I : fixAddrTGSMList) {
-	BasicBlock *BB = I->getParent();
-	fixAddrTGSMFuncSet.insert(BB->getParent());
+    BasicBlock *BB = I->getParent();
+    fixAddrTGSMFuncSet.insert(BB->getParent());
   }
 
   for (auto &F : ValCtx.DxilMod.GetModule()->functions()) {
@@ -2589,11 +2655,13 @@ ValidateTGSMRaceCondition(std::vector<Instruction *> &fixAddrTGSMList,
 
     BasicBlock *Entry = &F.getEntryBlock();
 
-    for (Instruction *I : fixAddrTGSMList) {
-      BasicBlock *BB = I->getParent();
+    for (StoreInst *SI : fixAddrTGSMList) {
+      BasicBlock *BB = SI->getParent();
       if (BB->getParent() == &F) {
         if (PDT.dominates(BB, Entry)) {
-          ValCtx.EmitInstrError(I, ValidationRule::InstrTGSMRaceCond);
+          Value *V = SI->getValueOperand();
+          if (IsDivergent(V))
+            ValCtx.EmitInstrError(SI, ValidationRule::InstrTGSMRaceCond);
         }
       }
     }
@@ -2604,7 +2672,7 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   DxilModule &M = ValCtx.DxilMod;
 
   unsigned TGSMSize = 0;
-  std::vector<Instruction*> fixAddrTGSMList;
+  std::vector<StoreInst*> fixAddrTGSMList;
   const DataLayout &DL = M.GetModule()->getDataLayout();
   for (GlobalVariable &GV : M.GetModule()->globals()) {
     ValidateGlobalVariable(GV, ValCtx);
@@ -3910,33 +3978,15 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   *pMinor = 0;
 }
 
-_Use_decl_annotations_ std::error_code
+_Use_decl_annotations_ HRESULT
 ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
-  const LLVMContext &Ctx = pModule->getContext();
   std::string diagStr;
   raw_string_ostream diagStream(diagStr);
   DiagnosticPrinterRawOStream DiagPrinter(diagStream);
 
-  DxilModule *pDxilModule;
-  // TODO: add detail error in DxilMDHelper.
-  try {
-    pDxilModule = &pModule->GetOrCreateDxilModule();
-  } catch (const ::hlsl::Exception &hlslException) {
-    DiagPrinter << "load dxil metadata failed -";
-    try {
-      const char *msg = hlslException.what();
-      if (msg == nullptr || *msg == '\0')
-        DiagPrinter << " error code " << hlslException.hr << "\n";
-      else
-        DiagPrinter << msg;
-    } catch (...) {
-      DiagPrinter << " unable to retrieve error message.\n";
-    }
-    emitDxilDiag(Ctx, diagStr.c_str());
-    return std::error_code(ERROR_INVALID_DATA, std::system_category());
-  } catch (...) {
-    emitDxilDiag(Ctx, "load dxil metadata failed - unknown error.\n");
-    return std::error_code(ERROR_INVALID_DATA, std::system_category());
+  DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule);
+  if (!pDxilModule) {
+    return DXC_E_IR_VERIFICATION_FAILED;
   }
 
   ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
@@ -3982,13 +4032,414 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
 
   // Ensure error messages are flushed out on error.
   if (ValCtx.Failed) {
-    diagStream.flush();
-    emitDxilDiag(Ctx, diagStr.c_str());
+    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
+  return S_OK;
+}
+
+// DXIL Container Verification Functions
+
+static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
+                                  _In_ LPCSTR pName,
+                                  DxilPartWriter *pWriter,
+                                  _In_reads_bytes_opt_(Size) const void *pData,
+                                  _In_ uint32_t Size) {
+  if (!pData && pWriter->size()) {
+    // No blob part, but writer says non-zero size is expected.
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, pName);
+    return;
   }
 
-  if (ValCtx.Failed)
-    return std::error_code(ERROR_INVALID_DATA, std::system_category());
-  return std::error_code();
+  // Compare sizes
+  if (pWriter->size() != Size) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, pName);
+    return;
+  }
+
+  CComPtr<IMalloc> pMalloc;
+  IFT(CoGetMalloc(1, &pMalloc));
+  CComPtr<AbstractMemoryStream> pOutputStream;
+  IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+  pOutputStream->Reserve(Size);
+
+  pWriter->write(pOutputStream);
+  DXASSERT(pOutputStream->GetPtrSize() == Size, "otherwise, DxilPartWriter misreported size");
+
+  if (memcmp(pData, pOutputStream->GetPtr(), Size)) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, pName);
+    return;
+  }
+
+  return;
+}
+
+static void VerifySignatureMatches(_In_ ValidationContext &ValCtx,
+                                   DXIL::SignatureKind SigKind,
+                                   _In_reads_bytes_opt_(SigSize) const void *pSigData,
+                                   _In_ uint32_t SigSize) {
+  // Generate corresponding signature from module and memcmp
+
+  const char *pName = nullptr;
+  switch (SigKind)
+  {
+  case hlsl::DXIL::SignatureKind::Input:
+    pName = "Program Input Signature";
+    break;
+  case hlsl::DXIL::SignatureKind::Output:
+    pName = "Program Output Signature";
+    break;
+  case hlsl::DXIL::SignatureKind::PatchConstant:
+    pName = "Program Patch Constant Signature";
+    break;
+  }
+
+  unique_ptr<DxilPartWriter> pWriter(NewProgramSignatureWriter(ValCtx.DxilMod, SigKind));
+  VerifyBlobPartMatches(ValCtx, pName, pWriter.get(), pSigData, SigSize);
+}
+
+_Use_decl_annotations_
+bool VerifySignatureMatches(llvm::Module *pModule,
+                            DXIL::SignatureKind SigKind,
+                            const void *pSigData,
+                            uint32_t SigSize) {
+  std::string diagStr;
+  raw_string_ostream diagStream(diagStr);
+  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  VerifySignatureMatches(ValCtx, SigKind, pSigData, SigSize);
+  if (ValCtx.Failed) {
+    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
+  }
+  return !ValCtx.Failed;
+}
+
+static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
+                             _In_reads_bytes_(PSVSize) const void *pPSVData,
+                             _In_ uint32_t PSVSize) {
+  // generate PSV data from module and memcmp
+  unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(ValCtx.DxilMod));
+  VerifyBlobPartMatches(ValCtx, "Pipeline State Validation", pWriter.get(), pPSVData, PSVSize);
+}
+
+_Use_decl_annotations_
+bool VerifyPSVMatches(llvm::Module *pModule,
+                      const void *pPSVData,
+                      uint32_t PSVSize) {
+  std::string diagStr;
+  raw_string_ostream diagStream(diagStr);
+  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  VerifyPSVMatches(ValCtx, pPSVData, PSVSize);
+  if (ValCtx.Failed) {
+    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
+  }
+  return !ValCtx.Failed;
+}
+
+static void VerifyFeatureInfoMatches(_In_ ValidationContext &ValCtx,
+                                     _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,
+                                     _In_ uint32_t FeatureInfoSize) {
+  // generate Feature Info data from module and memcmp
+  unique_ptr<DxilPartWriter> pWriter(NewFeatureInfoWriter(ValCtx.DxilMod));
+  VerifyBlobPartMatches(ValCtx, "Feature Info", pWriter.get(), pFeatureInfoData, FeatureInfoSize);
+}
+
+_Use_decl_annotations_
+bool VerifyFeatureInfoMatches(llvm::Module *pModule,
+                              const void *pFeatureInfoData,
+                              uint32_t FeatureInfoSize) {
+  std::string diagStr;
+  raw_string_ostream diagStream(diagStr);
+  DiagnosticPrinterRawOStream DiagPrinter(diagStream);
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), DiagPrinter);
+  VerifyFeatureInfoMatches(ValCtx, pFeatureInfoData, FeatureInfoSize);
+  if (ValCtx.Failed) {
+    emitDxilDiag(pModule->getContext(), diagStream.str().c_str());
+  }
+  return !ValCtx.Failed;
+}
+
+_Use_decl_annotations_
+HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
+                                   llvm::Module *pDebugModule,
+                                   const DxilContainerHeader *pContainer,
+                                   uint32_t ContainerSize) {
+
+  DXASSERT_NOMSG(pModule);
+  if (!pContainer || !IsValidDxilContainer(pContainer, ContainerSize)) {
+    return DXC_E_CONTAINER_INVALID;
+  }
+
+  std::string diagStr;
+  raw_string_ostream DiagStream(diagStr);
+  DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+
+  DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule);
+  if (!pDxilModule) {
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
+
+  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
+
+  DXIL::ShaderKind ShaderKind = pDxilModule->GetShaderModel()->GetKind();
+  bool bTess = ShaderKind == DXIL::ShaderKind::Hull || ShaderKind == DXIL::ShaderKind::Domain;
+
+  std::unordered_set<uint32_t> FourCCFound;
+  const DxilPartHeader *pRootSignaturePart = nullptr;
+  const DxilPartHeader *pPSVPart = nullptr;
+
+  for (auto it = begin(pContainer), itEnd = end(pContainer); it != itEnd; ++it) {
+    const DxilPartHeader *pPart = *it;
+
+    char szFourCC[5];
+    PartKindToCharArray(pPart->PartFourCC, szFourCC);
+    if (FourCCFound.find(pPart->PartFourCC) != FourCCFound.end()) {
+      // Two parts with same FourCC found
+      ValCtx.EmitFormatError(ValidationRule::ContainerPartRepeated, szFourCC);
+      continue;
+    }
+    FourCCFound.insert(pPart->PartFourCC);
+
+    switch (pPart->PartFourCC)
+    {
+    case DFCC_InputSignature:
+      VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Input, GetDxilPartData(pPart), pPart->PartSize);
+      break;
+    case DFCC_OutputSignature:
+      VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, GetDxilPartData(pPart), pPart->PartSize);
+      break;
+    case DFCC_PatchConstantSignature:
+      if (bTess) {
+        VerifySignatureMatches(ValCtx, DXIL::SignatureKind::PatchConstant, GetDxilPartData(pPart), pPart->PartSize);
+      } else {
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, "Program Patch Constant Signature");
+      }
+      break;
+    case DFCC_FeatureInfo:
+      VerifyFeatureInfoMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
+      break;
+    case DFCC_RootSignature:
+      pRootSignaturePart = pPart;
+      break;
+    case DFCC_PipelineStateValidation:
+      pPSVPart = pPart;
+      VerifyPSVMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
+      break;
+
+    // Skip these
+    case DFCC_ResourceDef:
+    case DFCC_ShaderStatistics:
+    case DFCC_PrivateData:
+    case DFCC_DXIL:
+    case DFCC_ShaderDebugInfoDXIL:
+      continue;
+
+    case DFCC_Container:
+    default:
+      ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, szFourCC);
+      break;
+    }
+  }
+
+  // Verify required parts found
+  if (FourCCFound.find(DFCC_InputSignature) == FourCCFound.end()) {
+    VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Input, nullptr, 0);
+  }
+  if (FourCCFound.find(DFCC_OutputSignature) == FourCCFound.end()) {
+    VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, nullptr, 0);
+  }
+  if (bTess && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end())
+  {
+    VerifySignatureMatches(ValCtx, DXIL::SignatureKind::PatchConstant, nullptr, 0);
+  }
+  if (FourCCFound.find(DFCC_FeatureInfo) == FourCCFound.end()) {
+    // Could be optional, but RS1 runtime doesn't handle this case properly.
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, "Feature Info");
+  }
+
+  // Validate Root Signature
+  if (pPSVPart) {
+    if (pRootSignaturePart) {
+      try {
+        RootSignatureHandle RS;
+        RS.LoadSerialized((const uint8_t*)GetDxilPartData(pRootSignaturePart), pRootSignaturePart->PartSize);
+        RS.Deserialize();
+        IFTBOOL(VerifyRootSignatureWithShaderPSV(RS.GetDesc(),
+                                                  pDxilModule->GetShaderModel()->GetKind(),
+                                                  GetDxilPartData(pPSVPart), pPSVPart->PartSize,
+                                                  DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
+      } catch (...) {
+        ValCtx.EmitError(ValidationRule::ContainerRootSignatureIncompatible);
+      }
+    }
+  } else {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, "Pipeline State Validation");
+  }
+
+  if (ValCtx.Failed) {
+    emitDxilDiag(pModule->getContext(), DiagStream.str().c_str());
+    return DXC_E_MALFORMED_CONTAINER;
+  }
+  return S_OK;
+}
+
+static HRESULT FindDxilPart(_In_reads_bytes_(ContainerSize) const void *pContainerBytes,
+                            _In_ uint32_t ContainerSize,
+                            _In_ DxilFourCC FourCC,
+                            _In_ const DxilPartHeader **ppPart) {
+
+  const DxilContainerHeader *pContainer =
+    IsDxilContainerLike(pContainerBytes, ContainerSize);
+
+  if (!pContainer) {
+    IFR(DXC_E_CONTAINER_INVALID);
+  }
+  if (!IsValidDxilContainer(pContainer, ContainerSize)) {
+    IFR(DXC_E_CONTAINER_INVALID);
+  }
+
+  DxilPartIterator it = std::find_if(begin(pContainer), end(pContainer),
+    DxilPartIsType(FourCC));
+  if (it == end(pContainer)) {
+    IFR(DXC_E_CONTAINER_MISSING_DXIL);
+  }
+
+  const DxilProgramHeader *pProgramHeader =
+    reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
+  if (!IsValidDxilProgramHeader(pProgramHeader, (*it)->PartSize)) {
+    IFR(DXC_E_CONTAINER_INVALID);
+  }
+
+  *ppPart = *it;
+  return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT ValidateLoadModule(const char *pIL,
+                           uint32_t ILLength,
+                           unique_ptr<llvm::Module> &pModule,
+                           LLVMContext &Ctx,
+                           llvm::raw_ostream &DiagStream) {
+
+  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+  PrintDiagnosticContext DiagContext(DiagPrinter);
+  DiagRestore DR(Ctx, &DiagContext);
+
+  std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf;
+  pBitcodeBuf.reset(llvm::MemoryBuffer::getMemBuffer(
+      llvm::StringRef(pIL, ILLength), "", false).release());
+  ErrorOr<std::unique_ptr<llvm::Module>> loadedModuleResult(llvm::parseBitcodeFile(
+    pBitcodeBuf->getMemBufferRef(), Ctx));
+
+  // DXIL disallows some LLVM bitcode constructs, like unaccounted-for sub-blocks.
+  // These appear as warnings, which the validator should reject.
+  if (DiagContext.HasErrors() || DiagContext.HasWarnings() || loadedModuleResult.getError())
+    return DXC_E_IR_VERIFICATION_FAILED;
+
+  pModule = std::move(loadedModuleResult.get());
+  return S_OK;
+}
+
+HRESULT ValidateDxilBitcode(
+  _In_reads_bytes_(ILLength) const char *pIL,
+  _In_ uint32_t ILLength,
+  _In_ llvm::raw_ostream &DiagStream) {
+
+  LLVMContext Ctx;
+  std::unique_ptr<llvm::Module> pModule;
+
+  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+  PrintDiagnosticContext DiagContext(DiagPrinter);
+  Ctx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagContext, true);
+
+  HRESULT hr;
+  if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pModule, Ctx, DiagStream)))
+    return hr;
+
+  if (FAILED(hr = ValidateDxilModule(pModule.get(), nullptr)))
+    return hr;
+
+  DxilModule &dxilModule = pModule->GetDxilModule();
+  if (!dxilModule.GetRootSignature().IsEmpty()) {
+    unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule));
+    DXASSERT_NOMSG(pWriter->size());
+    unique_ptr<unsigned char[]> pPSVData(new unsigned char[pWriter->size()]);
+    const DxilVersionedRootSignatureDesc* pDesc = dxilModule.GetRootSignature().GetDesc();
+    RootSignatureHandle RS;
+    try {
+      if (!pDesc) {
+        RS.Assign(nullptr, dxilModule.GetRootSignature().GetSerialized());
+        RS.Deserialize();
+        pDesc = RS.GetDesc();
+        if (!pDesc)
+          return DXC_E_INCORRECT_ROOT_SIGNATURE;
+      }
+      IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc,
+                                               dxilModule.GetShaderModel()->GetKind(),
+                                               pPSVData.get(), pWriter->size(),
+                                               DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
+    } catch (...) {
+      return DXC_E_INCORRECT_ROOT_SIGNATURE;
+    }
+  }
+
+  if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
+
+  return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT ValidateDxilContainer(const void *pContainer,
+                              uint32_t ContainerSize,
+                              llvm::raw_ostream &DiagStream) {
+
+  LLVMContext Ctx, DbgCtx;
+  std::unique_ptr<llvm::Module> pModule, pDebugModule;
+
+  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+  PrintDiagnosticContext DiagContext(DiagPrinter);
+  Ctx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagContext, true);
+  DbgCtx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagContext, true);
+
+  HRESULT hr;
+  const DxilPartHeader *pPart = nullptr;
+  IFR(FindDxilPart(pContainer, ContainerSize, DFCC_DXIL, &pPart));
+
+  const char *pIL = nullptr;
+  uint32_t ILLength = 0;
+  GetDxilProgramBitcode(
+    reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart)),
+    &pIL, &ILLength);
+
+  IFR(ValidateLoadModule(pIL, ILLength, pModule, Ctx, DiagStream));
+
+  const DxilPartHeader *pDbgPart = nullptr;
+  if (FAILED(hr = FindDxilPart(pContainer, ContainerSize, DFCC_ShaderDebugInfoDXIL, &pDbgPart)) &&
+      hr != DXC_E_CONTAINER_MISSING_DXIL) {
+    return hr;
+  }
+
+  if (pDbgPart) {
+    GetDxilProgramBitcode(
+      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart)),
+      &pIL, &ILLength);
+    if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pDebugModule, DbgCtx, DiagStream))) {
+      return hr;
+    }
+  }
+
+  // Validate DXIL Module
+  IFR(ValidateDxilModule(pModule.get(), pDebugModule.get()));
+
+  if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
+
+  return ValidateDxilContainerParts(pModule.get(), pDebugModule.get(),
+    IsDxilContainerLike(pContainer, ContainerSize), ContainerSize);
 }
 
 } // namespace hlsl

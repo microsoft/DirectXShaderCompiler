@@ -11,10 +11,14 @@
 
 #pragma once
 
-#include <system_error>
+#include <memory>
+#include "dxc/Support/Global.h"
+#include "dxc/HLSL/DxilConstants.h"
 
 namespace llvm {
 class Module;
+class LLVMContext;
+class raw_ostream;
 }
 
 namespace hlsl {
@@ -25,6 +29,13 @@ namespace hlsl {
 enum class ValidationRule : unsigned {
   // Bitcode
   BitcodeValid, // TODO - Module must be bitcode-valid
+
+  // Container
+  ContainerPartInvalid, // DXIL Container must not contain unknown parts
+  ContainerPartMatches, // DXIL Container Parts must match Module
+  ContainerPartMissing, // DXIL Container requires certain parts, corresponding to module
+  ContainerPartRepeated, // DXIL Container must have only one of each part type
+  ContainerRootSignatureIncompatible, // Root Signature in DXIL Container must be compatible with shader
 
   // Declaration
   DeclDxilFnExtern, // External function must be a DXIL function
@@ -218,7 +229,47 @@ enum class ValidationRule : unsigned {
 
 const char *GetValidationRuleText(ValidationRule value);
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor);
-std::error_code ValidateDxilModule(_In_ llvm::Module *pModule,
-                                   _In_opt_ llvm::Module *pDebugModule);
+HRESULT ValidateDxilModule(_In_ llvm::Module *pModule,
+                           _In_opt_ llvm::Module *pDebugModule);
+
+// DXIL Container Verification Functions (return false on failure)
+
+bool VerifySignatureMatches(_In_ llvm::Module *pModule,
+                            hlsl::DXIL::SignatureKind SigKind,
+                            _In_reads_bytes_(SigSize) const void *pSigData,
+                            _In_ uint32_t SigSize);
+
+// PSV = data for Pipeline State Validation
+bool VerifyPSVMatches(_In_ llvm::Module *pModule,
+                      _In_reads_bytes_(PSVSize) const void *pPSVData,
+                      _In_ uint32_t PSVSize);
+
+bool VerifyFeatureInfoMatches(_In_ llvm::Module *pModule,
+                              _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,
+                              _In_ uint32_t FeatureInfoSize);
+
+// Validate the container parts, assuming supplied module is valid, loaded from the container provided
+struct DxilContainerHeader;
+HRESULT ValidateDxilContainerParts(_In_ llvm::Module *pModule,
+                                   _In_opt_ llvm::Module *pDebugModule,
+                                   _In_reads_bytes_(ContainerSize) const DxilContainerHeader *pContainer,
+                                   _In_ uint32_t ContainerSize);
+
+// Loads module, validating load, but not module.
+HRESULT ValidateLoadModule(_In_reads_bytes_(ILLength) const char *pIL,
+                           _In_ uint32_t ILLength,
+                           _In_ std::unique_ptr<llvm::Module> &pModule,
+                           _In_ llvm::LLVMContext &Ctx,
+                           _In_ llvm::raw_ostream &DiagStream);
+
+// Load and validate Dxil module from bitcode.
+HRESULT ValidateDxilBitcode(_In_reads_bytes_(ILLength) const char *pIL,
+                            _In_ uint32_t ILLength,
+                            _In_ llvm::raw_ostream &DiagStream);
+
+// Full container validation, including ValidateDxilModule
+HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
+                              _In_ uint32_t ContainerSize,
+                              _In_ llvm::raw_ostream &DiagStream);
 
 }

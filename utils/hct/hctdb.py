@@ -1443,6 +1443,12 @@ class db_dxil(object):
     def build_valrules(self):
         self.add_valrule_msg("Bitcode.Valid", "TODO - Module must be bitcode-valid", "Module bitcode is invalid")
 
+        self.add_valrule_msg("Container.PartMatches", "DXIL Container Parts must match Module", "Container part '%0' does not match expected for module.")
+        self.add_valrule_msg("Container.PartRepeated", "DXIL Container must have only one of each part type", "More than one container part '%0'.")
+        self.add_valrule_msg("Container.PartMissing", "DXIL Container requires certain parts, corresponding to module", "Missing part '%0' required by module.")
+        self.add_valrule_msg("Container.PartInvalid", "DXIL Container must not contain unknown parts", "Unknown part '%0' found in DXIL container.")
+        self.add_valrule_msg("Container.RootSignatureIncompatible", "Root Signature in DXIL Container must be compatible with shader", "Root Signature in DXIL container is not compatible with shader.")
+
         self.add_valrule("Meta.Required", "TODO - Required metadata missing")
         self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown")
         self.add_valrule("Meta.Used", "All metadata must be used by dxil")
@@ -1649,6 +1655,7 @@ class db_dxil(object):
         
         # Assign sensible category names and build up an enumeration description
         cat_names = {
+            "CONTAINER": "Container",
             "BITCODE": "Bitcode",
             "META": "Metadata",
             "INSTR": "Instruction",

@@ -97,6 +97,9 @@ public:
   const DxilSignature &GetPatchConstantSignature() const;
   const RootSignatureHandle &GetRootSignature() const;
 
+  // Remove Root Signature from module metadata
+  void StripRootSignatureFromMetadata();
+
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
 
@@ -121,6 +124,9 @@ public:
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
+
+  static DxilModule *TryGetDxilModule(llvm::Module *pModule);
+
 public:
   // Shader properties.
   class ShaderFlags {
