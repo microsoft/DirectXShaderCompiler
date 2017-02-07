@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
 
-// CHECK: InputPrimitive=line
+// CHECK: array dimension for line must be 2
 
 
 struct Out
@@ -13,7 +13,7 @@ struct Empty{};
 int i;
 
 [maxvertexcount(3)]
-void main(line Empty e[2], inout PointStream<Out> OutputStream0)
+void main(line Empty e[4], inout PointStream<Out> OutputStream0)
 {
   Out output = (Out)0;
   output.a[i] = 3;

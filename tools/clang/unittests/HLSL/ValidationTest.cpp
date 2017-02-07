@@ -122,6 +122,9 @@ public:
   TEST_METHOD(MinPrecisionBitCast)
   TEST_METHOD(StructBitCast)
   TEST_METHOD(MultiDimArray)
+  TEST_METHOD(SimpleGs8)
+  TEST_METHOD(SimpleGs9)
+  TEST_METHOD(SimpleGs10)
   TEST_METHOD(NoFunctionParam)
   TEST_METHOD(I8Type)
   TEST_METHOD(EmptyStructInBuffer)
@@ -1298,6 +1301,18 @@ TEST_F(ValidationTest, MultiDimArray) {
                           "= alloca [4 x float]\n"
                           "  %md = alloca [2 x [4 x float]]",
                           "Only one dimension allowed for array type");
+}
+
+TEST_F(ValidationTest, SimpleGs8) {
+  TestCheck(L"..\\CodeGenHLSL\\SimpleGS8.hlsl");
+}
+
+TEST_F(ValidationTest, SimpleGs9) {
+  TestCheck(L"..\\CodeGenHLSL\\SimpleGS9.hlsl");
+}
+
+TEST_F(ValidationTest, SimpleGs10) {
+  TestCheck(L"..\\CodeGenHLSL\\SimpleGS10.hlsl");
 }
 
 TEST_F(ValidationTest, NoFunctionParam) {
