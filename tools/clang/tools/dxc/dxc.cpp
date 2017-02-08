@@ -77,7 +77,7 @@ private:
   DxcOpts &m_Opts;
   DxcDllSupport &m_dxcSupport;
 
-  void ActOnBlob(IDxcBlob *pBlob);
+  int ActOnBlob(IDxcBlob *pBlob);
   void UpdatePart(IDxcBlob *pBlob, IDxcBlob **ppResult);
   bool UpdatePartRequired();
   void WriteHeader(IDxcBlobEncoding *pDisassembly, IDxcBlob *pCode,
@@ -88,7 +88,7 @@ private:
   HRESULT GetDxcDiaTable(IDxcLibrary *pLibrary, IDxcBlob *pTargetBlob, IDiaTable **ppTable, LPCWSTR tableName);
   HRESULT FindModuleBlob(hlsl::DxilFourCC fourCC, IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcBlob **ppTargetBlob);
   void ExtractRootSignature(IDxcBlob *pBlob, IDxcBlob **ppResult);
-  void VerifyRootSignature();
+  int VerifyRootSignature();
 
 public:
   DxcContext(DxcOpts &Opts, DxcDllSupport &dxcSupport)
@@ -96,7 +96,7 @@ public:
 
   int  Compile();
   void Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompiler *pCompiler, std::vector<LPCWSTR> &args, IDxcOperationResult **pCompileResult);
-  void DumpBinary();
+  int DumpBinary();
   void Preprocess();
 };
 
@@ -134,11 +134,12 @@ static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
 
 // This function is called either after the compilation is done or /dumpbin option is provided
 // Performing options that are used to process dxil container.
-void DxcContext::ActOnBlob(IDxcBlob *pBlob) {
+int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
+  int retVal = 0;
   // Text output.
   if (m_Opts.AstDump || m_Opts.OptDump) {
     WriteBlobToConsole(pBlob);
-    return;
+    return retVal;
   }
 
   // Write the output blob.
@@ -153,7 +154,7 @@ void DxcContext::ActOnBlob(IDxcBlob *pBlob) {
 
   // Verify Root Signature
   if (!m_Opts.VerifyRootSignatureSource.empty()) {
-    VerifyRootSignature();
+    return VerifyRootSignature();
   }
 
   // Extract and write the PDB/debug information.
@@ -186,7 +187,7 @@ void DxcContext::ActOnBlob(IDxcBlob *pBlob) {
        m_Opts.VerifyRootSignatureSource.empty() && !m_Opts.ExtractRootSignature);
 
   if (!needDisassembly)
-    return;
+     return retVal;
 
   CComPtr<IDxcCompiler> pCompiler;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
@@ -204,6 +205,7 @@ void DxcContext::ActOnBlob(IDxcBlob *pBlob) {
   } else {
     WriteBlobToConsole(pDisassembleResult);
   }
+  return retVal;
 }
 
 // Given a dxil container, update the dxil container by processing container specific options.
@@ -358,7 +360,7 @@ void DxcContext::ExtractRootSignature(IDxcBlob *pBlob, IDxcBlob **ppResult) {
   *ppResult = pResult.Detach();
 }
 
-void DxcContext::VerifyRootSignature() {
+int DxcContext::VerifyRootSignature() {
   // Get dxil container from file
   CComPtr<IDxcBlobEncoding> pSource;
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
@@ -396,9 +398,11 @@ void DxcContext::VerifyRootSignature() {
     else {
       WriteOperationErrorsToConsole(pOperationResult, m_Opts.OutputWarnings);
     }
+    return 1;
   }
   else {
     printf("root signature verification succeeded.");
+    return 0;
   }
 }
 
@@ -657,10 +661,10 @@ int DxcContext::Compile() {
   return status;
 }
 
-void DxcContext::DumpBinary() {
+int DxcContext::DumpBinary() {
   CComPtr<IDxcBlobEncoding> pSource;
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
-  ActOnBlob(pSource.p);
+  return ActOnBlob(pSource.p);
 }
 
 void DxcContext::Preprocess() {
@@ -870,7 +874,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     }
     else if (dxcOpts.DumpBin) {
       pStage = "Dumping existing binary";
-      context.DumpBinary();
+      retVal = context.DumpBinary();
     }
     else {
       pStage = "Compilation";
@@ -912,7 +916,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
         msg = printBuffer;
       }
 
-      WriteUtf8ToConsoleSizeT(msg, strlen(msg));
+      WriteUtf8ToConsoleSizeT(msg, strlen(msg), STD_ERROR_HANDLE);
       printf("\n");
     } catch (...) {
       printf("%s failed - unable to retrieve error message.\n", pStage);

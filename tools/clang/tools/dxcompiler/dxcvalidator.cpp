@@ -242,7 +242,7 @@ HRESULT DxcValidator::RunRootSignatureValidation(
   const DxilProgramHeader *pProgramHeader = GetDxilProgramHeader(pDxilContainer, DFCC_DXIL);
   const DxilPartHeader *pPSVPart = GetDxilPartByType(pDxilContainer, DFCC_PipelineStateValidation);
   const DxilPartHeader *pRSPart = GetDxilPartByType(pDxilContainer, DFCC_RootSignature);
-  IFRBOOL(!pPSVPart || !pRSPart, DXC_E_MISSING_PART);
+  IFRBOOL(pPSVPart && pRSPart, DXC_E_MISSING_PART);
   try {
     RootSignatureHandle RSH;
     RSH.LoadSerialized((const uint8_t*)GetDxilPartData(pRSPart), pRSPart->PartSize);
