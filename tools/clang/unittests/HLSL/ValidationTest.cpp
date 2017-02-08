@@ -131,6 +131,7 @@ public:
   TEST_METHOD(BigStructInBuffer)
   TEST_METHOD(TGSMRaceCond)
   TEST_METHOD(TGSMRaceCond2)
+  TEST_METHOD(TGSMRaceCond4)
   TEST_METHOD(AddUint64Odd)
 
   TEST_METHOD(ClipCullMaxComponents)
@@ -1347,9 +1348,14 @@ TEST_F(ValidationTest, TGSMRaceCond) {
 TEST_F(ValidationTest, TGSMRaceCond2) {
     RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\structInBuffer.hlsl", "cs_6_0",
         "ret void",
-        "store i32 0, i32 addrspace(3)* @\"\\01?sharedData@@3UFoo@@A.3\", align 4\n"
+        "%TID = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
+        "store i32 %TID, i32 addrspace(3)* @\"\\01?sharedData@@3UFoo@@A.3\", align 4\n"
         "ret void",
         "Race condition writing to shared memory detected, consider making this write conditional");
+}
+
+TEST_F(ValidationTest, TGSMRaceCond4) {
+  TestCheck(L"..\\CodeGenHLSL\\RaceCond4.hlsl");
 }
 
 TEST_F(ValidationTest, AddUint64Odd) {
