@@ -69,7 +69,16 @@ At the moment, the [Windows 10 Insider Preview Build 15007](https://blogs.window
 
 Drivers indicate they can run DXIL by reporting support for Shader Model 6, possibly in experimental mode. To enable support in these cases, the [Developer mode](https://msdn.microsoft.com/windows/uwp/get-started/enable-your-device-for-development) setting must be enabled.
 
-By default, tests will run using the Windows Advanced Rasterization Platform (WARP) adapter. To get the correct version of WARP working, in addition to setting Developer mode, you should install the 'Graphics Tools' optional feature via the Settings app (click the 'Apps' icon, then the 'Manage optional features' link, then 'Add a feature', and select 'Graphics Tools' from the list).
+###Hardware Support
+
+Hardware GPU support for DXIL is provided by the following vendors:
+
+NVIDIA r378 drivers (r378.49 and later) provide experimental mode support for DXIL and shader model 6. This is an early beta version to enable developers to try out DXIL and the new shader model 6 features – Wave Math and int64. Only DXIL version 0.7 (beta) is accepted by the r378 driver.  Experimental mode support for DXIL v1.0 will be provided in a future driver release. 
+
+###Software Rendering
+
+in the absence of hardware support, tests will run using the Windows Advanced Rasterization Platform (WARP) adapter. To get the correct version of WARP working, in addition to setting Developer mode, you should install the 'Graphics Tools' optional feature via the Settings app (click the 'Apps' icon, then the 'Manage optional features' link, then 'Add a feature', and select 'Graphics Tools' from the list).
+
 
 For more information, see this [Wiki page](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Running-Shaders).
 
