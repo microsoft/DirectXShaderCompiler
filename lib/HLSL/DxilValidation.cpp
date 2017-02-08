@@ -205,7 +205,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmGSOutputVertexCountRange: return "GS output vertex count must be [0..%0].  %1 specified";
     case hlsl::ValidationRule::SmGSInstanceCountRange: return "GS instance count must be [1..%0].  %1 specified";
     case hlsl::ValidationRule::SmDSInputControlPointCountRange: return "DS input control point count must be [0..%0].  %1 specified";
-    case hlsl::ValidationRule::SmHSInputControlPointCountRange: return "HS input control point count must be [1..%0].  %1 specified";
+    case hlsl::ValidationRule::SmHSInputControlPointCountRange: return "HS input control point count must be [0..%0].  %1 specified";
+    case hlsl::ValidationRule::SmZeroHSInputControlPointWithInput: return "When HS input control point count is 0, no input signature should exist";
     case hlsl::ValidationRule::SmOutputControlPointCountRange: return "output control point count must be [0..%0].  %1 specified";
     case hlsl::ValidationRule::SmGSValidInputPrimitive: return "GS input primitive unrecognized";
     case hlsl::ValidationRule::SmGSValidOutputPrimitiveTopology: return "GS output primitive topology unrecognized";
@@ -3732,8 +3733,12 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
     if (domain >= DXIL::TessellatorDomain::LastEntry)
       domain = DXIL::TessellatorDomain::Undefined;
     unsigned inputControlPointCount = M.GetInputControlPointCount();
-    if (inputControlPointCount < 1 ||
-        inputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
+    if (inputControlPointCount == 0) {
+      if (!M.GetInputSignature().GetElements().empty()) {
+        ValCtx.EmitError(
+            ValidationRule::SmZeroHSInputControlPointWithInput);
+      }
+    } else if (inputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
       ValCtx.EmitFormatError(
           ValidationRule::SmHSInputControlPointCountRange,
           {std::to_string(DXIL::kMaxIAPatchControlPointCount).c_str(),

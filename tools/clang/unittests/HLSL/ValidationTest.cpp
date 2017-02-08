@@ -69,6 +69,7 @@ public:
   TEST_METHOD(WhenMultipleModulesThenFail);
   TEST_METHOD(WhenUnexpectedEOFThenFail);
   TEST_METHOD(WhenUnknownBlocksThenFail);
+  TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail);
 
   TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction);
   TEST_METHOD(StorePatchControlNotInPatchConstantFunction);
@@ -549,6 +550,14 @@ TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
   CheckValidationMsgs(blob, _countof(blob), "Unrecognized block found");
 }
 
+TEST_F(ValidationTest, WhenZeroInputPatchCountWithInputThenFail) {
+	RewriteAssemblyCheckMsg(
+		L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
+		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z.flat\", i32 3, i32 3",
+		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z.flat\", i32 0, i32 3",
+		"When HS input control point count is 0, no input signature should exist");
+}
+
 TEST_F(ValidationTest, WhenInstrDisallowedThenFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
@@ -678,7 +687,7 @@ TEST_F(ValidationTest, HsAttributeFail) {
       },
       {"i32 36, i32 36, i32 0, i32 0, i32 0, float 6.500000e+01"
       },
-      {"HS input control point count must be [1..32].  36 specified",
+      {"HS input control point count must be [0..32].  36 specified",
        "Invalid Tessellator Domain specified. Must be isoline, tri or quad",
        "Invalid Tessellator Partitioning specified",
        "Invalid Tessellator Output Primitive specified",
@@ -900,14 +909,7 @@ TEST_F(ValidationTest, UavBarrierFail) {
        "sync in a non-Compute Shader must only sync UAV (sync_uglobal)"});
 }
 TEST_F(ValidationTest, UndefValueFail) {
-  RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\UndefValue.hlsl", "ps_6_0",
-      {"fadd fast float %([0-9]+)"
-      },
-      {"fadd fast float undef"
-      },
-      {"Instructions should not read uninitialized value"},
-      /*bRegex*/ true);
+  TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
   RewriteAssemblyCheckMsg(

@@ -178,7 +178,7 @@ enum class ValidationRule : unsigned {
   SmGSTotalOutputVertexDataRange, // Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
   SmGSValidInputPrimitive, // GS input primitive unrecognized
   SmGSValidOutputPrimitiveTopology, // GS output primitive topology unrecognized
-  SmHSInputControlPointCountRange, // HS input control point count must be [1..%0].  %1 specified
+  SmHSInputControlPointCountRange, // HS input control point count must be [0..%0].  %1 specified
   SmHullPassThruControlPointCountMatch, // For pass thru hull shader, input control point count must match output control point count
   SmInsideTessFactorSizeMatchDomain, // InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmInvalidResourceCompType, // Invalid resource return type
@@ -214,6 +214,7 @@ enum class ValidationRule : unsigned {
   SmTriOutputPrimitiveMismatch, // Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
   SmUndefinedOutput, // Not all elements of output %0 were written
   SmValidDomain, // Invalid Tessellator Domain specified. Must be isoline, tri or quad
+  SmZeroHSInputControlPointWithInput, // When HS input control point count is 0, no input signature should exist
 
   // Type system
   TypesDefined, // Type must be defined based on DXIL primitives
