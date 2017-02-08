@@ -1269,7 +1269,6 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
       Value *vertexID = undefVertexIdx;
       if (bNeedVertexID && isArrayTy) {
         vertexID = info.vertexID;
-        idxVal = constZero;
       }
 
       if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
