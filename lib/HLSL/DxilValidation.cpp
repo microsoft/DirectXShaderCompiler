@@ -4049,6 +4049,10 @@ static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
     return;
   }
 
+  if (Size == 0) {
+    return;
+  }
+
   CComPtr<IMalloc> pMalloc;
   IFT(CoGetMalloc(1, &pMalloc));
   CComPtr<AbstractMemoryStream> pOutputStream;
@@ -4163,15 +4167,14 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     return DXC_E_CONTAINER_INVALID;
   }
 
-  std::string diagStr;
-  raw_string_ostream DiagStream(diagStr);
-  DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
-
   DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule);
   if (!pDxilModule) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
+  std::string diagStr;
+  raw_string_ostream DiagStream(diagStr);
+  DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, DiagPrinter);
 
   DXIL::ShaderKind ShaderKind = pDxilModule->GetShaderModel()->GetKind();
@@ -4241,9 +4244,10 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
   if (FourCCFound.find(DFCC_OutputSignature) == FourCCFound.end()) {
     VerifySignatureMatches(ValCtx, DXIL::SignatureKind::Output, nullptr, 0);
   }
-  if (bTess && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end())
+  if (bTess && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end() &&
+      pDxilModule->GetPatchConstantSignature().GetElements().size())
   {
-    VerifySignatureMatches(ValCtx, DXIL::SignatureKind::PatchConstant, nullptr, 0);
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, "Program Patch Constant Signature");
   }
   if (FourCCFound.find(DFCC_FeatureInfo) == FourCCFound.end()) {
     // Could be optional, but RS1 runtime doesn't handle this case properly.
@@ -4356,7 +4360,12 @@ HRESULT ValidateDxilBitcode(
   if (!dxilModule.GetRootSignature().IsEmpty()) {
     unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule));
     DXASSERT_NOMSG(pWriter->size());
-    unique_ptr<unsigned char[]> pPSVData(new unsigned char[pWriter->size()]);
+    CComPtr<IMalloc> pMalloc;
+    IFT(CoGetMalloc(1, &pMalloc));
+    CComPtr<AbstractMemoryStream> pOutputStream;
+    IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+    pOutputStream->Reserve(pWriter->size());
+    pWriter->write(pOutputStream);
     const DxilVersionedRootSignatureDesc* pDesc = dxilModule.GetRootSignature().GetDesc();
     RootSignatureHandle RS;
     try {
@@ -4369,7 +4378,7 @@ HRESULT ValidateDxilBitcode(
       }
       IFTBOOL(VerifyRootSignatureWithShaderPSV(pDesc,
                                                dxilModule.GetShaderModel()->GetKind(),
-                                               pPSVData.get(), pWriter->size(),
+                                               pOutputStream->GetPtr(), pWriter->size(),
                                                DiagStream), DXC_E_INCORRECT_ROOT_SIGNATURE);
     } catch (...) {
       return DXC_E_INCORRECT_ROOT_SIGNATURE;

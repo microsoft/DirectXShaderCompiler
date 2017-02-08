@@ -16,14 +16,17 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "dxc/HLSL/DxilContainer.h"
 
 #include <atlbase.h>
+#include "dxc/Support/FileIOHelper.h"
 
 #include "WexTestClass.h"
 #include "DxcTestUtils.h"
 #include "HlslTestUtils.h"
 
 using namespace std;
+using namespace hlsl;
 
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
   HRESULT status;
@@ -189,6 +192,17 @@ public:
   TEST_METHOD(WhenMetaFlagsUsageDeclThenOK);
   TEST_METHOD(WhenMetaFlagsUsageThenFail);
 
+  TEST_METHOD(WhenRootSigMismatchThenFail);
+  TEST_METHOD(WhenRootSigCompatThenSucceed);
+  TEST_METHOD(WhenProgramOutSigMissingThenFail);
+  TEST_METHOD(WhenProgramOutSigUnexpectedThenFail);
+  TEST_METHOD(WhenProgramSigMismatchThenFail);
+  TEST_METHOD(WhenProgramInSigMissingThenFail);
+  TEST_METHOD(WhenProgramSigMismatchThenFail2);
+  TEST_METHOD(WhenProgramPCSigMissingThenFail);
+  TEST_METHOD(WhenPSVMismatchThenFail);
+  TEST_METHOD(WhenFeatureInfoMismatchThenFail);
+
   dxc::DxcDllSupport m_dllSupport;
 
   void TestCheck(LPCWSTR name) {
@@ -201,12 +215,13 @@ public:
     }
   }
 
-  bool CheckOperationResultMsg(IDxcOperationResult *pResult,
-                               const char *pErrorMsg, bool maySucceedAnyway,
+  bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
+                               llvm::ArrayRef<LPCSTR> pErrorMsgs, bool maySucceedAnyway,
                                bool bRegex) {
     HRESULT status;
     VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-    if (pErrorMsg == nullptr) {
+    if (pErrorMsgs.empty() || 
+        (pErrorMsgs.size() == 1 && !pErrorMsgs[0])) {
       VERIFY_SUCCEEDED(status);
     }
     else {
@@ -216,27 +231,29 @@ public:
       //VERIFY_FAILED(status);
       CComPtr<IDxcBlobEncoding> text;
       VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&text));
-      if (bRegex) {
-        llvm::Regex RE(pErrorMsg);
-        std::string reErrors;
-        VERIFY_IS_TRUE(RE.isValid(reErrors));
-        VERIFY_IS_TRUE(RE.match(llvm::StringRef((const char *)text->GetBufferPointer(), text->GetBufferSize())));
-      } else {
-        const char *pStart = (const char *)text->GetBufferPointer();
-        const char *pEnd = pStart + text->GetBufferSize();
-        const char *pMatch = std::search(pStart, pEnd, pErrorMsg, pErrorMsg + strlen(pErrorMsg));
-        if (pEnd == pMatch) {
-          WEX::Logging::Log::Comment(WEX::Common::String().Format(
-              L"Unable to find '%S' in text:\r\n%.*S", pErrorMsg, (pEnd - pStart),
-              pStart));
+      for (auto pErrorMsg : pErrorMsgs) {
+        if (bRegex) {
+          llvm::Regex RE(pErrorMsg);
+          std::string reErrors;
+          VERIFY_IS_TRUE(RE.isValid(reErrors));
+          VERIFY_IS_TRUE(RE.match(llvm::StringRef((const char *)text->GetBufferPointer(), text->GetBufferSize())));
+        } else {
+          const char *pStart = (const char *)text->GetBufferPointer();
+          const char *pEnd = pStart + text->GetBufferSize();
+          const char *pMatch = std::search(pStart, pEnd, pErrorMsg, pErrorMsg + strlen(pErrorMsg));
+          if (pEnd == pMatch) {
+            WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                L"Unable to find '%S' in text:\r\n%.*S", pErrorMsg, (pEnd - pStart),
+                pStart));
+          }
+          VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
         }
-        VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
       }
     }
     return true;
   }
 
-  void CheckValidationMsg(IDxcBlob *pBlob, const char *pErrorMsg, bool bRegex = false) {
+  void CheckValidationMsgs(IDxcBlob *pBlob, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     CComPtr<IDxcValidator> pValidator;
     CComPtr<IDxcOperationResult> pResult;
 
@@ -247,10 +264,10 @@ public:
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
     VERIFY_SUCCEEDED(pValidator->Validate(pBlob, DxcValidatorFlags_Default, &pResult));
 
-    CheckOperationResultMsg(pResult, pErrorMsg, false, bRegex);
+    CheckOperationResultMsgs(pResult, pErrorMsgs, false, bRegex);
   }
 
-  void CheckValidationMsg(const char *pBlob, size_t blobSize, const char *pErrorMsg, bool bRegex = false) {
+  void CheckValidationMsgs(const char *pBlob, size_t blobSize, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     if (!m_dllSupport.IsEnabled()) {
       VERIFY_SUCCEEDED(m_dllSupport.Initialize());
     }
@@ -258,7 +275,7 @@ public:
     CComPtr<IDxcBlobEncoding> pBlobEncoding; // Encoding doesn't actually matter, it's binary.
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned((LPBYTE)pBlob, blobSize, CP_UTF8, &pBlobEncoding));
-    CheckValidationMsg(pBlobEncoding, pErrorMsg, bRegex);
+    CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex);
   }
 
   void CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
@@ -277,6 +294,9 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
                                         shWide, nullptr, 0, nullptr, 0, nullptr,
                                         &pResult));
+    HRESULT hr;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+    VERIFY_SUCCEEDED(hr);
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
   }
 
@@ -314,13 +334,11 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pText, &pAssembleResult));
 
-    for (auto pErrorMsg : pErrorMsgs) {
-      if (!CheckOperationResultMsg(pAssembleResult, pErrorMsg, true, bRegex)) {
-        // Assembly succeeded, try validation.
-        CComPtr<IDxcBlob> pBlob;
-        VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
-        CheckValidationMsg(pBlob, pErrorMsg, bRegex);
-      }
+    if (!CheckOperationResultMsgs(pAssembleResult, pErrorMsgs, true, bRegex)) {
+      // Assembly succeeded, try validation.
+      CComPtr<IDxcBlob> pBlob;
+      VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
+      CheckValidationMsgs(pBlob, pErrorMsgs, bRegex);
     }
   }
 
@@ -385,21 +403,81 @@ public:
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pText, &pAssembleResult));
-    for (auto pErrorMsg : pErrorMsgs) {
-      if (!CheckOperationResultMsg(pAssembleResult, pErrorMsg, true, bRegex)) {
-        // Assembly succeeded, try validation.
-        CComPtr<IDxcBlob> pBlob;
-        VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
-        CheckValidationMsg(pBlob, pErrorMsg, bRegex);
+    if (!CheckOperationResultMsgs(pAssembleResult, pErrorMsgs, true, bRegex)) {
+      // Assembly succeeded, try validation.
+      CComPtr<IDxcBlob> pBlob;
+      VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
+      CheckValidationMsgs(pBlob, pErrorMsgs, bRegex);
+    }
+  }
+
+  // compile one or two sources, validate module from 1 with container parts from 2, check messages
+  void ReplaceContainerPartsCheckMsgs(LPCSTR pSource1, LPCSTR pSource2, LPCSTR pShaderModel,
+                                     llvm::ArrayRef<DxilFourCC> PartsToReplace,
+                                     llvm::ArrayRef<LPCSTR> pErrorMsgs) {
+    CComPtr<IDxcBlob> pProgram1, pProgram2;
+    CompileSource(pSource1, pShaderModel, &pProgram1);
+    VERIFY_IS_NOT_NULL(pProgram1);
+    if (pSource2) {
+      CompileSource(pSource2, pShaderModel, &pProgram2);
+      VERIFY_IS_NOT_NULL(pProgram2);
+    } else {
+      pProgram2 = pProgram1;
+    }
+
+    // construct container with moudle from pProgram1 with other parts from pProgram2:
+    const DxilContainerHeader *pHeader1 = IsDxilContainerLike(pProgram1->GetBufferPointer(), pProgram1->GetBufferSize());
+    VERIFY_IS_NOT_NULL(pHeader1);
+    const DxilContainerHeader *pHeader2 = IsDxilContainerLike(pProgram2->GetBufferPointer(), pProgram2->GetBufferSize());
+    VERIFY_IS_NOT_NULL(pHeader2);
+
+    DxilContainerWriter *pContainerWriter = NewDxilContainerWriter();
+
+    // Add desired parts from first container
+    for (auto pPart : pHeader1) {
+      for (auto dfcc : PartsToReplace) {
+        if (dfcc == pPart->PartFourCC) {
+          pPart = nullptr;
+          break;
+        }
+      }
+      if (!pPart)
+        continue;
+      pContainerWriter->AddPart(pPart->PartFourCC, pPart->PartSize, [=](AbstractMemoryStream *pStream) {
+        ULONG cbWritten = 0;
+        pStream->Write(GetDxilPartData(pPart), pPart->PartSize, &cbWritten);
+      });
+    }
+
+    // Add desired parts from second container
+    for (auto pPart : pHeader2) {
+      for (auto dfcc : PartsToReplace) {
+        if (dfcc == pPart->PartFourCC) {
+          pContainerWriter->AddPart(pPart->PartFourCC, pPart->PartSize, [=](AbstractMemoryStream *pStream) {
+            ULONG cbWritten = 0;
+            pStream->Write(GetDxilPartData(pPart), pPart->PartSize, &cbWritten);
+          });
+          break;
+        }
       }
     }
+
+    // Write the container
+    CComPtr<IMalloc> pMalloc;
+    VERIFY_SUCCEEDED(CoGetMalloc(1, &pMalloc));
+    CComPtr<AbstractMemoryStream> pOutputStream;
+    VERIFY_SUCCEEDED(CreateMemoryStream(pMalloc, &pOutputStream));
+    pOutputStream->Reserve(pContainerWriter->size());
+    pContainerWriter->write(pOutputStream);
+
+    CheckValidationMsgs((const char *)pOutputStream->GetPtr(), pOutputStream->GetPtrSize(), pErrorMsgs, /*bRegex*/false);
   }
 };
 
 TEST_F(ValidationTest, WhenCorrectThenOK) {
   CComPtr<IDxcBlob> pProgram;
   CompileSource("float4 main() : SV_Target { return 1; }", "ps_6_0", &pProgram);
-  CheckValidationMsg(pProgram, nullptr);
+  CheckValidationMsgs(pProgram, nullptr);
 }
 
 // Lots of these going on below for simplicity in setting up payloads.
@@ -414,7 +492,7 @@ TEST_F(ValidationTest, WhenMisalignedThenFail) {
   const char blob[] = {
     'B', 'C',
   };
-  CheckValidationMsg(blob, _countof(blob), "Invalid bitcode size");
+  CheckValidationMsgs(blob, _countof(blob), "Invalid bitcode size");
 }
 
 TEST_F(ValidationTest, WhenEmptyFileThenFail) {
@@ -422,7 +500,7 @@ TEST_F(ValidationTest, WhenEmptyFileThenFail) {
   const char blob[] = {
     'B', 'C', 0xc0, 0xde
   };
-  CheckValidationMsg(blob, _countof(blob), "Malformed IR file");
+  CheckValidationMsgs(blob, _countof(blob), "Malformed IR file");
 }
 
 TEST_F(ValidationTest, WhenIncorrectMagicThenFail) {
@@ -430,14 +508,14 @@ TEST_F(ValidationTest, WhenIncorrectMagicThenFail) {
   const char blob[] = {
     'B', 'C', 0xc0, 0xdd
   };
-  CheckValidationMsg(blob, _countof(blob), "Invalid bitcode signature");
+  CheckValidationMsgs(blob, _countof(blob), "Invalid bitcode signature");
 }
 
 TEST_F(ValidationTest, WhenIncorrectTargetTripleThenFail) {
   const char blob[] = {
     'B', 'C', 0xc0, 0xde
   };
-  CheckValidationMsg(blob, _countof(blob), "Malformed IR file");
+  CheckValidationMsgs(blob, _countof(blob), "Malformed IR file");
 }
 
 TEST_F(ValidationTest, WhenMultipleModulesThenFail) {
@@ -450,7 +528,7 @@ TEST_F(ValidationTest, WhenMultipleModulesThenFail) {
     // Trigger the case we're looking for now
     0x21, 0x0c, 0x00, 0x00, // Enter sub-block, BlockID = 8, Code Size=3, padding x2
   };
-  CheckValidationMsg(blob, _countof(blob), "Unused bits in buffer");
+  CheckValidationMsgs(blob, _countof(blob), "Unused bits in buffer");
 }
 
 TEST_F(ValidationTest, WhenUnexpectedEOFThenFail) {
@@ -460,7 +538,7 @@ TEST_F(ValidationTest, WhenUnexpectedEOFThenFail) {
     0x21, 0x0c, 0x00, 0x00, // Enter sub-block, BlockID = 8, Code Size=3, padding x2
     0x00, 0x00, 0x00, 0x00, // NumWords = 0
   };
-  CheckValidationMsg(blob, _countof(blob), "Invalid record");
+  CheckValidationMsgs(blob, _countof(blob), "Invalid record");
 }
 
 TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
@@ -468,7 +546,7 @@ TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
     'B', 'C', 0xc0, 0xde,   // Signature
     0x31, 0x00, 0x00, 0x00  // Enter sub-block, BlockID != 8
   };
-  CheckValidationMsg(blob, _countof(blob), "Unrecognized block found");
+  CheckValidationMsgs(blob, _countof(blob), "Unrecognized block found");
 }
 
 TEST_F(ValidationTest, WhenInstrDisallowedThenFail) {
@@ -2018,6 +2096,295 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
     {"!{i32 1, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\1, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}"},
     "Pixel Shader only allows one type of depth semantic to be declared",
     /*bRegex*/true);
+}
+
+// TODO: Write more root signature tests
+
+TEST_F(ValidationTest, WhenRootSigMismatchThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" )] float4 main() : semantic { return c; }",
+    "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigCompatThenSucceed) {
+  ReplaceContainerPartsCheckMsgs(
+    "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
+    "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" )] float4 main() : semantic { return c; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+
+#define VERTEX_STRUCT1 \
+    "struct PSSceneIn \n\
+    { \n\
+      float4 pos  : SV_Position; \n\
+      float2 tex  : TEXCOORD0; \n\
+      float3 norm : NORMAL; \n\
+    }; \n"
+#define VERTEX_STRUCT2 \
+    "struct PSSceneIn \n\
+    { \n\
+      float4 pos  : SV_Position; \n\
+      float2 tex  : TEXCOORD0; \n\
+    }; \n"
+#define PC_STRUCT1 "struct HSPerPatchData {  \n\
+      float edges[ 3 ] : SV_TessFactor; \n\
+      float inside : SV_InsideTessFactor; \n\
+      float foo : FOO; \n\
+    }; \n"
+#define PC_STRUCT2 "struct HSPerPatchData {  \n\
+      float edges[ 3 ] : SV_TessFactor; \n\
+      float inside : SV_InsideTessFactor; \n\
+    }; \n"
+#define PC_FUNC "HSPerPatchData HSPerPatchFunc( InputPatch< PSSceneIn, 3 > points, \n\
+      OutputPatch<PSSceneIn, 3> outpoints) { \n\
+      HSPerPatchData d = (HSPerPatchData)0; \n\
+      d.edges[ 0 ] = points[0].tex.x + outpoints[0].tex.x; \n\
+      d.edges[ 1 ] = 1; \n\
+      d.edges[ 2 ] = 1; \n\
+      d.inside = 1; \n\
+      return d; \n\
+    } \n"
+#define PC_FUNC_NOOUT "HSPerPatchData HSPerPatchFunc( InputPatch< PSSceneIn, 3 > points ) { \n\
+      HSPerPatchData d = (HSPerPatchData)0; \n\
+      d.edges[ 0 ] = points[0].tex.x; \n\
+      d.edges[ 1 ] = 1; \n\
+      d.edges[ 2 ] = 1; \n\
+      d.inside = 1; \n\
+      return d; \n\
+    } \n"
+#define PC_FUNC_NOIN "HSPerPatchData HSPerPatchFunc( OutputPatch<PSSceneIn, 3> outpoints) { \n\
+      HSPerPatchData d = (HSPerPatchData)0; \n\
+      d.edges[ 0 ] = outpoints[0].tex.x; \n\
+      d.edges[ 1 ] = 1; \n\
+      d.edges[ 2 ] = 1; \n\
+      d.inside = 1; \n\
+      return d; \n\
+    } \n"
+#define HS_ATTR "[domain(\"tri\")] \n\
+    [partitioning(\"fractional_odd\")] \n\
+    [outputtopology(\"triangle_cw\")] \n\
+    [patchconstantfunc(\"HSPerPatchFunc\")] \n\
+    [outputcontrolpoints(3)] \n"
+#define HS_FUNC \
+    "PSSceneIn main(const uint id : SV_OutputControlPointID, \n\
+                    const InputPatch< PSSceneIn, 3 > points ) { \n\
+      return points[ id ]; \n\
+    } \n"
+#define HS_FUNC_NOOUT \
+    "void main(const uint id : SV_OutputControlPointID, \n\
+               const InputPatch< PSSceneIn, 3 > points ) { \n\
+    } \n"
+#define HS_FUNC_NOIN \
+    "PSSceneIn main( const uint id : SV_OutputControlPointID ) { \n\
+      return (PSSceneIn)0; \n\
+    } \n"
+#define DS_FUNC \
+    "[domain(\"tri\")] PSSceneIn main(const float3 bary : SV_DomainLocation, \n\
+                                      const OutputPatch<PSSceneIn, 3> patch, \n\
+                                      const HSPerPatchData perPatchData) { \n\
+      PSSceneIn v = patch[0]; \n\
+      v.pos = patch[0].pos * bary.x; \n\
+      v.pos += patch[1].pos * bary.y; \n\
+      v.pos += patch[2].pos * bary.z; \n\
+      return v; \n\
+    } \n"
+#define DS_FUNC_NOPC \
+    "[domain(\"tri\")] PSSceneIn main(const float3 bary : SV_DomainLocation, \n\
+                                      const OutputPatch<PSSceneIn, 3> patch) { \n\
+      PSSceneIn v = patch[0]; \n\
+      v.pos = patch[0].pos * bary.x; \n\
+      v.pos += patch[1].pos * bary.y; \n\
+      v.pos += patch[2].pos * bary.z; \n\
+      return v; \n\
+    } \n"
+
+TEST_F(ValidationTest, WhenProgramOutSigMissingThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC_NOOUT
+    HS_ATTR
+    HS_FUNC_NOOUT,
+
+    "hs_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramOutSigUnexpectedThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC_NOOUT
+    HS_ATTR
+    HS_FUNC_NOOUT,
+
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    "hs_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramSigMismatchThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    VERTEX_STRUCT2
+    PC_STRUCT2
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    "hs_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Input Signature' does not match expected for module.",
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Container part 'Program Patch Constant Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramInSigMissingThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    // Compiling the HS_FUNC_NOIN produces the following error
+    //error: validation errors
+    //HS input control point count must be [1..32].  0 specified
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC_NOIN
+    HS_ATTR
+    HS_FUNC_NOIN,
+    "hs_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Input Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramSigMismatchThenFail2) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    DS_FUNC,
+
+    VERTEX_STRUCT2
+    PC_STRUCT2
+    DS_FUNC,
+
+    "ds_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Input Signature' does not match expected for module.",
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Container part 'Program Patch Constant Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramPCSigMissingThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    DS_FUNC,
+
+    VERTEX_STRUCT2
+    PC_STRUCT2
+    DS_FUNC_NOPC,
+
+    "ds_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Input Signature' does not match expected for module.",
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Missing part 'Program Patch Constant Signature' required by module.",
+      "Validation failed."
+    }
+  );
+}
+
+#undef VERTEX_STRUCT1
+#undef VERTEX_STRUCT2
+#undef PC_STRUCT1
+#undef PC_STRUCT2
+#undef PC_FUNC
+#undef PC_FUNC_NOOUT
+#undef PC_FUNC_NOIN
+#undef HS_ATTR
+#undef HS_FUNC
+#undef HS_FUNC_NOOUT
+#undef HS_FUNC_NOIN
+#undef DS_FUNC
+#undef DS_FUNC_NOPC
+
+TEST_F(ValidationTest, WhenPSVMismatchThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" )] float4 main() : semantic { return c; }",
+    "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_PipelineStateValidation},
+    {
+      "Container part 'Pipeline State Validation' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenFeatureInfoMismatchThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    "float4 main(uint2 foo : FOO) : SV_Target { return asdouble(foo.x, foo.y) * 2.0; }",
+    "float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_FeatureInfo},
+    {
+      "Container part 'Feature Info' does not match expected for module.",
+      "Validation failed."
+    }
+  );
 }
 
 
