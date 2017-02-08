@@ -80,8 +80,8 @@
 namespace Intrinsics {
 
 int<4> [[rn]] D3DCOLORtoUBYTE4(in $match<0, 1> float<4> x) : d3dcolortoubyte4;
-uint [[]]  GetRenderTargetSampleCount() : rtsampleinfo;
-float<2> [[]] GetRenderTargetSamplePosition(in int s) : rtsamplepos;
+uint [[rn]]  GetRenderTargetSampleCount() : rtsampleinfo;
+float<2> [[rn]] GetRenderTargetSamplePosition(in int s) : rtsamplepos;
 void [[]]   abort();
 $type1 [[rn]] abs(in numeric<> x);
 $type1 [[rn]] acos(in float_like<> x);
@@ -179,16 +179,16 @@ $match<0, 1> float_like [[rn]] noise(in float_like<c> x);
 $type1 [[rn]] normalize(in float_like<c> x);
 $type1 [[rn]] pow(in float_like<> x, in $type1 y);
 // void printf(in string Format, ...);
-void [[]] Process2DQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqavg;
-void [[]] Process2DQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmax;
-void [[]] Process2DQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmin;
-void [[]] ProcessIsolineTessFactors(in float<1> RawDetailFactor, in float<1> RawDensityFactor, out float<1> RoundedDetailFactorr, out float<1> RoundedDensityFactor) : ptf_i;
-void [[]] ProcessQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qavg;
-void [[]] ProcessQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qmax;
-void [[]] ProcessQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qmin;
-void [[]] ProcessTriTessFactorsAvg(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tmin;
-void [[]] ProcessTriTessFactorsMax(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tmax;
-void [[]] ProcessTriTessFactorsMin(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tavg;
+void [[rn]] Process2DQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqavg;
+void [[rn]] Process2DQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmax;
+void [[rn]] Process2DQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmin;
+void [[rn]] ProcessIsolineTessFactors(in float<1> RawDetailFactor, in float<1> RawDensityFactor, out float<1> RoundedDetailFactorr, out float<1> RoundedDensityFactor) : ptf_i;
+void [[rn]] ProcessQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qavg;
+void [[rn]] ProcessQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qmax;
+void [[rn]] ProcessQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qmin;
+void [[rn]] ProcessTriTessFactorsAvg(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tmin;
+void [[rn]] ProcessTriTessFactorsMax(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tmax;
+void [[rn]] ProcessTriTessFactorsMin(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tavg;
 $type1 [[rn]] radians(in float_like<> x);
 $type1 [[rn]] rcp(in any_float<> x) : rcp_approx;
 $type1 [[rn]] reflect(in float_like<c> i, in $type1 n);
@@ -238,30 +238,30 @@ uint<c> [[rn]] AddUint64(in $match<1, 0> uint<c> a, in $match<2, 0> uint<c> b) :
 $type1 [[rn]] NonUniformResourceIndex(in any<> index) : nonuniform_resource_index;
 
 // Wave intrinsics.
-bool   [[rn]] WaveIsFirstLane();
+bool   [[]] WaveIsFirstLane();
 uint   [[rn]] WaveGetLaneIndex();
 uint   [[rn]] WaveGetLaneCount();
-bool   [[rn]] WaveActiveAnyTrue(in bool cond);
-bool   [[rn]] WaveActiveAllTrue(in bool cond);
-$match<1, 0> bool<> [[rn]] WaveActiveAllEqual(in numeric<> value);
-uint<4> [[rn]] WaveActiveBallot(in bool cond);
-$type1 [[rn]] WaveReadLaneAt(in numeric<> value, in uint lane);
-$type1 [[rn]] WaveReadLaneFirst(in numeric<> value);
-uint   [[rn]] WaveActiveCountBits(in bool value);
-$type1 [[rn,unsigned_op=WaveActiveUSum]] WaveActiveSum(in numeric<> value);
-$type1 [[rn,unsigned_op=WaveActiveUProduct]] WaveActiveProduct(in numeric<> value);
-$type1 [[rn]] WaveActiveBitAnd(in uint_only<> value);
-$type1 [[rn]] WaveActiveBitOr(in uint_only<> value);
-$type1 [[rn]] WaveActiveBitXor(in uint_only<> value);
-$type1 [[rn,unsigned_op=WaveActiveUMin]] WaveActiveMin(in numeric<> value);
-$type1 [[rn,unsigned_op=WaveActiveUMax]] WaveActiveMax(in numeric<> value);
-uint   [[rn]] WavePrefixCountBits(in bool value);
-$type1 [[rn,unsigned_op=WavePrefixUSum]] WavePrefixSum(in numeric<> value);
-$type1 [[rn,unsigned_op=WavePrefixUProduct]] WavePrefixProduct(in numeric<> value);
-$type1 [[rn]] QuadReadLaneAt(in numeric<> value, in uint quadLane);
-$type1 [[rn]] QuadReadAcrossX(in numeric<> value);
-$type1 [[rn]] QuadReadAcrossY(in numeric<> value);
-$type1 [[rn]] QuadReadAcrossDiagonal(in numeric<> value);
+bool   [[]] WaveActiveAnyTrue(in bool cond);
+bool   [[]] WaveActiveAllTrue(in bool cond);
+$match<1, 0> bool<> [[]] WaveActiveAllEqual(in numeric<> value);
+uint<4> [[]] WaveActiveBallot(in bool cond);
+$type1 [[]] WaveReadLaneAt(in numeric<> value, in uint lane);
+$type1 [[]] WaveReadLaneFirst(in numeric<> value);
+uint   [[]] WaveActiveCountBits(in bool value);
+$type1 [[unsigned_op=WaveActiveUSum]] WaveActiveSum(in numeric<> value);
+$type1 [[unsigned_op=WaveActiveUProduct]] WaveActiveProduct(in numeric<> value);
+$type1 [[]] WaveActiveBitAnd(in uint_only<> value);
+$type1 [[]] WaveActiveBitOr(in uint_only<> value);
+$type1 [[]] WaveActiveBitXor(in uint_only<> value);
+$type1 [[unsigned_op=WaveActiveUMin]] WaveActiveMin(in numeric<> value);
+$type1 [[unsigned_op=WaveActiveUMax]] WaveActiveMax(in numeric<> value);
+uint   [[]] WavePrefixCountBits(in bool value);
+$type1 [[unsigned_op=WavePrefixUSum]] WavePrefixSum(in numeric<> value);
+$type1 [[unsigned_op=WavePrefixUProduct]] WavePrefixProduct(in numeric<> value);
+$type1 [[]] QuadReadLaneAt(in numeric<> value, in uint quadLane);
+$type1 [[]] QuadReadAcrossX(in numeric<> value);
+$type1 [[]] QuadReadAcrossY(in numeric<> value);
+$type1 [[]] QuadReadAcrossDiagonal(in numeric<> value);
 
 } namespace
 
