@@ -195,6 +195,25 @@ public:
 
   TEST_METHOD(WhenRootSigMismatchThenFail);
   TEST_METHOD(WhenRootSigCompatThenSucceed);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootConstVis);
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootConstVis);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootCBV);
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Range);
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Space);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootSRV);
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootSRV_ResType);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootUAV);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_GoodRange);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_Unbounded);
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range1);
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range2);
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range3);
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Space);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_Unbounded);
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded1);
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded2);
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded3);
   TEST_METHOD(WhenProgramOutSigMissingThenFail);
   TEST_METHOD(WhenProgramOutSigUnexpectedThenFail);
   TEST_METHOD(WhenProgramSigMismatchThenFail);
@@ -2100,8 +2119,6 @@ float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target
     /*bRegex*/true);
 }
 
-// TODO: Write more root signature tests
-
 TEST_F(ValidationTest, WhenRootSigMismatchThenFail) {
   ReplaceContainerPartsCheckMsgs(
     "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" )] float4 main() : semantic { return c; }",
@@ -2114,7 +2131,6 @@ TEST_F(ValidationTest, WhenRootSigMismatchThenFail) {
     }
   );
 }
-
 TEST_F(ValidationTest, WhenRootSigCompatThenSucceed) {
   ReplaceContainerPartsCheckMsgs(
     "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
@@ -2125,6 +2141,399 @@ TEST_F(ValidationTest, WhenRootSigCompatThenSucceed) {
   );
 }
 
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootConstVis) {
+  ReplaceContainerPartsCheckMsgs(
+    "float c; float4 main() : semantic { return c; }",
+    "[RootSignature ( \"RootConstants(b0, visibility = SHADER_VISIBILITY_VERTEX, num32BitConstants = 1)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootConstVis) {
+  ReplaceContainerPartsCheckMsgs(
+    "float c; float4 main() : semantic { return c; }",
+    "[RootSignature ( \"RootConstants(b0, visibility = SHADER_VISIBILITY_PIXEL, num32BitConstants = 1)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootCBV) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float a; int4 b; }; "
+    "ConstantBuffer<Foo> cb1 : register(b2, space5); "
+    "float4 main() : semantic { return cb1.b.x; }",
+    "[RootSignature ( \"CBV(b2, space = 5)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootCBV_Range) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float a; int4 b; }; "
+    "ConstantBuffer<Foo> cb1 : register(b0, space5); "
+    "float4 main() : semantic { return cb1.b.x; }",
+    "[RootSignature ( \"CBV(b2, space = 5)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootCBV_Space) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float a; int4 b; }; "
+    "ConstantBuffer<Foo> cb1 : register(b2, space7); "
+    "float4 main() : semantic { return cb1.b.x; }",
+    "[RootSignature ( \"CBV(b2, space = 5)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootSRV) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float4 a; }; "
+    "StructuredBuffer<Foo> buf1 : register(t1, space3); "
+    "float4 main(float4 a : AAA) : SV_Target { return buf1[a.x].a; }",
+    "[RootSignature ( \"SRV(t1, space = 3)\" )]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootSRV_ResType) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float4 a; }; "
+    "StructuredBuffer<Foo> buf1 : register(t1, space3); "
+    "float4 main(float4 a : AAA) : SV_Target { return buf1[a.x].a; }",
+    "[RootSignature ( \"UAV(u1, space = 3)\" )]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootUAV) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float4 a; }; "
+    "RWStructuredBuffer<Foo> buf1 : register(u1, space3); "
+    "float4 main(float4 a : AAA) : SV_Target { return buf1[a.x].a; }",
+    "[RootSignature ( \"UAV(u1, space = 3)\" )]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( SRV(t1,space=3,numDescriptors=8), "
+                                      "CBV(b2,space=5,numDescriptors=4), "
+                                      "UAV(u33,space=17,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable_GoodRange) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( SRV(t0,space=3,numDescriptors=20), "
+                                      "CBV(b2,space=5,numDescriptors=4), "
+                                      "UAV(u33,space=17,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable_Unbounded) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=4), "
+                                      "SRV(t1,space=3,numDescriptors=8), "
+                                      "UAV(u10,space=17,numDescriptors=unbounded)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range1) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=4), "
+                                      "SRV(t2,space=3,numDescriptors=8), "
+                                      "UAV(u33,space=17,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Shader SRV descriptor range (RegisterSpace=3, NumDescriptors=8, BaseShaderRegister=1) is not fully bound in root signature.",
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range2) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( SRV(t2,space=3,numDescriptors=8), "
+                                      "CBV(b20,space=5,numDescriptors=4), "
+                                      "UAV(u33,space=17,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range3) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=4), "
+                                      "SRV(t1,space=3,numDescriptors=8), "
+                                      "UAV(u33,space=17,numDescriptors=5)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Space) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( SRV(t2,space=3,numDescriptors=8), "
+                                      "CBV(b2,space=5,numDescriptors=4), "
+                                      "UAV(u33,space=0,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_Unbounded) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[]  : register(b2, space5);"
+    "Texture2D<float4> tex1[]   : register(t1, space3);"
+    "RWBuffer<float4> buf1[]    : register(u33, space17);"
+    "SamplerState sampler1[]    : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=1)), "
+                     "DescriptorTable( SRV(t1,space=3,numDescriptors=unbounded)), "
+                     "DescriptorTable( UAV(u10,space=17,numDescriptors=100)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded1) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[]  : register(b2, space5);"
+    "Texture2D<float4> tex1[]   : register(t1, space3);"
+    "RWBuffer<float4> buf1[]    : register(u33, space17);"
+    "SamplerState sampler1[]    : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b3,space=5,numDescriptors=1)), "
+                     "DescriptorTable( SRV(t1,space=3,numDescriptors=unbounded)), "
+                     "DescriptorTable( UAV(u10,space=17,numDescriptors=unbounded)), "
+                     "DescriptorTable( Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded2) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[]  : register(b2, space5);"
+    "Texture2D<float4> tex1[]   : register(t1, space3);"
+    "RWBuffer<float4> buf1[]    : register(u33, space17);"
+    "SamplerState sampler1[]    : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=1)), "
+                     "DescriptorTable( SRV(t1,space=3,numDescriptors=unbounded)), "
+                     "DescriptorTable( UAV(u10,space=17,numDescriptors=unbounded)), "
+                     "DescriptorTable( Sampler(s5, numDescriptors=unbounded))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded3) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[]  : register(b2, space5);"
+    "Texture2D<float4> tex1[]   : register(t1, space3);"
+    "RWBuffer<float4> buf1[]    : register(u33, space17);"
+    "SamplerState sampler1[]    : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=1)), "
+                     "DescriptorTable( SRV(t1,space=3,numDescriptors=unbounded)), "
+                     "DescriptorTable( UAV(u10,space=17,numDescriptors=7)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
 
 #define VERTEX_STRUCT1 \
     "struct PSSceneIn \n\

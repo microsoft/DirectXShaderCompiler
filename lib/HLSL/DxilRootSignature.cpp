@@ -328,6 +328,10 @@ private:
       if (lb > other.ub) return 1;
       return 0;
     }
+    // Check containment.
+    bool contains(const RegisterRange& other) const {
+      return (space == other.space) && (lb <= other.lb && other.ub <= ub);
+    }
   };
   typedef CIntervalCollection<RegisterRange> RegisterRanges;
 
@@ -577,8 +581,12 @@ RootSignatureVerifier::FindCoveringInterval(DxilDescriptorRangeType RangeType,
   RR.lb = LB;
   RR.ub = LB + Num - 1;
   const RootSignatureVerifier::RegisterRange *pRange = GetRanges(DxilShaderVisibility::All, RangeType).FindIntersectingInterval(RR);
-  if (!pRange && VisType != DxilShaderVisibility::All)
+  if (!pRange && VisType != DxilShaderVisibility::All) {
     pRange = GetRanges(VisType, RangeType).FindIntersectingInterval(RR);
+  }
+  if (pRange && !pRange->contains(RR)) {
+    pRange = nullptr;
+  }
   return pRange;
 }
 
