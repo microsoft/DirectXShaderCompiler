@@ -12,7 +12,8 @@
 #ifndef __DXIL_PIPELINE_STATE_VALIDATION__H__
 #define __DXIL_PIPELINE_STATE_VALIDATION__H__
 
-#include <memory>
+#include <stdint.h>
+#include <string.h>
 
 // Versioning is additive and based on size
 struct PSVRuntimeInfo0
