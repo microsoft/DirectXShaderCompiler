@@ -235,6 +235,7 @@ public:
   void GetReadBackData(LPCSTR pResourceName, MappedData *pData);
   void RunShaderOp(ShaderOp *pShaderOp);
   void RunShaderOp(std::shared_ptr<ShaderOp> pShaderOp);
+  void SetDevice(ID3D12Device* pDevice);
   void SetDxcSupport(dxc::DxcDllSupport *pDxcSupport);
   void SetInitCallback(TInitCallbackFn InitCallbackFn);
   void SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,

@@ -931,6 +931,10 @@ void ShaderOpTest::SetRootValues(ID3D12GraphicsCommandList *pList,
   }
 }
 
+void ShaderOpTest::SetDevice(ID3D12Device *pDevice) {
+  m_pDevice = pDevice;
+}
+
 void ShaderOpTest::SetDxcSupport(dxc::DxcDllSupport *pDxcSupport) {
   m_pDxcSupport = pDxcSupport;
 }
@@ -942,7 +946,7 @@ void ShaderOpTest::SetInitCallback(TInitCallbackFn InitCallbackFn) {
 void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
                                      ID3D12CommandQueue *pCommandQueue,
                                      ID3D12Resource *pRenderTarget) {
-  m_pDevice = pDevice;
+  SetDevice(pDevice);
   m_CommandList.Queue = pCommandQueue;
   // Simplification - add the render target name if missing, set it up 'by hand' if not.
   if (pShaderOp->RenderTargets.empty()) {
