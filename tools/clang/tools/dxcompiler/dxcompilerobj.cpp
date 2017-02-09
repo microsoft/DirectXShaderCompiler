@@ -1858,7 +1858,7 @@ public:
  void WrapModuleInDxilContainer(IMalloc *pMalloc,  AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
     CComPtr<AbstractMemoryStream> pContainerStream;
     IFT(CreateMemoryStream(pMalloc, &pContainerStream));
-    SerializeDxilContainerForModule(m_llvmModule.get(), pModuleBitcode, pContainerStream);
+    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(), pModuleBitcode, pContainerStream);
 
     pDxilContainerBlob.Release();
     IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));

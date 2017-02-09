@@ -2104,6 +2104,11 @@ The set of validation rules that are known to hold for a DXIL program is identif
 Rule Code                             Description
 ===================================== =======================================================================================================================================================================================================================================================================================================
 BITCODE.VALID                         TODO - Module must be bitcode-valid
+CONTAINER.PARTINVALID                 DXIL Container must not contain unknown parts
+CONTAINER.PARTMATCHES                 DXIL Container Parts must match Module
+CONTAINER.PARTMISSING                 DXIL Container requires certain parts, corresponding to module
+CONTAINER.PARTREPEATED                DXIL Container must have only one of each part type
+CONTAINER.ROOTSIGNATUREINCOMPATIBLE   Root Signature in DXIL Container must be compatible with shader
 DECL.DXILFNEXTERN                     External function must be a DXIL function
 DECL.DXILNSRESERVED                   The DXIL reserved prefixes must only be used by built-in functions and types
 DECL.FNFLATTENPARAM                   Function parameters must not use struct types
@@ -2236,7 +2241,7 @@ SM.GSOUTPUTVERTEXCOUNTRANGE           GS output vertex count must be [0..%0].  %
 SM.GSTOTALOUTPUTVERTEXDATARANGE       Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
 SM.GSVALIDINPUTPRIMITIVE              GS input primitive unrecognized
 SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY     GS output primitive topology unrecognized
-SM.HSINPUTCONTROLPOINTCOUNTRANGE      HS input control point count must be [1..%0].  %1 specified
+SM.HSINPUTCONTROLPOINTCOUNTRANGE      HS input control point count must be [0..%0].  %1 specified
 SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH For pass thru hull shader, input control point count must match output control point count
 SM.INSIDETESSFACTORSIZEMATCHDOMAIN    InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
 SM.INVALIDRESOURCECOMPTYPE            Invalid resource return type
@@ -2272,6 +2277,7 @@ SM.THREADGROUPCHANNELRANGE            Declared Thread Group %0 size %1 outside v
 SM.TRIOUTPUTPRIMITIVEMISMATCH         Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
 SM.UNDEFINEDOUTPUT                    Not all elements of output %0 were written
 SM.VALIDDOMAIN                        Invalid Tessellator Domain specified. Must be isoline, tri or quad
+SM.ZEROHSINPUTCONTROLPOINTWITHINPUT   When HS input control point count is 0, no input signature should exist
 TYPES.DEFINED                         Type must be defined based on DXIL primitives
 TYPES.I8                              I8 can only used as immediate value for intrinsic
 TYPES.INTWIDTH                        Int type must be of valid width

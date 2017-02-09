@@ -435,6 +435,7 @@ public:
   TEST_METHOD(CodeGenPrecise4)
   TEST_METHOD(CodeGenPreciseOnCall)
   TEST_METHOD(CodeGenPreciseOnCallNot)
+  TEST_METHOD(CodeGenRaceCond2)
   TEST_METHOD(CodeGenRaw_Buf1)
   TEST_METHOD(CodeGenRcp1)
   TEST_METHOD(CodeGenReadFromOutput)
@@ -572,6 +573,7 @@ public:
   TEST_METHOD(CodeGenResourceInTBV2)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(PreprocessWhenValidThenOK)
+  TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
   // Dx11 Sample
   TEST_METHOD(CodeGenDX11Sample_2Dquadshaders_Blurx_Ps)
@@ -2378,6 +2380,10 @@ TEST_F(CompilerTest, CodeGenPreciseOnCallNot) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\precise_call_not.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenRaceCond2) {
+  CodeGenTest(L"..\\CodeGenHLSL\\RaceCond2.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenRaw_Buf1) {
   CodeGenTest(L"..\\CodeGenHLSL\\raw_buf1.hlsl");
 }
@@ -3685,4 +3691,48 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
     "int g_int = 123;\n"
     "\n"
     "int BAR;\n", text.c_str());
+}
+
+TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(
+    "struct PSSceneIn \n\
+    { \n\
+      float4 pos  : SV_Position; \n\
+      float2 tex  : TEXCOORD0; \n\
+      float3 norm : NORMAL; \n\
+    }; \n"
+    "struct HSPerPatchData {  \n\
+      float edges[ 3 ] : SV_TessFactor; \n\
+      float inside : SV_InsideTessFactor; \n\
+      float foo : FOO; \n\
+    }; \n"
+    "HSPerPatchData HSPerPatchFunc( InputPatch< PSSceneIn, 3 > points, \n\
+      OutputPatch<PSSceneIn, 3> outpoints) { \n\
+      HSPerPatchData d = (HSPerPatchData)0; \n\
+      d.edges[ 0 ] = points[0].tex.x + outpoints[0].tex.x; \n\
+      d.edges[ 1 ] = 1; \n\
+      d.edges[ 2 ] = 1; \n\
+      d.inside = 1; \n\
+      return d; \n\
+    } \n"
+    "[domain(\"tri\")] \n\
+    [partitioning(\"fractional_odd\")] \n\
+    [outputtopology(\"triangle_cw\")] \n\
+    [patchconstantfunc(\"HSPerPatchFunc\")] \n\
+    [outputcontrolpoints(3)] \n"
+    "void main(const uint id : SV_OutputControlPointID, \n\
+               const InputPatch< PSSceneIn, 3 > points ) { \n\
+    } \n"
+    , &pSource);
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"hs_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
+  std::string failLog(VerifyOperationFailed(pResult));
+  VERIFY_ARE_NOT_EQUAL(string::npos, failLog.find(
+    "Signature element SV_Position, referred to by patch constant function, is not found in corresponding hull shader output."));
 }

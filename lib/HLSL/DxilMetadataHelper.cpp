@@ -46,6 +46,9 @@ const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.cont
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
 
+// This named metadata is not valid in final module (should be moved to DxilContainer)
+const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
+
 static std::array<const char *, 6> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
   DxilMDHelper::kDxilShaderModelMDName,
@@ -224,16 +227,21 @@ MDTuple *DxilMDHelper::EmitDxilSignatures(const DxilSignature &InputSig,
   return pSignatureTupleMD;
 }
 
-llvm::Metadata *DxilMDHelper::EmitRootSignature(RootSignatureHandle &RootSig) {
+void DxilMDHelper::EmitRootSignature(RootSignatureHandle &RootSig) {
   if (RootSig.IsEmpty()) {
-    return nullptr;
+    return;
   }
 
   RootSig.EnsureSerializedAvailable();
   Constant *V = llvm::ConstantDataArray::get(
       m_Ctx, llvm::ArrayRef<uint8_t>(RootSig.GetSerializedBytes(),
                                      RootSig.GetSerializedSize()));
-  return ConstantAsMetadata::get(V);
+
+  NamedMDNode *pRootSignatureNamedMD = m_pModule->getNamedMetadata(kDxilRootSignatureMDName);
+  IFTBOOL(pRootSignatureNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  pRootSignatureNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilRootSignatureMDName);
+  pRootSignatureNamedMD->addOperand(MDNode::get(m_Ctx, {ConstantAsMetadata::get(V)}));
+  return ;
 }
 
 void DxilMDHelper::LoadDxilSignatures(const MDOperand &MDO, 
@@ -279,9 +287,16 @@ void DxilMDHelper::LoadSignatureMetadata(const MDOperand &MDO, DxilSignature &Si
   }
 }
 
-void DxilMDHelper::LoadRootSignature(const MDOperand &MDO, RootSignatureHandle &Sig) {
-  if (MDO.get() == nullptr)
+void DxilMDHelper::LoadRootSignature(RootSignatureHandle &Sig) {
+  NamedMDNode *pRootSignatureNamedMD = m_pModule->getNamedMetadata(kDxilRootSignatureMDName);
+  if(!pRootSignatureNamedMD)
     return;
+
+  IFTBOOL(pRootSignatureNamedMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+  MDNode *pNode = pRootSignatureNamedMD->getOperand(0);
+  IFTBOOL(pNode->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDOperand &MDO = pNode->getOperand(0);
 
   const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MDO.get());
   IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);

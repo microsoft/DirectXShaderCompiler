@@ -9,15 +9,25 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/dxcapi.h"
 
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/DiagnosticPrinter.h"
+
+#include <string>
 #include <algorithm>
 #include <utility>
 #include <vector>
+#include <set>
+
+using namespace llvm;
+using std::string;
 
 namespace hlsl {
 
@@ -26,23 +36,8 @@ DEFINE_ENUM_FLAG_OPERATORS(DxilRootDescriptorFlags)
 DEFINE_ENUM_FLAG_OPERATORS(DxilDescriptorRangeType)
 DEFINE_ENUM_FLAG_OPERATORS(DxilDescriptorRangeFlags)
 
-//////////////////////////////////////////////////////////////////////////////
-// Error handling helper.
-
-static void ErrorRootSignature(IStream *pStream, const char *pFormat, ...) {
-  va_list ArgList;
-  char Buf[2048];
-  if (pStream == nullptr)
-    return;
-
-  va_start(ArgList, pFormat);
-  HRESULT hr = StringCchVPrintfA(Buf, _countof(Buf), pFormat, ArgList);
-  va_end(ArgList);
-
-  ULONG written;
-  IFT(hr);
-  IFT(pStream->Write(Buf, strlen(Buf), &written));
-}
+// Execute (error) and throw.
+#define EAT(x) { (x); throw ::hlsl::Exception(E_FAIL); }
 
 //////////////////////////////////////////////////////////////////////////////
 // Root signature handler.
@@ -92,6 +87,11 @@ void RootSignatureHandle::EnsureSerializedAvailable() {
   }
 }
 
+void RootSignatureHandle::Deserialize() {
+  DXASSERT_NOMSG(m_pSerialized && !m_pDesc);
+  DeserializeRootSignature((uint8_t*)m_pSerialized->GetBufferPointer(), (uint32_t)m_pSerialized->GetBufferSize(), &m_pDesc);
+}
+
 void RootSignatureHandle::LoadSerialized(const uint8_t *pData,
                                          unsigned length) {
   DXASSERT_NOMSG(IsEmpty());
@@ -128,7 +128,7 @@ protected:
 
 SimpleSerializer::SimpleSerializer() {
   m_cbSegments = 0;
-  m_pSegment = NULL;
+  m_pSegment = nullptr;
   m_ppSegment = &m_pSegment;
 }
 
@@ -157,13 +157,13 @@ HRESULT SimpleSerializer::AddBlock(void *pData, unsigned cbSize,
   pSegment->Offset = m_cbSegments;
   pSegment->cbSize = cbSize;
   pSegment->bOwner = false;
-  pSegment->pNext = NULL;
+  pSegment->pNext = nullptr;
 
   m_cbSegments += pSegment->cbSize;
   *m_ppSegment = pSegment;
   m_ppSegment = &pSegment->pNext;
 
-  if (pOffset != NULL) {
+  if (pOffset != nullptr) {
     *pOffset = pSegment->Offset;
   }
 
@@ -173,11 +173,11 @@ HRESULT SimpleSerializer::AddBlock(void *pData, unsigned cbSize,
 HRESULT SimpleSerializer::ReserveBlock(void **ppData, unsigned cbSize,
                                        unsigned *pOffset) {
   HRESULT hr = S_OK;
-  Segment *pSegment = NULL;
-  void *pClonedData = NULL;
+  Segment *pSegment = nullptr;
+  void *pClonedData = nullptr;
 
   IFCOOM(pSegment = new (std::nothrow) Segment);
-  pSegment->pData = NULL;
+  pSegment->pData = nullptr;
 
   IFCOOM(pClonedData = new (std::nothrow) char[cbSize]);
   pSegment->pData = pClonedData;
@@ -186,7 +186,7 @@ HRESULT SimpleSerializer::ReserveBlock(void **ppData, unsigned cbSize,
   pSegment->Offset = m_cbSegments;
   pSegment->cbSize = cbSize;
   pSegment->bOwner = true;
-  pSegment->pNext = NULL;
+  pSegment->pNext = nullptr;
 
   m_cbSegments += pSegment->cbSize;
   *m_ppSegment = pSegment;
@@ -248,41 +248,20 @@ unsigned SimpleSerializer::GetSize() {
 template <typename T>
 class CIntervalCollection {
 private:
-  std::vector<T> m_set;
+  std::set<T> m_set;
 public:
-  T* FindIntersectingInterval(const T &I) {
-    DXASSERT(m_set.size() < INT_MAX,
-             "else too many interval entries, and min<max check can undeflow");
-    int mid, min = 0, max = (int)m_set.size();
-    while (min < max) {
-      mid = (min + max) / 2;
-      T &R = m_set[mid];
-      int order = I.overlap(R);
-      if (order == 0) return &R;
-      if (order < 0)
-        max = mid - 1;
-      else
-        min = mid + 1;
-    }
+  const T* FindIntersectingInterval(const T &I) {
+    auto it = m_set.find(I);
+    if (it != m_set.end())
+      return &*it;
     return nullptr;
   }
   void Insert(const T& value) {
-    // Find the first element that is greater or equal to value.
-    auto it = std::lower_bound(m_set.begin(), m_set.end(), value);
-    if (it == m_set.end()) {
-      m_set.push_back(value);
-    }
-    else {
-      m_set.insert(it, value);
+    auto result = m_set.insert(value);
+    UNREFERENCED_PARAMETER(result);
 #if DBG
-      // Verify that the insertion didn't violate disjoint range assumptions.
-      for (size_t i = 1; i < m_set.size(); ++i) {
-        DXASSERT_NOMSG(m_set[i - 1].overlap(m_set[i]));
-        DXASSERT_NOMSG(m_set[i - 1].space < m_set[i].space ||
-                       m_set[i - 1].ub < m_set[i].lb);
-      }
+    DXASSERT(result.second, "otherwise interval collides with existing in collection");
 #endif
-    }
   }
 };
 
@@ -291,13 +270,13 @@ public:
 
 class DescriptorTableVerifier {
 public:
-  HRESULT Verify(const DxilDescriptorRange1 *pRanges, unsigned NumRanges,
-                 unsigned iRTS, IStream *pErrors);
+  void Verify(const DxilDescriptorRange1 *pRanges, unsigned NumRanges,
+              unsigned iRTS, DiagnosticPrinter &DiagPrinter);
 };
 
 class StaticSamplerVerifier {
 public:
-  HRESULT Verify(const DxilStaticSamplerDesc *pDesc, IStream *pErrors);
+  void Verify(const DxilStaticSamplerDesc *pDesc, DiagnosticPrinter &DiagPrinter);
 };
 
 class RootSignatureVerifier {
@@ -305,12 +284,16 @@ public:
   RootSignatureVerifier();
   ~RootSignatureVerifier();
 
-  // Call this before calling VerifyShader, as it accumulates root signature
-  // state.
-  HRESULT
-  VerifyRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
-                      IStream *pErrors);
   void AllowReservedRegisterSpace(bool bAllow);
+
+  // Call this before calling VerifyShader, as it accumulates root signature state.
+  void VerifyRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
+                           DiagnosticPrinter &DiagPrinter);
+
+  void VerifyShader(DxilShaderVisibility VisType,
+                    const void *pPSVData,
+                    uint32_t PSVSize,
+                    DiagnosticPrinter &DiagPrinter);
 
   typedef enum NODE_TYPE {
     DESCRIPTOR_TABLE_ENTRY,
@@ -335,7 +318,7 @@ private:
     // Sort by space, then lower bound.
     bool operator<(const RegisterRange& other) const {
       return space < other.space ||
-        (space == other.space && lb < other.lb);
+        (space == other.space && ub < other.lb);
     }
     // Like a regular -1,0,1 comparison, but 0 indicates overlap.
     int overlap(const RegisterRange& other) const {
@@ -345,14 +328,24 @@ private:
       if (lb > other.ub) return 1;
       return 0;
     }
+    // Check containment.
+    bool contains(const RegisterRange& other) const {
+      return (space == other.space) && (lb <= other.lb && other.ub <= ub);
+    }
   };
   typedef CIntervalCollection<RegisterRange> RegisterRanges;
 
-  HRESULT AddRegisterRange(unsigned iRTS, NODE_TYPE nt, unsigned iDTS,
-                           DxilDescriptorRangeType DescType,
-                           DxilShaderVisibility VisType,
-                           unsigned NumRegisters, unsigned BaseRegister,
-                           unsigned RegisterSpace, IStream *pErrors);
+  void AddRegisterRange(unsigned iRTS, NODE_TYPE nt, unsigned iDTS,
+                        DxilDescriptorRangeType DescType,
+                        DxilShaderVisibility VisType,
+                        unsigned NumRegisters, unsigned BaseRegister,
+                        unsigned RegisterSpace, DiagnosticPrinter &DiagPrinter);
+
+  const RegisterRange *FindCoveringInterval(DxilDescriptorRangeType RangeType,
+                                            DxilShaderVisibility VisType,
+                                            unsigned Num,
+                                            unsigned LB,
+                                            unsigned Space);
 
   RegisterRanges &
   GetRanges(DxilShaderVisibility VisType, DxilDescriptorRangeType DescType) {
@@ -364,14 +357,14 @@ private:
   DxilRootSignatureFlags m_RootSignatureFlags;
 };
 
-HRESULT DescriptorTableVerifier::Verify(const DxilDescriptorRange1 *pRanges,
-                                        UINT NumRanges, UINT iRP,
-                                        IStream *pErrors) {
+void DescriptorTableVerifier::Verify(const DxilDescriptorRange1 *pRanges,
+                                     uint32_t NumRanges, uint32_t iRP,
+                                     DiagnosticPrinter &DiagPrinter) {
   bool bHasSamplers = false;
   bool bHasResources = false;
 
-  UINT64 iAppendStartSlot = 0;
-  for (UINT iDTS = 0; iDTS < NumRanges; iDTS++) {
+  uint64_t iAppendStartSlot = 0;
+  for (unsigned iDTS = 0; iDTS < NumRanges; iDTS++) {
     const DxilDescriptorRange1 *pRange = &pRanges[iDTS];
 
     switch (pRange->RangeType) {
@@ -384,73 +377,59 @@ HRESULT DescriptorTableVerifier::Verify(const DxilDescriptorRange1 *pRanges,
       bHasSamplers = true;
       break;
     default:
-      ErrorRootSignature(pErrors,
-        "Unsupported RangeType value %u (descriptor table slot [%u], root parameter [%u]).\n",
-        pRange->RangeType, iDTS, iRP);
-      return E_FAIL;
+      EAT(DiagPrinter << "Unsupported RangeType value " << (uint32_t)pRange->RangeType
+                      << " (descriptor table slot [" << iDTS << "], root parameter [" << iRP << "]).\n");
     }
 
     // Samplers cannot be mixed with other resources.
     if (bHasResources && bHasSamplers) {
-      ErrorRootSignature(pErrors, "Samplers cannot be mixed with other "
-                                  "resource types in a descriptor table (root "
-                                  "parameter [%u]).\n",
-                         iRP);
-      return E_FAIL;
+      EAT(DiagPrinter << "Samplers cannot be mixed with other "
+                      << "resource types in a descriptor table (root "
+                      << "parameter [" << iRP << "]).\n");
     }
 
     // NumDescriptors is not 0.
     if (pRange->NumDescriptors == 0) {
-      ErrorRootSignature(pErrors, "NumDescriptors cannot be 0 (descriptor "
-                                  "table slot [%u], root parameter [%u]).\n",
-                         iDTS, iRP);
-      return E_FAIL;
+      EAT(DiagPrinter << "NumDescriptors cannot be 0 (descriptor "
+                      << "table slot [" << iDTS << "], root parameter [" << iRP << "]).\n");
     }
 
     // Range start.
-    UINT64 iStartSlot = iAppendStartSlot;
-    if (pRange->OffsetInDescriptorsFromTableStart !=
-        DxilDescriptorRangeOffsetAppend) {
+    uint64_t iStartSlot = iAppendStartSlot;
+    if (pRange->OffsetInDescriptorsFromTableStart != DxilDescriptorRangeOffsetAppend) {
       iStartSlot = pRange->OffsetInDescriptorsFromTableStart;
     }
     if (iStartSlot > UINT_MAX) {
-      ErrorRootSignature(pErrors, "Cannot append range with implicit lower "
-                                  "bound after an unbounded range (descriptor "
-                                  "table slot [%u], root parameter [%u]).\n",
-                         iDTS, iRP);
-      return E_FAIL;
+      EAT(DiagPrinter << "Cannot append range with implicit lower "
+                      << "bound after an unbounded range (descriptor "
+                      << "table slot [" << iDTS << "], root parameter [" << iRP << "]).\n");
     }
 
     // Descriptor range and shader register range overlow.
     if (pRange->NumDescriptors != UINT_MAX) {
       // Bounded range.
-      UINT64 ub1 = (UINT64)pRange->BaseShaderRegister +
-                   (UINT64)pRange->NumDescriptors - 1ull;
+      uint64_t ub1 = (uint64_t)pRange->BaseShaderRegister +
+                     (uint64_t)pRange->NumDescriptors - 1ull;
       if (ub1 > UINT_MAX) {
-        ErrorRootSignature(
-            pErrors, "Overflow for shader register range: "
-                     "BaseShaderRegister=%u, NumDescriptor=%u; (descriptor "
-                     "table slot [%u], root parameter [%u]).\n",
-            pRange->BaseShaderRegister, pRange->NumDescriptors, iDTS, iRP);
-        return E_FAIL;
+        EAT(DiagPrinter << "Overflow for shader register range: "
+                        << "BaseShaderRegister=" << pRange->BaseShaderRegister
+                        << ", NumDescriptor=" << pRange->NumDescriptors
+                        << "; (descriptor table slot [" << iDTS
+                        << "], root parameter [" << iRP << "]).\n");
       }
 
-      UINT64 ub2 = (UINT64)iStartSlot + (UINT64)pRange->NumDescriptors - 1ull;
+      uint64_t ub2 = (uint64_t)iStartSlot + (uint64_t)pRange->NumDescriptors - 1ull;
       if (ub2 > UINT_MAX) {
-        ErrorRootSignature(pErrors, "Overflow for descriptor range (descriptor "
-                                    "table slot [%u], root parameter [%u])\n",
-                           iDTS, iRP);
-        return E_FAIL;
+        EAT(DiagPrinter << "Overflow for descriptor range (descriptor "
+                        << "table slot [" << iDTS << "], root parameter [" << iRP << "])\n");
       }
 
-      iAppendStartSlot = iStartSlot + (UINT64)pRange->NumDescriptors;
+      iAppendStartSlot = iStartSlot + (uint64_t)pRange->NumDescriptors;
     } else {
       // Unbounded range.
-      iAppendStartSlot = 1ull + (UINT64)UINT_MAX;
+      iAppendStartSlot = 1ull + (uint64_t)UINT_MAX;
     }
   }
-
-  return S_OK;
 }
 
 RootSignatureVerifier::RootSignatureVerifier() {
@@ -482,16 +461,15 @@ static bool IsDxilShaderVisibility(DxilShaderVisibility v) {
   return v <= DxilShaderVisibility::Pixel;
 }
 
-HRESULT RootSignatureVerifier::AddRegisterRange(unsigned iRP,
-  NODE_TYPE nt,
-  unsigned iDTS,
-  DxilDescriptorRangeType DescType,
-  DxilShaderVisibility VisType,
-  unsigned NumRegisters,
-  unsigned BaseRegister,
-  unsigned RegisterSpace,
-  IStream *pErrors)
-{
+void RootSignatureVerifier::AddRegisterRange(unsigned iRP,
+                                             NODE_TYPE nt,
+                                             unsigned iDTS,
+                                             DxilDescriptorRangeType DescType,
+                                             DxilShaderVisibility VisType,
+                                             unsigned NumRegisters,
+                                             unsigned BaseRegister,
+                                             unsigned RegisterSpace,
+                                             DiagnosticPrinter &DiagPrinter) {
   RegisterRange interval;
   interval.space = RegisterSpace;
   interval.lb = BaseRegister;
@@ -501,33 +479,33 @@ HRESULT RootSignatureVerifier::AddRegisterRange(unsigned iRP,
   interval.iRP = iRP;
 
   if (!m_bAllowReservedRegisterSpace &&
-    (RegisterSpace >= DxilSystemReservedRegisterSpaceValuesStart) &&
-    (RegisterSpace <= DxilSystemReservedRegisterSpaceValuesEnd))
-  {
-    if (nt == DESCRIPTOR_TABLE_ENTRY)
-    {
-      ErrorRootSignature(pErrors,
-        "Root parameter [%u] descriptor table entry [%u] specifies RegisterSpace=%#x, which is invalid since RegisterSpace values in the range [%#x,%#x] are reserved for system use.\n",
-        iRP, iDTS, RegisterSpace, DxilSystemReservedRegisterSpaceValuesStart, DxilSystemReservedRegisterSpaceValuesEnd);
-      return E_FAIL;
+       (RegisterSpace >= DxilSystemReservedRegisterSpaceValuesStart) &&
+       (RegisterSpace <= DxilSystemReservedRegisterSpaceValuesEnd)) {
+    if (nt == DESCRIPTOR_TABLE_ENTRY) {
+      EAT(DiagPrinter << "Root parameter [" << iRP << "] descriptor table entry [" << iDTS
+                      << "] specifies RegisterSpace=" << std::hex << RegisterSpace
+                      << ", which is invalid since RegisterSpace values in the range "
+                      << "[" << std::hex << DxilSystemReservedRegisterSpaceValuesStart
+                      << "," << std::hex << DxilSystemReservedRegisterSpaceValuesEnd
+                      << "] are reserved for system use.\n");
     }
-    else
-    {
-      ErrorRootSignature(pErrors,
-        "Root parameter [%u] specifies RegisterSpace=%#x, which is invalid since RegisterSpace values in the range [%#x,%#x] are reserved for system use.\n",
-        iRP, RegisterSpace, DxilSystemReservedRegisterSpaceValuesStart, DxilSystemReservedRegisterSpaceValuesEnd);
-      return E_FAIL;
+    else {
+      EAT(DiagPrinter << "Root parameter [" << iRP
+                      << "] specifies RegisterSpace=" << std::hex << RegisterSpace
+                      << ", which is invalid since RegisterSpace values in the range "
+                      << "[" << std::hex << DxilSystemReservedRegisterSpaceValuesStart
+                      << "," << std::hex << DxilSystemReservedRegisterSpaceValuesEnd
+                      << "] are reserved for system use.\n");
     }
   }
 
-  RegisterRange *pNode = NULL;
+  const RegisterRange *pNode = nullptr;
   DxilShaderVisibility NodeVis = VisType;
   if (VisType == DxilShaderVisibility::All) {
     // Check for overlap with each visibility type.
     for (unsigned iVT = kMinVisType; iVT <= kMaxVisType; iVT++) {
-      pNode = GetRanges((DxilShaderVisibility)iVT, DescType)
-                  .FindIntersectingInterval(interval);
-      if (pNode != NULL)
+      pNode = GetRanges((DxilShaderVisibility)iVT, DescType).FindIntersectingInterval(interval);
+      if (pNode != nullptr)
         break;
     }
   } else {
@@ -535,20 +513,17 @@ HRESULT RootSignatureVerifier::AddRegisterRange(unsigned iRP,
     pNode = GetRanges(VisType, DescType).FindIntersectingInterval(interval);
 
     // Check for overlap with ALL visibility.
-    if (pNode == NULL) {
-      pNode = GetRanges(DxilShaderVisibility::All, DescType)
-                  .FindIntersectingInterval(interval);
+    if (pNode == nullptr) {
+      pNode = GetRanges(DxilShaderVisibility::All, DescType).FindIntersectingInterval(interval);
       NodeVis = DxilShaderVisibility::All;
     }
   }
 
-  if (pNode != NULL)
-  {
+  if (pNode != nullptr) {
     const int strSize = 132;
     char testString[strSize];
     char nodeString[strSize];
-    switch (nt)
-    {
+    switch (nt) {
     case DESCRIPTOR_TABLE_ENTRY:
       StringCchPrintfA(testString, strSize, "(root parameter [%u], visibility %s, descriptor table slot [%u])",
         iRP, VisTypeString(VisType), iDTS);
@@ -586,16 +561,33 @@ HRESULT RootSignatureVerifier::AddRegisterRange(unsigned iRP,
       DXASSERT_NOMSG(false);
       break;
     }
-    ErrorRootSignature(pErrors,
-      "Shader register range of type %s %s overlaps with another shader register range %s.\n",
-      RangeTypeString(DescType), testString, nodeString);
-    return E_FAIL;
+    EAT(DiagPrinter << "Shader register range of type " << RangeTypeString(DescType)
+                    << " " << testString << " overlaps with another "
+                    << "shader register range " << nodeString << ".\n");
   }
 
   // Insert node.
   GetRanges(VisType, DescType).Insert(interval);
+}
 
-  return S_OK;
+const RootSignatureVerifier::RegisterRange *
+RootSignatureVerifier::FindCoveringInterval(DxilDescriptorRangeType RangeType,
+                                            DxilShaderVisibility VisType,
+                                            unsigned Num,
+                                            unsigned LB,
+                                            unsigned Space) {
+  RegisterRange RR;
+  RR.space = Space;
+  RR.lb = LB;
+  RR.ub = LB + Num - 1;
+  const RootSignatureVerifier::RegisterRange *pRange = GetRanges(DxilShaderVisibility::All, RangeType).FindIntersectingInterval(RR);
+  if (!pRange && VisType != DxilShaderVisibility::All) {
+    pRange = GetRanges(VisType, RangeType).FindIntersectingInterval(RR);
+  }
+  if (pRange && !pRange->contains(RR)) {
+    pRange = nullptr;
+  }
+  return pRange;
 }
 
 static DxilDescriptorRangeType GetRangeType(DxilRootParameterType RPT) {
@@ -609,13 +601,10 @@ static DxilDescriptorRangeType GetRangeType(DxilRootParameterType RPT) {
   return DxilDescriptorRangeType::SRV;
 }
 
-HRESULT RootSignatureVerifier::VerifyRootSignature(const DxilVersionedRootSignatureDesc *pVersionedRootSignature,
-  IStream *pErrors)
-{
-  const DxilVersionedRootSignatureDesc *pUpconvertedRS = NULL;
-  if (pVersionedRootSignature == nullptr) {
-    return E_INVALIDARG;
-  }
+void RootSignatureVerifier::VerifyRootSignature(
+                                const DxilVersionedRootSignatureDesc *pVersionedRootSignature,
+                                DiagnosticPrinter &DiagPrinter) {
+  const DxilVersionedRootSignatureDesc *pUpconvertedRS = nullptr;
 
   // Up-convert root signature to the latest RS version.
   ConvertRootSignature(pVersionedRootSignature, DxilRootSignatureVersion::Version_1_1, &pUpconvertedRS);
@@ -637,122 +626,99 @@ HRESULT RootSignatureVerifier::VerifyRootSignature(const DxilVersionedRootSignat
   const DxilRootSignatureDesc1 *pRootSignature = &pUpconvertedRS->Desc_1_1;
 
   // Flags (assume they are bits that can be combined with OR).
-  if ((unsigned)(pRootSignature->Flags & ~DxilRootSignatureFlags::ValidFlags) != 0)
-  {
-    ErrorRootSignature(pErrors,
-      "Unsupported bit-flag set (root signature flags %x).\n", pRootSignature->Flags);
-    return E_FAIL;
+  if ((pRootSignature->Flags & ~DxilRootSignatureFlags::ValidFlags) != DxilRootSignatureFlags::None) {
+    EAT(DiagPrinter << "Unsupported bit-flag set (root signature flags " 
+                    << std::hex << (uint32_t)pRootSignature->Flags << ").\n");
   }
 
   m_RootSignatureFlags = pRootSignature->Flags;
 
-  for (unsigned iRP = 0; iRP < pRootSignature->NumParameters; iRP++)
-  {
+  for (unsigned iRP = 0; iRP < pRootSignature->NumParameters; iRP++) {
     const DxilRootParameter1 *pSlot = &pRootSignature->pParameters[iRP];
     // Shader visibility.
     DxilShaderVisibility Visibility = pSlot->ShaderVisibility;
     if (!IsDxilShaderVisibility(Visibility)) {
-      ErrorRootSignature(pErrors,
-        "Unsupported ShaderVisibility value %u (root parameter [%u]).\n", Visibility, iRP);
-      return E_FAIL;
+      EAT(DiagPrinter << "Unsupported ShaderVisibility value " << (uint32_t)Visibility
+                      << " (root parameter [" << iRP << "]).\n");
     }
 
     DxilRootParameterType ParameterType = pSlot->ParameterType;
-    switch (ParameterType)
-    {
-    case DxilRootParameterType::DescriptorTable:
-    {
+    switch (ParameterType) {
+    case DxilRootParameterType::DescriptorTable: {
       DescriptorTableVerifier DTV;
-      IFR(DTV.Verify(pSlot->DescriptorTable.pDescriptorRanges,
-                     pSlot->DescriptorTable.NumDescriptorRanges, iRP, pErrors));
+      DTV.Verify(pSlot->DescriptorTable.pDescriptorRanges,
+                 pSlot->DescriptorTable.NumDescriptorRanges, iRP, DiagPrinter);
 
-      for (unsigned iDTS = 0; iDTS < pSlot->DescriptorTable.NumDescriptorRanges; iDTS++)
-      {
+      for (unsigned iDTS = 0; iDTS < pSlot->DescriptorTable.NumDescriptorRanges; iDTS++) {
         const DxilDescriptorRange1 *pRange = &pSlot->DescriptorTable.pDescriptorRanges[iDTS];
         unsigned RangeFlags = (unsigned)pRange->Flags;
 
         // Verify range flags.
-        if (RangeFlags & ~(unsigned)DxilDescriptorRangeFlags::ValidFlags)
-        {
-          ErrorRootSignature(pErrors,
-            "Unsupported bit-flag set (descriptor range flags %x).\n", pRange->Flags);
-          return E_FAIL;
+        if (RangeFlags & ~(unsigned)DxilDescriptorRangeFlags::ValidFlags) {
+          EAT(DiagPrinter << "Unsupported bit-flag set (descriptor range flags "
+                          << (uint32_t)pRange->Flags << ").\n");
         }
-        switch (pRange->RangeType)
-        {
-        case DxilDescriptorRangeType::Sampler:
-        {
-          if (RangeFlags & (unsigned)(
-            DxilDescriptorRangeFlags::DataVolatile |
-            DxilDescriptorRangeFlags::DataStatic |
-            DxilDescriptorRangeFlags::DataStaticWhileSetAtExecute))
-          {
-            ErrorRootSignature(pErrors,
-              "Sampler descriptor ranges can't specify DATA_* flags since there is no data pointed to by samplers (descriptor range flags %x).\n", pRange->Flags);
-            return E_FAIL;
+        switch (pRange->RangeType) {
+        case DxilDescriptorRangeType::Sampler: {
+          if (RangeFlags & (unsigned)(DxilDescriptorRangeFlags::DataVolatile |
+                                      DxilDescriptorRangeFlags::DataStatic |
+                                      DxilDescriptorRangeFlags::DataStaticWhileSetAtExecute)) {
+            EAT(DiagPrinter << "Sampler descriptor ranges can't specify DATA_* flags "
+                            << "since there is no data pointed to by samplers "
+                            << "(descriptor range flags " << (uint32_t)pRange->Flags << ").\n");
           }
           break;
         }
-        default:
-        {
+        default: {
           unsigned NumDataFlags = 0;
           if (RangeFlags & (unsigned)DxilDescriptorRangeFlags::DataVolatile) { NumDataFlags++; }
           if (RangeFlags & (unsigned)DxilDescriptorRangeFlags::DataStatic) { NumDataFlags++; }
           if (RangeFlags & (unsigned)DxilDescriptorRangeFlags::DataStaticWhileSetAtExecute) { NumDataFlags++; }
-          if (NumDataFlags > 1)
-          {
-            ErrorRootSignature(pErrors,
-              "Descriptor range flags cannot specify more than one DATA_* flag at a time (descriptor range flags %x).\n", pRange->Flags);
-            return E_FAIL;
+          if (NumDataFlags > 1) {
+            EAT(DiagPrinter << "Descriptor range flags cannot specify more than one DATA_* flag "
+                            << "at a time (descriptor range flags " << (uint32_t)pRange->Flags << ").\n");
           }
-          if ((RangeFlags & (unsigned)DxilDescriptorRangeFlags::DataStatic) && (RangeFlags & (unsigned)DxilDescriptorRangeFlags::DescriptorsVolatile))
-          {
-            ErrorRootSignature(pErrors,
-              "Descriptor range flags cannot specify DESCRIPTORS_VOLATILE with the DATA_STATIC flag at the same time (descriptor range flags %x). "
-              "DATA_STATIC_WHILE_SET_AT_EXECUTE is fine to combine with DESCRIPTORS_VOLATILE, since DESCRIPTORS_VOLATILE still requires descriptors don't change during execution. \n", pRange->Flags);
-            return E_FAIL;
+          if ((RangeFlags & (unsigned)DxilDescriptorRangeFlags::DataStatic) && 
+              (RangeFlags & (unsigned)DxilDescriptorRangeFlags::DescriptorsVolatile)) {
+            EAT(DiagPrinter << "Descriptor range flags cannot specify DESCRIPTORS_VOLATILE with the DATA_STATIC flag at the same time (descriptor range flags " << (uint32_t)pRange->Flags << "). "
+                            << "DATA_STATIC_WHILE_SET_AT_EXECUTE is fine to combine with DESCRIPTORS_VOLATILE, since DESCRIPTORS_VOLATILE still requires descriptors don't change during execution. \n");
           }
           break;
         }
         }
 
-        IFR(AddRegisterRange(iRP,
-          DESCRIPTOR_TABLE_ENTRY,
-          iDTS,
-          pRange->RangeType,
-          Visibility,
-          pRange->NumDescriptors,
-          pRange->BaseShaderRegister,
-          pRange->RegisterSpace,
-          pErrors));
+        AddRegisterRange(iRP,
+                         DESCRIPTOR_TABLE_ENTRY,
+                         iDTS,
+                         pRange->RangeType,
+                         Visibility,
+                         pRange->NumDescriptors,
+                         pRange->BaseShaderRegister,
+                         pRange->RegisterSpace,
+                         DiagPrinter);
       }
-
       break;
     }
 
     case DxilRootParameterType::Constants32Bit:
-      IFR(AddRegisterRange(iRP,
-        ROOT_CONSTANT,
-        (unsigned)-1,
-        DxilDescriptorRangeType::CBV,
-        Visibility,
-        1,
-        pSlot->Constants.ShaderRegister,
-        pSlot->Constants.RegisterSpace,
-        pErrors));
+      AddRegisterRange(iRP,
+                       ROOT_CONSTANT,
+                       (unsigned)-1,
+                       DxilDescriptorRangeType::CBV,
+                       Visibility,
+                       1,
+                       pSlot->Constants.ShaderRegister,
+                       pSlot->Constants.RegisterSpace,
+                       DiagPrinter);
       break;
 
     case DxilRootParameterType::CBV:
     case DxilRootParameterType::SRV:
-    case DxilRootParameterType::UAV:
-    {
+    case DxilRootParameterType::UAV: {
       // Verify root descriptor flags.
       unsigned Flags = (unsigned)pSlot->Descriptor.Flags;
-      if (Flags & ~(unsigned)DxilRootDescriptorFlags::ValidFlags)
-      {
-        ErrorRootSignature(pErrors,
-          "Unsupported bit-flag set (root descriptor flags %x).\n", Flags);
-        return E_FAIL;
+      if (Flags & ~(unsigned)DxilRootDescriptorFlags::ValidFlags) {
+        EAT(DiagPrinter << "Unsupported bit-flag set (root descriptor flags " << std::hex << Flags << ").\n");
       }
 
       unsigned NumDataFlags = 0;
@@ -760,46 +726,172 @@ HRESULT RootSignatureVerifier::VerifyRootSignature(const DxilVersionedRootSignat
       if (Flags & (unsigned)DxilRootDescriptorFlags::DataStatic) { NumDataFlags++; }
       if (Flags & (unsigned)DxilRootDescriptorFlags::DataStaticWhileSetAtExecute) { NumDataFlags++; }
       if (NumDataFlags > 1) {
-        ErrorRootSignature(pErrors, "Root descriptor flags cannot specify more "
-                                    "than one DATA_* flag at a time (root "
-                                    "descriptor flags %x).\n",
-                           Flags);
-        return E_FAIL;
+        EAT(DiagPrinter << "Root descriptor flags cannot specify more "
+                        << "than one DATA_* flag at a time (root "
+                        << "descriptor flags " << NumDataFlags << ").\n");
       }
 
-      IFR(AddRegisterRange(iRP, ROOT_DESCRIPTOR, (unsigned)-1,
-                           GetRangeType(ParameterType), Visibility, 1,
-                           pSlot->Descriptor.ShaderRegister,
-                           pSlot->Descriptor.RegisterSpace, pErrors));
+      AddRegisterRange(iRP, ROOT_DESCRIPTOR, (unsigned)-1,
+                       GetRangeType(ParameterType), Visibility, 1,
+                       pSlot->Descriptor.ShaderRegister,
+                       pSlot->Descriptor.RegisterSpace, DiagPrinter);
       break;
     }
 
     default:
-      ErrorRootSignature(pErrors,
-        "Unsupported ParameterType value %u (root parameter %u)\n", ParameterType, iRP);
-      return E_FAIL;
+      EAT(DiagPrinter << "Unsupported ParameterType value " << (uint32_t)ParameterType
+                      << " (root parameter " << iRP << ")\n");
     }
   }
 
-  for (unsigned iSS = 0; iSS < pRootSignature->NumStaticSamplers; iSS++)
-  {
+  for (unsigned iSS = 0; iSS < pRootSignature->NumStaticSamplers; iSS++) {
     const DxilStaticSamplerDesc *pSS = &pRootSignature->pStaticSamplers[iSS];
     // Shader visibility.
     DxilShaderVisibility Visibility = pSS->ShaderVisibility;
     if (!IsDxilShaderVisibility(Visibility)) {
-      ErrorRootSignature(pErrors,
-        "Unsupported ShaderVisibility value %u (static sampler [%u]).\n", Visibility, iSS);
-      return E_FAIL;
+      EAT(DiagPrinter << "Unsupported ShaderVisibility value " << (uint32_t)Visibility
+                      << " (static sampler [" << iSS << "]).\n");
     }
 
     StaticSamplerVerifier SSV;
-    IFR(SSV.Verify(pSS, pErrors));
-    IFR(AddRegisterRange(iSS, STATIC_SAMPLER, (unsigned)-1,
-                         DxilDescriptorRangeType::Sampler, Visibility, 1,
-                         pSS->ShaderRegister, pSS->RegisterSpace, pErrors));
+    SSV.Verify(pSS, DiagPrinter);
+    AddRegisterRange(iSS, STATIC_SAMPLER, (unsigned)-1,
+                     DxilDescriptorRangeType::Sampler, Visibility, 1,
+                     pSS->ShaderRegister, pSS->RegisterSpace, DiagPrinter);
+  }
+}
+
+void RootSignatureVerifier::VerifyShader(DxilShaderVisibility VisType,
+                                         const void *pPSVData,
+                                         uint32_t PSVSize,
+                                         DiagnosticPrinter &DiagPrinter) {
+  DxilPipelineStateValidation PSV;
+  IFTBOOL(PSV.InitFromPSV0(pPSVData, PSVSize), E_INVALIDARG);
+
+  bool bShaderDeniedByRootSig = false;
+  switch (VisType) {
+  case DxilShaderVisibility::Vertex:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyVertexShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Hull:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyHullShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Domain:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyDomainShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Geometry:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyGeometryShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
+  case DxilShaderVisibility::Pixel:
+    if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyPixelShaderRootAccess) != DxilRootSignatureFlags::None) {
+      bShaderDeniedByRootSig = true;
+    }
+    break;
   }
 
-  return S_OK;
+  bool bShaderHasRootBindings = false;
+
+  for (unsigned iResource = 0; iResource < PSV.GetBindCount(); iResource++) {
+    const PSVResourceBindInfo0 *pBindInfo0 = PSV.GetPSVResourceBindInfo0(iResource);
+    DXASSERT_NOMSG(pBindInfo0);
+
+    unsigned Space = pBindInfo0->Space;
+    unsigned LB = pBindInfo0->LowerBound;
+    unsigned UB = pBindInfo0->UpperBound;
+    unsigned Num = (UB != UINT_MAX) ? (UB - LB + 1) : 1;
+    PSVResourceType ResType = (PSVResourceType)pBindInfo0->ResType;
+
+    switch(ResType) {
+    case PSVResourceType::Sampler: {
+      bShaderHasRootBindings = true;
+      auto pCoveringRange = FindCoveringInterval(DxilDescriptorRangeType::Sampler, VisType, Num, LB, Space);
+      if(!pCoveringRange) {
+        EAT(DiagPrinter << "Shader sampler descriptor range (RegisterSpace=" << Space 
+                        << ", NumDescriptors=" << Num << ", BaseShaderRegister=" << LB 
+                        << ") is not fully bound in root signature.\n");
+      }
+      break;
+    }
+
+    case PSVResourceType::SRVTyped:
+    case PSVResourceType::SRVRaw:
+    case PSVResourceType::SRVStructured: {
+      bShaderHasRootBindings = true;
+      auto pCoveringRange = FindCoveringInterval(DxilDescriptorRangeType::SRV, VisType, Num, LB, Space);
+      if (pCoveringRange) {
+        if(pCoveringRange->nt == ROOT_DESCRIPTOR && ResType == PSVResourceType::SRVTyped) {
+          EAT(DiagPrinter << "A Shader is declaring a resource object as a texture using "
+                          << "a register mapped to a root descriptor SRV (RegisterSpace=" << Space
+                          << ", ShaderRegister=" << LB << ").  "
+                          << "SRV or UAV root descriptors can only be Raw or Structured buffers.\n");
+        }
+      }
+      else {
+        EAT(DiagPrinter << "Shader SRV descriptor range (RegisterSpace=" << Space
+                        << ", NumDescriptors=" << Num << ", BaseShaderRegister=" << LB
+                        << ") is not fully bound in root signature.\n");
+      }
+      break;
+    }
+
+    case PSVResourceType::UAVTyped:
+    case PSVResourceType::UAVRaw:
+    case PSVResourceType::UAVStructured:
+    case PSVResourceType::UAVStructuredWithCounter: {
+      bShaderHasRootBindings = true;
+      auto pCoveringRange = FindCoveringInterval(DxilDescriptorRangeType::UAV, VisType, Num, LB, Space);
+      if (pCoveringRange) {
+        if (pCoveringRange->nt == ROOT_DESCRIPTOR) {
+          if (ResType == PSVResourceType::UAVTyped) {
+            EAT(DiagPrinter << "A shader is declaring a typed UAV using a register mapped "
+                            << "to a root descriptor UAV (RegisterSpace=" << Space 
+                            << ", ShaderRegister=" << LB << ").  "
+                            << "SRV or UAV root descriptors can only be Raw or Structured buffers.\n");
+          }
+          if (ResType == PSVResourceType::UAVStructuredWithCounter) {
+            EAT(DiagPrinter << "A Shader is declaring a structured UAV with counter using "
+                            << "a register mapped to a root descriptor UAV (RegisterSpace=" << Space
+                            << ", ShaderRegister=" << LB << ").  "
+                            << "SRV or UAV root descriptors can only be Raw or Structured buffers.\n");
+          }
+        }
+      }
+      else {
+        EAT(DiagPrinter << "Shader UAV descriptor range (RegisterSpace=" << Space
+                        << ", NumDescriptors=" << Num << ", BaseShaderRegister=" << LB
+                        << ") is not fully bound in root signature.\n");
+      }
+      break;
+    }
+
+    case PSVResourceType::CBV: {
+      bShaderHasRootBindings = true;
+      auto pCoveringRange = FindCoveringInterval(DxilDescriptorRangeType::CBV, VisType, Num, LB, Space);
+      if (!pCoveringRange) {
+        EAT(DiagPrinter << "Shader CBV descriptor range (RegisterSpace=" << Space
+                        << ", NumDescriptors=" << Num << ", BaseShaderRegister=" << LB
+                        << ") is not fully bound in root signature.\n");
+      }
+      break;
+    }
+
+    default:
+      break;
+    }
+  }
+
+  if (bShaderHasRootBindings && bShaderDeniedByRootSig) {
+    EAT(DiagPrinter << "Shader has root bindings but root signature uses a DENY flag "
+                    << "to disallow root binding access to the shader stage.\n");
+  }
 }
 
 BOOL isNaN(const float &a) {
@@ -818,17 +910,14 @@ static bool IsDxilComparisonFunc(DxilComparisonFunc v) {
 }
 
 // This validation closely mirrors CCreateSamplerStateValidator's checks
-HRESULT StaticSamplerVerifier::Verify(const DxilStaticSamplerDesc* pDesc, IStream* pErrors)
-{
+void StaticSamplerVerifier::Verify(const DxilStaticSamplerDesc* pDesc,
+                                   DiagnosticPrinter &DiagPrinter) {
   if (!pDesc) {
-    ErrorRootSignature(pErrors,
-                       "Static sampler: A NULL pSamplerDesc was specified.");
-    return E_INVALIDARG;
+    EAT(DiagPrinter << "Static sampler: A nullptr pSamplerDesc was specified.\n");
   }
 
   bool bIsComparison = false;
-  switch (pDesc->Filter)
-  {
+  switch (pDesc->Filter) {
   case DxilFilter::MINIMUM_MIN_MAG_MIP_POINT:
   case DxilFilter::MINIMUM_MIN_MAG_POINT_MIP_LINEAR:
   case DxilFilter::MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT:
@@ -870,61 +959,45 @@ HRESULT StaticSamplerVerifier::Verify(const DxilStaticSamplerDesc* pDesc, IStrea
     bIsComparison = true;
     break;
   default:
-    ErrorRootSignature(pErrors, "Static sampler: Filter unrecognized.");
-    return E_FAIL;
+    EAT(DiagPrinter << "Static sampler: Filter unrecognized.\n");
   }
 
   if (!IsDxilTextureAddressMode(pDesc->AddressU)) {
-    ErrorRootSignature(pErrors, "Static sampler: AddressU unrecognized.");
-    return E_FAIL;
+    EAT(DiagPrinter << "Static sampler: AddressU unrecognized.\n");
   }
   if (!IsDxilTextureAddressMode(pDesc->AddressV)) {
-    ErrorRootSignature(pErrors, "Static sampler: AddressV unrecognized.");
-    return E_FAIL;
+    EAT(DiagPrinter << "Static sampler: AddressV unrecognized.\n");
   }
   if (!IsDxilTextureAddressMode(pDesc->AddressW)) {
-    ErrorRootSignature(pErrors, "Static sampler: AddressW unrecognized.");
-    return E_FAIL;
+    EAT(DiagPrinter << "Static sampler: AddressW unrecognized.\n");
   }
 
   if (isNaN(pDesc->MipLODBias) || (pDesc->MipLODBias < DxilMipLodBiaxMin) ||
       (pDesc->MipLODBias > DxilMipLodBiaxMax)) {
-    ErrorRootSignature(pErrors, "Static sampler: MipLODBias must be in the "
-                                "range [%f to %f].  %f specified.",
-                       DxilMipLodBiaxMin, DxilMipLodBiaxMax, pDesc->MipLODBias);
-    return E_FAIL;
+    EAT(DiagPrinter << "Static sampler: MipLODBias must be in the "
+                    << "range [" << DxilMipLodBiaxMin << " to " << DxilMipLodBiaxMax
+                    <<"].  " << pDesc->MipLODBias << "specified.\n");
   }
 
-  if (pDesc->MaxAnisotropy > DxilMapAnisotropy)
-  {
-    ErrorRootSignature(pErrors,
-      "Static sampler: MaxAnisotropy must be in the range [0 to %d].  %d specified.",
-      DxilMapAnisotropy, pDesc->MaxAnisotropy);
-    return E_FAIL;
+  if (pDesc->MaxAnisotropy > DxilMapAnisotropy) {
+    EAT(DiagPrinter << "Static sampler: MaxAnisotropy must be in "
+                    << "the range [0 to " << DxilMapAnisotropy << "].  "
+                    << pDesc->MaxAnisotropy << " specified.\n");
   }
 
   if (bIsComparison && !IsDxilComparisonFunc(pDesc->ComparisonFunc)) {
-    ErrorRootSignature(pErrors, "Static sampler: ComparisonFunc unrecognized.");
-    return E_FAIL;
+    EAT(DiagPrinter << "Static sampler: ComparisonFunc unrecognized.");
   }
 
   if (isNaN(pDesc->MinLOD)) {
-    ErrorRootSignature(
-        pErrors,
-        "Static sampler: MinLOD be in the range [-INF to +INF].  %f specified.",
-        pDesc->MinLOD);
-    return E_FAIL;
+    EAT(DiagPrinter << "Static sampler: MinLOD be in the range [-INF to +INF].  "
+                    << pDesc->MinLOD << " specified.\n");
   }
 
   if (isNaN(pDesc->MaxLOD)) {
-    ErrorRootSignature(
-        pErrors,
-        "Static sampler: MaxLOD be in the range [-INF to +INF].  %f specified.",
-        pDesc->MaxLOD);
-    return E_FAIL;
+    EAT(DiagPrinter << "Static sampler: MaxLOD be in the range [-INF to +INF].  "
+                    << pDesc->MaxLOD << " specified.\n");
   }
-
-  return S_OK;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1038,54 +1111,47 @@ template<typename IN_DXIL_ROOT_SIGNATURE_DESC,
   typename OUT_DXIL_ROOT_PARAMETER,
   typename OUT_DXIL_ROOT_DESCRIPTOR,
   typename OUT_DXIL_DESCRIPTOR_RANGE>
-HRESULT ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC & DescIn,
-    DxilRootSignatureVersion DescVersionOut,
-    OUT_DXIL_ROOT_SIGNATURE_DESC & DescOut)
+void ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC &DescIn,
+                                  DxilRootSignatureVersion DescVersionOut,
+                                  OUT_DXIL_ROOT_SIGNATURE_DESC &DescOut)
 {
-  HRESULT hr = S_OK;
-  const IN_DXIL_ROOT_SIGNATURE_DESC * pDescIn = &DescIn;
-  OUT_DXIL_ROOT_SIGNATURE_DESC * pDescOut = &DescOut;
+  const IN_DXIL_ROOT_SIGNATURE_DESC *pDescIn = &DescIn;
+  OUT_DXIL_ROOT_SIGNATURE_DESC *pDescOut = &DescOut;
 
   // Root signature descriptor.
   pDescOut->Flags = pDescIn->Flags;
   pDescOut->NumParameters = 0;
   pDescOut->NumStaticSamplers = 0;
   // Intialize all pointers early so that clean up works properly.
-  pDescOut->pParameters = NULL;
-  pDescOut->pStaticSamplers = NULL;
+  pDescOut->pParameters = nullptr;
+  pDescOut->pStaticSamplers = nullptr;
 
   // Root signature parameters.
-  if (pDescIn->NumParameters > 0)
-  {
-    IFCOOM(pDescOut->pParameters = new (std::nothrow) OUT_DXIL_ROOT_PARAMETER[pDescIn->NumParameters]);
+  if (pDescIn->NumParameters > 0) {
+    pDescOut->pParameters = new OUT_DXIL_ROOT_PARAMETER[pDescIn->NumParameters];
     pDescOut->NumParameters = pDescIn->NumParameters;
     memset((void *)pDescOut->pParameters, 0, pDescOut->NumParameters*sizeof(OUT_DXIL_ROOT_PARAMETER));
   }
 
-  for (unsigned iRP = 0; iRP < pDescIn->NumParameters; iRP++)
-  {
-    const auto & ParamIn = pDescIn->pParameters[iRP];
-    OUT_DXIL_ROOT_PARAMETER & ParamOut = (OUT_DXIL_ROOT_PARAMETER &)pDescOut->pParameters[iRP];
+  for (unsigned iRP = 0; iRP < pDescIn->NumParameters; iRP++) {
+    const auto &ParamIn = pDescIn->pParameters[iRP];
+    OUT_DXIL_ROOT_PARAMETER &ParamOut = (OUT_DXIL_ROOT_PARAMETER &)pDescOut->pParameters[iRP];
 
     ParamOut.ParameterType = ParamIn.ParameterType;
     ParamOut.ShaderVisibility = ParamIn.ShaderVisibility;
 
-    switch (ParamIn.ParameterType)
-    {
-    case DxilRootParameterType::DescriptorTable:
-    {
-      ParamOut.DescriptorTable.pDescriptorRanges = NULL;
+    switch (ParamIn.ParameterType) {
+    case DxilRootParameterType::DescriptorTable: {
+      ParamOut.DescriptorTable.pDescriptorRanges = nullptr;
       unsigned NumRanges = ParamIn.DescriptorTable.NumDescriptorRanges;
-      if (NumRanges > 0)
-      {
-        IFCOOM(ParamOut.DescriptorTable.pDescriptorRanges = new (std::nothrow) OUT_DXIL_DESCRIPTOR_RANGE[NumRanges]);
+      if (NumRanges > 0) {
+        ParamOut.DescriptorTable.pDescriptorRanges = new OUT_DXIL_DESCRIPTOR_RANGE[NumRanges];
         ParamOut.DescriptorTable.NumDescriptorRanges = NumRanges;
       }
 
-      for (unsigned i = 0; i < NumRanges; i++)
-      {
-        const auto & RangeIn = ParamIn.DescriptorTable.pDescriptorRanges[i];
-        OUT_DXIL_DESCRIPTOR_RANGE & RangeOut = (OUT_DXIL_DESCRIPTOR_RANGE &)ParamOut.DescriptorTable.pDescriptorRanges[i];
+      for (unsigned i = 0; i < NumRanges; i++) {
+        const auto &RangeIn = ParamIn.DescriptorTable.pDescriptorRanges[i];
+        OUT_DXIL_DESCRIPTOR_RANGE &RangeOut = (OUT_DXIL_DESCRIPTOR_RANGE &)ParamOut.DescriptorTable.pDescriptorRanges[i];
 
         RangeOut.RangeType = RangeIn.RangeType;
         RangeOut.NumDescriptors = RangeIn.NumDescriptors;
@@ -1097,8 +1163,7 @@ HRESULT ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC & DescIn,
       }
       break;
     }
-    case DxilRootParameterType::Constants32Bit:
-    {
+    case DxilRootParameterType::Constants32Bit: {
       ParamOut.Constants.Num32BitValues = ParamIn.Constants.Num32BitValues;
       ParamOut.Constants.ShaderRegister = ParamIn.Constants.ShaderRegister;
       ParamOut.Constants.RegisterSpace = ParamIn.Constants.RegisterSpace;
@@ -1106,8 +1171,7 @@ HRESULT ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC & DescIn,
     }
     case DxilRootParameterType::CBV:
     case DxilRootParameterType::SRV:
-    case DxilRootParameterType::UAV:
-    {
+    case DxilRootParameterType::UAV: {
       ParamOut.Descriptor.ShaderRegister = ParamIn.Descriptor.ShaderRegister;
       ParamOut.Descriptor.RegisterSpace = ParamIn.Descriptor.RegisterSpace;
       DxilRootDescriptorFlags Flags = GetFlags(ParamIn.Descriptor);
@@ -1115,116 +1179,101 @@ HRESULT ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC & DescIn,
       break;
     }
     default:
-      IFC(E_FAIL);
+      IFT(E_FAIL);
     }
   }
 
   // Static samplers.
-  if (pDescIn->NumStaticSamplers > 0)
-  {
-    IFCOOM(pDescOut->pStaticSamplers = new (std::nothrow) DxilStaticSamplerDesc[pDescIn->NumStaticSamplers]);
+  if (pDescIn->NumStaticSamplers > 0) {
+    pDescOut->pStaticSamplers = new DxilStaticSamplerDesc[pDescIn->NumStaticSamplers];
     pDescOut->NumStaticSamplers = pDescIn->NumStaticSamplers;
     memcpy((void*)pDescOut->pStaticSamplers, pDescIn->pStaticSamplers, pDescOut->NumStaticSamplers*sizeof(DxilStaticSamplerDesc));
   }
-
-Cleanup:
-  // Note that in case of failure, outside code must deallocate memory.
-  return hr;
 }
 
 void ConvertRootSignature(const DxilVersionedRootSignatureDesc * pRootSignatureIn,
-  DxilRootSignatureVersion RootSignatureVersionOut,
-  const DxilVersionedRootSignatureDesc ** ppRootSignatureOut)
-{
-  HRESULT hr = S_OK;
-  DxilVersionedRootSignatureDesc *pRootSignatureOut = NULL;
-  if (pRootSignatureIn == NULL || ppRootSignatureOut == NULL)
-  {
-    IFC(E_INVALIDARG);
-  }
-  *ppRootSignatureOut = NULL;
+                          DxilRootSignatureVersion RootSignatureVersionOut,
+                          const DxilVersionedRootSignatureDesc ** ppRootSignatureOut) {
+  IFTBOOL(pRootSignatureIn != nullptr && ppRootSignatureOut != nullptr, E_INVALIDARG);
+  *ppRootSignatureOut = nullptr;
 
-  if (pRootSignatureIn->Version == RootSignatureVersionOut)
-  {
+  if (pRootSignatureIn->Version == RootSignatureVersionOut){
     // No conversion. Return the original root signature pointer; no cloning.
     *ppRootSignatureOut = pRootSignatureIn;
-    goto Cleanup;
+    return;
   }
 
-  IFCOOM(pRootSignatureOut = new (std::nothrow) DxilVersionedRootSignatureDesc());
-  memset(pRootSignatureOut, 0, sizeof(*pRootSignatureOut));
+  DxilVersionedRootSignatureDesc *pRootSignatureOut = nullptr;
 
-  // Convert root signature.
-  switch (RootSignatureVersionOut)
-  {
-  case DxilRootSignatureVersion::Version_1_0:
-    switch (pRootSignatureIn->Version)
-    {
-    case DxilRootSignatureVersion::Version_1_1:
-      pRootSignatureOut->Version = DxilRootSignatureVersion::Version_1_0;
-      hr = ConvertRootSignatureTemplate<
-        DxilRootSignatureDesc1,
-        DxilRootSignatureDesc,
-        DxilRootParameter,
-        DxilRootDescriptor,
-        DxilDescriptorRange>(pRootSignatureIn->Desc_1_1,
-          DxilRootSignatureVersion::Version_1_0,
-          pRootSignatureOut->Desc_1_0);
-      IFC(hr);
-      break;
-    default:
-      IFC(E_INVALIDARG);
-    }
-    break;
+  try {
+    pRootSignatureOut = new DxilVersionedRootSignatureDesc();
+    memset(pRootSignatureOut, 0, sizeof(*pRootSignatureOut));
 
-  case DxilRootSignatureVersion::Version_1_1:
-    switch (pRootSignatureIn->Version)
-    {
+    // Convert root signature.
+    switch (RootSignatureVersionOut) {
     case DxilRootSignatureVersion::Version_1_0:
-      pRootSignatureOut->Version = DxilRootSignatureVersion::Version_1_1;
-      hr = ConvertRootSignatureTemplate<
-        DxilRootSignatureDesc,
-        DxilRootSignatureDesc1,
-        DxilRootParameter1,
-        DxilRootDescriptor1,
-        DxilDescriptorRange1>(pRootSignatureIn->Desc_1_0,
-          DxilRootSignatureVersion::Version_1_1,
-          pRootSignatureOut->Desc_1_1);
-      IFC(hr);
+      switch (pRootSignatureIn->Version) {
+      case DxilRootSignatureVersion::Version_1_1:
+        pRootSignatureOut->Version = DxilRootSignatureVersion::Version_1_0;
+        ConvertRootSignatureTemplate<
+          DxilRootSignatureDesc1,
+          DxilRootSignatureDesc,
+          DxilRootParameter,
+          DxilRootDescriptor,
+          DxilDescriptorRange>(pRootSignatureIn->Desc_1_1,
+            DxilRootSignatureVersion::Version_1_0,
+            pRootSignatureOut->Desc_1_0);
+        break;
+      default:
+        IFT(E_INVALIDARG);
+      }
       break;
+
+    case DxilRootSignatureVersion::Version_1_1:
+      switch (pRootSignatureIn->Version) {
+      case DxilRootSignatureVersion::Version_1_0:
+        pRootSignatureOut->Version = DxilRootSignatureVersion::Version_1_1;
+        ConvertRootSignatureTemplate<
+          DxilRootSignatureDesc,
+          DxilRootSignatureDesc1,
+          DxilRootParameter1,
+          DxilRootDescriptor1,
+          DxilDescriptorRange1>(pRootSignatureIn->Desc_1_0,
+            DxilRootSignatureVersion::Version_1_1,
+            pRootSignatureOut->Desc_1_1);
+        break;
+      default:
+        IFT(E_INVALIDARG);
+      }
+      break;
+
     default:
-      IFC(E_INVALIDARG);
+      IFT(E_INVALIDARG);
+      break;
     }
-    break;
-
-  default:
-    IFC(E_INVALIDARG);
-    break;
   }
-  *ppRootSignatureOut = pRootSignatureOut;
-
-Cleanup:
-  if (FAILED(hr)) {
+  catch (...) {
     DeleteRootSignature(pRootSignatureOut);
-    IFT(hr);
+    throw;
   }
+
+  *ppRootSignatureOut = pRootSignatureOut;
 }
 
 template<typename T_ROOT_SIGNATURE_DESC,
   typename T_ROOT_PARAMETER,
   typename T_ROOT_DESCRIPTOR_INTERNAL,
   typename T_DESCRIPTOR_RANGE_INTERNAL>
-HRESULT SerializeRootSignatureTemplate(__in const T_ROOT_SIGNATURE_DESC* pRootSignature,
-    DxilRootSignatureVersion DescVersion,
-    _COM_Outptr_ IDxcBlob** ppBlob,
-    _COM_Outptr_ IStream* pErrors,
-    __in bool bAllowReservedRegisterSpace)
-{
+void SerializeRootSignatureTemplate(__in const T_ROOT_SIGNATURE_DESC* pRootSignature,
+                                    DxilRootSignatureVersion DescVersion,
+                                    _COM_Outptr_ IDxcBlob** ppBlob,
+                                    DiagnosticPrinter &DiagPrinter,
+                                    __in bool bAllowReservedRegisterSpace) {
   DxilContainerRootSignatureDesc RS;
-  UINT Offset;
+  uint32_t Offset;
   SimpleSerializer Serializer;
-  IFR(Serializer.AddBlock(&RS, sizeof(RS), &Offset));
-  IFRBOOL(Offset == 0, E_FAIL);
+  IFT(Serializer.AddBlock(&RS, sizeof(RS), &Offset));
+  IFTBOOL(Offset == 0, E_FAIL);
 
   const T_ROOT_SIGNATURE_DESC *pRS = pRootSignature;
   RS.Version = (uint32_t)DescVersion;
@@ -1233,28 +1282,28 @@ HRESULT SerializeRootSignatureTemplate(__in const T_ROOT_SIGNATURE_DESC* pRootSi
   RS.NumStaticSamplers = pRS->NumStaticSamplers;
 
   DxilContainerRootParameter *pRP;
-  IFR(Serializer.ReserveBlock((void**)&pRP,
+  IFT(Serializer.ReserveBlock((void**)&pRP,
     sizeof(DxilContainerRootParameter)*RS.NumParameters, &RS.RootParametersOffset));
-  for (UINT iRP = 0; iRP < RS.NumParameters; iRP++)
-  {
+
+  for (uint32_t iRP = 0; iRP < RS.NumParameters; iRP++) {
     const T_ROOT_PARAMETER *pInRP = &pRS->pParameters[iRP];
     DxilContainerRootParameter *pOutRP = &pRP[iRP];
     pOutRP->ParameterType = (uint32_t)pInRP->ParameterType;
     pOutRP->ShaderVisibility = (uint32_t)pInRP->ShaderVisibility;
-    switch (pInRP->ParameterType)
-    {
-    case DxilRootParameterType::DescriptorTable:
-    {
+    switch (pInRP->ParameterType) {
+    case DxilRootParameterType::DescriptorTable: {
       DxilContainerRootDescriptorTable *p1;
-      IFR(Serializer.ReserveBlock((void**)&p1,
-        sizeof(DxilContainerRootDescriptorTable), &pOutRP->PayloadOffset));
+      IFT(Serializer.ReserveBlock((void**)&p1,
+                                  sizeof(DxilContainerRootDescriptorTable),
+                                  &pOutRP->PayloadOffset));
       p1->NumDescriptorRanges = pInRP->DescriptorTable.NumDescriptorRanges;
 
       T_DESCRIPTOR_RANGE_INTERNAL *p2;
-      IFR(Serializer.ReserveBlock((void**)&p2,
-        sizeof(T_DESCRIPTOR_RANGE_INTERNAL)*p1->NumDescriptorRanges, &p1->DescriptorRangesOffset));
-      for (UINT i = 0; i < p1->NumDescriptorRanges; i++)
-      {
+      IFT(Serializer.ReserveBlock((void**)&p2,
+                                  sizeof(T_DESCRIPTOR_RANGE_INTERNAL)*p1->NumDescriptorRanges,
+                                  &p1->DescriptorRangesOffset));
+
+      for (uint32_t i = 0; i < p1->NumDescriptorRanges; i++) {
         p2[i].RangeType = (uint32_t)pInRP->DescriptorTable.pDescriptorRanges[i].RangeType;
         p2[i].NumDescriptors = pInRP->DescriptorTable.pDescriptorRanges[i].NumDescriptors;
         p2[i].BaseShaderRegister = pInRP->DescriptorTable.pDescriptorRanges[i].BaseShaderRegister;
@@ -1265,10 +1314,9 @@ HRESULT SerializeRootSignatureTemplate(__in const T_ROOT_SIGNATURE_DESC* pRootSi
       }
       break;
     }
-    case DxilRootParameterType::Constants32Bit:
-    {
+    case DxilRootParameterType::Constants32Bit: {
       DxilRootConstants *p;
-      IFR(Serializer.ReserveBlock((void**)&p, sizeof(DxilRootConstants), &pOutRP->PayloadOffset));
+      IFT(Serializer.ReserveBlock((void**)&p, sizeof(DxilRootConstants), &pOutRP->PayloadOffset));
       p->Num32BitValues = pInRP->Constants.Num32BitValues;
       p->ShaderRegister = pInRP->Constants.ShaderRegister;
       p->RegisterSpace = pInRP->Constants.RegisterSpace;
@@ -1276,10 +1324,9 @@ HRESULT SerializeRootSignatureTemplate(__in const T_ROOT_SIGNATURE_DESC* pRootSi
     }
     case DxilRootParameterType::CBV:
     case DxilRootParameterType::SRV:
-    case DxilRootParameterType::UAV:
-    {
+    case DxilRootParameterType::UAV: {
       T_ROOT_DESCRIPTOR_INTERNAL *p;
-      IFR(Serializer.ReserveBlock((void**)&p, sizeof(T_ROOT_DESCRIPTOR_INTERNAL), &pOutRP->PayloadOffset));
+      IFT(Serializer.ReserveBlock((void**)&p, sizeof(T_ROOT_DESCRIPTOR_INTERNAL), &pOutRP->PayloadOffset));
       p->ShaderRegister = pInRP->Descriptor.ShaderRegister;
       p->RegisterSpace = pInRP->Descriptor.RegisterSpace;
       DxilRootDescriptorFlags Flags = GetFlags(pInRP->Descriptor);
@@ -1287,15 +1334,14 @@ HRESULT SerializeRootSignatureTemplate(__in const T_ROOT_SIGNATURE_DESC* pRootSi
       break;
     }
     default:
-      ErrorRootSignature(pErrors,
-        "D3DSerializeRootSignature: unknown root parameter type (%u)\n", pInRP->ParameterType);
-      return E_FAIL;
+      EAT(DiagPrinter << "D3DSerializeRootSignature: unknown root parameter type ("
+                      << (uint32_t)pInRP->ParameterType << ")\n");
     }
   }
 
   DxilStaticSamplerDesc *pSS;
   unsigned StaticSamplerSize = sizeof(DxilStaticSamplerDesc)*RS.NumStaticSamplers;
-  IFR(Serializer.ReserveBlock((void**)&pSS, StaticSamplerSize, &RS.StaticSamplersOffset));
+  IFT(Serializer.ReserveBlock((void**)&pSS, StaticSamplerSize, &RS.StaticSamplersOffset));
   memcpy(pSS, pRS->pStaticSamplers, StaticSamplerSize);
 
   // Create the result blob.
@@ -1303,20 +1349,16 @@ HRESULT SerializeRootSignatureTemplate(__in const T_ROOT_SIGNATURE_DESC* pRootSi
   CComPtr<IDxcBlob> pBlob;
   unsigned cb = Serializer.GetSize();
   DXASSERT_NOMSG((cb & 0x3) == 0);
-  if (!bytes.AllocateBytes(cb))
-    return E_OUTOFMEMORY;
-  IFR(Serializer.Compact(bytes.m_pData, cb));
-  IFR(DxcCreateBlobOnHeap(bytes.m_pData, cb, ppBlob));
+  IFTBOOL(bytes.AllocateBytes(cb), E_OUTOFMEMORY);
+  IFT(Serializer.Compact(bytes.m_pData, cb));
+  IFT(DxcCreateBlobOnHeap(bytes.m_pData, cb, ppBlob));
   bytes.Detach(); // Ownership transfered to ppBlob.
-
-  return S_OK;
 }
 
 _Use_decl_annotations_
-void
-SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
-                       IDxcBlob **ppBlob, IDxcBlobEncoding **ppErrorBlob,
-                       bool bAllowReservedRegisterSpace) {
+void SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
+                            IDxcBlob **ppBlob, IDxcBlobEncoding **ppErrorBlob,
+                            bool bAllowReservedRegisterSpace) {
   DXASSERT_NOMSG(pRootSignature != nullptr);
   DXASSERT_NOMSG(ppBlob != nullptr);
   DXASSERT_NOMSG(ppErrorBlob != nullptr);
@@ -1325,45 +1367,313 @@ SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature,
   *ppErrorBlob = nullptr;
 
   RootSignatureVerifier RSV;
-  CComPtr<AbstractMemoryStream> pErrors;
-  CComPtr<IMalloc> pMalloc;
-
-  IFT(CoGetMalloc(1, &pMalloc));
-  IFT(CreateMemoryStream(pMalloc, &pErrors));
+  // TODO: change SerializeRootSignature to take raw_ostream&
+  string DiagString;
+  raw_string_ostream DiagStream(DiagString);
+  DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
 
   // Verify root signature.
   RSV.AllowReservedRegisterSpace(bAllowReservedRegisterSpace);
-  if (FAILED(RSV.VerifyRootSignature(pRootSignature, pErrors))) {
-    IFT(DxcCreateBlobWithEncodingFromStream(pErrors, true, CP_UTF8, ppErrorBlob));
-    return;
-  }
+  try {
+    RSV.VerifyRootSignature(pRootSignature, DiagPrinter);
+    switch (pRootSignature->Version)
+    {
+    case DxilRootSignatureVersion::Version_1_0:
+      SerializeRootSignatureTemplate<
+        DxilRootSignatureDesc,
+        DxilRootParameter,
+        DxilRootDescriptor,
+        DxilContainerDescriptorRange>(&pRootSignature->Desc_1_0,
+          DxilRootSignatureVersion::Version_1_0,
+          ppBlob, DiagPrinter,
+          bAllowReservedRegisterSpace);
+      break;
 
-  switch (pRootSignature->Version)
-  {
+    case DxilRootSignatureVersion::Version_1_1:
+    default:
+      DXASSERT(pRootSignature->Version == DxilRootSignatureVersion::Version_1_1, "else VerifyRootSignature didn't validate");
+      SerializeRootSignatureTemplate<
+        DxilRootSignatureDesc1,
+        DxilRootParameter1,
+        DxilContainerRootDescriptor1,
+        DxilContainerDescriptorRange1>(&pRootSignature->Desc_1_1,
+          DxilRootSignatureVersion::Version_1_1,
+          ppBlob, DiagPrinter,
+          bAllowReservedRegisterSpace);
+      break;
+    }
+  } catch (...) {
+    DiagStream.flush();
+    DxcCreateBlobWithEncodingOnHeapCopy(DiagString.c_str(), DiagString.size(), CP_UTF8, ppErrorBlob);
+  }
+}
+
+//=============================================================================
+//
+// CVersionedRootSignatureDeserializer.
+//
+//=============================================================================
+class CVersionedRootSignatureDeserializer {
+protected:
+  const DxilVersionedRootSignatureDesc *m_pRootSignature;
+  const DxilVersionedRootSignatureDesc *m_pRootSignature10;
+  const DxilVersionedRootSignatureDesc *m_pRootSignature11;
+
+public:
+  CVersionedRootSignatureDeserializer();
+  ~CVersionedRootSignatureDeserializer();
+
+  void Initialize(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
+                  __in uint32_t SrcDataSizeInBytes);
+
+  const DxilVersionedRootSignatureDesc *GetRootSignatureDescAtVersion(DxilRootSignatureVersion convertToVersion);
+
+  const DxilVersionedRootSignatureDesc *GetUnconvertedRootSignatureDesc();
+};
+
+CVersionedRootSignatureDeserializer::CVersionedRootSignatureDeserializer()
+  : m_pRootSignature(nullptr)
+  , m_pRootSignature10(nullptr)
+  , m_pRootSignature11(nullptr) {
+}
+
+CVersionedRootSignatureDeserializer::~CVersionedRootSignatureDeserializer() {
+  DeleteRootSignature(m_pRootSignature10);
+  DeleteRootSignature(m_pRootSignature11);
+}
+
+void CVersionedRootSignatureDeserializer::Initialize(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
+                                                     __in uint32_t SrcDataSizeInBytes) {
+  const DxilVersionedRootSignatureDesc *pRootSignature = nullptr;
+  DeserializeRootSignature(pSrcData, SrcDataSizeInBytes, &pRootSignature);
+
+  switch (pRootSignature->Version) {
   case DxilRootSignatureVersion::Version_1_0:
-    SerializeRootSignatureTemplate<
-      DxilRootSignatureDesc,
-      DxilRootParameter,
-      DxilRootDescriptor,
-      DxilContainerDescriptorRange>(&pRootSignature->Desc_1_0,
-        DxilRootSignatureVersion::Version_1_0,
-        ppBlob, pErrors,
-        bAllowReservedRegisterSpace);
+    m_pRootSignature10 = pRootSignature;
     break;
 
   case DxilRootSignatureVersion::Version_1_1:
-  default:
-    DXASSERT(pRootSignature->Version == DxilRootSignatureVersion::Version_1_1, "else VerifyRootSignature didn't validate");
-    SerializeRootSignatureTemplate<
-      DxilRootSignatureDesc1,
-      DxilRootParameter1,
-      DxilContainerRootDescriptor1,
-      DxilContainerDescriptorRange1>(&pRootSignature->Desc_1_1,
-        DxilRootSignatureVersion::Version_1_1,
-        ppBlob, pErrors,
-        bAllowReservedRegisterSpace);
+    m_pRootSignature11 = pRootSignature;
     break;
+
+  default:
+    DeleteRootSignature(pRootSignature);
+    return;
   }
+
+  m_pRootSignature = pRootSignature;
+}
+
+const DxilVersionedRootSignatureDesc *
+CVersionedRootSignatureDeserializer::GetUnconvertedRootSignatureDesc() {
+  return m_pRootSignature;
+}
+
+const DxilVersionedRootSignatureDesc *
+CVersionedRootSignatureDeserializer::GetRootSignatureDescAtVersion(DxilRootSignatureVersion ConvertToVersion) {
+  switch (ConvertToVersion) {
+  case DxilRootSignatureVersion::Version_1_0:
+    if (m_pRootSignature10 == nullptr) {
+      ConvertRootSignature(m_pRootSignature,
+                           ConvertToVersion,
+                           (const DxilVersionedRootSignatureDesc **)&m_pRootSignature10);
+    }
+    return m_pRootSignature10;
+
+  case DxilRootSignatureVersion::Version_1_1:
+    if (m_pRootSignature11 == nullptr) {
+      ConvertRootSignature(m_pRootSignature,
+                           ConvertToVersion,
+                           (const DxilVersionedRootSignatureDesc **)&m_pRootSignature11);
+    }
+    return m_pRootSignature11;
+
+  default:
+    IFTBOOL(false, E_FAIL);
+  }
+
+  return nullptr;
+}
+
+template<typename T_ROOT_SIGNATURE_DESC,
+         typename T_ROOT_PARAMETER,
+         typename T_ROOT_DESCRIPTOR,
+         typename T_ROOT_DESCRIPTOR_INTERNAL,
+         typename T_DESCRIPTOR_RANGE,
+         typename T_DESCRIPTOR_RANGE_INTERNAL>
+void DeserializeRootSignatureTemplate(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
+                                      __in uint32_t SrcDataSizeInBytes,
+                                      DxilRootSignatureVersion DescVersion,
+                                      T_ROOT_SIGNATURE_DESC &RootSignatureDesc) {
+  // Note that in case of failure, outside code must deallocate memory.
+  T_ROOT_SIGNATURE_DESC *pRootSignature = &RootSignatureDesc;
+  const char *pData = (const char *)pSrcData;
+  const char *pMaxPtr = pData + SrcDataSizeInBytes;
+  UNREFERENCED_PARAMETER(DescVersion);
+  DXASSERT_NOMSG(((uint32_t*)pData)[0] == (uint32_t)DescVersion);
+
+  // Root signature.
+  IFTBOOL(pData + sizeof(DxilContainerRootSignatureDesc) <= pMaxPtr, E_FAIL);
+  DxilContainerRootSignatureDesc *pRS = (DxilContainerRootSignatureDesc *)pData;
+  pRootSignature->Flags = (DxilRootSignatureFlags)pRS->Flags;
+  pRootSignature->NumParameters = pRS->NumParameters;
+  pRootSignature->NumStaticSamplers = pRS->NumStaticSamplers;
+  // Intialize all pointers early so that clean up works properly.
+  pRootSignature->pParameters = nullptr;
+  pRootSignature->pStaticSamplers = nullptr;
+
+  size_t s = sizeof(DxilContainerRootParameter)*pRS->NumParameters;
+  DxilContainerRootParameter *pInRTS = (DxilContainerRootParameter *)(pData + pRS->RootParametersOffset);
+  IFTBOOL(((char*)pInRTS) + s <= pMaxPtr, E_FAIL);
+  if (pRootSignature->NumParameters) {
+    pRootSignature->pParameters = new T_ROOT_PARAMETER[pRootSignature->NumParameters];
+  }
+  memset((void *)pRootSignature->pParameters, 0, s);
+
+  for(unsigned iRP = 0; iRP < pRootSignature->NumParameters; iRP++) {
+    DxilRootParameterType ParameterType = (DxilRootParameterType)pInRTS[iRP].ParameterType;
+    T_ROOT_PARAMETER *pOutRTS = (T_ROOT_PARAMETER *)&pRootSignature->pParameters[iRP];
+    pOutRTS->ParameterType = ParameterType;
+    pOutRTS->ShaderVisibility = (DxilShaderVisibility)pInRTS[iRP].ShaderVisibility;
+    switch(ParameterType) {
+    case DxilRootParameterType::DescriptorTable: {
+      DxilContainerRootDescriptorTable *p1 = (DxilContainerRootDescriptorTable*)(pData + pInRTS[iRP].PayloadOffset);
+      IFTBOOL((char*)p1 + sizeof(DxilContainerRootDescriptorTable) <= pMaxPtr, E_FAIL);
+      pOutRTS->DescriptorTable.NumDescriptorRanges = p1->NumDescriptorRanges;
+      pOutRTS->DescriptorTable.pDescriptorRanges = nullptr;
+      T_DESCRIPTOR_RANGE_INTERNAL *p2 = (T_DESCRIPTOR_RANGE_INTERNAL*)(pData + p1->DescriptorRangesOffset);
+      IFTBOOL((char*)p2 + sizeof(T_DESCRIPTOR_RANGE_INTERNAL) <= pMaxPtr, E_FAIL);
+      if (p1->NumDescriptorRanges) {
+        pOutRTS->DescriptorTable.pDescriptorRanges = new T_DESCRIPTOR_RANGE[p1->NumDescriptorRanges];
+      }
+      for (unsigned i = 0; i < p1->NumDescriptorRanges; i++) {
+        T_DESCRIPTOR_RANGE *p3 = (T_DESCRIPTOR_RANGE *)&pOutRTS->DescriptorTable.pDescriptorRanges[i];
+        p3->RangeType                         = (DxilDescriptorRangeType)p2[i].RangeType;
+        p3->NumDescriptors                    = p2[i].NumDescriptors;
+        p3->BaseShaderRegister                = p2[i].BaseShaderRegister;
+        p3->RegisterSpace                     = p2[i].RegisterSpace;
+        p3->OffsetInDescriptorsFromTableStart = p2[i].OffsetInDescriptorsFromTableStart;
+        DxilDescriptorRangeFlags Flags = GetFlags(p2[i]);
+        SetFlags(*p3, Flags);
+      }
+      break;
+    }
+    case DxilRootParameterType::Constants32Bit: {
+      DxilRootConstants *p = (DxilRootConstants*)(pData + pInRTS[iRP].PayloadOffset);
+      IFTBOOL((char*)p + sizeof(DxilRootConstants) <= pMaxPtr, E_FAIL);
+      pOutRTS->Constants.Num32BitValues = p->Num32BitValues;
+      pOutRTS->Constants.ShaderRegister = p->ShaderRegister;
+      pOutRTS->Constants.RegisterSpace  = p->RegisterSpace;
+      break;
+    }
+    case DxilRootParameterType::CBV:
+    case DxilRootParameterType::SRV:
+    case DxilRootParameterType::UAV: {
+      T_ROOT_DESCRIPTOR *p = (T_ROOT_DESCRIPTOR *)(pData + pInRTS[iRP].PayloadOffset);
+      IFTBOOL((char*)p + sizeof(T_ROOT_DESCRIPTOR) <= pMaxPtr, E_FAIL);
+      pOutRTS->Descriptor.ShaderRegister = p->ShaderRegister;
+      pOutRTS->Descriptor.RegisterSpace  = p->RegisterSpace;
+      DxilRootDescriptorFlags Flags = GetFlags(*p);
+      SetFlags(pOutRTS->Descriptor, Flags);
+      break;
+    }
+    default:
+      IFT(E_FAIL);
+    }
+  }
+
+  s = sizeof(DxilStaticSamplerDesc)*pRS->NumStaticSamplers;
+  DxilStaticSamplerDesc *pInSS = (DxilStaticSamplerDesc *)(pData + pRS->StaticSamplersOffset);
+  IFTBOOL(((char*)pInSS) + s <= pMaxPtr, E_FAIL);
+  if (pRootSignature->NumStaticSamplers) {
+    pRootSignature->pStaticSamplers = new DxilStaticSamplerDesc[pRootSignature->NumStaticSamplers];
+  }
+  memcpy((void*)pRootSignature->pStaticSamplers, pInSS, s);
+}
+
+_Use_decl_annotations_
+void DeserializeRootSignature(const void *pSrcData,
+                              uint32_t SrcDataSizeInBytes,
+                              const DxilVersionedRootSignatureDesc **ppRootSignature) {
+  DxilVersionedRootSignatureDesc *pRootSignature = nullptr;
+  IFTBOOL(pSrcData != nullptr && SrcDataSizeInBytes != 0 && ppRootSignature != nullptr, E_INVALIDARG);
+  IFTBOOL(*ppRootSignature == nullptr, E_INVALIDARG);
+  const char *pData = (const char *)pSrcData;
+  IFTBOOL(pData + sizeof(uint32_t) < pData + SrcDataSizeInBytes, E_FAIL);
+
+  DxilRootSignatureVersion Version = (DxilRootSignatureVersion)((uint32_t*)pData)[0];
+
+  pRootSignature = new DxilVersionedRootSignatureDesc();
+
+  try {
+    switch (Version) {
+    case DxilRootSignatureVersion::Version_1_0:
+      pRootSignature->Version = DxilRootSignatureVersion::Version_1_0;
+      DeserializeRootSignatureTemplate<
+         DxilRootSignatureDesc,
+         DxilRootParameter,
+         DxilRootDescriptor,
+         DxilRootDescriptor,
+         DxilDescriptorRange,
+         DxilContainerDescriptorRange>(pSrcData,
+                                       SrcDataSizeInBytes,
+                                       DxilRootSignatureVersion::Version_1_0,
+                                       pRootSignature->Desc_1_0);
+      break;
+
+    case DxilRootSignatureVersion::Version_1_1:
+      pRootSignature->Version = DxilRootSignatureVersion::Version_1_1;
+      DeserializeRootSignatureTemplate<
+         DxilRootSignatureDesc1,
+         DxilRootParameter1,
+         DxilRootDescriptor1,
+         DxilContainerRootDescriptor1,
+         DxilDescriptorRange1,
+         DxilContainerDescriptorRange1>(pSrcData,
+                                        SrcDataSizeInBytes,
+                                        DxilRootSignatureVersion::Version_1_1,
+                                        pRootSignature->Desc_1_1);
+      break;
+
+    default:
+      IFT(E_FAIL);
+      break;
+    }
+  } catch(...) {
+    DeleteRootSignature(pRootSignature);
+    throw;
+  }
+
+  *ppRootSignature = pRootSignature;
+}
+
+static DxilShaderVisibility GetVisibilityType(DXIL::ShaderKind ShaderKind) {
+  switch(ShaderKind) {
+  case DXIL::ShaderKind::Pixel:       return DxilShaderVisibility::Pixel;
+  case DXIL::ShaderKind::Vertex:      return DxilShaderVisibility::Vertex;
+  case DXIL::ShaderKind::Geometry:    return DxilShaderVisibility::Geometry;
+  case DXIL::ShaderKind::Hull:        return DxilShaderVisibility::Hull;
+  case DXIL::ShaderKind::Domain:      return DxilShaderVisibility::Domain;
+  default:                            return DxilShaderVisibility::All;
+  }
+}
+
+_Use_decl_annotations_
+bool VerifyRootSignatureWithShaderPSV(const DxilVersionedRootSignatureDesc *pDesc,
+                                      DXIL::ShaderKind ShaderKind,
+                                      const void *pPSVData,
+                                      uint32_t PSVSize,
+                                      llvm::raw_ostream &DiagStream) {
+  try {
+    RootSignatureVerifier RSV;
+    DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+    RSV.VerifyRootSignature(pDesc, DiagPrinter);
+    RSV.VerifyShader(GetVisibilityType(ShaderKind), pPSVData, PSVSize, DiagPrinter);
+  } catch (...) {
+    return false;
+  }
+
+  return true;
 }
 
 } // namespace hlsl

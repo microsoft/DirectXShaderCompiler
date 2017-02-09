@@ -43,6 +43,7 @@ void CheckLLVMErrorCode(const std::error_code &ec);
 #define IFC(x)      { hr = (x); if (DXC_FAILED(hr)) goto Cleanup; }
 #define IFR(x)      { HRESULT __hr = (x); if (DXC_FAILED(__hr)) return __hr; }
 #define IFRBOOL(x,y){ if (!(x)) return (y); }
+#define IFCBOOL(x,y){ if (!(x)) { hr = (y); goto Cleanup; } }
 #define IFCOOM(x)   { if (nullptr == (x)) { hr = E_OUTOFMEMORY; goto Cleanup; } }
 #define IFROOM(x)   { if (nullptr == (x)) { return E_OUTOFMEMORY; } }
 #define IFCPTR(x)   { if (nullptr == (x)) { hr = E_POINTER; goto Cleanup; }}
@@ -53,6 +54,7 @@ void CheckLLVMErrorCode(const std::error_code &ec);
 #define IFTARG(x)   { if (!(x)) { throw ::hlsl::Exception(E_INVALIDARG); }}
 #define IFTLLVM(x)  { CheckLLVMErrorCode(x); }
 #define IFTMSG(x, msg) { HRESULT __hr = (x); if (DXC_FAILED(__hr)) throw ::hlsl::Exception(__hr, msg); }
+#define IFTBOOLMSG(x, y, msg) { if (!(x)) throw ::hlsl::Exception(y, msg); }
 
 // Propagate an C++ exception into an HRESULT.
 #define CATCH_CPP_ASSIGN_HRESULT() \

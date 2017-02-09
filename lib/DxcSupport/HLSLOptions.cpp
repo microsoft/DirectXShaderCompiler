@@ -236,7 +236,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
-  opts.ExtractRootSignatureFile = Args.getLastArgValue(OPT_extractrootsignature);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
   opts.OutputHeader = Args.getLastArgValue(OPT_Fh);
@@ -254,6 +253,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.ForceRootSigVer = Args.getLastArgValue(OPT_force_rootsig_ver);
   opts.PrivateSource = Args.getLastArgValue(OPT_setprivate);
   opts.RootSignatureSource = Args.getLastArgValue(OPT_setrootsignature);
+  opts.VerifyRootSignatureSource = Args.getLastArgValue(OPT_verifyrootsignature);
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
       opts.ForceRootSigVer != "rootsig_1_1") {
@@ -287,7 +287,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DefaultRowMajor = Args.hasFlag(OPT_Zpr, OPT_INVALID, false);
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
-  opts.EnableUnboundedDescriptorTables = Args.hasFlag(OPT_enable_unbounded_descriptor_tables, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load, OPT_INVALID, false);
   opts.DisplayIncludeProcess = Args.hasFlag(OPT_H, OPT_INVALID, false);
   opts.WarningAsError = Args.hasFlag(OPT__SLASH_WX, OPT_INVALID, false);
@@ -298,6 +297,12 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
+  opts.ExtractRootSignature = Args.hasFlag(OPT_extractrootsignature, OPT_INVALID, false);
+  opts.DisassembleColorCoded = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
+  opts.DisassembleInstNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
+  opts.DisassembleByteOffset = Args.hasFlag(OPT_No, OPT_INVALID, false);
+  opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
+
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
     return 1;
@@ -318,7 +323,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if ((flagsToInclude & hlsl::options::DriverOption) && opts.InputFile.empty()) {
     // Input file is required in arguments only for drivers; APIs take this through an argument.
-    errors << "Required input file argument is missing.";
+    errors << "Required input file argument is missing. use -help to get more information.";
     return 1;
   }
   if (opts.OutputHeader.empty() && !opts.VariableName.empty()) {
@@ -328,7 +333,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if (!opts.Preprocess.empty() &&
       (!opts.OutputHeader.empty() || !opts.OutputObject.empty() ||
-       opts.OutputWarnings || !opts.OutputWarningsFile.empty())) {
+       !opts.OutputWarnings || !opts.OutputWarningsFile.empty())) {
     errors << "Preprocess cannot be specified with other options.";
     return 1;
   }
@@ -341,7 +346,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     if (opts.AllResourcesBound || opts.AvoidFlowControl ||
         opts.CodeGenHighLevel || opts.DebugInfo || opts.DefaultColMajor ||
         opts.DefaultRowMajor || opts.Defines.size() != 0 ||
-        opts.DisableOptimizations || opts.EnableUnboundedDescriptorTables ||
+        opts.DisableOptimizations || 
         !opts.EntryPoint.empty() || !opts.ForceRootSigVer.empty() ||
         opts.PreferFlowControl || !opts.TargetProfile.empty()) {
       errors << "Cannot specify compilation options when reading a binary file.";
