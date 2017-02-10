@@ -573,12 +573,12 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: StorePatchConstant=106, OutputControlPointID=107
   if (106 <= op && op <= 107)
     return pSM->IsHS();
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, SampleCmpLevelZero=65,
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64,
   // RenderTargetGetSamplePosition=76, RenderTargetGetSampleCount=77,
   // CalculateLOD=81, Discard=82, DerivCoarseX=83, DerivCoarseY=84,
   // DerivFineX=85, DerivFineY=86, EvalSnapped=87, EvalSampleIndex=88,
   // EvalCentroid=89, SampleIndex=90, Coverage=91, InnerCoverage=92
-  if (60 <= op && op <= 61 || 64 <= op && op <= 65 || 76 <= op && op <= 77 || 81 <= op && op <= 92)
+  if (60 <= op && op <= 61 || op == 64 || 76 <= op && op <= 77 || 81 <= op && op <= 92)
     return pSM->IsPS();
   return true;
   // VALOPCODESM-TEXT:END
