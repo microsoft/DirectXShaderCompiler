@@ -116,6 +116,16 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_RTTI:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 
+rem This parameter is used with vcvarsall to force use of 64-bit build tools
+rem instead of 32-bit tools that run out of memory.
+if "%BUILD_ARCH%"=="Win32" (
+  set BUILD_TOOLS=amd64_x86
+) else if "%BUILD_ARCH%"=="x64" (
+  set BUILD_TOOLS=amd64
+) else if "%BUILD_ARCH%"=="ARM" (
+  set BUILD_TOOLS=amd64_arm
+)
+
 call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%"
 if errorlevel 1 exit /b 1
 
@@ -215,7 +225,7 @@ rem 1 - config
 rem 2 - platform
 rem 3 - build directory
 setlocal
-call "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat"
+call "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %BUILD_TOOLS%
 rem Add /ds for a detailed summary at the end.
 MSBuild.exe /property:Configuration=%1 /property:Platform=%2 /maxcpucount %3\LLVM.sln
 if NOT "%ERRORLEVEL%"=="0" (
