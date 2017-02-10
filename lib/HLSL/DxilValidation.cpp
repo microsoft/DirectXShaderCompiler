@@ -4045,13 +4045,13 @@ static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
                                   _In_ uint32_t Size) {
   if (!pData && pWriter->size()) {
     // No blob part, but writer says non-zero size is expected.
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, pName);
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, {pName});
     return;
   }
 
   // Compare sizes
   if (pWriter->size() != Size) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, pName);
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, {pName});
     return;
   }
 
@@ -4069,7 +4069,7 @@ static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
   DXASSERT(pOutputStream->GetPtrSize() == Size, "otherwise, DxilPartWriter misreported size");
 
   if (memcmp(pData, pOutputStream->GetPtr(), Size)) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, pName);
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, {pName});
     return;
   }
 
@@ -4197,7 +4197,7 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     PartKindToCharArray(pPart->PartFourCC, szFourCC);
     if (FourCCFound.find(pPart->PartFourCC) != FourCCFound.end()) {
       // Two parts with same FourCC found
-      ValCtx.EmitFormatError(ValidationRule::ContainerPartRepeated, szFourCC);
+      ValCtx.EmitFormatError(ValidationRule::ContainerPartRepeated, {szFourCC});
       continue;
     }
     FourCCFound.insert(pPart->PartFourCC);
@@ -4214,7 +4214,7 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
       if (bTess) {
         VerifySignatureMatches(ValCtx, DXIL::SignatureKind::PatchConstant, GetDxilPartData(pPart), pPart->PartSize);
       } else {
-        ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, "Program Patch Constant Signature");
+        ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, {"Program Patch Constant Signature"});
       }
       break;
     case DFCC_FeatureInfo:
@@ -4238,7 +4238,7 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
 
     case DFCC_Container:
     default:
-      ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, szFourCC);
+      ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, {szFourCC});
       break;
     }
   }
@@ -4253,11 +4253,11 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
   if (bTess && FourCCFound.find(DFCC_PatchConstantSignature) == FourCCFound.end() &&
       pDxilModule->GetPatchConstantSignature().GetElements().size())
   {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, "Program Patch Constant Signature");
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, {"Program Patch Constant Signature"});
   }
   if (FourCCFound.find(DFCC_FeatureInfo) == FourCCFound.end()) {
     // Could be optional, but RS1 runtime doesn't handle this case properly.
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, "Feature Info");
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, {"Feature Info"});
   }
 
   // Validate Root Signature
@@ -4276,7 +4276,7 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
       }
     }
   } else {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, "Pipeline State Validation");
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMissing, {"Pipeline State Validation"});
   }
 
   if (ValCtx.Failed) {
