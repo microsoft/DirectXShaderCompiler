@@ -234,7 +234,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources"
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
-        for i in "Sample,SampleBias,SampleCmp,SampleCmpLevelZero,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
+        for i in "Sample,SampleBias,SampleCmp,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].shader_models = "p"
         for i in "TextureGather,TextureGatherCmp".split(","):
             self.name_idx[i].category = "Resources - gather"
