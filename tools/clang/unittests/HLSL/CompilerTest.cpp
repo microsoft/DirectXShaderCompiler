@@ -453,6 +453,7 @@ public:
   TEST_METHOD(CodeGenSampleBias)
   TEST_METHOD(CodeGenSampleCmp)
   TEST_METHOD(CodeGenSampleCmpLZ)
+  TEST_METHOD(CodeGenSampleCmpLZ2)
   TEST_METHOD(CodeGenSampleGrad)
   TEST_METHOD(CodeGenSampleL)
   TEST_METHOD(CodeGenSaturate1)
@@ -2454,6 +2455,10 @@ TEST_F(CompilerTest, CodeGenSampleCmp) {
 
 TEST_F(CompilerTest, CodeGenSampleCmpLZ) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\sampleCmpLZ.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSampleCmpLZ2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\sampleCmpLZ2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSampleGrad) {
