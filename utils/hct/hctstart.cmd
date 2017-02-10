@@ -27,6 +27,9 @@ shift /1
 
 :donearch
 echo Default architecture - set BUILD_ARCH=%BUILD_ARCH%
+rem Set the following environment variable globally, or start Visual Studio
+rem from this command line in order to use 64-bit tools.
+set PreferredToolArchitecture=x64
 
 if "%1"=="" (
   echo Source directory missing.
