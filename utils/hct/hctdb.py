@@ -234,7 +234,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources"
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
-        for i in "Sample,SampleBias,SampleCmp,SampleCmpLevelZero,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
+        for i in "Sample,SampleBias,SampleCmp,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].shader_models = "p"
         for i in "TextureGather,TextureGatherCmp".split(","):
             self.name_idx[i].category = "Resources - gather"
@@ -656,13 +656,13 @@ class db_dxil(object):
             db_dxil_param(9, "$o", "value3", "value"),
             db_dxil_param(10,"i8", "mask", "written value mask")])
         next_op_idx += 1
-        self.add_dxil_op("BufferLoad", next_op_idx, "BufferLoad", "reads from a TypedBuffer", "hfwil", "ro", [
+        self.add_dxil_op("BufferLoad", next_op_idx, "BufferLoad", "reads from a TypedBuffer", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the loaded value"),
             db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
             db_dxil_param(3, "i32", "index", "element index"),
             db_dxil_param(4, "i32", "wot", "coordinate")])
         next_op_idx += 1
-        self.add_dxil_op("BufferStore", next_op_idx, "BufferStore", "writes to a RWTypedBuffer", "hfwil", "", [
+        self.add_dxil_op("BufferStore", next_op_idx, "BufferStore", "writes to a RWTypedBuffer", "hfwi", "", [
             db_dxil_param(0, "v", "", ""),
             db_dxil_param(2, "res", "uav", "handle of UAV to store to"),
             db_dxil_param(3, "i32", "coord0", "coordinate in elements"),
