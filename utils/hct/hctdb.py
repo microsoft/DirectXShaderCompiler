@@ -894,46 +894,46 @@ class db_dxil(object):
             db_dxil_param(0, "i32", "", "result")])
         next_op_idx += 1
 
-        self.add_dxil_op("CycleCounterLegacy", next_op_idx, "CycleCounterLegacy", "CycleCounterLegacy", "v", "rn", [
+        self.add_dxil_op("CycleCounterLegacy", next_op_idx, "CycleCounterLegacy", "CycleCounterLegacy", "v", "", [
             db_dxil_param(0, "twoi32", "", "result")])
         next_op_idx += 1
             
         # Add wave intrinsics.
-        self.add_dxil_op("WaveIsFirstLane", next_op_idx, "WaveIsFirstLane", "returns 1 for the first lane in the wave", "v", "ro", [
+        self.add_dxil_op("WaveIsFirstLane", next_op_idx, "WaveIsFirstLane", "returns 1 for the first lane in the wave", "v", "", [
             db_dxil_param(0, "i1", "", "operation result")])
         next_op_idx += 1
-        self.add_dxil_op("WaveGetLaneIndex", next_op_idx, "WaveGetLaneIndex", "returns the index of the current lane in the wave", "v", "ro", [
+        self.add_dxil_op("WaveGetLaneIndex", next_op_idx, "WaveGetLaneIndex", "returns the index of the current lane in the wave", "v", "rn", [
             db_dxil_param(0, "i32", "", "operation result")])
         next_op_idx += 1
-        self.add_dxil_op("WaveGetLaneCount", next_op_idx, "WaveGetLaneCount", "returns the number of lanes in the wave", "v", "ro", [
+        self.add_dxil_op("WaveGetLaneCount", next_op_idx, "WaveGetLaneCount", "returns the number of lanes in the wave", "v", "rn", [
             db_dxil_param(0, "i32", "", "operation result")])
         next_op_idx += 1
-        self.add_dxil_op("WaveAnyTrue", next_op_idx, "WaveAnyTrue", "returns 1 if any of the lane evaluates the value to true", "v", "ro", [
+        self.add_dxil_op("WaveAnyTrue", next_op_idx, "WaveAnyTrue", "returns 1 if any of the lane evaluates the value to true", "v", "", [
             db_dxil_param(0, "i1", "", "operation result"),
             db_dxil_param(2, "i1", "cond", "condition to test")])
         next_op_idx += 1
-        self.add_dxil_op("WaveAllTrue", next_op_idx, "WaveAllTrue", "returns 1 if all the lanes evaluate the value to true", "v", "ro", [
+        self.add_dxil_op("WaveAllTrue", next_op_idx, "WaveAllTrue", "returns 1 if all the lanes evaluate the value to true", "v", "", [
             db_dxil_param(0, "i1", "", "operation result"),
             db_dxil_param(2, "i1", "cond", "condition to test")])
         next_op_idx += 1
-        self.add_dxil_op("WaveActiveAllEqual", next_op_idx, "WaveActiveAllEqual", "returns 1 if all the lanes have the same value", "hfd18wil", "ro", [
+        self.add_dxil_op("WaveActiveAllEqual", next_op_idx, "WaveActiveAllEqual", "returns 1 if all the lanes have the same value", "hfd18wil", "", [
             db_dxil_param(0, "i1", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to compare")])
         next_op_idx += 1
-        self.add_dxil_op("WaveActiveBallot", next_op_idx, "WaveActiveBallot", "returns a struct with a bit set for each lane where the condition is true", "v", "ro", [
+        self.add_dxil_op("WaveActiveBallot", next_op_idx, "WaveActiveBallot", "returns a struct with a bit set for each lane where the condition is true", "v", "", [
             db_dxil_param(0, "$u4", "", "operation result"),
             db_dxil_param(2, "i1", "cond", "condition to ballot on")])
         next_op_idx += 1
-        self.add_dxil_op("WaveReadLaneAt", next_op_idx, "WaveReadLaneAt", "returns the value from the specified lane", "hfd18wil", "ro", [
+        self.add_dxil_op("WaveReadLaneAt", next_op_idx, "WaveReadLaneAt", "returns the value from the specified lane", "hfd18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to read"),
             db_dxil_param(3, "i32", "lane", "lane index")])
         next_op_idx += 1
-        self.add_dxil_op("WaveReadLaneFirst", next_op_idx, "WaveReadLaneFirst", "returns the value from the first lane", "hf18wil", "ro", [
+        self.add_dxil_op("WaveReadLaneFirst", next_op_idx, "WaveReadLaneFirst", "returns the value from the first lane", "hf18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to read")])
         next_op_idx += 1
-        self.add_dxil_op("WaveActiveOp", next_op_idx, "WaveActiveOp", "returns the result the operation across waves", "hfd18wil", "ro", [
+        self.add_dxil_op("WaveActiveOp", next_op_idx, "WaveActiveOp", "returns the result the operation across waves", "hfd18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "input value"),
             db_dxil_param(3, "i8", "op", "kind of operation to perform", enum_name="WaveOpKind", is_const=True),
@@ -947,7 +947,7 @@ class db_dxil(object):
             (1, "Product", "product of values"), 
             (2, "Min", "minimum value"), 
             (3, "Max", "maximum value")])
-        self.add_dxil_op("WaveActiveBit", next_op_idx, "WaveActiveBit", "returns the result of the operation across all lanes", "8wil", "ro", [
+        self.add_dxil_op("WaveActiveBit", next_op_idx, "WaveActiveBit", "returns the result of the operation across all lanes", "8wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "input value"),
             db_dxil_param(3, "i8", "op", "kind of operation to perform", enum_name="WaveBitOpKind", is_const=True)])
@@ -956,13 +956,13 @@ class db_dxil(object):
             (0, "And", "bitwise and of values"), 
             (1, "Or", "bitwise or of values"), 
             (2, "Xor", "bitwise xor of values")])
-        self.add_dxil_op("WavePrefixOp", next_op_idx, "WavePrefixOp", "returns the result of the operation on prior lanes", "hfd8wil", "ro", [
+        self.add_dxil_op("WavePrefixOp", next_op_idx, "WavePrefixOp", "returns the result of the operation on prior lanes", "hfd8wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "input value"),
             db_dxil_param(3, "i8", "op", "0=sum,1=product", enum_name="WaveOpKind", is_const=True),
             db_dxil_param(4, "i8", "sop", "sign of operands", enum_name="SignedOpKind", is_const=True)])
         next_op_idx += 1
-        self.add_dxil_op("QuadReadLaneAt", next_op_idx, "QuadReadLaneAt", "reads from a lane in the quad", "hfd18wil", "ro", [
+        self.add_dxil_op("QuadReadLaneAt", next_op_idx, "QuadReadLaneAt", "reads from a lane in the quad", "hfd18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to read"),
             db_dxil_param(3, "u32", "quadLane", "lane to read from (0-4)", max_value = 3, is_const=True)])
@@ -971,7 +971,7 @@ class db_dxil(object):
             (0, "ReadAcrossX", "returns the value from the other lane in the quad in the horizontal direction"), 
             (1, "ReadAcrossY", "returns the value from the other lane in the quad in the vertical direction"),
             (2, "ReadAcrossDiagonal", "returns the value from the lane across the quad in horizontal and vertical direction")])
-        self.add_dxil_op("QuadOp", next_op_idx, "QuadOp", "returns the result of a quad-level operation", "hfd8wil", "ro", [
+        self.add_dxil_op("QuadOp", next_op_idx, "QuadOp", "returns the result of a quad-level operation", "hfd8wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value for operation"),
             db_dxil_param(3, "i8", "op", "operation", enum_name = "QuadOpKind", is_const=True)])
@@ -1028,11 +1028,11 @@ class db_dxil(object):
             db_dxil_param(2, "d", "value", "double value to convert")])
         next_op_idx += 1
 
-        self.add_dxil_op("WaveAllBitCount", next_op_idx, "WaveAllOp", "returns the count of bits set to 1 across the wave", "v", "ro", [
+        self.add_dxil_op("WaveAllBitCount", next_op_idx, "WaveAllOp", "returns the count of bits set to 1 across the wave", "v", "", [
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
-        self.add_dxil_op("WavePrefixBitCount", next_op_idx, "WavePrefixOp", "returns the count of bits set to 1 on prior lanes", "v", "ro", [
+        self.add_dxil_op("WavePrefixBitCount", next_op_idx, "WavePrefixOp", "returns the count of bits set to 1 on prior lanes", "v", "", [
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
@@ -1443,6 +1443,12 @@ class db_dxil(object):
     def build_valrules(self):
         self.add_valrule_msg("Bitcode.Valid", "TODO - Module must be bitcode-valid", "Module bitcode is invalid")
 
+        self.add_valrule_msg("Container.PartMatches", "DXIL Container Parts must match Module", "Container part '%0' does not match expected for module.")
+        self.add_valrule_msg("Container.PartRepeated", "DXIL Container must have only one of each part type", "More than one container part '%0'.")
+        self.add_valrule_msg("Container.PartMissing", "DXIL Container requires certain parts, corresponding to module", "Missing part '%0' required by module.")
+        self.add_valrule_msg("Container.PartInvalid", "DXIL Container must not contain unknown parts", "Unknown part '%0' found in DXIL container.")
+        self.add_valrule_msg("Container.RootSignatureIncompatible", "Root Signature in DXIL Container must be compatible with shader", "Root Signature in DXIL container is not compatible with shader.")
+
         self.add_valrule("Meta.Required", "TODO - Required metadata missing")
         self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown")
         self.add_valrule("Meta.Used", "All metadata must be used by dxil")
@@ -1607,7 +1613,8 @@ class db_dxil(object):
         self.add_valrule("Sm.GSOutputVertexCountRange", "GS output vertex count must be [0..%0].  %1 specified")
         self.add_valrule("Sm.GSInstanceCountRange", "GS instance count must be [1..%0].  %1 specified")
         self.add_valrule("Sm.DSInputControlPointCountRange", "DS input control point count must be [0..%0].  %1 specified")
-        self.add_valrule("Sm.HSInputControlPointCountRange", "HS input control point count must be [1..%0].  %1 specified")
+        self.add_valrule("Sm.HSInputControlPointCountRange", "HS input control point count must be [0..%0].  %1 specified")
+        self.add_valrule("Sm.ZeroHSInputControlPointWithInput", "When HS input control point count is 0, no input signature should exist")
         self.add_valrule("Sm.OutputControlPointCountRange", "output control point count must be [0..%0].  %1 specified")
         self.add_valrule("Sm.GSValidInputPrimitive", "GS input primitive unrecognized")
         self.add_valrule("Sm.GSValidOutputPrimitiveTopology", "GS output primitive topology unrecognized")
@@ -1649,6 +1656,7 @@ class db_dxil(object):
         
         # Assign sensible category names and build up an enumeration description
         cat_names = {
+            "CONTAINER": "Container",
             "BITCODE": "Bitcode",
             "META": "Metadata",
             "INSTR": "Instruction",

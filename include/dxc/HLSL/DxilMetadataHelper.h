@@ -72,6 +72,9 @@ public:
   // Entry points.
   static const char kDxilEntryPointsMDName[];
 
+  // Root Signature, for intermediate use, not valid in final DXIL module.
+  static const char kDxilRootSignatureMDName[];
+
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
   static const unsigned kDxilEntryPointName       = 1;  // Entry point unmangled name.
@@ -181,7 +184,6 @@ public:
   static const unsigned kDxilDSStateTag         = 2;
   static const unsigned kDxilHSStateTag         = 3;
   static const unsigned kDxilNumThreadsTag      = 4;
-  static const unsigned kDxilRootSignatureTag   = 5;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;
@@ -261,11 +263,11 @@ public:
   void LoadDxilSignatures(const llvm::MDOperand &MDO, DxilSignature &InputSig, 
                           DxilSignature &OutputSig, DxilSignature &PCSig);
   llvm::MDTuple *EmitSignatureMetadata(const DxilSignature &Sig);
-  llvm::Metadata *EmitRootSignature(RootSignatureHandle &RootSig);
+  void EmitRootSignature(RootSignatureHandle &RootSig);
   void LoadSignatureMetadata(const llvm::MDOperand &MDO, DxilSignature &Sig);
   llvm::MDTuple *EmitSignatureElement(const DxilSignatureElement &SE);
   void LoadSignatureElement(const llvm::MDOperand &MDO, DxilSignatureElement &SE);
-  void LoadRootSignature(const llvm::MDOperand &MDO, RootSignatureHandle &RootSig);
+  void LoadRootSignature(RootSignatureHandle &RootSig);
 
   // Resources.
   llvm::MDTuple *EmitDxilResourceTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs, 

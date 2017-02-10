@@ -10,6 +10,8 @@ set( LLVM_LINK_COMPONENTS
   dxcsupport
   hlsl
   option
+  bitwriter
+  analysis
   )
 
 add_clang_library(clang-hlsl-tests SHARED

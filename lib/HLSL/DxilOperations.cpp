@@ -200,23 +200,23 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::PrimitiveID,             "PrimitiveID",              OCC::PrimitiveID,              "primitiveID",                false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 
   // Other                                                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
-  {  OC::CycleCounterLegacy,      "CycleCounterLegacy",       OCC::CycleCounterLegacy,       "cycleCounterLegacy",          true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
+  {  OC::CycleCounterLegacy,      "CycleCounterLegacy",       OCC::CycleCounterLegacy,       "cycleCounterLegacy",          true, false, false, false, false, false, false, false, false, Attribute::None,     },
 
   // Wave                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
-  {  OC::WaveIsFirstLane,         "WaveIsFirstLane",          OCC::WaveIsFirstLane,          "waveIsFirstLane",             true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
-  {  OC::WaveGetLaneIndex,        "WaveGetLaneIndex",         OCC::WaveGetLaneIndex,         "waveGetLaneIndex",            true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
-  {  OC::WaveGetLaneCount,        "WaveGetLaneCount",         OCC::WaveGetLaneCount,         "waveGetLaneCount",            true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
-  {  OC::WaveAnyTrue,             "WaveAnyTrue",              OCC::WaveAnyTrue,              "waveAnyTrue",                 true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
-  {  OC::WaveAllTrue,             "WaveAllTrue",              OCC::WaveAllTrue,              "waveAllTrue",                 true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
-  {  OC::WaveActiveAllEqual,      "WaveActiveAllEqual",       OCC::WaveActiveAllEqual,       "waveActiveAllEqual",         false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::WaveActiveBallot,        "WaveActiveBallot",         OCC::WaveActiveBallot,         "waveActiveBallot",            true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
-  {  OC::WaveReadLaneAt,          "WaveReadLaneAt",           OCC::WaveReadLaneAt,           "waveReadLaneAt",             false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::WaveReadLaneFirst,       "WaveReadLaneFirst",        OCC::WaveReadLaneFirst,        "waveReadLaneFirst",          false,  true,  true, false,  true,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::WaveActiveOp,            "WaveActiveOp",             OCC::WaveActiveOp,             "waveActiveOp",               false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::WaveActiveBit,           "WaveActiveBit",            OCC::WaveActiveBit,            "waveActiveBit",              false, false, false, false, false,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::WavePrefixOp,            "WavePrefixOp",             OCC::WavePrefixOp,             "wavePrefixOp",               false,  true,  true,  true, false,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::QuadReadLaneAt,          "QuadReadLaneAt",           OCC::QuadReadLaneAt,           "quadReadLaneAt",             false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::ReadOnly, },
-  {  OC::QuadOp,                  "QuadOp",                   OCC::QuadOp,                   "quadOp",                     false,  true,  true,  true, false,  true,  true,  true,  true, Attribute::ReadOnly, },
+  {  OC::WaveIsFirstLane,         "WaveIsFirstLane",          OCC::WaveIsFirstLane,          "waveIsFirstLane",             true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::WaveGetLaneIndex,        "WaveGetLaneIndex",         OCC::WaveGetLaneIndex,         "waveGetLaneIndex",            true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
+  {  OC::WaveGetLaneCount,        "WaveGetLaneCount",         OCC::WaveGetLaneCount,         "waveGetLaneCount",            true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
+  {  OC::WaveAnyTrue,             "WaveAnyTrue",              OCC::WaveAnyTrue,              "waveAnyTrue",                 true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::WaveAllTrue,             "WaveAllTrue",              OCC::WaveAllTrue,              "waveAllTrue",                 true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::WaveActiveAllEqual,      "WaveActiveAllEqual",       OCC::WaveActiveAllEqual,       "waveActiveAllEqual",         false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::None,     },
+  {  OC::WaveActiveBallot,        "WaveActiveBallot",         OCC::WaveActiveBallot,         "waveActiveBallot",            true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::WaveReadLaneAt,          "WaveReadLaneAt",           OCC::WaveReadLaneAt,           "waveReadLaneAt",             false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::None,     },
+  {  OC::WaveReadLaneFirst,       "WaveReadLaneFirst",        OCC::WaveReadLaneFirst,        "waveReadLaneFirst",          false,  true,  true, false,  true,  true,  true,  true,  true, Attribute::None,     },
+  {  OC::WaveActiveOp,            "WaveActiveOp",             OCC::WaveActiveOp,             "waveActiveOp",               false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::None,     },
+  {  OC::WaveActiveBit,           "WaveActiveBit",            OCC::WaveActiveBit,            "waveActiveBit",              false, false, false, false, false,  true,  true,  true,  true, Attribute::None,     },
+  {  OC::WavePrefixOp,            "WavePrefixOp",             OCC::WavePrefixOp,             "wavePrefixOp",               false,  true,  true,  true, false,  true,  true,  true,  true, Attribute::None,     },
+  {  OC::QuadReadLaneAt,          "QuadReadLaneAt",           OCC::QuadReadLaneAt,           "quadReadLaneAt",             false,  true,  true,  true,  true,  true,  true,  true,  true, Attribute::None,     },
+  {  OC::QuadOp,                  "QuadOp",                   OCC::QuadOp,                   "quadOp",                     false,  true,  true,  true, false,  true,  true,  true,  true, Attribute::None,     },
 
   // Bitcasts with different sizes                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::BitcastI16toF16,         "BitcastI16toF16",          OCC::BitcastI16toF16,          "bitcastI16toF16",             true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
@@ -236,8 +236,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::LegacyDoubleToUInt32,    "LegacyDoubleToUInt32",     OCC::LegacyDoubleToUInt32,     "legacyDoubleToUInt32",        true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
 
   // Wave                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
-  {  OC::WaveAllBitCount,         "WaveAllBitCount",          OCC::WaveAllOp,                "waveAllOp",                   true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
-  {  OC::WavePrefixBitCount,      "WavePrefixBitCount",       OCC::WavePrefixOp,             "wavePrefixOp",                true, false, false, false, false, false, false, false, false, Attribute::ReadOnly, },
+  {  OC::WaveAllBitCount,         "WaveAllBitCount",          OCC::WaveAllOp,                "waveAllOp",                   true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::WavePrefixBitCount,      "WavePrefixBitCount",       OCC::WavePrefixOp,             "wavePrefixOp",                true, false, false, false, false, false, false, false, false, Attribute::None,     },
 };
 // OPCODE-OLOADS:END
 

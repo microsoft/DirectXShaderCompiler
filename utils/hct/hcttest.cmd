@@ -119,9 +119,9 @@ if "%TEST_CLANG%"=="1" (
   )
 
   copy /y %HLSL_SRC_DIR%\utils\hct\smoke.hlsl %TEST_DIR%\smoke.hlsl
-  call %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR%
+  call %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR% %HLSL_SRC_DIR%\tools\clang\test\HLSL
   if errorlevel 1 (
-    echo Failed - %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR%
+    echo Failed - %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR% %HLSL_SRC_DIR%\tools\clang\test\HLSL
     exit /b 1
   )
 )

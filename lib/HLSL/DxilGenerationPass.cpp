@@ -523,7 +523,6 @@ static DxilSignatureElement *FindArgInSignature(Argument &arg, llvm::StringRef s
       return &SE;
     }
   }
-  DXASSERT(0, "must find a match");
   return nullptr;
 }
 
@@ -702,6 +701,13 @@ void DxilGenerationPass::ProcessArgument(Function *func,
         sigKind != DXIL::SignatureKind::PatchConstant) {
       pSE = FindArgInSignature(arg, paramAnnotation.GetSemanticString(),
                                interpMode, sigPoint->GetKind(), *pSig);
+      if (!pSE) {
+        m_pHLModule->GetModule()->getContext().emitError(
+          Twine("Signature element ") + semanticStr +
+          Twine(", referred to by patch constant function, is not found in corresponding hull shader ") + 
+          (sigKind == DXIL::SignatureKind::Input ? "input." : "output."));
+        return;
+      }
       m_patchConstantInputsSigMap[arg.getArgNo()] = pSE;
     } else {
       std::unique_ptr<DxilSignatureElement> SE = pSig->CreateElement();

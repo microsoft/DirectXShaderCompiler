@@ -16,12 +16,17 @@
 
 #include <stdint.h>
 #include <iterator>
+#include <functional>
 #include "dxc/HLSL/DxilConstants.h"
 
 struct IDxcContainerReflection;
 namespace llvm { class Module; }
 
 namespace hlsl {
+
+class AbstractMemoryStream;
+class RootSignatureHandle;
+class DxilModule;
 
 #pragma pack(push, 1)
 
@@ -368,8 +373,26 @@ inline uint32_t EncodeVersion(DXIL::ShaderKind shaderType, uint32_t major,
   return ((unsigned)shaderType << 16) | (major << 4) | minor;
 }
 
-class AbstractMemoryStream;
-void SerializeDxilContainerForModule(llvm::Module *pModule,
+class DxilPartWriter {
+public:
+  virtual uint32_t size() const = 0;
+  virtual void write(AbstractMemoryStream *pStream) = 0;
+};
+
+DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
+DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
+DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
+DxilPartWriter *NewPSVWriter(const DxilModule &M);
+
+class DxilContainerWriter : public DxilPartWriter  {
+public:
+  typedef std::function<void(AbstractMemoryStream*)> WriteFn;
+  virtual void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) = 0;
+};
+
+DxilContainerWriter *NewDxilContainerWriter();
+
+void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,
                                      AbstractMemoryStream *pStream);
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);

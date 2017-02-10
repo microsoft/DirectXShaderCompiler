@@ -24,6 +24,9 @@
 
 using namespace hlsl;
 
+// This declaration is used for the locally-linked validator.
+HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+
 class DxcContainerBuilder : public IDxcContainerBuilder {
 public:
   __override HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader); // Loads DxilContainer to the builder
@@ -36,7 +39,7 @@ public:
     return DoBasicQueryInterface<IDxcContainerBuilder>(this, riid, ppvObject);
   }
 
-  DxcContainerBuilder(const char *warning) : m_dwRef(0), m_parts(), m_pContainer(), m_warning(warning) {}
+  DxcContainerBuilder(const char *warning) : m_dwRef(0), m_parts(), m_pContainer(), m_warning(warning), m_RequireValidation(false) {}
 
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -52,6 +55,7 @@ private:
   PartList m_parts;
   CComPtr<IDxcBlob> m_pContainer; 
   const char *m_warning;
+  bool m_RequireValidation;
 
   UINT32 ComputeContainerSize();
   HRESULT UpdateContainerHeader(AbstractMemoryStream *pStream, uint32_t containerSize);
@@ -95,6 +99,9 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(_In_ UINT32 fourCC, _In_ 
     });
     IFTBOOL(it == m_parts.end(), DXC_E_DUPLICATE_PART);
     m_parts.emplace_back(DxilPart(fourCC, pSource));
+    if (fourCC == DxilFourCC::DFCC_RootSignature) {
+      m_RequireValidation = true;
+    }
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
@@ -137,9 +144,40 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::SerializeContainer(_Out_ IDxcOper
     // Update Parts
     IFT(UpdateParts(pMemoryStream));
 
-    CComPtr<IDxcBlobEncoding> pError;
-    DxcCreateBlobWithEncodingOnHeapCopy(m_warning, strlen(m_warning), CP_UTF8, &pError);
-    DxcOperationResult::CreateFromResultErrorStatus(pResult, pError, S_OK, ppResult);
+    CComPtr<IDxcBlobEncoding> pErrorBlob;
+    HRESULT valHR = S_OK;
+    if (m_RequireValidation) {
+      CComPtr<IDxcValidator> pValidator;
+      CComPtr<IDxcLibrary> pLibrary;
+      IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
+      CComPtr<IDxcOperationResult> pValidationResult;
+      IFT(pValidator->Validate(pResult, DxcValidatorFlags_RootSignatureOnly, &pValidationResult));
+      IFT(pValidationResult->GetStatus(&valHR));
+      if (FAILED(valHR)) {
+        CComPtr<IMalloc> pErrorMalloc;
+        CComPtr<AbstractMemoryStream> pErrorOutputStream;
+        CComPtr<IDxcBlob> pErrorResult;
+        IFT(CoGetMalloc(1, &pErrorMalloc));
+        IFT(CreateMemoryStream(pErrorMalloc, &pErrorOutputStream));
+        IFT(pErrorOutputStream.QueryInterface(&pErrorResult));
+        
+        // Combine existing warnings and errors from validation
+        CComPtr<IDxcBlobEncoding> pValError;
+        IFT(pValidationResult->GetErrorBuffer(&pValError));
+        IFT(pErrorOutputStream->Reserve(strlen(m_warning) + pValError->GetBufferSize()));
+        ULONG cbWritten;
+        IFT(pErrorOutputStream->Write(m_warning, strlen(m_warning), &cbWritten));
+        IFT(pErrorOutputStream->Write(pValError->GetBufferPointer(), pValError->GetBufferSize(), &cbWritten));
+        DxcCreateBlobWithEncodingSet(pErrorResult, CP_UTF8, &pErrorBlob);
+      }
+      else {
+        DxcCreateBlobWithEncodingOnHeapCopy(m_warning, strlen(m_warning), CP_UTF8, &pErrorBlob);
+      }
+    }
+    else {
+      DxcCreateBlobWithEncodingOnHeapCopy(m_warning, strlen(m_warning), CP_UTF8, &pErrorBlob);
+    }
+    DxcOperationResult::CreateFromResultErrorStatus(pResult, pErrorBlob, valHR, ppResult);
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
@@ -195,7 +233,7 @@ HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   const char *warning;
   HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder, (IDxcContainerBuilder**)ppv);
   if (FAILED(hr)) {
-    warning = "Unable to create container builder from dxil.dll, fallback to built-in.";
+    warning = "Unable to create container builder from dxil.dll. Resulting container will not be signed.\n";
   }
   else {
     return hr;
