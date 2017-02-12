@@ -1296,6 +1296,9 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
 
             if (ConstantInt *ColIdx = dyn_cast<ConstantInt>(info.vectorIdx)) {
               IRBuilder<> Builder(stInst);
+              if (ColIdx->getType()->getBitWidth() != 8) {
+                ColIdx = Builder.getInt8(ColIdx->getValue().getLimitedValue());
+              }
               Value *args[] = {OpArg, ID, idxVal, ColIdx, V};
               GenerateStOutput(dxilFunc, args, Builder, bI1Cast);
             } else {
