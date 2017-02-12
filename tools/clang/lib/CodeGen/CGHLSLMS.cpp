@@ -111,6 +111,8 @@ private:
   // List for functions with clip plane.
   std::vector<Function *> clipPlaneFuncList;
   std::unordered_map<Value *, DebugLoc> debugInfoMap;
+
+  DxilRootSignatureVersion  rootSigVer;
   
   Value *EmitHLSLMatrixLoad(CGBuilderTy &Builder, Value *Ptr, QualType Ty);
   void EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val, Value *DestPtr,
@@ -307,6 +309,16 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   m_pHLModule->SetShaderModel(SM);
   // set entry name
   m_pHLModule->SetEntryFunctionName(CGM.getCodeGenOpts().HLSLEntryFunction);
+
+  // set root signature version.
+  if (CGM.getLangOpts().RootSigMinor == 0) {
+    rootSigVer = hlsl::DxilRootSignatureVersion::Version_1_0;
+  }
+  else {
+    DXASSERT(CGM.getLangOpts().RootSigMinor == 1,
+      "else EmitHLSLRootSignature needs to be updated");
+    rootSigVer = hlsl::DxilRootSignatureVersion::Version_1_1;
+  }
 
   // add globalCB
   unique_ptr<HLCBuffer> CB = std::make_unique<HLCBuffer>();
@@ -5193,17 +5205,8 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
 
   DXASSERT(CGF.getLangOpts().RootSigMajor == 1,
            "else EmitHLSLRootSignature needs to be updated");
-  hlsl::DxilRootSignatureVersion Ver;
-  if (CGF.getLangOpts().RootSigMinor == 0) {
-    Ver = hlsl::DxilRootSignatureVersion::Version_1_0;
-  }
-  else {
-    DXASSERT(CGF.getLangOpts().RootSigMinor == 1,
-      "else EmitHLSLRootSignature needs to be updated");
-    Ver = hlsl::DxilRootSignatureVersion::Version_1_1;
-  }
 
-  if (ParseHLSLRootSignature(StrRef.data(), StrRef.size(), Ver, &D, SLoc,
+  if (ParseHLSLRootSignature(StrRef.data(), StrRef.size(), rootSigVer, &D, SLoc,
                              Diags)) {
     CComPtr<IDxcBlob> pSignature;
     CComPtr<IDxcBlobEncoding> pErrors;
@@ -5213,10 +5216,12 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
       ReportHLSLRootSigError(Diags, SLoc,
         (char *)pErrors->GetBufferPointer(), pErrors->GetBufferSize());
       hlsl::DeleteRootSignature(D);
-    }
-    else {
-      llvm::Module *pModule = Fn->getParent();
-      pModule->GetHLModule().GetRootSignature().Assign(D, pSignature);
+    } else {
+      // Only save root signature for entry function.
+      if (Fn == EntryFunc)
+        m_pHLModule->GetRootSignature().Assign(D, pSignature);
+      else
+        hlsl::DeleteRootSignature(D);
     }
   }
 }

@@ -576,6 +576,7 @@ public:
   TEST_METHOD(CodeGenResourceInCBV2)
   TEST_METHOD(CodeGenResourceInTB2)
   TEST_METHOD(CodeGenResourceInTBV2)
+  TEST_METHOD(CodeGenRootSigEntry)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
@@ -2944,6 +2945,10 @@ TEST_F(CompilerTest, CodeGenResourceInTB2) {
 
 TEST_F(CompilerTest, CodeGenResourceInTBV2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-tbv2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigEntry) {
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigEntry.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {
