@@ -209,7 +209,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
            "else flow above is incorrect");
 
   // when no-warnings option is present, do not output warnings.
-  opts.OutputWarnings = !Args.hasFlag(OPT_no_warnings, OPT_INVALID, false);
+  opts.OutputWarnings = Args.hasFlag(OPT_INVALID, OPT_no_warnings, true);
   opts.EntryPoint = Args.getLastArgValue(OPT_entrypoint);
   // Entry point is required in arguments only for drivers; APIs take this through an argument.
   // The value should default to 'main', but we let the caller apply this policy.
