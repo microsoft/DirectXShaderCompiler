@@ -227,7 +227,8 @@ rem 3 - build directory
 setlocal
 call "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %BUILD_TOOLS%
 rem Add /ds for a detailed summary at the end.
-MSBuild.exe /property:Configuration=%1 /property:Platform=%2 /maxcpucount %3\LLVM.sln
+echo Logging to %3\msbuild-log.txt
+MSBuild.exe /nologo /property:Configuration=%1 /property:Platform=%2 /maxcpucount %3\LLVM.sln /consoleloggerparameters:Summary;Verbosity=minimal /fileloggerparameters:LogFile=%3\msbuild-log.txt
 if NOT "%ERRORLEVEL%"=="0" (
   exit /b 1
 )
