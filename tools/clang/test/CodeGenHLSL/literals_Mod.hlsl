@@ -49,6 +49,8 @@ float test() :Foo {
   VERIFY_TYPES(uint64_t, overload1(2ULL));
   VERIFY_TYPES(int64_t, overload1(2ll));
   VERIFY_TYPES(int64_t, overload1(2LL));
+  VERIFY_TYPES(half, overload1(1.0h));
+  VERIFY_TYPES(half, overload1(1.0H));
 
   
   // Not ambiguous due to one literal and one specific:
@@ -60,6 +62,9 @@ float test() :Foo {
   VERIFY_TYPES(uint, overload2(2u, 2));
   VERIFY_TYPES(uint, overload2(2, 2ul));
   VERIFY_TYPES(uint, overload2(2ul, 2));
+  // TODO : half is converted to float. Must have overload function with half parameters when true half type is supported.
+  VERIFY_TYPES(half, overload2(1.0h, 1.0));
+  VERIFY_TYPES(half, overload2(1.0, 1.0H));
   
   VERIFY_TYPES(uint64_t, overload2(2, 2ull));
   VERIFY_TYPES(uint64_t, overload2(2ull, 2));
@@ -97,6 +102,8 @@ float test() :Foo {
   VERIFY_TYPES(uint, 2 * 2UL);
   VERIFY_TYPES(int64_t, 2 * 2LL);
   VERIFY_TYPES(uint64_t, 2 * 2ULL);
+  VERIFY_TYPES(half, 1.0 * 2 * 1.5h);
+  VERIFY_TYPES(half, 1.0 * 2 * 1.5H);
 
   // Specific width int forces float to be specific-width
   VERIFY_TYPES(float, 1.5 * 2 * 2L);

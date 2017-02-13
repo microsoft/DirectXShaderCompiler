@@ -581,6 +581,11 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     switch (*s) {
     case 'f':      // FP Suffix for "float"
     case 'F':
+// HLSL Change Starts
+// TODO : When we support true half type, these suffixes should be treated differently from f/F
+	case 'h':
+	case 'H':
+// HLSL Change Ends
       if (!isFPConstant) break;  // Error for integer constant.
       if (isFloat || isLong) break; // FF, LF invalid.
       isFloat = true;
