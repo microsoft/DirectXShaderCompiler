@@ -8281,7 +8281,8 @@ void hlsl::DiagnoseRegisterType(
   case AR_BASIC_MIN16INT:
   case AR_BASIC_MIN16UINT:
     expected = "'b', 'c', or 'i'";
-    isValid = registerType == 'b' || registerType == 'c' || registerType == 'i';
+    isValid = registerType == 'b' || registerType == 'c' || registerType == 'i' ||
+		registerType == 'B' || registerType == 'C' || registerType == 'I';
     break;
 
   case AR_OBJECT_TEXTURE1D:
@@ -8294,7 +8295,8 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_TEXTURE2DMS:
   case AR_OBJECT_TEXTURE2DMS_ARRAY:
     expected = "'t' or 's'";
-    isValid = registerType == 't' || registerType == 's';
+    isValid = registerType == 't' || registerType == 's' ||
+		    registerType == 'T' || registerType == 'S';
     break;
 
   case AR_OBJECT_SAMPLER:
@@ -8304,12 +8306,13 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_SAMPLERCUBE:
   case AR_OBJECT_SAMPLERCOMPARISON:
     expected = "'s' or 't'";
-    isValid = registerType == 's' || registerType == 't';
+    isValid = registerType == 's' || registerType == 't' ||
+		registerType == 'S' || registerType == 'T';
     break;
 
   case AR_OBJECT_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't';
+    isValid = registerType == 't' || registerType == 'T';
     break;
 
   case AR_OBJECT_POINTSTREAM:
@@ -8332,13 +8335,13 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_RWTEXTURE3D:
   case AR_OBJECT_RWBUFFER:
     expected = "'u'";
-    isValid = registerType == 'u';
+    isValid = registerType == 'u' || registerType == 'U';
     break;
 
   case AR_OBJECT_BYTEADDRESS_BUFFER:
   case AR_OBJECT_STRUCTURED_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't';
+    isValid = registerType == 't' || registerType == 'T';
     break;
 
   case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
@@ -8348,16 +8351,16 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME:
   case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     expected = "'u'";
-    isValid = registerType == 'u';
+    isValid = registerType == 'u' || registerType == 'U';
     break;
 
   case AR_OBJECT_CONSTANT_BUFFER:
     expected = "'b'";
-    isValid = registerType == 'b';
+    isValid = registerType == 'b' || registerType == 'B';
     break;
   case AR_OBJECT_TEXTURE_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't';
+    isValid = registerType == 't' || registerType == 'T';
     break;
 
   case AR_OBJECT_ROVBUFFER:
@@ -8369,7 +8372,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_ROVTEXTURE2D_ARRAY:
   case AR_OBJECT_ROVTEXTURE3D:
     expected = "'u'";
-    isValid = registerType == 'u';
+    isValid = registerType == 'u' || registerType == 'U';
     break;
 
   case AR_OBJECT_LEGACY_EFFECT:   // Used for all unsupported but ignored legacy effect types
@@ -9596,7 +9599,7 @@ Decl* Sema::ActOnStartHLSLBuffer(
     case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
       hlsl::RegisterAssignment* registerAssignment = cast<hlsl::RegisterAssignment>(*unusualIter);
 
-      if (registerAssignment->RegisterType != expectedRegisterType) {
+      if (registerAssignment->RegisterType != expectedRegisterType && registerAssignment->RegisterType != toupper(expectedRegisterType)) {
         Diag(registerAssignment->Loc, cbuffer ? diag::err_hlsl_unsupported_cbuffer_register : 
                                                 diag::err_hlsl_unsupported_tbuffer_register);
       } else if (registerAssignment->ShaderProfile.size() > 0) {

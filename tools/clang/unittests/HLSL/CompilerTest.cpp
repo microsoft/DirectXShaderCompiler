@@ -524,6 +524,7 @@ public:
   TEST_METHOD(CodeGenUintSample)
   TEST_METHOD(CodeGenUmaxObjectAtomic)
   TEST_METHOD(CodeGenUpdateCounter)
+  TEST_METHOD(CodeGenUpperCaseRegister1);
   TEST_METHOD(CodeGenVcmp)
   TEST_METHOD(CodeGenVec_Comp_Arg)
   TEST_METHOD(CodeGenWave)
@@ -2745,6 +2746,10 @@ TEST_F(CompilerTest, CodeGenUmaxObjectAtomic) {
 
 TEST_F(CompilerTest, CodeGenUpdateCounter) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\updateCounter.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenUpperCaseRegister1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\uppercase-register1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenVcmp) {
