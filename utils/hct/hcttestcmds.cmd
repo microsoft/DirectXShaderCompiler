@@ -45,6 +45,35 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning 1>nul 2>smoke.warning.txt
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+findstr warning: %CD%\smoke.warning.txt 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to get warning message from command %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning /no-warnings 1>nul 2>smoke.no.warning.txt
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning /no-warnings
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+findstr warning: %CD%\smoke.no.warning.txt 1>nul
+if %errorlevel% equ 0 (
+  echo no-warning option failed : %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning /no-warnings
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+
 echo Smoke test for dxc command line program ...
 dxc.exe /T ps_6_0 smoke.hlsl /Fh smoke.hlsl.h /Vn g_myvar 1> nul
 if %errorlevel% neq 0 (

@@ -9,5 +9,9 @@ int g;
 
 float4 main() : semantic
 {
+  #ifdef check_warning
+  int x = 3;
+  x;
+  #endif
   return g;
 }
