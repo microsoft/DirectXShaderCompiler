@@ -147,6 +147,7 @@ public:
       if (PHI->user_empty())
         unusedPhis.insert(PHI);
     }
+    LI->replaceAllUsesWith(UndefValue::get(LI->getType()));
   }
 };
 
@@ -1866,9 +1867,25 @@ void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unorde
   while (!localResources.empty()) {
     for (auto it = localResources.begin(); it != localResources.end();) {
       AllocaInst *AI = *(it++);
+      bool hasHandleStore = false;
       // Build list of instructions to promote.
-      for (User *U : AI->users())
-        Insts.emplace_back(cast<Instruction>(U));
+      for (User *U : AI->users()) {
+        Instruction *I = cast<Instruction>(U);
+        if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+          if (Instruction *resI =
+                  dyn_cast<Instruction>(SI->getValueOperand())) {
+            if (handleMap.count(resI))
+              hasHandleStore = true;
+          }
+        }
+        Insts.emplace_back(I);
+      }
+
+      // No handle here, wait for next round.
+      if (!hasHandleStore) {
+        Insts.clear();
+        continue;
+      }
 
       AllocaInst *NewAI = ResourcePromoter(Insts, SSA, handleMap).run(AI, Insts);
       localResources.erase(AI);

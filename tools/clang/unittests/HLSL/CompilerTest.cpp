@@ -450,6 +450,7 @@ public:
   TEST_METHOD(CodeGenSample3)
   TEST_METHOD(CodeGenSample4)
   TEST_METHOD(CodeGenSample5)
+  TEST_METHOD(CodeGenSample6)
   TEST_METHOD(CodeGenSampleBias)
   TEST_METHOD(CodeGenSampleCmp)
   TEST_METHOD(CodeGenSampleCmpLZ)
@@ -2442,6 +2443,10 @@ TEST_F(CompilerTest, CodeGenSample4) {
 
 TEST_F(CompilerTest, CodeGenSample5) {
   CodeGenTest(L"..\\CodeGenHLSL\\sample5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSample6) {
+  CodeGenTest(L"..\\CodeGenHLSL\\sample6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSampleBias) {
