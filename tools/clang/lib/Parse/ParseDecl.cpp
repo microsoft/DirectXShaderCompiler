@@ -1889,7 +1889,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   Decl *OwnedType = nullptr;
   switch (Tok.getKind()) {
   case tok::kw_template:
-  case tok::kw_export:
     // HLSL Change Starts
     if (getLangOpts().HLSL) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
@@ -1900,6 +1899,14 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
     ProhibitAttributes(attrs);
     SingleDecl = ParseDeclarationStartingWithTemplate(Context, DeclEnd);
     break;
+    // HLSL Change Begin.
+  case tok::kw_export:
+    // Ignore export for now.
+    ConsumeToken();
+    return ParseSimpleDeclaration(Context, DeclEnd, attrs,
+                                  true);
+    break;
+    // HLSL Change End.
   case tok::kw_inline:
     // Could be the start of an inline namespace. Allowed as an ext in C++03.
     if (getLangOpts().CPlusPlus && NextToken().is(tok::kw_namespace) && !getLangOpts().HLSL) { // HLSL Change - disallowed in HLSL
