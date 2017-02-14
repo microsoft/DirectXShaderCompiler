@@ -24,11 +24,6 @@ class DxilSignature {
 public:
   using Kind = DXIL::SignatureKind;
 
-  enum class PackingMode {
-    PrefixStable,
-    Optimal
-  };
-
   DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind);
   DxilSignature(DXIL::SigPointKind sigPointKind);
   virtual ~DxilSignature();
@@ -45,7 +40,7 @@ public:
   const std::vector<std::unique_ptr<DxilSignatureElement> > &GetElements() const;
 
   // Packs the signature elements per DXIL constraints and returns the number of rows used for the signature
-  unsigned PackElements(PackingMode mode);
+  unsigned PackElements(DXIL::PackingStrategy packing);
 
   // Returns true if all signature elements that should be allocated are allocated
   bool IsFullyAllocated();

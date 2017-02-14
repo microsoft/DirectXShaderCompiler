@@ -249,7 +249,7 @@ unsigned DxilSignatureAllocator::PackGreedy(std::vector<DxilSignatureElement*> e
   return rowsUsed;
 }
 
-unsigned DxilSignatureAllocator::PackMain(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows) {
+unsigned DxilSignatureAllocator::PackOptimized(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows) {
   unsigned rowsUsed = startRow;
 
   // Clip/Cull needs special handling due to limitations unique to these.

@@ -53,6 +53,7 @@ public:
   unsigned SupportsUAV() const { return m_bUAVs; }
   unsigned SupportsTypedUAVs() const { return m_bTypedUavs; }
   unsigned GetUAVRegLimit() const { return m_NumUAVRegs; }
+  DXIL::PackingStrategy GetDefaultPackingStrategy() const { return DXIL::PackingStrategy::PrefixStable; }
 
   static unsigned Count() { return kNumShaderModels - 1; }
   static const ShaderModel *Get(unsigned Idx);

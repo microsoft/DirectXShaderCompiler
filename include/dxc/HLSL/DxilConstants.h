@@ -206,6 +206,13 @@ namespace DXIL {
   };
   // PackingKind-ENUM:END
 
+  enum class PackingStrategy : unsigned {
+    Default = 0, // Choose default packing algorithm based on target (currently PrefixStable)
+    PrefixStable, // Maintain assumption that all elements are packed in order and stable as new elements are added.
+    Optimized, // Optimize packing of all elements together (all elements must be present, in the same order, for identical placement of any individual element)
+    Invalid,
+  };
+
   enum class SamplerKind : unsigned {
     Default = 0,
     Comparison,
