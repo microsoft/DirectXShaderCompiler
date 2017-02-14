@@ -212,37 +212,38 @@ struct {
 
 } // anonymous namespace
 
+unsigned DxilSignatureAllocator::PackNext(DxilSignatureElement* SE, unsigned startRow, unsigned numRows, unsigned startCol) {
+  unsigned rowsUsed = startRow;
+
+  unsigned rows = SE->GetRows();
+  if (rows > numRows)
+    return rowsUsed; // element will not fit
+
+  unsigned cols = SE->GetCols();
+  DXASSERT_NOMSG(startCol + cols <= 4);
+
+  for (unsigned row = startRow; row <= (startRow + numRows - rows); ++row) {
+    if (DetectRowConflict(SE, row))
+      continue;
+    for (unsigned col = startCol; col <= 4 - cols; ++col) {
+      if (DetectColConflict(SE, row, col))
+        continue;
+      PlaceElement(SE, row, col);
+      SE->SetStartRow((int)row);
+      SE->SetStartCol((int)col);
+      return row + rows;
+    }
+  }
+
+  return rowsUsed;
+}
 
 unsigned DxilSignatureAllocator::PackGreedy(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows, unsigned startCol) {
   // Allocation failures should be caught by IsFullyAllocated()
   unsigned rowsUsed = startRow;
 
   for (auto &SE : elements) {
-    unsigned rows = SE->GetRows();
-    if (rows > numRows)
-      continue; // element will not fit
-
-    unsigned cols = SE->GetCols();
-    DXASSERT_NOMSG(cols <= 4);
-
-    bool bAllocated = false;
-    for (unsigned row = startRow; row <= (startRow + numRows - rows); ++row) {
-      if (DetectRowConflict(SE, row))
-        continue;
-      for (unsigned col = startCol; col <= 4 - cols; ++col) {
-        if (DetectColConflict(SE, row, col))
-          continue;
-        PlaceElement(SE, row, col);
-        SE->SetStartRow((int)row);
-        SE->SetStartCol((int)col);
-        bAllocated = true;
-        if (row + rows > rowsUsed)
-          rowsUsed = row + rows;
-        break;
-      }
-      if (bAllocated)
-        break;
-    }
+    rowsUsed = std::max(rowsUsed, PackNext(SE, startRow, numRows, startCol));
   }
 
   return rowsUsed;
@@ -431,15 +432,58 @@ unsigned DxilSignatureAllocator::PackMain(std::vector<DxilSignatureElement*> ele
 }
 
 unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows) {
+  unsigned rowsUsed = startRow;
+
+  // Special handling for prefix-stable clip/cull arguments
+  // - basically, do not pack with anything else to maximize chance to pack into two register limit
+  unsigned clipcullRegUsed = 0;
+  DxilSignatureAllocator clipcullAllocator(2);
+  DxilSignatureElement clipcullTempElements[2] = {DXIL::SigPointKind::VSOut, DXIL::SigPointKind::VSOut};
+
   for (auto &SE : elements) {
     // Clear any existing allocation
     if (SE->IsAllocated()) {
       SE->SetStartRow(-1);
       SE->SetStartCol(-1);
     }
+
+    switch (SE->GetInterpretation()) {
+      case DXIL::SemanticInterpretationKind::Arb:
+      case DXIL::SemanticInterpretationKind::SGV:
+        break;
+      case DXIL::SemanticInterpretationKind::SV:
+        if (SE->GetKind() == DXIL::SemanticKind::ClipDistance || SE->GetKind() == DXIL::SemanticKind::CullDistance) {
+          unsigned used = clipcullAllocator.PackNext(SE, 0, 2);
+          if (used) {
+            if (used > clipcullRegUsed) {
+              clipcullRegUsed = used;
+              // allocate placeholder element, reserving new row
+              clipcullTempElements[used - 1].Initialize(SE->GetName(),
+                                                        SE->GetCompType(),
+                                                        *SE->GetInterpolationMode(),
+                                                        1, 4);
+              rowsUsed = std::max(rowsUsed, PackNext(&clipcullTempElements[used - 1], startRow, numRows));
+            }
+            // Actually place element in correct row:
+            SE->SetStartRow(clipcullTempElements[used - 1].GetStartRow());
+          }
+          continue;
+        }
+        break;
+      case DXIL::SemanticInterpretationKind::TessFactor:
+        if (SE->GetRows() > 1) {
+          // Maximize opportunity for packing while preserving prefix-stable property
+          rowsUsed = std::max(rowsUsed, PackNext(SE, startRow, numRows, 3));
+          continue;
+        }
+        break;
+      default:
+        DXASSERT(false, "otherwise, unexpected interpretation for allocated element");
+    }
+    rowsUsed = std::max(rowsUsed, PackNext(SE, startRow, numRows));
   }
 
-  return PackGreedy(elements, startRow, numRows);
+  return rowsUsed;
 }
 
 

@@ -74,6 +74,8 @@ public:
   ConflictType DetectColConflict(const DxilSignatureElement *SE, unsigned row, unsigned col);
   void PlaceElement(const DxilSignatureElement *SE, unsigned row, unsigned col);
 
+  unsigned PackNext(DxilSignatureElement* SE, unsigned startRow, unsigned numRows, unsigned startCol = 0);
+
   // Simple greedy in-order packer used by PackMain
   unsigned PackGreedy(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows, unsigned startCol = 0);
 
