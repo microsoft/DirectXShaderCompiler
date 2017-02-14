@@ -7,7 +7,7 @@
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/dxc/Tracing/tmpdxcetw.h
   COMMAND mc -r ${CMAKE_CURRENT_BINARY_DIR} -h ${CMAKE_CURRENT_BINARY_DIR} -p DxcEtw_ -um -z tmpdxcetw ${CMAKE_CURRENT_SOURCE_DIR}/dxcetw.man
-  DEPENDS {CMAKE_CURRENT_SOURCE_DIR}/dxcetw.man
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/dxcetw.man
   COMMENT "Building instrumentation manifest ..."
 )
 add_custom_command(
