@@ -430,5 +430,17 @@ unsigned DxilSignatureAllocator::PackMain(std::vector<DxilSignatureElement*> ele
   return rowsUsed;
 }
 
+unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows) {
+  for (auto &SE : elements) {
+    // Clear any existing allocation
+    if (SE->IsAllocated()) {
+      SE->SetStartRow(-1);
+      SE->SetStartCol(-1);
+    }
+  }
+
+  return PackGreedy(elements, startRow, numRows);
+}
+
 
 } // namespace hlsl

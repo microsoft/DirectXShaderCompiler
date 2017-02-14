@@ -92,7 +92,7 @@ bool DxilSignature::IsFullyAllocated() {
   return true;
 }
 
-unsigned DxilSignature::PackElements() {
+unsigned DxilSignature::PackElements(PackingMode mode) {
   unsigned rowsUsed = 0;
 
   if (m_sigPointKind == DXIL::SigPointKind::GSOut) {
@@ -106,7 +106,17 @@ unsigned DxilSignature::PackElements() {
     }
     for (unsigned i = 0; i < 4; ++i) {
       if (!elements[i].empty()) {
-        unsigned streamRowsUsed = alloc[i].PackMain(elements[i], 0, 32);
+        unsigned streamRowsUsed = 0;
+        switch (mode) {
+        case PackingMode::PrefixStable:
+          streamRowsUsed = alloc[i].PackPrefixStable(elements[i], 0, 32);
+          break;
+        case PackingMode::Optimal:
+          streamRowsUsed = alloc[i].PackMain(elements[i], 0, 32);
+          break;
+        default:
+          DXASSERT_NOMSG(false);
+        }
         if (streamRowsUsed > rowsUsed)
           rowsUsed = streamRowsUsed;
       }
@@ -144,7 +154,16 @@ unsigned DxilSignature::PackElements() {
           continue;
         elements.push_back(SE.get());
       }
-      rowsUsed = alloc.PackMain(elements, 0, 32);
+      switch (mode) {
+      case PackingMode::PrefixStable:
+        rowsUsed = alloc.PackPrefixStable(elements, 0, 32);
+        break;
+      case PackingMode::Optimal:
+        rowsUsed = alloc.PackMain(elements, 0, 32);
+        break;
+      default:
+        DXASSERT_NOMSG(false);
+      }
     }
     break;
 

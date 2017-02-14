@@ -776,19 +776,19 @@ void DxilGenerationPass::CreateDxilSignatures() {
 
 // Allocate input/output slots
 void DxilGenerationPass::AllocateDxilInputOutputs() {
-  m_pHLModule->GetInputSignature().PackElements();
+  m_pHLModule->GetInputSignature().PackElements(DxilSignature::PackingMode::PrefixStable);
   if (!m_pHLModule->GetInputSignature().IsFullyAllocated()) {
     m_pHLModule->GetCtx().emitError("Failed to allocate all input signature elements in available space.");
   }
 
-  m_pHLModule->GetOutputSignature().PackElements();
+  m_pHLModule->GetOutputSignature().PackElements(DxilSignature::PackingMode::PrefixStable);
   if (!m_pHLModule->GetOutputSignature().IsFullyAllocated()) {
     m_pHLModule->GetCtx().emitError("Failed to allocate all output signature elements in available space.");
   }
 
   if (m_pHLModule->GetShaderModel()->IsHS() ||
       m_pHLModule->GetShaderModel()->IsDS()) {
-    m_pHLModule->GetPatchConstantSignature().PackElements();
+    m_pHLModule->GetPatchConstantSignature().PackElements(DxilSignature::PackingMode::PrefixStable);
     if (!m_pHLModule->GetPatchConstantSignature().IsFullyAllocated()) {
       m_pHLModule->GetCtx().emitError("Failed to allocate all patch constant signature elements in available space.");
     }

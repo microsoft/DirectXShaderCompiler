@@ -80,6 +80,9 @@ public:
   // Main packing algorithm
   unsigned PackMain(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows);
 
+  // Pack in a prefix-stable way.
+  unsigned PackPrefixStable(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows);
+
 };
 
 
