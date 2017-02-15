@@ -316,9 +316,12 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   }
   else {
     DXASSERT(CGM.getLangOpts().RootSigMinor == 1,
-      "else EmitHLSLRootSignature needs to be updated");
+      "else CGMSHLSLRuntime Constructor needs to be updated");
     rootSigVer = hlsl::DxilRootSignatureVersion::Version_1_1;
   }
+
+  DXASSERT(CGM.getLangOpts().RootSigMajor == 1,
+           "else CGMSHLSLRuntime Constructor needs to be updated");
 
   // add globalCB
   unique_ptr<HLCBuffer> CB = std::make_unique<HLCBuffer>();
@@ -5196,15 +5199,16 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionToAggregate(CodeGenFunction &CGF,
 void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
                                             HLSLRootSignatureAttr *RSA,
                                             Function *Fn) {
+  // Only parse root signature for entry function.
+  if (Fn != EntryFunc)
+    return;
+
   StringRef StrRef = RSA->getSignatureName();
   DiagnosticsEngine &Diags = CGF.getContext().getDiagnostics();
   SourceLocation SLoc = RSA->getLocation();
   std::string OSStr;
   raw_string_ostream OS(OSStr);
   hlsl::DxilVersionedRootSignatureDesc *D = nullptr;
-
-  DXASSERT(CGF.getLangOpts().RootSigMajor == 1,
-           "else EmitHLSLRootSignature needs to be updated");
 
   if (ParseHLSLRootSignature(StrRef.data(), StrRef.size(), rootSigVer, &D, SLoc,
                              Diags)) {
@@ -5217,11 +5221,7 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
         (char *)pErrors->GetBufferPointer(), pErrors->GetBufferSize());
       hlsl::DeleteRootSignature(D);
     } else {
-      // Only save root signature for entry function.
-      if (Fn == EntryFunc)
-        m_pHLModule->GetRootSignature().Assign(D, pSignature);
-      else
-        hlsl::DeleteRootSignature(D);
+      m_pHLModule->GetRootSignature().Assign(D, pSignature);
     }
   }
 }
