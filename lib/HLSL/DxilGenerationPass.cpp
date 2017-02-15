@@ -1865,6 +1865,7 @@ void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unorde
   SmallVector<Instruction *, 4> Insts;
   // Make sure every resource load has mapped to handle.
   while (!localResources.empty()) {
+    bool bUpdated = false;
     for (auto it = localResources.begin(); it != localResources.end();) {
       AllocaInst *AI = *(it++);
       bool hasHandleStore = false;
@@ -1887,12 +1888,20 @@ void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unorde
         continue;
       }
 
-      AllocaInst *NewAI = ResourcePromoter(Insts, SSA, handleMap).run(AI, Insts);
+      bUpdated = true;
+
+      AllocaInst *NewAI =
+          ResourcePromoter(Insts, SSA, handleMap).run(AI, Insts);
       localResources.erase(AI);
       if (NewAI)
         localResources.insert(NewAI);
 
       Insts.clear();
+    }
+    if (!bUpdated) {
+      F->getContext().emitError(
+          "local resource usage cannot map to global resource");
+      break;
     }
   }
 }

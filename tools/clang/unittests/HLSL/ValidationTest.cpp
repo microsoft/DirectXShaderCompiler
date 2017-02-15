@@ -121,6 +121,8 @@ public:
   TEST_METHOD(UDivByZero)
   TEST_METHOD(UnusedMetadata)
   TEST_METHOD(MemoryOutOfBound)
+  TEST_METHOD(LocalRes2)
+  TEST_METHOD(LocalRes3)
   TEST_METHOD(AddrSpaceCast)
   TEST_METHOD(PtrBitCast)
   TEST_METHOD(MinPrecisionBitCast)
@@ -1349,6 +1351,14 @@ TEST_F(ValidationTest, MemoryOutOfBound) {
                           "getelementptr [4 x float], [4 x float]* %7, i32 0, i32 3",
                           "getelementptr [4 x float], [4 x float]* %7, i32 0, i32 10",
                           "Access to out-of-bounds memory is disallowed");
+}
+
+TEST_F(ValidationTest, LocalRes2) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource2.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes3) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource3.hlsl");
 }
 
 TEST_F(ValidationTest, AddrSpaceCast) {

@@ -386,6 +386,7 @@ public:
   TEST_METHOD(CodeGenLegacyStruct)
   TEST_METHOD(CodeGenLiteralShift)
   TEST_METHOD(CodeGenLiveness1)
+  TEST_METHOD(CodeGenLocalRes1)
   TEST_METHOD(CodeGenLoop1)
   TEST_METHOD(CodeGenLoop2)
   TEST_METHOD(CodeGenLoop3)
@@ -450,7 +451,6 @@ public:
   TEST_METHOD(CodeGenSample3)
   TEST_METHOD(CodeGenSample4)
   TEST_METHOD(CodeGenSample5)
-  TEST_METHOD(CodeGenSample6)
   TEST_METHOD(CodeGenSampleBias)
   TEST_METHOD(CodeGenSampleCmp)
   TEST_METHOD(CodeGenSampleCmpLZ)
@@ -2192,6 +2192,10 @@ TEST_F(CompilerTest, CodeGenLoop1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\loop1.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenLocalRes1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource1.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenLoop2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\loop2.hlsl");
 }
@@ -2443,10 +2447,6 @@ TEST_F(CompilerTest, CodeGenSample4) {
 
 TEST_F(CompilerTest, CodeGenSample5) {
   CodeGenTest(L"..\\CodeGenHLSL\\sample5.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenSample6) {
-  CodeGenTest(L"..\\CodeGenHLSL\\sample6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSampleBias) {
