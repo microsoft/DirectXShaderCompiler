@@ -387,6 +387,7 @@ public:
   TEST_METHOD(CodeGenLiteralShift)
   TEST_METHOD(CodeGenLiveness1)
   TEST_METHOD(CodeGenLocalRes1)
+  TEST_METHOD(CodeGenLocalRes4)
   TEST_METHOD(CodeGenLoop1)
   TEST_METHOD(CodeGenLoop2)
   TEST_METHOD(CodeGenLoop3)
@@ -2194,6 +2195,10 @@ TEST_F(CompilerTest, CodeGenLoop1) {
 
 TEST_F(CompilerTest, CodeGenLocalRes1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLoop2) {

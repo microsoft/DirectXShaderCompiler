@@ -2,25 +2,19 @@
 
 // CHECK: main
 
-
 float4 Tex2D(Texture2D<float4> t,
   SamplerState s, float2 c) {
   return t.Sample(s, c);
 }
 
-float4 test(Texture2D<float4> t,
-SamplerState s, float2 c) {
-  float4 r = Tex2D(t, s, c);
-  r += Tex2D(t, s, c+1);
-  r += Tex2D(t, s, c+2);
-  r += Tex2D(t, s, c+3);
-  r += Tex2D(t, s, c+4);
-  return r;
-}
 
 Texture2D<float4> g_texture;
 SamplerState g_ss;
 
+
+static Texture2D<float4> g_texture2;
+
 float4 main(float2 c: T) : SV_Target {
-  return test(g_texture, g_ss, c);
+  g_texture2 = g_texture;
+  return Tex2D(g_texture2, g_ss, c);
 }
