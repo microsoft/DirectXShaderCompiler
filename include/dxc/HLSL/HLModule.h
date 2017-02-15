@@ -283,7 +283,6 @@ private:
   HLOptions m_Options;
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;
-  DXIL::PackingStrategy m_PackingStrategy;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitHLResources();
