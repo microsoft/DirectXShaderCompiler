@@ -4742,7 +4742,7 @@ void CGMSHLSLRuntime::FlattenAggregatePtrToGepList(
     // Flatten vector too.
     QualType EltTy = hlsl::GetHLSLVecElementType(Type);
     for (uint32_t i = 0; i < VT->getNumElements(); i++) {
-      Constant *idx = CGF.Builder.getInt8(i); // CGF.Builder.getInt32(i);
+      Constant *idx = CGF.Builder.getInt32(i);
       idxList.emplace_back(idx);
 
       Value *GEP = CGF.Builder.CreateInBoundsGEP(Ptr, idxList);
