@@ -87,15 +87,15 @@ public:
     return cast<StoreInst>(I)->getPointerOperand() == AI;
   }
 
-  void updateDebugInfo(Instruction *Inst) const override {
-    // Store use go this path.
-    // Clone to keep the debug info.
-    Instruction *NewInst = Inst->clone();
-    NewInst->replaceUsesOfWith(AI, NewAI);
-    IRBuilder<> Builder(Inst);
-    Builder.Insert(NewInst);
-  }
   void replaceLoadWithValue(LoadInst *LI, Value *V) const override {
+    if (PHINode *phi = dyn_cast<PHINode>(V)) {
+      LI->replaceAllUsesWith(phi);
+      // Add nullptr for phi, will create real handle in
+      // AddCreateHandleForPhiNode.
+      handleMap[phi] = nullptr;
+      return;
+    }
+
     // Load use go here.
     // Clone to keep the debug info.
     Instruction *NewInst = LI->clone();
@@ -103,6 +103,7 @@ public:
     IRBuilder<> Builder(LI);
     Builder.Insert(NewInst);
     LI->replaceAllUsesWith(NewInst);
+
     // Mark handle map.
     // If cannot find, will return false in run();
     if (Instruction *I = dyn_cast<Instruction>(V)) {
@@ -154,6 +155,13 @@ public:
   }
 
   void replaceLoadWithValue(LoadInst *LI, Value *V) const override {
+    if (PHINode *phi = dyn_cast<PHINode>(V)) {
+      LI->replaceAllUsesWith(phi);
+      // Add nullptr for phi, will create real handle in
+      // AddCreateHandleForPhiNode.
+      handleMap[phi] = nullptr;
+      return;
+    }
     // Load use go here.
     // Clone to keep the debug info.
     Instruction *NewInst = LI->clone();
@@ -407,6 +415,9 @@ public:
       // Add local resource load to handle map.
       MapLocalDxilResourceHandles(handleMap);
     }
+    // Take care phi node of resource.
+    AddCreateHandleForPhiNode(handleMap, m_pHLModule->GetOP());
+
     GenerateParamDxilResourceHandles(handleMap);
 
     GenerateDxilOperations(M, handleMap);
@@ -465,6 +476,7 @@ private:
   void TranslateDxilResourceUses(
       DxilResourceBase &res,
       std::unordered_map<Instruction *, Value *> &handleMap);
+  void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP);
   void GenerateDxilResourceHandles(
       std::unordered_map<Instruction *, Value *> &handleMap);
   void TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
@@ -1788,7 +1800,7 @@ static Value *MergeImmResClass(Value *resClass) {
   }
 }
 
-static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
+void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
 
@@ -1858,9 +1870,17 @@ static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *>
     for (unsigned i = 0; i < numOperands; i++) {
 
       BasicBlock *BB = phi->getIncomingBlock(i);
-
+      if (isa<UndefValue>(phi->getOperand(i))) {
+        phi->getContext().emitError(
+            phi, "local resource usage cannot map to global resource");
+        return;
+      }
       Instruction *phiOperand = cast<Instruction>(phi->getOperand(i));
-      DXASSERT(handleMap.count(phiOperand), "must map to handle");
+      if (!handleMap.count(phiOperand)) {
+        phi->getContext().emitError(
+            phi, "local resource usage cannot map to global resource");
+        return;
+      }
       CallInst *handleI = cast<CallInst>(handleMap[phiOperand]);
 
       Value *resClassI = handleI->getArgOperand(
@@ -1886,6 +1906,22 @@ static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *>
     Value *immResClass = MergeImmResClass(resClass);
     handle0->setArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx,
                            immResClass);
+
+    CallInst *handlePhi = cast<CallInst>(handleMap[phi]);
+
+    if (PHINode *resID = dyn_cast<PHINode>(handlePhi->getArgOperand(
+            DXIL::OperandIndex::kCreateHandleResIDOpIdx))) {
+      unsigned numOperands = resID->getNumOperands();
+      if (numOperands > 0) {
+        Value *resID0 = resID->getIncomingValue(0);
+        for (unsigned i=1;i<numOperands;i++) {
+          if (resID->getIncomingValue(i) != resID0) {
+            resID->getContext().emitError(handle0, "local resource usage cannot map to global resource");
+            break;
+          }
+        }
+      }
+    }
   }
 
   // Drop all ref of the phi to help remove the useless createHandles.
@@ -2234,8 +2270,6 @@ void DxilGenerationPass::GenerateDxilResourceHandles(std::unordered_map<Instruct
     HLResource &UAV = m_pHLModule->GetUAV(i);
     TranslateDxilResourceUses(UAV, handleMap);
   }
-
-  AddCreateHandleForPhiNode(handleMap, m_pHLModule->GetOP());
 }
 
 void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instruction *, Value *> &handleMap) {

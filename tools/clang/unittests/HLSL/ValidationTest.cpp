@@ -123,6 +123,10 @@ public:
   TEST_METHOD(MemoryOutOfBound)
   TEST_METHOD(LocalRes2)
   TEST_METHOD(LocalRes3)
+  TEST_METHOD(LocalRes5)
+  TEST_METHOD(LocalRes5Dbg)
+  TEST_METHOD(LocalRes6)
+  TEST_METHOD(LocalRes6Dbg)
   TEST_METHOD(AddrSpaceCast)
   TEST_METHOD(PtrBitCast)
   TEST_METHOD(MinPrecisionBitCast)
@@ -1359,6 +1363,22 @@ TEST_F(ValidationTest, LocalRes2) {
 
 TEST_F(ValidationTest, LocalRes3) {
   TestCheck(L"..\\CodeGenHLSL\\local_resource3.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes5) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource5.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes5Dbg) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource5_dbg.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes6) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource6.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes6Dbg) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource6_dbg.hlsl");
 }
 
 TEST_F(ValidationTest, AddrSpaceCast) {
