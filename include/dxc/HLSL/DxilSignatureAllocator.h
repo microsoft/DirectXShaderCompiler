@@ -74,11 +74,16 @@ public:
   ConflictType DetectColConflict(const DxilSignatureElement *SE, unsigned row, unsigned col);
   void PlaceElement(const DxilSignatureElement *SE, unsigned row, unsigned col);
 
-  // Simple greedy in-order packer used by PackMain
+  unsigned PackNext(DxilSignatureElement* SE, unsigned startRow, unsigned numRows, unsigned startCol = 0);
+
+  // Simple greedy in-order packer used by PackOptimized
   unsigned PackGreedy(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows, unsigned startCol = 0);
 
-  // Main packing algorithm
-  unsigned PackMain(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows);
+  // Optimized packing algorithm - appended elements may affect positions of prior elements.
+  unsigned PackOptimized(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows);
+
+  // Pack in a prefix-stable way - appended elements do not affect positions of prior elements.
+  unsigned PackPrefixStable(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows);
 
 };
 

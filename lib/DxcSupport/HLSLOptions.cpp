@@ -289,6 +289,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load, OPT_INVALID, false);
+  opts.PackPrefixStable = Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
+  opts.PackOptimized = Args.hasFlag(OPT_pack_optimized, OPT_INVALID, false);
   opts.DisplayIncludeProcess = Args.hasFlag(OPT_H, OPT_INVALID, false);
   opts.WarningAsError = Args.hasFlag(OPT__SLASH_WX, OPT_INVALID, false);
   opts.AvoidFlowControl = Args.hasFlag(OPT_Gfa, OPT_INVALID, false);
@@ -310,6 +312,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
   if (opts.AvoidFlowControl && opts.PreferFlowControl) {
     errors << "Cannot specify /Gfa and /Gfp together, use /? to get usage information";
+    return 1;
+  }
+  if (opts.PackPrefixStable && opts.PackOptimized) {
+    errors << "Cannot specify /pack_prefix_stable and /pack_optimized together, use /? to get usage information";
     return 1;
   }
   // TODO: more fxc option check.

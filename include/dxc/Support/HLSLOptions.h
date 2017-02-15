@@ -132,6 +132,8 @@ public:
   bool UseInstructionByteOffsets; // OPT_No
   bool UseInstructionNumbers; // OPT_Ni
   bool NotUseLegacyCBufLoad;  // OPT_not_use_legacy_cbuf_load
+  bool PackPrefixStable;  // OPT_pack_prefix_stable
+  bool PackOptimized;  // OPT_pack_optimized
   bool DisplayIncludeProcess; // OPT__vi
   bool RecompileFromBinary; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
   bool StripDebug; // OPT Qstrip_debug
