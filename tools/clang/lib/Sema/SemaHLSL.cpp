@@ -4342,6 +4342,9 @@ static ArBasicKind LiteralToConcrete(Expr *litExpr) {
     ArBasicKind kind1 = LiteralToConcrete(BO->getRHS());
     CombineBasicTypes(kind, kind1, &kind);
     return kind;
+  } else if (ParenExpr *PE = dyn_cast<ParenExpr>(litExpr)) {
+    ArBasicKind kind = LiteralToConcrete(PE->getSubExpr());
+    return kind;
   } else {
     // Could only be function call.
     CallExpr *CE = cast<CallExpr>(litExpr);
