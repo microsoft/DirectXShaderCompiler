@@ -215,7 +215,8 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
   DXASSERT_NOMSG(diagId != nullptr);
 
   if (*name != 'b' && *name != 'c' && *name != 'i' && *name != 's' &&
-      *name != 't' && *name != 'u') {
+      *name != 't' && *name != 'u' && *name != 'B' && *name != 'C' &&
+	  *name != 'I' && *name != 'S' && *name != 'T' && *name != 'U') {
     *diagId = diag::err_hlsl_unsupported_register_type;
     *registerType = 0;
     *registerNumber = 0;
@@ -250,7 +251,7 @@ void ParsePackSubcomponent(_In_z_ const char* name, _Out_ unsigned* subcomponent
 
   char registerType;
   ParseRegisterNumberForHLSL(name, &registerType, subcomponent, diagId);
-  if (registerType != 'c')
+  if (registerType != 'c' && registerType != 'C')
   {
     *diagId = diag::err_hlsl_unsupported_register_type;
         return;

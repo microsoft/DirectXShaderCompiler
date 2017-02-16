@@ -45,6 +45,13 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+dxc.exe /T ps_6_0 smoke.hlsl /ast-dump 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /ast-dump
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning 1>nul 2>smoke.warning.txt
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning
