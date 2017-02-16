@@ -204,7 +204,7 @@ HRESULT DxcContainerBuilder::UpdateContainerHeader(AbstractMemoryStream *pStream
 
 HRESULT DxcContainerBuilder::UpdateOffsetTable(AbstractMemoryStream *pStream) {
   UINT32 offset = sizeof(DxilContainerHeader) + GetOffsetTableSize(m_parts.size());
-  for (int i = 0; i < m_parts.size(); ++i) {
+  for (size_t i = 0; i < m_parts.size(); ++i) {
     ULONG cbWritten;
     IFR(pStream->Write(&offset, sizeof(UINT32), &cbWritten));
     if (cbWritten != sizeof(UINT32)) { return E_FAIL; }
@@ -214,7 +214,7 @@ HRESULT DxcContainerBuilder::UpdateOffsetTable(AbstractMemoryStream *pStream) {
 }
 
 HRESULT DxcContainerBuilder::UpdateParts(AbstractMemoryStream *pStream) {
-  for (int i = 0; i < m_parts.size(); ++i) {
+  for (size_t i = 0; i < m_parts.size(); ++i) {
     ULONG cbWritten;
     CComPtr<IDxcBlob> pBlob = m_parts[i].m_Blob;
     // Write part header
