@@ -107,7 +107,7 @@ static const PixelShader ps1 { state=foo; };                /* expected-warning 
   VarDecl <col:1, col:26> col:26 invalid ps1 'const PixelShader':'const deprecated effect object' static
 */
 // expected-note@? {{'PixelShader' declared here}}
-PixelShadeR ps < int foo=1;>  = ps1;   // Case insensitive! /* expected-error {{unknown type name 'PixelShadeR'; did you mean 'PixelShader'?}} expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} fxc-pass {{}} */
+PixelShadeR ps < int foo=1;>  = ps1;   // Case insensitive! /* expected-error {{unknown type name 'PixelShadeR'; did you mean 'PixelShader'?}} expected-warning {{effect object ignored - effect syntax is deprecated}} expected-warning {{possible effect annotation ignored - effect syntax is deprecated}} expected-error {{use of undeclared identifier 'ps1'}}fxc-pass {{}} */
 /*verify-ast
   VarDecl <col:1, col:13> col:13 invalid ps 'PixelShader':'deprecated effect object'
 */

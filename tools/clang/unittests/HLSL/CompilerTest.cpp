@@ -333,6 +333,7 @@ public:
   TEST_METHOD(CodeGenDivZero)
   TEST_METHOD(CodeGenDot1)
   TEST_METHOD(CodeGenDynamic_Resources)
+  TEST_METHOD(CodeGenEffectSkip)
   TEST_METHOD(CodeGenEmpty)
   TEST_METHOD(CodeGenEmptyStruct)
   TEST_METHOD(CodeGenEarlyDepthStencil)
@@ -1994,6 +1995,10 @@ TEST_F(CompilerTest, CodeGenDot1) {
 
 TEST_F(CompilerTest, CodeGenDynamic_Resources) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\dynamic-resources.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEffectSkip) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\effect_skip.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenEmpty) {
