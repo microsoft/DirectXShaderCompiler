@@ -56,9 +56,14 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
 }
 
 struct HLObjectOperationLowerHelper {
+private:
   // For object intrinsics.
   std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap;
   HLModule &HLM;
+public:
+  HLObjectOperationLowerHelper(std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap,
+  HLModule &HLM) : HLM(HLM), handleMap(handleMap) {
+  }
   DXIL::ResourceClass GetRC(Type *Ty) {
     return HLM.GetResourceClass(Ty);
   }
@@ -105,6 +110,18 @@ struct HLObjectOperationLowerHelper {
         CollectImmFromPhiChain(V, immResIDs, resSet);
       }
     }
+  }
+
+  Value *FindHandle(Instruction *I) {
+    if (handleMap.count(I)) {
+      return handleMap[I];
+    } else {
+      I->getContext().emitError(I, "cannot map resource to handle");
+      return nullptr;
+    }
+  }
+  void EraseHandle(Instruction *I) {
+    handleMap.erase(I);
   }
 };
 
@@ -1818,8 +1835,11 @@ Value *TranslateGetSamplePosition(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  DXASSERT(pObjHelper->handleMap.count(thisArg), "must find handle");
-  Value *handle = pObjHelper->handleMap[thisArg];
+  Value *handle = pObjHelper->FindHandle(thisArg);
+  if (!handle) {
+    Translated = false;
+    return nullptr;
+  }
 
   IRBuilder<> Builder(CI);
   Value *sampleIdx =
@@ -1847,8 +1867,12 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  DXASSERT(pObjHelper->handleMap.count(thisArg), "must find handle");
-  Value *handle = pObjHelper->handleMap[thisArg];
+
+  Value *handle = pObjHelper->FindHandle(thisArg);
+  if (!handle) {
+    Translated = false;
+    return nullptr;
+  }
   DxilResource::Kind RK = pObjHelper->GetRK(thisArg->getType());
 
   IRBuilder<> Builder(CI);
@@ -1947,8 +1971,11 @@ Value *GenerateUpdateCounter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  DXASSERT(pObjHelper->handleMap.count(thisArg), "must find handle");
-  Value *handle = pObjHelper->handleMap[thisArg];
+  Value *handle = pObjHelper->FindHandle(thisArg);
+  if (!handle) {
+    Translated = false;
+    return nullptr;
+  }
   pObjHelper->MarkHasCounter(thisArg->getType(), handle);
 
   bool bInc = IOP == IntrinsicOp::MOP_IncrementCounter;
@@ -2090,13 +2117,13 @@ SampleHelper::SampleHelper(
   Instruction *samplerArg =
       cast<Instruction>(CI->getArgOperand(kSamplerArgIndex));
 
-  std::unordered_map<Instruction *, Value *> &handleMap = pObjHelper->handleMap;
-
   IRBuilder<> Builder(CI);
-  DXASSERT(handleMap.count(texArg), "must find handle");
-  DXASSERT(handleMap.count(samplerArg), "must find handle");
-  texHandle = handleMap[texArg];
-  samplerHandle = handleMap[samplerArg];
+  texHandle = pObjHelper->FindHandle(texArg);
+  samplerHandle = pObjHelper->FindHandle(samplerArg);
+  if (!texHandle || !samplerHandle) {
+    opcode = DXIL::OpCode::NumOpCodes;
+    return;
+  }
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texArg->getType());
   unsigned coordDimensions = DxilResource::GetNumCoords(RK);
@@ -2163,6 +2190,11 @@ Value *TranslateCalculateLOD(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   SampleHelper sampleHelper(CI, OP::OpCode::CalculateLOD, pObjHelper);
+  if (sampleHelper.opcode == DXIL::OpCode::NumOpCodes) {
+    Translated = false;
+    return nullptr;
+  }
+
   bool bClamped = IOP == IntrinsicOp::MOP_CalculateLevelOfDetail;
   IRBuilder<> Builder(CI);
   Value *opArg =
@@ -2205,6 +2237,10 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   SampleHelper sampleHelper(CI, opcode, pObjHelper);
 
+  if (sampleHelper.opcode == DXIL::OpCode::NumOpCodes) {
+    Translated = false;
+    return nullptr;
+  }
   Type *Ty = CI->getType();
 
   Function *F = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
@@ -2425,11 +2461,13 @@ GatherHelper::GatherHelper(
     break;
   }
 
-  std::unordered_map<Instruction *, Value *> &handleMap = pObjHelper->handleMap;
-
   IRBuilder<> Builder(CI);
-  texHandle = handleMap[texArg];
-  samplerHandle = handleMap[samplerArg];
+  texHandle = pObjHelper->FindHandle(texArg);
+  samplerHandle = pObjHelper->FindHandle(samplerArg);
+  if (!texHandle || !samplerHandle) {
+    opcode = DXIL::OpCode::NumOpCodes;
+    return;
+  }
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texArg->getType());
   unsigned coordSize = DxilResource::GetNumCoords(RK);
@@ -2543,6 +2581,10 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 
   GatherHelper gatherHelper(CI, opcode, pObjHelper, ch);
 
+  if (gatherHelper.opcode == DXIL::OpCode::NumOpCodes) {
+    Translated = false;
+    return nullptr;
+  }
   Type *Ty = CI->getType();
 
   Function *F = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
@@ -2858,8 +2900,11 @@ Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  DXASSERT(pObjHelper->handleMap.count(thisArg), "must find handle");
-  Value *handle = pObjHelper->handleMap[thisArg];
+  Value *handle = pObjHelper->FindHandle(thisArg);
+  if (!handle) {
+    Translated = false;
+    return nullptr;
+  }
   IRBuilder<> Builder(CI);
 
   Type *resTy = thisArg->getType();
@@ -3056,8 +3101,11 @@ Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  DXASSERT(pObjHelper->handleMap.count(thisArg), "must find handle");
-  Value *handle = pObjHelper->handleMap[thisArg];
+  Value *handle = pObjHelper->FindHandle(thisArg);
+  if (!handle) {
+    Translated = false;
+    return nullptr;
+  }
   IRBuilder<> Builder(CI);
   DXIL::ResourceKind RK = pObjHelper->GetRK(thisArg->getType());
 
@@ -3174,8 +3222,12 @@ Value *TranslateMopAtomicBinaryOperation(CallInst *CI, IntrinsicOp IOP,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  DXASSERT(pObjHelper->handleMap.count(thisArg), "must find handle");
-  Value *handle = pObjHelper->handleMap[thisArg];
+
+  Value *handle = pObjHelper->FindHandle(thisArg);
+  if (!handle) {
+    Translated = false;
+    return nullptr;
+  }
   IRBuilder<> Builder(CI);
 
   switch (IOP) {
@@ -3275,8 +3327,12 @@ Value *TranslateMopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  DXASSERT(pObjHelper->handleMap.count(thisArg), "must find handle");
-  Value *handle = pObjHelper->handleMap[thisArg];
+
+  Value *handle = pObjHelper->FindHandle(thisArg);
+  if (!handle) {
+    Translated = false;
+    return nullptr;
+  }
   IRBuilder<> Builder(CI);
   AtomicHelper atomicHelper(CI, OP::OpCode::AtomicCompareExchange, handle);
   TranslateAtomicCmpXChg(atomicHelper, Builder, hlslOP);
@@ -5711,12 +5767,14 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
 
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
   Instruction *ptrInst = dyn_cast<Instruction>(ptr);
-  DXASSERT(pObjHelper->handleMap.count(ptrInst), "must find handle");
 
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Resource ptr.
-  Value *handle = pObjHelper->handleMap[ptrInst];
-
+  Value *handle = pObjHelper->FindHandle(ptrInst);
+  if (!handle) {
+    Translated = false;
+    return;
+  }
   Type *resTy = ptrInst->getType();
   DXIL::ResourceClass RC = pObjHelper->GetRC(resTy);
   DXIL::ResourceKind RK = pObjHelper->GetRK(resTy);
@@ -5910,9 +5968,12 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
 
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
   if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-    DXASSERT(pObjHelper->handleMap.count(CI), "must find handle");
     // Resource ptr.
-    Value *handle = pObjHelper->handleMap[CI];
+    Value *handle = pObjHelper->FindHandle(CI);
+    if (!handle) {
+      Translated = false;
+      return;
+    }
     if (helper.bLegacyCBufferLoad)
       TranslateCBOperationsLegacy(handle, CI, hlslOP, helper.dxilTypeSys,
                                   helper.legacyDataLayout);
@@ -5922,14 +5983,17 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
                             CI->getModule()->getDataLayout());
     }
     // CI will be removed, so erase it from handleMap.
-    pObjHelper->handleMap.erase(CI);
+    pObjHelper->EraseHandle(CI);
     Translated = true;
     return;
   } else if (opcode == HLSubscriptOpcode::DoubleSubscript) {
     Instruction *ptrInst = dyn_cast<Instruction>(ptr);
-    DXASSERT(pObjHelper->handleMap.count(ptrInst), "must find handle");
     // Resource ptr.
-    Value *handle = pObjHelper->handleMap[ptrInst];
+    Value *handle = pObjHelper->FindHandle(ptrInst);
+    if (!handle) {
+      Translated = false;
+      return;
+    }
     DXIL::ResourceKind RK = pObjHelper->GetRK(ptrInst->getType());
     Value *coord = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
     Value *mipLevel =
@@ -5947,9 +6011,12 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     return;
   } else if (Instruction *ptrInst = dyn_cast<Instruction>(ptr)) {
     if (HLModule::IsHLSLObjectType(ptrInst->getType())) {
-      DXASSERT(pObjHelper->handleMap.count(ptrInst), "must find handle");
       // Resource ptr.
-      Value *handle = pObjHelper->handleMap[ptrInst];
+      Value *handle = pObjHelper->FindHandle(ptrInst);
+      if (!handle) {
+        Translated = false;
+        return;
+      }
       DXIL::ResourceKind RK = pObjHelper->GetRK(ptrInst->getType());
       Translated = true;
       Type *ObjTy = ptrInst->getType();

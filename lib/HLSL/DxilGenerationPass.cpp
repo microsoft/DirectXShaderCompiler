@@ -44,13 +44,13 @@ using namespace hlsl;
 
 namespace {
 
-class ResourcePromoter : public LoadAndStorePromoter {
+class LocalResourcePromoter : public LoadAndStorePromoter {
   AllocaInst *AI;
   AllocaInst *NewAI;
   bool        HasUnmappedLd;
   std::unordered_map<Instruction *, Value *> &handleMap;
 public:
-  ResourcePromoter(ArrayRef<Instruction *> Insts, SSAUpdater &S,
+  LocalResourcePromoter(ArrayRef<Instruction *> Insts, SSAUpdater &S,
                    std::unordered_map<Instruction *, Value *> &handleMap)
       : LoadAndStorePromoter(Insts, S), AI(nullptr), handleMap(handleMap),
         HasUnmappedLd(false) {}
@@ -87,19 +87,84 @@ public:
     return cast<StoreInst>(I)->getPointerOperand() == AI;
   }
 
-  void updateDebugInfo(Instruction *Inst) const override {
-    // Store use go this path.
-    // Clone to keep the debug info.
-    Instruction *NewInst = Inst->clone();
-    NewInst->replaceUsesOfWith(AI, NewAI);
-    IRBuilder<> Builder(Inst);
-    Builder.Insert(NewInst);
-  }
   void replaceLoadWithValue(LoadInst *LI, Value *V) const override {
+    if (PHINode *phi = dyn_cast<PHINode>(V)) {
+      LI->replaceAllUsesWith(phi);
+      // Add nullptr for phi, will create real handle in
+      // AddCreateHandleForPhiNode.
+      handleMap[phi] = nullptr;
+      return;
+    }
+
     // Load use go here.
     // Clone to keep the debug info.
     Instruction *NewInst = LI->clone();
     NewInst->replaceUsesOfWith(AI, NewAI);
+    IRBuilder<> Builder(LI);
+    Builder.Insert(NewInst);
+    LI->replaceAllUsesWith(NewInst);
+
+    // Mark handle map.
+    // If cannot find, will return false in run();
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      if (handleMap.count(I)) {
+        Instruction *handle = cast<Instruction>(handleMap[I]);
+        // Clone the handle to save debug info of LI.
+        handle = handle->clone();
+        Builder.Insert(handle);
+        handleMap[NewInst] = handle;
+      }
+    }
+  }
+};
+
+class StaticResourcePromoter : public LoadAndStorePromoter {
+  GlobalVariable *GV;
+  bool        HasUnmappedLd;
+  std::unordered_map<Instruction *, Value *> &handleMap;
+public:
+  StaticResourcePromoter(ArrayRef<Instruction *> Insts, SSAUpdater &S,
+                   std::unordered_map<Instruction *, Value *> &handleMap)
+      : LoadAndStorePromoter(Insts, S), GV(nullptr), handleMap(handleMap),
+        HasUnmappedLd(false) {}
+
+  bool run(GlobalVariable *GV, const SmallVectorImpl<Instruction *> &Insts) {
+    // Remember which alloca we're promoting (for isInstInList).
+    this->GV = GV;
+
+    LoadAndStorePromoter::run(Insts);
+
+    bool allLoadMapped = true;
+    for (User *U : GV->users()) {
+      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+        if (handleMap.count(LI) == 0) {
+          allLoadMapped = false;
+          break;
+        }
+      }
+    }
+    return allLoadMapped;
+  }
+
+  bool
+  isInstInList(Instruction *I,
+               const SmallVectorImpl<Instruction *> &Insts) const override {
+    if (LoadInst *LI = dyn_cast<LoadInst>(I))
+      return LI->getOperand(0) == GV;
+    return cast<StoreInst>(I)->getPointerOperand() == GV;
+  }
+
+  void replaceLoadWithValue(LoadInst *LI, Value *V) const override {
+    if (PHINode *phi = dyn_cast<PHINode>(V)) {
+      LI->replaceAllUsesWith(phi);
+      // Add nullptr for phi, will create real handle in
+      // AddCreateHandleForPhiNode.
+      handleMap[phi] = nullptr;
+      return;
+    }
+    // Load use go here.
+    // Clone to keep the debug info.
+    Instruction *NewInst = LI->clone();
     IRBuilder<> Builder(LI);
     Builder.Insert(NewInst);
     LI->replaceAllUsesWith(NewInst);
@@ -147,6 +212,7 @@ public:
       if (PHI->user_empty())
         unusedPhis.insert(PHI);
     }
+    LI->replaceAllUsesWith(UndefValue::get(LI->getType()));
   }
 };
 
@@ -349,6 +415,9 @@ public:
       // Add local resource load to handle map.
       MapLocalDxilResourceHandles(handleMap);
     }
+    // Take care phi node of resource.
+    AddCreateHandleForPhiNode(handleMap, m_pHLModule->GetOP());
+
     GenerateParamDxilResourceHandles(handleMap);
 
     GenerateDxilOperations(M, handleMap);
@@ -398,13 +467,16 @@ private:
   void GenerateClipPlanesForVS(Value *outPosition);
   bool HasClipPlanes();
 
-  void TranslateLocalDxilResourceUses(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
+  void TranslateLocalDxilResourceUses(
+      Function *F, std::vector<GlobalVariable *> &staticResources,
+      std::unordered_map<Instruction *, Value *> &handleMap);
   void RemoveLocalDxilResourceAllocas(Function *F);
   void MapLocalDxilResourceHandles(
       std::unordered_map<Instruction *, Value *> &handleMap);
   void TranslateDxilResourceUses(
       DxilResourceBase &res,
       std::unordered_map<Instruction *, Value *> &handleMap);
+  void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP);
   void GenerateDxilResourceHandles(
       std::unordered_map<Instruction *, Value *> &handleMap);
   void TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
@@ -1734,7 +1806,9 @@ static Value *MergeImmResClass(Value *resClass) {
   }
 }
 
-static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
+static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
+
+void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
 
@@ -1804,9 +1878,17 @@ static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *>
     for (unsigned i = 0; i < numOperands; i++) {
 
       BasicBlock *BB = phi->getIncomingBlock(i);
-
+      if (isa<UndefValue>(phi->getOperand(i))) {
+        phi->getContext().emitError(
+            phi, kResourceMapErrorMsg);
+        return;
+      }
       Instruction *phiOperand = cast<Instruction>(phi->getOperand(i));
-      DXASSERT(handleMap.count(phiOperand), "must map to handle");
+      if (!handleMap.count(phiOperand)) {
+        phi->getContext().emitError(
+            phi, kResourceMapErrorMsg);
+        return;
+      }
       CallInst *handleI = cast<CallInst>(handleMap[phiOperand]);
 
       Value *resClassI = handleI->getArgOperand(
@@ -1832,6 +1914,22 @@ static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *>
     Value *immResClass = MergeImmResClass(resClass);
     handle0->setArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx,
                            immResClass);
+
+    CallInst *handlePhi = cast<CallInst>(handleMap[phi]);
+
+    if (PHINode *resID = dyn_cast<PHINode>(handlePhi->getArgOperand(
+            DXIL::OperandIndex::kCreateHandleResIDOpIdx))) {
+      unsigned numOperands = resID->getNumOperands();
+      if (numOperands > 0) {
+        Value *resID0 = resID->getIncomingValue(0);
+        for (unsigned i=1;i<numOperands;i++) {
+          if (resID->getIncomingValue(i) != resID0) {
+            resID->getContext().emitError(handle0, kResourceMapErrorMsg);
+            break;
+          }
+        }
+      }
+    }
   }
 
   // Drop all ref of the phi to help remove the useless createHandles.
@@ -1844,10 +1942,10 @@ static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *>
   }
 }
 
-static bool IsResourceAlloc(AllocaInst *AI) {
-  bool isResource = HLModule::IsHLSLObjectType(AI->getAllocatedType());
+static bool IsResourceType(Type *Ty) {
+  bool isResource = HLModule::IsHLSLObjectType(Ty);
 
-  if (ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType())) {
+  if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
     Type *EltTy = AT->getElementType();
     while (isa<ArrayType>(EltTy)) {
       EltTy = EltTy->getArrayElementType();
@@ -1859,12 +1957,15 @@ static bool IsResourceAlloc(AllocaInst *AI) {
   return isResource;
 }
 
-void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unordered_map<Instruction *, Value *> &handleMap) {
+void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::vector<GlobalVariable*> &staticResources,
+    std::unordered_map<Instruction *, Value *> &handleMap) {
   BasicBlock &BB = F->getEntryBlock(); // Get the entry node for the function
-  std::unordered_set<AllocaInst *> localResources;
+  std::unordered_set<Value *> localResources(staticResources.begin(),
+                                             staticResources.end());
+
   for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
     if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-      if (IsResourceAlloc(AI)) {
+      if (IsResourceType(AI->getAllocatedType())) {
         localResources.insert(AI);
       }
     }
@@ -1873,18 +1974,48 @@ void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unorde
   SmallVector<Instruction *, 4> Insts;
   // Make sure every resource load has mapped to handle.
   while (!localResources.empty()) {
+    bool bUpdated = false;
     for (auto it = localResources.begin(); it != localResources.end();) {
-      AllocaInst *AI = *(it++);
+      Value *V = *(it++);
+      bool hasHandleStore = false;
       // Build list of instructions to promote.
-      for (User *U : AI->users())
-        Insts.emplace_back(cast<Instruction>(U));
+      for (User *U : V->users()) {
+        Instruction *I = cast<Instruction>(U);
+        if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+          if (Instruction *resI =
+                  dyn_cast<Instruction>(SI->getValueOperand())) {
+            if (handleMap.count(resI))
+              hasHandleStore = true;
+          }
+        }
+        Insts.emplace_back(I);
+      }
 
-      AllocaInst *NewAI = ResourcePromoter(Insts, SSA, handleMap).run(AI, Insts);
-      localResources.erase(AI);
-      if (NewAI)
-        localResources.insert(NewAI);
+      // No handle here, wait for next round.
+      if (!hasHandleStore) {
+        Insts.clear();
+        continue;
+      }
 
+      bUpdated = true;
+
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+        AllocaInst *NewAI =
+            LocalResourcePromoter(Insts, SSA, handleMap).run(AI, Insts);
+        localResources.erase(AI);
+        if (NewAI)
+          localResources.insert(NewAI);
+      } else {
+        GlobalVariable *GV = cast<GlobalVariable>(V);
+        if (StaticResourcePromoter(Insts, SSA, handleMap).run(GV, Insts)) {
+          localResources.erase(GV);
+        }
+      }
       Insts.clear();
+    }
+    if (!bUpdated) {
+      F->getContext().emitError(kResourceMapErrorMsg);
+      break;
     }
   }
 }
@@ -1894,7 +2025,7 @@ void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
   std::unordered_set<AllocaInst *> localResources;
   for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
     if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-      if (IsResourceAlloc(AI)) {
+      if (IsResourceType(AI->getAllocatedType())) {
         localResources.insert(AI);
       }
     }
@@ -1916,9 +2047,17 @@ void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
 void DxilGenerationPass::MapLocalDxilResourceHandles(
     std::unordered_map<Instruction *, Value *> &handleMap) {
   Module &M = *m_pHLModule->GetModule();
+  std::vector<GlobalVariable*> staticResources;
+  for (auto &GV : M.globals()) {
+    if (GV.getLinkage() == GlobalValue::LinkageTypes::InternalLinkage &&
+        IsResourceType(GV.getType()->getElementType())) {
+      staticResources.emplace_back(&GV);
+    }
+  }
+
   for (Function &F : M.functions()) {
     if (!F.isDeclaration())
-      TranslateLocalDxilResourceUses(&F, handleMap);
+      TranslateLocalDxilResourceUses(&F, staticResources, handleMap);
   }
 }
 
@@ -2138,8 +2277,6 @@ void DxilGenerationPass::GenerateDxilResourceHandles(std::unordered_map<Instruct
     HLResource &UAV = m_pHLModule->GetUAV(i);
     TranslateDxilResourceUses(UAV, handleMap);
   }
-
-  AddCreateHandleForPhiNode(handleMap, m_pHLModule->GetOP());
 }
 
 void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instruction *, Value *> &handleMap) {

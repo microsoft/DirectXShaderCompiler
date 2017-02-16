@@ -387,6 +387,10 @@ public:
   TEST_METHOD(CodeGenLitInParen)
   TEST_METHOD(CodeGenLiteralShift)
   TEST_METHOD(CodeGenLiveness1)
+  TEST_METHOD(CodeGenLocalRes1)
+  TEST_METHOD(CodeGenLocalRes4)
+  TEST_METHOD(CodeGenLocalRes7)
+  TEST_METHOD(CodeGenLocalRes7Dbg)
   TEST_METHOD(CodeGenLoop1)
   TEST_METHOD(CodeGenLoop2)
   TEST_METHOD(CodeGenLoop3)
@@ -2196,6 +2200,22 @@ TEST_F(CompilerTest, CodeGenLiveness1) {
 
 TEST_F(CompilerTest, CodeGenLoop1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\loop1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes7Dbg) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource7_dbg.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLoop2) {
