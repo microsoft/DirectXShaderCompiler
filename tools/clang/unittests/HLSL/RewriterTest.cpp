@@ -69,6 +69,7 @@ public:
   TEST_METHOD(RunUTF16ThreeByteBadChar);
   TEST_METHOD(RunUTF16ThreeByte);
   TEST_METHOD(RunNonUnicode);
+  TEST_METHOD(RunEffect);
 
   dxc::DxcDllSupport m_dllSupport;
 
@@ -389,5 +390,9 @@ TEST_F(RewriterTest, RunNonUnicode) {
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
   VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xce\xb1\xce\xb2\xce\xb3\x3b\n") == 0);
+}
+
+TEST_F(RewriterTest, RunEffect) {
+  CheckVerifiesHLSL(L"rewriter\\effects-syntax.hlsl", L"rewriter\\correct_rewrites\\effects-syntax_gold.hlsl");
 }
 

@@ -515,6 +515,7 @@ KEYWORD(sampler_state               , KEYHLSL)
 KEYWORD(technique                   , KEYHLSL)
 ALIAS("Technique", technique        , KEYHLSL)
 ALIAS("technique10", technique      , KEYHLSL)
+ALIAS("technique11", technique      , KEYHLSL)
 
 // OpenCL address space qualifiers
 KEYWORD(__global                    , KEYOPENCL)

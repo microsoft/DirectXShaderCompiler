@@ -154,11 +154,6 @@ technique10                                                 /* expected-warning 
   pass {}
 }
 
-technique11                                                 /* expected-warning {{effect technique ignored - effect syntax is deprecated}} fxc-pass {{}} */
-{
-  pass {}
-}
-
 // We don't bother handling weird casing, so this will be a syntax error:
 TechNiQue                                                   /* expected-error {{HLSL requires a type specifier for all declarations}} fxc-pass {{}} */
 /*verify-ast
