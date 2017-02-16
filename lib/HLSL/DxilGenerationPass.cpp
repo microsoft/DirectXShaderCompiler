@@ -1800,6 +1800,8 @@ static Value *MergeImmResClass(Value *resClass) {
   }
 }
 
+static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
+
 void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
@@ -1872,13 +1874,13 @@ void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instructio
       BasicBlock *BB = phi->getIncomingBlock(i);
       if (isa<UndefValue>(phi->getOperand(i))) {
         phi->getContext().emitError(
-            phi, "local resource usage cannot map to global resource");
+            phi, kResourceMapErrorMsg);
         return;
       }
       Instruction *phiOperand = cast<Instruction>(phi->getOperand(i));
       if (!handleMap.count(phiOperand)) {
         phi->getContext().emitError(
-            phi, "local resource usage cannot map to global resource");
+            phi, kResourceMapErrorMsg);
         return;
       }
       CallInst *handleI = cast<CallInst>(handleMap[phiOperand]);
@@ -1916,7 +1918,7 @@ void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instructio
         Value *resID0 = resID->getIncomingValue(0);
         for (unsigned i=1;i<numOperands;i++) {
           if (resID->getIncomingValue(i) != resID0) {
-            resID->getContext().emitError(handle0, "local resource usage cannot map to global resource");
+            resID->getContext().emitError(handle0, kResourceMapErrorMsg);
             break;
           }
         }
@@ -2006,8 +2008,7 @@ void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::vector
       Insts.clear();
     }
     if (!bUpdated) {
-      F->getContext().emitError(
-          "local resource usage cannot map to global resource");
+      F->getContext().emitError(kResourceMapErrorMsg);
       break;
     }
   }

@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -Zi -Od -T ps_6_0 %s | FileCheck %s
 
-// CHECK: local resource usage cannot map to global resource
+// CHECK: local resource not guaranteed to map to unique global resource
 
 float4 Tex2D(Texture2D<float4> t,
   SamplerState s, float2 c) {

@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
-// CHECK: local resource usage cannot map to global resource
+// CHECK: local resource not guaranteed to map to unique global resource
 
 
 RWStructuredBuffer<float2x2> oA;
