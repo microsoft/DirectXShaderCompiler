@@ -176,4 +176,4 @@ FunctionPass *llvm::createDxilLegalizeSampleOffsetPass() {
 }
 
 INITIALIZE_PASS(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
-                "DXIL legailze sample offset", false, false)
+                "DXIL legalize sample offset", false, false)

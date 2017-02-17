@@ -1213,7 +1213,7 @@ class db_dxil(object):
         add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
         add_pass('mem2reg', 'PromotePass', 'Promote Memory to Register', [])
         add_pass('hlsl-dxil-precise', 'DxilPrecisePropagatePass', 'DXIL precise attribute propagate', [])
-        add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legailze sample offset', [])
+        add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
         add_pass('scalarizer', 'Scalarizer', 'Scalarize vector operations', [])
         add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
