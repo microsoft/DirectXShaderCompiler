@@ -19,6 +19,31 @@
     ]]>
     </Shader>
   </ShaderOp>
+  <ShaderOp Name="MinMax" CS="CS" DispatchX="10" DispatchY="10">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SPrimitives" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SPrimitives" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+      struct SMinMaxElem {
+        float f_fa;
+        float f_fb;
+        float f_fmin_o;
+        float f_fmax_o;
+      };
+    RWStructuredBuffer<SMinMaxElem> g_buf : register(u0);
+    [numthreads(10,10,1)]
+    void main(uint GI : SV_GroupIndex) {
+      SMinMaxElem l = g_buf[GI];
+      l.f_fmin_o = min(l.f_fa, l.f_fb);
+      l.f_fmax_o = max(l.f_fa, l.f_fb);
+      g_buf[GI] = l;
+    };
+    ]]>
+    </Shader>
+  </ShaderOp>
   <ShaderOp Name="OOB" PS="PS" VS="VS">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), CBV(b0), DescriptorTable(SRV(t0,numDescriptors=2))</RootSignature>
     <Resource Name="CB0" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" TransitionTo="VERTEX_AND_CONSTANT_BUFFER">
