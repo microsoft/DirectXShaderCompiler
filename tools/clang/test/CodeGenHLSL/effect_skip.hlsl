@@ -9,6 +9,7 @@ BlendState NoBlending
 };
 
 BlendState A;
+BlendState B = A;
 
 DepthStencilState DisableDepth
 {
@@ -19,5 +20,6 @@ DepthStencilState DisableDepth
 float4 main(int4 a : A) : SV_TARGET
 {
   RenderTargetView rtv { state=foo; };
+  RenderTargetView  rt = rtv;
   return a + abs(a.yxxx);
 }

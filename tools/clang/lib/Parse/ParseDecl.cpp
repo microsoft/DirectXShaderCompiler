@@ -2500,6 +2500,16 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         return nullptr;
       }
 
+
+      // HLSL Change Begin.
+      // Skip the initializer of effect object.
+      if (D.isInvalidType()) {
+        SkipUntil(tok::semi, StopBeforeMatch); // skip until ';'
+        Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
+        return nullptr;
+      }
+      // HLSL Change End.
+
       ExprResult Init(ParseInitializer());
 
       // If this is the only decl in (possibly) range based for statement,
