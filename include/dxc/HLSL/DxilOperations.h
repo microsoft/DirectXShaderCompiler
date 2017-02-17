@@ -101,7 +101,7 @@ private:
   };
   OpCodeCacheItem m_OpCodeClassCache[(unsigned)OpCodeClass::NumOpClasses];
   std::unordered_map<llvm::Function *, OpCodeClass> m_FunctionToOpClass;
-
+  void RefreshCache(llvm::Module *pModule);
 private:
   // Static properties.
   struct OpCodeProperty {
