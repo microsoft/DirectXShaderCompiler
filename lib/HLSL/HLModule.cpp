@@ -212,6 +212,7 @@ void HLModule::RemoveFunction(llvm::Function *F) {
   m_HLFunctionPropsMap.erase(F);
   if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
     m_pTypeSystem.get()->EraseFunctionAnnotation(F);
+  m_pOP->RemoveFunction(F);
 }
 
 template <typename TResource>
@@ -313,6 +314,10 @@ DxilSignature *HLModule::ReleasePatchConstantSignature() {
 
 DxilTypeSystem *HLModule::ReleaseTypeSystem() {
   return m_pTypeSystem.release();
+}
+
+hlsl::OP *HLModule::ReleaseOP() {
+  return m_pOP.release();
 }
 
 RootSignatureHandle *HLModule::ReleaseRootSignature() {

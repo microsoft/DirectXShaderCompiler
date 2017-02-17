@@ -87,6 +87,7 @@ public:
   const std::vector<std::unique_ptr<DxilResource> > &GetUAVs() const;
 
   void RemoveUnusedResources();
+  void RemoveFunction(llvm::Function *F);
 
   // Signatures.
   DxilSignature &GetInputSignature();
@@ -121,6 +122,7 @@ public:
   void ResetPatchConstantSignature(DxilSignature *pValue);
   void ResetRootSignature(RootSignatureHandle *pValue);
   void ResetTypeSystem(DxilTypeSystem *pValue);
+  void ResetOP(hlsl::OP *hlslOP);
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();

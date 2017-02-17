@@ -230,6 +230,7 @@ public:
   DxilSignature *ReleaseOutputSignature();
   DxilSignature *ReleasePatchConstantSignature();
   DxilTypeSystem *ReleaseTypeSystem();
+  OP *ReleaseOP();
   RootSignatureHandle *ReleaseRootSignature();
 
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();

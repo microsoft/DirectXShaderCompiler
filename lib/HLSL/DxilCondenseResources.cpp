@@ -66,7 +66,8 @@ public:
     DxilModule &DM = M.GetOrCreateDxilModule();
 
     // Switch tbuffers to SRVs, as they have been treated as cbuffers up to this point.
-    PatchTBuffers(DM);
+    if (DM.GetCBuffers().size())
+      PatchTBuffers(DM);
 
     // Remove unused resource.
     DM.RemoveUnusedResources();
