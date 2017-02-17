@@ -671,6 +671,18 @@ namespace DXIL {
     // TextureGatherCmp.
     const unsigned kTextureGatherCmpCmpValOpIdx = 11;
 
+    // TextureSample.
+    const unsigned kTextureSampleTexHandleOpIdx = 1;
+    const unsigned kTextureSampleSamplerHandleOpIdx = 2;
+    const unsigned kTextureSampleCoord0OpIdx = 3;
+    const unsigned kTextureSampleCoord1OpIdx = 4;
+    const unsigned kTextureSampleCoord2OpIdx = 5;
+    const unsigned kTextureSampleCoord3OpIdx = 6;
+    const unsigned kTextureSampleOffset0OpIdx = 7;
+    const unsigned kTextureSampleOffset1OpIdx = 8;
+    const unsigned kTextureSampleOffset2OpIdx = 9;
+    const unsigned kTextureSampleClampOpIdx = 10;
+
     // AtomicBinOp.
     const unsigned kAtomicBinOpCoord0OpIdx = 3;
     const unsigned kAtomicBinOpCoord1OpIdx = 4;

@@ -262,6 +262,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (!HLSLHighLevel) {
       MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
       MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
+      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
     // HLSL Change Ends.
@@ -527,6 +528,8 @@ void PassManagerBuilder::populateModulePassManager(
   if (!HLSLHighLevel) {
     MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
     MPM.add(createDxilCondenseResourcesPass());
+    if (DisableUnrollLoops)
+      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.
