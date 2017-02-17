@@ -43,7 +43,7 @@ ModulePass *createHLEmitMetadataPass();
 ModulePass *createHLEnsureMetadataPass();
 ModulePass *createDxilEmitMetadataPass();
 ModulePass *createDxilPrecisePropagatePass();
-ModulePass *createDxilLegalizeSampleOffsetPass();
+FunctionPass *createDxilLegalizeSampleOffsetPass();
 FunctionPass *createSimplifyInstPass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
