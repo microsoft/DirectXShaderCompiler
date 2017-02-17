@@ -85,6 +85,11 @@ if errorlevel 1 (
   echo WARNING: cmake version is not supported. Your build may fail.
 )
 
+where python.exe 1>nul 2>nul
+if errorlevel 1 (
+  call :findpython
+)
+
 where te.exe 1>nul 2>nul
 if errorlevel 1 (
   call :findte
@@ -150,6 +155,16 @@ if errorlevel 1 (
 echo Path adjusted to include git.
 goto :eof
 
+:findpython
+if exist C:\Python27\python.exe set path=%path%;C:\Python27
+where python.exe 1>nul 2>nul
+if errorlevel 1 (
+  echo Unable to find python.
+  exit /b 1
+)
+echo Path adjusted to include python.
+goto :eof
+
 :checksdk
 setlocal
 reg query "HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots" /v KitsRoot10 1>nul
@@ -162,6 +177,14 @@ for /f "tokens=2* delims= " %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows 
 if not exist "%kit_root%" (
   echo Windows 10 SDK was installed but is not accessible.
   exit /b 1
+)
+rem SDK version 10586 and 14393 will also work properly, but we use 10240 as
+rem canonical for now.
+if exist "%kit_root%\include\10.0.10586.0\um\d3d12.h" (
+  goto :eof
+)
+if exist "%kit_root%\include\10.0.14393.0\um\d3d12.h" (
+  goto :eof
 )
 if not exist  "%kit_root%\include\10.0.10240.0\um\d3d12.h" (
   echo Unable to find include files for Windows 10 SDK 10.0.10240.0.
