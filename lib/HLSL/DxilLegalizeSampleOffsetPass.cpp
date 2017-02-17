@@ -118,7 +118,7 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
     PM.add(createLCSSAPass());
     PM.add(createLoopSimplifyPass());
     PM.add(createLoopRotatePass());
-    PM.add(createSimpleLoopUnrollPass());
+    PM.add(createLoopUnrollPass(-2, -1, 0, 0));
   }
   PM.run(F);
 }
