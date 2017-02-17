@@ -9835,9 +9835,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   if (hlsl::IsObjectType(this, qt, &bDeprecatedEffectObject)) {
     if (bDeprecatedEffectObject) {
       Diag(D.getLocStart(), diag::warn_hlsl_effect_object);
-      // Setting to invalid but not returning false prevents cascading errors
-      // on subsequent references to the decl
       D.setInvalidType();
+      return false;
     }
     // Add methods if not ready.
     HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
