@@ -135,6 +135,8 @@ public:
   TEST_METHOD(SimpleGs8)
   TEST_METHOD(SimpleGs9)
   TEST_METHOD(SimpleGs10)
+  TEST_METHOD(IllegalSampleOffset3)
+  TEST_METHOD(IllegalSampleOffset4)
   TEST_METHOD(NoFunctionParam)
   TEST_METHOD(I8Type)
   TEST_METHOD(EmptyStructInBuffer)
@@ -1443,6 +1445,14 @@ TEST_F(ValidationTest, SimpleGs9) {
 
 TEST_F(ValidationTest, SimpleGs10) {
   TestCheck(L"..\\CodeGenHLSL\\SimpleGS10.hlsl");
+}
+
+TEST_F(ValidationTest, IllegalSampleOffset3) {
+  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt3.hlsl");
+}
+
+TEST_F(ValidationTest, IllegalSampleOffset4) {
+  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt4.hlsl");
 }
 
 TEST_F(ValidationTest, NoFunctionParam) {

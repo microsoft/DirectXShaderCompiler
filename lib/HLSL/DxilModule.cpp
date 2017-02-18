@@ -742,6 +742,13 @@ static void ConvertUsedResource(std::unordered_set<unsigned> &immResID,
   }
 }
 
+void DxilModule::RemoveFunction(llvm::Function *F) {
+  DXASSERT_NOMSG(F != nullptr);
+  if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
+    m_pTypeSystem.get()->EraseFunctionAnnotation(F);
+  m_pOP->RemoveFunction(F);
+}
+
 void DxilModule::RemoveUnusedResources() {
   hlsl::OP *hlslOP = GetOP();
   Function *createHandleFunc = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(GetCtx()));
@@ -863,6 +870,10 @@ DxilTypeSystem &DxilModule::GetTypeSystem() {
 
 void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
   m_pTypeSystem.reset(pValue);
+}
+
+void DxilModule::ResetOP(hlsl::OP *hlslOP) {
+  m_pOP.reset(hlslOP);
 }
 
 void DxilModule::EmitLLVMUsed() {

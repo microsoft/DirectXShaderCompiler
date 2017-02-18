@@ -410,6 +410,30 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
 
   Type *Int4Types[4] = { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) }; // HiHi, HiLo, LoHi, LoLo
   m_pInt4Type = GetOrCreateStructType(m_Ctx, Int4Types, "dx.types.fouri32", pModule);
+  // Try to find existing intrinsic function.
+  RefreshCache(pModule);
+}
+
+void OP::RefreshCache(llvm::Module *pModule) {
+  for (Function &F : pModule->functions()) {
+    if (OP::IsDxilOpFunc(&F) && !F.user_empty()) {
+      CallInst *CI = cast<CallInst>(*F.user_begin());
+      OpCode OpCode = OP::GetDxilOpFuncCallInst(CI);
+      Type *pOverloadType = OP::GetOverloadType(OpCode, &F);
+
+      DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes,
+               "otherwise caller passed OOB OpCode");
+      _Analysis_assume_(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes);
+      DXASSERT(IsOverloadLegal(OpCode, pOverloadType),
+               "otherwise the caller requested illegal operation overload (eg "
+               "HLSL function with unsupported types for mapped intrinsic "
+               "function)");
+      unsigned TypeSlot = GetTypeSlot(pOverloadType);
+      OpCodeClass opClass = m_OpCodeProps[(unsigned)OpCode].OpCodeClass;
+      m_OpCodeClassCache[(unsigned)opClass].pOverloads[TypeSlot] = &F;
+      m_FunctionToOpClass[&F] = opClass;
+    }
+  }
 }
 
 Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
@@ -417,7 +441,8 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   _Analysis_assume_(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes);
   DXASSERT(IsOverloadLegal(OpCode, pOverloadType), "otherwise the caller requested illegal operation overload (eg HLSL function with unsupported types for mapped intrinsic function)");
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
-  Function *&F = m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)OpCode].OpCodeClass].pOverloads[TypeSlot];
+  OpCodeClass opClass = m_OpCodeProps[(unsigned)OpCode].OpCodeClass;
+  Function *&F = m_OpCodeClassCache[(unsigned)opClass].pOverloads[TypeSlot];
   if (F != nullptr)
     return F;
 
@@ -667,21 +692,35 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   FunctionType *pFT;
   DXASSERT(ArgTypes.size() > 1, "otherwise forgot to initialize arguments");
   pFT = FunctionType::get(ArgTypes[0], ArrayRef<Type*>(&ArgTypes[1], ArgTypes.size()-1), false);
-  if (pOverloadType != pV) {
-    F = Function::Create(pFT, GlobalValue::LinkageTypes::ExternalLinkage, 
-                         funcName,
-                         m_pModule);
-  } else {
-    F = Function::Create(pFT, GlobalValue::LinkageTypes::ExternalLinkage, 
-                         funcName,
-                         m_pModule);
-  }
+
+  F = cast<Function>(m_pModule->getOrInsertFunction(funcName, pFT));
+
+  m_FunctionToOpClass[F] = opClass;
   F->setCallingConv(CallingConv::C);
   F->addFnAttr(Attribute::NoUnwind);
   if (m_OpCodeProps[(unsigned)OpCode].FuncAttr != Attribute::None)
     F->addFnAttr(m_OpCodeProps[(unsigned)OpCode].FuncAttr);
 
   return F;
+}
+
+llvm::ArrayRef<llvm::Function *> OP::GetOpFuncList(OpCode OpCode) const {
+  DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes, "otherwise caller passed OOB OpCode");
+  _Analysis_assume_(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes);
+  return m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)OpCode].OpCodeClass].pOverloads;
+}
+
+void OP::RemoveFunction(Function *F) {
+  if (OP::IsDxilOpFunc(F)) {
+    OpCodeClass opClass = m_FunctionToOpClass[F];
+    for (unsigned i=0;i<kNumTypeOverloads;i++) {
+      if (F == m_OpCodeClassCache[(unsigned)opClass].pOverloads[i]) {
+        m_OpCodeClassCache[(unsigned)opClass].pOverloads[i] = nullptr;
+        m_FunctionToOpClass.erase(F);
+        break;
+      }
+    }
+  }
 }
 
 llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {

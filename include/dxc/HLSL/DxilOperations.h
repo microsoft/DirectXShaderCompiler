@@ -23,6 +23,7 @@ class Instruction;
 #include "llvm/IR/Attributes.h"
 
 #include "DxilConstants.h"
+#include <unordered_map>
 
 namespace hlsl {
 
@@ -37,6 +38,8 @@ public:
   OP(llvm::LLVMContext &Ctx, llvm::Module *pModule);
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
+  llvm::ArrayRef<llvm::Function *> GetOpFuncList(OpCode OpCode) const;
+  void RemoveFunction(llvm::Function *F);
   llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
@@ -97,7 +100,8 @@ private:
     llvm::Function *pOverloads[kNumTypeOverloads];
   };
   OpCodeCacheItem m_OpCodeClassCache[(unsigned)OpCodeClass::NumOpClasses];
-
+  std::unordered_map<llvm::Function *, OpCodeClass> m_FunctionToOpClass;
+  void RefreshCache(llvm::Module *pModule);
 private:
   // Static properties.
   struct OpCodeProperty {

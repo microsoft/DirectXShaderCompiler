@@ -363,6 +363,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
 
   // DXIL type system.
   M.ResetTypeSystem(H.ReleaseTypeSystem());
+  // Dxil OP.
+  M.ResetOP(H.ReleaseOP());
   // Keep llvm used.
   M.EmitLLVMUsed();
 }
