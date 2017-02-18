@@ -194,6 +194,7 @@ public:
   TEST_METHOD(BasicComputeTest);
   TEST_METHOD(BasicTriangleTest);
   TEST_METHOD(BasicTriangleOpTest);
+  TEST_METHOD(MinMaxTest);
   TEST_METHOD(OutOfBoundsTest);
   TEST_METHOD(SaturateTest);
   TEST_METHOD(SignTest);
@@ -617,6 +618,18 @@ public:
     }
   }
 
+  void ReadHlslDataIntoNewStream(LPCWSTR relativePath, IStream **ppStream) {
+    VERIFY_SUCCEEDED(m_support.Initialize());
+    CComPtr<IDxcLibrary> pLibrary;
+    CComPtr<IDxcBlobEncoding> pBlob;
+    CComPtr<IStream> pStream;
+    std::wstring path = GetPathToHlslDataFile(relativePath);
+    VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
+    VERIFY_SUCCEEDED(pLibrary->CreateStreamFromBlobReadOnly(pBlob, &pStream));
+    *ppStream = pStream.Detach();
+  }
+
   void RecordRenderAndReadback(ID3D12GraphicsCommandList *pList,
                                ID3D12DescriptorHeap *pRtvHeap,
                                UINT rtvDescriptorSize,
@@ -825,9 +838,9 @@ TEST_F(ExecutionTest, BasicComputeTest) {
   static const int DispatchGroupCount = 1;
 
   CComPtr<ID3D12Device> pDevice;
-
   if (!CreateDevice(&pDevice))
     return;
+
   std::vector<uint32_t> values;
   SetupComputeValuePattern(values, ThreadsPerGroup * DispatchGroupCount);
   VERIFY_ARE_EQUAL(values[0], 0);
@@ -1016,9 +1029,9 @@ TEST_F(ExecutionTest, Int64Test) {
   static const int DispatchGroupCount = 1;
 
   CComPtr<ID3D12Device> pDevice;
-
   if (!CreateDevice(&pDevice))
     return;
+
   if (!DoesDeviceSupportInt64(pDevice)) {
     // Optional feature, so it's correct to not support it if declared as such.
     WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
@@ -1047,9 +1060,9 @@ TEST_F(ExecutionTest, SignTest) {
   static const int DispatchGroupCount = 1;
 
   CComPtr<ID3D12Device> pDevice;
-
   if (!CreateDevice(&pDevice))
     return;
+
   std::vector<uint32_t> values = { (uint32_t)-3, (uint32_t)-2, (uint32_t)-1, 0, 1, 2, 3, 4};
   RunRWByteBufferComputeTest(pDevice, pShader, values);
   VERIFY_ARE_EQUAL(values[0], -1);
@@ -1159,9 +1172,9 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   static const int DispatchGroupCount = 1;
 
   CComPtr<ID3D12Device> pDevice;
-
   if (!CreateDevice(&pDevice))
     return;
+
   if (!DoesDeviceSupportWaveOps(pDevice)) {
     // Optional feature, so it's correct to not support it if declared as such.
     WEX::Logging::Log::Comment(L"Device does not support wave operations.");
@@ -1809,7 +1822,8 @@ static float g_SinCosFloats[] = {
 };
 
 std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTest(dxc::DxcDllSupport &support, IStream *pStream, LPCSTR pName,
+RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+                IStream *pStream, LPCSTR pName,
                 st::ShaderOpTest::TInitCallbackFn pInitCallback) {
   DXASSERT_NOMSG(pStream != nullptr);
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
@@ -1860,18 +1874,15 @@ static bool isdenorm(double d) {
 
 TEST_F(ExecutionTest, DoShaderOpArithTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  VERIFY_SUCCEEDED(m_support.Initialize());
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLibrary> pLibrary;
-  CComPtr<IDxcBlobEncoding> pBlob;
   CComPtr<IStream> pStream;
-  std::wstring path = GetPathToHlslDataFile(L"ShaderOpArith.xml");
-  VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
-  VERIFY_SUCCEEDED(pLibrary->CreateStreamFromBlobReadOnly(pBlob, &pStream));
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
 
   // Single operation test at the moment.
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(m_support, pStream, "SinCos",
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "SinCos",
     [](LPCSTR Name, std::vector<BYTE> &Data) {
     // Initialize the SPrimitives buffer.
     VERIFY_IS_TRUE(0 == _stricmp(Name, "SPrimitives"));
@@ -1933,20 +1944,111 @@ TEST_F(ExecutionTest, DoShaderOpArithTest) {
   }
 }
 
-TEST_F(ExecutionTest, OutOfBoundsTest) {
+static float ifdenorm_flushf(float a) {
+  return isdenorm(a) ? copysign(0.0f, a) : a;
+}
+
+static bool ifdenorm_flushf_eq(float a, float b) {
+  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
+}
+
+static bool ifdenorm_flushf_eq_or_nans(float a, float b) {
+  if (isnan(a) && isnan(b)) return true;
+  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
+}
+
+TEST_F(ExecutionTest, MinMaxTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  VERIFY_SUCCEEDED(m_support.Initialize());
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLibrary> pLibrary;
-  CComPtr<IDxcBlobEncoding> pBlob;
   CComPtr<IStream> pStream;
-  std::wstring path = GetPathToHlslDataFile(L"ShaderOpArith.xml");
-  VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
-  VERIFY_SUCCEEDED(pLibrary->CreateStreamFromBlobReadOnly(pBlob, &pStream));
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  struct SMinMaxElem {
+    float f_fa;
+    float f_fb;
+    float f_fmin_o;
+    float f_fmax_o;
+  };
+  float TestValues[] = {
+    -(INFINITY),
+    -1.0f,
+    -(FLT_MIN/2),
+    -0.0f,
+    0.0f,
+    FLT_MIN / 2,
+    1.0f,
+    INFINITY,
+    NAN
+  };
 
   // Single operation test at the moment.
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(m_support, pStream, "OOB", nullptr);
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "MinMax",
+    [&TestValues](LPCSTR Name, std::vector<BYTE> &Data) {
+    // Initialize the SPrimitives buffer.
+    VERIFY_IS_TRUE(0 == _stricmp(Name, "SPrimitives"));
+    size_t count = 10 * 10;
+    size_t size = sizeof(SMinMaxElem) * count;
+    Data.resize(size);
+    SMinMaxElem *pElems = (SMinMaxElem *)Data.data();
+    for (size_t a = 0; a < 10; ++a) {
+      float fa = TestValues[a % _countof(TestValues)];
+      for (size_t b = 0; b < 10; ++b) {
+        SMinMaxElem *p = &pElems[a * 10 + b];
+        ZeroMemory(p, sizeof(*p));
+        p->f_fa = fa;
+        p->f_fb = TestValues[b % _countof(TestValues)];
+      }
+    }
+  });
+  MappedData data;
+  test->Test->GetReadBackData("SPrimitives", &data);
+  // data.dump(); // Uncomment to dump raw bytes from buffer.
+
+  unsigned count = 10 * 10;
+  SMinMaxElem *pPrimitives = (SMinMaxElem *)data.data();
+  WEX::TestExecution::DisableVerifyExceptions dve;
+  static const float Error = 0.0008f;
+  for (unsigned i = 0; i < count; ++i) {
+    SMinMaxElem *p = &pPrimitives[i];
+    float fa = p->f_fa;
+    float fb = p->f_fb;
+    float fmin = p->f_fmin_o;
+    float fmax = p->f_fmax_o;
+    LogCommentFmt(L"Element #%u, a %f, b %f, min=%f, max=%f", i, fa, fb, fmin, fmax);
+    if (isnan(fa)) {
+      VERIFY_IS_TRUE(ifdenorm_flushf_eq_or_nans(fmin, fb));
+      VERIFY_IS_TRUE(ifdenorm_flushf_eq_or_nans(fmax, fb));
+    }
+    else if (isnan(fb)) {
+      VERIFY_IS_TRUE(ifdenorm_flushf_eq_or_nans(fmin, fa));
+      VERIFY_IS_TRUE(ifdenorm_flushf_eq_or_nans(fmax, fa));
+    }
+    else {
+      // Flushing is allowed - check both cases.
+      float fmax_0 = fa >= fb ? fa : fb;
+      float fmax_1 = ifdenorm_flushf(fmax_0);
+      VERIFY_IS_TRUE(fmax == fmax_0 || fmax == fmax_1);
+      float fmin_0 = fa < fb ? fa : fb;
+      float fmin_1 = ifdenorm_flushf(fmin_0);
+      VERIFY_IS_TRUE(fmin == fmin_0 || fmin == fmin_1);
+    }
+  }
+}
+
+TEST_F(ExecutionTest, OutOfBoundsTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  // Single operation test at the moment.
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "OOB", nullptr);
   MappedData data;
   // Read back to CPU and examine contents - should get pure red.
   {
@@ -1960,18 +2062,15 @@ TEST_F(ExecutionTest, OutOfBoundsTest) {
 
 TEST_F(ExecutionTest, SaturateTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  VERIFY_SUCCEEDED(m_support.Initialize());
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLibrary> pLibrary;
-  CComPtr<IDxcBlobEncoding> pBlob;
   CComPtr<IStream> pStream;
-  std::wstring path = GetPathToHlslDataFile(L"ShaderOpArith.xml");
-  VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
-  VERIFY_SUCCEEDED(pLibrary->CreateStreamFromBlobReadOnly(pBlob, &pStream));
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
   // Single operation test at the moment.
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(m_support, pStream, "Saturate", nullptr);
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Saturate", nullptr);
   MappedData data;
   test->Test->GetReadBackData("U0", &data);
   const float *pValues = (float *)data.data();
@@ -1989,18 +2088,15 @@ TEST_F(ExecutionTest, SaturateTest) {
 
 TEST_F(ExecutionTest, BasicTriangleOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  VERIFY_SUCCEEDED(m_support.Initialize());
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLibrary> pLibrary;
-  CComPtr<IDxcBlobEncoding> pBlob;
   CComPtr<IStream> pStream;
-  std::wstring path = GetPathToHlslDataFile(L"ShaderOpArith.xml");
-  VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(path.c_str(), nullptr, &pBlob));
-  VERIFY_SUCCEEDED(pLibrary->CreateStreamFromBlobReadOnly(pBlob, &pStream));
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
   // Single operation test at the moment.
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(m_support, pStream, "Triangle", nullptr);
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Triangle", nullptr);
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
   UINT width = (UINT64)D.Width;
