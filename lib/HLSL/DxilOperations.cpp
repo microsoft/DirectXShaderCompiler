@@ -431,6 +431,7 @@ void OP::RefreshCache(llvm::Module *pModule) {
       unsigned TypeSlot = GetTypeSlot(pOverloadType);
       OpCodeClass opClass = m_OpCodeProps[(unsigned)OpCode].OpCodeClass;
       m_OpCodeClassCache[(unsigned)opClass].pOverloads[TypeSlot] = &F;
+      m_FunctionToOpClass[&F] = opClass;
     }
   }
 }

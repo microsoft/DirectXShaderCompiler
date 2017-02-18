@@ -22,6 +22,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/IR/LLVMContext.h"
 
 #include <unordered_set>
 
@@ -71,6 +72,26 @@ public:
     PM.add(createDemoteRegisterToMemoryHlslPass());
     PM.run(F);
 
+    // Collect offset to make sure no illegal offsets.
+    std::vector<Instruction *> finalIllegalOffsets;
+    CollectIllegalOffsets(finalIllegalOffsets, F, hlslOP);
+
+    if (!finalIllegalOffsets.empty()) {
+      const StringRef kIllegalOffsetError =
+          "Offsets for Sample* must be immediated value. "
+          "Consider unroll the loop manually and use O3, it may help in some "
+          "cases\n";
+      std::string errorMsg;
+      raw_string_ostream errorStr(errorMsg);
+      for (Instruction *offset : finalIllegalOffsets) {
+        if (const DebugLoc &L = offset->getDebugLoc())
+          L.print(errorStr);
+        errorStr << " " << kIllegalOffsetError;
+      }
+      errorStr.flush();
+      F.getContext().emitError(errorMsg);
+    }
+
     return true;
   }
 
@@ -96,17 +117,12 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
 
   bool findOffset = false;
 
-  for (auto loopIt = LI.begin(); loopIt != LI.end(); loopIt++) {
-    Loop *loop = *loopIt;
-    for (Instruction *I : illegalOffsets) {
-      BasicBlock *BB = I->getParent();
-      if (loop->contains(BB)) {
-        findOffset = true;
-        break;
-      }
-    }
-    if (findOffset)
+  for (Instruction *I : illegalOffsets) {
+    BasicBlock *BB = I->getParent();
+    if (LI.getLoopFor(BB)) {
+      findOffset = true;
       break;
+    }
   }
 
   legacy::FunctionPassManager PM(F.getParent());
