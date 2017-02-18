@@ -18,11 +18,11 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/IR/LLVMContext.h"
 
 #include <unordered_set>
 
@@ -72,25 +72,7 @@ public:
     PM.add(createDemoteRegisterToMemoryHlslPass());
     PM.run(F);
 
-    // Collect offset to make sure no illegal offsets.
-    std::vector<Instruction *> finalIllegalOffsets;
-    CollectIllegalOffsets(finalIllegalOffsets, F, hlslOP);
-
-    if (!finalIllegalOffsets.empty()) {
-      const StringRef kIllegalOffsetError =
-          "Offsets for Sample* must be immediated value. "
-          "Consider unroll the loop manually and use O3, it may help in some "
-          "cases\n";
-      std::string errorMsg;
-      raw_string_ostream errorStr(errorMsg);
-      for (Instruction *offset : finalIllegalOffsets) {
-        if (const DebugLoc &L = offset->getDebugLoc())
-          L.print(errorStr);
-        errorStr << " " << kIllegalOffsetError;
-      }
-      errorStr.flush();
-      F.getContext().emitError(errorMsg);
-    }
+    FinalCheck(illegalOffsets, F, hlslOP);
 
     return true;
   }
@@ -103,13 +85,14 @@ private:
                              Function &F, DXIL::OpCode opcode,
                              hlsl::OP *hlslOP);
   void LegalizeOffsets(const std::vector<Instruction *> &illegalOffsets);
+  void FinalCheck(std::vector<Instruction *> &illegalOffsets, Function &F,
+                  hlsl::OP *hlslOP);
 };
 
 char DxilLegalizeSampleOffsetPass::ID = 0;
-}
 
-void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
-    std::vector<Instruction *> &illegalOffsets, Function &F) {
+bool HasIllegalOffsetInLoop(std::vector<Instruction *> &illegalOffsets,
+                            Function &F) {
   DominatorTreeAnalysis DTA;
   DominatorTree DT = DTA.run(F);
   LoopInfo LI;
@@ -124,12 +107,56 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
       break;
     }
   }
+  return findOffset;
+}
 
+void CollectIllegalOffset(CallInst *CI,
+                          std::vector<Instruction *> &illegalOffsets) {
+  Value *offset0 =
+      CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx);
+  // No offset.
+  if (isa<UndefValue>(offset0))
+    return;
+
+  for (unsigned i = DXIL::OperandIndex::kTextureSampleOffset0OpIdx;
+       i <= DXIL::OperandIndex::kTextureSampleOffset2OpIdx; i++) {
+    Value *offset = CI->getArgOperand(i);
+    if (Instruction *I = dyn_cast<Instruction>(offset))
+      illegalOffsets.emplace_back(I);
+  }
+}
+}
+
+void DxilLegalizeSampleOffsetPass::FinalCheck(
+    std::vector<Instruction *> &illegalOffsets, Function &F, hlsl::OP *hlslOP) {
+  // Collect offset to make sure no illegal offsets.
+  std::vector<Instruction *> finalIllegalOffsets;
+  CollectIllegalOffsets(finalIllegalOffsets, F, hlslOP);
+
+  if (!finalIllegalOffsets.empty()) {
+    const StringRef kIllegalOffsetError =
+        "Offsets for Sample* must be immediated value. "
+        "Consider unroll the loop manually and use O3, it may help in some "
+        "cases\n";
+    std::string errorMsg;
+    raw_string_ostream errorStr(errorMsg);
+    for (Instruction *offset : finalIllegalOffsets) {
+      if (const DebugLoc &L = offset->getDebugLoc())
+        L.print(errorStr);
+      errorStr << " " << kIllegalOffsetError;
+    }
+    errorStr.flush();
+    F.getContext().emitError(errorMsg);
+  }
+}
+
+void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
+    std::vector<Instruction *> &illegalOffsets, Function &F) {
   legacy::FunctionPassManager PM(F.getParent());
   // Always need mem2reg for simplify illegal offsets.
   PM.add(createPromoteMemoryToRegisterPass());
 
-  if (findOffset) {
+  if (HasIllegalOffsetInLoop(illegalOffsets, F)) {
     PM.add(createCFGSimplificationPass());
     PM.add(createLCSSAPass());
     PM.add(createLoopSimplifyPass());
@@ -155,7 +182,7 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
     std::vector<Instruction *> &illegalOffsets, Function &CurF,
     DXIL::OpCode opcode, hlsl::OP *hlslOP) {
-  ArrayRef<Function*> intrFuncList = hlslOP->GetOpFuncList(opcode);
+  ArrayRef<Function *> intrFuncList = hlslOP->GetOpFuncList(opcode);
   for (Function *intrFunc : intrFuncList) {
     if (!intrFunc)
       continue;
@@ -165,18 +192,7 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
       if (CI->getParent()->getParent() != &CurF)
         continue;
 
-      Value *offset0 =
-          CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx);
-      // No offset.
-      if (isa<UndefValue>(offset0))
-        continue;
-
-      for (unsigned i = DXIL::OperandIndex::kTextureSampleOffset0OpIdx;
-           i <= DXIL::OperandIndex::kTextureSampleOffset2OpIdx; i++) {
-        Value *offset = CI->getArgOperand(i);
-        if (Instruction *I = dyn_cast<Instruction>(offset))
-          illegalOffsets.emplace_back(I);
-      }
+      CollectIllegalOffset(CI, illegalOffsets);
     }
   }
 }
