@@ -1876,7 +1876,8 @@ void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instructio
         handlePhi->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx));
     PHINode *resAddressPhi = cast<PHINode>(handlePhi->getArgOperand(
         DXIL::OperandIndex::kCreateHandleResIndexOpIdx));
-
+    Value *resClass0 = nullptr;
+    Value *resID0 = nullptr;
     for (unsigned i = 0; i < numOperands; i++) {
 
       BasicBlock *BB = phi->getIncomingBlock(i);
@@ -1900,10 +1901,25 @@ void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instructio
       Value *resIDI =
           handleI->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
       resIDPhi->addIncoming(resIDI, BB);
-
+      if (i == 0) {
+        resClass0 = resClassI;
+        resID0 = resIDI;
+      } else {
+        if (resClass0 != resClassI)
+          resClass0 = nullptr;
+        if (resID0 != resIDI)
+          resID0 = nullptr;
+      }
       Value *resAddressI = handleI->getArgOperand(
           DXIL::OperandIndex::kCreateHandleResIndexOpIdx);
       resAddressPhi->addIncoming(resAddressI, BB);
+    }
+
+    if (resClass0) {
+      handlePhi->setArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx, resClass0);
+    }
+    if (resID0) {
+      handlePhi->setArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx, resID0);
     }
   }
 
@@ -2677,15 +2693,18 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res, DxilTypeSystem &Type
     // Delete old GV.
     for (auto UserIt = GV->user_begin(); UserIt != GV->user_end(); ) {
       Value *User = *(UserIt++);
-      DXASSERT(User->user_empty(),
-               "GV user should not have use after HLOperationLower.");
       if (Instruction *I = dyn_cast<Instruction>(User)) {
+        if (!User->user_empty())
+          I->replaceAllUsesWith(UndefValue::get(I->getType()));
+
         I->eraseFromParent();
       } else {
         ConstantExpr *CE = cast<ConstantExpr>(User);
-        CE->dropAllReferences();
+        if (!CE->user_empty())
+          CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
       }
     }
+    GV->removeDeadConstantUsers();
     GV->eraseFromParent();
   }
 }
