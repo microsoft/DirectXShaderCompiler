@@ -585,6 +585,8 @@ public:
   TEST_METHOD(CodeGenResourceInCBV2)
   TEST_METHOD(CodeGenResourceInTB2)
   TEST_METHOD(CodeGenResourceInTBV2)
+  TEST_METHOD(CodeGenResPhi)
+  TEST_METHOD(CodeGenResPhi2)
   TEST_METHOD(CodeGenRootSigEntry)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(PreprocessWhenValidThenOK)
@@ -2990,6 +2992,14 @@ TEST_F(CompilerTest, CodeGenResourceInTB2) {
 
 TEST_F(CompilerTest, CodeGenResourceInTBV2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-tbv2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResPhi) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resPhi.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResPhi2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resPhi2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRootSigEntry) {
