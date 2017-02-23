@@ -173,9 +173,10 @@ DxilStructAnnotation *DxilTypeSystem::GetStructAnnotation(const StructType *pStr
 }
 
 void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
-  auto it = m_StructAnnotations.find(pStructType);
-  DXASSERT_NOMSG(it != m_StructAnnotations.end());
-  m_StructAnnotations.erase(it);
+  DXASSERT_NOMSG(m_StructAnnotations.count(pStructType));
+  m_StructAnnotations.remove_if([&pStructType](
+      const std::pair<const StructType *, std::unique_ptr<DxilStructAnnotation>>
+          &I) { return pStructType == I.first; });
 }
 
 DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
@@ -201,9 +202,10 @@ DxilFunctionAnnotation *DxilTypeSystem::GetFunctionAnnotation(const Function *pF
 }
 
 void DxilTypeSystem::EraseFunctionAnnotation(const Function *pFunction) {
-  auto it = m_FunctionAnnotations.find(pFunction);
-  DXASSERT_NOMSG(it != m_FunctionAnnotations.end());
-  m_FunctionAnnotations.erase(it);
+  DXASSERT_NOMSG(m_FunctionAnnotations.count(pFunction));
+  m_FunctionAnnotations.remove_if([&pFunction](
+      const std::pair<const Function *, std::unique_ptr<DxilFunctionAnnotation>>
+          &I) { return pFunction == I.first; });
 }
 
 DxilTypeSystem::FunctionAnnotationMap &DxilTypeSystem::GetFunctionAnnotationMap() {

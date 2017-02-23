@@ -175,7 +175,7 @@ private:
                                         bool bKeepUndefined);
   hlsl::CompType GetCompType(const BuiltinType *BT);
   // save intrinsic opcode
-  std::unordered_map<Function *, unsigned> m_IntrinsicMap;
+  std::vector<std::pair<Function *, unsigned>> m_IntrinsicMap;
   void AddHLSLIntrinsicOpcodeToFunction(Function *, unsigned opcode);
 
   // Type annotation related.
@@ -342,7 +342,7 @@ bool CGMSHLSLRuntime::IsHlslObjectType(llvm::Type *Ty) {
 
 void CGMSHLSLRuntime::AddHLSLIntrinsicOpcodeToFunction(Function *F,
                                                        unsigned opcode) {
-  m_IntrinsicMap[F] = opcode;
+  m_IntrinsicMap.emplace_back(F,opcode);
 }
 
 void CGMSHLSLRuntime::CheckParameterAnnotation(
@@ -3140,17 +3140,16 @@ static void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F,
 }
 
 static void AddOpcodeParamForIntrinsics(HLModule &HLM
-    , std::unordered_map<Function *, unsigned> &intrinsicMap) {
-  for (auto mapIter = intrinsicMap.begin(); mapIter != intrinsicMap.end();
-       mapIter++) {
-    Function *F = mapIter->first;
+    , std::vector<std::pair<Function *, unsigned>> &intrinsicMap) {
+  for (auto mapIter : intrinsicMap) {
+    Function *F = mapIter.first;
     if (F->user_empty()) {
       // delete the function
       F->eraseFromParent();
       continue;
     }
 
-    unsigned opcode = mapIter->second;
+    unsigned opcode = mapIter.second;
     AddOpcodeParamForIntrinsic(HLM, F, opcode);
   }
 }
@@ -3740,17 +3739,6 @@ void CGMSHLSLRuntime::FinishCodeGen() {
       // Avoid dead loop.
       if (noUpdate)
         break;
-    }
-    // Remove unused external function.
-    for (auto FIt = TheModule.functions().begin(),
-              FE = TheModule.functions().end();
-         FIt != FE;) {
-      Function *F = FIt++;
-      if (F->isDeclaration() && F->user_empty()) {
-        if (m_IntrinsicMap.count(F))
-          m_IntrinsicMap.erase(F);
-        F->eraseFromParent();
-      }
     }
   }
 
