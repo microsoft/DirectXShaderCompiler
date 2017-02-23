@@ -4501,8 +4501,8 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
           Value *Sel = Builder.CreateSelect(Cond, T, F, "cond");
           return Sel;
         } else if (DstTy->isFloatingPointTy()) {
-          T = ConstantFP::get(DstTy, lhs.getLimitedValue());
-          F = ConstantFP::get(DstTy, rhs.getLimitedValue());
+          T = ConstantFP::get(DstTy, int64_t(lhs.getLimitedValue()));
+          F = ConstantFP::get(DstTy, int64_t(rhs.getLimitedValue()));
           Value *Sel = Builder.CreateSelect(Cond, T, F, "cond");
           return Sel;
         }

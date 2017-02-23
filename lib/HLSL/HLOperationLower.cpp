@@ -992,14 +992,14 @@ Value *TranslateClip(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *arg = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   if (VectorType *VT = dyn_cast<VectorType>(arg->getType())) {
     Value *elt = Builder.CreateExtractElement(arg, (uint64_t)0);
-    cond = Builder.CreateFCmpOLE(elt, hlslOP->GetFloatConst(0));
+    cond = Builder.CreateFCmpOLT(elt, hlslOP->GetFloatConst(0));
     for (unsigned i = 1; i < VT->getNumElements(); i++) {
       Value *elt = Builder.CreateExtractElement(arg, i);
-      Value *eltCond = Builder.CreateFCmpOLE(elt, hlslOP->GetFloatConst(0));
+      Value *eltCond = Builder.CreateFCmpOLT(elt, hlslOP->GetFloatConst(0));
       cond = Builder.CreateOr(cond, eltCond);
     }
   } else
-    cond = Builder.CreateFCmpOLE(arg, hlslOP->GetFloatConst(0));
+    cond = Builder.CreateFCmpOLT(arg, hlslOP->GetFloatConst(0));
 
   Constant *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::Discard);
   Builder.CreateCall(discard, {opArg, cond});
