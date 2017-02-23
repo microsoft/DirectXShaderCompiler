@@ -501,6 +501,8 @@ public:
   TEST_METHOD(CodeGenSrv_Typed_Load2)
   TEST_METHOD(CodeGenStaticGlobals)
   TEST_METHOD(CodeGenStaticGlobals2)
+  TEST_METHOD(CodeGenStaticResource)
+  TEST_METHOD(CodeGenStaticResource2)
   TEST_METHOD(CodeGenStruct_Buf1)
   TEST_METHOD(CodeGenStruct_BufHasCounter)
   TEST_METHOD(CodeGenStruct_BufHasCounter2)
@@ -2660,6 +2662,14 @@ TEST_F(CompilerTest, CodeGenStaticGlobals) {
 
 TEST_F(CompilerTest, CodeGenStaticGlobals2) {
   CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticResource) {
+  CodeGenTest(L"..\\CodeGenHLSL\\static_resource.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticResource2) {
+  CodeGenTest(L"..\\CodeGenHLSL\\static_resource2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStruct_Buf1) {

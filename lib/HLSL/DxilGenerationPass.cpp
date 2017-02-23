@@ -412,11 +412,11 @@ public:
     std::unordered_map<Instruction *, Value *> handleMap;
     GenerateDxilResourceHandles(handleMap);
     GenerateDxilCBufferHandles(handleMap);
-    if (NotOptimized || m_HasDbgInfo) {
-      // For module which not promote mem2reg.
-      // Add local resource load to handle map.
-      MapLocalDxilResourceHandles(handleMap);
-    }
+
+    // Map local or static global resource to global resource.
+    // Require inline for static global resource.
+    MapLocalDxilResourceHandles(handleMap);
+
     // Take care phi node of resource.
     AddCreateHandleForPhiNode(handleMap, m_pHLModule->GetOP());
 
