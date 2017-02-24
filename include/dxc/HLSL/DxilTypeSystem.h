@@ -11,13 +11,13 @@
 
 #pragma once
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/MapVector.h"
 #include "dxc/HLSL/DxilCompType.h"
 #include "dxc/HLSL/DxilInterpolationMode.h"
 
 #include <memory>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace llvm {
 class LLVMContext;
@@ -152,8 +152,8 @@ private:
 /// Use this class to represent structure type annotations in HL and DXIL.
 class DxilTypeSystem {
 public:
-  using StructAnnotationMap = std::map<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
-  using FunctionAnnotationMap = std::map<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
+  using StructAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
+  using FunctionAnnotationMap = llvm::MapVector<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
 
   DxilTypeSystem(llvm::Module *pModule);
 
