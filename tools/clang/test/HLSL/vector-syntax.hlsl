@@ -88,6 +88,11 @@ void vector_out_of_bounds() {
   vector<float, -1> vector_oob_2; // expected-error {{invalid value, valid range is between 1 and 4 inclusive}} fxc-error {{X3052: vector dimension must be between 1 and 4}}
 }
 
+void vector_unsigned() {
+   unsigned int4x2 intvector;
+   unsigned float2x4 floatvector; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+}
+
 float fn() {
     float4 myvar = float4(1,2,3,4);
     myvar.x = 1.0f;

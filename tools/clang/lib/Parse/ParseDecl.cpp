@@ -3484,9 +3484,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           Actions.isCurrentClassName(*Tok.getIdentifierInfo(), getCurScope()) &&
           isConstructorDeclarator(/*Unqualified*/true))
         goto DoneWithDeclSpec;
-
+      // HLSL Change start - modify TypeRep for unsigned vectors/matrix
+      ParsedType newTypeRep = ApplyTypeSpecSignToParsedType(&Actions, TypeRep, DS.getTypeSpecSign(), Loc);
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec,
-                                     DiagID, TypeRep, Policy);
+                                     DiagID, newTypeRep, Policy);
+      // HLSL Change end
       if (isInvalid)
         break;
 

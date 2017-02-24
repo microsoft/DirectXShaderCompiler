@@ -44,7 +44,8 @@ void abs_in_argument() {
 void matrix_on_demand() {
     float4x4 thematrix;
     float4x4 anotherMatrix;
-    bool2x1 boolMatrix;   
+    bool2x1 boolMatrix;
+    unsigned int4x2 unsignedMatrix;
 }
 
 void abs_on_demand() {
@@ -56,6 +57,11 @@ void matrix_out_of_bounds() {
   matrix<float, 1, 8> matrix_oob_0; // expected-error {{invalid value, valid range is between 1 and 4 inclusive}} fxc-error {{X3053: matrix dimensions must be between 1 and 4}}
   matrix<float, 0, 1> matrix_oob_1; // expected-error {{invalid value, valid range is between 1 and 4 inclusive}} fxc-error {{X3053: matrix dimensions must be between 1 and 4}}
   matrix<float, -1, 1> matrix_oob_2; // expected-error {{invalid value, valid range is between 1 and 4 inclusive}} fxc-error {{X3053: matrix dimensions must be between 1 and 4}}
+}
+
+void matrix_unsigned() {
+    unsigned int4x2 unsignedMatrix;
+    unsigned float1x4 unsignedFloatMatrix; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
 }
 
 void main() {
