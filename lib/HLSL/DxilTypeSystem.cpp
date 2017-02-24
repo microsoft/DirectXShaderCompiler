@@ -174,7 +174,7 @@ DxilStructAnnotation *DxilTypeSystem::GetStructAnnotation(const StructType *pStr
 
 void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
   DXASSERT_NOMSG(m_StructAnnotations.count(pStructType));
-  m_StructAnnotations.remove_if([&pStructType](
+  m_StructAnnotations.remove_if([pStructType](
       const std::pair<const StructType *, std::unique_ptr<DxilStructAnnotation>>
           &I) { return pStructType == I.first; });
 }
@@ -203,7 +203,7 @@ DxilFunctionAnnotation *DxilTypeSystem::GetFunctionAnnotation(const Function *pF
 
 void DxilTypeSystem::EraseFunctionAnnotation(const Function *pFunction) {
   DXASSERT_NOMSG(m_FunctionAnnotations.count(pFunction));
-  m_FunctionAnnotations.remove_if([&pFunction](
+  m_FunctionAnnotations.remove_if([pFunction](
       const std::pair<const Function *, std::unique_ptr<DxilFunctionAnnotation>>
           &I) { return pFunction == I.first; });
 }
