@@ -471,6 +471,7 @@ class db_oload_gen:
             for opcode in opcodes:
                 line = line + "case OpCode::{name}".format(name = opcode + ":\n")
 
+            line = line + "  DXASSERT_NOMSG(FT->getNumParams() > " + str(index) + ");\n"
             line = line + "  return FT->getParamType(" + str(index) + ");"
             print(line)
 

@@ -1934,8 +1934,8 @@ ID  Name                          Description
 32  FirstbitLo                    returns the FirstbitLo
 33  FirstbitHi                    returns src != 0? (BitWidth-1 - FirstbitHi) : -1
 34  FirstbitSHi                   returns src != 0? (BitWidth-1 - FirstbitSHi) : -1
-35  FMax                          returns the FMax of the input values
-36  FMin                          returns the FMin of the input values
+35  FMax                          returns a if a >= b, else b
+36  FMin                          returns a if a < b, else b
 37  IMax                          returns the IMax of the input values
 38  IMin                          returns the IMin of the input values
 39  UMax                          returns the UMax of the input values
@@ -2058,6 +2058,54 @@ FAbs
 
 The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF values.
 Applying FAbs on NaN preserves NaN, although the particular NaN bit pattern that results is not defined.
+
+FMax
+~~~~
+
+>= is used instead of > so that if min(x,y) = x then max(x,y) = y.
+
+NaN has special handling: If one source operand is NaN, then the other source operand is returned.
+If both are NaN, any NaN representation is returned.
+This conforms to new IEEE 754R rules.
+
+Denorms are flushed (sign preserved) before comparison, however the result written to dest may or may not be denorm flushed.
+
++------+-----------------------------+
+| a    | b                           |
+|      +------+--------+------+------+
+|      | -inf | F      | +inf | NaN  |
+------+------+--------+------+------+
+| -inf | -inf | b      | +inf | -inf |
++------+------+--------+------+------+
+| F    | a    | a or b | +inf | a    |
++------+------+--------+------+------+
+| +inf | +inf | +inf   | +inf | +inf |
++------+------+--------+------+------+
+| NaN  | -inf | b      | +inf | NaN  |
++------+------+--------+------+------+
+
+FMin
+~~~~
+
+NaN has special handling: If one source operand is NaN, then the other source operand is returned.
+If both are NaN, any NaN representation is returned.
+This conforms to new IEEE 754R rules.
+
+Denorms are flushed (sign preserved) before comparison, however the result written to dest may or may not be denorm flushed.
+
++------+-----------------------------+
+| a    | b                           |
+|      +------+--------+------+------+
+|      | -inf | F      | +inf | NaN  |
++------+------+--------+------+------+
+| -inf | -inf | -inf   | -inf | -inf |
++------+------+--------+------+------+
+| F    | -inf | a or b |    a |    a |
++------+------+--------+------+------+
+| +inf | -inf | b      | +inf | +inf |
++------+------+--------+------+------+
+| NaN  | -inf | b      | +inf | NaN  |
++------+------+--------+------+------+
 
 Saturate
 ~~~~~~~~

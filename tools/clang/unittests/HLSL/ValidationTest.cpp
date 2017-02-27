@@ -731,9 +731,9 @@ TEST_F(ValidationTest, InnerCoverageFail) {
       {"dx.op.coverage.i32(i32 91)",
        "declare i32 @dx.op.coverage.i32(i32)"
       },
-      {"dx.op.coverage.i32(i32 91)\n  %inner = call i32 @dx.op.innercoverage.i32(i32 92)",
+      {"dx.op.coverage.i32(i32 91)\n  %inner = call i32 @dx.op.innerCoverage.i32(i32 92)",
        "declare i32 @dx.op.coverage.i32(i32)\n"
-       "declare i32 @dx.op.innercoverage.i32(i32)"
+       "declare i32 @dx.op.innerCoverage.i32(i32)"
       },
       "InnerCoverage and Coverage are mutually exclusive.");
 }
