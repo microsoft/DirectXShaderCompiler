@@ -2074,7 +2074,7 @@ Denorms are flushed (sign preserved) before comparison, however the result writt
 | a    | b                           |
 |      +------+--------+------+------+
 |      | -inf | F      | +inf | NaN  |
-------+------+--------+------+------+
++------+------+--------+------+------+
 | -inf | -inf | b      | +inf | -inf |
 +------+------+--------+------+------+
 | F    | a    | a or b | +inf | a    |
