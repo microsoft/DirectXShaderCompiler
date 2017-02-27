@@ -243,4 +243,6 @@ clang::QualType CheckVectorConditional(
 
 }
 
+bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type);
+
 #endif

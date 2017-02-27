@@ -10687,3 +10687,8 @@ clang::QualType hlsl::CheckVectorConditional(
 {
   return HLSLExternalSource::FromSema(self)->CheckVectorConditional(Cond, LHS, RHS, QuestionLoc);
 }
+
+bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type) {
+  UINT count;
+  return HLSLExternalSource::FromSema(self)->IsTypeNumeric(type, &count);
+}

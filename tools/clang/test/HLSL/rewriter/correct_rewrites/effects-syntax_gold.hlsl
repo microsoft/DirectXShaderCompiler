@@ -22,7 +22,7 @@ float4 main() : SV_Target {
 }
 
 
-int TechNiQue;
-int foobar3;
-int T5;
-int foobar4;
+const int TechNiQue;
+const int foobar3;
+const int T5;
+const int foobar4;

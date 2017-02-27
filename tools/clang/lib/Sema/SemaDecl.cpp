@@ -9392,8 +9392,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   } else if (VDecl->isFileVarDecl()) {
     if (VDecl->getStorageClass() == SC_Extern &&
         (!getLangOpts().CPlusPlus ||
-         !(Context.getBaseElementType(VDecl->getType()).isConstQualified() ||
-           VDecl->isExternC())) &&
+          !VDecl->isExternC()) &&
         !isTemplateInstantiation(VDecl->getTemplateSpecializationKind()))
       Diag(VDecl->getLocation(), diag::warn_extern_init);
 
