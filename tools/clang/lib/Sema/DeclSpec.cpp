@@ -1036,6 +1036,10 @@ void DeclSpec::Finish(DiagnosticsEngine &D, Preprocessor &PP, const PrintingPoli
   // signed/unsigned are only valid with int/char/wchar_t.
   if (TypeSpecSign != TSS_unspecified) {
     // HLSL Change starts - signed/unsigned are not complete type specifiers.
+    #if 0
+    if (TypeSpecType == TST_unspecified)
+      TypeSpecType = TST_int;
+    #endif
     // shorthand vectors and matrices can have signed/unsigned specifiers.
     // If other typenames are used with signed/unsigned, it is already diagnosed by hlsl external source
     if (TypeSpecType != TST_int && TypeSpecType != TST_int128 &&
