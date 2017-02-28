@@ -3639,6 +3639,7 @@ HLSLReservedKeyword:
     case tok::kw_precise:
     case tok::kw_shared:
     case tok::kw_groupshared:
+    case tok::kw_globallycoherent:
     case tok::kw_uniform:
     case tok::kw_in:
     case tok::kw_out:
@@ -5104,6 +5105,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_precise:
   case tok::kw_shared:
   case tok::kw_groupshared:
+  case tok::kw_globallycoherent:
   case tok::kw_uniform:
   case tok::kw_in:
   case tok::kw_out:
