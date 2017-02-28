@@ -254,8 +254,8 @@ namespace DXIL {
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
     // Binary float
-    FMax = 35, // returns the FMax of the input values
-    FMin = 36, // returns the FMin of the input values
+    FMax = 35, // returns a if a >= b, else b
+    FMin = 36, // returns a if a < b, else b
   
     // Binary int with two outputs
     IMul = 41, // returns the IMul of the input values

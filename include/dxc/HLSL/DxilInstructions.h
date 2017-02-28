@@ -1328,7 +1328,7 @@ struct DxilInst_FirstbitSHi {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the FMax of the input values
+/// This instruction returns a if a >= b, else b
 struct DxilInst_FMax {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1347,7 +1347,7 @@ struct DxilInst_FMax {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the FMin of the input values
+/// This instruction returns a if a < b, else b
 struct DxilInst_FMin {
   const llvm::Instruction *Instr;
   // Construction and identification

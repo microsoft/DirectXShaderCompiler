@@ -420,18 +420,8 @@ void OP::RefreshCache(llvm::Module *pModule) {
       CallInst *CI = cast<CallInst>(*F.user_begin());
       OpCode OpCode = OP::GetDxilOpFuncCallInst(CI);
       Type *pOverloadType = OP::GetOverloadType(OpCode, &F);
-
-      DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes,
-               "otherwise caller passed OOB OpCode");
-      _Analysis_assume_(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes);
-      DXASSERT(IsOverloadLegal(OpCode, pOverloadType),
-               "otherwise the caller requested illegal operation overload (eg "
-               "HLSL function with unsupported types for mapped intrinsic "
-               "function)");
-      unsigned TypeSlot = GetTypeSlot(pOverloadType);
-      OpCodeClass opClass = m_OpCodeProps[(unsigned)OpCode].OpCodeClass;
-      m_OpCodeClassCache[(unsigned)opClass].pOverloads[TypeSlot] = &F;
-      m_FunctionToOpClass[&F] = opClass;
+      Function *OpFunc = GetOpFunc(OpCode, pOverloadType);
+      DXASSERT_NOMSG(OpFunc == &F);
     }
   }
 }
@@ -744,15 +734,19 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::UAddc:
   case OpCode::USubb:
   case OpCode::WaveActiveAllEqual:
+    DXASSERT_NOMSG(FT->getNumParams() > 1);
     return FT->getParamType(1);
   case OpCode::TempRegStore:
+    DXASSERT_NOMSG(FT->getNumParams() > 2);
     return FT->getParamType(2);
   case OpCode::MinPrecXRegStore:
   case OpCode::StoreOutput:
   case OpCode::BufferStore:
   case OpCode::StorePatchConstant:
+    DXASSERT_NOMSG(FT->getNumParams() > 4);
     return FT->getParamType(4);
   case OpCode::TextureStore:
+    DXASSERT_NOMSG(FT->getNumParams() > 5);
     return FT->getParamType(5);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:
