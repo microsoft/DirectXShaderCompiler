@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s  FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: "uav1", i32 0, i32 3, i32 1, i32 1, i1 true
 
