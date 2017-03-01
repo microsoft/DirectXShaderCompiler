@@ -145,6 +145,7 @@ public:
   bool DisassembleInstNumbers; //OPT_Ni
   bool DisassembleByteOffset; //OPT_No
   bool DisaseembleHex; //OPT_Lx
+  bool IsRootSignatureProfile();
 };
 
 /// Use this class to capture, convert and handle the lifetime for the

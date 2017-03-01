@@ -113,6 +113,11 @@ void DxcDefines::BuildDefines() {
   }
 }
 
+bool DxcOpts::IsRootSignatureProfile() {
+  return TargetProfile == "rootsig_1_0" ||
+      TargetProfile == "rootsig_1_1";
+}
+
 MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
   if (argc > skipArgCount) {
     Utf8StringVector.reserve(argc - skipArgCount);

@@ -395,6 +395,9 @@ DxilContainerWriter *NewDxilContainerWriter();
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,
                                      AbstractMemoryStream *pStream);
+void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
+                                     AbstractMemoryStream *pStream);
+
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
 
 // Converts uint32_t partKind to char array object.

@@ -591,6 +591,8 @@ public:
   TEST_METHOD(CodeGenResPhi)
   TEST_METHOD(CodeGenResPhi2)
   TEST_METHOD(CodeGenRootSigEntry)
+  TEST_METHOD(CodeGenRootSigProfile)
+  TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
@@ -1038,9 +1040,9 @@ public:
     std::wstring profile =
         Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
 
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, name, entry.c_str(),
-                                        profile.c_str(), nullptr, 0, nullptr, 0,
-                                        nullptr, &pResult));
+    VERIFY_SUCCEEDED(pCompiler->Compile(
+        pSource, name, entry.c_str(), profile.c_str(), nullptr, 0,
+        opts.Defines.data(), opts.Defines.size(), nullptr, &pResult));
     HRESULT result;
     VERIFY_SUCCEEDED(pResult->GetStatus(&result));
     if (FAILED(result)) {
@@ -1055,6 +1057,8 @@ public:
 
     CComPtr<IDxcBlob> pProgram;
     VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+    if (opts.IsRootSignatureProfile())
+      return;
 
     CComPtr<IDxcBlobEncoding> pDisassembleBlob;
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembleBlob));
@@ -3019,6 +3023,15 @@ TEST_F(CompilerTest, CodeGenResPhi2) {
 
 TEST_F(CompilerTest, CodeGenRootSigEntry) {
   CodeGenTest(L"..\\CodeGenHLSL\\rootSigEntry.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile) {
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigProfile.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile2) {
+  // TODO: Verify the result when reflect the structures.
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigProfile2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {
