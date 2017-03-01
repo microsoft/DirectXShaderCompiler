@@ -2163,8 +2163,11 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
       DXASSERT(!bSNorm && !bUNorm, "snorm/unorm on invalid type");
     }
   }
-  // TODO: set resource
-  // hlslRes.SetGloballyCoherent();
+
+  if (decl->hasAttr<HLSLGloballyCoherentAttr>()) {
+    hlslRes->SetGloballyCoherent(true);
+  }
+
   hlslRes->SetROV(RT->getDecl()->getName().startswith("RasterizerOrdered"));
 
   if (kind == hlsl::DxilResource::Kind::TypedBuffer ||
@@ -2181,6 +2184,14 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
   }
 
   if (resClass == hlsl::DxilResourceBase::Class::SRV) {
+    if (hlslRes->IsGloballyCoherent()) {
+      DiagnosticsEngine &Diags = CGM.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "globallycoherent can only be used with "
+                                    "Unordered Access View buffers.");
+      Diags.Report(decl->getLocation(), DiagID);
+    }
+
     hlslRes->SetRW(false);
     hlslRes->SetID(m_pHLModule->GetSRVs().size());
     return m_pHLModule->AddSRV(std::move(hlslRes));

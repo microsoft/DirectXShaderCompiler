@@ -9402,6 +9402,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLTriangleAdjAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLGloballyCoherent:
+    declAttr = ::new (S.Context) HLSLGloballyCoherentAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
 
   default:
     Handled = false;
@@ -9837,7 +9841,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
   // Check for deprecated effect object type here, warn, and invalidate decl
   bool bDeprecatedEffectObject = false;
+  bool bIsObject = false;
   if (hlsl::IsObjectType(this, qt, &bDeprecatedEffectObject)) {
+    bIsObject = true;
     if (bDeprecatedEffectObject) {
       Diag(D.getLocStart(), diag::warn_hlsl_effect_object);
       D.setInvalidType();
@@ -9940,6 +9946,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
         result = false;
       }
       pGroupShared = pAttr;
+      break;
+    case AttributeList::AT_HLSLGloballyCoherent:
+      if (!bIsObject) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
+            << pAttr->getName() << "non-UAV type";
+        result = false;
+      }
       break;
     case AttributeList::AT_HLSLUniform:
       if (!(isGlobal || isParameter)) {
@@ -10542,6 +10555,10 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "triangleadj ";
     break;
 
+  case clang::attr::HLSLGloballyCoherent:
+    Out << "globallycoherent ";
+    break;
+
   default:
     A->printPretty(Out, Policy);
     break;
@@ -10592,6 +10609,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLLineAdj:
   case clang::attr::HLSLTriangle:
   case clang::attr::HLSLTriangleAdj:
+  case clang::attr::HLSLGloballyCoherent:
     return true;
   }
   
