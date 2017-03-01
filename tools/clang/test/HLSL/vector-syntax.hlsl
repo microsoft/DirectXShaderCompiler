@@ -101,7 +101,7 @@ void vector_unsigned() {
    unsigned bool3 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned half4 halfvector;   /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned double1 doublevector;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min12int2 min12intvector;                       /* expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2 min12intvector;                       /* expected-error {{'min12int' cannot be signed or unsigned}} expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned min16float3 min16floatvector;                   /* expected-error {{'min16float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
 }
 
