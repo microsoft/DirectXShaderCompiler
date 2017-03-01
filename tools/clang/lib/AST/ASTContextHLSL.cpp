@@ -35,7 +35,7 @@ static const bool ForConstTrue = true;            // a construct is targeting a 
 static const bool ExplicitConversionFalse = false;// a conversion operation is not the result of an explicit cast
 static const bool InheritedFalse = false;         // template parameter default value is not inherited.
 static const bool ParameterPackFalse = false;     // template parameter is not an ellipsis.
-static const bool TypenameTrue = false;           // 'typename' specified rather than 'class' for a template argument.
+static const bool TypenameFalse = false;          // 'typename' specified rather than 'class' for a template argument.
 static const bool DelayTypeCreationTrue = true;   // delay type creation for a declaration
 static const bool DelayTypeCreationFalse = false; // immediately create a type when the declaration is created
 static const unsigned int NoQuals = 0;            // no qualifiers in effect
@@ -146,7 +146,7 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
   IdentifierInfo& elementTemplateParamId = context.Idents.get(StringRef("element"), tok::TokenKind::identifier);
   TemplateTypeParmDecl *elementTemplateParamDecl = TemplateTypeParmDecl::Create(
     context, currentDeclContext, NoLoc, NoLoc,
-    FirstTemplateDepth, FirstParamPosition, &elementTemplateParamId, TypenameTrue, ParameterPackFalse);
+    FirstTemplateDepth, FirstParamPosition, &elementTemplateParamId, TypenameFalse, ParameterPackFalse);
   elementTemplateParamDecl->setDefaultArgument(context.getTrivialTypeSourceInfo(context.FloatTy));
   QualType intType = context.IntTy;
   Expr *literalIntFour = IntegerLiteral::Create(
@@ -253,7 +253,7 @@ void hlsl::AddHLSLVectorTemplate(ASTContext& context, ClassTemplateDecl** vector
   IdentifierInfo& elementTemplateParamId = context.Idents.get(StringRef("element"), tok::TokenKind::identifier);
   TemplateTypeParmDecl *elementTemplateParamDecl = TemplateTypeParmDecl::Create(
     context, currentDeclContext, NoLoc, NoLoc,
-    FirstTemplateDepth, FirstParamPosition, &elementTemplateParamId, TypenameTrue, ParameterPackFalse);
+    FirstTemplateDepth, FirstParamPosition, &elementTemplateParamId, TypenameFalse, ParameterPackFalse);
   elementTemplateParamDecl->setDefaultArgument(context.getTrivialTypeSourceInfo(context.FloatTy));
   QualType intType = context.IntTy;
   Expr *literalIntFour = IntegerLiteral::Create(
@@ -261,7 +261,7 @@ void hlsl::AddHLSLVectorTemplate(ASTContext& context, ClassTemplateDecl** vector
   IdentifierInfo& colCountParamId = context.Idents.get(StringRef("element_count"), tok::TokenKind::identifier);
   NonTypeTemplateParmDecl* colCountTemplateParamDecl = NonTypeTemplateParmDecl::Create(
     context, currentDeclContext, NoLoc, NoLoc,
-    FirstTemplateDepth, FirstParamPosition + 2, &colCountParamId, intType, ParameterPackFalse, nullptr);
+    FirstTemplateDepth, FirstParamPosition + 1, &colCountParamId, intType, ParameterPackFalse, nullptr);
   colCountTemplateParamDecl->setDefaultArgument(literalIntFour);
   NamedDecl* templateParameters[] =
   {
@@ -464,8 +464,8 @@ void hlsl::AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& 
 
   //  template<typename T, typename U> struct is_same : public false_type {};
   CXXRecordDecl* isSameFalseRecordDecl = CXXRecordDecl::Create(context, TagTypeKind::TTK_Struct, stdNamespace, NoLoc, NoLoc, &isSameId, nullptr, false);
-  TemplateTypeParmDecl* tParam = TemplateTypeParmDecl::Create(context, stdNamespace, NoLoc, NoLoc, FirstTemplateDepth, FirstParamPosition, &tId, TypenameTrue, ParameterPackFalse);
-  TemplateTypeParmDecl* uParam = TemplateTypeParmDecl::Create(context, stdNamespace, NoLoc, NoLoc, FirstTemplateDepth, FirstParamPosition + 1, &vId, TypenameTrue, ParameterPackFalse);
+  TemplateTypeParmDecl* tParam = TemplateTypeParmDecl::Create(context, stdNamespace, NoLoc, NoLoc, FirstTemplateDepth, FirstParamPosition, &tId, TypenameFalse, ParameterPackFalse);
+  TemplateTypeParmDecl* uParam = TemplateTypeParmDecl::Create(context, stdNamespace, NoLoc, NoLoc, FirstTemplateDepth, FirstParamPosition + 1, &vId, TypenameFalse, ParameterPackFalse);
   NamedDecl* falseParams[] = { tParam, uParam };
   TemplateParameterList* falseParamList = TemplateParameterList::Create(context, NoLoc, NoLoc, falseParams, _countof(falseParams), NoLoc);
   ClassTemplateDecl* isSameFalseTemplateDecl = ClassTemplateDecl::Create(context, stdNamespace, NoLoc, DeclarationName(&isSameId), falseParamList, isSameFalseRecordDecl, nullptr);
@@ -521,8 +521,8 @@ void hlsl::AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& 
 /// <parm name="templateArgCount">Number of template arguments (one or two).</param>
 /// <parm name="defaultTypeArgValue">If assigned, the default argument for the element template.</param>
 void hlsl::AddTemplateTypeWithHandle(
-  ASTContext& context, 
-  _Outptr_ ClassTemplateDecl** typeDecl, 
+  ASTContext& context,
+  _Outptr_ ClassTemplateDecl** typeDecl,
   _Outptr_ CXXRecordDecl** recordDecl,
   _In_z_ const char* typeName,
   uint8_t templateArgCount, 
@@ -544,8 +544,8 @@ void hlsl::AddTemplateTypeWithHandle(
   IdentifierInfo& elementTemplateParamId = context.Idents.get(StringRef("element"), tok::TokenKind::identifier);
   TemplateTypeParmDecl *elementTemplateParamDecl = TemplateTypeParmDecl::Create(
     context, currentDeclContext, NoLoc, NoLoc,
-    FirstTemplateDepth, FirstParamPosition, &elementTemplateParamId, TypenameTrue, ParameterPackFalse);
-  QualType intType(context.getSizeType().getTypePtr(), NoQuals);
+    FirstTemplateDepth, FirstParamPosition, &elementTemplateParamId, TypenameFalse, ParameterPackFalse);
+  QualType intType = context.IntTy;
 
   if (defaultTypeArgValue != nullptr)
   {
@@ -605,7 +605,17 @@ void hlsl::AddTemplateTypeWithHandle(
     elementType = context.getDependentSizedArrayType(
         elementType, countExpr, ArrayType::ArraySizeModifier::Normal, 0,
         SourceRange());
+
+    // InputPatch and OutputPatch also have a "Length" static const member for the number of control points
+    IdentifierInfo& lengthId = context.Idents.get(StringRef("Length"), tok::TokenKind::identifier);
+    TypeSourceInfo* lengthTypeSource = context.getTrivialTypeSourceInfo(intType.withConst());
+    VarDecl* lengthValueDecl = VarDecl::Create(context, templateRecordDecl, NoLoc, NoLoc, &lengthId,
+      intType.withConst(), lengthTypeSource, SC_Static);
+    lengthValueDecl->setInit(countExpr);
+    lengthValueDecl->setAccess(AS_public);
+    templateRecordDecl->addDecl(lengthValueDecl);
   }
+
   AddHLSLHandleField(context, templateRecordDecl, elementType);
 
   templateRecordDecl->completeDefinition();
