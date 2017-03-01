@@ -8222,6 +8222,17 @@ void hlsl::DiagnoseAssignmentResultForHLSL(Sema* self,
     ->DiagnoseAssignmentResultForHLSL(ConvTy, Loc, DstType, SrcType, SrcExpr, Action, Complained);
 }
 
+void hlsl::DiagnoseIfConditionForHLSL(Sema *self, Expr *condExpr) {
+  while (ImplicitCastExpr *IC = dyn_cast<ImplicitCastExpr>(condExpr)) {
+    if (IC->getCastKind() == CastKind::CK_HLSLMatrixTruncationCast ||
+        IC->getCastKind() == CastKind::CK_HLSLVectorTruncationCast) {
+      self->Diag(condExpr->getLocStart(), diag::err_hlsl_if_cond_not_scalar);
+      return;
+    }
+    condExpr = IC->getSubExpr();
+  }
+}
+
 static bool ShaderModelsMatch(const StringRef& left, const StringRef& right)
 {
   // TODO: handle shorthand cases.

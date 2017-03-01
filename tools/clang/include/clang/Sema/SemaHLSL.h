@@ -73,6 +73,10 @@ void DiagnoseAssignmentResultForHLSL(
   clang::Sema::AssignmentAction Action,
   bool *Complained);
 
+void DiagnoseIfConditionForHLSL(
+  clang::Sema* self,
+  clang::Expr* condExpr);
+
 void DiagnosePackingOffset(
   clang::Sema* self,
   clang::SourceLocation loc,

@@ -534,6 +534,7 @@ public:
   TEST_METHOD(CodeGenUpperCaseRegister1);
   TEST_METHOD(CodeGenVcmp)
   TEST_METHOD(CodeGenVec_Comp_Arg)
+  TEST_METHOD(CodeGenVecCmpIf)
   TEST_METHOD(CodeGenWave)
   TEST_METHOD(CodeGenWriteToInput)
   TEST_METHOD(CodeGenWriteToInput2)
@@ -2795,6 +2796,10 @@ TEST_F(CompilerTest, CodeGenVcmp) {
 
 TEST_F(CompilerTest, CodeGenVec_Comp_Arg){
   CodeGenTest(L"..\\CodeGenHLSL\\vec_comp_arg.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVecCmpIf) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vecCmpIf.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenWave) {

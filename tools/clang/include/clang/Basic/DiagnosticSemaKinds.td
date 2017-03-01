@@ -7554,6 +7554,8 @@ def err_hlsl_vla : Error< // Patterened after err_opencl_vla
   "variable length arrays are not supported in HLSL">;
 def err_hlsl_type_empty_init : Error<
   "%0 cannot have an explicit empty initializer">;
+def err_hlsl_if_cond_not_scalar : Error<
+  "if statement conditional expressions must evaluate to a scalar">;
 def err_hlsl_unsupportedvectortype : Error<
   "%0 is declared with type %1, but only primitive scalar values are supported">;
 def err_hlsl_unsupportedvectorsize : Error<

@@ -2,7 +2,7 @@
 
 // CHECK: !"llvm.loop.unroll.disable"
 uint u;
-float main(float2 a : A, int3 b : B) : SV_Target
+float main(float a : A, int3 b : B) : SV_Target
 {
   float s = 0;
   /*

@@ -37,6 +37,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#include "clang/Sema/SemaHLSL.h" // HLSL Change
 using namespace clang;
 using namespace sema;
 
@@ -523,7 +524,9 @@ Sema::ActOnIfStmt(SourceLocation IfLoc, FullExprArg CondVal, Decl *CondVar,
   Expr *ConditionExpr = CondResult.getAs<Expr>();
   if (!ConditionExpr)
     return StmtError();
-
+  // HLSL Change Begin.
+  hlsl::DiagnoseIfConditionForHLSL(this, ConditionExpr);
+  // HLSL Change End.
   DiagnoseUnusedExprResult(thenStmt);
 
   if (!elseStmt) {
