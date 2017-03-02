@@ -2113,15 +2113,6 @@ public:
 
           pOutputBlob.Release();
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
-
-          CComPtr<IDxcBlob> pTargetBlob;
-          if (m_pDxcContainerEventsHandler != nullptr) {
-            HRESULT hr = m_pDxcContainerEventsHandler->OnDxilContainerBuilt(
-                pOutputBlob, &pTargetBlob);
-            if (SUCCEEDED(hr) && pTargetBlob != nullptr) {
-              std::swap(pOutputBlob, pTargetBlob);
-            }
-          }
         }
       }
       else {

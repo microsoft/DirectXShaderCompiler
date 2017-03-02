@@ -593,6 +593,8 @@ public:
   TEST_METHOD(CodeGenRootSigEntry)
   TEST_METHOD(CodeGenRootSigProfile)
   TEST_METHOD(CodeGenRootSigProfile2)
+  TEST_METHOD(CodeGenRootSigProfile3)
+  TEST_METHOD(CodeGenRootSigProfile4)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
@@ -3032,6 +3034,14 @@ TEST_F(CompilerTest, CodeGenRootSigProfile) {
 TEST_F(CompilerTest, CodeGenRootSigProfile2) {
   // TODO: Verify the result when reflect the structures.
   CodeGenTest(L"..\\CodeGenHLSL\\rootSigProfile2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigProfile3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigProfile4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {
