@@ -8222,6 +8222,19 @@ void hlsl::DiagnoseAssignmentResultForHLSL(Sema* self,
     ->DiagnoseAssignmentResultForHLSL(ConvTy, Loc, DstType, SrcType, SrcExpr, Action, Complained);
 }
 
+void hlsl::DiagnoseControlFlowConditionForHLSL(Sema *self, Expr *condExpr, StringRef StmtName) {
+  while (ImplicitCastExpr *IC = dyn_cast<ImplicitCastExpr>(condExpr)) {
+    if (IC->getCastKind() == CastKind::CK_HLSLMatrixTruncationCast ||
+        IC->getCastKind() == CastKind::CK_HLSLVectorTruncationCast) {
+      self->Diag(condExpr->getLocStart(),
+                 diag::err_hlsl_control_flow_cond_not_scalar)
+          << StmtName;
+      return;
+    }
+    condExpr = IC->getSubExpr();
+  }
+}
+
 static bool ShaderModelsMatch(const StringRef& left, const StringRef& right)
 {
   // TODO: handle shorthand cases.

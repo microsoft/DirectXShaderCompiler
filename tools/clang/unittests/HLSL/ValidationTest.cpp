@@ -787,9 +787,9 @@ TEST_F(ValidationTest, ReducibleFail) {
        "  br label %if.end"
       },
       {"%conv\n"
-      "  br i1 %cmp.i0, label %if.else, label %if.end",
+      "  br i1 %cmp, label %if.else, label %if.end",
        "to float\n"
-       "  br i1 %cmp.i0, label %if.then, label %if.end"
+       "  br i1 %cmp, label %if.then, label %if.end"
       },
       "Execution flow must be reducible");
 }

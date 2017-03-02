@@ -22,7 +22,7 @@ StructuredBuffer<row_major float2x2> mats2;
 [numthreads(8,8,1)]
 void main( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex )
 {
-    if (gtid==0)
+    if (gtid.x==0)
        x = tid.x;
     dataC[tid.x%8][tid.y%8] = mats.Load(gid.x).f2x2 + mats2.Load(gtid.y);
     GroupMemoryBarrierWithGroupSync();
