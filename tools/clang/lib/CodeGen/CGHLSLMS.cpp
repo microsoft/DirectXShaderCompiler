@@ -261,6 +261,30 @@ public:
 };
 }
 
+void clang::CompileRootSignature(
+    StringRef rootSigStr, DiagnosticsEngine &Diags, SourceLocation SLoc,
+    hlsl::DxilRootSignatureVersion rootSigVer,
+    hlsl::RootSignatureHandle *pRootSigHandle) {
+  std::string OSStr;
+  llvm::raw_string_ostream OS(OSStr);
+  hlsl::DxilVersionedRootSignatureDesc *D = nullptr;
+
+  if (ParseHLSLRootSignature(rootSigStr.data(), rootSigStr.size(), rootSigVer,
+                             &D, SLoc, Diags)) {
+    CComPtr<IDxcBlob> pSignature;
+    CComPtr<IDxcBlobEncoding> pErrors;
+    hlsl::SerializeRootSignature(D, &pSignature, &pErrors, false);
+    if (pSignature == nullptr) {
+      assert(pErrors != nullptr && "else serialize failed with no msg");
+      ReportHLSLRootSigError(Diags, SLoc, (char *)pErrors->GetBufferPointer(),
+                             pErrors->GetBufferSize());
+      hlsl::DeleteRootSignature(D);
+    } else {
+      pRootSigHandle->Assign(D, pSignature);
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 //
 // CGMSHLSLRuntime methods.
@@ -5206,24 +5230,8 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
   StringRef StrRef = RSA->getSignatureName();
   DiagnosticsEngine &Diags = CGF.getContext().getDiagnostics();
   SourceLocation SLoc = RSA->getLocation();
-  std::string OSStr;
-  raw_string_ostream OS(OSStr);
-  hlsl::DxilVersionedRootSignatureDesc *D = nullptr;
 
-  if (ParseHLSLRootSignature(StrRef.data(), StrRef.size(), rootSigVer, &D, SLoc,
-                             Diags)) {
-    CComPtr<IDxcBlob> pSignature;
-    CComPtr<IDxcBlobEncoding> pErrors;
-    hlsl::SerializeRootSignature(D, &pSignature, &pErrors, false);
-    if (pSignature == nullptr) {
-      DXASSERT(pErrors != nullptr, "else serialize failed with no msg");
-      ReportHLSLRootSigError(Diags, SLoc,
-        (char *)pErrors->GetBufferPointer(), pErrors->GetBufferSize());
-      hlsl::DeleteRootSignature(D);
-    } else {
-      m_pHLModule->GetRootSignature().Assign(D, pSignature);
-    }
-  }
+  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, &m_pHLModule->GetRootSignature());
 }
 
 void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(

@@ -186,8 +186,10 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
        m_Opts.ExtractPrivateFile.empty() &&
        m_Opts.VerifyRootSignatureSource.empty() && !m_Opts.ExtractRootSignature);
 
-  if (!needDisassembly)
-     return retVal;
+  bool isRootSigProfile = m_Opts.IsRootSignatureProfile();
+
+  if (!needDisassembly || isRootSigProfile)
+    return retVal;
 
   CComPtr<IDxcCompiler> pCompiler;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));

@@ -703,3 +703,18 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   writer.write(pFinalStream);
 }
+
+void hlsl::SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
+                                     AbstractMemoryStream *pFinalStream) {
+  DXASSERT_NOMSG(pRootSigHandle != nullptr);
+  DXASSERT_NOMSG(pFinalStream != nullptr);
+  DxilContainerWriter_impl writer;
+  // Write the root signature (RTS0) part.
+  DxilProgramRootSignatureWriter rootSigWriter(*pRootSigHandle);
+  if (!pRootSigHandle->IsEmpty()) {
+    writer.AddPart(
+        DFCC_RootSignature, rootSigWriter.size(),
+        [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+  }
+  writer.write(pFinalStream);
+}

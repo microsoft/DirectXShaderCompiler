@@ -38,6 +38,7 @@
 #include "dxc/Support/WinIncludes.h"  // For DxilPipelineStateValidation.h
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/HLSL/DxilRootSignature.h"
 
 #ifdef _DEBUG
 #if defined(_MSC_VER)
@@ -2037,6 +2038,16 @@ public:
       compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint.m_psz;
       compiler.getCodeGenOpts().HLSLProfile = pUtf8TargetProfile.m_psz;
 
+      unsigned rootSigMajor = 0;
+      unsigned rootSigMinor = 0;
+      if (compiler.getCodeGenOpts().HLSLProfile == "rootsig_1_1") {
+        rootSigMajor = 1;
+        rootSigMinor = 1;
+      } else if (compiler.getCodeGenOpts().HLSLProfile == "rootsig_1_0") {
+        rootSigMajor = 1;
+        rootSigMinor = 0;
+      }
+
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool needsValidation = !opts.CodeGenHighLevel && !opts.DisableValidation;
@@ -2080,6 +2091,29 @@ public:
         action.Execute();
         action.EndSourceFile();
         outStream.flush();
+      }
+      else if (rootSigMajor) {
+        HLSLRootSignatureAction action(
+            compiler.getCodeGenOpts().HLSLEntryFunction, rootSigMajor,
+            rootSigMinor);
+        FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+        action.BeginSourceFile(compiler, file);
+        action.Execute();
+        action.EndSourceFile();
+        outStream.flush();
+        // Don't do work to put in a container if an error has occurred
+        bool compileOK = !compiler.getDiagnostics().hasErrorOccurred();
+        if (compileOK) {
+          auto rootSigHandle = action.takeRootSigHandle();
+
+          CComPtr<AbstractMemoryStream> pContainerStream;
+          IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+          SerializeDxilContainerForRootSignature(rootSigHandle.get(),
+                                                 pContainerStream);
+
+          pOutputBlob.Release();
+          IFT(pContainerStream.QueryInterface(&pOutputBlob));
+        }
       }
       else {
         llvm::LLVMContext llvmContext;

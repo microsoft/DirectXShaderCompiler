@@ -27,7 +27,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <system_error>
-
+// HLSL Change Begin.
+#include "dxc/HLSL/DxilRootSignature.h"
+#include "clang/Parse/ParseHLSL.h"
+// HLSL Change End.
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -696,6 +699,94 @@ void PrintPreprocessedAction::ExecuteAction() {
   DoPrintPreprocessedInput(CI.getPreprocessor(), OS,
                            CI.getPreprocessorOutputOpts());
 }
+
+// HLSL Change Begin.
+HLSLRootSignatureAction::HLSLRootSignatureAction(StringRef rootSigMacro,
+                                                 unsigned major, unsigned minor)
+    : HLSLRootSignatureMacro(rootSigMacro), rootSigMajor(major),
+      rootSigMinor(minor) {
+  rootSigHandle = std::make_unique<hlsl::RootSignatureHandle>();
+}
+
+void HLSLRootSignatureAction::ExecuteAction() {
+  CompilerInstance &CI = getCompilerInstance();
+  Preprocessor &PP = CI.getPreprocessor();
+  // Ignore unknown pragmas.
+  PP.IgnorePragmas();
+
+  // Scans and ignores all tokens in the files.
+  PP.EnterMainSourceFile();
+
+  Token Tok;
+  do PP.Lex(Tok);
+  while (Tok.isNot(tok::eof));
+
+  hlsl::DxilRootSignatureVersion  rootSigVer;
+  if (rootSigMinor == 0) {
+    rootSigVer = hlsl::DxilRootSignatureVersion::Version_1_0;
+  }
+  else {
+    assert(rootSigMinor == 1 &&
+      "else CGMSHLSLRuntime Constructor needs to be updated");
+    rootSigVer = hlsl::DxilRootSignatureVersion::Version_1_1;
+  }
+
+  assert(rootSigMajor == 1 &&
+           "else CGMSHLSLRuntime Constructor needs to be updated");
+  // Try to find HLSLRootSignatureMacro in macros.
+  MacroInfo *rootSigMI = nullptr;
+  for (Preprocessor::macro_iterator I = PP.macro_begin(), E = PP.macro_end();
+       I != E; ++I) {
+    auto *MD = I->second.getLatest();
+    if (MD && MD->isDefined()) {
+      if (I->first->getName() == HLSLRootSignatureMacro) {
+        rootSigMI = MD->getMacroInfo();
+        break;
+      }
+    }
+  }
+
+  DiagnosticsEngine &Diags = CI.getDiagnostics();
+  if (!rootSigMI) {
+    std::string cannotFindMacro =
+        "undeclared identifier " + HLSLRootSignatureMacro;
+    SourceLocation SLoc = Tok.getLocation();
+    ReportHLSLRootSigError(Diags, SLoc, cannotFindMacro.c_str(),
+                           cannotFindMacro.size());
+    return;
+  }
+
+  SourceLocation SLoc = rootSigMI->getDefinitionLoc();
+
+  std::string rootSigStr;
+  llvm::raw_string_ostream rootSigOS(rootSigStr);
+
+  SmallString<128> SpellingBuffer;
+  for (const auto &T : rootSigMI->tokens()) {
+    if (T.hasLeadingSpace())
+      rootSigOS << ' ';
+
+    rootSigOS << PP.getSpelling(T, SpellingBuffer);
+  }
+  rootSigOS.flush();
+  StringRef StrRef = rootSigStr;
+
+  // Remove the "" on rootsig macro.
+  if (StrRef.size() >= 2) {
+    if (rootSigStr.front() == '"') {
+      if (rootSigStr.back() == '"') {
+        StrRef = StrRef.substr(1, StrRef.size()-2);
+      }
+    }
+  }
+
+  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, rootSigHandle.get());
+}
+
+std::unique_ptr<hlsl::RootSignatureHandle> HLSLRootSignatureAction::takeRootSigHandle() {
+  return std::move(rootSigHandle);
+}
+// HLSL Change End.
 
 void PrintPreambleAction::ExecuteAction() {
   switch (getCurrentFileKind()) {
