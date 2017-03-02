@@ -1916,16 +1916,12 @@ void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instructio
     }
 
     if (resClass0) {
-      handlePhi->getArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx)
-          ->replaceAllUsesWith(resClass0);
-      handlePhi->setArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx,
-                               resClass0);
+      resClassPhi->replaceAllUsesWith(resClass0);
+      resClassPhi->eraseFromParent();
     }
     if (resID0) {
-      handlePhi->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx)
-          ->replaceAllUsesWith(resID0);
-      handlePhi->setArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx,
-                               resID0);
+      resIDPhi->replaceAllUsesWith(resID0);
+      resIDPhi->eraseFromParent();
     }
   }
 
