@@ -3321,7 +3321,11 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 
     // bitcast to target type
     llvm::Type *ResultType = ConvertType(ToType);
-    llvm::Value *bitcast = Builder.CreateBitCast(LVal, ResultType);
+    // Use BitCastInst::Create instead of Builder.CreateBitCast to avoid
+    // ConstantExpr. ConstantExpr will make optimization harder.
+    llvm::CastInst *bitcast = llvm::BitCastInst::Create(
+        llvm::Instruction::CastOps::BitCast, LVal, ResultType);
+    Builder.Insert(bitcast);
     return MakeAddrLValue(bitcast, ToType);
   }
   case CK_HLSLVectorTruncationCast: {

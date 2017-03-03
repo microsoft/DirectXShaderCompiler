@@ -468,6 +468,7 @@ public:
   TEST_METHOD(CodeGenSampleL)
   TEST_METHOD(CodeGenSaturate1)
   TEST_METHOD(CodeGenScalarOnVecIntrinsic)
+  TEST_METHOD(CodeGenScalarToVec)
   TEST_METHOD(CodeGenSelectObj)
   TEST_METHOD(CodeGenSelectObj2)
   TEST_METHOD(CodeGenSelectObj3)
@@ -2538,6 +2539,10 @@ TEST_F(CompilerTest, CodeGenSaturate1) {
 
 TEST_F(CompilerTest, CodeGenScalarOnVecIntrinsic) {
   CodeGenTest(L"..\\CodeGenHLSL\\scalarOnVecIntrisic.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenScalarToVec) {
+  CodeGenTest(L"..\\CodeGenHLSL\\scalarToVec.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSelectObj) {
