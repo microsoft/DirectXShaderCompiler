@@ -137,7 +137,7 @@ static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
 int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
   int retVal = 0;
   // Text output.
-  if (m_Opts.AstDump || m_Opts.OptDump) {
+  if (m_Opts.AstDump || m_Opts.OptDump || m_Opts.GenSPIRV) { // SPIRV change: add GenSPIRV
     WriteBlobToConsole(pBlob);
     return retVal;
   }

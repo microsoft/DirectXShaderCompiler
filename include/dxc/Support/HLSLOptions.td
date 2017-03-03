@@ -209,6 +209,8 @@ def _help_question : Flag<["-", "/"], "?">, Flags<[DriverOption]>, Alias<help>;
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
+def spirv : Flag<["-"], "spirv">, Flags<[CoreOption, DriverOption, HelpHidden]>, // SPIRV change: temporary solution to support
+  HelpText<"Generates SPIR-V binary code">;                                      // SPIRV change: SPIR-V gen in a command line tool
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
 def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,

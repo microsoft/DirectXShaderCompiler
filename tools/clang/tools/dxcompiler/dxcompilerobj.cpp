@@ -30,6 +30,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/CodeGen/CodeGenAction.h"
+#include "clang/SPIRV/EmitSPIRVAction.h" // SPIRV change
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/Format.h"
@@ -2205,6 +2206,16 @@ public:
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
         }
       }
+      // SPIRV change starts
+      else if (opts.GenSPIRV) {
+          clang::EmitSPIRVAction action;
+          FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+          action.BeginSourceFile(compiler, file);
+          action.Execute();
+          action.EndSourceFile();
+          outStream.flush();
+      }
+      // SPIRV change ends
       else {
         llvm::LLVMContext llvmContext;
         EmitBCAction action(&llvmContext);

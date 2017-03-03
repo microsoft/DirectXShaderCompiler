@@ -67,6 +67,7 @@ set(LIBRARIES
   clangLex
   clangTooling
   clangBasic
+  clangSPIRV # SPIRV change
   libclang
   )
 
