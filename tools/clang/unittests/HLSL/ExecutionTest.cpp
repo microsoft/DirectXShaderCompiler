@@ -695,6 +695,35 @@ public:
 
 const float ExecutionTest::ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 
+#define WAVE_INTRINSIC_DXBC_GUARD \
+  "#ifdef USING_DXBC\r\n" \
+  "uint WaveGetLaneIndex() { return 1; }\r\n" \
+  "uint WaveReadLaneFirst(uint u) { return u; }\r\n" \
+  "bool WaveIsFirstLane() { return true; }\r\n" \
+  "uint WaveGetLaneCount() { return 1; }\r\n" \
+  "uint WaveReadLaneAt(uint n, uint u) { return u; }\r\n" \
+  "bool WaveActiveAnyTrue(bool b) { return b; }\r\n" \
+  "bool WaveActiveAllTrue(bool b) { return false; }\r\n" \
+  "uint WaveActiveAllEqual(uint u) { return u; }\r\n" \
+  "uint4 WaveActiveBallot(bool b) { return 1; }\r\n" \
+  "uint WaveActiveCountBits(uint u) { return 1; }\r\n" \
+  "uint WaveActiveSum(uint u) { return 1; }\r\n" \
+  "uint WaveActiveProduct(uint u) { return 1; }\r\n" \
+  "uint WaveActiveBitAnd(uint u) { return 1; }\r\n" \
+  "uint WaveActiveBitOr(uint u) { return 1; }\r\n" \
+  "uint WaveActiveBitXor(uint u) { return 1; }\r\n" \
+  "uint WaveActiveMin(uint u) { return 1; }\r\n" \
+  "uint WaveActiveMax(uint u) { return 1; }\r\n" \
+  "uint WavePrefixCountBits(uint u) { return 1; }\r\n" \
+  "uint WavePrefixSum(uint u) { return 1; }\r\n" \
+  "uint WavePrefixProduct(uint u) { return 1; }\r\n" \
+  "uint QuadReadLaneAt(uint a, uint u) { return 1; }\r\n" \
+  "uint QuadReadAcrossX(uint u) { return 1; }\r\n" \
+  "uint QuadReadAcrossY(uint u) { return 1; }\r\n" \
+  "uint QuadReadAcrossDiagonal(uint u) { return 1; }\r\n" \
+  "#endif\r\n"
+
+
 static void SetupComputeValuePattern(std::vector<uint32_t> &values, size_t count) {
   values.resize(count); // one element per dispatch group, in bytes
   for (size_t i = 0; i < count; ++i) {
@@ -1089,28 +1118,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
     int32_t i_pfSum, i_pfProd;
   };
   static const char pShader[] =
-    "#ifdef USING_DXBC\r\n"
-    "uint WaveGetLaneIndex() { return 1; }\r\n"
-    "uint WaveReadLaneFirst(uint u) { return u; }\r\n"
-    "bool WaveIsFirstLane() { return true; }\r\n"
-    "uint WaveGetLaneCount() { return 1; }\r\n"
-    "uint WaveReadLaneAt(uint n, uint u) { return u; }\r\n"
-    "bool WaveActiveAnyTrue(bool b) { return b; }\r\n"
-    "bool WaveActiveAllTrue(bool b) { return false; }\r\n"
-    "uint WaveActiveAllEqual(uint u) { return u; }\r\n"
-    "uint4 WaveActiveBallot(bool b) { return 1; }\r\n"
-    "uint WaveActiveCountBits(uint u) { return 1; }\r\n"
-    "uint WaveActiveSum(uint u) { return 1; }\r\n"
-    "uint WaveActiveProduct(uint u) { return 1; }\r\n"
-    "uint WaveActiveBitAnd(uint u) { return 1; }\r\n"
-    "uint WaveActiveBitOr(uint u) { return 1; }\r\n"
-    "uint WaveActiveBitXor(uint u) { return 1; }\r\n"
-    "uint WaveActiveMin(uint u) { return 1; }\r\n"
-    "uint WaveActiveMax(uint u) { return 1; }\r\n"
-    "uint WavePrefixCountBits(uint u) { return 1; }\r\n"
-    "uint WavePrefixSum(uint u) { return 1; }\r\n"
-    "uint WavePrefixProduct(uint u) { return 1; }\r\n"
-    "#endif\r\n"
+    WAVE_INTRINSIC_DXBC_GUARD
     "struct PerThreadData {\r\n"
     " uint id, flags, laneIndex, laneCount, firstLaneId, preds, firstlaneX, lane1X;\r\n"
     " uint allBC, allSum, allProd, allAND, allOR, allXOR, allMin, allMax;\r\n"
@@ -1444,7 +1452,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
     XMFLOAT4 position;
     uint32_t id, flags, laneIndex, laneCount, firstLaneId, sum1;
     uint32_t id0, id1, id2, id3;
-    uint32_t acrossX, acrossY, acrossDiag;
+    uint32_t acrossX, acrossY, acrossDiag, quadActiveCount;
   };
 
   const UINT RTWidth = 128;
@@ -1452,32 +1460,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
 
   // Shaders.
   static const char pShaders[] =
-    "#ifdef USING_DXBC\r\n"
-    "uint WaveGetLaneIndex() { return 1; }\r\n"
-    "uint WaveReadLaneFirst(uint u) { return u; }\r\n"
-    "bool WaveIsFirstLane() { return true; }\r\n"
-    "uint WaveGetLaneCount() { return 1; }\r\n"
-    "uint WaveReadLaneAt(uint n, uint u) { return u; }\r\n"
-    "bool WaveActiveAnyTrue(bool b) { return b; }\r\n"
-    "bool WaveActiveAllTrue(bool b) { return false; }\r\n"
-    "uint WaveActiveAllEqual(uint u) { return u; }\r\n"
-    "uint4 WaveActiveBallot(bool b) { return 1; }\r\n"
-    "uint WaveActiveCountBits(uint u) { return 1; }\r\n"
-    "uint WaveActiveSum(uint u) { return 1; }\r\n"
-    "uint WaveActiveProduct(uint u) { return 1; }\r\n"
-    "uint WaveActiveBitAnd(uint u) { return 1; }\r\n"
-    "uint WaveActiveBitOr(uint u) { return 1; }\r\n"
-    "uint WaveActiveBitXor(uint u) { return 1; }\r\n"
-    "uint WaveActiveMin(uint u) { return 1; }\r\n"
-    "uint WaveActiveMax(uint u) { return 1; }\r\n"
-    "uint WavePrefixCountBits(uint u) { return 1; }\r\n"
-    "uint WavePrefixSum(uint u) { return 1; }\r\n"
-    "uint WavePrefixProduct(uint u) { return 1; }\r\n"
-    "uint QuadReadLaneAt(uint a, uint u) { return 1; }\r\n"
-    "uint QuadReadAcrossX(uint u) { return 1; }\r\n"
-    "uint QuadReadAcrossY(uint u) { return 1; }\r\n"
-    "uint QuadReadAcrossDiagonal(uint u) { return 1; }\r\n"
-    "#endif\r\n"
+    WAVE_INTRINSIC_DXBC_GUARD
     "struct PSInput {\r\n"
     "  float4 position : SV_POSITION;\r\n"
     "};\r\n\r\n"
@@ -1490,11 +1473,11 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
     "typedef uint uint32_t;\r\n"
     "uint pos_to_id(float4 pos) { return pos.x * 128 + pos.y; }\r\n"
     "struct PerPixelData {\r\n"
-    "float4 position;\r\n"
-    " uint32_t id, flags, laneIndex, laneCount, firstLaneId, sum1; \r\n"
+    " float4 position;\r\n"
+    " uint32_t id, flags, laneIndex, laneCount, firstLaneId, sum1;\r\n"
     " uint32_t id0, id1, id2, id3;\r\n"
-    " uint32_t acrossX, acrossY, acrossDiag; \r\n"
-    " };\r\n"
+    " uint32_t acrossX, acrossY, acrossDiag, quadActiveCount;\r\n"
+    "};\r\n"
     "AppendStructuredBuffer<PerPixelData> g_sb : register(u1);\r\n"
     "float4 PSMain(PSInput input) : SV_TARGET {\r\n"
     "  uint one = 1;\r\n"
@@ -1514,6 +1497,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
     "  d.acrossX = QuadReadAcrossX(d.id);\r\n"
     "  d.acrossY = QuadReadAcrossY(d.id);\r\n"
     "  d.acrossDiag = QuadReadAcrossDiagonal(d.id);\r\n"
+    "  d.quadActiveCount = one + QuadReadAcrossX(one) + QuadReadAcrossY(one) + QuadReadAcrossDiagonal(one);\r\n"
     "  g_sb.Append(d);\r\n"
     "  return 1;\r\n"
     "};\r\n";
@@ -1590,6 +1574,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   std::vector<PerPixelData> values;
   values.resize(RTWidth * RTHeight * 2);
   UINT valueSizeInBytes = values.size() * sizeof(PerPixelData);
+  memset(values.data(), 0, valueSizeInBytes);
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pUavReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
@@ -1659,21 +1644,24 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
     if (dxbc)
       return;
 
+    uint32_t maxActiveLaneCount = 0;
     uint32_t maxLaneCount = 0;
     for (uint32_t i = 0; i < appendCount; ++i) {
+      maxActiveLaneCount = std::max(maxActiveLaneCount, values[i].sum1);
       maxLaneCount = std::max(maxLaneCount, values[i].laneCount);
     }
 
     uint32_t peerOfHelperLanes = 0;
     for (uint32_t i = 0; i < appendCount; ++i) {
-      if (values[i].laneCount != maxLaneCount) {
+      if (values[i].sum1 != maxActiveLaneCount) {
         ++peerOfHelperLanes;
       }
     }
 
-    LogCommentFmt(L"%u threads. Found waves of count %u. Found %u lanes that "
-                  L"had helpers in their waves.",
-                  appendCount, maxLaneCount, peerOfHelperLanes);
+    LogCommentFmt(
+        L"Found: %u threads. Waves reported up to %u total lanes, up "
+        L"to %u active lanes, and %u threads had helper/inactive lanes.",
+        appendCount, maxLaneCount, maxActiveLaneCount, peerOfHelperLanes);
 
     // Group threads into quad invocations.
     uint32_t singlePixelCount = 0;
@@ -1781,7 +1769,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
               VERIFY_ARE_EQUAL(d->acrossX, fnToLayoutData(isTop[i], !isLeft[i])->id);
               VERIFY_ARE_EQUAL(d->acrossY, fnToLayoutData(!isTop[i], isLeft[i])->id);
               VERIFY_ARE_EQUAL(d->acrossDiag, fnToLayoutData(!isTop[i], !isLeft[i])->id);
-              VERIFY_ARE_EQUAL(d->sum1, count);
+              VERIFY_ARE_EQUAL(d->quadActiveCount, count);
             }
           }
         }
