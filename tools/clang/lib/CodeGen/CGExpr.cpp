@@ -1690,6 +1690,24 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
   if (VTy == nullptr && getContext().getLangOpts().HLSL)
     VTy =
         hlsl::ConvertHLSLVecMatTypeToExtVectorType(getContext(), Dst.getType());
+  llvm::Value * VecDstPtr = Dst.getExtVectorAddr();
+  llvm::Value *Zero = Builder.getInt32(0);
+  if (VTy) {
+    llvm::Type *VecTy = VecDstPtr->getType()->getPointerElementType();
+    for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+      if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+        llvm::Value *EltGEP = Builder.CreateGEP(VecDstPtr, {Zero, Elt});
+        llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+        Builder.CreateStore(SrcElt, EltGEP);
+      }
+    }
+  } else {
+    // If the Src is a scalar (not a vector) it must be updating one element.
+    llvm::Value *EltGEP = Builder.CreateGEP(
+        VecDstPtr, {Zero, Elts->getAggregateElement((unsigned)0)});
+    Builder.CreateStore(SrcVal, EltGEP);
+  }
+  return;
   // HLSL Change Ends
   if (VTy) {  // HLSL Change
     unsigned NumSrcElts = VTy->getNumElements();

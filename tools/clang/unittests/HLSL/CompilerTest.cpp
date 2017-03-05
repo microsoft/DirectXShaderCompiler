@@ -536,6 +536,7 @@ public:
   TEST_METHOD(CodeGenVec_Comp_Arg)
   TEST_METHOD(CodeGenVecCmpCond)
   TEST_METHOD(CodeGenWave)
+  TEST_METHOD(CodeGenWriteMaskBuf)
   TEST_METHOD(CodeGenWriteToInput)
   TEST_METHOD(CodeGenWriteToInput2)
   TEST_METHOD(CodeGenWriteToInput3)
@@ -2810,6 +2811,10 @@ TEST_F(CompilerTest, CodeGenVecCmpCond) {
 
 TEST_F(CompilerTest, CodeGenWave) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\wave.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenWriteToInput) {
