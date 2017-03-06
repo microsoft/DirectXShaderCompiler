@@ -8378,6 +8378,7 @@ static bool IsTailPaddedMemberArray(Sema &S, llvm::APInt Size,
   return true;
 }
 
+
 void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
                             const ArraySubscriptExpr *ASE,
                             bool AllowOnePastEnd, bool IndexNegated) {
@@ -8531,6 +8532,14 @@ void Sema::CheckArrayAccess(const Expr *expr) {
           CheckArrayAccess(rhs);
         return;
       }
+      // HLSL Change Starts : Access checking for HLSL vector and matrix array subscript
+      case Stmt::CXXOperatorCallExprClass : {
+        if (getLangOpts().HLSL) {
+            CheckHLSLArrayAccess(expr);
+        }
+        return;
+      }
+      // HLSL Change Ends
       default:
         return;
     }

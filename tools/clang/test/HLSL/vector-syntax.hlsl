@@ -94,6 +94,25 @@ float fn() {
     myvar.y = 1.0f;
     myvar.z = 1.0f;
     myvar.w = 1.0f;
+    myvar[0] = 1.0f;
+    myvar[1]= 1.0f;
+    myvar[2] = 1.0f;
+    myvar[3] = 1.0f;
+    myvar[-10] = 1.0f;            /* expected-error {{vector index '-10' is out of bounds}} fxc-pass {{}} */
+    myvar[4] = 1.0f;              /* expected-error {{vector index '4' is out of bounds}} fxc-pass {{}} */
+
+    float3 myvar3 = float3(1,2,3);
+    myvar3[3] = 1.0f;             /* expected-error {{vector index '3' is out of bounds}} fxc-pass {{}} */
+
+    float2 myvar2 = float2(1,2);
+    myvar2[2] = 1.0f;             /* expected-error {{vector index '2' is out of bounds}} fxc-pass {{}} */
+
+    float1 myvar1 = float1(1);
+    myvar1[1] = 1.0f;             /* expected-error {{vector index '1' is out of bounds}} fxc-pass {{}} */
+
+    const float4 constMyVar = float4(1,2,3,4);              /* expected-note {{variable 'constMyVar' declared const here}} expected-note {{variable 'constMyVar' declared const here}} fxc-pass {{}} */
+    constMyVar = float4(1,1,1,1); /* expected-error {{cannot assign to variable 'constMyVar' with const-qualified type 'const float4'}} fxc-error {{X3025: l-value specifies const object}} */
+    constMyVar[0] = 2.0f;         /* expected-error {{cannot assign to variable 'constMyVar' with const-qualified type 'const float4'}} fxc-error {{X3025: l-value specifies const object}} */
 
     float4 myothervar;
     myothervar.rgba = myvar.xyzw;
@@ -115,25 +134,25 @@ float fn() {
     uint3 u3;
     u3.xyz = f.xxx;
     /*verify-ast
-      BinaryOperator <col:5, col:16> 'vector<uint, 3>':'vector<uint, 3>' '='
-      |-HLSLVectorElementExpr <col:5, col:8> 'vector<uint, 3>':'vector<uint, 3>' lvalue vectorcomponent xyz
-      | `-DeclRefExpr <col:5> 'uint3':'vector<uint, 3>' lvalue Var 'u3' 'uint3':'vector<uint, 3>'
-      `-ImplicitCastExpr <col:14, col:16> 'vector<uint, 3>' <HLSLCC_FloatingToIntegral>
+      BinaryOperator <col:5, col:16> 'vector<uint, 3>':'vector<unsigned int, 3>' '='
+      |-HLSLVectorElementExpr <col:5, col:8> 'vector<uint, 3>':'vector<unsigned int, 3>' lvalue vectorcomponent xyz
+      | `-DeclRefExpr <col:5> 'uint3':'vector<unsigned int, 3>' lvalue Var 'u3' 'uint3':'vector<unsigned int, 3>'
+      `-ImplicitCastExpr <col:14, col:16> 'vector<unsigned int, 3>' <HLSLCC_FloatingToIntegral>
         `-HLSLVectorElementExpr <col:14, col:16> 'vector<float, 3>':'vector<float, 3>' xxx
           `-ImplicitCastExpr <col:14> 'vector<float, 1>':'vector<float, 1>' lvalue <HLSLVectorSplat>
             `-DeclRefExpr <col:14> 'float' lvalue Var 'f' 'float'
     */
     u3 = (!u3).zyx;
     /*verify-ast
-      BinaryOperator <col:5, col:16> 'uint3':'vector<uint, 3>' '='
-      |-DeclRefExpr <col:5> 'uint3':'vector<uint, 3>' lvalue Var 'u3' 'uint3':'vector<uint, 3>'
-      `-ImplicitCastExpr <col:10, col:16> 'vector<uint, 3>' <HLSLCC_IntegralCast>
+      BinaryOperator <col:5, col:16> 'uint3':'vector<unsigned int, 3>' '='
+      |-DeclRefExpr <col:5> 'uint3':'vector<unsigned int, 3>' lvalue Var 'u3' 'uint3':'vector<unsigned int, 3>'
+      `-ImplicitCastExpr <col:10, col:16> 'vector<unsigned int, 3>' <HLSLCC_IntegralCast>
         `-HLSLVectorElementExpr <col:10, col:16> 'vector<bool, 3>':'vector<bool, 3>' zyx
           `-ParenExpr <col:10, col:14> 'vector<bool, 3>':'vector<bool, 3>'
             `-UnaryOperator <col:11, col:12> 'vector<bool, 3>':'vector<bool, 3>' prefix '!'
               `-ImplicitCastExpr <col:12> 'vector<bool, 3>' <HLSLCC_IntegralToBoolean>
-                `-ImplicitCastExpr <col:12> 'uint3':'vector<uint, 3>' <LValueToRValue>
-                  `-DeclRefExpr <col:12> 'uint3':'vector<uint, 3>' lvalue Var 'u3' 'uint3':'vector<uint, 3>'
+                `-ImplicitCastExpr <col:12> 'uint3':'vector<unsigned int, 3>' <LValueToRValue>
+                  `-DeclRefExpr <col:12> 'uint3':'vector<unsigned int, 3>' lvalue Var 'u3' 'uint3':'vector<unsigned int, 3>'
     */
     f.xx = 2; // expected-error {{vector is not assignable (contains duplicate components)}} fxc-error {{X3025: l-value specifies const object}}
     u3.x = u3.w;                                            /* expected-error {{vector swizzle 'w' is out of bounds}} fxc-error {{X3018: invalid subscript 'w'}} */

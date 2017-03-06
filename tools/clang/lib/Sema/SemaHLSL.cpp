@@ -10687,3 +10687,41 @@ clang::QualType hlsl::CheckVectorConditional(
 {
   return HLSLExternalSource::FromSema(self)->CheckVectorConditional(Cond, LHS, RHS, QuestionLoc);
 }
+
+void Sema::CheckHLSLArrayAccess(const Expr *expr) {;
+  DXASSERT_NOMSG(isa<CXXOperatorCallExpr>(expr));
+  const CXXOperatorCallExpr *OperatorCallExpr = cast<CXXOperatorCallExpr>(expr);
+  DXASSERT_NOMSG(OperatorCallExpr->getOperator() == OverloadedOperatorKind::OO_Subscript);
+
+  const Expr *RHS = OperatorCallExpr->getArg(1); // first subscript expression
+  llvm::APSInt index;
+  if (RHS->EvaluateAsInt(index, Context)) {
+      int64_t intIndex = index.getLimitedValue();
+      const QualType LHSQualType = OperatorCallExpr->getArg(0)->getType();
+      if (IsVectorType(this, LHSQualType)) {
+          uint32_t vectorSize = GetHLSLVecSize(LHSQualType);
+          // If expression is a double two subscript operator for matrix (e.g x[0][1])
+          // we also have to check the first subscript oprator by recursively calling
+          // this funciton for the first CXXOperatorCallExpr
+          bool isDoubleSubscript = isa<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0));
+          if (isDoubleSubscript) {
+              CheckHLSLArrayAccess(cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0)));
+          }
+          if (intIndex < 0 || (uint32_t)intIndex >= vectorSize) {
+              Diag(RHS->getExprLoc(),
+                  isDoubleSubscript
+                  ? diag::err_hlsl_matrix_array_index_out_of_bounds
+                  : diag::err_hlsl_vector_array_index_out_of_bounds)
+                  << (int)intIndex;
+          }
+      }
+      else if (IsMatrixType(this, LHSQualType)) {
+          uint32_t rowCount, colCount;
+          GetHLSLMatRowColCount(LHSQualType, rowCount, colCount);
+          if (intIndex < 0 || (uint32_t)intIndex >= rowCount) {
+              Diag(RHS->getExprLoc(), diag::err_hlsl_matrix_array_index_out_of_bounds)
+                  << (int)intIndex;
+          }
+      }
+  }
+}
