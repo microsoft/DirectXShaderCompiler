@@ -23,6 +23,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/Frontend/CodeGenOptions.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -3859,8 +3860,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Do simple transform to make later lower pass easier.
   SimpleTransformForHLDXIR(m_pHLModule->GetModule());
 
-  // Add semantic defines for extensions if any are available.
+  // Handle lang extensions if provided.
   if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
+    // Add semantic defines for extensions if any are available.
     HLSLExtensionsCodegenHelper::SemanticDefineErrorList errors =
       CGM.getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(m_pHLModule->GetModule());
 
@@ -3871,6 +3873,18 @@ void CGMSHLSLRuntime::FinishCodeGen() {
         level = DiagnosticsEngine::Warning;
       unsigned DiagID = Diags.getCustomDiagID(level, "%0");
       Diags.Report(SourceLocation::getFromRawEncoding(error.Location()), DiagID) << error.Message();
+    }
+
+    // Add root signature from a #define. Overrides root signature in function attribute.
+    {
+      using Status = HLSLExtensionsCodegenHelper::CustomRootSignature::Status;
+      HLSLExtensionsCodegenHelper::CustomRootSignature customRootSig;
+      Status status = CGM.getCodeGenOpts().HLSLExtensionsCodegen->GetCustomRootSignature(&customRootSig);
+      if (status == Status::FOUND) {
+          CompileRootSignature(customRootSig.RootSignature, Diags,
+                               SourceLocation::getFromRawEncoding(customRootSig.EncodedSourceLocation),
+                               rootSigVer, &m_pHLModule->GetRootSignature());
+      }
     }
   }
 

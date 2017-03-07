@@ -395,6 +395,7 @@ public:
   TEST_METHOD(DefineValidationError);
   TEST_METHOD(DefineValidationWarning);
   TEST_METHOD(DefineNoValidatorOk);
+  TEST_METHOD(DefineFromMacro);
   TEST_METHOD(IntrinsicWhenAvailableThenUsed);
   TEST_METHOD(CustomIntrinsicName);
   TEST_METHOD(NoLowering);
@@ -509,6 +510,26 @@ TEST_F(ExtensionTest, DefineNoValidatorOk) {
   c.RegisterSemanticDefine(L"FOO*");
   c.Compile(
     "#define FOO 1\n"
+    "float4 main() : SV_Target {\n"
+    "  return 0;\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+
+  std::string disassembly = c.Disassemble();
+  // Check the define is emitted.
+  // #define FOO 1
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("!{!\"FOO\", !\"1\"}"));
+}
+
+TEST_F(ExtensionTest, DefineFromMacro) {
+  Compiler c(m_dllSupport);
+  c.RegisterSemanticDefine(L"FOO*");
+  c.Compile(
+    "#define BAR 1\n"
+    "#define FOO BAR\n"
     "float4 main() : SV_Target {\n"
     "  return 0;\n"
     "}\n",

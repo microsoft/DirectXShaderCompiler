@@ -597,6 +597,18 @@ public:
   TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenRootSigProfile3)
   TEST_METHOD(CodeGenRootSigProfile4)
+  TEST_METHOD(CodeGenRootSigProfile5)
+  TEST_METHOD(CodeGenRootSigDefine1)
+  TEST_METHOD(CodeGenRootSigDefine2)
+  TEST_METHOD(CodeGenRootSigDefine3)
+  TEST_METHOD(CodeGenRootSigDefine4)
+  TEST_METHOD(CodeGenRootSigDefine5)
+  TEST_METHOD(CodeGenRootSigDefine6)
+  TEST_METHOD(CodeGenRootSigDefine7)
+  TEST_METHOD(CodeGenRootSigDefine8)
+  TEST_METHOD(CodeGenRootSigDefine9)
+  TEST_METHOD(CodeGenRootSigDefine10)
+  TEST_METHOD(CodeGenRootSigDefine11)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
@@ -3052,6 +3064,54 @@ TEST_F(CompilerTest, CodeGenRootSigProfile3) {
 
 TEST_F(CompilerTest, CodeGenRootSigProfile4) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigProfile4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile5) {
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigProfile5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine6) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine8) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine8.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine9) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine9.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine10) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine10.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine11) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine11.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {

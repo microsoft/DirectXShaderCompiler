@@ -19,6 +19,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Sema/SemaConsumer.h"
@@ -1779,6 +1780,7 @@ class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
 private:
   CompilerInstance &m_CI;
   DxcLangExtensionsHelper &m_langExtensionsHelper;
+  std::string m_rootSigDefine;
 
   // The metadata format is a root node that has pointers to metadata
   // nodes for each define. The metatdata node for a define is a pair
@@ -1818,8 +1820,9 @@ private:
   }
 
 public:
-  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper)
+  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine)
   : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
+  , m_rootSigDefine(rootSigDefine)
   {}
 
   // Write semantic defines as metadata in the module.
@@ -1841,6 +1844,24 @@ public:
 
   virtual std::string GetIntrinsicName(UINT opcode) override {
     return m_langExtensionsHelper.GetIntrinsicName(opcode);
+  }
+  
+  virtual HLSLExtensionsCodegenHelper::CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) {
+    // Find macro definition in preprocessor.
+    Preprocessor &pp = m_CI.getPreprocessor();
+    MacroInfo *macro = MacroExpander::FindMacroInfo(pp, m_rootSigDefine);
+    if (!macro)
+      return CustomRootSignature::NOT_FOUND;
+
+    // Combine tokens into single string
+    MacroExpander expander(pp, MacroExpander::STRIP_QUOTES);
+    if (!expander.ExpandMacro(macro, &out->RootSignature))
+      return CustomRootSignature::NOT_FOUND;
+
+    // Record source location of root signature macro.
+    out->EncodedSourceLocation = macro->getDefinitionLoc().getRawEncoding();
+
+    return CustomRootSignature::FOUND;
   }
 };
 
@@ -2570,7 +2591,7 @@ public:
     compiler.getCodeGenOpts().setInlining(
         clang::CodeGenOptions::OnlyAlwaysInlining);
 
-    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper);
+    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
   }
 };
 

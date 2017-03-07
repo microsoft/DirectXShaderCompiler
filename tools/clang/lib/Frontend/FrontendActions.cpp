@@ -17,6 +17,7 @@
 #include "clang/Frontend/MultiplexConsumer.h"
 #include "clang/Frontend/Utils.h"
 #include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Lex/Pragma.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/Parser.h"
@@ -733,21 +734,11 @@ void HLSLRootSignatureAction::ExecuteAction() {
 
   assert(rootSigMajor == 1 &&
            "else CGMSHLSLRuntime Constructor needs to be updated");
-  // Try to find HLSLRootSignatureMacro in macros.
-  MacroInfo *rootSigMI = nullptr;
-  for (Preprocessor::macro_iterator I = PP.macro_begin(), E = PP.macro_end();
-       I != E; ++I) {
-    auto *MD = I->second.getLatest();
-    if (MD && MD->isDefined()) {
-      if (I->first->getName() == HLSLRootSignatureMacro) {
-        rootSigMI = MD->getMacroInfo();
-        break;
-      }
-    }
-  }
 
+  // Try to find HLSLRootSignatureMacro in macros.
+  MacroInfo *rootSigMacro = hlsl::MacroExpander::FindMacroInfo(PP, HLSLRootSignatureMacro);
   DiagnosticsEngine &Diags = CI.getDiagnostics();
-  if (!rootSigMI) {
+  if (!rootSigMacro)  {
     std::string cannotFindMacro =
         "undeclared identifier " + HLSLRootSignatureMacro;
     SourceLocation SLoc = Tok.getLocation();
@@ -756,31 +747,18 @@ void HLSLRootSignatureAction::ExecuteAction() {
     return;
   }
 
-  SourceLocation SLoc = rootSigMI->getDefinitionLoc();
-
-  std::string rootSigStr;
-  llvm::raw_string_ostream rootSigOS(rootSigStr);
-
-  SmallString<128> SpellingBuffer;
-  for (const auto &T : rootSigMI->tokens()) {
-    if (T.hasLeadingSpace())
-      rootSigOS << ' ';
-
-    rootSigOS << PP.getSpelling(T, SpellingBuffer);
-  }
-  rootSigOS.flush();
-  StringRef StrRef = rootSigStr;
-
-  // Remove the "" on rootsig macro.
-  if (StrRef.size() >= 2) {
-    if (rootSigStr.front() == '"') {
-      if (rootSigStr.back() == '"') {
-        StrRef = StrRef.substr(1, StrRef.size()-2);
-      }
-    }
+  // Expand HLSLRootSignatureMacro.
+  SourceLocation SLoc = rootSigMacro->getDefinitionLoc();
+  std::string rootSigString;
+  hlsl::MacroExpander expander(PP, hlsl::MacroExpander::STRIP_QUOTES);
+  if (!expander.ExpandMacro(rootSigMacro, &rootSigString)) {
+    StringRef error("error expanding root signature macro");
+    ReportHLSLRootSigError(Diags, SLoc, error.data(), error.size());
+    return;
   }
 
-  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, rootSigHandle.get());
+  // Compile the expanded root signature.
+  clang::CompileRootSignature(rootSigString, Diags, SLoc, rootSigVer, rootSigHandle.get());
 }
 
 std::unique_ptr<hlsl::RootSignatureHandle> HLSLRootSignatureAction::takeRootSigHandle() {
