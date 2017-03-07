@@ -92,3 +92,6 @@
 
 // 0X80AA0015 - DXIL container is missing DebugInfo part.
 #define DXC_E_CONTAINER_MISSING_DEBUG                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0015))
+
+// 0X80AA0016 - Unexpected failure in macro expansion.
+#define DXC_E_MACRO_EXPANSION_FAILURE                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0016))

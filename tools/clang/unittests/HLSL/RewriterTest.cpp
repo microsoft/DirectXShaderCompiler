@@ -31,6 +31,7 @@
 #include "HLSLTestData.h"
 #include "WexTestClass.h"
 #include "HlslTestUtils.h"
+#include "DxcTestUtils.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/dxctools.h"
@@ -70,6 +71,7 @@ public:
   TEST_METHOD(RunUTF16ThreeByte);
   TEST_METHOD(RunNonUnicode);
   TEST_METHOD(RunEffect);
+  TEST_METHOD(RunSemanticDefines);
 
   dxc::DxcDllSupport m_dllSupport;
 
@@ -101,7 +103,10 @@ public:
   VerifyResult CheckVerifies(LPCWSTR path, LPCWSTR goldPath) {   
     CComPtr<IDxcRewriter> pRewriter;
     VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
-    
+    return CheckVerifies(pRewriter, path, goldPath);
+  }
+
+  VerifyResult CheckVerifies(IDxcRewriter *pRewriter, LPCWSTR path, LPCWSTR goldPath) {
     CComPtr<IDxcOperationResult> pRewriteResult;
     RewriteCompareGold(path, goldPath, &pRewriteResult, pRewriter);
 
@@ -123,6 +128,16 @@ public:
       VERIFY_SUCCEEDED(m_dllSupport.Initialize());
     }
     return m_dllSupport.CreateInstance(CLSID_DxcRewriter, pRewriter);
+  }
+
+  HRESULT CreateRewriterWithSemanticDefines(IDxcRewriter** pRewriter, std::vector<LPCWSTR> defines) {
+    VERIFY_SUCCEEDED(CreateRewriter(pRewriter));
+    CComPtr<IDxcLangExtensions> pLangExtensions;
+    VERIFY_SUCCEEDED((*pRewriter)->QueryInterface(&pLangExtensions));
+    for (LPCWSTR define : defines)
+      VERIFY_SUCCEEDED(pLangExtensions->RegisterSemanticDefine(define));
+
+    return S_OK;
   }
 
   VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName) {
@@ -396,3 +411,9 @@ TEST_F(RewriterTest, RunEffect) {
   CheckVerifiesHLSL(L"rewriter\\effects-syntax.hlsl", L"rewriter\\correct_rewrites\\effects-syntax_gold.hlsl");
 }
 
+TEST_F(RewriterTest, RunSemanticDefines) {
+  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriterWithSemanticDefines(&pRewriter, {L"SD_*"}));
+  CheckVerifies(pRewriter, hlsl_test::GetPathToHlslDataFile(L"rewriter\\semantic-defines.hlsl").c_str(),
+                           hlsl_test::GetPathToHlslDataFile(L"rewriter\\correct_rewrites\\semantic-defines_gold.hlsl").c_str());
+}
