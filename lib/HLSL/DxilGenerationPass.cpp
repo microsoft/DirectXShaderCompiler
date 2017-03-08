@@ -1614,10 +1614,10 @@ void DxilGenerationPass::GenerateDxilPatchConstantLdSt() {
   DxilSignature &Sig = m_pHLModule->GetPatchConstantSignature();
   Function *EntryFunc = m_pHLModule->GetEntryFunction();
   auto InsertPt = EntryFunc->getEntryBlock().getFirstInsertionPt();
-  bool bIsHs = m_pHLModule->GetShaderModel()->IsHS();
-  bool bIsInput = !bIsHs;
-  bool bIsInout = false;
-  bool bNeedVertexID = false;
+  const bool bIsHs = m_pHLModule->GetShaderModel()->IsHS();
+  const bool bIsInput = !bIsHs;
+  const bool bIsInout = false;
+  const bool bNeedVertexID = false;
   if (bIsHs) {
     HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFunc);
     Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
