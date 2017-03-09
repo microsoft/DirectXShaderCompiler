@@ -2890,7 +2890,8 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   }
   // replace
   helper.retVal->replaceAllUsesWith(retValNew);
-
+  // Save new ret val.
+  helper.retVal = retValNew;
   // get status
   UpdateStatus(ResRet, helper.status, Builder);
 }
@@ -5762,6 +5763,61 @@ void TranslateStructBufSubscript(CallInst *CI, Value *handle, Value *status,
 
 // HLSubscript.
 namespace {
+
+Value *TranslateTypedBufLoad(CallInst *CI, DXIL::ResourceKind RK,
+                             DXIL::ResourceClass RC, Value *handle,
+                             LoadInst *ldInst, IRBuilder<> &Builder,
+                             hlsl::OP *hlslOP, const DataLayout &DL) {
+  ResLoadHelper ldHelper(CI, RK, RC, handle, /*bForSubscript*/ true);
+  // Default sampleIdx for 2DMS textures.
+  if (RK == DxilResource::Kind::Texture2DMS ||
+      RK == DxilResource::Kind::Texture2DMSArray)
+    ldHelper.mipLevel = hlslOP->GetU32Const(0);
+  // use ldInst as retVal
+  ldHelper.retVal = ldInst;
+  TranslateLoad(ldHelper, RK, Builder, hlslOP, DL);
+  // delete the ld
+  ldInst->eraseFromParent();
+  return ldHelper.retVal;
+}
+
+Value *UpdateVectorElt(Value *VecVal, Value *EltVal, Value *EltIdx,
+                       unsigned vectorSize, Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  if (ConstantInt *CEltIdx = dyn_cast<ConstantInt>(EltIdx)) {
+    VecVal =
+        Builder.CreateInsertElement(VecVal, EltVal, CEltIdx->getLimitedValue());
+  } else {
+    BasicBlock *BB = InsertPt->getParent();
+    BasicBlock *EndBB = BB->splitBasicBlock(InsertPt);
+
+    TerminatorInst *TI = BB->getTerminator();
+    IRBuilder<> SwitchBuilder(TI);
+    LLVMContext &Ctx = InsertPt->getContext();
+
+    SwitchInst *Switch = SwitchBuilder.CreateSwitch(EltIdx, EndBB, vectorSize);
+    TI->eraseFromParent();
+
+    Function *F = EndBB->getParent();
+    IRBuilder<> endSwitchBuilder(EndBB->begin());
+    Type *Ty = VecVal->getType();
+    PHINode *VecPhi = endSwitchBuilder.CreatePHI(Ty, vectorSize + 1);
+
+    for (unsigned i = 0; i < vectorSize; i++) {
+      BasicBlock *CaseBB = BasicBlock::Create(Ctx, "case", F, EndBB);
+      Switch->addCase(SwitchBuilder.getInt32(i), CaseBB);
+      IRBuilder<> CaseBuilder(CaseBB);
+
+      Value *CaseVal = CaseBuilder.CreateInsertElement(VecVal, EltVal, i);
+      VecPhi->addIncoming(CaseVal, CaseBB);
+      CaseBuilder.CreateBr(EndBB);
+    }
+    VecPhi->addIncoming(VecVal, BB);
+    VecVal = VecPhi;
+  }
+  return VecVal;
+}
+
 void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   auto U = CI->user_begin();
 
@@ -5779,21 +5835,14 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
   DXIL::ResourceClass RC = pObjHelper->GetRC(resTy);
   DXIL::ResourceKind RK = pObjHelper->GetRK(resTy);
 
+  Type *Ty = CI->getType()->getPointerElementType();
+
   for (auto It = CI->user_begin(); It != CI->user_end(); ) {
     User *user = *(It++);
     Instruction *I = cast<Instruction>(user);
     IRBuilder<> Builder(I);
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
-      ResLoadHelper ldHelper(CI, RK, RC, handle, /*bForSubscript*/ true);
-      // Default sampleIdx for 2DMS textures.
-      if (RK == DxilResource::Kind::Texture2DMS ||
-          RK == DxilResource::Kind::Texture2DMSArray)
-        ldHelper.mipLevel = hlslOP->GetU32Const(0);
-      // use ldInst as retVal
-      ldHelper.retVal = ldInst;
-      TranslateLoad(ldHelper, RK, Builder, hlslOP, helper.legacyDataLayout);
-      // delete the ld
-      ldInst->eraseFromParent();
+      TranslateTypedBufLoad(CI, RK, RC, handle, ldInst, Builder, hlslOP, helper.legacyDataLayout);
     } else if (StoreInst *stInst = dyn_cast<StoreInst>(user)) {
       Value *val = stInst->getValueOperand();
       TranslateStore(RK, handle, val,
@@ -5802,10 +5851,36 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
       // delete the st
       stInst->eraseFromParent();
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
-      // Invalid operations.
-      Translated = false;
-      for (User *GEPUser : GEP->users()) {
+      // Must be vector type here.
+      unsigned vectorSize = Ty->getVectorNumElements();
+      DXASSERT(GEP->getNumIndices() == 2, "");
+      Use *GEPIdx = GEP->idx_begin();
+      GEPIdx++;
+      Value *EltIdx = *GEPIdx;
+      for (auto GEPIt = GEP->user_begin(); GEPIt != GEP->user_end();) {
+        User *GEPUser = *(GEPIt++);
+        if (StoreInst *SI = dyn_cast<StoreInst>(GEPUser)) {
+          IRBuilder<> StBuilder(SI);
+          // Generate Ld.
+          LoadInst *tmpLd = StBuilder.CreateLoad(CI);
+
+          Value *ldVal = TranslateTypedBufLoad(CI, RK, RC, handle, tmpLd, StBuilder,
+                                          hlslOP, helper.legacyDataLayout);
+          // Update vector.
+          ldVal = UpdateVectorElt(ldVal, SI->getValueOperand(), EltIdx,
+                                  vectorSize, SI);
+          // Generate St.
+          // Reset insert point, UpdateVectorElt may move SI to different block.
+          StBuilder.SetInsertPoint(SI);
+          TranslateStore(RK, handle, ldVal,
+                         CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx),
+                         StBuilder, hlslOP);
+          SI->eraseFromParent();
+          continue;
+        }
         if (!isa<CallInst>(GEPUser)) {
+          // Invalid operations.
+          Translated = false;
           CI->getContext().emitError(GEP, "Invalid operation on typed buffer");
           return;
         }
@@ -5813,6 +5888,8 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         HLOpcodeGroup group =
             hlsl::GetHLOpcodeGroupByName(userCall->getCalledFunction());
         if (group != HLOpcodeGroup::HLIntrinsic) {
+          // Invalid operations.
+          Translated = false;
           CI->getContext().emitError(userCall,
                                      "Invalid operation on typed buffer");
           return;
@@ -5831,17 +5908,22 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         case IntrinsicOp::IOP_InterlockedXor:
         case IntrinsicOp::IOP_InterlockedCompareStore:
         case IntrinsicOp::IOP_InterlockedCompareExchange: {
+          // Invalid operations.
+          Translated = false;
           CI->getContext().emitError(
               userCall, "Atomic operation on typed buffer is not supported");
           return;
         } break;
         default:
+          // Invalid operations.
+          Translated = false;
           CI->getContext().emitError(userCall,
                                      "Invalid operation on typed buffer");
           return;
           break;
         }
       }
+      GEP->eraseFromParent();
     } else {
       CallInst *userCall = cast<CallInst>(user);
       HLOpcodeGroup group =
