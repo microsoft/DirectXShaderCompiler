@@ -27,12 +27,16 @@ The goal of the project is to allow the broader community of shader developers t
 Before you build, you will need to have some additional software installed.
 
 * [Git](http://git-scm.com/downloads).
-* [Visual Studio 2015](https://www.visualstudio.com/downloads), Update 3. This will install the Windows Development Kit. In the install options, make sure the following options are checked:
-    * Windows 10 SDK (version 14393)
-    * Common Tools for Visual C++ 2015
+* [Visual Studio](https://www.visualstudio.com/downloads)
+  * Visual Studio 2015, Update 3. This will install the Windows Development Kit. In the install options, make sure the following options are checked:
+      * Windows 10 SDK (version 14393)
+      * Common Tools for Visual C++ 2015
+  * Visual Studio 2017. Select the following workloads:
+      * Universal Windows Platform Development
+      * Desktop Development with C++
 * [Windows 10 SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk). This is needed to build tests that reference the D3D12 runtime. You may get this as part of installing/updating Visual Studio.
 * [Windows Driver Kit](https://developer.microsoft.com/en-us/windows/hardware/windows-driver-kit). No need to download and install tests. This is used to build and run tests.
-* [CMake](https://cmake.org/files/v3.4/cmake-3.4.3-win32-x86.exe). Version 3.4.3 is the supported version. You need not change your PATH variable during installation.
+* [CMake](https://cmake.org/files/v3.4/cmake-3.4.3-win32-x86.exe). Version 3.4.3 and 3.7.2 are the supported versions. You need not change your PATH variable during installation.
 * [Python](https://www.python.org/downloads/). Version 2.7.x is required, 3.x might work but it's not officially supported. You need not change your PATH variable during installation.
 
 To setup the build environment run the `utils\hct\hctstart.cmd` script passing the path to the source and build directories from a regular command prompt window. For example:
@@ -54,6 +58,24 @@ You can also clean, build and run tests with this command.
     hctcheckin 
 
 To see a list of additional commands available, run `hcthelp`
+
+### Building with Visual Studio 2017
+
+You can build with vs2017 either on the command line or using the new integrated [CMake support](https://blogs.msdn.microsoft.com/vcblog/2016/11/16/cmake-support-in-visual-studio-the-visual-studio-2017-rc-update/).
+
+To build from the command line follow the normal build steps, but pass `-vs2017` as a parameter
+to `hctbuild`.
+
+To build using the integrated cmake support, simply start Visual Studio
+and open the folder where you have the source. From the CMake menu 
+select "Build CMakeLists.txt"
+
+By default the binaries will be built in %LOCALAPPDATA%\CMakeBuild\DirectXShaderCompiler\build\{build-flavor}.
+The build location can be changed by editing the `CMakeSettings.json` file.
+
+You can then use the build directory in the `hctstart` script to test the build. For example,
+
+    hctstart C:\source\DirectXShaderCompiler %LOCALAPPDATA%\CMakeBuild\DirectXShaderCompiler\build\x64-Debug
 
 ## Running Tests
 
