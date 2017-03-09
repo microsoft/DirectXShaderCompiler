@@ -6130,8 +6130,9 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
           // for CBuffer.
           PtrTy->getPointerAddressSpace() == DXIL::kDefaultAddrSpace) {
         // Translate matrix into vector of array for share memory or local
-        // variable should be done in HLMatrixLowerPass
-        DXASSERT_NOMSG(F->user_empty());
+        // variable should be done in HLMatrixLowerPass.
+        if (!F->user_empty())
+          F->getContext().emitError("Fail to lower matrix load/store.");
       }
     } else if (group == HLOpcodeGroup::HLSubscript) {
       TranslateSubscriptOperation(F, helper, pObjHelper);

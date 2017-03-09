@@ -91,7 +91,7 @@ public:
     if (PHINode *phi = dyn_cast<PHINode>(V)) {
       LI->replaceAllUsesWith(phi);
       // Add nullptr for phi, will create real handle in
-      // AddCreateHandleForPhiNode.
+      // AddCreateHandleForPhiNodeAndSelect.
       handleMap[phi] = nullptr;
       return;
     }
@@ -158,7 +158,7 @@ public:
     if (PHINode *phi = dyn_cast<PHINode>(V)) {
       LI->replaceAllUsesWith(phi);
       // Add nullptr for phi, will create real handle in
-      // AddCreateHandleForPhiNode.
+      // AddCreateHandleForPhiNodeAndSelect.
       handleMap[phi] = nullptr;
       return;
     }
@@ -418,7 +418,7 @@ public:
     MapLocalDxilResourceHandles(handleMap);
 
     // Take care phi node of resource.
-    AddCreateHandleForPhiNode(handleMap, m_pHLModule->GetOP());
+    AddCreateHandleForPhiNodeAndSelect(handleMap, m_pHLModule->GetOP());
 
     GenerateParamDxilResourceHandles(handleMap);
 
@@ -478,7 +478,7 @@ private:
   void TranslateDxilResourceUses(
       DxilResourceBase &res,
       std::unordered_map<Instruction *, Value *> &handleMap);
-  void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP);
+  void AddCreateHandleForPhiNodeAndSelect(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP);
   void GenerateDxilResourceHandles(
       std::unordered_map<Instruction *, Value *> &handleMap);
   void TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
@@ -1835,17 +1835,32 @@ static Value *MergeImmResClass(Value *resClass) {
 
 static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
 
-void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
+static Value *SelectOnOperand(Value *Cond, CallInst *CIT, CallInst *CIF,
+                              unsigned idx, IRBuilder<> &Builder) {
+  Value *OpT = CIT->getArgOperand(idx);
+  Value *OpF = CIF->getArgOperand(idx);
+  Value *OpSel = OpT;
+  if (OpT != OpF) {
+    OpSel = Builder.CreateSelect(Cond, OpT, OpF);
+  }
+  return OpSel;
+}
+
+void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
 
   std::unordered_set<PHINode *> objPhiList;
+  std::unordered_set<SelectInst *> objSelectList;
   for (auto It : handleMap) {
     Instruction *I = It.first;
     for (User *U : I->users()) {
       if (PHINode *phi = dyn_cast<PHINode>(U)) {
         if (objPhiList.count(phi) == 0)
           objPhiList.insert(phi);
+      } else if (SelectInst *sel = dyn_cast<SelectInst>(U)) {
+        if (objSelectList.count(sel) == 0)
+          objSelectList.insert(sel);
       }
     }
   }
@@ -1984,6 +1999,38 @@ void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instructio
     for (unsigned i = 0; i < numOperands; i++) {
       phi->setIncomingValue(i, undefObj);
     }
+  }
+
+  // Create sel for each operands of the createHandle.
+  // Generate createHandle with sel operand.
+  // Map createHandle to original sel.
+  for (SelectInst *Sel : objSelectList) {
+    Value *Cond = Sel->getCondition();
+    Value *ValT = Sel->getTrueValue();
+    Value *ValF = Sel->getFalseValue();
+
+    if (!isa<Instruction>(ValT) || !handleMap.count(cast<Instruction>(ValT)) ||
+        !isa<Instruction>(ValF) || !handleMap.count(cast<Instruction>(ValF))) {
+      Sel->getContext().emitError(Sel, kResourceMapErrorMsg);
+      continue;
+    }
+
+    CallInst *handleT = cast<CallInst>(handleMap[cast<Instruction>(ValT)]);
+    CallInst *handleF = cast<CallInst>(handleMap[cast<Instruction>(ValF)]);
+    IRBuilder<> Builder(Sel);
+    Value *ResClass = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResClassOpIdx,
+        Builder);
+    Value *ResID = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResIDOpIdx,
+        Builder);
+
+    if (isa<SelectInst>(ResID) || isa<SelectInst>(ResClass)) {
+      Sel->getContext().emitError(Sel, kResourceMapErrorMsg);
+    }
+    Value *ResAddress = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResIndexOpIdx,
+        Builder);
+
+    Value *handleSel = Builder.CreateCall(createHandle, { opArg, ResClass, ResID, ResAddress, isUniformRes});
+    handleMap[Sel] = handleSel;
   }
 }
 
