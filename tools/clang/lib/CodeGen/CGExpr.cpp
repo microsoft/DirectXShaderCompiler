@@ -1694,11 +1694,23 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
   llvm::Value *Zero = Builder.getInt32(0);
   if (VTy) {
     llvm::Type *VecTy = VecDstPtr->getType()->getPointerElementType();
-    for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
-      if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
-        llvm::Value *EltGEP = Builder.CreateGEP(VecDstPtr, {Zero, Elt});
-        llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
-        Builder.CreateStore(SrcElt, EltGEP);
+    unsigned NumSrcElts = VTy->getNumElements();
+    if (VecTy->getVectorNumElements() == NumSrcElts) {
+      // Full vector write, create one store.
+      for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+        if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+          llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+          Vec = Builder.CreateInsertElement(Vec, SrcElt, Elt);
+        }
+      }
+      Builder.CreateStore(Vec, VecDstPtr);
+    } else {
+      for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+        if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+          llvm::Value *EltGEP = Builder.CreateGEP(VecDstPtr, {Zero, Elt});
+          llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+          Builder.CreateStore(SrcElt, EltGEP);
+        }
       }
     }
   } else {
