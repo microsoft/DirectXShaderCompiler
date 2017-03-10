@@ -4715,7 +4715,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       _Analysis_assume_(resultSize <= 16);
       Value *idxList[16];
       bool colMajor = subOp == HLSubscriptOpcode::ColMatSubscript ||
-          subOp == HLSubscriptOpcode::RowMatElement;
+          subOp == HLSubscriptOpcode::ColMatElement;
       bool dynamicIndexing = !isa<ConstantInt>(idx) &&
                              !isa<ConstantAggregateZero>(idx) &&
                              !isa<ConstantDataSequential>(idx);
@@ -4740,6 +4740,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
                   dyn_cast<ConstantDataSequential>(idx)) {
             unsigned count = elts->getNumElements();
             DXASSERT(count <= 16, "up to 4x4 elements in vector or matrix");
+
             for (unsigned i = 0; i < count; i += 2) {
               unsigned rowIdx = elts->getElementAsInteger(i);
               unsigned colIdx = elts->getElementAsInteger(i + 1);

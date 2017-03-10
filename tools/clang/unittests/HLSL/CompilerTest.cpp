@@ -401,6 +401,7 @@ public:
   TEST_METHOD(CodeGenLoop3)
   TEST_METHOD(CodeGenLoop4)
   TEST_METHOD(CodeGenLoop5)
+  TEST_METHOD(CodeGenMatElt)
   TEST_METHOD(CodeGenMatInit)
   TEST_METHOD(CodeGenMatMulMat)
   TEST_METHOD(CodeGenMatOps)
@@ -2289,6 +2290,10 @@ TEST_F(CompilerTest, CodeGenLoop4) {
 
 TEST_F(CompilerTest, CodeGenLoop5) {
   CodeGenTest(L"..\\CodeGenHLSL\\loop5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatElt) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matElt.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatInit) {
