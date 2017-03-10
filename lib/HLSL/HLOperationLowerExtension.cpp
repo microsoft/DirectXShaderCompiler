@@ -320,17 +320,25 @@ private:
   }
 };
 
-Value *ExtensionLowering::TranslateReplicating(CallInst *CI, Function *ReplicatedFunction) {
+// Translate the HL call by replicating the call for each vector element.
+//
+// For example,
+//
+//    <2xi32> %r = call @ext.foo(i32 %op, <2xi32> %v)
+//    ==>
+//    %r.1 = call @ext.foo.s(i32 %op, i32 %v.1)
+//    %r.2 = call @ext.foo.s(i32 %op, i32 %v.2)
+//    <2xi32> %r.v.1 = insertelement %r.1, 0, <2xi32> undef
+//    <2xi32> %r.v.2 = insertelement %r.2, 1, %r.v.1
+//
+// You can then RAWU %r with %r.v.2. The RAWU is not done by the translate function.
+Value *ExtensionLowering::Replicate(CallInst *CI) {
+  Function *ReplicatedFunction = FunctionTranslator::GetLoweredFunction<ReplicatedFunctionTypeTranslator>(CI, *this);
   if (!ReplicatedFunction)
-    return nullptr;
+    return NoTranslation(CI);
 
   ReplicateCall replicate(CI, *ReplicatedFunction);
   return replicate.Generate();
-}
-
-Value *ExtensionLowering::Replicate(CallInst *CI) {
-  Function *ReplicatedFunction = FunctionTranslator::GetLoweredFunction<ReplicatedFunctionTypeTranslator>(CI, *this);
-  return TranslateReplicating(CI, ReplicatedFunction);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -436,7 +444,7 @@ class PackedFunctionTypeTranslator : public FunctionTypeTranslator {
 Value *ExtensionLowering::Pack(CallInst *CI) {
   Function *PackedFunction = FunctionTranslator::GetLoweredFunction<PackedFunctionTypeTranslator>(CI, *this);
   if (!PackedFunction)
-    return nullptr;
+    return NoTranslation(CI);
 
   PackCall pack(CI, *PackedFunction);
   Value *result = pack.Generate();
@@ -621,7 +629,7 @@ Value *ExtensionLowering::Resource(CallInst *CI) {
   ResourceFunctionTypeTranslator resourceTypeTranslator(m_handleMap, m_hlslOp);
   Function *resourceFunction = FunctionTranslator::GetLoweredFunction(resourceTypeTranslator, CI, *this);
   if (!resourceFunction)
-    return nullptr;
+    return NoTranslation(CI);
 
   ResourceMethodCall explode(CI, *resourceFunction, m_handleMap);
   Value *result = explode.Generate();

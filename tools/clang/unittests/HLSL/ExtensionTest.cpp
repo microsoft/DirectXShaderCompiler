@@ -403,6 +403,7 @@ public:
   TEST_METHOD(ReplicateLoweringWhenOnlyVectorIsResult);
   TEST_METHOD(UnsignedOpcodeIsUnchanged);
   TEST_METHOD(ResourceExtensionIntrinsic);
+  TEST_METHOD(NameLoweredWhenNoReplicationNeeded);
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -723,4 +724,23 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
   std::string regexErrors;
   VERIFY_IS_TRUE(regex.isValid(regexErrors));
   VERIFY_IS_TRUE(regex.match(disassembly));
+}
+
+TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "int main(int v1 : V1) : SV_Target {\n"
+    "  return test_int(v1);\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // Make sure the name is still lowered even when no replication
+  // is needed because a non-vector overload of the function
+  // was used.
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("call i32 @test_int("));
 }
