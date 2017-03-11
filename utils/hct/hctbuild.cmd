@@ -39,6 +39,8 @@ if errorlevel 1 (
 if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
+
+set BUILD_GENERATOR=Visual Studio 14 2015
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
@@ -86,11 +88,21 @@ if "%1"=="-arm" (
   set BUILD_ARCH=ARM
   shift /1
 )
+if "%1"=="-Debug" (
+  set BUILD_CONFIG=Debug
+  shift /1
+)
+if "%1"=="-Release" (
+  set BUILD_CONFIG=Release
+  shift /1
+)
+if "%1"=="-vs2017" (
+  set BUILD_GENERATOR=Visual Studio 15 2017
+  shift /1
+)
 
-if "%BUILD_ARCH%"=="Win32" (
-  set BUILD_GENERATOR=Visual Studio 14 2015
-) else (
-  set BUILD_GENERATOR=Visual Studio 14 2015 %BUILD_ARCH:x64=Win64%
+if "%BUILD_ARCH%"=="x64" (
+  set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
 )
 
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_ARCMT:BOOL=OFF
@@ -115,6 +127,7 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_DEFAULT_TARGET_TRIPLE:STRING=dxil-ms-dx
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_RTTI:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
+set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.14393.0
 
 rem This parameter is used with vcvarsall to force use of 64-bit build tools
 rem instead of 32-bit tools that run out of memory.
@@ -137,7 +150,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -x86 or -x64]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -x86 or -x64] [-Release] [-Debug] [-vs2017]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -152,6 +165,11 @@ echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
 echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
+echo
+echo   AppVeyor Support
+echo   -Release builds release
+echo   -Debug builds debug
+echo   -vs2017 uses Visual Studio 2017 to build
 echo.
 if not "%HLSL_BLD_DIR%"=="" (
   echo The solution file is at %HLSL_BLD_DIR%\LLVM.sln
