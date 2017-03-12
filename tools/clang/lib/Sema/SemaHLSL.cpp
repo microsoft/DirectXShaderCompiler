@@ -10,6 +10,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/DenseMap.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
@@ -17,6 +19,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExternalASTSource.h"
+#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/Sema/Overload.h"
@@ -27,7 +30,6 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/SemaHLSL.h"
-#include <map>
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.internal.h"
@@ -2219,6 +2221,139 @@ public:
 static void AddHLSLSubscriptAttr(Decl *D, ASTContext &context, HLSubscriptOpcode opcode) {
   StringRef group = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
   D->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, group, "", static_cast<unsigned>(opcode)));
+}
+
+//
+// This is similar to clang/Analysis/CallGraph, but the following differences
+// motivate this:
+//
+// - track traversed vs. observed nodes explicitly
+// - fully visit all reachable functions
+// - merge graph visiting with checking for recursion
+// - track global variables and types used (NYI)
+//
+namespace hlsl {
+  struct CallNode {
+    FunctionDecl *CallerFn;
+    ::llvm::SmallPtrSet<FunctionDecl *, 4> CalleeFns;
+  };
+  typedef ::llvm::DenseMap<FunctionDecl*, CallNode> CallNodes;
+  typedef ::llvm::SmallPtrSet<Decl *, 8> FnCallStack;
+  typedef ::llvm::SmallPtrSet<FunctionDecl*, 128> FunctionSet;
+  typedef ::llvm::SmallVector<FunctionDecl*, 32> PendingFunctions;
+
+  // Returns the definition of a function.
+  // This serves two purposes - ignore built-in functions, and pick
+  // a single Decl * to be used in maps and sets.
+  static FunctionDecl *getFunctionWithBody(FunctionDecl *F) {
+    if (!F) return nullptr;
+    if (F->doesThisDeclarationHaveABody()) return F;
+    F = F->getFirstDecl();
+    for (auto &&Candidate : F->redecls()) {
+      if (Candidate->doesThisDeclarationHaveABody()) {
+        return Candidate;
+      }
+    }
+    return nullptr;
+  }
+
+  // AST visitor that maintains visited and pending collections, as well
+  // as recording nodes of caller/callees.
+  class FnReferenceVisitor : public RecursiveASTVisitor<FnReferenceVisitor> {
+  private:
+    CallNodes &m_callNodes;
+    FunctionSet &m_visitedFunctions;
+    PendingFunctions &m_pendingFunctions;
+    FunctionDecl *m_source;
+    CallNodes::iterator m_sourceIt;
+
+  public:
+    FnReferenceVisitor(FunctionSet &visitedFunctions,
+      PendingFunctions &pendingFunctions, CallNodes &callNodes)
+      : m_visitedFunctions(visitedFunctions),
+      m_pendingFunctions(pendingFunctions), m_callNodes(callNodes) {}
+
+    void setSourceFn(FunctionDecl *F) {
+      F = getFunctionWithBody(F);
+      m_source = F;
+      m_sourceIt = m_callNodes.find(F);
+    }
+
+    bool VisitDeclRefExpr(DeclRefExpr *ref) {
+      ValueDecl *valueDecl = ref->getDecl();
+      FunctionDecl *fnDecl = dyn_cast_or_null<FunctionDecl>(valueDecl);
+      fnDecl = getFunctionWithBody(fnDecl);
+      if (fnDecl) {
+        if (m_sourceIt == m_callNodes.end()) {
+          auto result = m_callNodes.insert(
+            std::pair<FunctionDecl *, CallNode>(m_source, CallNode{ m_source }));
+          DXASSERT(result.second == true,
+            "else setSourceFn didn't assign m_sourceIt");
+          m_sourceIt = result.first;
+        }
+        m_sourceIt->second.CalleeFns.insert(fnDecl);
+        if (!m_visitedFunctions.count(fnDecl)) {
+          m_pendingFunctions.push_back(fnDecl);
+        }
+      }
+      return true;
+    }
+  };
+
+  // A call graph that can check for reachability and recursion efficiently.
+  class CallGraphWithRecurseGuard {
+  private:
+    CallNodes m_callNodes;
+    FunctionSet m_visitedFunctions;
+
+    FunctionDecl *CheckRecursion(FnCallStack &CallStack,
+      FunctionDecl *D) const {
+      if (CallStack.insert(D).second == false)
+        return D;
+      auto node = m_callNodes.find(D);
+      if (node != m_callNodes.end()) {
+        for (FunctionDecl *Callee : node->second.CalleeFns) {
+          FunctionDecl *pResult = CheckRecursion(CallStack, Callee);
+          if (pResult)
+            return pResult;
+        }
+      }
+      CallStack.erase(D);
+      return nullptr;
+    }
+
+  public:
+    void BuildForEntry(FunctionDecl *EntryFnDecl) {
+      DXASSERT_NOMSG(EntryFnDecl);
+      EntryFnDecl = getFunctionWithBody(EntryFnDecl);
+      PendingFunctions pendingFunctions;
+      FnReferenceVisitor visitor(m_visitedFunctions, pendingFunctions, m_callNodes);
+      pendingFunctions.push_back(EntryFnDecl);
+      while (!pendingFunctions.empty()) {
+        FunctionDecl *pendingDecl = pendingFunctions.pop_back_val();
+        if (m_visitedFunctions.insert(pendingDecl).second == true) {
+          visitor.setSourceFn(pendingDecl);
+          visitor.TraverseDecl(pendingDecl);
+        }
+      }
+    }
+
+    FunctionDecl *CheckRecursion(FunctionDecl *EntryFnDecl) const {
+      FnCallStack CallStack;
+      EntryFnDecl = getFunctionWithBody(EntryFnDecl);
+      return CheckRecursion(CallStack, EntryFnDecl);
+    }
+
+    void dump() const {
+      OutputDebugStringW(L"Call Nodes:\r\n");
+      for (auto &node : m_callNodes) {
+        OutputDebugFormatA("%s [%p]:\r\n", node.first->getName().str().c_str(), node.first);
+        for (auto callee : node.second.CalleeFns) {
+          OutputDebugFormatA("    %s [%p]\r\n", callee->getName().str().c_str(), callee);
+        }
+      }
+    }
+  };
 }
 
 class HLSLExternalSource : public ExternalSemaSource {
@@ -8406,6 +8541,105 @@ void hlsl::DiagnoseRegisterType(
       self->Diag(loc, diag::warn_hlsl_incorrect_bind_semantic) << expected;
     else
       self->Diag(loc, diag::err_hlsl_incorrect_bind_semantic) << expected;
+  }
+}
+
+struct NameLookup {
+  FunctionDecl *Found;
+  FunctionDecl *Other;
+};
+
+static NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name, bool checkPatch) {
+  auto DN = DeclarationName(&self->getASTContext().Idents.get(Name));
+  FunctionDecl *pFoundDecl = nullptr;
+  for (auto idIter = self->IdResolver.begin(DN), idEnd = self->IdResolver.end(); idIter != idEnd; ++idIter) {
+    FunctionDecl *pFnDecl = dyn_cast<FunctionDecl>(*idIter);
+    if (!pFnDecl) continue;
+    if (checkPatch && !self->getASTContext().IsPatchConstantFunctionDecl(pFnDecl)) continue;
+    if (pFoundDecl) {
+      return NameLookup{ pFoundDecl, pFnDecl };
+    }
+    pFoundDecl = pFnDecl;
+  }
+  return NameLookup{ pFoundDecl, nullptr };
+}
+
+void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
+  DXASSERT_NOMSG(self != nullptr);
+
+  // Don't bother with global validation if compilation has already failed.
+  if (self->getDiagnostics().hasErrorOccurred()) {
+    return;
+  }
+
+  // TODO: make these error 'real' errors rather than on-the-fly things
+  // Validate that the entry point is available.
+  ASTContext &Ctx = self->getASTContext();
+  DiagnosticsEngine &Diags = self->getDiagnostics();
+  FunctionDecl *pEntryPointDecl = nullptr;
+  FunctionDecl *pPatchFnDecl = nullptr;
+  const std::string &EntryPointName = self->getLangOpts().HLSLEntryFunction;
+  if (!EntryPointName.empty()) {
+    NameLookup NL = GetSingleFunctionDeclByName(self, EntryPointName, /*checkPatch*/ false);
+    if (NL.Found && NL.Other) {
+      // NOTE: currently we cannot hit this codepath when CodeGen is enabled, because
+      // CodeGenModule::getMangledName will mangle the entry point name into the bare
+      // string, and so ambiguous points will produce an error earlier on.
+      unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+        "ambiguous entry point function");
+      Diags.Report(NL.Found->getSourceRange().getBegin(), id);
+      Diags.Report(NL.Other->getLocation(), diag::note_previous_definition);
+      return;
+    }
+    pEntryPointDecl = NL.Found;
+    if (!pEntryPointDecl || !pEntryPointDecl->hasBody()) {
+      unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+        "missing entry point definition");
+      Diags.Report(id);
+      return;
+    }
+  }
+
+  // Validate that there is no recursion; start with the entry function.
+  // NOTE: the information gathered here could be used to bypass code generation
+  // on functions that are unreachable (as an early form of dead code elimination).
+  if (pEntryPointDecl) {
+    if (const HLSLPatchConstantFuncAttr *Attr =
+            pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
+      NameLookup NL = GetSingleFunctionDeclByName(self, Attr->getFunctionName(), /*checkPatch*/ true);
+      if (NL.Found && NL.Other) {
+        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+          "ambiguous patch constant function");
+        Diags.Report(NL.Found->getSourceRange().getBegin(), id);
+        Diags.Report(NL.Other->getLocation(), diag::note_previous_definition);
+        return;
+      }
+      if (!NL.Found || !NL.Found->hasBody()) {
+        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+          "missing patch function definition");
+        Diags.Report(id);
+        return;
+      }
+      pPatchFnDecl = NL.Found;
+    }
+
+    hlsl::CallGraphWithRecurseGuard CG;
+    CG.BuildForEntry(pEntryPointDecl);
+    Decl *pResult = CG.CheckRecursion(pEntryPointDecl);
+    if (pResult) {
+      unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+        "recursive functions not allowed");
+      Diags.Report(pResult->getSourceRange().getBegin(), id);
+    }
+    if (pPatchFnDecl) {
+      CG.BuildForEntry(pPatchFnDecl);
+      Decl *pPatchFnDecl = CG.CheckRecursion(pEntryPointDecl);
+      if (pPatchFnDecl) {
+        unsigned id = Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+          "recursive functions not allowed (via patch function)");
+        Diags.Report(pPatchFnDecl->getSourceRange().getBegin(), id);
+      }
+    }
   }
 }
 

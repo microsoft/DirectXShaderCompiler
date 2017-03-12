@@ -421,55 +421,6 @@ CGMSHLSLRuntime::SetSemantic(const NamedDecl *decl,
   return SourceLocation();
 }
 
-static bool HasTessFactorSemantic(const ValueDecl *decl) {
-  for (const hlsl::UnusualAnnotation *it : decl->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case hlsl::UnusualAnnotation::UA_SemanticDecl: {
-      const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
-      const Semantic *pSemantic = Semantic::GetByName(sd->SemanticName);
-      if (pSemantic && pSemantic->GetKind() == Semantic::Kind::TessFactor)
-        return true;
-    }
-    }
-  }
-  return false;
-}
-
-static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
-  if (Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty))
-    return false;
-
-  if (const RecordType *RT = Ty->getAsStructureType()) {
-    RecordDecl *RD = RT->getDecl();
-    for (FieldDecl *fieldDecl : RD->fields()) {
-      if (HasTessFactorSemanticRecurse(fieldDecl, fieldDecl->getType()))
-        return true;
-    }
-    return false;
-  }
-
-  if (const clang::ArrayType *arrayTy = Ty->getAsArrayTypeUnsafe())
-    return HasTessFactorSemantic(decl);
-
-  return false;
-}
-// TODO: get from type annotation.
-static bool IsPatchConstantFunctionDecl(const FunctionDecl *FD) {
-  if (!FD->getReturnType()->isVoidType()) {
-    // Try to find TessFactor in return type.
-    if (HasTessFactorSemanticRecurse(FD, FD->getReturnType()))
-      return true;
-  }
-  // Try to find TessFactor in out param.
-  for (ParmVarDecl *param : FD->params()) {
-    if (param->hasAttr<HLSLOutAttr>()) {
-      if (HasTessFactorSemanticRecurse(param, param->getType()))
-        return true;
-    }
-  }
-  return false;
-}
-
 static DXIL::TessellatorDomain StringToDomain(StringRef domain) {
   if (domain == "isoline")
     return DXIL::TessellatorDomain::IsoLine;
@@ -1048,7 +999,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   // Save patch constant function to patchConstantFunctionMap.
   bool isPatchConstantFunction = false;
-  if (IsPatchConstantFunctionDecl(FD)) {
+  if (CGM.getContext().IsPatchConstantFunctionDecl(FD)) {
     isPatchConstantFunction = true;
     if (patchConstantFunctionMap.count(FD->getName()) == 0)
       patchConstantFunctionMap[FD->getName()] = F;

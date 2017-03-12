@@ -89,6 +89,8 @@ void DiagnoseRegisterType(
   clang::QualType type,
   char registerType);
 
+void DiagnoseTranslationUnit(clang::Sema* self);
+
 void DiagnoseUnusualAnnotationsForHLSL(
   clang::Sema& S,
   std::vector<hlsl::UnusualAnnotation *>& annotations);

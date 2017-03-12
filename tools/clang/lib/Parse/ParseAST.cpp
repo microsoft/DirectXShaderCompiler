@@ -22,6 +22,7 @@
 #include "clang/Sema/ExternalSemaSource.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaConsumer.h"
+#include "clang/Sema/SemaHLSL.h" // HLSL Change
 #include "llvm/Support/CrashRecoveryContext.h"
 #include <cstdio>
 #include <memory>
@@ -150,6 +151,12 @@ void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
   for (Decl *D : S.WeakTopLevelDecls())
     Consumer->HandleTopLevelDecl(DeclGroupRef(D));
   
+  // HLSL Change Starts
+  // Provide the opportunity to generate translation-unit level validation
+  // errors in the front-end, without relying on code generation being
+  // available.
+  hlsl::DiagnoseTranslationUnit(&S);
+  // HLSL Change Ends
   Consumer->HandleTranslationUnit(S.getASTContext());
 
   std::swap(OldCollectStats, S.CollectStats);

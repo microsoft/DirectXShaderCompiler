@@ -35,6 +35,57 @@ void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
   VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
 }
 
+static
+bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
+                              llvm::ArrayRef<LPCSTR> pErrorMsgs,
+                              bool maySucceedAnyway, bool bRegex) {
+  HRESULT status;
+  CComPtr<IDxcBlobEncoding> text;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&text));
+  const char *pStart = text ? (const char *)text->GetBufferPointer() : nullptr;
+  const char *pEnd = text ? pStart + text->GetBufferSize() : nullptr;
+  if (pErrorMsgs.empty() || (pErrorMsgs.size() == 1 && !pErrorMsgs[0])) {
+    if (FAILED(status) && pStart) {
+      WEX::Logging::Log::Comment(WEX::Common::String().Format(
+          L"Expected success but found errors\r\n%.*S", (pEnd - pStart),
+          pStart));
+    }
+    VERIFY_SUCCEEDED(status);
+  }
+  else {
+    if (SUCCEEDED(status) && maySucceedAnyway) {
+      return false;
+    }
+    for (auto pErrorMsg : pErrorMsgs) {
+      if (bRegex) {
+        llvm::Regex RE(pErrorMsg);
+        std::string reErrors;
+        VERIFY_IS_TRUE(RE.isValid(reErrors));
+        VERIFY_IS_TRUE(RE.match(llvm::StringRef((const char *)text->GetBufferPointer(), text->GetBufferSize())));
+      }
+      else {
+        const char *pMatch = std::search(pStart, pEnd, pErrorMsg, pErrorMsg + strlen(pErrorMsg));
+        if (pEnd == pMatch) {
+          WEX::Logging::Log::Comment(WEX::Common::String().Format(
+            L"Unable to find '%S' in text:\r\n%.*S", pErrorMsg, (pEnd - pStart),
+            pStart));
+        }
+        VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
+      }
+    }
+  }
+  return true;
+}
+
+bool CheckOperationResultMsgs(IDxcOperationResult *pResult, LPCSTR *pErrorMsgs,
+                              size_t errorMsgCount, bool maySucceedAnyway,
+                              bool bRegex) {
+  return CheckOperationResultMsgs(
+      pResult, llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount),
+      maySucceedAnyway, bRegex);
+}
+
 std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
                                IDxcBlob *pProgram) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -82,7 +133,6 @@ public:
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
   TEST_METHOD(Recursive3)
-  TEST_METHOD(UserDefineFunction)
   TEST_METHOD(ResourceRangeOverlap0)
   TEST_METHOD(ResourceRangeOverlap1)
   TEST_METHOD(ResourceRangeOverlap2)
@@ -249,44 +299,6 @@ public:
     }
   }
 
-  bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
-                               llvm::ArrayRef<LPCSTR> pErrorMsgs, bool maySucceedAnyway,
-                               bool bRegex) {
-    HRESULT status;
-    VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-    if (pErrorMsgs.empty() || 
-        (pErrorMsgs.size() == 1 && !pErrorMsgs[0])) {
-      VERIFY_SUCCEEDED(status);
-    }
-    else {
-      if (SUCCEEDED(status) && maySucceedAnyway) {
-        return false;
-      }
-      //VERIFY_FAILED(status);
-      CComPtr<IDxcBlobEncoding> text;
-      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&text));
-      for (auto pErrorMsg : pErrorMsgs) {
-        if (bRegex) {
-          llvm::Regex RE(pErrorMsg);
-          std::string reErrors;
-          VERIFY_IS_TRUE(RE.isValid(reErrors));
-          VERIFY_IS_TRUE(RE.match(llvm::StringRef((const char *)text->GetBufferPointer(), text->GetBufferSize())));
-        } else {
-          const char *pStart = (const char *)text->GetBufferPointer();
-          const char *pEnd = pStart + text->GetBufferSize();
-          const char *pMatch = std::search(pStart, pEnd, pErrorMsg, pErrorMsg + strlen(pErrorMsg));
-          if (pEnd == pMatch) {
-            WEX::Logging::Log::Comment(WEX::Common::String().Format(
-                L"Unable to find '%S' in text:\r\n%.*S", pErrorMsg, (pEnd - pStart),
-                pStart));
-          }
-          VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
-        }
-      }
-    }
-    return true;
-  }
-
   void CheckValidationMsgs(IDxcBlob *pBlob, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     CComPtr<IDxcValidator> pValidator;
     CComPtr<IDxcOperationResult> pResult;
@@ -328,9 +340,7 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
                                         shWide, nullptr, 0, nullptr, 0, nullptr,
                                         &pResult));
-    HRESULT hr;
-    VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
-    VERIFY_SUCCEEDED(hr);
+    CheckOperationResultMsgs(pResult, nullptr, false, false);
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
   }
 
@@ -1037,7 +1047,8 @@ TEST_F(ValidationTest, TypedUAVStoreFullMask1) {
 }
 
 TEST_F(ValidationTest, Recursive) {
-    TestCheck(L"..\\CodeGenHLSL\\recursive.hlsl");
+  // Includes coverage for user-defined functions.
+  TestCheck(L"..\\CodeGenHLSL\\recursive.ll");
 }
 
 TEST_F(ValidationTest, Recursive2) {
@@ -1046,10 +1057,6 @@ TEST_F(ValidationTest, Recursive2) {
 
 TEST_F(ValidationTest, Recursive3) {
     TestCheck(L"..\\CodeGenHLSL\\recursive3.hlsl");
-}
-
-TEST_F(ValidationTest, UserDefineFunction) {
-    TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
 }
 
 TEST_F(ValidationTest, ResourceRangeOverlap0) {

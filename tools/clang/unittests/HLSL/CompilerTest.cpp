@@ -294,6 +294,8 @@ public:
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
   TEST_METHOD(CompileLegacyShaderModelThenFail)
+  TEST_METHOD(CompileWhenRecursiveAlbeitStaticTermThenFail)
+  TEST_METHOD(CompileWhenRecursiveThenFail)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -1081,6 +1083,32 @@ public:
     }
   }
 
+  std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg) {
+    return VerifyCompileFailed(pText, pTargetProfile, pErrorMsg, L"main");
+  }
+
+  std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg, LPCWSTR pEntryPoint) {
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    CComPtr<IDxcBlobEncoding> pErrors;
+
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    CreateBlobFromText(pText, &pSource);
+
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", pEntryPoint,
+      pTargetProfile, nullptr, 0, nullptr, 0, nullptr, &pResult));
+
+    HRESULT status;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+    VERIFY_FAILED(status);
+    VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+    if (pErrorMsg && *pErrorMsg) {
+      CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+    }
+    return BlobToUtf8(pErrors);
+  }
+
   void VerifyOperationSucceeded(IDxcOperationResult *pResult) {
     HRESULT result;
     VERIFY_SUCCEEDED(pResult->GetStatus(&result));
@@ -1848,20 +1876,64 @@ TEST_F(CompilerTest, CompileBadHlslThenFail) {
 }
 
 TEST_F(CompilerTest, CompileLegacyShaderModelThenFail) {
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcOperationResult> pResult;
-  CComPtr<IDxcBlobEncoding> pSource;
+  VerifyCompileFailed(
+    "float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", L"ps_5_1", nullptr);
+}
 
-  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  CreateBlobFromText(
-    "float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
+TEST_F(CompilerTest, CompileWhenRecursiveAlbeitStaticTermThenFail) {
+  // This shader will compile under fxc because if execution is
+  // simulated statically, it does terminate. dxc changes this behavior
+  // to avoid imposing the requirement on the compiler.
+  const char ShaderText[] =
+    "static int i = 10;\r\n"
+    "float4 f(); // Forward declaration\r\n"
+    "float4 g() { if (i > 10) { i--; return f(); } else return 0; } // Recursive call to 'f'\r\n"
+    "float4 f() { return g(); } // First call to 'g'\r\n"
+    "float4 VS() : SV_Position{\r\n"
+    "  return f(); // First call to 'f'\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderText, L"vs_6_0", "recursive functions not allowed", L"VS");
+}
 
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_1", nullptr, 0, nullptr, 0, nullptr, &pResult));
+TEST_F(CompilerTest, CompileWhenRecursiveThenFail) {
+  const char ShaderTextSimple[] =
+    "float4 f(); // Forward declaration\r\n"
+    "float4 g() { return f(); } // Recursive call to 'f'\r\n"
+    "float4 f() { return g(); } // First call to 'g'\r\n"
+    "float4 main() : SV_Position{\r\n"
+    "  return f(); // First call to 'f'\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderTextSimple, L"vs_6_0", "recursive functions not allowed");
 
-  HRESULT status;
-  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-  VERIFY_FAILED(status);
+  const char ShaderTextIndirect[] =
+    "float4 f(); // Forward declaration\r\n"
+    "float4 g() { return f(); } // Recursive call to 'f'\r\n"
+    "float4 f() { return g(); } // First call to 'g'\r\n"
+    "float4 main() : SV_Position{\r\n"
+    "  return f(); // First call to 'f'\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderTextIndirect, L"vs_6_0", "recursive functions not allowed");
+
+  const char ShaderTextSelf[] =
+    "float4 main() : SV_Position{\r\n"
+    "  return main();\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderTextSelf, L"vs_6_0", "recursive functions not allowed");
+
+  const char ShaderTextMissing[] =
+    "float4 mainz() : SV_Position{\r\n"
+    "  return 1;\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderTextMissing, L"vs_6_0", "missing entry point definition");
+
+  //const char ShaderTextAmbiguous[] =
+  //  "float4 fnmain(uint a) : SV_Position{\r\n"
+  //  "  return 1;\r\n"
+  //  "}\r\n"
+  //  "float4 fnmain(float a) : SV_Position{\r\n"
+  //  "  return 1;\r\n"
+  //  "}\r\n";
+  //VerifyCompileFailed(ShaderTextAmbiguous, L"vs_6_0", "ambiguous entry point function", L"fnmain");
 }
 
 
