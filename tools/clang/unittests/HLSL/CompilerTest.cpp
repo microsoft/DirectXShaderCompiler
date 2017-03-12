@@ -471,6 +471,7 @@ public:
   TEST_METHOD(CodeGenSampleL)
   TEST_METHOD(CodeGenSaturate1)
   TEST_METHOD(CodeGenScalarOnVecIntrinsic)
+  TEST_METHOD(CodeGenScalarToVec)
   TEST_METHOD(CodeGenSelectObj)
   TEST_METHOD(CodeGenSelectObj2)
   TEST_METHOD(CodeGenSelectObj3)
@@ -540,6 +541,7 @@ public:
   TEST_METHOD(CodeGenVcmp)
   TEST_METHOD(CodeGenVec_Comp_Arg)
   TEST_METHOD(CodeGenVecCmpCond)
+  TEST_METHOD(CodeGenVecTrunc)
   TEST_METHOD(CodeGenWave)
   TEST_METHOD(CodeGenWriteMaskBuf)
   TEST_METHOD(CodeGenWriteMaskBuf2)
@@ -2573,6 +2575,10 @@ TEST_F(CompilerTest, CodeGenScalarOnVecIntrinsic) {
   CodeGenTest(L"..\\CodeGenHLSL\\scalarOnVecIntrisic.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenScalarToVec) {
+  CodeGenTest(L"..\\CodeGenHLSL\\scalarToVec.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenSelectObj) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj.hlsl");
 }
@@ -2847,6 +2853,10 @@ TEST_F(CompilerTest, CodeGenVec_Comp_Arg){
 
 TEST_F(CompilerTest, CodeGenVecCmpCond) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\vecCmpCond.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVecTrunc) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vecTrunc.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenWave) {
