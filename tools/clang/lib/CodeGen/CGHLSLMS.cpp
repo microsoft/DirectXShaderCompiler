@@ -3228,7 +3228,7 @@ static Value *CastLdValue(Value *Ptr, llvm::Type *FromTy, llvm::Type *ToTy, IRBu
     return Builder.CreateZExt(V, ToTy);
   }
 
-  return UndefValue::get(ToTy);
+  return nullptr;
 }
 
 static Value  *CastStValue(Value *Ptr, Value *V, llvm::Type *FromTy, llvm::Type *ToTy, IRBuilder<> &Builder) {
@@ -3259,8 +3259,8 @@ static Value  *CastStValue(Value *Ptr, Value *V, llvm::Type *FromTy, llvm::Type 
           Builder.CreateStore(Elt, GEP);
         }
         // The store already done.
-        // Return undef to ignore use of the return value.
-        return UndefValue::get(ToTy);
+        // Return null to ignore use of the return value.
+        return nullptr;
       }
     }
   } else if (FromTy == Builder.getInt1Ty()) {
@@ -3271,14 +3271,14 @@ static Value  *CastStValue(Value *Ptr, Value *V, llvm::Type *FromTy, llvm::Type 
     return CastV;
   }
 
-  return UndefValue::get(ToTy);
+  return nullptr;
 }
 
 static bool SimplifyBitCastLoad(LoadInst *LI, llvm::Type *FromTy, llvm::Type *ToTy, Value *Ptr) {
   IRBuilder<> Builder(LI);
   // Cast FromLd to ToTy.
   Value *CastV = CastLdValue(Ptr, FromTy, ToTy, Builder);
-  if (!isa<UndefValue>(CastV)) {
+  if (CastV) {
     LI->replaceAllUsesWith(CastV);
     return true;
   } else {
@@ -3291,7 +3291,7 @@ static bool SimplifyBitCastStore(StoreInst *SI, llvm::Type *FromTy, llvm::Type *
   Value *V = SI->getValueOperand();
   // Cast Val to FromTy.
   Value *CastV = CastStValue(Ptr, V, FromTy, ToTy, Builder);
-  if (!isa<UndefValue>(CastV)) {
+  if (CastV) {
     Builder.CreateStore(CastV, Ptr);
     return true;
   } else {
