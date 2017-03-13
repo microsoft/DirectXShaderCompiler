@@ -4878,6 +4878,8 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
       return;
     }
     const clang::RecordType *RT = Type->getAsStructureType();
+    if (!RT)
+      RT = dyn_cast<RecordType>(Type);
     RecordDecl *RD = RT->getDecl();
     auto fieldIter = RD->field_begin();
 
