@@ -7505,6 +7505,8 @@ def err_hlsl_unsupported_array_size: Error<
   "array dimension must be between 1 and 65536">;
 def err_hlsl_unsupported_bool_lvalue_op : Error<
   "operator cannot be used with a bool lvalue">;
+def err_hlsl_unsupported_lvalue_cast_op : Error<
+  "cannot truncate lvalue vector/matrix">;
 def err_hlsl_unsupported_buffer_packoffset : Error<
   "packoffset is only allowed within a constant buffer, not on the constant buffer declaration">;
 def err_hlsl_unsupported_cbuffer_register : Error<
