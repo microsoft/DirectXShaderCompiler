@@ -3243,7 +3243,8 @@ static Value  *CastStValue(Value *Ptr, Value *V, llvm::Type *FromTy, llvm::Type 
       // VectorTrunc
       // Change vec1 into vector.
       // Should not happen.
-      // TODO: Report error.
+      // Reported error at Sema::ImpCastExprToType.
+      DXASSERT_NOMSG(0);
     } else if (FromTy->isArrayTy()) {
       llvm::Type *FromEltTy = FromTy->getArrayElementType();
 
