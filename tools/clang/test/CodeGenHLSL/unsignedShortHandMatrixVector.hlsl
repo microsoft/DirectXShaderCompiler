@@ -3,7 +3,7 @@
 // CHECK: uint2
 // CHECK: uint4x4
 // CHECK: uint3x4
-// CHECK: min16i3
+// CHECK: min16ui3
 // CHECK: uint64_t2
 
 unsigned int2 a;
