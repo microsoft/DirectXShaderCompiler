@@ -122,9 +122,11 @@ struct DOTGraphTraits<const Function*> : public DefaultDOTGraphTraits {
 } // End llvm namespace
 
 namespace llvm {
+  class PassRegistry; // HLSL Change
   class FunctionPass;
   FunctionPass *createCFGPrinterPass ();
   FunctionPass *createCFGOnlyPrinterPass ();
+  void initializeCFGPrinterPasses(PassRegistry &Registry); // HLSL Change
 } // End llvm namespace
 
 #endif
