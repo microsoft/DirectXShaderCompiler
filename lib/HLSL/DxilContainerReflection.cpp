@@ -277,11 +277,11 @@ protected:
 
 public:
   // Internal
-  CShaderReflectionType();
-  ~CShaderReflectionType();
-
-  HRESULT Initialize(D3D11_INTERNALSHADER_RESOURCE_DEF *pResourceDef,
-                     BYTE *pBase, BYTE *pMax, BYTE *pRawTypeDef);
+  HRESULT Initialize(
+    DxilModule              &M,
+    llvm::Type              *type,
+    DxilFieldAnnotation     &typeAnnotation,
+    unsigned int            baseOffset);
 
   // ID3D12ShaderReflectionType
   STDMETHOD(GetDesc)(D3D12_SHADER_TYPE_DESC *pDesc);
@@ -430,6 +430,392 @@ ID3D12ShaderReflectionConstantBuffer *CInvalidSRVariable::GetBuffer() {
   return &g_InvalidSRConstantBuffer;
 }
 
+STDMETHODIMP CShaderReflectionType::GetDesc(D3D12_SHADER_TYPE_DESC *pDesc)
+{
+  if (!pDesc) return E_POINTER;
+  memcpy(pDesc, &m_Desc, sizeof(m_Desc));
+  return S_OK;
+}
+
+STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetMemberTypeByIndex(UINT Index)
+{
+  if (Index >= m_MemberTypes.size()) {
+    return &g_InvalidSRType;
+  }
+  return &m_MemberTypes[Index];
+}
+
+STDMETHODIMP_(LPCSTR) CShaderReflectionType::GetMemberTypeName(UINT Index)
+{
+  if (Index >= m_MemberTypes.size()) {
+    return nullptr;
+  }
+  return (LPCSTR) m_MemberNames[Index].bytes_begin();
+}
+
+STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetMemberTypeByName(LPCSTR Name)
+{
+  UINT memberCount = m_Desc.Members;
+  for( UINT mm = 0; mm < memberCount; ++mm ) {
+    if( m_MemberNames[mm] == Name ) {
+      return &m_MemberTypes[mm];
+    }
+  }
+  return nullptr;
+}
+
+STDMETHODIMP CShaderReflectionType::IsEqual(THIS_ ID3D12ShaderReflectionType* pType)
+{
+  // TODO: implement this check, if users actually depend on it
+  return S_FALSE;
+}
+
+STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetSubType(THIS)
+{
+  // HLSL classes/interfaces have been deprecated
+  return nullptr;
+}
+
+STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetBaseClass(THIS)
+{
+  // HLSL classes/interfaces have been deprecated
+  return nullptr;
+}
+
+STDMETHODIMP_(UINT) CShaderReflectionType::GetNumInterfaces(THIS)
+{
+  // HLSL classes/interfaces have been deprecated
+  return 0;
+}
+
+STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetInterfaceByIndex(THIS_ UINT uIndex)
+{
+  // HLSL classes/interfaces have been deprecated
+  return nullptr;
+}
+
+STDMETHODIMP CShaderReflectionType::IsOfType(THIS_ ID3D12ShaderReflectionType* pType)
+{
+  // HLSL classes/interfaces have been deprecated
+  return S_FALSE;
+}
+
+STDMETHODIMP CShaderReflectionType::ImplementsInterface(THIS_ ID3D12ShaderReflectionType* pBase)
+{
+  // HLSL classes/interfaces have been deprecated
+  return S_FALSE;
+}
+
+// Helper routine for types that don't have an obvious mapping
+// to the existing shader reflection interface.
+static bool ProcessUnhandledObjectType(
+  llvm::StructType            *structType,
+  D3D_SHADER_VARIABLE_TYPE    *outObjectType)
+{
+  // Don't actually make this a hard error, but instead report the problem using a suitable debug message.
+  OutputDebugFormatA("DxilContainerReflection.cpp: error: unhandled object type '%s'.\n", structType->getName().str().c_str());
+  *outObjectType = D3D_SVT_VOID;
+  return true;
+}
+
+// Helper routine to try to detect if a type represents an HLSL "object" type
+// (a texture, sampler, buffer, etc.), and to extract the coresponding shader
+// reflection type.
+static bool TryToDetectObjectType(
+  llvm::StructType            *structType,
+  D3D_SHADER_VARIABLE_TYPE    *outObjectType)
+{
+  // Note: This logic is largely duplicated from `HLModule::IsHLSLObjectType`
+  // with the addition of returning the appropriate reflection type tag.
+  //
+  // That logic looks error-prone, since it relies on string tests against
+  // type names, including cases that just test against a prefix.
+  // This code doesn't try to be any more robust.
+
+  StringRef name = structType->getName();
+
+  if(name.startswith("dx.types.wave_t") )
+  {
+    return ProcessUnhandledObjectType(structType, outObjectType);
+  }
+
+  // Strip off some prefixes we are likely to see.
+  name = name.ltrim("class.");
+  name = name.ltrim("struct.");
+
+  // TODO: not sure why this check is needed, but it is
+  // in `HLModule::IsHLSLObjectType` so we do the same.
+  if(name.endswith("_slice_type")) { return false; }
+
+  // We might check for an exact name match, or a prefix match
+#define EXACT_MATCH(NAME, TAG) \
+  else if(name == #NAME) do { *outObjectType = TAG; return true; } while(0)
+#define PREFIX_MATCH(NAME, TAG) \
+  else if(name.startswith(#NAME)) do { *outObjectType = TAG; return true; } while(0)
+
+  if(0) {}
+  EXACT_MATCH(SamplerState,               D3D_SVT_SAMPLER);
+  EXACT_MATCH(SamplerComparisonState,     D3D_SVT_SAMPLER);
+
+  // Note: GS output stream types are supported in the reflection interface.
+  else if(name.startswith("TriangleStream"))    { return ProcessUnhandledObjectType(structType, outObjectType); }
+  else if(name.startswith("PointStream"))       { return ProcessUnhandledObjectType(structType, outObjectType); }
+  else if(name.startswith("LineStream"))        { return ProcessUnhandledObjectType(structType, outObjectType); }
+
+  PREFIX_MATCH(AppendStructuredBuffer,    D3D_SVT_APPEND_STRUCTURED_BUFFER);
+  PREFIX_MATCH(ConsumeStructuredBuffer,   D3D_SVT_CONSUME_STRUCTURED_BUFFER);
+  PREFIX_MATCH(ConstantBuffer,            D3D_SVT_CBUFFER);
+
+  // Note: the `HLModule` code does this trick to avoid checking more names
+  // than it has to, but it doesn't seem 100% correct to do this.
+  // TODO: consider just listing the `RasterizerOrdered` cases explicitly,
+  // just as we do for the `RW` cases already.
+  name = name.ltrim("RasterizerOrdered");
+
+  if(0) {}
+  EXACT_MATCH(ByteAddressBuffer,          D3D_SVT_BYTEADDRESS_BUFFER);
+  EXACT_MATCH(RWByteAddressBuffer,        D3D_SVT_RWBYTEADDRESS_BUFFER);
+  PREFIX_MATCH(Buffer,                    D3D_SVT_BUFFER);
+  PREFIX_MATCH(RWBuffer,                  D3D_SVT_RWBUFFER);
+  PREFIX_MATCH(StructuredBuffer,          D3D_SVT_STRUCTURED_BUFFER);
+  PREFIX_MATCH(RWStructuredBuffer,        D3D_SVT_RWSTRUCTURED_BUFFER);
+  PREFIX_MATCH(Texture1D,                 D3D_SVT_TEXTURE1D);
+  PREFIX_MATCH(RWTexture1D,               D3D_SVT_RWTEXTURE1D);
+  PREFIX_MATCH(Texture1DArray,            D3D_SVT_TEXTURE1DARRAY);
+  PREFIX_MATCH(RWTexture1DArray,          D3D_SVT_RWTEXTURE1DARRAY);
+  PREFIX_MATCH(Texture2D,                 D3D_SVT_TEXTURE2D);
+  PREFIX_MATCH(RWTexture2D,               D3D_SVT_RWTEXTURE2D);
+  PREFIX_MATCH(Texture2DArray,            D3D_SVT_TEXTURE2DARRAY);
+  PREFIX_MATCH(RWTexture2DArray,          D3D_SVT_RWTEXTURE2DARRAY);
+  PREFIX_MATCH(Texture3D,                 D3D_SVT_TEXTURE3D);
+  PREFIX_MATCH(RWTexture3D,               D3D_SVT_RWTEXTURE3D);
+  PREFIX_MATCH(TextureCube,               D3D_SVT_TEXTURECUBE);
+  PREFIX_MATCH(TextureCubeArray,          D3D_SVT_TEXTURECUBEARRAY);
+  PREFIX_MATCH(Texture2DMS,               D3D_SVT_TEXTURE2DMS);
+  PREFIX_MATCH(Texture2DMSArray,          D3D_SVT_TEXTURE2DMSARRAY);
+
+#undef EXACT_MATCH
+#undef PREFIX_MATCH
+
+  // Default: not an object type
+  return false;
+}
+
+// Helper to determine if an LLVM type represents an HLSL
+// object type (uses the `TryToDetectObjectType()` function
+// defined previously).
+static bool IsObjectType(
+  llvm::Type* inType)
+{
+  llvm::Type* type = inType;
+  while(type->isArrayTy())
+  {
+    type = type->getArrayElementType();
+  }
+
+  if(!type->isStructTy())
+    return false;
+
+  llvm::StructType* structType = cast<StructType>(type);
+  D3D_SHADER_VARIABLE_TYPE ignored;
+  return TryToDetectObjectType(structType, &ignored);
+}
+
+// Main logic for translating an LLVM type and associated
+// annotations into a D3D shader reflection type.
+HRESULT CShaderReflectionType::Initialize(
+  DxilModule              &M,
+  llvm::Type              *inType,
+  DxilFieldAnnotation     &typeAnnotation,
+  unsigned int            baseOffset)
+{
+  assert(inType);
+
+  // Set a bunch of fields to default values, to avoid duplication.
+  m_Desc.Rows = 0;
+  m_Desc.Columns = 0;
+  m_Desc.Elements = 0;
+  m_Desc.Members = 0;
+
+  // Extract offset relative to parent.
+  // Note: the `baseOffset` is used in the case where the type in
+  // question is a field in a constant buffer, since then both the
+  // field and the variable store the same offset information, and
+  // we need to zero out the value in the type to avoid the user
+  // of the reflection interface seeing 2x the correct value.
+  m_Desc.Offset = typeAnnotation.GetCBufferOffset() - baseOffset;
+  m_Desc.Name = typeAnnotation.GetFieldName().c_str();
+
+  // Arrays don't seem to be represented directly in the reflection
+  // data, but only as the `Elements` field being non-zero.
+  // We "unwrap" any array type here, and then proceed to look
+  // at the element type.
+  llvm::Type* type = inType;
+  if( type->isArrayTy() )
+  {
+    // It isn't clear what is the desired behavior for multi-dimensional arrays,
+    // but for now we do the expedient thing of multiplying out all their
+    // dimensions.
+    m_Desc.Elements = 1;
+    while(type->isArrayTy())
+    {
+      m_Desc.Elements *= type->getArrayNumElements();
+      type = type->getArrayElementType();
+    }
+  }
+
+  // Default to a scalar type, just to avoid some duplication later.
+  m_Desc.Class = D3D_SVC_SCALAR;
+
+  // Look at the annotation to try to determine the basic type of value.
+  //
+  // Note that DXIL supports some types that don't currently have equivalents
+  // in the reflection interface, so we try to muddle through here.
+  D3D_SHADER_VARIABLE_TYPE componentType = D3D_SVT_VOID;
+  switch(typeAnnotation.GetCompType().GetKind())
+  {
+  case hlsl::DXIL::ComponentType::Invalid:
+    break;
+
+  case hlsl::DXIL::ComponentType::I1:
+    componentType = D3D_SVT_BOOL;
+    break;
+
+  case hlsl::DXIL::ComponentType::I16:
+    componentType = D3D_SVT_MIN16INT;
+    break;
+
+  case hlsl::DXIL::ComponentType::U16:
+    componentType = D3D_SVT_MIN16UINT;
+    break;
+
+  case hlsl::DXIL::ComponentType::I64:
+    OutputDebugStringA("DxilContainerReflection.cpp: warning: component of type 'I64' being reflected as if 'I32'\n");
+  case hlsl::DXIL::ComponentType::I32:
+    componentType = D3D_SVT_INT;
+    break;
+
+  case hlsl::DXIL::ComponentType::U64:
+    OutputDebugStringA("DxilContainerReflection.cpp: warning: component of type 'U64' being reflected as if 'U32'\n");
+  case hlsl::DXIL::ComponentType::U32:
+    componentType = D3D_SVT_UINT;
+    break;
+
+  case hlsl::DXIL::ComponentType::F16:
+  case hlsl::DXIL::ComponentType::SNormF16:
+  case hlsl::DXIL::ComponentType::UNormF16:
+    componentType = D3D_SVT_MIN16FLOAT;
+    break;
+
+  case hlsl::DXIL::ComponentType::F32:
+  case hlsl::DXIL::ComponentType::SNormF32:
+  case hlsl::DXIL::ComponentType::UNormF32:
+    componentType = D3D_SVT_FLOAT;
+    break;
+
+  case hlsl::DXIL::ComponentType::F64:
+  case hlsl::DXIL::ComponentType::SNormF64:
+  case hlsl::DXIL::ComponentType::UNormF64:
+    componentType = D3D_SVT_DOUBLE;
+    break;
+
+  default:
+    OutputDebugStringA("DxilContainerReflection.cpp: error: unknown component type\n");
+    break;
+  }
+  m_Desc.Type = componentType;
+
+  // A matrix type is encoded as a vector type, plus annotations, so we
+  // need to check for this case before other vector cases.
+  if(typeAnnotation.HasMatrixAnnotation())
+  {
+    // We can extract the details from the annotation.
+    DxilMatrixAnnotation const& matrixAnnotation = typeAnnotation.GetMatrixAnnotation();
+
+    m_Desc.Class = matrixAnnotation.Orientation == hlsl::MatrixOrientation::RowMajor ?  D3D_SVC_MATRIX_ROWS : D3D_SVC_MATRIX_COLUMNS;
+    m_Desc.Rows = matrixAnnotation.Rows;
+    m_Desc.Columns = matrixAnnotation.Cols;
+  }
+  else if( type->isVectorTy() )
+  {
+    // We assume that LLVM vectors either represent matrices (handled above)
+    // or HLSL vectors.
+    //
+    // Note: the reflection interface encodes an N-vector as if it had 1 row
+    // and N columns.
+    m_Desc.Class = D3D_SVC_VECTOR;
+    m_Desc.Rows = 1;
+    m_Desc.Columns = type->getVectorNumElements();
+  }
+  else if( type->isStructTy() )
+  {
+    // A struct type might be an ordinary user-defined `struct`,
+    // or one of the builtin in HLSL "object" types.
+    StructType *structType = cast<StructType>(type);
+
+    // We use our function to try to detect an object type
+    // based on its name.
+    if(TryToDetectObjectType(structType, &m_Desc.Type))
+    {
+      m_Desc.Class = D3D_SVC_OBJECT;
+    }
+    else
+    {
+      // Otherwise we have a struct and need to recurse on its fields.
+      m_Desc.Class = D3D_SVC_STRUCT;
+
+      unsigned int fieldCount = type->getStructNumElements();
+
+      // Fields may have annotations, and we need to look at these
+      // in order to decode their types properly.
+      DxilTypeSystem &typeSys = M.GetTypeSystem();
+      DxilStructAnnotation *structAnnotation = typeSys.GetStructAnnotation(structType);
+      assert(structAnnotation);
+
+      for(unsigned int ff = 0; ff < fieldCount; ++ff)
+      {
+        DxilFieldAnnotation& fieldAnnotation = structAnnotation->GetFieldAnnotation(ff);
+        llvm::Type* fieldType = structType->getStructElementType(ff);
+
+        // Skip fields with object types, since applications may not expect to see them here.
+        //
+        // TODO: should skipping be context-dependent, since we might not be inside
+        // a constant buffer?
+        if( IsObjectType(fieldType) )
+        {
+          continue;
+        }
+
+        CShaderReflectionType fieldReflectionType;
+        fieldReflectionType.Initialize(M, fieldType, fieldAnnotation, 0);
+
+        m_MemberTypes.push_back(std::move(fieldReflectionType));
+        m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
+      }
+
+      // Because we might have skipped fields during enumeration,
+      // the `Members` count in the description might not be the same
+      // as the field count of the original LLVM type.
+      m_Desc.Members = m_MemberTypes.size();
+    }
+  }
+  else if( type->isPointerTy() )
+  {
+      OutputDebugStringA("DxilContainerReflection.cpp: error: cannot reflect pointer type\n");
+  }
+  else
+  {
+    // Assume we have a scalar at this point.
+    m_Desc.Class = D3D_SVC_SCALAR;
+    m_Desc.Rows = 1;
+    m_Desc.Columns = 1;
+  }
+  // TODO: are there other cases to be handled?
+
+  return S_OK;
+}
+
+
 void CShaderReflectionConstantBuffer::Initialize(DxilModule &M, DxilCBuffer &CB) {
   ZeroMemory(&m_Desc, sizeof(m_Desc));
   m_Desc.Name = CB.GetGlobalName().c_str();
@@ -461,8 +847,11 @@ void CShaderReflectionConstantBuffer::Initialize(DxilModule &M, DxilCBuffer &CB)
     ZeroMemory(&VarDesc, sizeof(VarDesc));
     VarDesc.uFlags |= D3D_SVF_USED; // Will update in SetCBufferUsage.
     CShaderReflectionVariable Var;
-    // TODO: create reflection type.
-    CShaderReflectionType *pVarType = nullptr;
+    //Create reflection type.
+    // TODO: Need to figure out a memory lifetime policy here.
+    CShaderReflectionType *pVarType = new CShaderReflectionType();
+    pVarType->Initialize(M, ST->getContainedType(i), fieldAnnotation, fieldAnnotation.GetCBufferOffset());
+
     BYTE *pDefaultValue = nullptr;
 
     VarDesc.Name = fieldAnnotation.GetFieldName().c_str();
