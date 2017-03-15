@@ -8593,6 +8593,26 @@ void hlsl::InitializeInitSequenceForHLSL(Sema *self,
     ->InitializeInitSequenceForHLSL(Entity, Kind, Args, TopLevelOfInitList, initSequence);
 }
 
+unsigned hlsl::CaculateInitListArraySizeForHLSL(
+  _In_ clang::Sema* sema,
+  _In_ const clang::InitListExpr *InitList,
+  _In_ const clang::QualType EltTy) {
+  HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(sema);
+  unsigned totalSize = 0;
+  unsigned eltSize = hlslSource->GetNumElements(EltTy);
+
+  for (unsigned i=0;i<InitList->getNumInits();i++) {
+    const clang::Expr *EltInit = InitList->getInit(i);
+    QualType EltInitTy = EltInit->getType();
+    totalSize += hlslSource->GetNumElements(EltInitTy);
+  }
+  if (totalSize > 0 && (totalSize % eltSize)==0) {
+    return totalSize / eltSize;
+  } else {
+    return 0;
+  }
+}
+
 bool hlsl::IsConversionToLessOrEqualElements(
   _In_ clang::Sema* self,
   const clang::ExprResult& sourceExpr,

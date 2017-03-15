@@ -300,6 +300,7 @@ public:
   TEST_METHOD(CodeGenAllLit)
   TEST_METHOD(CodeGenAddUint64)
   TEST_METHOD(CodeGenArrayArg)
+  TEST_METHOD(CodeGenArrayArg2)
   TEST_METHOD(CodeGenArrayOfStruct)
   TEST_METHOD(CodeGenAsUint)
   TEST_METHOD(CodeGenAsUint2)
@@ -1910,6 +1911,10 @@ TEST_F(CompilerTest, CodeGenAddUint64) {
 
 TEST_F(CompilerTest, CodeGenArrayArg){
   CodeGenTest(L"..\\CodeGenHLSL\\arrayArg.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenArrayArg2){
+  CodeGenTest(L"..\\CodeGenHLSL\\arrayArg2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenArrayOfStruct){
