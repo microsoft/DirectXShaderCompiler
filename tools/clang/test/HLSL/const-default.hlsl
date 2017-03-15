@@ -40,9 +40,9 @@ float4 main() : SV_TARGET
     m_tbuffer_double2x1 *= 3;                               /* expected-error {{cannot assign to variable 'm_tbuffer_double2x1' with const-qualified type 'const double2x1'}} */
 
     g_const_buffer.my_float3.x = 1.5;                       /* expected-error {{read-only variable is not assignable}} */
-    g_const_buffer.my_int3x4._10 -= 2;                      /* expected-error {{the digit '0' is used in '_10', but the syntax is for one-based rows and columns}} */
+    g_const_buffer.my_int3x4._21 -= 2;                      /* expected-error {{read-only variable is not assignable}} */
     g_texture_buffer.my_float3.y += 2.0;                      /* expected-error {{read-only variable is not assignable}} */
-    g_texture_buffer.my_int3x4._02 = 3;                     /* expected-error {{the digit '0' is used in '_02', but the syntax is for one-based rows and columns}} */
+    g_texture_buffer.my_int3x4._14 = 3;                     /* expected-error {{read-only variable is not assignable}} */
 
     return (float4)g_float1;
 }
