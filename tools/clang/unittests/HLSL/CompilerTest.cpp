@@ -417,6 +417,7 @@ public:
   TEST_METHOD(CodeGenMatSubscript4)
   TEST_METHOD(CodeGenMatSubscript5)
   TEST_METHOD(CodeGenMatSubscript6)
+  TEST_METHOD(CodeGenMatSubscript7)
   TEST_METHOD(CodeGenMaxMin)
   TEST_METHOD(CodeGenMinprec1)
   TEST_METHOD(CodeGenMinprec2)
@@ -2360,6 +2361,10 @@ TEST_F(CompilerTest, CodeGenMatSubscript5) {
 
 TEST_F(CompilerTest, CodeGenMatSubscript6) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matSubscript6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatSubscript7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matSubscript7.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMaxMin) {
