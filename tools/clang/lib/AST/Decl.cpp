@@ -1950,7 +1950,7 @@ VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
       getTemplateSpecializationKind() != TSK_ExplicitSpecialization)
     return DeclarationOnly;
 
-  if (!getASTContext().getLangOpts().HLSL2015) // HLSL Change - take extern as define to match fxc.
+  if (!getASTContext().getLangOpts().HLSL) // HLSL Change - take extern as define to match fxc.
   if (hasExternalStorage())
     return DeclarationOnly;
 
