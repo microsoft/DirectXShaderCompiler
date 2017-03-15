@@ -111,6 +111,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializePromotePassPass(Registry);
     initializePruneEHPass(Registry);
     initializeReassociatePass(Registry);
+    initializeReducibilityAnalysisPass(Registry);
     initializeRegToMemHlslPass(Registry);
     initializeRewriteSymbolsPass(Registry);
     initializeSCCPPass(Registry);
