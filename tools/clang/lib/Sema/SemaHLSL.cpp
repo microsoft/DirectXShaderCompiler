@@ -3073,15 +3073,15 @@ public:
       const HLSL_INTRINSIC *pPrior = nullptr;
       UINT64 lookupCookie = 0;
       CA2W wideTypeName(typeName);
-      table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
-      while (pIntrinsic != nullptr) {
+      HRESULT found = table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
+      while (pIntrinsic != nullptr && SUCCEEDED(found)) {
         if (!AreIntrinsicTemplatesEquivalent(pIntrinsic, pPrior)) {
           AddObjectIntrinsicTemplate(recordDecl, startDepth, pIntrinsic);
           // NOTE: this only works with the current implementation because
           // intrinsics are alive as long as the table is alive.
           pPrior = pIntrinsic;
         }
-        table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
+        found = table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
       }
     }
   }
@@ -3868,6 +3868,7 @@ public:
 
   FunctionDecl* AddHLSLIntrinsicMethod(
     LPCSTR tableName,
+    LPCSTR lowering,
     _In_ const HLSL_INTRINSIC* intrinsic,
     _In_ FunctionTemplateDecl *FunctionTemplate,
     ArrayRef<Expr *> Args,
@@ -3956,7 +3957,7 @@ public:
       SC_Extern, InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
 
     // Add intrinsic attr
-    AddHLSLIntrinsicAttr(method, *m_context, tableName, "", intrinsic);
+    AddHLSLIntrinsicAttr(method, *m_context, tableName, lowering, intrinsic);
 
     // Record this function template specialization.
     TemplateArgumentList *argListCopy = TemplateArgumentList::CreateCopy(
@@ -7791,7 +7792,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       continue;
     }
 
-    Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), *cursor, FunctionTemplate, Args, argTypes, argCount);
+    Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
