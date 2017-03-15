@@ -10790,7 +10790,7 @@ clang::QualType hlsl::CheckVectorConditional(
   return HLSLExternalSource::FromSema(self)->CheckVectorConditional(Cond, LHS, RHS, QuestionLoc);
 }
 
-void Sema::CheckHLSLArrayAccess(const Expr *expr) {;
+void Sema::CheckHLSLArrayAccess(const Expr *expr) {
   DXASSERT_NOMSG(isa<CXXOperatorCallExpr>(expr));
   const CXXOperatorCallExpr *OperatorCallExpr = cast<CXXOperatorCallExpr>(expr);
   DXASSERT_NOMSG(OperatorCallExpr->getOperator() == OverloadedOperatorKind::OO_Subscript);
