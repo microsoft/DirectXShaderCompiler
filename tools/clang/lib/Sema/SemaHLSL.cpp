@@ -4334,7 +4334,8 @@ static bool CombineObjectTypes(ArBasicKind Target, __in ArBasicKind Source,
   return false;
 }
 
-static ArBasicKind LiteralToConcrete(Expr *litExpr) {
+static ArBasicKind LiteralToConcrete(Expr *litExpr,
+                                     HLSLExternalSource *pHLSLExternalSource) {
   if (IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(litExpr)) {
     llvm::APInt val = intLit->getValue();
     unsigned width = val.getActiveBits();
@@ -4362,7 +4363,7 @@ static ArBasicKind LiteralToConcrete(Expr *litExpr) {
     else
       return AR_BASIC_FLOAT64;
   } else if (UnaryOperator *UO = dyn_cast<UnaryOperator>(litExpr)) {
-    ArBasicKind kind = LiteralToConcrete(UO->getSubExpr());
+    ArBasicKind kind = LiteralToConcrete(UO->getSubExpr(), pHLSLExternalSource);
     if (UO->getOpcode() == UnaryOperator::Opcode::UO_Minus) {
       if (kind == ArBasicKind::AR_BASIC_UINT32)
         kind = ArBasicKind::AR_BASIC_INT32;
@@ -4371,28 +4372,32 @@ static ArBasicKind LiteralToConcrete(Expr *litExpr) {
     }
     return kind;
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(litExpr)) {
-    ArBasicKind kind = LiteralToConcrete(BO->getLHS());
-    ArBasicKind kind1 = LiteralToConcrete(BO->getRHS());
+    ArBasicKind kind = LiteralToConcrete(BO->getLHS(), pHLSLExternalSource);
+    ArBasicKind kind1 = LiteralToConcrete(BO->getRHS(), pHLSLExternalSource);
     CombineBasicTypes(kind, kind1, &kind);
     return kind;
   } else if (ParenExpr *PE = dyn_cast<ParenExpr>(litExpr)) {
-    ArBasicKind kind = LiteralToConcrete(PE->getSubExpr());
+    ArBasicKind kind = LiteralToConcrete(PE->getSubExpr(), pHLSLExternalSource);
     return kind;
   } else if (ConditionalOperator *CO = dyn_cast<ConditionalOperator>(litExpr)) {
-    ArBasicKind kind = LiteralToConcrete(CO->getLHS());
-    ArBasicKind kind1 = LiteralToConcrete(CO->getRHS());
+    ArBasicKind kind = LiteralToConcrete(CO->getLHS(), pHLSLExternalSource);
+    ArBasicKind kind1 = LiteralToConcrete(CO->getRHS(), pHLSLExternalSource);
     CombineBasicTypes(kind, kind1, &kind);
+    return kind;
+  } else if (ImplicitCastExpr *IC = dyn_cast<ImplicitCastExpr>(litExpr)) {
+    // Use target Type for cast.
+    ArBasicKind kind = pHLSLExternalSource->GetTypeElementKind(IC->getType());
     return kind;
   } else {
     // Could only be function call.
     CallExpr *CE = cast<CallExpr>(litExpr);
     // TODO: calculate the function call result.
     if (CE->getNumArgs() == 1)
-      return LiteralToConcrete(CE->getArg(0));
+      return LiteralToConcrete(CE->getArg(0), pHLSLExternalSource);
     else {
-      ArBasicKind kind = LiteralToConcrete(CE->getArg(0));
+      ArBasicKind kind = LiteralToConcrete(CE->getArg(0), pHLSLExternalSource);
       for (unsigned i = 1; i < CE->getNumArgs(); i++) {
-        ArBasicKind kindI = LiteralToConcrete(CE->getArg(i));
+        ArBasicKind kindI = LiteralToConcrete(CE->getArg(i), pHLSLExternalSource);
         CombineBasicTypes(kind, kindI, &kind);
       }
       return kind;
@@ -4409,9 +4414,10 @@ static bool SearchTypeInTable(ArBasicKind kind, const ArBasicKind *pCT) {
   return false;
 }
 
-static ArBasicKind ConcreteLiteralType(Expr *litExpr,
-                                                 ArBasicKind kind,
-                                                 unsigned uLegalComponentTypes) {
+static ArBasicKind
+ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
+                    unsigned uLegalComponentTypes,
+                    HLSLExternalSource *pHLSLExternalSource) {
   const ArBasicKind *pCT = g_LegalIntrinsicCompTypes[uLegalComponentTypes];
   ArBasicKind defaultKind = *pCT;
   // Use first none literal kind as defaultKind.
@@ -4425,7 +4431,7 @@ static ArBasicKind ConcreteLiteralType(Expr *litExpr,
     break;
   }
 
-  ArBasicKind litKind = LiteralToConcrete(litExpr);
+  ArBasicKind litKind = LiteralToConcrete(litExpr, pHLSLExternalSource);
 
   if (kind == AR_BASIC_LITERAL_INT) {
     // Search for match first.
@@ -4535,7 +4541,7 @@ bool HLSLExternalSource::MatchArguments(
       //   CombineBasicTypes will cover the rest cases.
       if (!affectRetType) {
         TypeInfoEltKind = ConcreteLiteralType(
-            pCallArg, TypeInfoEltKind, pIntrinsicArg->uLegalComponentTypes);
+            pCallArg, TypeInfoEltKind, pIntrinsicArg->uLegalComponentTypes, this);
       }
     }
 
