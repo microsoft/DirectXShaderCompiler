@@ -88,12 +88,48 @@ void vector_out_of_bounds() {
   vector<float, -1> vector_oob_2; // expected-error {{invalid value, valid range is between 1 and 4 inclusive}} fxc-error {{X3052: vector dimension must be between 1 and 4}}
 }
 
+void vector_unsigned() {
+   unsigned int4 intvector;
+   unsigned min16int4 min16vector;
+   unsigned int64_t3 int64vector;
+   unsigned uint3 uintvector;
+   unsigned min16uint4 min16uintvector;
+   unsigned uint64_t2 int64uintvector;
+   unsigned dword3 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3'}} */
+
+   unsigned float2 floatvector; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned bool3 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned half4 halfvector;   /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned double1 doublevector;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2 min12intvector;                       /* expected-error {{'min12int' cannot be signed or unsigned}} expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16float3 min16floatvector;                   /* expected-error {{'min16float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+}
+
 float fn() {
     float4 myvar = float4(1,2,3,4);
     myvar.x = 1.0f;
     myvar.y = 1.0f;
     myvar.z = 1.0f;
     myvar.w = 1.0f;
+    myvar[0] = 1.0f;
+    myvar[1]= 1.0f;
+    myvar[2] = 1.0f;
+    myvar[3] = 1.0f;
+    myvar[-10] = 1.0f;            /* expected-error {{vector element index '-10' is out of bounds}} fxc-pass {{}} */
+    myvar[4] = 1.0f;              /* expected-error {{vector element index '4' is out of bounds}} fxc-pass {{}} */
+
+    float3 myvar3 = float3(1,2,3);
+    myvar3[3] = 1.0f;             /* expected-error {{vector element index '3' is out of bounds}} fxc-pass {{}} */
+
+    float2 myvar2 = float2(1,2);
+    myvar2[2] = 1.0f;             /* expected-error {{vector element index '2' is out of bounds}} fxc-pass {{}} */
+
+    float1 myvar1 = float1(1);
+    myvar1[1] = 1.0f;             /* expected-error {{vector element index '1' is out of bounds}} fxc-pass {{}} */
+
+    const float4 constMyVar = float4(1,2,3,4);              /* expected-note {{variable 'constMyVar' declared const here}} expected-note {{variable 'constMyVar' declared const here}} fxc-pass {{}} */
+    constMyVar = float4(1,1,1,1); /* expected-error {{cannot assign to variable 'constMyVar' with const-qualified type 'const float4'}} fxc-error {{X3025: l-value specifies const object}} */
+    constMyVar[0] = 2.0f;         /* expected-error {{cannot assign to variable 'constMyVar' with const-qualified type 'const float4'}} fxc-error {{X3025: l-value specifies const object}} */
 
     float4 myothervar;
     myothervar.rgba = myvar.xyzw;
@@ -115,25 +151,25 @@ float fn() {
     uint3 u3;
     u3.xyz = f.xxx;
     /*verify-ast
-      BinaryOperator <col:5, col:16> 'vector<uint, 3>':'vector<uint, 3>' '='
-      |-HLSLVectorElementExpr <col:5, col:8> 'vector<uint, 3>':'vector<uint, 3>' lvalue vectorcomponent xyz
-      | `-DeclRefExpr <col:5> 'uint3':'vector<uint, 3>' lvalue Var 'u3' 'uint3':'vector<uint, 3>'
-      `-ImplicitCastExpr <col:14, col:16> 'vector<uint, 3>' <HLSLCC_FloatingToIntegral>
+      BinaryOperator <col:5, col:16> 'vector<uint, 3>':'vector<unsigned int, 3>' '='
+      |-HLSLVectorElementExpr <col:5, col:8> 'vector<uint, 3>':'vector<unsigned int, 3>' lvalue vectorcomponent xyz
+      | `-DeclRefExpr <col:5> 'uint3':'vector<unsigned int, 3>' lvalue Var 'u3' 'uint3':'vector<unsigned int, 3>'
+      `-ImplicitCastExpr <col:14, col:16> 'vector<unsigned int, 3>' <HLSLCC_FloatingToIntegral>
         `-HLSLVectorElementExpr <col:14, col:16> 'vector<float, 3>':'vector<float, 3>' xxx
           `-ImplicitCastExpr <col:14> 'vector<float, 1>':'vector<float, 1>' lvalue <HLSLVectorSplat>
             `-DeclRefExpr <col:14> 'float' lvalue Var 'f' 'float'
     */
     u3 = (!u3).zyx;
     /*verify-ast
-      BinaryOperator <col:5, col:16> 'uint3':'vector<uint, 3>' '='
-      |-DeclRefExpr <col:5> 'uint3':'vector<uint, 3>' lvalue Var 'u3' 'uint3':'vector<uint, 3>'
-      `-ImplicitCastExpr <col:10, col:16> 'vector<uint, 3>' <HLSLCC_IntegralCast>
+      BinaryOperator <col:5, col:16> 'uint3':'vector<unsigned int, 3>' '='
+      |-DeclRefExpr <col:5> 'uint3':'vector<unsigned int, 3>' lvalue Var 'u3' 'uint3':'vector<unsigned int, 3>'
+      `-ImplicitCastExpr <col:10, col:16> 'vector<unsigned int, 3>' <HLSLCC_IntegralCast>
         `-HLSLVectorElementExpr <col:10, col:16> 'vector<bool, 3>':'vector<bool, 3>' zyx
           `-ParenExpr <col:10, col:14> 'vector<bool, 3>':'vector<bool, 3>'
             `-UnaryOperator <col:11, col:12> 'vector<bool, 3>':'vector<bool, 3>' prefix '!'
               `-ImplicitCastExpr <col:12> 'vector<bool, 3>' <HLSLCC_IntegralToBoolean>
-                `-ImplicitCastExpr <col:12> 'uint3':'vector<uint, 3>' <LValueToRValue>
-                  `-DeclRefExpr <col:12> 'uint3':'vector<uint, 3>' lvalue Var 'u3' 'uint3':'vector<uint, 3>'
+                `-ImplicitCastExpr <col:12> 'uint3':'vector<unsigned int, 3>' <LValueToRValue>
+                  `-DeclRefExpr <col:12> 'uint3':'vector<unsigned int, 3>' lvalue Var 'u3' 'uint3':'vector<unsigned int, 3>'
     */
     f.xx = 2; // expected-error {{vector is not assignable (contains duplicate components)}} fxc-error {{X3025: l-value specifies const object}}
     u3.x = u3.w;                                            /* expected-error {{vector swizzle 'w' is out of bounds}} fxc-error {{X3018: invalid subscript 'w'}} */

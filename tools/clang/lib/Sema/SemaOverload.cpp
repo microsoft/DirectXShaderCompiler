@@ -144,6 +144,7 @@ ImplicitConversionRank clang::GetConversionRank(ImplicitConversionKind Kind) {
   };
   static_assert(_countof(Rank) == ICK_Num_Conversion_Kinds,
       "Otherwise, GetConversionRank is out of sync with ImplicitConversionKind"); // HLSL Change
+  assert((int)Kind < (int)ICK_Num_Conversion_Kinds); // HLSL Change
   return Rank[(int)Kind];
 }
 
@@ -4927,6 +4928,7 @@ TryObjectArgumentInitialization(Sema &S, QualType FromType,
   ICS.Standard.BindsToRvalue = FromClassification.isRValue();
   ICS.Standard.BindsImplicitObjectArgumentWithoutRefQualifier
     = (Method->getRefQualifier() == RQ_None);
+  ICS.Standard.ComponentConversion = ICK_Identity;
   return ICS;
 }
 
