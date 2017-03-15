@@ -119,6 +119,11 @@ void InitializeInitSequenceForHLSL(
   bool TopLevelOfInitList,
   _Inout_ clang::InitializationSequence* initSequence);
 
+unsigned CaculateInitListArraySizeForHLSL(
+  _In_ clang::Sema* sema,
+  _In_ const clang::InitListExpr *InitList,
+  _In_ const clang::QualType EltTy);
+
 bool IsConversionToLessOrEqualElements(
   _In_ clang::Sema* self,
   const clang::ExprResult& sourceExpr,
