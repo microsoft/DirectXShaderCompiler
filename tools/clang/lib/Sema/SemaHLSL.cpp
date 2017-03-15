@@ -284,6 +284,9 @@ enum ArBasicKind {
 #define IS_BPROP_MIN_PRECISION(_Props) \
     (((_Props) & BPROP_MIN_PRECISION) != 0)
 
+#define IS_BPROP_UNSIGNABLE(_Props) \
+    (IS_BPROP_AINT(_Props) && GET_BPROP_BITS(_Props) != BPROP_BITS12)
+
 const UINT g_uBasicKindProps[] =
 {
   BPROP_PRIMITIVE | BPROP_BOOLEAN | BPROP_INTEGER | BPROP_NUMERIC | BPROP_BITS0,  // AR_BASIC_BOOL
@@ -452,6 +455,9 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 
 #define IS_BASIC_MIN_PRECISION(_Kind) \
     IS_BPROP_MIN_PRECISION(GetBasicKindProps(_Kind))
+
+#define IS_BASIC_UNSIGNABLE(_Kind) \
+    IS_BPROP_UNSIGNABLE(GetBasicKindProps(_Kind))
 
 #define BITWISE_ENUM_OPS(_Type)                                         \
 inline _Type operator|(_Type F1, _Type F2)                              \
@@ -2735,6 +2741,35 @@ private:
 
   HRESULT CombineDimensions(QualType leftType, QualType rightType, QualType *resultType);
 
+  clang::TypedefDecl *LookupMatrixShorthandType(HLSLScalarType scalarType, UINT rowCount, UINT colCount) {
+    DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
+                   rowCount >= 0 && rowCount <= 4 && colCount >= 0 &&
+                   colCount <= 4);
+    TypedefDecl *qts =
+        m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1];
+    if (qts == nullptr) {
+      QualType type = LookupMatrixType(scalarType, rowCount, colCount);
+      qts = CreateMatrixSpecializationShorthand(*m_context, type, scalarType,
+                                                rowCount, colCount);
+      m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1] = qts;
+    }
+    return qts;
+  }
+
+  clang::TypedefDecl *LookupVectorShorthandType(HLSLScalarType scalarType, UINT colCount) {
+    DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
+                   colCount >= 0 && colCount <= 4);
+    TypedefDecl *qts = m_vectorTypedefs[scalarType][colCount - 1];
+    if (qts == nullptr) {
+
+        QualType type = LookupVectorType(scalarType, colCount);
+      qts = CreateVectorSpecializationShorthand(*m_context, type, scalarType,
+                                                colCount);
+      m_vectorTypedefs[scalarType][colCount - 1] = qts;
+    }
+    return qts;
+  }
+
 public:
   HLSLExternalSource() :
     m_context(nullptr),
@@ -2822,11 +2857,7 @@ public:
       else if (parsedType == HLSLScalarType_float_min10)
         m_sema->Diag(R.getNameLoc(), diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << "min16float";
 
-      TypedefDecl* qts = m_matrixShorthandTypes[parsedType][rowCount - 1][colCount - 1];
-      if (qts == nullptr) {
-        qts = CreateMatrixSpecializationShorthand(*m_context, qt, parsedType, rowCount, colCount);
-        m_matrixShorthandTypes[parsedType][rowCount - 1][colCount - 1] = qts;
-      }
+      TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
 
       R.addDecl(qts);
       return true;
@@ -2838,11 +2869,7 @@ public:
       else if (parsedType == HLSLScalarType_float_min10)
         m_sema->Diag(R.getNameLoc(), diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << "min16float";
 
-      TypedefDecl* qts = m_vectorTypedefs[parsedType][colCount - 1];
-      if (qts == nullptr) {
-        qts = CreateVectorSpecializationShorthand(*m_context, qt, parsedType, colCount);
-        m_vectorTypedefs[parsedType][colCount - 1] = qts;
-      }
+      TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
 
       R.addDecl(qts);
       return true;
@@ -3599,6 +3626,12 @@ public:
     _In_ ExprResult &LHS,
     _In_ ExprResult &RHS,
     _In_ SourceLocation QuestionLoc);
+
+  clang::QualType ApplyTypeSpecSignToParsedType(
+      _In_ clang::QualType &type,
+      _In_ TypeSpecifierSign TSS,
+      _In_ SourceLocation Loc
+  );
 
   bool CheckRangedTemplateArgument(SourceLocation diagLoc, llvm::APSInt& sintValue)
   {
@@ -7731,6 +7764,49 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   return ResultTy;
 }
 
+// Apply type specifier sign to the given QualType.
+// Other than privmitive int type, only allow shorthand vectors and matrices to be unsigned.
+clang::QualType HLSLExternalSource::ApplyTypeSpecSignToParsedType(
+    _In_ clang::QualType &type, _In_ clang::TypeSpecifierSign TSS,
+    _In_ clang::SourceLocation Loc) {
+  if (TSS == TypeSpecifierSign::TSS_unspecified) {
+    return type;
+  }
+  DXASSERT(TSS != TypeSpecifierSign::TSS_signed, "else signed keyword is supported in HLSL");
+  ArTypeObjectKind objKind = GetTypeObjectKind(type);
+  if (objKind != AR_TOBJ_VECTOR && objKind != AR_TOBJ_MATRIX &&
+      objKind != AR_TOBJ_BASIC && objKind != AR_TOBJ_ARRAY) {
+    return type;
+  }
+  // check if element type is unsigned and check if such vector exists
+  // If not create a new one, Make a QualType of the new kind
+  ArBasicKind elementKind = GetTypeElementKind(type);
+  // Only ints can have signed/unsigend ty
+  if (!IS_BASIC_UNSIGNABLE(elementKind)) {
+    return type;
+  }
+  else {
+    // Check given TypeSpecifierSign. If unsigned, change int to uint.
+    HLSLScalarType scalarType = ScalarTypeForBasic(elementKind);
+    HLSLScalarType newScalarType = MakeUnsigned(scalarType);
+
+    // Get new vector types for a given TypeSpecifierSign.
+    if (objKind == AR_TOBJ_VECTOR) {
+      UINT colCount = GetHLSLVecSize(type);
+      TypedefDecl *qts = LookupVectorShorthandType(newScalarType, colCount);
+      return m_context->getTypeDeclType(qts);
+    } else if (objKind == AR_TOBJ_MATRIX) {
+      UINT rowCount, colCount;
+      GetRowsAndCols(type, rowCount, colCount);
+      TypedefDecl *qts = LookupMatrixShorthandType(newScalarType, rowCount, colCount);
+      return m_context->getTypeDeclType(qts);
+    } else {
+      DXASSERT_NOMSG(objKind == AR_TOBJ_BASIC || objKind == AR_TOBJ_ARRAY);
+      return m_scalarTypes[newScalarType];
+    }
+  }
+}
+
 Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
   FunctionTemplateDecl *FunctionTemplate,
   TemplateArgumentListInfo *ExplicitTemplateArgs, ArrayRef<Expr *> Args,
@@ -9808,6 +9884,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   bool isStatic = storage == DeclSpec::SCS::SCS_static;
   bool isExtern = storage == DeclSpec::SCS::SCS_extern;
 
+  bool hasSignSpec = D.getDeclSpec().getTypeSpecSign() != DeclSpec::TSS::TSS_unspecified;
+
   assert(
     (1 == (isLocalVar ? 1 : 0) + (isGlobal ? 1 : 0) + (isField ? 1 : 0) +
     (isTypedef ? 1 : 0) + (isFunction ? 1 : 0) + (isMethod ? 1 : 0) +
@@ -9904,6 +9982,24 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
                                                           << declarationType;
       result = false;
     }
+  }
+
+  if (hasSignSpec) {
+     HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
+     ArTypeObjectKind objKind = hlslSource->GetTypeObjectKind(qt);
+     ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
+     // vectors or matrices can only have unsigned integer types.
+     if (objKind == AR_TOBJ_MATRIX || objKind == AR_TOBJ_VECTOR || objKind == AR_TOBJ_BASIC || objKind == AR_TOBJ_ARRAY) {
+         if (!IS_BASIC_UNSIGNABLE(basicKind)) {
+             Diag(D.getLocStart(), diag::err_sema_invalid_sign_spec)
+                 << g_ArBasicTypeNames[basicKind];
+             result = false;
+         }
+     }
+     else {
+         Diag(D.getLocStart(), diag::err_sema_invalid_sign_spec) << g_ArBasicTypeNames[basicKind];
+         result = false;
+     }
   }
 
   // Validate attributes
@@ -10686,4 +10782,14 @@ clang::QualType hlsl::CheckVectorConditional(
   _In_ clang::SourceLocation QuestionLoc)
 {
   return HLSLExternalSource::FromSema(self)->CheckVectorConditional(Cond, LHS, RHS, QuestionLoc);
+}
+
+clang::QualType ApplyTypeSpecSignToParsedType(
+    _In_ clang::Sema* self,
+    _In_ clang::QualType &type,
+    _In_ clang::TypeSpecifierSign TSS, 
+    _In_ clang::SourceLocation Loc
+)
+{
+    return HLSLExternalSource::FromSema(self)->ApplyTypeSpecSignToParsedType(type, TSS, Loc);
 }

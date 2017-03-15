@@ -243,4 +243,13 @@ clang::QualType CheckVectorConditional(
 
 }
 
+// This function reads the given declaration TSS and returns the corresponding parsedType with the
+// corresponding type. Replaces the given parsed type with the new type
+clang::QualType ApplyTypeSpecSignToParsedType(
+    _In_ clang::Sema* self,
+    _In_ clang::QualType &type,
+    _In_ clang::TypeSpecifierSign TSS,
+    _In_ clang::SourceLocation Loc
+);
+
 #endif

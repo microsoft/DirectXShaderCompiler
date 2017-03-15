@@ -426,4 +426,16 @@ hlsl::ParameterModifier ParamModFromAttrs(llvm::ArrayRef<InheritableAttr *> attr
   return ParameterModifier::FromInOut(isIn, isOut);
 }
 
+HLSLScalarType MakeUnsigned(HLSLScalarType T) {
+    switch (T) {
+    case HLSLScalarType_int:
+        return HLSLScalarType_uint;
+    case HLSLScalarType_int_min16:
+        return HLSLScalarType_uint_min16;
+    case HLSLScalarType_int64:
+        return HLSLScalarType_uint64;
+    }
+    return T;
+}
+
 }

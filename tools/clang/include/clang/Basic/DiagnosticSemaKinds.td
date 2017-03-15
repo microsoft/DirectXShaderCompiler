@@ -7227,6 +7227,7 @@ def warn_sync_fetch_and_nand_semantics_change : Warning<
   InGroup<DiagGroup<"sync-fetch-and-nand-semantics-changed">>;
 
 // Type
+def err_sema_invalid_sign_spec : Error<"'%0' cannot be signed or unsigned">;
 def ext_invalid_sign_spec : Extension<"'%0' cannot be signed or unsigned">;
 def warn_receiver_forward_class : Warning<
     "receiver %0 is a forward class and corresponding @interface may not exist">,
