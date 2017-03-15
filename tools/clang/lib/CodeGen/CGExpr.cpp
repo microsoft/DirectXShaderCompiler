@@ -3380,6 +3380,19 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     llvm::Value *bitcast = Builder.CreateBitCast(LV.getAddress(), ResultType);
     return MakeAddrLValue(bitcast, ToType);
   }
+  case CK_FlatConversion: {
+    // HLSL only single inheritance.
+    // Just bitcast.
+    QualType ToType = getContext().getLValueReferenceType(E->getType());
+
+    LValue LV = EmitLValue(E->getSubExpr());
+    llvm::Value *This = LV.getAddress();
+
+    // bitcast to target type
+    llvm::Type *ResultType = ConvertType(ToType);
+    llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
+    return MakeAddrLValue(bitcast, ToType);
+  }
   // HLSL Change Ends
   case CK_ZeroToOCLEvent:
     llvm_unreachable("NULL to OpenCL event lvalue cast is not valid");
