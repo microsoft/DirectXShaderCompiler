@@ -48,7 +48,7 @@ class ReducibilityAnalysis : public FunctionPass {
 public:
   static char ID;
 
-  explicit ReducibilityAnalysis()
+  ReducibilityAnalysis()
       : FunctionPass(ID), m_Action(IrreducibilityAction::ThrowException),
         m_bReducible(false) {}
 
