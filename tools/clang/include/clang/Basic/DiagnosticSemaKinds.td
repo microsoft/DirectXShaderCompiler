@@ -7454,6 +7454,8 @@ def err_hlsl_matrix_member_mixing_refs: Error<
   "matrix subscript '%0' mixes one-based and zero-based references">;
 def err_hlsl_matrix_member_out_of_bounds: Error<
   "matrix subscript '%0' is out of bounds">;
+def err_hlsl_matrix_row_index_out_of_bounds: Error<
+  "matrix row index '%0' is out of bounds">;
 def err_hlsl_matrix_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
 def err_hlsl_matrix_member_zero_in_one_based: Error<
@@ -7464,6 +7466,8 @@ def err_hlsl_vector_member_empty: Error<
   "vector swizzle is empty '%0'">;
 def err_hlsl_vector_member_out_of_bounds: Error<
   "vector swizzle '%0' is out of bounds">;
+def err_hlsl_vector_element_index_out_of_bounds: Error<
+  "vector element index '%0' is out of bounds">;
 def err_hlsl_vector_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
 def err_hlsl_missing_type_specifier : Error< // Patterened after err_missing_type_specifier

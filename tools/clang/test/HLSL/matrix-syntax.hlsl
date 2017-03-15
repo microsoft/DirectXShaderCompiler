@@ -82,6 +82,7 @@ void main() {
     matrix<float, 4, 4> mymatrix;
     matrix<float, 4, 4> absMatrix = abs(mymatrix);
     matrix<float, 4, 4> absMatrix2 = abs(absMatrix);
+    const matrix<float, 4, 4> myConstMatrix = mymatrix;                /* expected-note {{variable 'myConstMatrix' declared const here}} expected-note {{variable 'myConstMatrix' declared const here}} fxc-pass {{}} */
 
     matrix<float, 2, 4> f24;
     float f;
@@ -137,4 +138,23 @@ void main() {
       `-ExtMatrixElementExpr <col:10, col:19> 'vector<float, 4>':'vector<float, 4>' _11_11_44_44
         `-DeclRefExpr <col:10> 'matrix<float, 4, 4>':'matrix<float, 4, 4>' lvalue Var 'mymatrix' 'matrix<float, 4, 4>':'matrix<float, 4, 4>'
     */
+    // member assignment using subscript syntax
+    f = mymatrix[0][0];
+    f = mymatrix[1][1];
+    f2 = mymatrix[1].xx;
+    f4 = mymatrix[2];
+
+    f = mymatrix[0][4];                                     /* expected-error {{vector element index '4' is out of bounds}} fxc-pass {{}} */
+    f = mymatrix[-1][3];                                    /* expected-error {{matrix row index '-1' is out of bounds}} fxc-pass {{}} */
+    f4 = mymatrix[10];                                      /* expected-error {{matrix row index '10' is out of bounds}} fxc-pass {{}} */
+
+    // accessing const member
+    f = myConstMatrix[0][0];
+    f = myConstMatrix[1][1];
+    f2 = myConstMatrix[1].xx;
+    f4 = myConstMatrix[2];
+
+    myConstMatrix[0][0] = 3;                                /* expected-error {{cannot assign to variable 'myConstMatrix' with const-qualified type 'const matrix<float, 4, 4>'}} fxc-error {{X3025: l-value specifies const object}} */
+    myConstMatrix[3] = float4(1,2,3,4);                     /* expected-error {{cannot assign to variable 'myConstMatrix' with const-qualified type 'const matrix<float, 4, 4>'}} fxc-error {{X3025: l-value specifies const object}} */
+
 }
