@@ -130,11 +130,8 @@ def ActionCopySDKLayers(args, name, dxil):
         ], args.symbols)
 def ActionCopyWarp12(args, name, dxil):
     CopyBins(args, name, dxil, [
-            'd3d12warp.dll',
+            'd3d10warp.dll',
         ], args.symbols)
-def MakeD3D12WarpCopy(bin_path):
-    # Copy d3d10warp.dll to d3d12warp.dll
-    shutil.copy2(os.path.join(bin_path, 'd3d10warp.dll'), os.path.join(bin_path, 'd3d12warp.dll'))
 
 def PathSplitAll(p):
     s = filter(None, os.path.split(p))
@@ -161,7 +158,7 @@ def ListRuntimeCompilePaths(args):
         'D3D11_3SDKLayers.dll',
         'D3D12SDKLayers.dll',
         'DXGIDebug.dll',
-        'd3d12warp.dll',
+        'd3d10warp.dll',
     ]]
 
 def CheckEnvironment(args):

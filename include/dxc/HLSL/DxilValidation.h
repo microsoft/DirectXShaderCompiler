@@ -205,6 +205,7 @@ enum class ValidationRule : unsigned {
 
   // Type system
   TypesDefined, // Type must be defined based on DXIL primitives
+  TypesI8, // I8 can only used as immediate value for intrinsic
   TypesIntWidth, // Int type must be of valid width
   TypesNoMultiDim, // Only one dimension allowed for array type
   TypesNoVector, // Vector types must not be present

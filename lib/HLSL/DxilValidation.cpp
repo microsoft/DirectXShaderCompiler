@@ -162,6 +162,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
     case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type";
+    case hlsl::ValidationRule::TypesI8: return "I8 can only used as immediate value for intrinsic";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'";
     case hlsl::ValidationRule::SmOpcode: return "Opcode must be defined in target shader model";
     case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model";
@@ -486,32 +487,32 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   unsigned op = (unsigned)opcode;
   /* <py::lines('VALOPCODESM-TEXT')>hctdb_instrhelp.get_valopcode_sm_text()</py>*/
   // VALOPCODESM-TEXT:BEGIN
-  // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
-  // FlattenedThreadIdInGroup=96
-  if (93 <= op && op <= 96)
+  // Instructions: ThreadId=95, GroupId=96, ThreadIdInGroup=97,
+  // FlattenedThreadIdInGroup=98
+  if (95 <= op && op <= 98)
     return pSM->IsCS();
-  // Instructions: DomainLocation=108
-  if (op == 108)
+  // Instructions: DomainLocation=107
+  if (op == 107)
     return pSM->IsDS();
-  // Instructions: LoadOutputControlPoint=106, LoadPatchConstant=107
-  if (106 <= op && op <= 107)
+  // Instructions: LoadOutputControlPoint=105, LoadPatchConstant=106
+  if (105 <= op && op <= 106)
     return pSM->IsDS() || pSM->IsHS();
-  // Instructions: EmitStream=97, CutStream=98, EmitThenCutStream=99,
-  // GSInstanceID=138
-  if (97 <= op && op <= 99 || op == 138)
+  // Instructions: EmitStream=99, CutStream=100, EmitThenCutStream=101,
+  // GSInstanceID=102
+  if (99 <= op && op <= 102)
     return pSM->IsGS();
-  // Instructions: PrimitiveID=111
-  if (op == 111)
+  // Instructions: PrimitiveID=110
+  if (op == 110)
     return pSM->IsGS() || pSM->IsDS() || pSM->IsHS() || pSM->IsPS();
-  // Instructions: StorePatchConstant=109, OutputControlPointID=110
-  if (109 <= op && op <= 110)
+  // Instructions: StorePatchConstant=108, OutputControlPointID=109
+  if (108 <= op && op <= 109)
     return pSM->IsHS();
-  // Instructions: Sample=61, SampleBias=62, SampleCmp=65, SampleCmpLevelZero=66,
-  // RenderTargetGetSamplePosition=79, RenderTargetGetSampleCount=80,
-  // CalculateLOD=84, Discard=85, DerivCoarseX=86, DerivCoarseY=87,
-  // DerivFineX=88, DerivFineY=89, EvalSnapped=90, EvalSampleIndex=91,
-  // EvalCentroid=92, SampleIndex=146, Coverage=147, InnerCoverage=148
-  if (61 <= op && op <= 62 || 65 <= op && op <= 66 || 79 <= op && op <= 80 || 84 <= op && op <= 92 || 146 <= op && op <= 148)
+  // Instructions: Sample=62, SampleBias=63, SampleCmp=66, SampleCmpLevelZero=67,
+  // RenderTargetGetSamplePosition=78, RenderTargetGetSampleCount=79,
+  // CalculateLOD=83, Discard=84, DerivCoarseX=85, DerivCoarseY=86,
+  // DerivFineX=87, DerivFineY=88, EvalSnapped=89, EvalSampleIndex=90,
+  // EvalCentroid=91, SampleIndex=92, Coverage=93, InnerCoverage=94
+  if (62 <= op && op <= 63 || 66 <= op && op <= 67 || 78 <= op && op <= 79 || 83 <= op && op <= 94)
     return pSM->IsPS();
   return true;
   // VALOPCODESM-TEXT:END
@@ -572,7 +573,8 @@ static DxilSignatureElement *ValidateSignatureAccess(Instruction *I, DxilSignatu
   if (isOutput && SE.GetSemantic()->GetKind() == DXIL::SemanticKind::Position) {
     unsigned mask = ValCtx.OutputPositionMask[SE.GetOutputStream()];
     mask |= 1<<col;
-    ValCtx.OutputPositionMask[SE.GetOutputStream()] = mask;
+    if (SE.GetOutputStream() < DXIL::kNumOutputStreams)
+      ValCtx.OutputPositionMask[SE.GetOutputStream()] = mask;
   }
   return &SE;
 }
@@ -923,6 +925,7 @@ static void ValidateGather(CallInst *CI, Value *srvHandle, Value *samplerHandle,
 
   if (resClass != DXIL::ResourceClass::SRV) {
     ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceClassForSamplerGather);
+    return;
   }
 
   // Coord match resource kind.
@@ -1316,6 +1319,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     if (resClass != DXIL::ResourceClass::SRV) {
       ValCtx.EmitInstrError(CI,
                             ValidationRule::InstrResourceClassForSamplerGather);
+      return;
     }
     // Coord match resource.
     ValidateCalcLODResourceDimensionCoord(
@@ -1770,76 +1774,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
 
 }
 
-static Type *GetOverloadTyForDxilOperation(CallInst *CI, DXIL::OpCode opcode) {
-  Type *Ty = CI->getType();
-  if (Ty->isVoidTy()) {
-    switch (opcode) {
-    case DXIL::OpCode::StoreOutput:
-    case DXIL::OpCode::StorePatchConstant:
-      if (CI->getNumArgOperands() < DXIL::OperandIndex::kStoreOutputValOpIdx) {
-        // Will emit error later when cannot find valid dxil function.
-        return CI->getType();
-      }
-      return CI->getArgOperand(DXIL::OperandIndex::kStoreOutputValOpIdx)->getType();
-    case DXIL::OpCode::BufferStore:
-      return CI->getArgOperand(DXIL::OperandIndex::kBufferStoreVal0OpIdx)->getType();
-    case DXIL::OpCode::TextureStore:
-      return CI->getArgOperand(DXIL::OperandIndex::kTextureStoreVal0OpIdx)->getType();
-    default:
-      return Ty;
-    }
-  } else if (Ty->isAggregateType()) {
-    switch (opcode) {
-    case DXIL::OpCode::CreateHandle:
-    case DXIL::OpCode::GetDimensions:
-    case DXIL::OpCode::Texture2DMSGetSamplePosition:
-    case DXIL::OpCode::RenderTargetGetSamplePosition:
-      return Type::getVoidTy(CI->getContext());
-    case DXIL::OpCode::CBufferLoadLegacy:
-    case DXIL::OpCode::BufferLoad:
-    case DXIL::OpCode::TextureLoad:
-    case DXIL::OpCode::Sample:
-    case DXIL::OpCode::SampleBias:
-    case DXIL::OpCode::SampleCmp:
-    case DXIL::OpCode::SampleCmpLevelZero:
-    case DXIL::OpCode::SampleGrad:
-    case DXIL::OpCode::SampleLevel:
-    case DXIL::OpCode::TextureGather:
-    case DXIL::OpCode::TextureGatherCmp:
-    {
-      StructType *ST = cast<StructType>(CI->getType());
-      return ST->getElementType(0);
-    }
-    case DXIL::OpCode::SplitDouble:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType();
-    default:
-      return Ty;
-    }
-  } else
-    switch (opcode) {
-    case DXIL::OpCode::BufferUpdateCounter:
-    case DXIL::OpCode::RenderTargetGetSampleCount:
-      return Type::getVoidTy(CI->getContext());
-    case DXIL::OpCode::CheckAccessFullyMapped:
-      return Type::getInt32Ty(CI->getContext());
-    case DXIL::OpCode::IsFinite:
-    case DXIL::OpCode::IsInf:
-    case DXIL::OpCode::IsNaN:
-    case DXIL::OpCode::IsNormal:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType();
-    case DXIL::OpCode::WaveActiveAllEqual:
-      // TODO: build this whole function from hctdb.py
-      return CI->getArgOperand(1)->getType()->getScalarType();
-    case DXIL::OpCode::Countbits:
-    case DXIL::OpCode::FirstbitLo:
-    case DXIL::OpCode::FirstbitHi:
-    case DXIL::OpCode::FirstbitSHi:
-      return CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx)->getType()->getScalarType();
-    default:
-      return Ty;
-    }
-}
-
 static bool IsDxilFunction(llvm::Function *F) {
   unsigned argSize = F->getArgumentList().size();
   if (argSize < 1) {
@@ -1886,18 +1820,13 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
 
     DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
 
-    if (OP::GetOpCodeClass(dxilOpcode) == DXIL::OpCodeClass::Reserved) {
-      // Diagnosed in body validation.
-      continue;
-    }
-
     // In some cases, no overloads are provided (void is exclusive to others)
     Function *dxilFunc;
     if (hlslOP->IsOverloadLegal(dxilOpcode, voidTy)) {
       dxilFunc = hlslOP->GetOpFunc(dxilOpcode, voidTy);
     }
     else {
-      Type *Ty = GetOverloadTyForDxilOperation(CI, dxilOpcode);
+      Type *Ty = hlslOP->GetOverloadType(dxilOpcode, CI->getCalledFunction());
       try {
         if (!hlslOP->IsOverloadLegal(dxilOpcode, Ty)) {
           ValCtx.EmitInstrError(CI, ValidationRule::InstrOload);
@@ -2002,8 +1931,10 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
     StringRef Name = ST->getName();
     if (Name.startswith("dx.")) {
       hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
-      if (IsDxilBuiltinStructType(ST, hlslOP))
-        return true;
+      if (IsDxilBuiltinStructType(ST, hlslOP)) {
+        ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
+        result = false;
+      }
 
       ValCtx.EmitTypeError(Ty, ValidationRule::DeclDxilNsReserved);
       result = false;
@@ -2336,10 +2267,6 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
 
           unsigned opcode = OpcodeConst->getLimitedValue();
           DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
-          if (OP::GetOpCodeClass(dxilOpcode) == DXIL::OpCodeClass::Reserved) {
-            ValCtx.EmitInstrError(&I, ValidationRule::InstrOpCodeReserved);
-            continue;
-          }
 
           if (OP::IsDxilOpGradient(dxilOpcode)) {
             gradientOps.push_back(CI);
@@ -2355,19 +2282,33 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         continue;
       }
 
-      if (!isa<PHINode>(&I)) {
-        for (Value *op : I.operands()) {
-          if (isa<UndefValue>(op)) {
-            ValCtx.EmitInstrError(&I,
-                                  ValidationRule::InstrNoReadingUninitialized);
-          } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(op)) {
-            for (Value *opCE : CE->operands()) {
-              if (isa<UndefValue>(opCE)) {
-                ValCtx.EmitInstrError(
-                    &I, ValidationRule::InstrNoReadingUninitialized);
-              }
+      for (Value *op : I.operands()) {
+        if (!isa<PHINode>(&I) && isa<UndefValue>(op)) {
+          ValCtx.EmitInstrError(&I,
+                                ValidationRule::InstrNoReadingUninitialized);
+        } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(op)) {
+          for (Value *opCE : CE->operands()) {
+            if (isa<UndefValue>(opCE)) {
+              ValCtx.EmitInstrError(
+                  &I, ValidationRule::InstrNoReadingUninitialized);
             }
           }
+        }
+        if (IntegerType *IT = dyn_cast<IntegerType>(op->getType())) {
+          if (IT->getBitWidth() == 8) {
+            ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
+          }
+        }
+      }
+
+      Type *Ty = I.getType();
+      if (isa<PointerType>(Ty))
+        Ty = Ty->getPointerElementType();
+      while (isa<ArrayType>(Ty))
+        Ty = Ty->getArrayElementType();
+      if (IntegerType *IT = dyn_cast<IntegerType>(Ty)) {
+        if (IT->getBitWidth() == 8) {
+          ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
         }
       }
 

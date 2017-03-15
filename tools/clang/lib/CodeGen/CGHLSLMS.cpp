@@ -1888,6 +1888,72 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   return m_pHLModule->AddSampler(std::move(hlslRes));
 }
 
+static void CollectScalarTypes(std::vector<llvm::Type *> &scalarTys, llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    for (llvm::Type *EltTy : ST->elements()) {
+      CollectScalarTypes(scalarTys, EltTy);
+    }
+  } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
+    llvm::Type *EltTy = AT->getElementType();
+    for (unsigned i=0;i<AT->getNumElements();i++) {
+      CollectScalarTypes(scalarTys, EltTy);
+    }
+  } else if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
+    llvm::Type *EltTy = VT->getElementType();
+    for (unsigned i=0;i<VT->getNumElements();i++) {
+      CollectScalarTypes(scalarTys, EltTy);
+    }
+  } else {
+    scalarTys.emplace_back(Ty);
+  }
+}
+
+
+static void CollectScalarTypes(std::vector<QualType> &ScalarTys, QualType Ty) {
+  if (Ty->isRecordType()) {
+    if (hlsl::IsHLSLMatType(Ty)) {
+      QualType EltTy = hlsl::GetHLSLMatElementType(Ty);
+      unsigned row = 0;
+      unsigned col = 0;
+      hlsl::GetRowsAndCols(Ty, row, col);
+      unsigned size = col*row;
+      for (unsigned i = 0; i < size; i++) {
+        CollectScalarTypes(ScalarTys, EltTy);
+      }
+    } else if (hlsl::IsHLSLVecType(Ty)) {
+      QualType EltTy = hlsl::GetHLSLVecElementType(Ty);
+      unsigned row = 0;
+      unsigned col = 0;
+      hlsl::GetRowsAndColsForAny(Ty, row, col);
+      unsigned size = col;
+      for (unsigned i = 0; i < size; i++) {
+        CollectScalarTypes(ScalarTys, EltTy);
+      }
+    } else {
+      const RecordType *RT = Ty->getAsStructureType();
+      // For CXXRecord.
+      if (!RT)
+        RT = Ty->getAs<RecordType>();
+      RecordDecl *RD = RT->getDecl();
+      for (FieldDecl *field : RD->fields())
+        CollectScalarTypes(ScalarTys, field->getType());
+    }
+  } else if (Ty->isArrayType()) {
+    const clang::ArrayType *AT = Ty->getAsArrayTypeUnsafe();
+    QualType EltTy = AT->getElementType();
+    // Set it to 5 for unsized array.
+    unsigned size = 5;
+    if (AT->isConstantArrayType()) {
+      size = cast<ConstantArrayType>(AT)->getSize().getLimitedValue();
+    }
+    for (unsigned i=0;i<size;i++) {
+      CollectScalarTypes(ScalarTys, EltTy);
+    }
+  } else {
+    ScalarTys.emplace_back(Ty);
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
                                     hlsl::DxilResourceBase::Class resClass) {
   llvm::GlobalVariable *val =
@@ -1968,11 +2034,43 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
   if (kind != hlsl::DxilResource::Kind::StructuredBuffer) {
     QualType Ty = resultTy;
     QualType EltTy = Ty;
-    if (hlsl::IsHLSLMatType(Ty))
-      EltTy = hlsl::GetHLSLMatElementType(Ty);
-
-    if (hlsl::IsHLSLVecType(Ty))
+    if (hlsl::IsHLSLVecType(Ty)) {
       EltTy = hlsl::GetHLSLVecElementType(Ty);
+    } else if (hlsl::IsHLSLMatType(Ty)) {
+      EltTy = hlsl::GetHLSLMatElementType(Ty);
+    } else if (resultTy->isAggregateType()) {
+      // Struct or array in a none-struct resource.
+      std::vector<QualType> ScalarTys;
+      CollectScalarTypes(ScalarTys, resultTy);
+      unsigned size = ScalarTys.size();
+      if (size == 0) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "object's templated type must have at least one element");
+        Diags.Report(decl->getLocation(), DiagID);
+        return 0;
+      }
+      if (size > 4) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "elements of typed buffers and textures "
+                                      "must fit in four 32-bit quantities");
+        Diags.Report(decl->getLocation(), DiagID);
+        return 0;
+      }
+
+      EltTy = ScalarTys[0];
+      for (QualType ScalarTy : ScalarTys) {
+        if (ScalarTy != EltTy) {
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "all template type components must have the same type");
+          Diags.Report(decl->getLocation(), DiagID);
+          return 0;
+        }
+      }
+    }
 
     EltTy = EltTy.getCanonicalType();
     bool bSNorm = false;
@@ -1996,8 +2094,9 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
       const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
       CompType::Kind kind = BuiltinTyToCompTy(BTy, bSNorm, bUNorm);
       hlslRes->SetCompType(kind);
-    } else
+    } else {
       DXASSERT(!bSNorm && !bUNorm, "snorm/unorm on invalid type");
+    }
   }
   // TODO: set resource
   // hlslRes.SetGloballyCoherent();
@@ -2607,7 +2706,6 @@ static void ReplaceBoolVectorSubscript(CallInst *CI) {
   Value *Ptr = CI->getArgOperand(0);
   Value *Idx = CI->getArgOperand(1);
   Value *IdxList[] = {ConstantInt::get(Idx->getType(), 0), Idx};
-  llvm::Type *i1Ty = llvm::Type::getInt1Ty(Idx->getContext());
 
   for (auto It = CI->user_begin(), E = CI->user_end(); It != E;) {
     Instruction *user = cast<Instruction>(*(It++));
@@ -2624,7 +2722,8 @@ static void ReplaceBoolVectorSubscript(CallInst *CI) {
       // Must be a store inst here.
       StoreInst *SI = cast<StoreInst>(user);
       Value *V = SI->getValueOperand();
-      Value *cast = Builder.CreateTrunc(V, i1Ty);
+      Value *cast =
+          Builder.CreateICmpNE(V, llvm::ConstantInt::get(V->getType(), 0));
       Builder.CreateStore(cast, GEP);
       SI->eraseFromParent();
     }
@@ -3141,9 +3240,9 @@ static void SimplifyArrayToVector(BitCastInst *BCI, std::vector<Instruction *> &
 
 static void SimplifyBoolCast(BitCastInst *BCI, llvm::Type *i1Ty, std::vector<Instruction *> &deadInsts) {
   // Transform
-  //%22 = bitcast i1* %21 to i8*
-  //%23 = load i8, i8* %22, !tbaa !3, !range !7
-  //%tobool5 = trunc i8 %23 to i1
+  //%22 = bitcast i1* %21 to i32*
+  //%23 = load i32, i32* %22, !tbaa !3, !range !7
+  //%tobool5 = icmp ne i32 %23, 0
   // To
   //%tobool5 = load i1, i1* %21, !tbaa !3, !range !7
   Value *i1Ptr = BCI->getOperand(0);
@@ -3152,17 +3251,21 @@ static void SimplifyBoolCast(BitCastInst *BCI, llvm::Type *i1Ty, std::vector<Ins
       if (!LI->hasOneUse()) {
         continue;
       }
-      if (TruncInst *TI = dyn_cast<TruncInst>(*LI->user_begin())) {
-        if (TI->getType() == i1Ty) {
-          IRBuilder<> Builder(LI);
-          Value *i1Val = Builder.CreateLoad(i1Ptr);
-          TI->replaceAllUsesWith(i1Val);
-          deadInsts.emplace_back(LI);
-          deadInsts.emplace_back(TI);
+      if (ICmpInst *II = dyn_cast<ICmpInst>(*LI->user_begin())) {
+        if (ConstantInt *CI = dyn_cast<ConstantInt>(II->getOperand(1))) {
+          if (CI->getLimitedValue() == 0 &&
+              II->getPredicate() == CmpInst::ICMP_NE) {
+            IRBuilder<> Builder(LI);
+            Value *i1Val = Builder.CreateLoad(i1Ptr);
+            II->replaceAllUsesWith(i1Val);
+            deadInsts.emplace_back(LI);
+            deadInsts.emplace_back(II);
+          }
         }
       }
     }
   }
+  deadInsts.emplace_back(BCI);
 }
 
 typedef float(__cdecl *FloatUnaryEvalFuncType)(float);
@@ -5116,8 +5219,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     BasicBlock *EntryBlock = &F->getEntryBlock();
 
     if (ParamTy->isBooleanType()) {
-      // Create i8 for bool.
-      ParamTy = CGM.getContext().CharTy;
+      // Create i32 for bool.
+      ParamTy = CGM.getContext().IntTy;
     }
     // Make sure the alloca is in entry block to stop inline create stacksave.
     IRBuilder<> Builder(EntryBlock->getFirstInsertionPt());
