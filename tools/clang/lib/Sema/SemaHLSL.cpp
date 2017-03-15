@@ -5944,6 +5944,28 @@ bool HLSLExternalSource::IsConversionToLessOrEqualElements(
           targetType.getCanonicalType().getUnqualifiedType()) {
     return true;
   }
+  // DerivedFrom is less.
+  if (sourceTypeInfo.ShapeKind == AR_TOBJ_COMPOUND ||
+      GetTypeObjectKind(sourceType) == AR_TOBJ_COMPOUND) {
+    const RecordType *targetRT = targetType->getAsStructureType();
+    if (!targetRT)
+      targetRT = dyn_cast<RecordType>(targetType);
+
+    const RecordType *sourceRT = sourceType->getAsStructureType();
+    if (!sourceRT)
+      sourceRT = dyn_cast<RecordType>(sourceType);
+
+    if (targetRT && sourceRT) {
+      RecordDecl *targetRD = targetRT->getDecl();
+      RecordDecl *sourceRD = sourceRT->getDecl();
+      const CXXRecordDecl *targetCXXRD = dyn_cast<CXXRecordDecl>(targetRD);
+      const CXXRecordDecl *sourceCXXRD = dyn_cast<CXXRecordDecl>(sourceRD);
+      if (targetCXXRD && sourceCXXRD) {
+        if (sourceCXXRD->isDerivedFrom(targetCXXRD))
+          return true;
+      }
+    }
+  }
 
   if (sourceTypeInfo.ShapeKind != AR_TOBJ_SCALAR &&
     sourceTypeInfo.ShapeKind != AR_TOBJ_VECTOR &&

@@ -345,6 +345,7 @@ public:
   TEST_METHOD(CodeGenFirstbitLo)
   TEST_METHOD(CodeGenFloatMaxtessfactor)
   TEST_METHOD(CodeGenFModPS)
+  TEST_METHOD(CodeGenFunctionalCast)
   TEST_METHOD(CodeGenGather)
   TEST_METHOD(CodeGenGatherCmp)
   TEST_METHOD(CodeGenGatherCubeOffset)
@@ -2088,6 +2089,10 @@ TEST_F(CompilerTest, CodeGenFloatMaxtessfactor) {
 
 TEST_F(CompilerTest, CodeGenFModPS) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\fmodPS.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFunctionalCast) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\functionalCast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenGather) {
