@@ -10812,6 +10812,11 @@ clang::QualType hlsl::CheckVectorConditional(
   return HLSLExternalSource::FromSema(self)->CheckVectorConditional(Cond, LHS, RHS, QuestionLoc);
 }
 
+bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type) {
+  UINT count;
+  return HLSLExternalSource::FromSema(self)->IsTypeNumeric(type, &count);
+}
+
 void Sema::CheckHLSLArrayAccess(const Expr *expr) {
   DXASSERT_NOMSG(isa<CXXOperatorCallExpr>(expr));
   const CXXOperatorCallExpr *OperatorCallExpr = cast<CXXOperatorCallExpr>(expr);
@@ -10846,6 +10851,7 @@ void Sema::CheckHLSLArrayAccess(const Expr *expr) {
       }
   }
 }
+
 clang::QualType ApplyTypeSpecSignToParsedType(
     _In_ clang::Sema* self,
     _In_ clang::QualType &type,

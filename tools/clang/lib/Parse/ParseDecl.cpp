@@ -2175,6 +2175,51 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     return DeclGroupPtrTy();
   }
 
+  // HLSL Change Starts: change global variables that will be in constant buffer to be constant by default 
+  // Global variables that are groupshared, static, or typedef 
+  // will not be part of constant buffer and therefore should not be const by default.
+  if (getLangOpts().HLSL && !D.isFunctionDeclarator() &&
+      D.getContext() == Declarator::TheContext::FileContext &&
+      DS.getStorageClassSpec() != DeclSpec::SCS::SCS_static &&
+      DS.getStorageClassSpec() != DeclSpec::SCS::SCS_typedef
+      ) {
+
+    // Check whether or not there is a 'groupshared' attribute
+    AttributeList *attrList = DS.getAttributes().getList();
+    bool isGroupShared = false;
+    while (attrList) {
+        if (attrList->getName()->getName().compare(
+            StringRef(tok::getTokenName(tok::kw_groupshared))) == 0) {
+            isGroupShared = true;
+            break;
+        }
+      attrList = attrList->getNext();
+    }
+    if (!isGroupShared) {
+      // check whether or not the given data is the typename or primitive types
+      if (DS.isTypeRep()) {
+        QualType type = DS.getRepAsType().get();
+        // canonical types of HLSL Object types are not canonical for some
+        // reason. other HLSL Object types of vector/matrix/array should be
+        // treated as const.
+        if (type.getCanonicalType().isCanonical() &&
+            IsTypeNumeric(&Actions, type)) {
+          unsigned int diagID;
+          const char *prevSpec;
+          DS.SetTypeQual(DeclSpec::TQ_const, D.getDeclSpec().getLocStart(),
+                         prevSpec, diagID, getLangOpts());
+        }
+      } else {
+        // If not a typename, it is a basic type and should be treated as const.
+        unsigned int diagID;
+        const char *prevSpec;
+        DS.SetTypeQual(DeclSpec::TQ_const, D.getDeclSpec().getLocStart(),
+                       prevSpec, diagID, getLangOpts());
+      }
+    }
+  }
+  // HLSL Change Ends
+
   // Save late-parsed attributes for now; they need to be parsed in the
   // appropriate function scope after the function Decl has been constructed.
   // These will be parsed in ParseFunctionDefinition or ParseLexedAttrList.
