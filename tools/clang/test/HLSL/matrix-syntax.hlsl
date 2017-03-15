@@ -125,9 +125,9 @@ void main() {
     f2 = mymatrix[1].xx;
     f4 = mymatrix[2];
 
-    f = mymatrix[0][4];                                     /* expected-error {{matrix index '4' is out of bounds}} fxc-pass {{}} */
-    f = mymatrix[-1][3];                                    /* expected-error {{matrix index '-1' is out of bounds}} fxc-pass {{}} */
-    f4 = mymatrix[10];                                      /* expected-error {{matrix index '10' is out of bounds}} fxc-pass {{}} */
+    f = mymatrix[0][4];                                     /* expected-error {{vector element index '4' is out of bounds}} fxc-pass {{}} */
+    f = mymatrix[-1][3];                                    /* expected-error {{matrix row index '-1' is out of bounds}} fxc-pass {{}} */
+    f4 = mymatrix[10];                                      /* expected-error {{matrix row index '10' is out of bounds}} fxc-pass {{}} */
 
     // accessing const member
     f = myConstMatrix[0][0];

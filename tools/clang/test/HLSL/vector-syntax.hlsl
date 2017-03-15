@@ -98,17 +98,17 @@ float fn() {
     myvar[1]= 1.0f;
     myvar[2] = 1.0f;
     myvar[3] = 1.0f;
-    myvar[-10] = 1.0f;            /* expected-error {{vector index '-10' is out of bounds}} fxc-pass {{}} */
-    myvar[4] = 1.0f;              /* expected-error {{vector index '4' is out of bounds}} fxc-pass {{}} */
+    myvar[-10] = 1.0f;            /* expected-error {{vector element index '-10' is out of bounds}} fxc-pass {{}} */
+    myvar[4] = 1.0f;              /* expected-error {{vector element index '4' is out of bounds}} fxc-pass {{}} */
 
     float3 myvar3 = float3(1,2,3);
-    myvar3[3] = 1.0f;             /* expected-error {{vector index '3' is out of bounds}} fxc-pass {{}} */
+    myvar3[3] = 1.0f;             /* expected-error {{vector element index '3' is out of bounds}} fxc-pass {{}} */
 
     float2 myvar2 = float2(1,2);
-    myvar2[2] = 1.0f;             /* expected-error {{vector index '2' is out of bounds}} fxc-pass {{}} */
+    myvar2[2] = 1.0f;             /* expected-error {{vector element index '2' is out of bounds}} fxc-pass {{}} */
 
     float1 myvar1 = float1(1);
-    myvar1[1] = 1.0f;             /* expected-error {{vector index '1' is out of bounds}} fxc-pass {{}} */
+    myvar1[1] = 1.0f;             /* expected-error {{vector element index '1' is out of bounds}} fxc-pass {{}} */
 
     const float4 constMyVar = float4(1,2,3,4);              /* expected-note {{variable 'constMyVar' declared const here}} expected-note {{variable 'constMyVar' declared const here}} fxc-pass {{}} */
     constMyVar = float4(1,1,1,1); /* expected-error {{cannot assign to variable 'constMyVar' with const-qualified type 'const float4'}} fxc-error {{X3025: l-value specifies const object}} */

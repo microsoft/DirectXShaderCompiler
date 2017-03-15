@@ -9360,8 +9360,6 @@ static bool HLSLCheckForModifiableLValue(
         return HLSLCheckForModifiableLValue(const_cast<Expr *>(expr->getArg(0)), Loc, S);
 
     if (qt.isConstQualified() && (hlsl::IsMatrixType(&S, qt) || hlsl::IsVectorType(&S, qt))) {
-      assert(LHS->getStmtClass() == Stmt::StmtClass::DeclRefExprClass ||
-             LHS->getStmtClass() == Stmt::StmtClass::ArraySubscriptExprClass);
       DiagnoseConstAssignment(S, LHS, Loc);
       return true;
     }

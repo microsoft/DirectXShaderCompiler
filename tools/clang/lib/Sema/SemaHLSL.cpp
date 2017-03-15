@@ -10703,15 +10703,12 @@ void Sema::CheckHLSLArrayAccess(const Expr *expr) {;
           // If expression is a double two subscript operator for matrix (e.g x[0][1])
           // we also have to check the first subscript oprator by recursively calling
           // this funciton for the first CXXOperatorCallExpr
-          bool isDoubleSubscript = isa<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0));
-          if (isDoubleSubscript) {
+          if (isa<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0))) {
               CheckHLSLArrayAccess(cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0)));
           }
           if (intIndex < 0 || (uint32_t)intIndex >= vectorSize) {
               Diag(RHS->getExprLoc(),
-                  isDoubleSubscript
-                  ? diag::err_hlsl_matrix_array_index_out_of_bounds
-                  : diag::err_hlsl_vector_array_index_out_of_bounds)
+                  diag::err_hlsl_vector_element_index_out_of_bounds)
                   << (int)intIndex;
           }
       }
@@ -10719,7 +10716,7 @@ void Sema::CheckHLSLArrayAccess(const Expr *expr) {;
           uint32_t rowCount, colCount;
           GetHLSLMatRowColCount(LHSQualType, rowCount, colCount);
           if (intIndex < 0 || (uint32_t)intIndex >= rowCount) {
-              Diag(RHS->getExprLoc(), diag::err_hlsl_matrix_array_index_out_of_bounds)
+              Diag(RHS->getExprLoc(), diag::err_hlsl_matrix_row_index_out_of_bounds)
                   << (int)intIndex;
           }
       }
