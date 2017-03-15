@@ -341,6 +341,7 @@ public:
   TEST_METHOD(CodeGenEarlyDepthStencil)
   TEST_METHOD(CodeGenEval)
   TEST_METHOD(CodeGenEvalPos)
+  TEST_METHOD(CodeGenExternRes)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
   TEST_METHOD(CodeGenFloatMaxtessfactor)
@@ -2072,6 +2073,10 @@ TEST_F(CompilerTest, CodeGenEval) {
 
 TEST_F(CompilerTest, CodeGenEvalPos) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\evalPos.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenExternRes) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\extern_res.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFirstbitHi) {
