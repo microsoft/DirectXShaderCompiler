@@ -4016,6 +4016,7 @@ public:
   UINT64 ScoreFunction(OverloadCandidateSet::iterator &Cand);
   UINT64 ScoreImplicitConversionSequence(const ImplicitConversionSequence *s);
   unsigned GetNumElements(QualType anyType);
+  unsigned GetNumBasicElements(QualType anyType);
   unsigned GetNumConvertCheckElts(QualType leftType, unsigned leftSize, QualType rightType, unsigned rightSize);
   QualType GetNthElementType(QualType type, unsigned index);
   bool IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind);
@@ -5182,6 +5183,46 @@ unsigned HLSLExternalSource::GetNumElements(QualType anyType) {
     return total;
   }
   case AR_TOBJ_ARRAY:
+  case AR_TOBJ_MATRIX:
+  case AR_TOBJ_VECTOR:
+    return GetElementCount(anyType);
+  default:
+    DXASSERT(kind == AR_TOBJ_VOID,
+             "otherwise the type cannot be classified or is not supported");
+    return 0;
+  }
+}
+
+unsigned HLSLExternalSource::GetNumBasicElements(QualType anyType) {
+  if (anyType.isNull()) {
+    return 0;
+  }
+
+  anyType = GetStructuralForm(anyType);
+
+  ArTypeObjectKind kind = GetTypeObjectKind(anyType);
+  switch (kind) {
+  case AR_TOBJ_BASIC:
+  case AR_TOBJ_OBJECT:
+    return 1;
+  case AR_TOBJ_COMPOUND: {
+    // TODO: consider caching this value for perf
+    unsigned total = 0;
+    const RecordType *recordType = anyType->getAs<RecordType>();
+    RecordDecl::field_iterator fi = recordType->getDecl()->field_begin();
+    RecordDecl::field_iterator fend = recordType->getDecl()->field_end();
+    while (fi != fend) {
+      total += GetNumBasicElements(fi->getType());
+      ++fi;
+    }
+    return total;
+  }
+  case AR_TOBJ_ARRAY: {
+    unsigned arraySize = GetElementCount(anyType);
+    unsigned eltSize = GetNumBasicElements(
+        QualType(anyType->getArrayElementTypeNoTypeQual(), 0));
+    return arraySize * eltSize;
+  }
   case AR_TOBJ_MATRIX:
   case AR_TOBJ_VECTOR:
     return GetElementCount(anyType);
@@ -8599,12 +8640,12 @@ unsigned hlsl::CaculateInitListArraySizeForHLSL(
   _In_ const clang::QualType EltTy) {
   HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(sema);
   unsigned totalSize = 0;
-  unsigned eltSize = hlslSource->GetNumElements(EltTy);
+  unsigned eltSize = hlslSource->GetNumBasicElements(EltTy);
 
   for (unsigned i=0;i<InitList->getNumInits();i++) {
     const clang::Expr *EltInit = InitList->getInit(i);
     QualType EltInitTy = EltInit->getType();
-    totalSize += hlslSource->GetNumElements(EltInitTy);
+    totalSize += hlslSource->GetNumBasicElements(EltInitTy);
   }
   if (totalSize > 0 && (totalSize % eltSize)==0) {
     return totalSize / eltSize;
