@@ -297,6 +297,7 @@ public:
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
+  TEST_METHOD(CodeGenAllLit)
   TEST_METHOD(CodeGenAddUint64)
   TEST_METHOD(CodeGenArrayArg)
   TEST_METHOD(CodeGenArrayOfStruct)
@@ -340,6 +341,7 @@ public:
   TEST_METHOD(CodeGenEarlyDepthStencil)
   TEST_METHOD(CodeGenEval)
   TEST_METHOD(CodeGenEvalPos)
+  TEST_METHOD(CodeGenExternRes)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
   TEST_METHOD(CodeGenFloatMaxtessfactor)
@@ -536,6 +538,7 @@ public:
   TEST_METHOD(CodeGenUint64_2)
   TEST_METHOD(CodeGenUintSample)
   TEST_METHOD(CodeGenUmaxObjectAtomic)
+  TEST_METHOD(CodeGenUnsignedShortHandMatrixVector)
   TEST_METHOD(CodeGenUpdateCounter)
   TEST_METHOD(CodeGenUpperCaseRegister1);
   TEST_METHOD(CodeGenVcmp)
@@ -1896,6 +1899,10 @@ TEST_F(CompilerTest, CodeGenAbs2) {
   CodeGenTest(L"..\\CodeGenHLSL\\abs2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenAllLit) {
+  CodeGenTest(L"..\\CodeGenHLSL\\all_lit.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenAddUint64) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\AddUint64.hlsl");
 }
@@ -2066,6 +2073,10 @@ TEST_F(CompilerTest, CodeGenEval) {
 
 TEST_F(CompilerTest, CodeGenEvalPos) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\evalPos.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenExternRes) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\extern_res.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFirstbitHi) {
@@ -2833,6 +2844,10 @@ TEST_F(CompilerTest, CodeGenUintSample) {
 
 TEST_F(CompilerTest, CodeGenUmaxObjectAtomic) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\umaxObjectAtomic.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenUnsignedShortHandMatrixVector) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\unsignedShortHandMatrixVector.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenUpdateCounter) {
