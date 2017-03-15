@@ -529,6 +529,7 @@ public:
   TEST_METHOD(CodeGenSwizzle2)
   TEST_METHOD(CodeGenSwizzleAtomic)
   TEST_METHOD(CodeGenSwizzleAtomic2)
+  TEST_METHOD(CodeGenSwizzleIndexing)
   TEST_METHOD(CodeGenTemp1)
   TEST_METHOD(CodeGenTemp2)
   TEST_METHOD(CodeGenTexSubscript)
@@ -2809,6 +2810,10 @@ TEST_F(CompilerTest, CodeGenSwizzleAtomic) {
 
 TEST_F(CompilerTest, CodeGenSwizzleAtomic2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\swizzleAtomic2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSwizzleIndexing) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\swizzleIndexing.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenTemp1) {
