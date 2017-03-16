@@ -472,37 +472,37 @@ STDMETHODIMP CShaderReflectionType::IsEqual(THIS_ ID3D12ShaderReflectionType* pT
 
 STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetSubType(THIS)
 {
-  // HLSL classes/interfaces have been deprecated
+  // TODO: implement `class`-related features, if requested
   return nullptr;
 }
 
 STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetBaseClass(THIS)
 {
-  // HLSL classes/interfaces have been deprecated
+  // TODO: implement `class`-related features, if requested
   return nullptr;
 }
 
 STDMETHODIMP_(UINT) CShaderReflectionType::GetNumInterfaces(THIS)
 {
-  // HLSL classes/interfaces have been deprecated
+  // HLSL interfaces have been deprecated
   return 0;
 }
 
 STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetInterfaceByIndex(THIS_ UINT uIndex)
 {
-  // HLSL classes/interfaces have been deprecated
+  // HLSL interfaces have been deprecated
   return nullptr;
 }
 
 STDMETHODIMP CShaderReflectionType::IsOfType(THIS_ ID3D12ShaderReflectionType* pType)
 {
-  // HLSL classes/interfaces have been deprecated
+  // TODO: implement `class`-related features, if requested
   return S_FALSE;
 }
 
 STDMETHODIMP CShaderReflectionType::ImplementsInterface(THIS_ ID3D12ShaderReflectionType* pBase)
 {
-  // HLSL classes/interfaces have been deprecated
+  // HLSL interfaces have been deprecated
   return S_FALSE;
 }
 
@@ -513,7 +513,9 @@ static bool ProcessUnhandledObjectType(
   D3D_SHADER_VARIABLE_TYPE    *outObjectType)
 {
   // Don't actually make this a hard error, but instead report the problem using a suitable debug message.
+#ifdef DBG
   OutputDebugFormatA("DxilContainerReflection.cpp: error: unhandled object type '%s'.\n", structType->getName().str().c_str());
+#endif
   *outObjectType = D3D_SVT_VOID;
   return true;
 }
@@ -543,8 +545,7 @@ static bool TryToDetectObjectType(
   name = name.ltrim("class.");
   name = name.ltrim("struct.");
 
-  // TODO: not sure why this check is needed, but it is
-  // in `HLModule::IsHLSLObjectType` so we do the same.
+  // Slice types occur as intermediates (they aren not objects)
   if(name.endswith("_slice_type")) { return false; }
 
   // We might check for an exact name match, or a prefix match
@@ -613,10 +614,10 @@ static bool IsObjectType(
     type = type->getArrayElementType();
   }
 
-  if(!type->isStructTy())
+  llvm::StructType* structType = dyn_cast<StructType>(type);
+  if(!structType)
     return false;
 
-  llvm::StructType* structType = cast<StructType>(type);
   D3D_SHADER_VARIABLE_TYPE ignored;
   return TryToDetectObjectType(structType, &ignored);
 }
@@ -629,7 +630,7 @@ HRESULT CShaderReflectionType::Initialize(
   DxilFieldAnnotation     &typeAnnotation,
   unsigned int            baseOffset)
 {
-  assert(inType);
+  DXASSERT_NOMSG(inType);
 
   // Set a bunch of fields to default values, to avoid duplication.
   m_Desc.Rows = 0;
@@ -690,13 +691,17 @@ HRESULT CShaderReflectionType::Initialize(
     break;
 
   case hlsl::DXIL::ComponentType::I64:
+#ifdef DBG
     OutputDebugStringA("DxilContainerReflection.cpp: warning: component of type 'I64' being reflected as if 'I32'\n");
+#endif
   case hlsl::DXIL::ComponentType::I32:
     componentType = D3D_SVT_INT;
     break;
 
   case hlsl::DXIL::ComponentType::U64:
+#ifdef DBG
     OutputDebugStringA("DxilContainerReflection.cpp: warning: component of type 'U64' being reflected as if 'U32'\n");
+#endif
   case hlsl::DXIL::ComponentType::U32:
     componentType = D3D_SVT_UINT;
     break;
@@ -720,7 +725,9 @@ HRESULT CShaderReflectionType::Initialize(
     break;
 
   default:
+#ifdef DBG
     OutputDebugStringA("DxilContainerReflection.cpp: error: unknown component type\n");
+#endif
     break;
   }
   m_Desc.Type = componentType;
@@ -770,7 +777,7 @@ HRESULT CShaderReflectionType::Initialize(
       // in order to decode their types properly.
       DxilTypeSystem &typeSys = M.GetTypeSystem();
       DxilStructAnnotation *structAnnotation = typeSys.GetStructAnnotation(structType);
-      assert(structAnnotation);
+      DXASSERT(structAnnotation, "else type system is missing annotations for user-defined struct");
 
       for(unsigned int ff = 0; ff < fieldCount; ++ff)
       {
@@ -801,7 +808,9 @@ HRESULT CShaderReflectionType::Initialize(
   }
   else if( type->isPointerTy() )
   {
+#ifdef DBG
       OutputDebugStringA("DxilContainerReflection.cpp: error: cannot reflect pointer type\n");
+#endif
   }
   else
   {
