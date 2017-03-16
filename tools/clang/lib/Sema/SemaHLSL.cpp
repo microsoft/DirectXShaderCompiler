@@ -9975,6 +9975,14 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
   bool hasSignSpec = D.getDeclSpec().getTypeSpecSign() != DeclSpec::TSS::TSS_unspecified;
 
+  // Function declarations are not allowed in parameter declaration
+  // TODO : Remove this check once we support function declarations/pointers in HLSL
+  if (isParameter && isFunction) {
+      Diag(D.getLocStart(), diag::err_hlsl_func_in_func_decl);
+      D.setInvalidType();
+      return false;
+  }
+
   assert(
     (1 == (isLocalVar ? 1 : 0) + (isGlobal ? 1 : 0) + (isField ? 1 : 0) +
     (isTypedef ? 1 : 0) + (isFunction ? 1 : 0) + (isMethod ? 1 : 0) +

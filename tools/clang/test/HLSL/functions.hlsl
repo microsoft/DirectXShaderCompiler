@@ -10,6 +10,9 @@
 void fn_params_complete(int a = 0, int b = 0);
 void fn_params_last(int a, int b = 0);
 void fn_params_wrong(int a = 0, int b); // expected-error {{missing default argument on parameter 'b'}} fxc-error {{X3044: 'fn_params_wrong': missing default value for parameter 'b'}}
+void fn_params_fn_declaration(int fn(), int b);             /* expected-error {{function declaration is not allowed in function parameters}} fxc-error {{X3000: syntax error: unexpected token '('}} fxc-error {{X3000: syntax error: unexpected token ','}} */
+void fn_params_fn_declaration(fn());    /* expected-error {{HLSL requires a type specifier for all declarations}} expected-error {{function declaration is not allowed in function parameters}} fxc-error {{X3000: unrecognized identifier 'fn'}} */
+void fn_params_fn_pointer(int (*fn)(), int b);              /* expected-error {{pointers are unsupported in HLSL}} fxc-error {{X3000: syntax error: unexpected token '('}} */
 
 // Look at the 'mul' issues.
 void fn_mul_test() {
