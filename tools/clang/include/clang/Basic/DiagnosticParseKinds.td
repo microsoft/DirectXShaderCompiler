@@ -1023,7 +1023,7 @@ def warn_hlsl_effect_technique : Warning <
   "effect technique ignored - effect syntax is deprecated">,
   InGroup< HLSLEffectsSyntax >;
 def err_hlsl_func_in_func_decl : Error<
-   "function call is not allowed in parameter declaration">;
+   "function declaration is not allowed in function parameters">;
 
 // OpenMP support.
 def warn_pragma_omp_ignored : Warning<

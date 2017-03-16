@@ -6619,8 +6619,8 @@ void Parser::ParseParameterDeclarationClause(
                                                 Declarator::PrototypeContext);
     ParseDeclarator(ParmDeclarator);
     // HLSL Change Starts
-    // Function calls are not allowed in parameter declaration
-    // TODO : Remove this check once we support function pointer in HLSL
+    // Function declarations are not allowed in parameter declaration
+    // TODO : Remove this check once we support function declarations/pointers in HLSL
     if (ParmDeclarator.isFunctionDeclarator()) {
       Diag(DSStart, diag::err_hlsl_func_in_func_decl);
       return;
