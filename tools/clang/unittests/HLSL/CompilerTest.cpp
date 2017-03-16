@@ -520,6 +520,7 @@ public:
   TEST_METHOD(CodeGenStruct_Buf1)
   TEST_METHOD(CodeGenStruct_BufHasCounter)
   TEST_METHOD(CodeGenStruct_BufHasCounter2)
+  TEST_METHOD(CodeGenStructArray)
   TEST_METHOD(CodeGenStructCast)
   TEST_METHOD(CodeGenStructCast2)
   TEST_METHOD(CodeGenStructInBuffer)
@@ -2778,6 +2779,10 @@ TEST_F(CompilerTest, CodeGenStruct_BufHasCounter) {
 
 TEST_F(CompilerTest, CodeGenStruct_BufHasCounter2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_bufHasCounter2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructArray) {
+  CodeGenTest(L"..\\CodeGenHLSL\\structArray.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStructCast) {
