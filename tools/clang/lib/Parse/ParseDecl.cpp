@@ -6618,7 +6618,14 @@ void Parser::ParseParameterDeclarationClause(
                                   Declarator::LambdaExprParameterContext :
                                                 Declarator::PrototypeContext);
     ParseDeclarator(ParmDeclarator);
-    // HLSL Change Starts: Parse HLSL Semantic on function parameters
+    // HLSL Change Starts
+    // Function calls are not allowed in parameter declaration
+    // TODO : Remove this check once we support function pointer in HLSL
+    if (ParmDeclarator.isFunctionDeclarator()) {
+      Diag(DSStart, diag::err_hlsl_func_in_func_decl);
+      return;
+    }
+    // Parse HLSL Semantic on function parameters
     if (MaybeParseHLSLAttributes(ParmDeclarator)) {
       ParmDeclarator.setInvalidType();
       return;
