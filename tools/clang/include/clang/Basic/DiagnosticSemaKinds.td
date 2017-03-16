@@ -7639,6 +7639,8 @@ def warn_hlsl_unused_call : Warning<
   "ignoring return value of function that only reads data">,
   InGroup<UnusedValue>;
 }
+def err_hlsl_func_in_func_decl : Error<
+   "function declaration is not allowed in function parameters">;
 // HLSL Change Ends
 
 let CategoryName = "OpenMP Issue" in {
