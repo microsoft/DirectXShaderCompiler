@@ -3211,6 +3211,44 @@ bool SROA_Helper::DoScalarReplacement(Value *V, std::vector<Value *> &Elts,
   return true;
 }
 
+static Constant *GetEltInit(Type *Ty, Constant *Init, unsigned idx,
+                            Type *EltTy) {
+  if (isa<UndefValue>(Init))
+    return UndefValue::get(EltTy);
+
+  if (StructType *ST = dyn_cast<StructType>(Ty)) {
+    return Init->getAggregateElement(idx);
+  } else if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
+    return Init->getAggregateElement(idx);
+  } else {
+    ArrayType *AT = cast<ArrayType>(Ty);
+    ArrayType *EltArrayTy = cast<ArrayType>(EltTy);
+    std::vector<Constant *> Elts;
+    if (!AT->getElementType()->isArrayTy()) {
+      for (unsigned i = 0; i < AT->getNumElements(); i++) {
+        // Get Array[i]
+        Constant *InitArrayElt = Init->getAggregateElement(i);
+        // Get Array[i].idx
+        InitArrayElt = InitArrayElt->getAggregateElement(idx);
+        Elts.emplace_back(InitArrayElt);
+      }
+      return ConstantArray::get(EltArrayTy, Elts);
+    } else {
+      Type *EltTy = AT->getElementType();
+      ArrayType *NestEltArrayTy = cast<ArrayType>(EltArrayTy->getElementType());
+      // Nested array.
+      for (unsigned i = 0; i < AT->getNumElements(); i++) {
+        // Get Array[i]
+        Constant *InitArrayElt = Init->getAggregateElement(i);
+        // Get Array[i].idx
+        InitArrayElt = GetEltInit(EltTy, InitArrayElt, idx, NestEltArrayTy);
+        Elts.emplace_back(InitArrayElt);
+      }
+      return ConstantArray::get(EltArrayTy, Elts);
+    }
+  }
+}
+
 /// DoScalarReplacement - Split V into AllocaInsts with Builder and save the new AllocaInsts into Elts.
 /// Then do SROA on V.
 bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &Elts,
@@ -3252,7 +3290,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &
     Elts.reserve(numTypes);
     //DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
     for (int i = 0, e = numTypes; i != e; ++i) {
-      Constant *EltInit = cast<Constant>(Builder.CreateExtractValue(Init, i));
+      Constant *EltInit = GetEltInit(Ty, Init, i, ST->getElementType(i));
       GlobalVariable *EltGV = new llvm::GlobalVariable(
           *M, ST->getContainedType(i), /*IsConstant*/ isConst, linkage,
           /*InitVal*/ EltInit, GV->getName() + "." + Twine(i),
@@ -3271,7 +3309,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &
     Type *EltTy = VT->getElementType();
     //DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
     for (int i = 0, e = numElts; i != e; ++i) {
-      Constant *EltInit = cast<Constant>(Builder.CreateExtractElement(Init, i));
+      Constant *EltInit = GetEltInit(Ty, Init, i, EltTy);
       GlobalVariable *EltGV = new llvm::GlobalVariable(
           *M, EltTy, /*IsConstant*/ isConst, linkage,
           /*InitVal*/ EltInit, GV->getName() + "." + Twine(i),
@@ -3312,8 +3350,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &
       for (int i = 0, e = numTypes; i != e; ++i) {
         Type *EltTy =
             CreateNestArrayTy(ElST->getContainedType(i), nestArrayTys);
-        // Don't need InitVal, struct type will use store to init.
-        Constant *EltInit = UndefValue::get(EltTy);
+        Constant *EltInit = GetEltInit(Ty, Init, i, EltTy);
         GlobalVariable *EltGV = new llvm::GlobalVariable(
             *M, EltTy, /*IsConstant*/ isConst, linkage,
             /*InitVal*/ EltInit, GV->getName() + "." + Twine(i),
@@ -3339,8 +3376,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &
           CreateNestArrayTy(ElVT->getElementType(), nestArrayTys);
 
       for (int i = 0, e = ElVT->getNumElements(); i != e; ++i) {
-        // Don't need InitVal, struct type will use store to init.
-        Constant *EltInit = UndefValue::get(scalarArrayTy);
+        Constant *EltInit = GetEltInit(Ty, Init, i, scalarArrayTy);
         GlobalVariable *EltGV = new llvm::GlobalVariable(
             *M, scalarArrayTy, /*IsConstant*/ isConst, linkage,
             /*InitVal*/ EltInit, GV->getName() + "." + Twine(i),
@@ -5193,6 +5229,26 @@ bool DynamicIndexingVectorToArray::runOnFunction(Function &F) {
   return size > 0;
 }
 
+static Constant *VectorConstToArray(Type *VecTy, Constant *C, ArrayType *ArrayTy) {
+  if (VecTy->isVectorTy()) {
+    SmallVector<Constant *, 4> Elts;
+    for (unsigned i=0;i<VecTy->getVectorNumElements();i++) {
+      Elts.emplace_back(C->getAggregateElement(i));
+    }
+    return ConstantArray::get(ArrayTy, Elts);
+  } else {
+    ArrayType *AT = cast<ArrayType>(VecTy);
+    Type *EltTy = AT->getElementType();
+    ArrayType *EltArrayTy = cast<ArrayType>(ArrayTy->getElementType());
+    SmallVector<Constant *, 4> Elts;
+    for (unsigned i=0;i<AT->getNumElements();i++) {
+      Constant *Elt = VectorConstToArray(EltTy, C->getAggregateElement(i), EltArrayTy);
+      Elts.emplace_back(Elt);
+    }
+    return ConstantArray::get(ArrayTy, Elts);
+  }
+}
+
 void DynamicIndexingVectorToArray::runOnInternalGlobal(GlobalVariable *GV,
                                                        HLModule *HLM) {
   Type *Ty = GV->getType()->getPointerElementType();
@@ -5224,15 +5280,7 @@ void DynamicIndexingVectorToArray::runOnInternalGlobal(GlobalVariable *GV,
       InitVal = ConstantAggregateZero::get(AT);
     else if (!isa<UndefValue>(vecInitVal)) {
       // build arrayInitVal.
-      // Only vector initializer could reach here.
-      // Complex case will use store to init.
-      DXASSERT_NOMSG(vecInitVal->getType()->isVectorTy());
-      ConstantDataVector *CDV = cast<ConstantDataVector>(vecInitVal);
-      unsigned vecSize = CDV->getType()->getVectorNumElements();
-      std::vector<Constant *> vals;
-      for (unsigned i = 0; i < vecSize; i++)
-        vals.emplace_back(CDV->getAggregateElement(i));
-      InitVal = ConstantArray::get(AT, vals);
+      InitVal = VectorConstToArray(vecInitVal->getType(), vecInitVal, AT);
     }
   }
 
@@ -5421,6 +5469,18 @@ void MultiDimArrayToOneDimArray::flattenAlloca(AllocaInst *AI) {
   AI->eraseFromParent();
 }
 
+static void FlattenMultiDimConstArray(Constant *V,
+                                      std::vector<Constant *> &Elts) {
+  if (!V->getType()->isArrayTy()) {
+    Elts.emplace_back(V);
+  } else {
+    ArrayType *AT = cast<ArrayType>(V->getType());
+    for (unsigned i = 0; i < AT->getNumElements(); i++) {
+      FlattenMultiDimConstArray(V->getAggregateElement(i), Elts);
+    }
+  }
+}
+
 void MultiDimArrayToOneDimArray::flattenGlobal(GlobalVariable *GV, DxilModule *DM) {
   Type *Ty = GV->getType()->getElementType();
 
@@ -5443,8 +5503,11 @@ void MultiDimArrayToOneDimArray::flattenGlobal(GlobalVariable *GV, DxilModule *D
       InitVal = ConstantAggregateZero::get(AT);
     else if (isa<UndefValue>(InitVal))
       InitVal = UndefValue::get(AT);
-    else
-      DXASSERT(0, "invalid initializer");
+    else {
+      std::vector<Constant *> Elts;
+      FlattenMultiDimConstArray(InitVal, Elts);
+      InitVal = ConstantArray::get(AT, Elts);
+    }
   } else {
     InitVal = UndefValue::get(AT);
   }
