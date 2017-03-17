@@ -723,7 +723,7 @@ HRESULT CShaderReflectionType::Initialize(
 #endif
   case hlsl::DXIL::ComponentType::U32:
     componentType = D3D_SVT_UINT;
-    m_Name = "dword";
+    m_Name = "uint";
     break;
 
   case hlsl::DXIL::ComponentType::F16:
@@ -813,9 +813,12 @@ HRESULT CShaderReflectionType::Initialize(
       // Otherwise we have a struct and need to recurse on its fields.
       m_Desc.Class = D3D_SVC_STRUCT;
       m_Desc.Rows = 1;
-      m_Desc.Columns = 1;
 
-      m_Name = structType->getName().ltrim("struct.");
+      // Try to "clean" the type name for use in reflection data
+      llvm::StringRef name = structType->getName();
+      name = name.ltrim("dx.alignment.legacy.");
+      name = name.ltrim("struct.");
+      m_Name = name;
 
       unsigned int fieldCount = type->getStructNumElements();
 
@@ -824,6 +827,10 @@ HRESULT CShaderReflectionType::Initialize(
       DxilTypeSystem &typeSys = M.GetTypeSystem();
       DxilStructAnnotation *structAnnotation = typeSys.GetStructAnnotation(structType);
       DXASSERT(structAnnotation, "else type system is missing annotations for user-defined struct");
+
+      // The DXBC reflection info computes `Columns` for a
+      // `struct` type from the fields (see below)
+      UINT columnCounter = 0;
 
       for(unsigned int ff = 0; ff < fieldCount; ++ff)
       {
@@ -844,7 +851,19 @@ HRESULT CShaderReflectionType::Initialize(
 
         m_MemberTypes.push_back(fieldReflectionType);
         m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
+
+        // Effectively, we want to add one to `Columns` for every scalar nested recursively
+        // inside this `struct` type (ignoring objects, which we filtered above). We should
+        // be able to compute this as the product of the `Columns`, `Rows` and `Elements`
+        // of each field, with the caveat that some of these may be zero, but shoud be
+        // treated as one.
+        columnCounter +=
+            (fieldReflectionType->m_Desc.Columns  ? fieldReflectionType->m_Desc.Columns  : 1)
+          * (fieldReflectionType->m_Desc.Rows     ? fieldReflectionType->m_Desc.Rows     : 1)
+          * (fieldReflectionType->m_Desc.Elements ? fieldReflectionType->m_Desc.Elements : 1);
       }
+
+      m_Desc.Columns = columnCounter;
 
       // Because we might have skipped fields during enumeration,
       // the `Members` count in the description might not be the same
@@ -872,6 +891,18 @@ HRESULT CShaderReflectionType::Initialize(
     m_Desc.Class = D3D_SVC_SCALAR;
     m_Desc.Rows = 1;
     m_Desc.Columns = 1;
+
+    // Special-case naming
+    switch(m_Desc.Type)
+    {
+    default:
+      break;
+
+    case D3D_SVT_UINT:
+      // Scalar `uint` gets reflected as `dword`, while vectors/matrices use `uint`...
+      m_Name = "dword";
+      break;
+    }
   }
   // TODO: are there other cases to be handled?
 
