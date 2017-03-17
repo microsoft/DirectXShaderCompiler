@@ -270,10 +270,10 @@ protected:
   D3D12_SHADER_TYPE_DESC              m_Desc;
   std::string                         m_Name;
   std::vector<StringRef>              m_MemberNames;
-  std::vector<CShaderReflectionType>  m_MemberTypes;
+  std::vector<CShaderReflectionType*> m_MemberTypes;
   CShaderReflectionType*              m_pSubType;
   CShaderReflectionType*              m_pBaseClass;
-  std::vector<CShaderReflectionType>  m_Interfaces;
+  std::vector<CShaderReflectionType*> m_Interfaces;
   ULONG_PTR                           m_Identity;
 
 public:
@@ -443,7 +443,7 @@ STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetMemberTypeB
   if (Index >= m_MemberTypes.size()) {
     return &g_InvalidSRType;
   }
-  return &m_MemberTypes[Index];
+  return m_MemberTypes[Index];
 }
 
 STDMETHODIMP_(LPCSTR) CShaderReflectionType::GetMemberTypeName(UINT Index)
@@ -459,7 +459,7 @@ STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetMemberTypeB
   UINT memberCount = m_Desc.Members;
   for( UINT mm = 0; mm < memberCount; ++mm ) {
     if( m_MemberNames[mm] == Name ) {
-      return &m_MemberTypes[mm];
+      return m_MemberTypes[mm];
     }
   }
   return nullptr;
@@ -652,17 +652,32 @@ HRESULT CShaderReflectionType::Initialize(
   // We "unwrap" any array type here, and then proceed to look
   // at the element type.
   llvm::Type* type = inType;
-  if( type->isArrayTy() )
+
+  while(type->isArrayTy())
   {
+    llvm::Type* elementType = type->getArrayElementType();
+
+    // Note: At this point an HLSL matrix type may appear as an ordinary
+    // array (not wrapped in a `struct`), so `HLMatrixLower::IsMatrixType()`
+    // is not sufficient. Instead we need to check the field annotation.
+    //
+    // We might have an array of matrices, though, so we only exit if
+    // the field annotation says we have a matrix, and we've bottomed
+    // out and the element type isn't itself an array.
+    if(typeAnnotation.HasMatrixAnnotation() && !elementType->isArrayTy())
+    {
+      break;
+    }
+
+    // Non-array types should have `Elements` be zero, so as soon as we
+    // find that we have our first real array (not a matrix), we initialize `Elements`
+    if(!m_Desc.Elements) m_Desc.Elements = 1;
+
     // It isn't clear what is the desired behavior for multi-dimensional arrays,
     // but for now we do the expedient thing of multiplying out all their
     // dimensions.
-    m_Desc.Elements = 1;
-    while(type->isArrayTy())
-    {
-      m_Desc.Elements *= type->getArrayNumElements();
-      type = type->getArrayElementType();
-    }
+    m_Desc.Elements *= type->getArrayNumElements();
+    type = elementType;
   }
 
   // Default to a scalar type, just to avoid some duplication later.
@@ -708,7 +723,7 @@ HRESULT CShaderReflectionType::Initialize(
 #endif
   case hlsl::DXIL::ComponentType::U32:
     componentType = D3D_SVT_UINT;
-    m_Name = "uint";
+    m_Name = "dword";
     break;
 
   case hlsl::DXIL::ComponentType::F16:
@@ -747,10 +762,25 @@ HRESULT CShaderReflectionType::Initialize(
     // We can extract the details from the annotation.
     DxilMatrixAnnotation const& matrixAnnotation = typeAnnotation.GetMatrixAnnotation();
 
-    m_Desc.Class = matrixAnnotation.Orientation == hlsl::MatrixOrientation::RowMajor ?  D3D_SVC_MATRIX_ROWS : D3D_SVC_MATRIX_COLUMNS;
+    switch(matrixAnnotation.Orientation)
+    {
+    default:
+#ifdef DBG
+      OutputDebugStringA("DxilContainerReflection.cpp: error: unknown matrix orientation\n");
+#endif
+    // Note: column-major layout is the default
+    case hlsl::MatrixOrientation::Undefined:
+    case hlsl::MatrixOrientation::ColumnMajor:
+      m_Desc.Class = D3D_SVC_MATRIX_COLUMNS;
+      break;
+
+    case hlsl::MatrixOrientation::RowMajor:
+      m_Desc.Class = D3D_SVC_MATRIX_ROWS;
+      break;
+    }
+
     m_Desc.Rows = matrixAnnotation.Rows;
     m_Desc.Columns = matrixAnnotation.Cols;
-
     m_Name += std::to_string(matrixAnnotation.Rows) + "x" + std::to_string(matrixAnnotation.Cols);
   }
   else if( type->isVectorTy() )
@@ -782,7 +812,10 @@ HRESULT CShaderReflectionType::Initialize(
     {
       // Otherwise we have a struct and need to recurse on its fields.
       m_Desc.Class = D3D_SVC_STRUCT;
-      m_Name = structType->getName();
+      m_Desc.Rows = 1;
+      m_Desc.Columns = 1;
+
+      m_Name = structType->getName().ltrim("struct.");
 
       unsigned int fieldCount = type->getStructNumElements();
 
@@ -806,10 +839,10 @@ HRESULT CShaderReflectionType::Initialize(
           continue;
         }
 
-        CShaderReflectionType fieldReflectionType;
-        fieldReflectionType.Initialize(M, fieldType, fieldAnnotation, 0);
+        CShaderReflectionType *fieldReflectionType = new CShaderReflectionType();
+        fieldReflectionType->Initialize(M, fieldType, fieldAnnotation, 0);
 
-        m_MemberTypes.push_back(std::move(fieldReflectionType));
+        m_MemberTypes.push_back(fieldReflectionType);
         m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
       }
 
@@ -824,6 +857,14 @@ HRESULT CShaderReflectionType::Initialize(
 #ifdef DBG
       OutputDebugStringA("DxilContainerReflection.cpp: error: cannot reflect pointer type\n");
 #endif
+  }
+  else if( type->isVoidTy() )
+  {
+    // Name for `void` wasn't handle in the component-type `switch` above
+    m_Name = "void";
+    m_Desc.Class = D3D_SVC_SCALAR;
+    m_Desc.Rows = 1;
+    m_Desc.Columns = 1;
   }
   else
   {
