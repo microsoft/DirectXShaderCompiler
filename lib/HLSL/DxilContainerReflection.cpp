@@ -986,6 +986,34 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(DxilModule &M, 
   VarDesc.uFlags |= D3D_SVF_USED; // TODO: not necessarily true
   CShaderReflectionVariable Var;
   CShaderReflectionType *pVarType = nullptr;
+
+  // Create reflection type, if we have the necessary annotation info
+
+  // Extract the `struct` that wraps element type of the buffer resource
+  Constant *GV = R.GetGlobalSymbol();
+  Type *Ty = GV->getType()->getPointerElementType();
+  if(Ty->isArrayTy())
+      Ty = Ty->getArrayElementType();
+  StructType *ST = cast<StructType>(Ty);
+
+  // Look up struct type annotation on the element type
+  DxilTypeSystem &typeSys = M.GetTypeSystem();
+  DxilStructAnnotation *annotation =
+    typeSys.GetStructAnnotation(cast<StructType>(ST));
+
+  // Dxil from dxbc doesn't have annotation.
+  if(annotation)
+  {
+    // Actually create the reflection type.
+    pVarType = new CShaderReflectionType();
+
+    // The user-visible element type is the first field of the wrapepr `struct`
+    Type *fieldType = ST->getElementType(0);
+    DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(0);
+
+    pVarType->Initialize(M, fieldType, fieldAnnotation, fieldAnnotation.GetCBufferOffset());
+  }
+
   BYTE *pDefaultValue = nullptr;
   Var.Initialize(this, &VarDesc, pVarType, pDefaultValue);
   m_Variables.push_back(Var);
