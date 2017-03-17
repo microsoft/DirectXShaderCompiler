@@ -2536,5 +2536,19 @@ namespace MainNs
         {
             this.hlslHost.IsActive = false;
         }
+
+        private void FontGrowToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TextBoxBase target = (this.DeepActiveControl as TextBoxBase);
+            if (target == null) return;
+            target.Font = new Font(target.Font.FontFamily, target.Font.Size * 1.1f);
+        }
+
+        private void FontShrinkToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TextBoxBase target = (this.DeepActiveControl as TextBoxBase);
+            if (target == null) return;
+            target.Font = new Font(target.Font.FontFamily, target.Font.Size / 1.1f);
+        }
     }
 }
