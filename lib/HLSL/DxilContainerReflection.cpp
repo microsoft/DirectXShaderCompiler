@@ -268,6 +268,7 @@ class CShaderReflectionType : public ID3D12ShaderReflectionType
 {
 protected:
   D3D12_SHADER_TYPE_DESC              m_Desc;
+  std::string                         m_Name;
   std::vector<StringRef>              m_MemberNames;
   std::vector<CShaderReflectionType>  m_MemberTypes;
   CShaderReflectionType*              m_pSubType;
@@ -645,7 +646,6 @@ HRESULT CShaderReflectionType::Initialize(
   // we need to zero out the value in the type to avoid the user
   // of the reflection interface seeing 2x the correct value.
   m_Desc.Offset = typeAnnotation.GetCBufferOffset() - baseOffset;
-  m_Desc.Name = typeAnnotation.GetFieldName().c_str();
 
   // Arrays don't seem to be represented directly in the reflection
   // data, but only as the `Elements` field being non-zero.
@@ -680,14 +680,17 @@ HRESULT CShaderReflectionType::Initialize(
 
   case hlsl::DXIL::ComponentType::I1:
     componentType = D3D_SVT_BOOL;
+    m_Name = "bool";
     break;
 
   case hlsl::DXIL::ComponentType::I16:
     componentType = D3D_SVT_MIN16INT;
+    m_Name = "min16int";
     break;
 
   case hlsl::DXIL::ComponentType::U16:
     componentType = D3D_SVT_MIN16UINT;
+    m_Name = "min16uint";
     break;
 
   case hlsl::DXIL::ComponentType::I64:
@@ -696,6 +699,7 @@ HRESULT CShaderReflectionType::Initialize(
 #endif
   case hlsl::DXIL::ComponentType::I32:
     componentType = D3D_SVT_INT;
+    m_Name = "int";
     break;
 
   case hlsl::DXIL::ComponentType::U64:
@@ -704,24 +708,28 @@ HRESULT CShaderReflectionType::Initialize(
 #endif
   case hlsl::DXIL::ComponentType::U32:
     componentType = D3D_SVT_UINT;
+    m_Name = "uint";
     break;
 
   case hlsl::DXIL::ComponentType::F16:
   case hlsl::DXIL::ComponentType::SNormF16:
   case hlsl::DXIL::ComponentType::UNormF16:
     componentType = D3D_SVT_MIN16FLOAT;
+    m_Name = "min16float";
     break;
 
   case hlsl::DXIL::ComponentType::F32:
   case hlsl::DXIL::ComponentType::SNormF32:
   case hlsl::DXIL::ComponentType::UNormF32:
     componentType = D3D_SVT_FLOAT;
+    m_Name = "float";
     break;
 
   case hlsl::DXIL::ComponentType::F64:
   case hlsl::DXIL::ComponentType::SNormF64:
   case hlsl::DXIL::ComponentType::UNormF64:
     componentType = D3D_SVT_DOUBLE;
+    m_Name = "double";
     break;
 
   default:
@@ -742,6 +750,8 @@ HRESULT CShaderReflectionType::Initialize(
     m_Desc.Class = matrixAnnotation.Orientation == hlsl::MatrixOrientation::RowMajor ?  D3D_SVC_MATRIX_ROWS : D3D_SVC_MATRIX_COLUMNS;
     m_Desc.Rows = matrixAnnotation.Rows;
     m_Desc.Columns = matrixAnnotation.Cols;
+
+    m_Name += std::to_string(matrixAnnotation.Rows) + "x" + std::to_string(matrixAnnotation.Cols);
   }
   else if( type->isVectorTy() )
   {
@@ -753,6 +763,8 @@ HRESULT CShaderReflectionType::Initialize(
     m_Desc.Class = D3D_SVC_VECTOR;
     m_Desc.Rows = 1;
     m_Desc.Columns = type->getVectorNumElements();
+
+    m_Name += std::to_string(type->getVectorNumElements());
   }
   else if( type->isStructTy() )
   {
@@ -770,6 +782,7 @@ HRESULT CShaderReflectionType::Initialize(
     {
       // Otherwise we have a struct and need to recurse on its fields.
       m_Desc.Class = D3D_SVC_STRUCT;
+      m_Name = structType->getName();
 
       unsigned int fieldCount = type->getStructNumElements();
 
@@ -820,6 +833,8 @@ HRESULT CShaderReflectionType::Initialize(
     m_Desc.Columns = 1;
   }
   // TODO: are there other cases to be handled?
+
+  m_Desc.Name = m_Name.c_str();
 
   return S_OK;
 }
