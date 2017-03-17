@@ -67,6 +67,7 @@ public:
 };
 
 class CShaderReflectionConstantBuffer;
+class CShaderReflectionType;
 class DxilShaderReflection : public ID3D12ShaderReflection {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -80,6 +81,7 @@ private:
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC>     m_OutputSignature;
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC>     m_PatchConstantSignature;
   std::vector<std::unique_ptr<char[]>>            m_UpperCaseNames;
+  std::vector<std::unique_ptr<CShaderReflectionType>> m_Types;
   void CreateReflectionObjects();
   void SetCBufferUsage();
   void CreateReflectionObjectForResource(DxilResourceBase *R);
@@ -282,7 +284,8 @@ public:
     DxilModule              &M,
     llvm::Type              *type,
     DxilFieldAnnotation     &typeAnnotation,
-    unsigned int            baseOffset);
+    unsigned int            baseOffset,
+    std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes);
 
   // ID3D12ShaderReflectionType
   STDMETHOD(GetDesc)(D3D12_SHADER_TYPE_DESC *pDesc);
@@ -341,8 +344,12 @@ public:
     std::swap(m_Variables, other.m_Variables);
   }
 
-  void Initialize(DxilModule &M, DxilCBuffer &CB);
-  void InitializeStructuredBuffer(DxilModule &M, DxilResource &R);
+  void Initialize(DxilModule &M,
+                  DxilCBuffer &CB,
+                  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes);
+  void InitializeStructuredBuffer(DxilModule &M,
+                                  DxilResource &R,
+                                  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes);
   LPCSTR GetName() { return m_Desc.Name; }
 
   // ID3D12ShaderReflectionConstantBuffer
@@ -629,7 +636,8 @@ HRESULT CShaderReflectionType::Initialize(
   DxilModule              &M,
   llvm::Type              *inType,
   DxilFieldAnnotation     &typeAnnotation,
-  unsigned int            baseOffset)
+  unsigned int            baseOffset,
+  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes)
 {
   DXASSERT_NOMSG(inType);
 
@@ -847,7 +855,9 @@ HRESULT CShaderReflectionType::Initialize(
         }
 
         CShaderReflectionType *fieldReflectionType = new CShaderReflectionType();
-        fieldReflectionType->Initialize(M, fieldType, fieldAnnotation, 0);
+        allTypes.push_back(std::unique_ptr<CShaderReflectionType>(fieldReflectionType));
+
+        fieldReflectionType->Initialize(M, fieldType, fieldAnnotation, 0, allTypes);
 
         m_MemberTypes.push_back(fieldReflectionType);
         m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
@@ -912,7 +922,10 @@ HRESULT CShaderReflectionType::Initialize(
 }
 
 
-void CShaderReflectionConstantBuffer::Initialize(DxilModule &M, DxilCBuffer &CB) {
+void CShaderReflectionConstantBuffer::Initialize(
+  DxilModule &M,
+  DxilCBuffer &CB,
+  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes) {
   ZeroMemory(&m_Desc, sizeof(m_Desc));
   m_Desc.Name = CB.GetGlobalName().c_str();
   m_Desc.Size = CB.GetSize() / CB.GetRangeSize();
@@ -944,9 +957,9 @@ void CShaderReflectionConstantBuffer::Initialize(DxilModule &M, DxilCBuffer &CB)
     VarDesc.uFlags |= D3D_SVF_USED; // Will update in SetCBufferUsage.
     CShaderReflectionVariable Var;
     //Create reflection type.
-    // TODO: Need to figure out a memory lifetime policy here.
     CShaderReflectionType *pVarType = new CShaderReflectionType();
-    pVarType->Initialize(M, ST->getContainedType(i), fieldAnnotation, fieldAnnotation.GetCBufferOffset());
+    allTypes.push_back(std::unique_ptr<CShaderReflectionType>(pVarType));
+    pVarType->Initialize(M, ST->getContainedType(i), fieldAnnotation, fieldAnnotation.GetCBufferOffset(), allTypes);
 
     BYTE *pDefaultValue = nullptr;
 
@@ -1000,7 +1013,10 @@ static unsigned CalcResTypeSize(DxilModule &M, DxilResource &R) {
   return CalcTypeSize(Ty);
 }
 
-void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(DxilModule &M, DxilResource &R) {
+void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
+  DxilModule &M,
+  DxilResource &R,
+  std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes) {
   ZeroMemory(&m_Desc, sizeof(m_Desc));
   m_Desc.Name = R.GetGlobalName().c_str();
   //m_Desc.Size = R.GetSize();
@@ -1037,12 +1053,13 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(DxilModule &M, 
   {
     // Actually create the reflection type.
     pVarType = new CShaderReflectionType();
+    allTypes.push_back(std::unique_ptr<CShaderReflectionType>(pVarType));
 
     // The user-visible element type is the first field of the wrapepr `struct`
     Type *fieldType = ST->getElementType(0);
     DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(0);
 
-    pVarType->Initialize(M, fieldType, fieldAnnotation, fieldAnnotation.GetCBufferOffset());
+    pVarType->Initialize(M, fieldType, fieldAnnotation, fieldAnnotation.GetCBufferOffset(), allTypes);
   }
 
   BYTE *pDefaultValue = nullptr;
@@ -1397,7 +1414,7 @@ void DxilShaderReflection::CreateReflectionObjects() {
   // Create constant buffers, resources and signatures.
   for (auto && cb : m_pDxilModule->GetCBuffers()) {
     CShaderReflectionConstantBuffer rcb;
-    rcb.Initialize(*m_pDxilModule, *(cb.get()));
+    rcb.Initialize(*m_pDxilModule, *(cb.get()), m_Types);
     m_CBs.push_back(std::move(rcb));
   }
   // Set cbuf usage.
@@ -1409,7 +1426,7 @@ void DxilShaderReflection::CreateReflectionObjects() {
       continue;
     }
     CShaderReflectionConstantBuffer rcb;
-    rcb.InitializeStructuredBuffer(*m_pDxilModule, *(uav.get()));
+    rcb.InitializeStructuredBuffer(*m_pDxilModule, *(uav.get()), m_Types);
     m_CBs.push_back(std::move(rcb));
   }
   for (auto && srv : m_pDxilModule->GetSRVs()) {
@@ -1417,7 +1434,7 @@ void DxilShaderReflection::CreateReflectionObjects() {
       continue;
     }
     CShaderReflectionConstantBuffer rcb;
-    rcb.InitializeStructuredBuffer(*m_pDxilModule, *(srv.get()));
+    rcb.InitializeStructuredBuffer(*m_pDxilModule, *(srv.get()), m_Types);
     m_CBs.push_back(std::move(rcb));
   }
 
