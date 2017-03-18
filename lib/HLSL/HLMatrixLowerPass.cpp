@@ -2246,9 +2246,11 @@ void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
     Ty = ArrayType::get(Ty, *arraySize);
 
   Type *VecArrayTy = Ty;
-
+  Constant *OldInitVal = GV->getInitializer();
   Constant *InitVal =
-      LowerMatrixArrayConst(GV->getInitializer(), cast<ArrayType>(VecArrayTy));
+      isa<UndefValue>(OldInitVal)
+          ? UndefValue::get(VecArrayTy)
+          : LowerMatrixArrayConst(OldInitVal, cast<ArrayType>(VecArrayTy));
 
   bool isConst = GV->isConstant();
   GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();
@@ -2302,12 +2304,18 @@ void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
 
 static void FlattenMatConst(Constant *M, std::vector<Constant *> &Elts) {
   unsigned row, col;
-  HLMatrixLower::GetMatrixInfo(M->getType(), col, row);
-  M = M->getAggregateElement((unsigned)0);
-  for (unsigned r = 0; r < row; r++) {
-    Constant *R = M->getAggregateElement(r);
-    for (unsigned c = 0; c < col; c++) {
-      Elts.emplace_back(R->getAggregateElement(c));
+  Type *EltTy = HLMatrixLower::GetMatrixInfo(M->getType(), col, row);
+  if (isa<UndefValue>(M)) {
+    Constant *Elt = UndefValue::get(EltTy);
+    for (unsigned i=0;i<col*row;i++)
+      Elts.emplace_back(Elt);
+  } else {
+    M = M->getAggregateElement((unsigned)0);
+    for (unsigned r = 0; r < row; r++) {
+      Constant *R = M->getAggregateElement(r);
+      for (unsigned c = 0; c < col; c++) {
+        Elts.emplace_back(R->getAggregateElement(c));
+      }
     }
   }
 }
