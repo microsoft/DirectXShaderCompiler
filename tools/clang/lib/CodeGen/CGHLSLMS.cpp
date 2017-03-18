@@ -198,7 +198,6 @@ public:
   void FinishCodeGen() override;
   Value *EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E, Value *DestPtr) override;
   Constant *EmitHLSLConstInitListExpr(CodeGenModule &CGM, InitListExpr *E) override;
-  QualType UpdateHLSLIncompleteArrayType(VarDecl &D) override;
 
   RValue EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF, const FunctionDecl *FD,
                                  const CallExpr *E,
@@ -4234,6 +4233,19 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
       if (!RT)
         RT = Ty->getAs<RecordType>();
       RecordDecl *RD = RT->getDecl();
+      // Take care base.
+      if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+        if (CXXRD->getNumBases()) {
+          for (const auto &I : CXXRD->bases()) {
+            const CXXRecordDecl *BaseDecl = cast<CXXRecordDecl>(
+                I.getType()->castAs<RecordType>()->getDecl());
+            if (BaseDecl->field_empty())
+              continue;
+            QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
+            AddMissingCastOpsInInitList(elts, eltTys, idx, parentTy, CGF);
+          }
+        }
+      }
       for (FieldDecl *field : RD->fields())
         AddMissingCastOpsInInitList(elts, eltTys, idx, field->getType(), CGF);
     }
@@ -4334,46 +4346,6 @@ void CGMSHLSLRuntime::ScanInitList(CodeGenFunction &CGF, InitListExpr *E,
   }
 }
 
-unsigned CGMSHLSLRuntime::ScanInitList(InitListExpr *E) {
-  unsigned NumInitElements = E->getNumInits();
-  unsigned size = 0;
-  for (unsigned i = 0; i != NumInitElements; ++i) {
-    Expr *init = E->getInit(i);
-    QualType iType = init->getType();
-    if (InitListExpr *initList = dyn_cast<InitListExpr>(init)) {
-      size += ScanInitList(initList);
-    } else if (CodeGenFunction::hasScalarEvaluationKind(iType)) {
-      size += GetElementCount(iType);
-    } else {
-      DXASSERT(0, "not support yet");
-    }
-
-  }
-  return size;
-}
-
-QualType CGMSHLSLRuntime::UpdateHLSLIncompleteArrayType(VarDecl &D) {
-  if (!D.hasInit())
-    return D.getType();
-
-  InitListExpr *E = dyn_cast<InitListExpr>(D.getInit());
-  if (!E)
-    return D.getType();
-
-  unsigned arrayEltCount = ScanInitList(E);
-
-  QualType ResultTy = E->getType();
-
-  QualType EltTy = QualType(ResultTy->getArrayElementTypeNoTypeQual(), 0);
-  unsigned eltCount = GetElementCount(EltTy);
-  llvm::APInt ArySize(32, arrayEltCount / eltCount);
-  QualType ArrayTy = CGM.getContext().getConstantArrayType(
-      EltTy, ArySize, clang::ArrayType::Normal, 0);
-  D.setType(ArrayTy);
-  E->setType(ArrayTy);
-  return ArrayTy;
-}
-
 Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E,
       // The destPtr when emiting aggregate init, for normal case, it will be null.
       Value *DestPtr) {
@@ -4444,19 +4416,9 @@ static bool ScanConstInitList(CodeGenModule &CGM, InitListExpr *E,
         return false;
     } else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(init)) {
       if (VarDecl *D = dyn_cast<VarDecl>(ref->getDecl())) {
-        if (D->getStorageClass() == StorageClass::SC_Static &&
-            !D->isStaticLocal()) {
-          // Check initializer for static global.
-          GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(D));
-          if (GV->hasInitializer()) {
-            Constant *initVal = GV->getInitializer();
-            if (!isa<UndefValue>(initVal))
-              FlatConstToList(initVal, EltValList);
-            else
-              return false;
-          }
-        } else if (D->getType().isConstQualified()) {
-          // TODO: get init from const variable.
+        if (Constant *initVal = CGM.EmitConstantInit(*D)) {
+          FlatConstToList(initVal, EltValList);
+        } else {
           return false;
         }
       } else {
@@ -4526,11 +4488,16 @@ static Constant *BuildConstArray(llvm::ArrayType *AT, unsigned &offset,
   return llvm::ConstantArray::get(AT, Elts);
 }
 
-static void IterateRecordElt(const RecordDecl *RD,
-                             SmallVector<Constant *, 4> &StructElts,
-                             unsigned &offset,
-                             SmallVector<Constant *, 4> &EltValList,
-                             CodeGenTypes &Types) {
+static Constant *BuildConstStruct(llvm::StructType *ST, unsigned &offset,
+                                  SmallVector<Constant *, 4> &EltValList,
+                                  QualType Type, CodeGenTypes &Types) {
+  SmallVector<Constant *, 4> Elts;
+
+  const RecordType *RT = Type->getAsStructureType();
+  if (!RT)
+    RT = Type->getAs<RecordType>();
+  const RecordDecl *RD = RT->getDecl();
+
   if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
     if (CXXRD->getNumBases()) {
       // Add base as field.
@@ -4541,28 +4508,18 @@ static void IterateRecordElt(const RecordDecl *RD,
         if (BaseDecl->field_empty())
           continue;
 
-        IterateRecordElt(BaseDecl, StructElts, offset, EltValList, Types);
+        // Add base as a whole constant. Not as element.
+        Elts.emplace_back(
+            BuildConstInitializer(I.getType(), offset, EltValList, Types));
       }
     }
   }
 
   for (auto fieldIter = RD->field_begin(), fieldEnd = RD->field_end();
        fieldIter != fieldEnd; ++fieldIter) {
-    StructElts.emplace_back(
+    Elts.emplace_back(
         BuildConstInitializer(fieldIter->getType(), offset, EltValList, Types));
   }
-}
-
-static Constant *BuildConstStruct(llvm::StructType *ST, unsigned &offset,
-                                  SmallVector<Constant *, 4> &EltValList,
-                                  QualType Type, CodeGenTypes &Types) {
-  SmallVector<Constant *, 4> Elts;
-
-  const RecordType *RT = Type->getAsStructureType();
-  if (!RT)
-    RT = Type->getAs<RecordType>();
-  const RecordDecl *RD = RT->getDecl();
-  IterateRecordElt(RD, Elts, offset, EltValList, Types);
 
   return llvm::ConstantStruct::get(ST, Elts);
 }
