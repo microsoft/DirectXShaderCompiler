@@ -469,6 +469,12 @@ namespace MainNs
                     }
                 };
 
+                if (AnalysisTabControl.SelectedTab == ASTTabPage)
+                {
+                    pendingASTDump();
+                    pendingASTDump = null;
+                }
+
                 if (this.diagnosticDetailsGrid != null)
                 {
                     this.RefreshDiagnosticDetails();
@@ -1061,18 +1067,25 @@ namespace MainNs
             return result;
         }
 
-        private static void SetStartLengthColor(Tom.ITextDocument doc, int start, int length, Color color)
+        private static Tom.ITextRange SetStartLengthColor(Tom.ITextDocument doc, int start, int length, Color color)
         {
             Tom.ITextRange range = doc.Range(start, start + length);
             Tom.ITextFont font = range.Font;
             font.ForeColor = ColorToCOLORREF(color);
+            return range;
         }
 
-        private static void SetStartLengthBackColor(Tom.ITextDocument doc, int start, int length, Color color)
+        private static void SetStartLengthBackColor(Tom.ITextRange range, Color color)
         {
-            Tom.ITextRange range = doc.Range(start, start + length);
             Tom.ITextFont font = range.Font;
             font.BackColor = ColorToCOLORREF(color);
+        }
+
+        private static Tom.ITextRange SetStartLengthBackColor(Tom.ITextDocument doc, int start, int length, Color color)
+        {
+            Tom.ITextRange range = doc.Range(start, start + length);
+            SetStartLengthBackColor(range, color);
+            return range;
         }
 
         private void HandleDebugMetadata(string dbgLine)
@@ -1494,6 +1507,10 @@ namespace MainNs
                         browserForm.Text = "graph";
                         browserForm.Show();
                     }
+                    catch (DotProgram.CannotFindDotException cfde)
+                    {
+                        MessageBox.Show(cfde.Message, "Unable to find dot.exe", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                     finally
                     {
                         DeleteIfExists(path);
@@ -1544,6 +1561,11 @@ namespace MainNs
             private string fileName;
             private Dictionary<string, string> options;
 
+            internal class CannotFindDotException : InvalidOperationException
+            {
+                internal CannotFindDotException(string message) : base(message) { }
+            }
+
             public DotProgram()
             {
                 this.options = new Dictionary<string, string>();
@@ -1573,12 +1595,15 @@ namespace MainNs
 
             public static string FindDotFileName()
             {
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("Cannot find dot.exe in any of these locations.");
                 foreach (string result in DotFileNameCandidates())
                 {
+                    sb.AppendLine(result);
                     if (System.IO.File.Exists(result))
                         return result;
                 }
-                throw new InvalidOperationException("Cannot find dot.exe");
+                throw new CannotFindDotException(sb.ToString());
             }
 
             public string BuildArguments()
@@ -1722,20 +1747,22 @@ namespace MainNs
                 Tom.ITextDocument doc = GetTextDocument(rtb);
                 foreach (var pair in this.StartLengthHighlights)
                 {
-                    SetStartLengthBackColor(doc, pair.Item1, pair.Item2, color);
+                    this.HighlightRanges.Add(SetStartLengthBackColor(doc, pair.Item1, pair.Item2, color));
                 }
             }
 
             public void ClearFromRtb(RichTextBox rtb)
             {
                 Tom.ITextDocument doc = GetTextDocument(rtb);
-                foreach (var pair in this.StartLengthHighlights)
+                for (int i = 0; i < this.HighlightRanges.Count; ++i)
                 {
-                    SetStartLengthBackColor(doc, pair.Item1, pair.Item2, rtb.BackColor);
+                    SetStartLengthBackColor(HighlightRanges[i], rtb.BackColor);
                 }
                 this.StartLengthHighlights.Clear();
+                this.HighlightRanges.Clear();
             }
 
+            private List<Tom.ITextRange> HighlightRanges = new List<Tom.ITextRange>();
             public List<Tuple<int, int>> StartLengthHighlights = new List<Tuple<int, int>>();
             public string SelectedToken;
         }
@@ -2539,14 +2566,14 @@ namespace MainNs
 
         private void FontGrowToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            TextBoxBase target = (this.DeepActiveControl as TextBoxBase);
+            Control target = this.DeepActiveControl;
             if (target == null) return;
             target.Font = new Font(target.Font.FontFamily, target.Font.Size * 1.1f);
         }
 
         private void FontShrinkToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            TextBoxBase target = (this.DeepActiveControl as TextBoxBase);
+            Control target = this.DeepActiveControl;
             if (target == null) return;
             target.Font = new Font(target.Font.FontFamily, target.Font.Size / 1.1f);
         }
