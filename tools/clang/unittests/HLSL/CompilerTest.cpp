@@ -344,6 +344,7 @@ public:
   TEST_METHOD(CodeGenEval)
   TEST_METHOD(CodeGenEvalPos)
   TEST_METHOD(CodeGenExternRes)
+  TEST_METHOD(CodeGenFloatCast)
   TEST_METHOD(CodeGenFloatToBool)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
@@ -2094,6 +2095,10 @@ TEST_F(CompilerTest, CodeGenEvalPos) {
 
 TEST_F(CompilerTest, CodeGenExternRes) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\extern_res.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFloatCast) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\float_cast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFloatToBool) {
