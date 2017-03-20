@@ -2037,12 +2037,6 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   const VarDecl *InitDecl;
   const Expr *InitExpr = D->getAnyInitializer(InitDecl);
 
-  // HLSL Change Begins.
-  if (D->getType()->isIncompleteArrayType() && getLangOpts().HLSL) {
-    getHLSLRuntime().UpdateHLSLIncompleteArrayType(const_cast<VarDecl&>(*D));
-  }
-  // HLSL Change Ends.
-
   if (!InitExpr) {
     // This is a tentative definition; tentative definitions are
     // implicitly initialized with { 0 }.

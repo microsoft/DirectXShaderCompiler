@@ -5209,8 +5209,22 @@ unsigned HLSLExternalSource::GetNumBasicElements(QualType anyType) {
     // TODO: consider caching this value for perf
     unsigned total = 0;
     const RecordType *recordType = anyType->getAs<RecordType>();
-    RecordDecl::field_iterator fi = recordType->getDecl()->field_begin();
-    RecordDecl::field_iterator fend = recordType->getDecl()->field_end();
+    RecordDecl * RD = recordType->getDecl();
+    // Take care base.
+    if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+      if (CXXRD->getNumBases()) {
+        for (const auto &I : CXXRD->bases()) {
+          const CXXRecordDecl *BaseDecl =
+              cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
+          if (BaseDecl->field_empty())
+            continue;
+          QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
+          total += GetNumBasicElements(parentTy);
+        }
+      }
+    }
+    RecordDecl::field_iterator fi = RD->field_begin();
+    RecordDecl::field_iterator fend = RD->field_end();
     while (fi != fend) {
       total += GetNumBasicElements(fi->getType());
       ++fi;
@@ -8634,19 +8648,29 @@ void hlsl::InitializeInitSequenceForHLSL(Sema *self,
     ->InitializeInitSequenceForHLSL(Entity, Kind, Args, TopLevelOfInitList, initSequence);
 }
 
+static unsigned CaculateInitListSize(HLSLExternalSource *hlslSource,
+                                     const clang::InitListExpr *InitList) {
+  unsigned totalSize = 0;
+  for (unsigned i = 0; i < InitList->getNumInits(); i++) {
+    const clang::Expr *EltInit = InitList->getInit(i);
+    QualType EltInitTy = EltInit->getType();
+    if (const InitListExpr *EltInitList = dyn_cast<InitListExpr>(EltInit)) {
+      totalSize += CaculateInitListSize(hlslSource, EltInitList);
+    } else {
+      totalSize += hlslSource->GetNumBasicElements(EltInitTy);
+    }
+  }
+  return totalSize;
+}
+
 unsigned hlsl::CaculateInitListArraySizeForHLSL(
   _In_ clang::Sema* sema,
   _In_ const clang::InitListExpr *InitList,
   _In_ const clang::QualType EltTy) {
   HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(sema);
-  unsigned totalSize = 0;
+  unsigned totalSize = CaculateInitListSize(hlslSource, InitList);
   unsigned eltSize = hlslSource->GetNumBasicElements(EltTy);
 
-  for (unsigned i=0;i<InitList->getNumInits();i++) {
-    const clang::Expr *EltInit = InitList->getInit(i);
-    QualType EltInitTy = EltInit->getType();
-    totalSize += hlslSource->GetNumBasicElements(EltInitTy);
-  }
   if (totalSize > 0 && (totalSize % eltSize)==0) {
     return totalSize / eltSize;
   } else {
