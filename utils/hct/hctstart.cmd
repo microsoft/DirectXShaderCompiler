@@ -178,21 +178,20 @@ if not exist "%kit_root%" (
   echo Windows 10 SDK was installed but is not accessible.
   exit /b 1
 )
-rem SDK version 10586 and 14393 will also work properly, but we use 10240 as
-rem canonical for now.
-if exist "%kit_root%\include\10.0.10586.0\um\d3d12.h" (
-  goto :eof
-)
+rem 10.0.14393.0 will work properly. Reject 10586 and 10240 explicitly.
 if exist "%kit_root%\include\10.0.14393.0\um\d3d12.h" (
+  echo Found Windows SDK 10.0.14393.0
   goto :eof
 )
-if not exist  "%kit_root%\include\10.0.10240.0\um\d3d12.h" (
-  echo Unable to find include files for Windows 10 SDK 10.0.10240.0.
-  echo   file "%kit_root%\include\10.0.10240.0\um\d3d12.h" does not exist
-  echo Please see the README.md instructions in the project root.
-  exit /b 1
+if exist "%kit_root%\include\10.0.10586.0\um\d3d12.h" (
+  echo Found Windows SDK 10.0.10586.0 - no longer supported.
 )
-goto :eof
+if exist  "%kit_root%\include\10.0.10240.0\um\d3d12.h" (
+  echo Found Windows SDK 10.0.10240.0 - no longer supported.
+)
+echo Unable to find a suitable SDK version under %kit_root%\include
+echo Please see the README.md instructions in the project root.
+exit /b 1
 endlocal
 
 :checkcmake
