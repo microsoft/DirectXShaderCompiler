@@ -91,7 +91,7 @@ public:
     if (PHINode *phi = dyn_cast<PHINode>(V)) {
       LI->replaceAllUsesWith(phi);
       // Add nullptr for phi, will create real handle in
-      // AddCreateHandleForPhiNode.
+      // AddCreateHandleForPhiNodeAndSelect.
       handleMap[phi] = nullptr;
       return;
     }
@@ -158,7 +158,7 @@ public:
     if (PHINode *phi = dyn_cast<PHINode>(V)) {
       LI->replaceAllUsesWith(phi);
       // Add nullptr for phi, will create real handle in
-      // AddCreateHandleForPhiNode.
+      // AddCreateHandleForPhiNodeAndSelect.
       handleMap[phi] = nullptr;
       return;
     }
@@ -418,7 +418,7 @@ public:
     MapLocalDxilResourceHandles(handleMap);
 
     // Take care phi node of resource.
-    AddCreateHandleForPhiNode(handleMap, m_pHLModule->GetOP());
+    AddCreateHandleForPhiNodeAndSelect(handleMap, m_pHLModule->GetOP());
 
     GenerateParamDxilResourceHandles(handleMap);
 
@@ -478,7 +478,7 @@ private:
   void TranslateDxilResourceUses(
       DxilResourceBase &res,
       std::unordered_map<Instruction *, Value *> &handleMap);
-  void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP);
+  void AddCreateHandleForPhiNodeAndSelect(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP);
   void GenerateDxilResourceHandles(
       std::unordered_map<Instruction *, Value *> &handleMap);
   void TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
@@ -895,18 +895,16 @@ static void GenerateStOutput(Function *stOutput, MutableArrayRef<Value *> args,
 }
 
 static void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
-                                  OP::OpCode opcode, Constant *outputID,
-                                  Value *idx, unsigned cols, bool bI1Cast, OP *hlslOP) {
+                                  Constant *OpArg, Constant *outputID,
+                                  Value *idx, unsigned cols, bool bI1Cast) {
   IRBuilder<> Builder(stInst);
   Value *val = stInst->getValueOperand();
-
-  Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
 
   if (VectorType *VT = dyn_cast<VectorType>(val->getType())) {
     DXASSERT(cols == VT->getNumElements(), "vec size must match");
     for (unsigned col = 0; col < cols; col++) {
       Value *subVal = Builder.CreateExtractElement(val, col);
-      Value *colIdx = hlslOP->GetU8Const(col);
+      Value *colIdx = Builder.getInt8(col);
       Value *args[] = {OpArg, outputID, idx, colIdx, subVal};
       GenerateStOutput(stOutput, args, Builder, bI1Cast);
     }
@@ -915,7 +913,7 @@ static void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
   } else if (!val->getType()->isArrayTy()) {
     // TODO: support case cols not 1
     DXASSERT(cols == 1, "only support scalar here");
-    Value *colIdx = hlslOP->GetU8Const(0);
+    Value *colIdx = Builder.getInt8(0);
     Value *args[] = {OpArg, outputID, idx, colIdx, val};
     GenerateStOutput(stOutput, args, Builder, bI1Cast);
     // remove stInst
@@ -923,7 +921,7 @@ static void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
   } else {
     DXASSERT(0, "not support array yet");
     // TODO: support array.
-    Value *colIdx = hlslOP->GetU8Const(0);
+    Value *colIdx = Builder.getInt8(0);
     ArrayType *AT = cast<ArrayType>(val->getType());
     Value *args[] = {OpArg, outputID, idx, colIdx, /*val*/nullptr};
     args;
@@ -950,19 +948,18 @@ static Value *replaceLdWithLdInput(Function *loadInput,
                                  LoadInst *ldInst,
                                  unsigned cols, 
                                  MutableArrayRef<Value *>args,
-                                 bool bCast,
-                                 OP *hlslOP) {
+                                 bool bCast) {
   IRBuilder<> Builder(ldInst);
   Type *Ty = ldInst->getType();
   Type *EltTy = Ty->getScalarType();
   // Change i1 to i32 for load input.
-  Value *zero = hlslOP->GetU32Const(0);
+  Value *zero = Builder.getInt32(0);
 
   if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
     Value *newVec = llvm::UndefValue::get(VT);
     DXASSERT(cols == VT->getNumElements(), "vec size must match");
     for (unsigned col = 0; col < cols; col++) {
-      Value *colIdx = hlslOP->GetU8Const(col);
+      Value *colIdx = Builder.getInt8(col);
       args[DXIL::OperandIndex::kLoadInputColOpIdx] = colIdx;
       Value *input = GenerateLdInput(loadInput, args, Builder, zero, bCast, EltTy);
       newVec = Builder.CreateInsertElement(newVec, input, col);
@@ -974,7 +971,7 @@ static Value *replaceLdWithLdInput(Function *loadInput,
     Value *colIdx = args[DXIL::OperandIndex::kLoadInputColOpIdx];
     if (colIdx == nullptr) {
       DXASSERT(cols == 1, "only support scalar here");
-      colIdx = hlslOP->GetU8Const(0);
+      colIdx = Builder.getInt8(0);
     }
 
     if (isa<ConstantInt>(colIdx)) {
@@ -989,10 +986,10 @@ static Value *replaceLdWithLdInput(Function *loadInput,
       // Load to array.
       ArrayType *AT = ArrayType::get(ldInst->getType(), cols);
       Value *arrayVec = Builder.CreateAlloca(AT);
-      Value *zeroIdx = hlslOP->GetU32Const(0);
+      Value *zeroIdx = Builder.getInt32(0);
 
       for (unsigned col = 0; col < cols; col++) {
-        Value *colIdx = hlslOP->GetU8Const(col);
+        Value *colIdx = Builder.getInt8(col);
         args[DXIL::OperandIndex::kLoadInputColOpIdx] = colIdx;
         Value *input = GenerateLdInput(loadInput, args, Builder, zero, bCast, EltTy);
         Value *GEP = Builder.CreateInBoundsGEP(arrayVec, {zeroIdx, colIdx});
@@ -1273,6 +1270,180 @@ static void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *G
   }
 }
 
+void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertexIdx,
+    Function *ldStFunc, Constant *OpArg, Constant *ID, unsigned cols, bool bI1Cast,
+    Constant *columnConsts[],
+    bool bNeedVertexID, bool isArrayTy, bool bInput, bool bIsInout) {
+  Value *idxVal = info.idx;
+  Value *vertexID = undefVertexIdx;
+  if (bNeedVertexID && isArrayTy) {
+    vertexID = info.vertexID;
+  }
+
+  if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
+    SmallVector<Value *, 4> args = {OpArg, ID, idxVal, info.vectorIdx};
+    if (vertexID)
+      args.emplace_back(vertexID);
+
+    replaceLdWithLdInput(ldStFunc, ldInst, cols, args, bI1Cast);
+  } else if (StoreInst *stInst = dyn_cast<StoreInst>(info.user)) {
+    if (bInput) {
+      DXASSERT_LOCALVAR(bIsInout, bIsInout, "input should not have store use.");
+    } else {
+      if (!info.vectorIdx) {
+        replaceStWithStOutput(ldStFunc, stInst, OpArg, ID, idxVal, cols,
+                              bI1Cast);
+      } else {
+        Value *V = stInst->getValueOperand();
+        Type *Ty = V->getType();
+        DXASSERT(Ty == Ty->getScalarType() && !Ty->isAggregateType(),
+                 "only support scalar here");
+
+        if (ConstantInt *ColIdx = dyn_cast<ConstantInt>(info.vectorIdx)) {
+          IRBuilder<> Builder(stInst);
+          if (ColIdx->getType()->getBitWidth() != 8) {
+            ColIdx = Builder.getInt8(ColIdx->getValue().getLimitedValue());
+          }
+          Value *args[] = {OpArg, ID, idxVal, ColIdx, V};
+          GenerateStOutput(ldStFunc, args, Builder, bI1Cast);
+        } else {
+          BasicBlock *BB = stInst->getParent();
+          BasicBlock *EndBB = BB->splitBasicBlock(stInst);
+
+          TerminatorInst *TI = BB->getTerminator();
+          IRBuilder<> SwitchBuilder(TI);
+          LLVMContext &Ctx = stInst->getContext();
+          SwitchInst *Switch =
+              SwitchBuilder.CreateSwitch(info.vectorIdx, EndBB, cols);
+          TI->eraseFromParent();
+
+          Function *F = EndBB->getParent();
+          for (unsigned i = 0; i < cols; i++) {
+            BasicBlock *CaseBB = BasicBlock::Create(Ctx, "case", F, EndBB);
+            Switch->addCase(SwitchBuilder.getInt32(i), CaseBB);
+            IRBuilder<> CaseBuilder(CaseBB);
+
+            ConstantInt *CaseIdx = SwitchBuilder.getInt8(i);
+
+            Value *args[] = {OpArg, ID, idxVal, CaseIdx, V};
+            GenerateStOutput(ldStFunc, args, CaseBuilder, bI1Cast);
+
+            CaseBuilder.CreateBr(EndBB);
+          }
+        }
+        // remove stInst
+        stInst->eraseFromParent();
+      }
+    }
+  } else if (CallInst *CI = dyn_cast<CallInst>(info.user)) {
+    HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+    // Intrinsic will be translated later.
+    if (group == HLOpcodeGroup::HLIntrinsic)
+      return;
+    unsigned opcode = GetHLOpcode(CI);
+    DXASSERT(group == HLOpcodeGroup::HLMatLoadStore, "");
+    HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
+    switch (matOp) {
+    case HLMatLoadStoreOpcode::ColMatLoad: {
+      IRBuilder<> LocalBuilder(CI);
+      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
+                        ->getType()
+                        ->getPointerElementType();
+      unsigned col, row;
+      Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
+      std::vector<Value *> matElts(col * row);
+      for (unsigned c = 0; c < col; c++) {
+        Constant *constRowIdx = LocalBuilder.getInt32(c);
+        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+        for (unsigned r = 0; r < row; r++) {
+          SmallVector<Value *, 4> args = {OpArg, ID, rowIdx, columnConsts[r]};
+          if (vertexID)
+            args.emplace_back(vertexID);
+
+          Value *input = LocalBuilder.CreateCall(ldStFunc, args);
+          unsigned matIdx = c * row + r;
+          matElts[matIdx] = input;
+        }
+      }
+      Value *newVec = HLMatrixLower::BuildMatrix(EltTy, col, row, true, matElts,
+                                                 LocalBuilder);
+      CI->replaceAllUsesWith(newVec);
+      CI->eraseFromParent();
+    } break;
+    case HLMatLoadStoreOpcode::RowMatLoad: {
+      IRBuilder<> LocalBuilder(CI);
+      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
+                        ->getType()
+                        ->getPointerElementType();
+      unsigned col, row;
+      Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
+      std::vector<Value *> matElts(col * row);
+      for (unsigned r = 0; r < row; r++) {
+        Constant *constRowIdx = LocalBuilder.getInt32(r);
+        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+        for (unsigned c = 0; c < col; c++) {
+          SmallVector<Value *, 4> args = {OpArg, ID, rowIdx, columnConsts[c]};
+          if (vertexID)
+            args.emplace_back(vertexID);
+
+          Value *input = LocalBuilder.CreateCall(ldStFunc, args);
+          unsigned matIdx = r * col + c;
+          matElts[matIdx] = input;
+        }
+      }
+      Value *newVec = HLMatrixLower::BuildMatrix(EltTy, col, row, false,
+                                                 matElts, LocalBuilder);
+      CI->replaceAllUsesWith(newVec);
+      CI->eraseFromParent();
+    } break;
+    case HLMatLoadStoreOpcode::ColMatStore: {
+      IRBuilder<> LocalBuilder(CI);
+      Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
+      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
+                        ->getType()
+                        ->getPointerElementType();
+      unsigned col, row;
+      HLMatrixLower::GetMatrixInfo(matTy, col, row);
+
+      for (unsigned c = 0; c < col; c++) {
+        Constant *constColIdx = LocalBuilder.getInt32(c);
+        Value *colIdx = LocalBuilder.CreateAdd(idxVal, constColIdx);
+
+        for (unsigned r = 0; r < row; r++) {
+          unsigned matIdx = c * row + r;
+          Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
+          LocalBuilder.CreateCall(ldStFunc,
+                                  {OpArg, ID, colIdx, columnConsts[r], Elt});
+        }
+      }
+      CI->eraseFromParent();
+    } break;
+    case HLMatLoadStoreOpcode::RowMatStore: {
+      IRBuilder<> LocalBuilder(CI);
+      Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
+      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
+                        ->getType()
+                        ->getPointerElementType();
+      unsigned col, row;
+      HLMatrixLower::GetMatrixInfo(matTy, col, row);
+
+      for (unsigned r = 0; r < row; r++) {
+        Constant *constRowIdx = LocalBuilder.getInt32(r);
+        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+        for (unsigned c = 0; c < col; c++) {
+          unsigned matIdx = r * col + c;
+          Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
+          LocalBuilder.CreateCall(ldStFunc,
+                                  {OpArg, ID, rowIdx, columnConsts[c], Elt});
+        }
+      }
+      CI->eraseFromParent();
+    } break;
+    }
+  } else
+    DXASSERT(0, "invalid operation on input output");
+}
+
 void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
   OP *hlslOP = m_pHLModule->GetOP();
   const ShaderModel *pSM = m_pHLModule->GetShaderModel();
@@ -1342,175 +1513,18 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
       continue;
     }
 
-    bool isArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
-    bool isPrecise = m_preciseSigSet.count(SE);
-    if (isPrecise)
+    bool bIsArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
+    bool bIsPrecise = m_preciseSigSet.count(SE);
+    if (bIsPrecise)
       HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(GV, M);
 
     std::vector<InputOutputAccessInfo> accessInfoList;
-    collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID && isArrayTy, bInput);
+    collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID && bIsArrayTy, bInput);
 
     for (InputOutputAccessInfo &info : accessInfoList) {
-      Value *idxVal = info.idx;
-      Value *vertexID = undefVertexIdx;
-      if (bNeedVertexID && isArrayTy) {
-        vertexID = info.vertexID;
-      }
-
-      if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
-        Value *args[] = {OpArg, ID, idxVal, info.vectorIdx, vertexID};
-        replaceLdWithLdInput(dxilFunc, ldInst, cols, args, bI1Cast, hlslOP);
-      }
-      else if (StoreInst *stInst = dyn_cast<StoreInst>(info.user)) {
-        if (bInput) {
-          DXASSERT_LOCALVAR(bIsInout, bIsInout, "input should not have store use.");
-        } else {
-          if (!info.vectorIdx) {
-            replaceStWithStOutput(dxilFunc, stInst, opcode, ID, idxVal, cols,
-                                  bI1Cast, hlslOP);
-          } else {
-            Value *V = stInst->getValueOperand();
-            Type *Ty = V->getType();
-            DXASSERT(Ty == Ty->getScalarType() && !Ty->isAggregateType(),
-                     "only support scalar here");
-
-            if (ConstantInt *ColIdx = dyn_cast<ConstantInt>(info.vectorIdx)) {
-              IRBuilder<> Builder(stInst);
-              if (ColIdx->getType()->getBitWidth() != 8) {
-                ColIdx = Builder.getInt8(ColIdx->getValue().getLimitedValue());
-              }
-              Value *args[] = {OpArg, ID, idxVal, ColIdx, V};
-              GenerateStOutput(dxilFunc, args, Builder, bI1Cast);
-            } else {
-              BasicBlock *BB = stInst->getParent();
-              BasicBlock *EndBB = BB->splitBasicBlock(stInst);
-
-              TerminatorInst *TI = BB->getTerminator();
-              IRBuilder<> SwitchBuilder(TI);
-              LLVMContext &Ctx = m_pHLModule->GetCtx();
-              SwitchInst *Switch =
-                  SwitchBuilder.CreateSwitch(info.vectorIdx, EndBB, cols);
-              TI->eraseFromParent();
-
-              Function *F = EndBB->getParent();
-              for (unsigned i = 0; i < cols; i++) {
-                BasicBlock *CaseBB = BasicBlock::Create(Ctx, "case", F, EndBB);
-                Switch->addCase(SwitchBuilder.getInt32(i), CaseBB);
-                IRBuilder<> CaseBuilder(CaseBB);
-
-                ConstantInt *CaseIdx = SwitchBuilder.getInt8(i);
-
-                Value *args[] = {OpArg, ID, idxVal, CaseIdx, V};
-                GenerateStOutput(dxilFunc, args, CaseBuilder, bI1Cast);
-
-                CaseBuilder.CreateBr(EndBB);
-              }
-            }
-            // remove stInst
-            stInst->eraseFromParent();
-          }
-        }
-      } else if (CallInst *CI = dyn_cast<CallInst>(info.user)) {
-        HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-        // Intrinsic will be translated later.
-        if (group == HLOpcodeGroup::HLIntrinsic)
-          continue;
-        unsigned opcode = GetHLOpcode(CI);
-        DXASSERT(group == HLOpcodeGroup::HLMatLoadStore, "");
-        HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
-        switch (matOp) {
-        case HLMatLoadStoreOpcode::ColMatLoad: {
-          IRBuilder<> LocalBuilder(CI);
-          Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
-                            ->getType()
-                            ->getPointerElementType();
-          unsigned col, row;
-          Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
-          std::vector<Value *> matElts(col * row);
-          for (unsigned c = 0; c < col; c++) {
-            Constant *constRowIdx = hlslOP->GetI32Const(c);
-            Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
-            for (unsigned r = 0; r < row; r++) {
-              Value *input = LocalBuilder.CreateCall(
-                  dxilFunc, {OpArg, ID, rowIdx, columnConsts[r], vertexID});
-              unsigned matIdx = c * row + r;
-              matElts[matIdx] = input;
-            }
-          }
-          Value *newVec = HLMatrixLower::BuildMatrix(EltTy, col, row, true,
-                                                     matElts, LocalBuilder);
-          CI->replaceAllUsesWith(newVec);
-          CI->eraseFromParent();
-        } break;
-        case HLMatLoadStoreOpcode::RowMatLoad: {
-          IRBuilder<> LocalBuilder(CI);
-          Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
-                            ->getType()
-                            ->getPointerElementType();
-          unsigned col, row;
-          Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
-          std::vector<Value *> matElts(col * row);
-          for (unsigned r = 0; r < row; r++) {
-            Constant *constRowIdx = hlslOP->GetI32Const(r);
-            Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
-            for (unsigned c = 0; c < col; c++) {
-              Value *input = LocalBuilder.CreateCall(
-                  dxilFunc, {OpArg, ID, rowIdx, columnConsts[c], vertexID});
-              unsigned matIdx = r * col + c;
-              matElts[matIdx] = input;
-            }
-          }
-          Value *newVec = HLMatrixLower::BuildMatrix(EltTy, col, row, false,
-                                                     matElts, LocalBuilder);
-          CI->replaceAllUsesWith(newVec);
-          CI->eraseFromParent();
-        } break;
-        case HLMatLoadStoreOpcode::ColMatStore: {
-          IRBuilder<> LocalBuilder(CI);
-          Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-          Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
-                            ->getType()
-                            ->getPointerElementType();
-          unsigned col, row;
-          HLMatrixLower::GetMatrixInfo(matTy, col, row);
-
-          for (unsigned c = 0; c < col; c++) {
-            Constant *constColIdx = hlslOP->GetI32Const(c);
-            Value *colIdx = LocalBuilder.CreateAdd(idxVal, constColIdx);
-
-            for (unsigned r = 0; r < row; r++) {
-              unsigned matIdx = c * row + r;
-              Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-              LocalBuilder.CreateCall(
-                  dxilFunc, {OpArg, ID, colIdx, columnConsts[r], Elt});
-            }
-          }
-          CI->eraseFromParent();
-        } break;
-        case HLMatLoadStoreOpcode::RowMatStore: {
-          IRBuilder<> LocalBuilder(CI);
-          Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-          Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
-                            ->getType()
-                            ->getPointerElementType();
-          unsigned col, row;
-          HLMatrixLower::GetMatrixInfo(matTy, col, row);
-
-          for (unsigned r = 0; r < row; r++) {
-            Constant *constRowIdx = hlslOP->GetI32Const(r);
-            Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
-            for (unsigned c = 0; c < col; c++) {
-              unsigned matIdx = r * col + c;
-              Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-              LocalBuilder.CreateCall(
-                  dxilFunc, {OpArg, ID, rowIdx, columnConsts[c], Elt});
-            }
-          }
-          CI->eraseFromParent();
-        } break;
-        }
-      } else
-        DXASSERT(0, "invalid operation on input output");
+      GenerateInputOutputUserCall(info, undefVertexIdx, dxilFunc, OpArg, ID,
+                                  cols, bI1Cast, columnConsts, bNeedVertexID,
+                                  bIsArrayTy, bInput, bIsInout);
     }
   }
 }
@@ -1600,14 +1614,32 @@ void DxilGenerationPass::GenerateDxilPatchConstantLdSt() {
   DxilSignature &Sig = m_pHLModule->GetPatchConstantSignature();
   Function *EntryFunc = m_pHLModule->GetEntryFunction();
   auto InsertPt = EntryFunc->getEntryBlock().getFirstInsertionPt();
-  if (m_pHLModule->GetShaderModel()->IsHS()) {
+  const bool bIsHs = m_pHLModule->GetShaderModel()->IsHS();
+  const bool bIsInput = !bIsHs;
+  const bool bIsInout = false;
+  const bool bNeedVertexID = false;
+  if (bIsHs) {
     HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFunc);
     Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
     InsertPt = patchConstantFunc->getEntryBlock().getFirstInsertionPt();
   }
   IRBuilder<> Builder(InsertPt);
-  Type *i1Ty = Type::getInt1Ty(constZero->getContext());
-  Type *i32Ty = constZero->getType();
+  Type *i1Ty = Builder.getInt1Ty();
+  Type *i32Ty = Builder.getInt32Ty();
+  // LoadPatchConst don't have vertexIdx operand.
+  Value *undefVertexIdx = nullptr;
+
+  Constant *columnConsts[] = {
+      hlslOP->GetU8Const(0),  hlslOP->GetU8Const(1),  hlslOP->GetU8Const(2),
+      hlslOP->GetU8Const(3),  hlslOP->GetU8Const(4),  hlslOP->GetU8Const(5),
+      hlslOP->GetU8Const(6),  hlslOP->GetU8Const(7),  hlslOP->GetU8Const(8),
+      hlslOP->GetU8Const(9),  hlslOP->GetU8Const(10), hlslOP->GetU8Const(11),
+      hlslOP->GetU8Const(12), hlslOP->GetU8Const(13), hlslOP->GetU8Const(14),
+      hlslOP->GetU8Const(15)};
+
+  OP::OpCode opcode =
+      bIsInput ? OP::OpCode::LoadPatchConstant : OP::OpCode::StorePatchConstant;
+  Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
 
   for (unsigned i = 0; i < Sig.GetElements().size(); i++) {
     DxilSignatureElement *SE = &Sig.GetElement(i);
@@ -1629,39 +1661,32 @@ void DxilGenerationPass::GenerateDxilPatchConstantLdSt() {
       bI1Cast = true;
       Ty = i32Ty;
     }
-    Function *dxilLdFunc = hlslOP->GetOpFunc(OP::OpCode::LoadPatchConstant, Ty);
-    Function *dxilStFunc = hlslOP->GetOpFunc(OP::OpCode::StorePatchConstant, Ty);
 
     unsigned cols = SE->GetCols();
 
+    Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
+
     if (!GV->getType()->isPointerTy()) {
-      // Must be DS input.
+      DXASSERT(bIsInput, "Must be DS input.");
       Constant *OpArg = hlslOP->GetU32Const(static_cast<unsigned>(OP::OpCode::LoadPatchConstant));
       Value *args[] = {OpArg, ID, /*rowIdx*/constZero, /*colIdx*/nullptr};
-      replaceDirectInputParameter(GV, dxilLdFunc, cols, args, bI1Cast, hlslOP, Builder);
+      replaceDirectInputParameter(GV, dxilFunc, cols, args, bI1Cast, hlslOP, Builder);
       continue;
     }
     
     std::vector<InputOutputAccessInfo> accessInfoList;
-    collectInputOutputAccessInfo(GV, constZero, accessInfoList, /*hasVertexID*/ false,
-      !m_pHLModule->GetShaderModel()->IsHS());
+    collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID,
+      bIsInput);
+
+    bool bIsArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
     bool isPrecise = m_preciseSigSet.count(SE);
     if (isPrecise)
       HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(GV, M);
 
     for (InputOutputAccessInfo &info : accessInfoList) {
-      Value *idxVal = info.idx;
-      if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
-        OP::OpCode opcode = OP::OpCode::LoadPatchConstant;
-        Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
-        Value *args[] = {OpArg, ID, idxVal, /*colIdx*/nullptr};
-        replaceLdWithLdInput(dxilLdFunc, ldInst, cols, args, bI1Cast, hlslOP);
-      } else if (StoreInst *stInst = dyn_cast<StoreInst>(info.user))
-        replaceStWithStOutput(dxilStFunc, stInst,
-                              OP::OpCode::StorePatchConstant, ID, idxVal, cols,
-                              bI1Cast, hlslOP);
-      else
-        DXASSERT(0, "invalid instruction on patch constant");
+      GenerateInputOutputUserCall(info, undefVertexIdx, dxilFunc, OpArg, ID,
+                                  cols, bI1Cast, columnConsts, bNeedVertexID,
+                                  bIsArrayTy, bIsInput, bIsInout);
     }
   }
 }
@@ -1709,7 +1734,7 @@ void DxilGenerationPass::GenerateDxilPatchConstantFunctionInputs() {
         if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
           Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
           Value *args[] = {OpArg, inputID, info.idx, info.vectorIdx, info.vertexID};
-          replaceLdWithLdInput(dxilLdFunc, ldInst, cols, args, bI1Cast, hlslOP);
+          replaceLdWithLdInput(dxilLdFunc, ldInst, cols, args, bI1Cast);
         } else
           DXASSERT(0, "input should only be ld");
       }
@@ -1810,17 +1835,32 @@ static Value *MergeImmResClass(Value *resClass) {
 
 static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
 
-void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
+static Value *SelectOnOperand(Value *Cond, CallInst *CIT, CallInst *CIF,
+                              unsigned idx, IRBuilder<> &Builder) {
+  Value *OpT = CIT->getArgOperand(idx);
+  Value *OpF = CIF->getArgOperand(idx);
+  Value *OpSel = OpT;
+  if (OpT != OpF) {
+    OpSel = Builder.CreateSelect(Cond, OpT, OpF);
+  }
+  return OpSel;
+}
+
+void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
 
   std::unordered_set<PHINode *> objPhiList;
+  std::unordered_set<SelectInst *> objSelectList;
   for (auto It : handleMap) {
     Instruction *I = It.first;
     for (User *U : I->users()) {
       if (PHINode *phi = dyn_cast<PHINode>(U)) {
         if (objPhiList.count(phi) == 0)
           objPhiList.insert(phi);
+      } else if (SelectInst *sel = dyn_cast<SelectInst>(U)) {
+        if (objSelectList.count(sel) == 0)
+          objSelectList.insert(sel);
       }
     }
   }
@@ -1959,6 +1999,38 @@ void DxilGenerationPass::AddCreateHandleForPhiNode(std::unordered_map<Instructio
     for (unsigned i = 0; i < numOperands; i++) {
       phi->setIncomingValue(i, undefObj);
     }
+  }
+
+  // Create sel for each operands of the createHandle.
+  // Generate createHandle with sel operand.
+  // Map createHandle to original sel.
+  for (SelectInst *Sel : objSelectList) {
+    Value *Cond = Sel->getCondition();
+    Value *ValT = Sel->getTrueValue();
+    Value *ValF = Sel->getFalseValue();
+
+    if (!isa<Instruction>(ValT) || !handleMap.count(cast<Instruction>(ValT)) ||
+        !isa<Instruction>(ValF) || !handleMap.count(cast<Instruction>(ValF))) {
+      Sel->getContext().emitError(Sel, kResourceMapErrorMsg);
+      continue;
+    }
+
+    CallInst *handleT = cast<CallInst>(handleMap[cast<Instruction>(ValT)]);
+    CallInst *handleF = cast<CallInst>(handleMap[cast<Instruction>(ValF)]);
+    IRBuilder<> Builder(Sel);
+    Value *ResClass = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResClassOpIdx,
+        Builder);
+    Value *ResID = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResIDOpIdx,
+        Builder);
+
+    if (isa<SelectInst>(ResID) || isa<SelectInst>(ResClass)) {
+      Sel->getContext().emitError(Sel, kResourceMapErrorMsg);
+    }
+    Value *ResAddress = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResIndexOpIdx,
+        Builder);
+
+    Value *handleSel = Builder.CreateCall(createHandle, { opArg, ResClass, ResID, ResAddress, isUniformRes});
+    handleMap[Sel] = handleSel;
   }
 }
 

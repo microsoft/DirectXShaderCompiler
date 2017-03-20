@@ -225,6 +225,8 @@ def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[Cor
   HelpText<"HLSL version (Only supports 2016 for now)">;
 def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Suppress warnings">;
+def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Read root signature from a #define">;
 
 //////////////////////////////////////////////////////////////////////////////
 // fxc-based flags that don't match those previously defined.

@@ -297,8 +297,11 @@ public:
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
+  TEST_METHOD(CodeGenAllLit)
   TEST_METHOD(CodeGenAddUint64)
   TEST_METHOD(CodeGenArrayArg)
+  TEST_METHOD(CodeGenArrayArg2)
+  TEST_METHOD(CodeGenArrayArg3)
   TEST_METHOD(CodeGenArrayOfStruct)
   TEST_METHOD(CodeGenAsUint)
   TEST_METHOD(CodeGenAsUint2)
@@ -340,10 +343,13 @@ public:
   TEST_METHOD(CodeGenEarlyDepthStencil)
   TEST_METHOD(CodeGenEval)
   TEST_METHOD(CodeGenEvalPos)
+  TEST_METHOD(CodeGenExternRes)
+  TEST_METHOD(CodeGenFloatToBool)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
   TEST_METHOD(CodeGenFloatMaxtessfactor)
   TEST_METHOD(CodeGenFModPS)
+  TEST_METHOD(CodeGenFunctionalCast)
   TEST_METHOD(CodeGenGather)
   TEST_METHOD(CodeGenGatherCmp)
   TEST_METHOD(CodeGenGatherCubeOffset)
@@ -374,6 +380,8 @@ public:
   TEST_METHOD(CodeGenInout1)
   TEST_METHOD(CodeGenInout2)
   TEST_METHOD(CodeGenInout3)
+  TEST_METHOD(CodeGenInout4)
+  TEST_METHOD(CodeGenInout5)
   TEST_METHOD(CodeGenInput1)
   TEST_METHOD(CodeGenInput2)
   TEST_METHOD(CodeGenInput3)
@@ -399,6 +407,7 @@ public:
   TEST_METHOD(CodeGenLoop3)
   TEST_METHOD(CodeGenLoop4)
   TEST_METHOD(CodeGenLoop5)
+  TEST_METHOD(CodeGenMatElt)
   TEST_METHOD(CodeGenMatInit)
   TEST_METHOD(CodeGenMatMulMat)
   TEST_METHOD(CodeGenMatOps)
@@ -412,6 +421,7 @@ public:
   TEST_METHOD(CodeGenMatSubscript4)
   TEST_METHOD(CodeGenMatSubscript5)
   TEST_METHOD(CodeGenMatSubscript6)
+  TEST_METHOD(CodeGenMatSubscript7)
   TEST_METHOD(CodeGenMaxMin)
   TEST_METHOD(CodeGenMinprec1)
   TEST_METHOD(CodeGenMinprec2)
@@ -468,9 +478,12 @@ public:
   TEST_METHOD(CodeGenSampleL)
   TEST_METHOD(CodeGenSaturate1)
   TEST_METHOD(CodeGenScalarOnVecIntrinsic)
+  TEST_METHOD(CodeGenScalarToVec)
   TEST_METHOD(CodeGenSelectObj)
   TEST_METHOD(CodeGenSelectObj2)
   TEST_METHOD(CodeGenSelectObj3)
+  TEST_METHOD(CodeGenSelectObj4)
+  TEST_METHOD(CodeGenSelectObj5)
   TEST_METHOD(CodeGenSelMat)
   TEST_METHOD(CodeGenShare_Mem_Dbg)
   TEST_METHOD(CodeGenShare_Mem1)
@@ -502,11 +515,14 @@ public:
   TEST_METHOD(CodeGenSrv_Typed_Load2)
   TEST_METHOD(CodeGenStaticGlobals)
   TEST_METHOD(CodeGenStaticGlobals2)
+  TEST_METHOD(CodeGenStaticGlobals3)
+  TEST_METHOD(CodeGenStaticGlobals4)
   TEST_METHOD(CodeGenStaticResource)
   TEST_METHOD(CodeGenStaticResource2)
   TEST_METHOD(CodeGenStruct_Buf1)
   TEST_METHOD(CodeGenStruct_BufHasCounter)
   TEST_METHOD(CodeGenStruct_BufHasCounter2)
+  TEST_METHOD(CodeGenStructArray)
   TEST_METHOD(CodeGenStructCast)
   TEST_METHOD(CodeGenStructCast2)
   TEST_METHOD(CodeGenStructInBuffer)
@@ -520,6 +536,7 @@ public:
   TEST_METHOD(CodeGenSwizzle2)
   TEST_METHOD(CodeGenSwizzleAtomic)
   TEST_METHOD(CodeGenSwizzleAtomic2)
+  TEST_METHOD(CodeGenSwizzleIndexing)
   TEST_METHOD(CodeGenTemp1)
   TEST_METHOD(CodeGenTemp2)
   TEST_METHOD(CodeGenTexSubscript)
@@ -530,12 +547,18 @@ public:
   TEST_METHOD(CodeGenUint64_2)
   TEST_METHOD(CodeGenUintSample)
   TEST_METHOD(CodeGenUmaxObjectAtomic)
+  TEST_METHOD(CodeGenUnsignedShortHandMatrixVector)
   TEST_METHOD(CodeGenUpdateCounter)
   TEST_METHOD(CodeGenUpperCaseRegister1);
   TEST_METHOD(CodeGenVcmp)
   TEST_METHOD(CodeGenVec_Comp_Arg)
   TEST_METHOD(CodeGenVecCmpCond)
+  TEST_METHOD(CodeGenVecTrunc)
   TEST_METHOD(CodeGenWave)
+  TEST_METHOD(CodeGenWriteMaskBuf)
+  TEST_METHOD(CodeGenWriteMaskBuf2)
+  TEST_METHOD(CodeGenWriteMaskBuf3)
+  TEST_METHOD(CodeGenWriteMaskBuf4)
   TEST_METHOD(CodeGenWriteToInput)
   TEST_METHOD(CodeGenWriteToInput2)
   TEST_METHOD(CodeGenWriteToInput3)
@@ -597,6 +620,18 @@ public:
   TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenRootSigProfile3)
   TEST_METHOD(CodeGenRootSigProfile4)
+  TEST_METHOD(CodeGenRootSigProfile5)
+  TEST_METHOD(CodeGenRootSigDefine1)
+  TEST_METHOD(CodeGenRootSigDefine2)
+  TEST_METHOD(CodeGenRootSigDefine3)
+  TEST_METHOD(CodeGenRootSigDefine4)
+  TEST_METHOD(CodeGenRootSigDefine5)
+  TEST_METHOD(CodeGenRootSigDefine6)
+  TEST_METHOD(CodeGenRootSigDefine7)
+  TEST_METHOD(CodeGenRootSigDefine8)
+  TEST_METHOD(CodeGenRootSigDefine9)
+  TEST_METHOD(CodeGenRootSigDefine10)
+  TEST_METHOD(CodeGenRootSigDefine11)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
@@ -1873,12 +1908,24 @@ TEST_F(CompilerTest, CodeGenAbs2) {
   CodeGenTest(L"..\\CodeGenHLSL\\abs2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenAllLit) {
+  CodeGenTest(L"..\\CodeGenHLSL\\all_lit.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenAddUint64) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\AddUint64.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenArrayArg){
   CodeGenTest(L"..\\CodeGenHLSL\\arrayArg.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenArrayArg2){
+  CodeGenTest(L"..\\CodeGenHLSL\\arrayArg2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenArrayArg3){
+  CodeGenTest(L"..\\CodeGenHLSL\\arrayArg3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenArrayOfStruct){
@@ -2045,6 +2092,14 @@ TEST_F(CompilerTest, CodeGenEvalPos) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\evalPos.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenExternRes) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\extern_res.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFloatToBool) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\float_to_bool.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenFirstbitHi) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitHi.hlsl");
 }
@@ -2059,6 +2114,10 @@ TEST_F(CompilerTest, CodeGenFloatMaxtessfactor) {
 
 TEST_F(CompilerTest, CodeGenFModPS) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\fmodPS.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFunctionalCast) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\functionalCast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenGather) {
@@ -2163,6 +2222,14 @@ TEST_F(CompilerTest, CodeGenInout3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\inout3.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenInout4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\inout4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInout5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\inout5.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenInput1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\input1.hlsl");
 }
@@ -2263,6 +2330,10 @@ TEST_F(CompilerTest, CodeGenLoop5) {
   CodeGenTest(L"..\\CodeGenHLSL\\loop5.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenMatElt) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matElt.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenMatInit) {
   CodeGenTest(L"..\\CodeGenHLSL\\matInit.hlsl");
 }
@@ -2314,6 +2385,10 @@ TEST_F(CompilerTest, CodeGenMatSubscript5) {
 
 TEST_F(CompilerTest, CodeGenMatSubscript6) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matSubscript6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatSubscript7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matSubscript7.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMaxMin) {
@@ -2540,6 +2615,10 @@ TEST_F(CompilerTest, CodeGenScalarOnVecIntrinsic) {
   CodeGenTest(L"..\\CodeGenHLSL\\scalarOnVecIntrisic.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenScalarToVec) {
+  CodeGenTest(L"..\\CodeGenHLSL\\scalarToVec.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenSelectObj) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj.hlsl");
 }
@@ -2550,6 +2629,14 @@ TEST_F(CompilerTest, CodeGenSelectObj2) {
 
 TEST_F(CompilerTest, CodeGenSelectObj3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSelectObj4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSelectObj5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj5.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSelMat) {
@@ -2669,11 +2756,19 @@ TEST_F(CompilerTest, CodeGenSrv_Typed_Load2) {
 }
 
 TEST_F(CompilerTest, CodeGenStaticGlobals) {
-  CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\staticGlobals.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStaticGlobals2) {
   CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticGlobals3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\staticGlobals3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticGlobals4) {
+  CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStaticResource) {
@@ -2694,6 +2789,10 @@ TEST_F(CompilerTest, CodeGenStruct_BufHasCounter) {
 
 TEST_F(CompilerTest, CodeGenStruct_BufHasCounter2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_bufHasCounter2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructArray) {
+  CodeGenTest(L"..\\CodeGenHLSL\\structArray.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStructCast) {
@@ -2748,6 +2847,10 @@ TEST_F(CompilerTest, CodeGenSwizzleAtomic2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\swizzleAtomic2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenSwizzleIndexing) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\swizzleIndexing.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenTemp1) {
   CodeGenTest(L"..\\CodeGenHLSL\\temp1.hlsl");
 }
@@ -2788,6 +2891,10 @@ TEST_F(CompilerTest, CodeGenUmaxObjectAtomic) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\umaxObjectAtomic.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenUnsignedShortHandMatrixVector) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\unsignedShortHandMatrixVector.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenUpdateCounter) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\updateCounter.hlsl");
 }
@@ -2808,8 +2915,28 @@ TEST_F(CompilerTest, CodeGenVecCmpCond) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\vecCmpCond.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenVecTrunc) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vecTrunc.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenWave) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\wave.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenWriteToInput) {
@@ -3052,6 +3179,54 @@ TEST_F(CompilerTest, CodeGenRootSigProfile3) {
 
 TEST_F(CompilerTest, CodeGenRootSigProfile4) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigProfile4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile5) {
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigProfile5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine6) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine8) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine8.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine9) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine9.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine10) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine10.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine11) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine11.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {

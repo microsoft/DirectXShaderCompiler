@@ -23,6 +23,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/Frontend/CodeGenOptions.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -196,7 +197,7 @@ public:
   void addResource(Decl *D) override;
   void FinishCodeGen() override;
   Value *EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E, Value *DestPtr) override;
-  QualType UpdateHLSLIncompleteArrayType(VarDecl &D) override;
+  Constant *EmitHLSLConstInitListExpr(CodeGenModule &CGM, InitListExpr *E) override;
 
   RValue EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF, const FunctionDecl *FD,
                                  const CallExpr *E,
@@ -3189,182 +3190,190 @@ static void AddOpcodeParamForIntrinsics(HLModule &HLM
   }
 }
 
-static void SimplifyScalarToVec1Splat(BitCastInst *BCI, std::vector<Instruction *> &deadInsts) {
-  Value *Ptr = BCI->getOperand(0);
-  // For case like SsaoBuffer[DTid.xy].xxx;
-  // It will translated into
-  //%8 = bitcast float* %7 to <1 x float>*
-  //%9 = load <1 x float>, <1 x float>* %8
-  //%10 = shufflevector <1 x float> %9, <1 x float> undef, <3 x i32>
-  //zeroinitializer
-  // To remove the bitcast,
-  // We transform it into
-  //   %8 = load float, float* %7
-  //   %9 = insertelement <1 x float> undef, float %8, i64 0
-  //   %10 = shufflevector <1 x float> %9, <1 x float> undef, <3 x i32>
-  //   zeroinitializer
-  IRBuilder<> Builder(BCI);
+static Value *CastLdValue(Value *Ptr, llvm::Type *FromTy, llvm::Type *ToTy, IRBuilder<> &Builder) {
+  if (ToTy->isVectorTy()) {
+    unsigned vecSize = ToTy->getVectorNumElements();
+    if (vecSize == 1 && ToTy->getVectorElementType() == FromTy) {
+      Value *V = Builder.CreateLoad(Ptr);
+      // ScalarToVec1Splat
+      // Change scalar into vec1.
+      Value *Vec1 = UndefValue::get(ToTy);
+      return Builder.CreateInsertElement(Vec1, V, (uint64_t)0);
+    } else if (FromTy->isVectorTy() && vecSize == 1) {
+      Value *V = Builder.CreateLoad(Ptr);
+      // VectorTrunc
+      // Change vector into vec1.
+      return Builder.CreateShuffleVector(V, V, {0});
+    } else if (FromTy->isArrayTy()) {
+      llvm::Type *FromEltTy = FromTy->getArrayElementType();
 
-  Value *SVal = Builder.CreateLoad(Ptr);
-  Value *VVal = UndefValue::get(BCI->getType()->getPointerElementType());
-  VVal = Builder.CreateInsertElement(VVal, SVal, (uint64_t)0);
-
-  for (Value::user_iterator Iter = BCI->user_begin(), IterE = BCI->user_end();
-       Iter != IterE;) {
-    Instruction *I = cast<Instruction>(*(Iter++));
-    if (LoadInst *ldInst = dyn_cast<LoadInst>(I)) {
-      ldInst->replaceAllUsesWith(VVal);
-      deadInsts.emplace_back(ldInst);
-    } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I)) {
-      GEP->replaceAllUsesWith(Ptr);
-      deadInsts.emplace_back(GEP);
-    } else {
-      // Must be StoreInst here.
-      StoreInst *stInst = cast<StoreInst>(I);
-      Value *Val = stInst->getValueOperand();
-      IRBuilder<> Builder(stInst);
-      Val = Builder.CreateExtractElement(Val, (uint64_t)0);
-
-      Builder.CreateStore(Val, Ptr);
-      deadInsts.emplace_back(stInst);
+      llvm::Type *ToEltTy = ToTy->getVectorElementType();
+      if (FromTy->getArrayNumElements() == vecSize && FromEltTy == ToEltTy) {
+        // ArrayToVector.
+        Value *NewLd = UndefValue::get(ToTy);
+        Value *zeroIdx = Builder.getInt32(0);
+        for (unsigned i = 0; i < vecSize; i++) {
+          Value *GEP = Builder.CreateInBoundsGEP(
+              Ptr, {zeroIdx, Builder.getInt32(i)});
+          Value *Elt = Builder.CreateLoad(GEP);
+          NewLd = Builder.CreateInsertElement(NewLd, Elt, i);
+        }
+        return NewLd;
+      }
     }
+  } else if (FromTy == Builder.getInt1Ty()) {
+    Value *V = Builder.CreateLoad(Ptr);
+    // BoolCast
+    DXASSERT_NOMSG(ToTy->isIntegerTy());
+    return Builder.CreateZExt(V, ToTy);
   }
-  deadInsts.emplace_back(BCI);
+
+  return nullptr;
 }
 
-static void SimplifyVectorTrunc(BitCastInst *BCI, std::vector<Instruction *> &deadInsts) {
-  // Transform
-  //%a.addr = alloca <2 x float>, align 4
-  //%1 = bitcast <2 x float>* %a.addr to <1 x float>*
-  //%2 = getelementptr inbounds <1 x float>, <1 x float>* %1, i32 0, i32 0
-  // into
-  //%a.addr = alloca <2 x float>, align 4
-  //%2 = getelementptr inbounds <2 x float>, <2 x float>* %2, i32 0, i32 0
-  Value *bigVec = BCI->getOperand(0);
-  llvm::Type *idxTy = llvm::Type::getInt32Ty(BCI->getContext());
-  Constant *zeroIdx = ConstantInt::get(idxTy, 0);
-  unsigned vecSize = bigVec->getType()->getPointerElementType()->getVectorNumElements();
+static Value  *CastStValue(Value *Ptr, Value *V, llvm::Type *FromTy, llvm::Type *ToTy, IRBuilder<> &Builder) {
+  if (ToTy->isVectorTy()) {
+    unsigned vecSize = ToTy->getVectorNumElements();
+    if (vecSize == 1 && ToTy->getVectorElementType() == FromTy) {
+      // ScalarToVec1Splat
+      // Change vec1 back to scalar.
+      Value *Elt = Builder.CreateExtractElement(V, (uint64_t)0);
+      return Elt;
+    } else if (FromTy->isVectorTy() && vecSize == 1) {
+      // VectorTrunc
+      // Change vec1 into vector.
+      // Should not happen.
+      // Reported error at Sema::ImpCastExprToType.
+      DXASSERT_NOMSG(0);
+    } else if (FromTy->isArrayTy()) {
+      llvm::Type *FromEltTy = FromTy->getArrayElementType();
 
-  for (auto It = BCI->user_begin(), E = BCI->user_end(); It != E;) {
-    Instruction *I = cast<Instruction>(*(It++));
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I)) {
+      llvm::Type *ToEltTy = ToTy->getVectorElementType();
+      if (FromTy->getArrayNumElements() == vecSize && FromEltTy == ToEltTy) {
+        // ArrayToVector.
+        Value *zeroIdx = Builder.getInt32(0);
+        for (unsigned i = 0; i < vecSize; i++) {
+          Value *Elt = Builder.CreateExtractElement(V, i);
+          Value *GEP = Builder.CreateInBoundsGEP(
+              Ptr, {zeroIdx, Builder.getInt32(i)});
+          Builder.CreateStore(Elt, GEP);
+        }
+        // The store already done.
+        // Return null to ignore use of the return value.
+        return nullptr;
+      }
+    }
+  } else if (FromTy == Builder.getInt1Ty()) {
+    // BoolCast
+    // Change i1 to ToTy.
+    DXASSERT_NOMSG(ToTy->isIntegerTy());
+    Value *CastV = Builder.CreateICmpNE(V, ConstantInt::get(V->getType(), 0));
+    return CastV;
+  }
+
+  return nullptr;
+}
+
+static bool SimplifyBitCastLoad(LoadInst *LI, llvm::Type *FromTy, llvm::Type *ToTy, Value *Ptr) {
+  IRBuilder<> Builder(LI);
+  // Cast FromLd to ToTy.
+  Value *CastV = CastLdValue(Ptr, FromTy, ToTy, Builder);
+  if (CastV) {
+    LI->replaceAllUsesWith(CastV);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static bool SimplifyBitCastStore(StoreInst *SI, llvm::Type *FromTy, llvm::Type *ToTy, Value *Ptr) {
+  IRBuilder<> Builder(SI);
+  Value *V = SI->getValueOperand();
+  // Cast Val to FromTy.
+  Value *CastV = CastStValue(Ptr, V, FromTy, ToTy, Builder);
+  if (CastV) {
+    Builder.CreateStore(CastV, Ptr);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static bool SimplifyBitCastGEP(GEPOperator *GEP, llvm::Type *FromTy, llvm::Type *ToTy, Value *Ptr) {
+  if (ToTy->isVectorTy()) {
+    unsigned vecSize = ToTy->getVectorNumElements();
+    if (vecSize == 1 && ToTy->getVectorElementType() == FromTy) {
+      // ScalarToVec1Splat
+      GEP->replaceAllUsesWith(Ptr);
+      return true;
+    } else if (FromTy->isVectorTy() && vecSize == 1) {
+      // VectorTrunc
       DXASSERT_NOMSG(
           !isa<llvm::VectorType>(GEP->getType()->getPointerElementType()));
-      IRBuilder<> Builder(GEP);
+      IRBuilder<> Builder(FromTy->getContext());
+      if (Instruction *I = dyn_cast<Instruction>(GEP))
+        Builder.SetInsertPoint(I);
       std::vector<Value *> idxList(GEP->idx_begin(), GEP->idx_end());
-      Value *NewGEP = Builder.CreateInBoundsGEP(bigVec, idxList);
+      Value *NewGEP = Builder.CreateInBoundsGEP(Ptr, idxList);
       GEP->replaceAllUsesWith(NewGEP);
-      deadInsts.emplace_back(GEP);
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
-      IRBuilder<> Builder(LI);
-      Value *NewLI = Builder.CreateLoad(bigVec);
-      NewLI = Builder.CreateShuffleVector(NewLI, NewLI, {0});
-      LI->replaceAllUsesWith(NewLI);
-      deadInsts.emplace_back(LI);
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
-      Value *V = SI->getValueOperand();
+      return true;
+    } else if (FromTy->isArrayTy()) {
+      llvm::Type *FromEltTy = FromTy->getArrayElementType();
 
-      IRBuilder<> Builder(LI);
-      for (unsigned i = 0; i < vecSize; i++) {
-        Value *Elt = Builder.CreateExtractElement(V, i);
-        Value *EltGEP = Builder.CreateInBoundsGEP(
-            bigVec, {zeroIdx, ConstantInt::get(idxTy, i)});
-        Builder.CreateStore(Elt, EltGEP);
+      llvm::Type *ToEltTy = ToTy->getVectorElementType();
+      if (FromTy->getArrayNumElements() == vecSize && FromEltTy == ToEltTy) {
+        // ArrayToVector.
       }
-
-      deadInsts.emplace_back(SI);
-    } else {
-      DXASSERT(0, "not support yet");
     }
+  } else if (FromTy == llvm::Type::getInt1Ty(FromTy->getContext())) {
+    // BoolCast
   }
-  deadInsts.emplace_back(BCI);
+  return false;
 }
 
-static void SimplifyArrayToVector(Value *Cast, Value *Ptr, llvm::Type *i32Ty,
-                                  std::vector<Instruction *> &deadInsts) {
-  // Transform
-  // %4 = bitcast [4 x i32]* %Val2 to <4 x i32>*
-  // store <4 x i32> %5, <4 x i32>* %4, !tbaa !0
-  // Into
-  //%6 = extractelement <4 x i32> %5, i64 0
-  //%7 = getelementptr inbounds [4 x i32], [4 x i32]* %Val2, i32 0, i32 0
-  // store i32 %6, i32* %7
-  //%8 = extractelement <4 x i32> %5, i64 1
-  //%9 = getelementptr inbounds [4 x i32], [4 x i32]* %Val2, i32 0, i32 1
-  // store i32 %8, i32* %9
-  //%10 = extractelement <4 x i32> %5, i64 2
-  //%11 = getelementptr inbounds [4 x i32], [4 x i32]* %Val2, i32 0, i32 2
-  // store i32 %10, i32* %11
-  //%12 = extractelement <4 x i32> %5, i64 3
-  //%13 = getelementptr inbounds [4 x i32], [4 x i32]* %Val2, i32 0, i32 3
-  // store i32 %12, i32* %13
-  Value *zeroIdx = ConstantInt::get(i32Ty, 0);
+static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &deadInsts) {
+  Value *Ptr = BC->getOperand(0);
+  llvm::Type *FromTy = Ptr->getType();
+  llvm::Type *ToTy = BC->getType();
 
-  for (User *U : Cast->users()) {
+  if (!FromTy->isPointerTy() || !ToTy->isPointerTy())
+    return;
+
+  FromTy = FromTy->getPointerElementType();
+  ToTy = ToTy->getPointerElementType();
+  // Take care case like %2 = bitcast %struct.T* %1 to <1 x float>*.
+  if (FromTy->isStructTy()) {
+    IRBuilder<> Builder(FromTy->getContext());
+    if (Instruction *I = dyn_cast<Instruction>(BC))
+      Builder.SetInsertPoint(I);
+
+    Value *zeroIdx = Builder.getInt32(0);
+    unsigned nestLevel = 1;
+    while (llvm::StructType *ST = dyn_cast<llvm::StructType>(FromTy)) {
+      FromTy = ST->getElementType(0);
+      nestLevel++;
+    }
+    std::vector<Value *> idxList(nestLevel, zeroIdx);
+    Ptr = Builder.CreateGEP(Ptr, idxList);
+  }
+
+  for (User *U : BC->users()) {
     if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      IRBuilder<> Builder(LI);
-      unsigned vecSize = LI->getType()->getVectorNumElements();
-      Value *NewLd = UndefValue::get(LI->getType());
-      for (unsigned i = 0; i < vecSize; i++) {
-        Value *GEP = Builder.CreateInBoundsGEP(
-            Ptr, {zeroIdx, ConstantInt::get(i32Ty, i)});
-        Value *Elt = Builder.CreateLoad(GEP);
-        NewLd = Builder.CreateInsertElement(NewLd, Elt, i);
-      }
-      LI->replaceAllUsesWith(NewLd);
-      deadInsts.emplace_back(LI);
+      if (SimplifyBitCastLoad(LI, FromTy, ToTy, Ptr))
+        deadInsts.emplace_back(LI);
     } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      Value *V = SI->getValueOperand();
-      IRBuilder<> Builder(SI);
-      unsigned vecSize = V->getType()->getVectorNumElements();
-      for (unsigned i = 0; i < vecSize; i++) {
-        Value *Elt = Builder.CreateExtractElement(V, i);
-        Value *GEP = Builder.CreateInBoundsGEP(
-            Ptr, {zeroIdx, ConstantInt::get(i32Ty, i)});
-        Builder.CreateStore(Elt, GEP);
-      }
-      deadInsts.emplace_back(SI);
+      if (SimplifyBitCastStore(SI, FromTy, ToTy, Ptr))
+        deadInsts.emplace_back(SI);
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      if (SimplifyBitCastGEP(GEP, FromTy, ToTy, Ptr))
+        if (Instruction *I = dyn_cast<Instruction>(GEP))
+          deadInsts.emplace_back(I);
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      // Skip function call.
     } else {
       DXASSERT(0, "not support yet");
     }
   }
-}
-
-static void SimplifyArrayToVector(BitCastInst *BCI, std::vector<Instruction *> &deadInsts) {
-  Value *Ptr = BCI->getOperand(0);
-  llvm::Type *i32Ty = llvm::Type::getInt32Ty(BCI->getContext());
-  SimplifyArrayToVector(BCI, Ptr, i32Ty, deadInsts);
-  deadInsts.emplace_back(BCI);
-}
-
-static void SimplifyBoolCast(BitCastInst *BCI, llvm::Type *i1Ty, std::vector<Instruction *> &deadInsts) {
-  // Transform
-  //%22 = bitcast i1* %21 to i32*
-  //%23 = load i32, i32* %22, !tbaa !3, !range !7
-  //%tobool5 = icmp ne i32 %23, 0
-  // To
-  //%tobool5 = load i1, i1* %21, !tbaa !3, !range !7
-  Value *i1Ptr = BCI->getOperand(0);
-  for (User *U : BCI->users()) {
-    if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (!LI->hasOneUse()) {
-        continue;
-      }
-      if (ICmpInst *II = dyn_cast<ICmpInst>(*LI->user_begin())) {
-        if (ConstantInt *CI = dyn_cast<ConstantInt>(II->getOperand(1))) {
-          if (CI->getLimitedValue() == 0 &&
-              II->getPredicate() == CmpInst::ICMP_NE) {
-            IRBuilder<> Builder(LI);
-            Value *i1Val = Builder.CreateLoad(i1Ptr);
-            II->replaceAllUsesWith(i1Val);
-            deadInsts.emplace_back(LI);
-            deadInsts.emplace_back(II);
-          }
-        }
-      }
-    }
-  }
-  deadInsts.emplace_back(BCI);
 }
 
 typedef float(__cdecl *FloatUnaryEvalFuncType)(float);
@@ -3613,48 +3622,31 @@ static void SimpleTransformForHLDXIR(Instruction *I,
   unsigned opcode = I->getOpcode();
   switch (opcode) {
   case Instruction::BitCast: {
-    BitCastInst *BCI = cast<BitCastInst>(I);
-    llvm::Type *ToTy = BCI->getType();
-    llvm::Type *FromTy = BCI->getOperand(0)->getType();
-    if (ToTy->isPointerTy() && FromTy->isPointerTy()) {
-      ToTy = ToTy->getPointerElementType();
-      FromTy = FromTy->getPointerElementType();
-      llvm::Type *i1Ty = llvm::Type::getInt1Ty(ToTy->getContext());
-      if (ToTy->isVectorTy()) {
-        unsigned vecSize = ToTy->getVectorNumElements();
-        if (vecSize == 1 &&
-            ToTy->getVectorElementType() == FromTy) {
-          SimplifyScalarToVec1Splat(BCI, deadInsts);
-        } else if (FromTy->isVectorTy() && vecSize == 1) {
-          if (FromTy->getScalarType() == ToTy->getScalarType()) {
-            SimplifyVectorTrunc(BCI, deadInsts);
-          }
-        } else if (FromTy->isArrayTy()) {
-          llvm::Type *FromEltTy = FromTy->getArrayElementType();
-
-          llvm::Type *ToEltTy = ToTy->getVectorElementType();
-          if (FromTy->getArrayNumElements() == vecSize &&
-              FromEltTy == ToEltTy) {
-            SimplifyArrayToVector(BCI, deadInsts);
-          }
-        }
-      }
-      else if (FromTy == i1Ty) {
-        SimplifyBoolCast(BCI, i1Ty, deadInsts);
-      }
-      // TODO: support array to array cast.
-    }
+    BitCastOperator *BCI = cast<BitCastOperator>(I);
+    SimplifyBitCast(BCI, deadInsts);
   } break;
   case Instruction::Load: {
     LoadInst *ldInst = cast<LoadInst>(I);
-    DXASSERT_LOCALVAR(ldInst, !HLMatrixLower::IsMatrixType(ldInst->getType()),
+    DXASSERT(!HLMatrixLower::IsMatrixType(ldInst->getType()),
                       "matrix load should use HL LdStMatrix");
+    Value *Ptr = ldInst->getPointerOperand();
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Ptr)) {
+      if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(CE)) {
+        SimplifyBitCast(BCO, deadInsts);
+      }
+    }
   } break;
   case Instruction::Store: {
     StoreInst *stInst = cast<StoreInst>(I);
     Value *V = stInst->getValueOperand();
     DXASSERT_LOCALVAR(V, !HLMatrixLower::IsMatrixType(V->getType()),
                       "matrix store should use HL LdStMatrix");
+    Value *Ptr = stInst->getPointerOperand();
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Ptr)) {
+      if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(CE)) {
+        SimplifyBitCast(BCO, deadInsts);
+      }
+    }
   } break;
   case Instruction::LShr:
   case Instruction::AShr:
@@ -3692,32 +3684,17 @@ static void SimpleTransformForHLDXIR(llvm::Module *pM) {
     }
   }
 
-
-  llvm::Type *i32Ty = llvm::Type::getInt32Ty(pM->getContext());
+  for (Instruction * I : deadInsts)
+    I->dropAllReferences();
+  for (Instruction * I : deadInsts)
+    I->eraseFromParent();
+  deadInsts.clear();
 
   for (GlobalVariable &GV : pM->globals()) {
     if (HLModule::IsStaticGlobal(&GV)) {
       for (User *U : GV.users()) {
         if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(U)) {
-          llvm::Type *ToTy = BCO->getType();
-          llvm::Type *FromTy = BCO->getOperand(0)->getType();
-          if (ToTy->isPointerTy() && FromTy->isPointerTy()) {
-            ToTy = ToTy->getPointerElementType();
-            FromTy = FromTy->getPointerElementType();
-            if (ToTy->isVectorTy()) {
-              unsigned vecSize = ToTy->getVectorNumElements();
-              if (FromTy->isArrayTy()) {
-                llvm::Type *FromEltTy = FromTy->getArrayElementType();
-
-                llvm::Type *ToEltTy = ToTy->getVectorElementType();
-                if (FromTy->getArrayNumElements() == vecSize &&
-                    FromEltTy == ToEltTy) {
-                  SimplifyArrayToVector(BCO, &GV, i32Ty, deadInsts);
-                }
-              }
-            }
-            // TODO: support array to array cast.
-          }
+          SimplifyBitCast(BCO, deadInsts);
         }
       }
     }
@@ -3859,8 +3836,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Do simple transform to make later lower pass easier.
   SimpleTransformForHLDXIR(m_pHLModule->GetModule());
 
-  // Add semantic defines for extensions if any are available.
+  // Handle lang extensions if provided.
   if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
+    // Add semantic defines for extensions if any are available.
     HLSLExtensionsCodegenHelper::SemanticDefineErrorList errors =
       CGM.getCodeGenOpts().HLSLExtensionsCodegen->WriteSemanticDefines(m_pHLModule->GetModule());
 
@@ -3871,6 +3849,18 @@ void CGMSHLSLRuntime::FinishCodeGen() {
         level = DiagnosticsEngine::Warning;
       unsigned DiagID = Diags.getCustomDiagID(level, "%0");
       Diags.Report(SourceLocation::getFromRawEncoding(error.Location()), DiagID) << error.Message();
+    }
+
+    // Add root signature from a #define. Overrides root signature in function attribute.
+    {
+      using Status = HLSLExtensionsCodegenHelper::CustomRootSignature::Status;
+      HLSLExtensionsCodegenHelper::CustomRootSignature customRootSig;
+      Status status = CGM.getCodeGenOpts().HLSLExtensionsCodegen->GetCustomRootSignature(&customRootSig);
+      if (status == Status::FOUND) {
+          CompileRootSignature(customRootSig.RootSignature, Diags,
+                               SourceLocation::getFromRawEncoding(customRootSig.EncodedSourceLocation),
+                               rootSigVer, &m_pHLModule->GetRootSignature());
+      }
     }
   }
 
@@ -4243,6 +4233,19 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
       if (!RT)
         RT = Ty->getAs<RecordType>();
       RecordDecl *RD = RT->getDecl();
+      // Take care base.
+      if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+        if (CXXRD->getNumBases()) {
+          for (const auto &I : CXXRD->bases()) {
+            const CXXRecordDecl *BaseDecl = cast<CXXRecordDecl>(
+                I.getType()->castAs<RecordType>()->getDecl());
+            if (BaseDecl->field_empty())
+              continue;
+            QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
+            AddMissingCastOpsInInitList(elts, eltTys, idx, parentTy, CGF);
+          }
+        }
+      }
       for (FieldDecl *field : RD->fields())
         AddMissingCastOpsInInitList(elts, eltTys, idx, field->getType(), CGF);
     }
@@ -4343,46 +4346,6 @@ void CGMSHLSLRuntime::ScanInitList(CodeGenFunction &CGF, InitListExpr *E,
   }
 }
 
-unsigned CGMSHLSLRuntime::ScanInitList(InitListExpr *E) {
-  unsigned NumInitElements = E->getNumInits();
-  unsigned size = 0;
-  for (unsigned i = 0; i != NumInitElements; ++i) {
-    Expr *init = E->getInit(i);
-    QualType iType = init->getType();
-    if (InitListExpr *initList = dyn_cast<InitListExpr>(init)) {
-      size += ScanInitList(initList);
-    } else if (CodeGenFunction::hasScalarEvaluationKind(iType)) {
-      size += GetElementCount(iType);
-    } else {
-      DXASSERT(0, "not support yet");
-    }
-
-  }
-  return size;
-}
-
-QualType CGMSHLSLRuntime::UpdateHLSLIncompleteArrayType(VarDecl &D) {
-  if (!D.hasInit())
-    return D.getType();
-
-  InitListExpr *E = dyn_cast<InitListExpr>(D.getInit());
-  if (!E)
-    return D.getType();
-
-  unsigned arrayEltCount = ScanInitList(E);
-
-  QualType ResultTy = E->getType();
-
-  QualType EltTy = QualType(ResultTy->getArrayElementTypeNoTypeQual(), 0);
-  unsigned eltCount = GetElementCount(EltTy);
-  llvm::APInt ArySize(32, arrayEltCount / eltCount);
-  QualType ArrayTy = CGM.getContext().getConstantArrayType(
-      EltTy, ArySize, clang::ArrayType::Normal, 0);
-  D.setType(ArrayTy);
-  E->setType(ArrayTy);
-  return ArrayTy;
-}
-
 Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E,
       // The destPtr when emiting aggregate init, for normal case, it will be null.
       Value *DestPtr) {
@@ -4420,6 +4383,186 @@ Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr 
                                           /*opcode*/ 0, RetTy, EltValList,
                                           TheModule);
   }
+}
+
+static void FlatConstToList(Constant *C,
+                            SmallVector<Constant *, 4> &EltValList) {
+  llvm::Type *Ty = C->getType();
+  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
+    for (unsigned i = 0; i < VT->getNumElements(); i++) {
+      FlatConstToList(C->getAggregateElement(i), EltValList);
+    }
+  } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
+    for (unsigned i = 0; i < AT->getNumElements(); i++) {
+      FlatConstToList(C->getAggregateElement(i), EltValList);
+    }
+  } else if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    for (unsigned i = 0; i < ST->getNumElements(); i++) {
+      FlatConstToList(C->getAggregateElement(i), EltValList);
+    }
+  } else {
+    EltValList.emplace_back(C);
+  }
+}
+
+static bool ScanConstInitList(CodeGenModule &CGM, InitListExpr *E,
+                              SmallVector<Constant *, 4> &EltValList) {
+  unsigned NumInitElements = E->getNumInits();
+  for (unsigned i = 0; i != NumInitElements; ++i) {
+    Expr *init = E->getInit(i);
+    QualType iType = init->getType();
+    if (InitListExpr *initList = dyn_cast<InitListExpr>(init)) {
+      if (!ScanConstInitList(CGM, initList, EltValList))
+        return false;
+    } else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(init)) {
+      if (VarDecl *D = dyn_cast<VarDecl>(ref->getDecl())) {
+        if (Constant *initVal = CGM.EmitConstantInit(*D)) {
+          FlatConstToList(initVal, EltValList);
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    } else if (hlsl::IsHLSLMatType(iType)) {
+      return false;
+    } else if (CodeGenFunction::hasScalarEvaluationKind(iType)) {
+      if (Constant *initVal = CGM.EmitConstantExpr(init, iType)) {
+        FlatConstToList(initVal, EltValList);
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+static Constant *BuildConstInitializer(QualType Type, unsigned &offset,
+                                       SmallVector<Constant *, 4> &EltValList,
+                                       CodeGenTypes &Types);
+
+static Constant *BuildConstVector(llvm::VectorType *VT, unsigned &offset,
+                                  SmallVector<Constant *, 4> &EltValList,
+                                  QualType Type, CodeGenTypes &Types) {
+  SmallVector<Constant *, 4> Elts;
+  QualType EltTy = hlsl::GetHLSLVecElementType(Type);
+  for (unsigned i = 0; i < VT->getNumElements(); i++) {
+    Elts.emplace_back(BuildConstInitializer(EltTy, offset, EltValList, Types));
+  }
+  return llvm::ConstantVector::get(Elts);
+}
+
+static Constant *BuildConstMatrix(llvm::Type *Ty, unsigned &offset,
+                                  SmallVector<Constant *, 4> &EltValList,
+                                  QualType Type, CodeGenTypes &Types) {
+  QualType EltTy = hlsl::GetHLSLMatElementType(Type);
+  unsigned col, row;
+  HLMatrixLower::GetMatrixInfo(Ty, col, row);
+  llvm::ArrayType *AT = cast<llvm::ArrayType>(Ty->getStructElementType(0));
+  // Matrix initializer is row major.
+  // The type is vector<element, col>[row].
+  SmallVector<Constant *, 4> rows;
+  for (unsigned r = 0; r < row; r++) {
+    SmallVector<Constant *, 4> cols;
+    for (unsigned c = 0; c < col; c++) {
+      cols.emplace_back(
+          BuildConstInitializer(EltTy, offset, EltValList, Types));
+    }
+    rows.emplace_back(llvm::ConstantVector::get(cols));
+  }
+  Constant *mat = llvm::ConstantArray::get(AT, rows);
+  return llvm::ConstantStruct::get(cast<llvm::StructType>(Ty), mat);
+}
+
+static Constant *BuildConstArray(llvm::ArrayType *AT, unsigned &offset,
+                                 SmallVector<Constant *, 4> &EltValList,
+                                 QualType Type, CodeGenTypes &Types) {
+  SmallVector<Constant *, 4> Elts;
+  QualType EltType = QualType(Type->getArrayElementTypeNoTypeQual(), 0);
+  for (unsigned i = 0; i < AT->getNumElements(); i++) {
+    Elts.emplace_back(
+        BuildConstInitializer(EltType, offset, EltValList, Types));
+  }
+  return llvm::ConstantArray::get(AT, Elts);
+}
+
+static Constant *BuildConstStruct(llvm::StructType *ST, unsigned &offset,
+                                  SmallVector<Constant *, 4> &EltValList,
+                                  QualType Type, CodeGenTypes &Types) {
+  SmallVector<Constant *, 4> Elts;
+
+  const RecordType *RT = Type->getAsStructureType();
+  if (!RT)
+    RT = Type->getAs<RecordType>();
+  const RecordDecl *RD = RT->getDecl();
+
+  if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+    if (CXXRD->getNumBases()) {
+      // Add base as field.
+      for (const auto &I : CXXRD->bases()) {
+        const CXXRecordDecl *BaseDecl =
+            cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
+        // Skip empty struct.
+        if (BaseDecl->field_empty())
+          continue;
+
+        // Add base as a whole constant. Not as element.
+        Elts.emplace_back(
+            BuildConstInitializer(I.getType(), offset, EltValList, Types));
+      }
+    }
+  }
+
+  for (auto fieldIter = RD->field_begin(), fieldEnd = RD->field_end();
+       fieldIter != fieldEnd; ++fieldIter) {
+    Elts.emplace_back(
+        BuildConstInitializer(fieldIter->getType(), offset, EltValList, Types));
+  }
+
+  return llvm::ConstantStruct::get(ST, Elts);
+}
+
+static Constant *BuildConstInitializer(QualType Type, unsigned &offset,
+                                       SmallVector<Constant *, 4> &EltValList,
+                                       CodeGenTypes &Types) {
+  llvm::Type *Ty = Types.ConvertType(Type);
+  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
+    return BuildConstVector(VT, offset, EltValList, Type, Types);
+  } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
+    return BuildConstArray(AT, offset, EltValList, Type, Types);
+  } else if (HLMatrixLower::IsMatrixType(Ty)) {
+    return BuildConstMatrix(Ty, offset, EltValList, Type, Types);
+  } else if (StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    return BuildConstStruct(ST, offset, EltValList, Type, Types);
+  } else {
+    // Scalar basic types.
+    Constant *Val = EltValList[offset++];
+    if (Val->getType() == Ty) {
+      return Val;
+    } else {
+      IRBuilder<> Builder(Ty->getContext());
+      // Don't cast int to bool. bool only for scalar.
+      if (Ty == Builder.getInt1Ty() && Val->getType() == Builder.getInt32Ty())
+        return Val;
+      Instruction::CastOps castOp =
+          static_cast<Instruction::CastOps>(HLModule::FindCastOp(
+              IsUnsigned(Type), IsUnsigned(Type), Val->getType(), Ty));
+      return cast<Constant>(Builder.CreateCast(castOp, Val, Ty));
+    }
+  }
+}
+
+Constant *CGMSHLSLRuntime::EmitHLSLConstInitListExpr(CodeGenModule &CGM,
+                                                     InitListExpr *E) {
+  SmallVector<Constant *, 4> EltValList;
+  if (!ScanConstInitList(CGM, E, EltValList))
+    return nullptr;
+
+  QualType Type = E->getType();
+  unsigned offset = 0;
+  return BuildConstInitializer(Type, offset, EltValList, CGM.getTypes());
 }
 
 Value *CGMSHLSLRuntime::EmitHLSLMatrixOperationCall(
@@ -4864,6 +5007,9 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
       return;
     }
     const clang::RecordType *RT = Type->getAsStructureType();
+    // For classType.
+    if (!RT)
+      RT = Type->getAs<RecordType>();
     RecordDecl *RD = RT->getDecl();
     auto fieldIter = RD->field_begin();
 

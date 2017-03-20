@@ -260,6 +260,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.PrivateSource = Args.getLastArgValue(OPT_setprivate);
   opts.RootSignatureSource = Args.getLastArgValue(OPT_setrootsignature);
   opts.VerifyRootSignatureSource = Args.getLastArgValue(OPT_verifyrootsignature);
+  opts.RootSignatureDefine = Args.getLastArgValue(OPT_rootsig_define);
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
       opts.ForceRootSigVer != "rootsig_1_1") {

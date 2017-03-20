@@ -16,8 +16,8 @@ struct VS_OUT {
   float4 ChannelSelector : TEXCOORD1;
 };
 cbuffer OncePerDrawText : register(b0) {
-  float2 TexScale : register(c0);
-  float4 Color : register(c1);
+  const float2 TexScale : register(c0);
+  const float4 Color : register(c1);
 }
 ;
 sampler FontTexture;

@@ -31,6 +31,7 @@
 #include "HLSLTestData.h"
 #include "WexTestClass.h"
 #include "HlslTestUtils.h"
+#include "DxcTestUtils.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/dxctools.h"
@@ -70,6 +71,7 @@ public:
   TEST_METHOD(RunUTF16ThreeByte);
   TEST_METHOD(RunNonUnicode);
   TEST_METHOD(RunEffect);
+  TEST_METHOD(RunSemanticDefines);
 
   dxc::DxcDllSupport m_dllSupport;
 
@@ -101,7 +103,10 @@ public:
   VerifyResult CheckVerifies(LPCWSTR path, LPCWSTR goldPath) {   
     CComPtr<IDxcRewriter> pRewriter;
     VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
-    
+    return CheckVerifies(pRewriter, path, goldPath);
+  }
+
+  VerifyResult CheckVerifies(IDxcRewriter *pRewriter, LPCWSTR path, LPCWSTR goldPath) {
     CComPtr<IDxcOperationResult> pRewriteResult;
     RewriteCompareGold(path, goldPath, &pRewriteResult, pRewriter);
 
@@ -123,6 +128,16 @@ public:
       VERIFY_SUCCEEDED(m_dllSupport.Initialize());
     }
     return m_dllSupport.CreateInstance(CLSID_DxcRewriter, pRewriter);
+  }
+
+  HRESULT CreateRewriterWithSemanticDefines(IDxcRewriter** pRewriter, std::vector<LPCWSTR> defines) {
+    VERIFY_SUCCEEDED(CreateRewriter(pRewriter));
+    CComPtr<IDxcLangExtensions> pLangExtensions;
+    VERIFY_SUCCEEDED((*pRewriter)->QueryInterface(&pLangExtensions));
+    for (LPCWSTR define : defines)
+      VERIFY_SUCCEEDED(pLangExtensions->RegisterSemanticDefine(define));
+
+    return S_OK;
   }
 
   VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName) {
@@ -317,7 +332,7 @@ TEST_F(RewriterTest, RunUTF16OneByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\x69\x3b\n") == 0); 
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\x69\x3b\n") == 0); // const added by default
 }
 
 TEST_F(RewriterTest, RunUTF16TwoByte) {
@@ -335,7 +350,7 @@ TEST_F(RewriterTest, RunUTF16TwoByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xc3\xad\xc3\xb1\xc5\xa7\x3b\n") == 0);
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xc3\xad\xc3\xb1\xc5\xa7\x3b\n") == 0); // const added by default
 }
 
 TEST_F(RewriterTest, RunUTF16ThreeByteBadChar) {
@@ -353,7 +368,7 @@ TEST_F(RewriterTest, RunUTF16ThreeByteBadChar) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\x41\x3b\n") == 0); //"int A;" -> should remove the weird characters
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\x41\x3b\n") == 0); //"const int A;" -> should remove the weird characters
 }
 
 TEST_F(RewriterTest, RunUTF16ThreeByte) {
@@ -371,7 +386,7 @@ TEST_F(RewriterTest, RunUTF16ThreeByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xe1\xba\x8b\x3b\n") == 0);
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xe1\xba\x8b\x3b\n") == 0); // const added by default
 }
 
 TEST_F(RewriterTest, RunNonUnicode) {
@@ -389,10 +404,16 @@ TEST_F(RewriterTest, RunNonUnicode) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xce\xb1\xce\xb2\xce\xb3\x3b\n") == 0);
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xce\xb1\xce\xb2\xce\xb3\x3b\n") == 0); // const added by default
 }
 
 TEST_F(RewriterTest, RunEffect) {
   CheckVerifiesHLSL(L"rewriter\\effects-syntax.hlsl", L"rewriter\\correct_rewrites\\effects-syntax_gold.hlsl");
 }
 
+TEST_F(RewriterTest, RunSemanticDefines) {
+  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriterWithSemanticDefines(&pRewriter, {L"SD_*"}));
+  CheckVerifies(pRewriter, hlsl_test::GetPathToHlslDataFile(L"rewriter\\semantic-defines.hlsl").c_str(),
+                           hlsl_test::GetPathToHlslDataFile(L"rewriter\\correct_rewrites\\semantic-defines_gold.hlsl").c_str());
+}

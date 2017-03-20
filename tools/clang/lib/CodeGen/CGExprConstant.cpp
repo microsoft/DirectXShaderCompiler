@@ -25,6 +25,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "CGHLSLRuntime.h"   // HLSL Change
 using namespace clang;
 using namespace CodeGen;
 
@@ -744,8 +745,11 @@ public:
     // HLSL Change Begins.
     case CK_FlatConversion:
       return nullptr;
-    case CK_HLSLVectorSplat:
-      return nullptr;
+    case CK_HLSLVectorSplat: {
+      unsigned vecSize = hlsl::GetHLSLVecSize(E->getType());
+      std::vector<llvm::Constant*> Elts(vecSize, C);
+      return llvm::ConstantVector::get(Elts);
+    }
     // HLSL Change Ends.
     }
     llvm_unreachable("Invalid CastKind");
@@ -833,15 +837,12 @@ public:
   }
 
   llvm::Constant *VisitInitListExpr(InitListExpr *ILE) {
+    // HLSL Change Begins.
+    if (CGM.getLangOpts().HLSL)
+      return CGM.getHLSLRuntime().EmitHLSLConstInitListExpr(CGM, ILE);
+    // HLSL Change Ends.
     if (ILE->getType()->isArrayType())
       return EmitArrayInitialization(ILE);
-
-    // HLSL Change Begins.
-    if (hlsl::IsHLSLVecType(ILE->getType()))
-      return CGM.EmitConstantExpr(ILE, ILE->getType(), CGF);
-    if (hlsl::IsHLSLMatType(ILE->getType()))
-      return nullptr;
-    // HLSL Change Ends.
 
     if (ILE->getType()->isRecordType())
       return EmitRecordInitialization(ILE);
