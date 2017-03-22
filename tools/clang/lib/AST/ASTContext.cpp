@@ -11,10 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-extern "C" {
-  void _stdcall  OutputDebugStringA(const char *);
-}
-
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
 #include "clang/AST/ASTMutationListener.h"
@@ -8466,14 +8462,8 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
         Linkage == GVA_DiscardableODR)
       return false;
     // HLSL Change Starts
-    // Don't just return true because of visibility, unless building a library (NYI)
-    bool result = FD->getName() == getLangOpts().HLSLEntryFunction || IsPatchConstantFunctionDecl(FD);
-    if (!result) {
-      OutputDebugStringA(FD->getName().str().c_str());
-      OutputDebugStringA("\r\n");
-    }
-    return true; // return FD->getName() == getLangOpts().HLSLEntryFunction || IsPatchConstantFunctionDecl(FD);
-    // return true;
+    // Don't just return true because of visibility, unless building a library (which is not currently implemented)
+    return FD->getName() == getLangOpts().HLSLEntryFunction || IsPatchConstantFunctionDecl(FD);
     // HLSL Change Ends
   }
   
