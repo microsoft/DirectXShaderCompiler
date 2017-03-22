@@ -1960,15 +1960,6 @@ TEST_F(CompilerTest, CompileWhenRecursiveThenFail) {
     "  return 1;\r\n"
     "}\r\n";
   VerifyCompileFailed(ShaderTextMissing, L"vs_6_0", "missing entry point definition");
-
-  //const char ShaderTextAmbiguous[] =
-  //  "float4 fnmain(uint a) : SV_Position{\r\n"
-  //  "  return 1;\r\n"
-  //  "}\r\n"
-  //  "float4 fnmain(float a) : SV_Position{\r\n"
-  //  "  return 1;\r\n"
-  //  "}\r\n";
-  //VerifyCompileFailed(ShaderTextAmbiguous, L"vs_6_0", "ambiguous entry point function", L"fnmain");
 }
 
 
