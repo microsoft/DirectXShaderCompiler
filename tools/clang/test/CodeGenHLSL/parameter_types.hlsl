@@ -1,9 +1,7 @@
 // RUN: %dxc -E main -T cs_6_0 -fcgl %s  | FileCheck %s
 
-// CHECK: wouldn't it be great if we didn't have a byval thing in here where it wasn't before
-// CHECK: float %a, <4 x float> %b, %struct.T* byval %t, %class.matrix.float.2.3 %m, [3 x <2 x float>]* byval %n
-
-// CHECK: float* dereferenceable(4) %a, <4 x float>* dereferenceable(16) %b, %struct.T* byval %t, %class.matrix.float.2.3* dereferenceable(24) %m, [3 x <2 x float>]* byval %n
+// CHECK: float %a, <4 x float> %b, %struct.T* %t, %class.matrix.float.2.3 %m, [3 x <2 x float>]* %n
+// CHECK: float* dereferenceable(4) %a, <4 x float>* dereferenceable(16) %b, %struct.T* %t, %class.matrix.float.2.3* dereferenceable(24) %m, [3 x <2 x float>]* %n
 
 struct T{
   float a;

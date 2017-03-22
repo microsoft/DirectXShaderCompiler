@@ -1,4 +1,6 @@
-# DirectX Shader Compiler
+﻿# DirectX Shader Compiler
+
+[![Build status](https://ci.appveyor.com/api/projects/status/2wsw8t8clpgt1kfm?svg=true)](https://ci.appveyor.com/project/dmpots/directxshadercompiler)
 
 The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) representation. Applications that make use of DirectX for graphics, games, and computation can use it to generate shader programs.
 
@@ -26,7 +28,7 @@ Before you build, you will need to have some additional software installed.
 
 * [Git](http://git-scm.com/downloads).
 * [Visual Studio 2015](https://www.visualstudio.com/downloads), Update 3. This will install the Windows Development Kit. In the install options, make sure the following options are checked:
-    * Windows 10 SDK (10.0.10240.0)
+    * Windows 10 SDK (version 14393)
     * Common Tools for Visual C++ 2015
 * [Windows 10 SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk). This is needed to build tests that reference the D3D12 runtime. You may get this as part of installing/updating Visual Studio.
 * [Windows Driver Kit](https://developer.microsoft.com/en-us/windows/hardware/windows-driver-kit). No need to download and install tests. This is used to build and run tests.

@@ -105,6 +105,7 @@ public:
   llvm::StringRef PrivateSource; // OPT_setprivate
   llvm::StringRef RootSignatureSource; // OPT_setrootsignature
   llvm::StringRef VerifyRootSignatureSource; //OPT_verifyrootsignature
+  llvm::StringRef RootSignatureDefine; // OPT_rootsig_define
 
   bool AllResourcesBound; // OPT_all_resources_bound
   bool AstDump; // OPT_ast_dump

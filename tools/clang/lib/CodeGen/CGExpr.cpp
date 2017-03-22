@@ -1690,6 +1690,36 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
   if (VTy == nullptr && getContext().getLangOpts().HLSL)
     VTy =
         hlsl::ConvertHLSLVecMatTypeToExtVectorType(getContext(), Dst.getType());
+  llvm::Value * VecDstPtr = Dst.getExtVectorAddr();
+  llvm::Value *Zero = Builder.getInt32(0);
+  if (VTy) {
+    llvm::Type *VecTy = VecDstPtr->getType()->getPointerElementType();
+    unsigned NumSrcElts = VTy->getNumElements();
+    if (VecTy->getVectorNumElements() == NumSrcElts) {
+      // Full vector write, create one store.
+      for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+        if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+          llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+          Vec = Builder.CreateInsertElement(Vec, SrcElt, Elt);
+        }
+      }
+      Builder.CreateStore(Vec, VecDstPtr);
+    } else {
+      for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+        if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+          llvm::Value *EltGEP = Builder.CreateGEP(VecDstPtr, {Zero, Elt});
+          llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+          Builder.CreateStore(SrcElt, EltGEP);
+        }
+      }
+    }
+  } else {
+    // If the Src is a scalar (not a vector) it must be updating one element.
+    llvm::Value *EltGEP = Builder.CreateGEP(
+        VecDstPtr, {Zero, Elts->getAggregateElement((unsigned)0)});
+    Builder.CreateStore(SrcVal, EltGEP);
+  }
+  return;
   // HLSL Change Ends
   if (VTy) {  // HLSL Change
     unsigned NumSrcElts = VTy->getNumElements();
@@ -1900,12 +1930,6 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
   if (VD->getTLSKind() == VarDecl::TLS_Dynamic &&
       CGF.CGM.getCXXABI().usesThreadWrapperFunction())
     return CGF.CGM.getCXXABI().EmitThreadLocalVarDeclLValue(CGF, VD, T);
-
-  // HLSL Change Begins.
-  if (VD->getType()->isIncompleteArrayType() && CGF.getLangOpts().HLSL) {
-    T = CGF.CGM.getHLSLRuntime().UpdateHLSLIncompleteArrayType(const_cast<VarDecl&>(*VD));
-  }
-  // HLSL Change Ends.
 
   llvm::Value *V = CGF.CGM.GetAddrOfGlobalVar(VD);
   llvm::Type *RealVarTy = CGF.getTypes().ConvertTypeForMem(VD->getType());
@@ -3348,6 +3372,19 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     // bitcast to target type
     llvm::Type *ResultType = ConvertType(ToType);
     llvm::Value *bitcast = Builder.CreateBitCast(LV.getAddress(), ResultType);
+    return MakeAddrLValue(bitcast, ToType);
+  }
+  case CK_FlatConversion: {
+    // HLSL only single inheritance.
+    // Just bitcast.
+    QualType ToType = getContext().getLValueReferenceType(E->getType());
+
+    LValue LV = EmitLValue(E->getSubExpr());
+    llvm::Value *This = LV.getAddress();
+
+    // bitcast to target type
+    llvm::Type *ResultType = ConvertType(ToType);
+    llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
     return MakeAddrLValue(bitcast, ToType);
   }
   // HLSL Change Ends

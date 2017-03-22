@@ -31,6 +31,7 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include <algorithm>
@@ -110,6 +111,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializePromotePassPass(Registry);
     initializePruneEHPass(Registry);
     initializeReassociatePass(Registry);
+    initializeReducibilityAnalysisPass(Registry);
     initializeRegToMemHlslPass(Registry);
     initializeRewriteSymbolsPass(Registry);
     initializeSCCPPass(Registry);
@@ -130,6 +132,8 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeTypeBasedAliasAnalysisPass(Registry);
     initializeVerifierLegacyPassPass(Registry);
     // INIT-PASSES:END
+    // Not schematized - exclusively for compiler authors.
+    initializeCFGPrinterPasses(Registry);
   }
   CATCH_CPP_RETURN_HRESULT();
   return S_OK;

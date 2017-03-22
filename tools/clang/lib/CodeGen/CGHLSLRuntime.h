@@ -17,6 +17,7 @@ namespace llvm {
 class Function;
 template <typename T, unsigned N> class SmallVector;
 class Value;
+class Constant;
 class TerminatorInst;
 class Type;
 template <typename T> class ArrayRef;
@@ -61,8 +62,7 @@ public:
   virtual llvm::Value *EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E,
       // The destPtr when emiting aggregate init, for normal case, it will be null.
       llvm::Value *DestPtr) = 0;
-
-  virtual clang::QualType UpdateHLSLIncompleteArrayType(VarDecl &D) = 0;
+  virtual llvm::Constant *EmitHLSLConstInitListExpr(CodeGenModule &CGM, InitListExpr *E) = 0;
 
   virtual void EmitHLSLOutParamConversionInit(
       CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,

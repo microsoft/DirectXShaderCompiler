@@ -209,6 +209,9 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
 
+  MPM.add(createSimplifyInstPass());
+  MPM.add(createCFGSimplificationPass());
+
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
 
   MPM.add(createSimplifyInstPass());

@@ -48,10 +48,12 @@ class ReducibilityAnalysis : public FunctionPass {
 public:
   static char ID;
 
-  explicit ReducibilityAnalysis(IrreducibilityAction Action = IrreducibilityAction::ThrowException) 
-    : FunctionPass(ID), m_Action(Action), m_bReducible(false) {
-    initializeReducibilityAnalysisPass(*PassRegistry::getPassRegistry());
-  }
+  ReducibilityAnalysis()
+      : FunctionPass(ID), m_Action(IrreducibilityAction::ThrowException),
+        m_bReducible(false) {}
+
+  explicit ReducibilityAnalysis(IrreducibilityAction Action)
+      : FunctionPass(ID), m_Action(Action), m_bReducible(false) {}
 
   virtual bool runOnFunction(Function &F);
 

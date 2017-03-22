@@ -77,19 +77,5 @@ namespace hlsl {
     llvm::Value *Replicate(llvm::CallInst *CI);
     llvm::Value *Pack(llvm::CallInst *CI);
     llvm::Value *Resource(llvm::CallInst *CI);
-
-    // Translate the HL call by replicating the call for each vector element.
-    //
-    // For example,
-    //
-    //    <2xi32> %r = call @ext.foo(i32 %op, <2xi32> %v)
-    //    ==>
-    //    %r.1 = call @ext.foo.s(i32 %op, i32 %v.1)
-    //    %r.2 = call @ext.foo.s(i32 %op, i32 %v.2)
-    //    <2xi32> %r.v.1 = insertelement %r.1, 0, <2xi32> undef
-    //    <2xi32> %r.v.2 = insertelement %r.2, 1, %r.v.1
-    //
-    // You can then RAWU %r with %r.v.2. The RAWU is not done by the translate function.
-    static llvm::Value *TranslateReplicating(llvm::CallInst *CI, llvm::Function *ReplicatedFunction);
   };
 }
