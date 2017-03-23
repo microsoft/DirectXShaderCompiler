@@ -16,12 +16,17 @@
 
 #include <stdint.h>
 #include <iterator>
+#include <functional>
 #include "dxc/HLSL/DxilConstants.h"
 
 struct IDxcContainerReflection;
 namespace llvm { class Module; }
 
 namespace hlsl {
+
+class AbstractMemoryStream;
+class RootSignatureHandle;
+class DxilModule;
 
 #pragma pack(push, 1)
 
@@ -368,10 +373,31 @@ inline uint32_t EncodeVersion(DXIL::ShaderKind shaderType, uint32_t major,
   return ((unsigned)shaderType << 16) | (major << 4) | minor;
 }
 
-class AbstractMemoryStream;
-void SerializeDxilContainerForModule(llvm::Module *pModule,
+class DxilPartWriter {
+public:
+  virtual uint32_t size() const = 0;
+  virtual void write(AbstractMemoryStream *pStream) = 0;
+};
+
+DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
+DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
+DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
+DxilPartWriter *NewPSVWriter(const DxilModule &M);
+
+class DxilContainerWriter : public DxilPartWriter  {
+public:
+  typedef std::function<void(AbstractMemoryStream*)> WriteFn;
+  virtual void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) = 0;
+};
+
+DxilContainerWriter *NewDxilContainerWriter();
+
+void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,
                                      AbstractMemoryStream *pStream);
+void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
+                                     AbstractMemoryStream *pStream);
+
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
 
 // Converts uint32_t partKind to char array object.
@@ -382,6 +408,16 @@ inline char * PartKindToCharArray(uint32_t partKind, _Out_writes_(5) char* pText
   pText[3] = (char)((partKind & 0xFF000000) >> 24);
   pText[4] = '\0';
   return pText;
+}
+
+inline size_t GetOffsetTableSize(uint32_t partCount) {
+  return sizeof(uint32_t) * partCount;
+}
+// Compute total size of the dxil container from parts information
+inline size_t GetDxilContainerSizeFromParts(uint32_t partCount, uint32_t partsSize) {
+  return partsSize + (uint32_t)sizeof(DxilContainerHeader) +
+         GetOffsetTableSize(partCount) +
+         (uint32_t)sizeof(DxilPartHeader) * partCount;
 }
 
 } // namespace hlsl

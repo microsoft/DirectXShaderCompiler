@@ -32,6 +32,8 @@ public:
 
   TEST_METHOD(RunAttributes);
   TEST_METHOD(RunConstExpr);
+  TEST_METHOD(RunConstAssign);
+  TEST_METHOD(RunConstDefault);
   TEST_METHOD(RunCppErrors);
   TEST_METHOD(RunFunctions);
   TEST_METHOD(RunIndexingOperator);
@@ -120,6 +122,14 @@ TEST_F(VerifierTest, RunAttributes) {
 
 TEST_F(VerifierTest, RunConstExpr) {
   CheckVerifiesHLSL(L"const-expr.hlsl");
+}
+
+TEST_F(VerifierTest, RunConstAssign) {
+  CheckVerifiesHLSL(L"const-assign.hlsl");
+}
+
+TEST_F(VerifierTest, RunConstDefault) {
+  CheckVerifiesHLSL(L"const-default.hlsl");
 }
 
 TEST_F(VerifierTest, RunCppErrors) {

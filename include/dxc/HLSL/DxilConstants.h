@@ -26,8 +26,8 @@ import hctdb_instrhelp
 
 namespace DXIL {
   // DXIL version.
-  const unsigned kDxilMajor = 0;
-  const unsigned kDxilMinor = 7;
+  const unsigned kDxilMajor = 1;
+  const unsigned kDxilMinor = 0;
 
   inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
     return 0 | (DxilMajor << 8) | (DxilMinor);
@@ -206,6 +206,13 @@ namespace DXIL {
   };
   // PackingKind-ENUM:END
 
+  enum class PackingStrategy : unsigned {
+    Default = 0, // Choose default packing algorithm based on target (currently PrefixStable)
+    PrefixStable, // Maintain assumption that all elements are packed in order and stable as new elements are added.
+    Optimized, // Optimize packing of all elements together (all elements must be present, in the same order, for identical placement of any individual element)
+    Invalid,
+  };
+
   enum class SamplerKind : unsigned {
     Default = 0,
     Comparison,
@@ -246,43 +253,32 @@ namespace DXIL {
   // OPCODE-ENUM:BEGIN
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
-    // 
-    GlobalOrderedCountIncReserved = 129, // reserved
-    ToDelete1 = 101, // reserved
-    ToDelete2 = 102, // reserved
-    ToDelete3 = 104, // reserved
-    ToDelete4 = 105, // reserved
-    ToDelete5 = 76, // reserved
-    ToDelete6 = 77, // reserved
-  
     // Binary float
-    FMax = 34, // returns the FMax of the input values
-    FMin = 35, // returns the FMin of the input values
-  
-    // Binary int with carry
-    IAddc = 43, // returns the IAddc of the input values
-    ISubc = 45, // returns the ISubc of the input values
-    UAddc = 44, // returns the UAddc of the input values
-    USubc = 46, // returns the USubc of the input values
+    FMax = 35, // returns a if a >= b, else b
+    FMin = 36, // returns a if a < b, else b
   
     // Binary int with two outputs
-    IMul = 40, // returns the IMul of the input values
-    UDiv = 42, // returns the UDiv of the input values
-    UMul = 41, // returns the UMul of the input values
+    IMul = 41, // returns the IMul of the input values
+    UDiv = 43, // returns the UDiv of the input values
+    UMul = 42, // returns the UMul of the input values
   
     // Binary int
-    IMax = 36, // returns the IMax of the input values
-    IMin = 37, // returns the IMin of the input values
-    UMax = 38, // returns the UMax of the input values
-    UMin = 39, // returns the UMin of the input values
+    IMax = 37, // returns the IMax of the input values
+    IMin = 38, // returns the IMin of the input values
+    UMax = 39, // returns the UMax of the input values
+    UMin = 40, // returns the UMin of the input values
+  
+    // Binary uint with carry or borrow
+    UAddc = 44, // returns the UAddc of the input values
+    USubb = 45, // returns the USubb of the input values
   
     // Bitcasts with different sizes
-    BitcastF16toI16 = 133, // bitcast between different sizes
-    BitcastF32toI32 = 135, // bitcast between different sizes
-    BitcastF64toI64 = 137, // bitcast between different sizes
-    BitcastI16toF16 = 132, // bitcast between different sizes
-    BitcastI32toF32 = 134, // bitcast between different sizes
-    BitcastI64toF64 = 136, // bitcast between different sizes
+    BitcastF16toI16 = 125, // bitcast between different sizes
+    BitcastF32toI32 = 127, // bitcast between different sizes
+    BitcastF64toI64 = 129, // bitcast between different sizes
+    BitcastI16toF16 = 124, // bitcast between different sizes
+    BitcastI32toF32 = 126, // bitcast between different sizes
+    BitcastI64toF64 = 128, // bitcast between different sizes
   
     // Compute shader
     FlattenedThreadIdInGroup = 96, // provides a flattened index for a given thread within a given group (SV_GroupIndex)
@@ -291,92 +287,90 @@ namespace DXIL {
     ThreadIdInGroup = 95, // reads the thread ID within the group (SV_GroupThreadID)
   
     // Domain and hull shader
-    LoadOutputControlPoint = 106, // LoadOutputControlPoint
-    LoadPatchConstant = 107, // LoadPatchConstant
+    LoadOutputControlPoint = 103, // LoadOutputControlPoint
+    LoadPatchConstant = 104, // LoadPatchConstant
   
     // Domain shader
-    DomainLocation = 108, // DomainLocation
+    DomainLocation = 105, // DomainLocation
   
     // Dot
-    Dot2 = 55, // two-dimensional vector dot-product
-    Dot3 = 56, // three-dimensional vector dot-product
-    Dot4 = 57, // four-dimensional vector dot-product
+    Dot2 = 54, // two-dimensional vector dot-product
+    Dot3 = 55, // three-dimensional vector dot-product
+    Dot4 = 56, // four-dimensional vector dot-product
   
     // Double precision
-    LegacyDoubleToFloat = 141, // legacy fuction to convert double to float
-    LegacyDoubleToSInt32 = 142, // legacy fuction to convert double to int32
-    LegacyDoubleToUInt32 = 143, // legacy fuction to convert double to uint32
-    MakeDouble = 100, // creates a double value
-    SplitDouble = 103, // splits a double into low and high parts
-  
-    // GS
-    GSInstanceID = 138, // GSInstanceID
+    LegacyDoubleToFloat = 132, // legacy fuction to convert double to float
+    LegacyDoubleToSInt32 = 133, // legacy fuction to convert double to int32
+    LegacyDoubleToUInt32 = 134, // legacy fuction to convert double to uint32
+    MakeDouble = 101, // creates a double value
+    SplitDouble = 102, // splits a double into low and high parts
   
     // Geometry shader
     CutStream = 98, // completes the current primitive topology at the specified stream
     EmitStream = 97, // emits a vertex to a given stream
     EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
+    GSInstanceID = 100, // GSInstanceID
   
     // Hull shader
-    OutputControlPointID = 110, // OutputControlPointID
-    PrimitiveID = 111, // PrimitiveID
-    StorePatchConstant = 109, // StorePatchConstant
+    OutputControlPointID = 107, // OutputControlPointID
+    PrimitiveID = 108, // PrimitiveID
+    StorePatchConstant = 106, // StorePatchConstant
   
     // Legacy floating-point
-    LegacyF16ToF32 = 140, // legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
-    LegacyF32ToF16 = 139, // legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
+    LegacyF16ToF32 = 131, // legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
+    LegacyF32ToF16 = 130, // legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
   
     // Other
-    CycleCounterLegacy = 112, // CycleCounterLegacy
+    CycleCounterLegacy = 109, // CycleCounterLegacy
   
     // Pixel shader
-    CalculateLOD = 84, // calculates the level of detail
-    Coverage = 147, // returns the coverage mask input in a pixel shader
-    DerivCoarseX = 86, // computes the rate of change of components per stamp
-    DerivCoarseY = 87, // computes the rate of change of components per stamp
-    DerivFineX = 88, // computes the rate of change of components per pixel
-    DerivFineY = 89, // computes the rate of change of components per pixel
-    Discard = 85, // discard the current pixel
-    EvalCentroid = 92, // evaluates an input attribute at pixel center
-    EvalSampleIndex = 91, // evaluates an input attribute at a sample location
-    EvalSnapped = 90, // evaluates an input attribute at pixel center with an offset
-    InnerCoverage = 148, // returns underestimated coverage input from conservative rasterization in a pixel shader
-    SampleIndex = 146, // returns the sample index in a sample-frequency pixel shader
+    CalculateLOD = 81, // calculates the level of detail
+    Coverage = 91, // returns the coverage mask input in a pixel shader
+    DerivCoarseX = 83, // computes the rate of change of components per stamp
+    DerivCoarseY = 84, // computes the rate of change of components per stamp
+    DerivFineX = 85, // computes the rate of change of components per pixel
+    DerivFineY = 86, // computes the rate of change of components per pixel
+    Discard = 82, // discard the current pixel
+    EvalCentroid = 89, // evaluates an input attribute at pixel center
+    EvalSampleIndex = 88, // evaluates an input attribute at a sample location
+    EvalSnapped = 87, // evaluates an input attribute at pixel center with an offset
+    InnerCoverage = 92, // returns underestimated coverage input from conservative rasterization in a pixel shader
+    SampleIndex = 90, // returns the sample index in a sample-frequency pixel shader
   
     // Quaternary
-    Bfi = 54, // given a bit range from the LSB of a number, places that number of bits in another number at any offset
+    Bfi = 53, // given a bit range from the LSB of a number, places that number of bits in another number at any offset
   
     // Resources - gather
-    TextureGather = 74, // gathers the four texels that would be used in a bi-linear filtering operation
-    TextureGatherCmp = 75, // same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+    TextureGather = 73, // gathers the four texels that would be used in a bi-linear filtering operation
+    TextureGatherCmp = 74, // same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
   
     // Resources - sample
-    RenderTargetGetSampleCount = 80, // gets the number of samples for a render target
-    RenderTargetGetSamplePosition = 79, // gets the position of the specified sample
-    Sample = 61, // samples a texture
-    SampleBias = 62, // samples a texture after applying the input bias to the mipmap level
-    SampleCmp = 65, // samples a texture and compares a single component against the specified comparison value
-    SampleCmpLevelZero = 66, // samples a texture and compares a single component against the specified comparison value
-    SampleGrad = 64, // samples a texture using a gradient to influence the way the sample location is calculated
-    SampleLevel = 63, // samples a texture using a mipmap-level offset
-    Texture2DMSGetSamplePosition = 78, // gets the position of the specified sample
+    RenderTargetGetSampleCount = 77, // gets the number of samples for a render target
+    RenderTargetGetSamplePosition = 76, // gets the position of the specified sample
+    Sample = 60, // samples a texture
+    SampleBias = 61, // samples a texture after applying the input bias to the mipmap level
+    SampleCmp = 64, // samples a texture and compares a single component against the specified comparison value
+    SampleCmpLevelZero = 65, // samples a texture and compares a single component against the specified comparison value
+    SampleGrad = 63, // samples a texture using a gradient to influence the way the sample location is calculated
+    SampleLevel = 62, // samples a texture using a mipmap-level offset
+    Texture2DMSGetSamplePosition = 75, // gets the position of the specified sample
   
     // Resources
-    BufferLoad = 69, // reads from a TypedBuffer
-    BufferStore = 70, // writes to a RWTypedBuffer
-    BufferUpdateCounter = 71, // atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
-    CBufferLoad = 59, // loads a value from a constant buffer resource
-    CBufferLoadLegacy = 60, // loads a value from a constant buffer resource
-    CheckAccessFullyMapped = 72, // determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
-    CreateHandle = 58, // creates the handle to a resource
-    GetDimensions = 73, // gets texture size information
-    TextureLoad = 67, // reads texel data without any filtering or sampling
-    TextureStore = 68, // reads texel data without any filtering or sampling
+    BufferLoad = 68, // reads from a TypedBuffer
+    BufferStore = 69, // writes to a RWTypedBuffer
+    BufferUpdateCounter = 70, // atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
+    CBufferLoad = 58, // loads a value from a constant buffer resource
+    CBufferLoadLegacy = 59, // loads a value from a constant buffer resource
+    CheckAccessFullyMapped = 71, // determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
+    CreateHandle = 57, // creates the handle to a resource
+    GetDimensions = 72, // gets texture size information
+    TextureLoad = 66, // reads texel data without any filtering or sampling
+    TextureStore = 67, // reads texel data without any filtering or sampling
   
     // Synchronization
-    AtomicBinOp = 81, // performs an atomic operation on two operands
-    AtomicCompareExchange = 82, // atomic compare and exchange to memory
-    Barrier = 83, // inserts a memory barrier in the shader
+    AtomicBinOp = 78, // performs an atomic operation on two operands
+    AtomicCompareExchange = 79, // atomic compare and exchange to memory
+    Barrier = 80, // inserts a memory barrier in the shader
   
     // Temporary, indexable, input, output registers
     LoadInput = 4, // loads the value from shader input
@@ -387,73 +381,70 @@ namespace DXIL {
     TempRegStore = 1, // helper store operation
   
     // Tertiary float
-    FMad = 47, // performs a fused multiply add (FMA) of the form a * b + c
-    Fma = 48, // performs a fused multiply add (FMA) of the form a * b + c
+    FMad = 46, // performs a fused multiply add (FMA) of the form a * b + c
+    Fma = 47, // performs a fused multiply add (FMA) of the form a * b + c
   
     // Tertiary int
-    IMad = 49, // performs an integral IMad
-    Ibfe = 52, // performs an integral Ibfe
-    Msad = 51, // performs an integral Msad
-    UMad = 50, // performs an integral UMad
-    Ubfe = 53, // performs an integral Ubfe
+    IMad = 48, // performs an integral IMad
+    Ibfe = 51, // performs an integral Ibfe
+    Msad = 50, // performs an integral Msad
+    UMad = 49, // performs an integral UMad
+    Ubfe = 52, // performs an integral Ubfe
   
     // Unary float - rounding
-    Round_ne = 25, // returns the Round_ne
-    Round_ni = 26, // returns the Round_ni
-    Round_pi = 27, // returns the Round_pi
-    Round_z = 28, // returns the Round_z
+    Round_ne = 26, // returns the Round_ne
+    Round_ni = 27, // returns the Round_ni
+    Round_pi = 28, // returns the Round_pi
+    Round_z = 29, // returns the Round_z
   
     // Unary float
     Acos = 15, // returns the Acos
     Asin = 16, // returns the Asin
     Atan = 17, // returns the Atan
     Cos = 12, // returns cosine(theta) for theta in radians.
-    Exp = 20, // returns the Exp
+    Exp = 21, // returns the Exp
     FAbs = 6, // returns the absolute value of the input value.
-    Frc = 21, // returns the Frc
+    Frc = 22, // returns the Frc
     Hcos = 18, // returns the Hcos
     Hsin = 19, // returns the Hsin
-    Htan = 113, // returns the hyperbolic tangent of the specified value
+    Htan = 20, // returns the Htan
     IsFinite = 10, // returns the IsFinite
     IsInf = 9, // returns the IsInf
     IsNaN = 8, // returns the IsNaN
     IsNormal = 11, // returns the IsNormal
-    Log = 22, // returns the Log
-    Rsqrt = 24, // returns the Rsqrt
+    Log = 23, // returns the Log
+    Rsqrt = 25, // returns the Rsqrt
     Saturate = 7, // clamps the result of a single or double precision floating point value to [0.0f...1.0f]
     Sin = 13, // returns the Sin
-    Sqrt = 23, // returns the Sqrt
+    Sqrt = 24, // returns the Sqrt
     Tan = 14, // returns the Tan
   
     // Unary int
-    Bfrev = 29, // returns the reverse bit pattern of the input value
-    Countbits = 30, // returns the Countbits
-    FirstbitHi = 32, // returns src != 0? (BitWidth-1 - FirstbitHi) : -1
-    FirstbitLo = 31, // returns the FirstbitLo
-    FirstbitSHi = 33, // returns src != 0? (BitWidth-1 - FirstbitSHi) : -1
+    Bfrev = 30, // returns the reverse bit pattern of the input value
+    Countbits = 31, // returns the Countbits
+    FirstbitHi = 33, // returns src != 0? (BitWidth-1 - FirstbitHi) : -1
+    FirstbitLo = 32, // returns the FirstbitLo
+    FirstbitSHi = 34, // returns src != 0? (BitWidth-1 - FirstbitSHi) : -1
   
     // Wave
-    QuadOp = 131, // returns the result of a quad-level operation
-    QuadReadLaneAt = 130, // reads from a lane in the quad
-    WaveActiveAllEqual = 121, // returns 1 if all the lanes have the same value
-    WaveActiveBallot = 122, // returns a struct with a bit set for each lane where the condition is true
-    WaveActiveBit = 126, // returns the result of the operation across all lanes
-    WaveActiveOp = 125, // returns the result the operation across waves
-    WaveAllBitCount = 144, // returns the count of bits set to 1 across the wave
-    WaveAllTrue = 120, // returns 1 if all the lanes evaluate the value to true
-    WaveAnyTrue = 119, // returns 1 if any of the lane evaluates the value to true
-    WaveCaptureReserved = 114, // reserved
-    WaveGetLaneCount = 117, // returns the number of lanes in the wave
-    WaveGetLaneIndex = 116, // returns the index of the current lane in the wave
-    WaveGetOrderedIndex = 128, // reserved
-    WaveIsFirstLane = 115, // returns 1 for the first lane in the wave
-    WaveIsHelperLaneReserved = 118, // reserved
-    WavePrefixBitCount = 145, // returns the count of bits set to 1 on prior lanes
-    WavePrefixOp = 127, // returns the result of the operation on prior lanes
-    WaveReadLaneAt = 123, // returns the value from the specified lane
-    WaveReadLaneFirst = 124, // returns the value from the first lane
+    QuadOp = 123, // returns the result of a quad-level operation
+    QuadReadLaneAt = 122, // reads from a lane in the quad
+    WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
+    WaveActiveBallot = 116, // returns a struct with a bit set for each lane where the condition is true
+    WaveActiveBit = 120, // returns the result of the operation across all lanes
+    WaveActiveOp = 119, // returns the result the operation across waves
+    WaveAllBitCount = 135, // returns the count of bits set to 1 across the wave
+    WaveAllTrue = 114, // returns 1 if all the lanes evaluate the value to true
+    WaveAnyTrue = 113, // returns 1 if any of the lane evaluates the value to true
+    WaveGetLaneCount = 112, // returns the number of lanes in the wave
+    WaveGetLaneIndex = 111, // returns the index of the current lane in the wave
+    WaveIsFirstLane = 110, // returns 1 for the first lane in the wave
+    WavePrefixBitCount = 136, // returns the count of bits set to 1 on prior lanes
+    WavePrefixOp = 121, // returns the result of the operation on prior lanes
+    WaveReadLaneAt = 117, // returns the value from the specified lane
+    WaveReadLaneFirst = 118, // returns the value from the first lane
   
-    NumOpCodes = 149 // exclusive last value of enumeration
+    NumOpCodes = 137 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -461,17 +452,14 @@ namespace DXIL {
   // OPCODECLASS-ENUM:BEGIN
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
-    // 
-    Reserved,
-  
-    // Binary int with carry
-    BinaryWithCarry,
-  
     // Binary int with two outputs
     BinaryWithTwoOuts,
   
     // Binary int
     Binary,
+  
+    // Binary uint with carry or borrow
+    BinaryWithCarryOrBorrow,
   
     // Bitcasts with different sizes
     BitcastF16toI16,
@@ -506,13 +494,11 @@ namespace DXIL {
     MakeDouble,
     SplitDouble,
   
-    // GS
-    GSInstanceID,
-  
     // Geometry shader
     CutStream,
     EmitStream,
     EmitThenCutStream,
+    GSInstanceID,
   
     // Hull shader
     OutputControlPointID,
@@ -538,6 +524,7 @@ namespace DXIL {
     EvalSnapped,
     InnerCoverage,
     SampleIndex,
+    Unary,
   
     // Quaternary
     Quaternary,
@@ -587,7 +574,6 @@ namespace DXIL {
   
     // Unary float
     IsSpecialFloat,
-    Unary,
   
     // Unary int
     UnaryBits,
@@ -609,7 +595,7 @@ namespace DXIL {
     WaveReadLaneAt,
     WaveReadLaneFirst,
   
-    NumOpClasses = 94 // exclusive last value of enumeration
+    NumOpClasses = 93 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -645,6 +631,11 @@ namespace DXIL {
     // DomainLocation.
     const unsigned kDomainLocationColOpIdx = 1;
 
+    // BufferLoad.
+    const unsigned kBufferLoadHandleOpIdx = 1;
+    const unsigned kBufferLoadCoord0OpIdx = 2;
+    const unsigned kBufferLoadCoord1OpIdx = 3;
+
     // BufferStore.
     const unsigned kBufferStoreHandleOpIdx = 1;
     const unsigned kBufferStoreCoord0OpIdx = 2;
@@ -679,6 +670,18 @@ namespace DXIL {
     const unsigned kTextureGatherChannelOpIdx = 10;
     // TextureGatherCmp.
     const unsigned kTextureGatherCmpCmpValOpIdx = 11;
+
+    // TextureSample.
+    const unsigned kTextureSampleTexHandleOpIdx = 1;
+    const unsigned kTextureSampleSamplerHandleOpIdx = 2;
+    const unsigned kTextureSampleCoord0OpIdx = 3;
+    const unsigned kTextureSampleCoord1OpIdx = 4;
+    const unsigned kTextureSampleCoord2OpIdx = 5;
+    const unsigned kTextureSampleCoord3OpIdx = 6;
+    const unsigned kTextureSampleOffset0OpIdx = 7;
+    const unsigned kTextureSampleOffset1OpIdx = 8;
+    const unsigned kTextureSampleOffset2OpIdx = 9;
+    const unsigned kTextureSampleClampOpIdx = 10;
 
     // AtomicBinOp.
     const unsigned kAtomicBinOpCoord0OpIdx = 3;

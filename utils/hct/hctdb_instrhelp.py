@@ -183,6 +183,7 @@ class db_instrhelp_gen:
             "i32": "int32_t",
             "u32": "uint32_t"
             }
+        self.IsDxilOpFuncCallInst = "hlsl::OP::IsDxilOpFuncCallInst"
 
     def print_content(self):
         self.print_header()
@@ -238,7 +239,7 @@ class db_instrhelp_gen:
             print("  operator bool() const {")
             if i.is_dxil_op:
                 op_name = i.fully_qualified_name()
-                print("    return hlsl::OP::IsDxilOpFuncCallInst(Instr, %s);" % op_name)
+                print("    return %s(Instr, %s);" % (self.IsDxilOpFuncCallInst, op_name))
             else:
                 print("    return Instr->getOpcode() == llvm::Instruction::%s;" % i.name)
             print("  }")
@@ -393,6 +394,103 @@ class db_oload_gen:
             line = line + "break;"
             print(line)
     
+    def print_opfunc_oload_type(self):
+        # Print the function for OP::GetOverloadType
+        elt_ty = "$o"
+        res_ret_ty = "$r"
+        cb_ret_ty = "$cb"
+
+        last_category = None
+
+        index_dict = {}
+        single_dict = {}
+        struct_list = []
+
+        for instr in self.instrs:
+            ret_ty = instr.ops[0].llvm_type
+            # Skip case return type is overload type
+            if (ret_ty == elt_ty):
+                continue
+
+            if ret_ty == res_ret_ty:
+                struct_list.append(instr.name)
+                continue
+
+            if ret_ty == cb_ret_ty:
+                struct_list.append(instr.name)
+                continue
+
+            in_param_ty = False
+            # Try to find elt_ty in parameter types.
+            for index, op in enumerate(instr.ops):
+                # Skip return type.
+                if (op.pos == 0):
+                    continue
+                # Skip dxil opcode.
+                if (op.pos == 1):
+                    continue
+
+                op_type = op.llvm_type
+                if (op_type == elt_ty):
+                    # Skip return op
+                    index = index - 1
+                    if index not in index_dict:
+                        index_dict[index] = [instr.name]
+                    else:
+                        index_dict[index].append(instr.name)
+                    in_param_ty = True
+                    break
+
+            if in_param_ty:
+                continue
+
+            # No overload, just return the single oload_type.
+            assert len(instr.oload_types)==1, "overload no elt_ty %s" % (instr.name)
+            ty = instr.oload_types[0]
+            type_code_texts = {
+            "d": "Type::getDoubleTy(m_Ctx)",
+            "f": "Type::getFloatTy(m_Ctx)",
+            "h": "Type::getHalfTy",
+            "1": "IntegerType::get(m_Ctx, 1)",
+			"8": "IntegerType::get(m_Ctx, 8)",
+            "w": "IntegerType::get(m_Ctx, 16)",
+            "i": "IntegerType::get(m_Ctx, 32)",
+            "l": "IntegerType::get(m_Ctx, 64)",
+            "v": "Type::getVoidTy(m_Ctx)",
+            }
+            assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
+            ty_code = type_code_texts[ty]
+
+            if ty_code not in single_dict:
+                single_dict[ty_code] = [instr.name]
+            else:
+                single_dict[ty_code].append(instr.name)
+
+        for index, opcodes in index_dict.items():
+            line = ""
+            for opcode in opcodes:
+                line = line + "case OpCode::{name}".format(name = opcode + ":\n")
+
+            line = line + "  DXASSERT_NOMSG(FT->getNumParams() > " + str(index) + ");\n"
+            line = line + "  return FT->getParamType(" + str(index) + ");"
+            print(line)
+
+        for code, opcodes in single_dict.items():
+            line = ""
+            for opcode in opcodes:
+                line = line + "case OpCode::{name}".format(name = opcode + ":\n")
+            line = line + "  return " + code + ";"
+            print(line)
+
+        line = ""
+        for opcode in struct_list:
+            line = line + "case OpCode::{name}".format(name = opcode + ":\n")
+        line = line + "{\n"
+        line = line + "  StructType *ST = cast<StructType>(Ty);\n"
+        line = line + "  return ST->getElementType(0);\n"
+        line = line + "}"
+        print(line)
+
 
 class db_valfns_gen:
     "A generator of validation functions."
@@ -593,11 +691,16 @@ def get_oloads_props():
     db = get_db_dxil()
     gen = db_oload_gen(db)
     return run_with_stdout(lambda: gen.print_opfunc_props())
-        
+
 def get_oloads_funcs():
     db = get_db_dxil()
     gen = db_oload_gen(db)
     return run_with_stdout(lambda: gen.print_opfunc_table())
+
+def get_funcs_oload_type():
+    db = get_db_dxil()
+    gen = db_oload_gen(db)
+    return run_with_stdout(lambda: gen.print_opfunc_oload_type())
 
 def get_enum_decl(name, **kwargs):
     db = get_db_dxil()

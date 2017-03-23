@@ -8781,6 +8781,9 @@ private:
   void CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
                         const ArraySubscriptExpr *ASE=nullptr,
                         bool AllowOnePastEnd=true, bool IndexNegated=false);
+  // HLSL Change Starts - checking array subscript access to vector or matrix member
+  void CheckHLSLArrayAccess(const Expr *expr);
+  // HLSL Change ends
   void CheckArrayAccess(const Expr *E);
   // Used to grab the relevant information from a FormatAttr and a
   // FunctionDeclaration.

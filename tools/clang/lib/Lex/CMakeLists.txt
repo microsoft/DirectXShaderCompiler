@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS support)
 add_clang_library(clangLex
   HeaderMap.cpp
   HeaderSearch.cpp
+  HLSLMacroExpander.cpp
   Lexer.cpp
   LiteralSupport.cpp
   MacroArgs.cpp

@@ -209,6 +209,9 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
 
+  MPM.add(createSimplifyInstPass());
+  MPM.add(createCFGSimplificationPass());
+
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
 
   MPM.add(createSimplifyInstPass());
@@ -262,6 +265,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (!HLSLHighLevel) {
       MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
       MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
+      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
     // HLSL Change Ends.
@@ -527,6 +531,8 @@ void PassManagerBuilder::populateModulePassManager(
   if (!HLSLHighLevel) {
     MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
     MPM.add(createDxilCondenseResourcesPass());
+    if (DisableUnrollLoops)
+      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.

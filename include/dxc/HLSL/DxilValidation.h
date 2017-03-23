@@ -11,10 +11,14 @@
 
 #pragma once
 
-#include <system_error>
+#include <memory>
+#include "dxc/Support/Global.h"
+#include "dxc/HLSL/DxilConstants.h"
 
 namespace llvm {
 class Module;
+class LLVMContext;
+class raw_ostream;
 }
 
 namespace hlsl {
@@ -25,6 +29,13 @@ namespace hlsl {
 enum class ValidationRule : unsigned {
   // Bitcode
   BitcodeValid, // TODO - Module must be bitcode-valid
+
+  // Container
+  ContainerPartInvalid, // DXIL Container must not contain unknown parts
+  ContainerPartMatches, // DXIL Container Parts must match Module
+  ContainerPartMissing, // DXIL Container requires certain parts, corresponding to module
+  ContainerPartRepeated, // DXIL Container must have only one of each part type
+  ContainerRootSignatureIncompatible, // Root Signature in DXIL Container must be compatible with shader
 
   // Declaration
   DeclDxilFnExtern, // External function must be a DXIL function
@@ -96,6 +107,7 @@ enum class ValidationRule : unsigned {
   InstrSamplerModeForSample, // sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
   InstrSamplerModeForSampleC, // sample_c_*/gather_c instructions require sampler declared in comparison mode
   InstrStructBitCast, // Bitcast on struct types is not allowed
+  InstrTGSMRaceCond, // Race condition writing to shared memory detected, consider making this write conditional
   InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
   InstrUndefResultForGetDimension, // GetDimensions used undef dimension %0 on %1
   InstrWriteMaskForTypedUAVStore, // store on typed uav must write to all four components of the UAV
@@ -166,7 +178,7 @@ enum class ValidationRule : unsigned {
   SmGSTotalOutputVertexDataRange, // Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
   SmGSValidInputPrimitive, // GS input primitive unrecognized
   SmGSValidOutputPrimitiveTopology, // GS output primitive topology unrecognized
-  SmHSInputControlPointCountRange, // HS input control point count must be [1..%0].  %1 specified
+  SmHSInputControlPointCountRange, // HS input control point count must be [0..%0].  %1 specified
   SmHullPassThruControlPointCountMatch, // For pass thru hull shader, input control point count must match output control point count
   SmInsideTessFactorSizeMatchDomain, // InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmInvalidResourceCompType, // Invalid resource return type
@@ -202,9 +214,11 @@ enum class ValidationRule : unsigned {
   SmTriOutputPrimitiveMismatch, // Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
   SmUndefinedOutput, // Not all elements of output %0 were written
   SmValidDomain, // Invalid Tessellator Domain specified. Must be isoline, tri or quad
+  SmZeroHSInputControlPointWithInput, // When HS input control point count is 0, no input signature should exist
 
   // Type system
   TypesDefined, // Type must be defined based on DXIL primitives
+  TypesI8, // I8 can only used as immediate value for intrinsic
   TypesIntWidth, // Int type must be of valid width
   TypesNoMultiDim, // Only one dimension allowed for array type
   TypesNoVector, // Vector types must not be present
@@ -216,7 +230,47 @@ enum class ValidationRule : unsigned {
 
 const char *GetValidationRuleText(ValidationRule value);
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor);
-std::error_code ValidateDxilModule(_In_ llvm::Module *pModule,
-                                   _In_opt_ llvm::Module *pDebugModule);
+HRESULT ValidateDxilModule(_In_ llvm::Module *pModule,
+                           _In_opt_ llvm::Module *pDebugModule);
+
+// DXIL Container Verification Functions (return false on failure)
+
+bool VerifySignatureMatches(_In_ llvm::Module *pModule,
+                            hlsl::DXIL::SignatureKind SigKind,
+                            _In_reads_bytes_(SigSize) const void *pSigData,
+                            _In_ uint32_t SigSize);
+
+// PSV = data for Pipeline State Validation
+bool VerifyPSVMatches(_In_ llvm::Module *pModule,
+                      _In_reads_bytes_(PSVSize) const void *pPSVData,
+                      _In_ uint32_t PSVSize);
+
+bool VerifyFeatureInfoMatches(_In_ llvm::Module *pModule,
+                              _In_reads_bytes_(FeatureInfoSize) const void *pFeatureInfoData,
+                              _In_ uint32_t FeatureInfoSize);
+
+// Validate the container parts, assuming supplied module is valid, loaded from the container provided
+struct DxilContainerHeader;
+HRESULT ValidateDxilContainerParts(_In_ llvm::Module *pModule,
+                                   _In_opt_ llvm::Module *pDebugModule,
+                                   _In_reads_bytes_(ContainerSize) const DxilContainerHeader *pContainer,
+                                   _In_ uint32_t ContainerSize);
+
+// Loads module, validating load, but not module.
+HRESULT ValidateLoadModule(_In_reads_bytes_(ILLength) const char *pIL,
+                           _In_ uint32_t ILLength,
+                           _In_ std::unique_ptr<llvm::Module> &pModule,
+                           _In_ llvm::LLVMContext &Ctx,
+                           _In_ llvm::raw_ostream &DiagStream);
+
+// Load and validate Dxil module from bitcode.
+HRESULT ValidateDxilBitcode(_In_reads_bytes_(ILLength) const char *pIL,
+                            _In_ uint32_t ILLength,
+                            _In_ llvm::raw_ostream &DiagStream);
+
+// Full container validation, including ValidateDxilModule
+HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
+                              _In_ uint32_t ContainerSize,
+                              _In_ llvm::raw_ostream &DiagStream);
 
 }

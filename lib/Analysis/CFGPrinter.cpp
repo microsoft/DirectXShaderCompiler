@@ -26,7 +26,7 @@ namespace {
   struct CFGViewer : public FunctionPass {
     static char ID; // Pass identifcation, replacement for typeid
     CFGViewer() : FunctionPass(ID) {
-      initializeCFGOnlyViewerPass(*PassRegistry::getPassRegistry());
+      // initializeCFGOnlyViewerPass(*PassRegistry::getPassRegistry()); // HLSL Change - initialize up front
     }
 
     bool runOnFunction(Function &F) override {
@@ -56,7 +56,7 @@ namespace {
   struct CFGOnlyViewer : public FunctionPass {
     static char ID; // Pass identifcation, replacement for typeid
     CFGOnlyViewer() : FunctionPass(ID) {
-      initializeCFGOnlyViewerPass(*PassRegistry::getPassRegistry());
+      // initializeCFGOnlyViewerPass(*PassRegistry::getPassRegistry()); // HLSL Change - initialize up front
     }
 
     bool runOnFunction(Function &F) override {
@@ -87,7 +87,7 @@ namespace {
   struct CFGPrinter : public FunctionPass {
     static char ID; // Pass identification, replacement for typeid
     CFGPrinter() : FunctionPass(ID) {
-      initializeCFGPrinterPass(*PassRegistry::getPassRegistry());
+      // initializeCFGPrinterPass(*PassRegistry::getPassRegistry()); // HLSL Change - initialize up front
     }
 
     bool runOnFunction(Function &F) override {
@@ -129,7 +129,7 @@ namespace {
   struct CFGOnlyPrinter : public FunctionPass {
     static char ID; // Pass identification, replacement for typeid
     CFGOnlyPrinter() : FunctionPass(ID) {
-      initializeCFGOnlyPrinterPass(*PassRegistry::getPassRegistry());
+      // initializeCFGOnlyPrinterPass(*PassRegistry::getPassRegistry()); // HLSL Change - initialize up front
     }
 
     bool runOnFunction(Function &F) override {
@@ -192,3 +192,11 @@ FunctionPass *llvm::createCFGOnlyPrinterPass () {
   return new CFGOnlyPrinter();
 }
 
+// HLSL Change Starts
+void llvm::initializeCFGPrinterPasses(PassRegistry &Registry) {
+  initializeCFGPrinterPass(Registry);
+  initializeCFGOnlyPrinterPass(Registry);
+  initializeCFGViewerPass(Registry);
+  initializeCFGOnlyViewerPass(Registry);
+}
+// HLSL Change Ends

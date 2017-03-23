@@ -1058,6 +1058,24 @@ struct DxilInst_Hsin {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
+/// This instruction returns the Htan
+struct DxilInst_Htan {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Htan(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Htan);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Accessors
+  llvm::Value *get_value() const { return Instr->getOperand(1); }
+};
+
 /// This instruction returns the Exp
 struct DxilInst_Exp {
   const llvm::Instruction *Instr;
@@ -1310,7 +1328,7 @@ struct DxilInst_FirstbitSHi {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the FMax of the input values
+/// This instruction returns a if a >= b, else b
 struct DxilInst_FMax {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1329,7 +1347,7 @@ struct DxilInst_FMax {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the FMin of the input values
+/// This instruction returns a if a < b, else b
 struct DxilInst_FMin {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1481,25 +1499,6 @@ struct DxilInst_UDiv {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the IAddc of the input values
-struct DxilInst_IAddc {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_IAddc(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::IAddc);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Accessors
-  llvm::Value *get_a() const { return Instr->getOperand(1); }
-  llvm::Value *get_b() const { return Instr->getOperand(2); }
-};
-
 /// This instruction returns the UAddc of the input values
 struct DxilInst_UAddc {
   const llvm::Instruction *Instr;
@@ -1519,32 +1518,13 @@ struct DxilInst_UAddc {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the ISubc of the input values
-struct DxilInst_ISubc {
+/// This instruction returns the USubb of the input values
+struct DxilInst_USubb {
   const llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_ISubc(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_USubb(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::ISubc);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Accessors
-  llvm::Value *get_a() const { return Instr->getOperand(1); }
-  llvm::Value *get_b() const { return Instr->getOperand(2); }
-};
-
-/// This instruction returns the USubc of the input values
-struct DxilInst_USubc {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_USubc(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::USubc);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::USubb);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -2519,6 +2499,54 @@ struct DxilInst_EvalCentroid {
   llvm::Value *get_inputColIndex() const { return Instr->getOperand(3); }
 };
 
+/// This instruction returns the sample index in a sample-frequency pixel shader
+struct DxilInst_SampleIndex {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_SampleIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::SampleIndex);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+};
+
+/// This instruction returns the coverage mask input in a pixel shader
+struct DxilInst_Coverage {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Coverage(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Coverage);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+};
+
+/// This instruction returns underestimated coverage input from conservative rasterization in a pixel shader
+struct DxilInst_InnerCoverage {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_InnerCoverage(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::InnerCoverage);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+};
+
 /// This instruction reads the thread ID
 struct DxilInst_ThreadId {
   const llvm::Instruction *Instr;
@@ -2641,6 +2669,22 @@ struct DxilInst_EmitThenCutStream {
   }
   // Accessors
   llvm::Value *get_streamId() const { return Instr->getOperand(1); }
+};
+
+/// This instruction GSInstanceID
+struct DxilInst_GSInstanceID {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_GSInstanceID(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::GSInstanceID);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
 };
 
 /// This instruction creates a double value
@@ -2807,24 +2851,6 @@ struct DxilInst_CycleCounterLegacy {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
-};
-
-/// This instruction returns the hyperbolic tangent of the specified value
-struct DxilInst_Htan {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_Htan(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Htan);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Accessors
-  llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
 /// This instruction returns 1 for the first lane in the wave
@@ -3196,22 +3222,6 @@ struct DxilInst_BitcastF64toI64 {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction GSInstanceID
-struct DxilInst_GSInstanceID {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_GSInstanceID(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::GSInstanceID);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-};
-
 /// This instruction legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
 struct DxilInst_LegacyF32ToF16 {
   const llvm::Instruction *Instr;
@@ -3336,54 +3346,6 @@ struct DxilInst_WavePrefixBitCount {
   }
   // Accessors
   llvm::Value *get_value() const { return Instr->getOperand(1); }
-};
-
-/// This instruction returns the sample index in a sample-frequency pixel shader
-struct DxilInst_SampleIndex {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_SampleIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::SampleIndex);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-};
-
-/// This instruction returns the coverage mask input in a pixel shader
-struct DxilInst_Coverage {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_Coverage(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Coverage);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-};
-
-/// This instruction returns underestimated coverage input from conservative rasterization in a pixel shader
-struct DxilInst_InnerCoverage {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_InnerCoverage(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::InnerCoverage);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
 };
 // INSTR-HELPER:END
 } // namespace hlsl

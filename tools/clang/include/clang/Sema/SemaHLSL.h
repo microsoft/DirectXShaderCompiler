@@ -73,6 +73,10 @@ void DiagnoseAssignmentResultForHLSL(
   clang::Sema::AssignmentAction Action,
   bool *Complained);
 
+void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
+                                         clang::Expr *condExpr,
+                                         llvm::StringRef StmtName);
+
 void DiagnosePackingOffset(
   clang::Sema* self,
   clang::SourceLocation loc,
@@ -114,6 +118,11 @@ void InitializeInitSequenceForHLSL(
   clang::MultiExprArg Args,
   bool TopLevelOfInitList,
   _Inout_ clang::InitializationSequence* initSequence);
+
+unsigned CaculateInitListArraySizeForHLSL(
+  _In_ clang::Sema* sema,
+  _In_ const clang::InitListExpr *InitList,
+  _In_ const clang::QualType EltTy);
 
 bool IsConversionToLessOrEqualElements(
   _In_ clang::Sema* self,
@@ -238,5 +247,16 @@ clang::QualType CheckVectorConditional(
   _In_ clang::SourceLocation QuestionLoc);
 
 }
+
+bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type);
+
+// This function reads the given declaration TSS and returns the corresponding parsedType with the
+// corresponding type. Replaces the given parsed type with the new type
+clang::QualType ApplyTypeSpecSignToParsedType(
+    _In_ clang::Sema* self,
+    _In_ clang::QualType &type,
+    _In_ clang::TypeSpecifierSign TSS,
+    _In_ clang::SourceLocation Loc
+);
 
 #endif

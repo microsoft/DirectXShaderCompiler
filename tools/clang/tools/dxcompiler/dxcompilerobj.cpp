@@ -19,6 +19,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Sema/SemaConsumer.h"
@@ -38,6 +39,7 @@
 #include "dxc/Support/WinIncludes.h"  // For DxilPipelineStateValidation.h
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/HLSL/DxilRootSignature.h"
 
 #ifdef _DEBUG
 #if defined(_MSC_VER)
@@ -73,6 +75,7 @@
 #include "dxc/Support/DxcLangExtensionsHelper.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxcetw.h"
+#include "dxillib.h"
 #include <algorithm>
 
 #define CP_UTF16 1200
@@ -1413,6 +1416,7 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // Atan
   "(value)",  // Hcos
   "(value)",  // Hsin
+  "(value)",  // Htan
   "(value)",  // Exp
   "(value)",  // Frc
   "(value)",  // Log
@@ -1436,10 +1440,8 @@ static const char *OpCodeSignatures[] = {
   "(a,b)",  // IMul
   "(a,b)",  // UMul
   "(a,b)",  // UDiv
-  "(a,b)",  // IAddc
   "(a,b)",  // UAddc
-  "(a,b)",  // ISubc
-  "(a,b)",  // USubc
+  "(a,b)",  // USubb
   "(a,b,c)",  // FMad
   "(a,b,c)",  // Fma
   "(a,b,c)",  // IMad
@@ -1469,8 +1471,6 @@ static const char *OpCodeSignatures[] = {
   "(handle,mipLevel)",  // GetDimensions
   "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel)",  // TextureGather
   "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel,compareVale)",  // TextureGatherCmp
-  "()",  // ToDelete5
-  "()",  // ToDelete6
   "(srv,index)",  // Texture2DMSGetSamplePosition
   "(index)",  // RenderTargetGetSamplePosition
   "()",  // RenderTargetGetSampleCount
@@ -1486,6 +1486,9 @@ static const char *OpCodeSignatures[] = {
   "(inputSigId,inputRowIndex,inputColIndex,offsetX,offsetY)",  // EvalSnapped
   "(inputSigId,inputRowIndex,inputColIndex,sampleIndex)",  // EvalSampleIndex
   "(inputSigId,inputRowIndex,inputColIndex)",  // EvalCentroid
+  "()",  // SampleIndex
+  "()",  // Coverage
+  "()",  // InnerCoverage
   "(component)",  // ThreadId
   "(component)",  // GroupId
   "(component)",  // ThreadIdInGroup
@@ -1493,12 +1496,9 @@ static const char *OpCodeSignatures[] = {
   "(streamId)",  // EmitStream
   "(streamId)",  // CutStream
   "(streamId)",  // EmitThenCutStream
+  "()",  // GSInstanceID
   "(lo,hi)",  // MakeDouble
-  "()",  // ToDelete1
-  "()",  // ToDelete2
   "(value)",  // SplitDouble
-  "()",  // ToDelete3
-  "()",  // ToDelete4
   "(inputSigId,row,col,index)",  // LoadOutputControlPoint
   "(inputSigId,row,col)",  // LoadPatchConstant
   "(component)",  // DomainLocation
@@ -1506,12 +1506,9 @@ static const char *OpCodeSignatures[] = {
   "()",  // OutputControlPointID
   "()",  // PrimitiveID
   "()",  // CycleCounterLegacy
-  "(value)",  // Htan
-  "()",  // WaveCaptureReserved
   "()",  // WaveIsFirstLane
   "()",  // WaveGetLaneIndex
   "()",  // WaveGetLaneCount
-  "()",  // WaveIsHelperLaneReserved
   "(cond)",  // WaveAnyTrue
   "(cond)",  // WaveAllTrue
   "(value)",  // WaveActiveAllEqual
@@ -1521,8 +1518,6 @@ static const char *OpCodeSignatures[] = {
   "(value,op,sop)",  // WaveActiveOp
   "(value,op)",  // WaveActiveBit
   "(value,op,sop)",  // WavePrefixOp
-  "()",  // WaveGetOrderedIndex
-  "()",  // GlobalOrderedCountIncReserved
   "(value,quadLane)",  // QuadReadLaneAt
   "(value,op)",  // QuadOp
   "(value)",  // BitcastI16toF16
@@ -1531,17 +1526,13 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // BitcastF32toI32
   "(value)",  // BitcastI64toF64
   "(value)",  // BitcastF64toI64
-  "()",  // GSInstanceID
   "(value)",  // LegacyF32ToF16
   "(value)",  // LegacyF16ToF32
   "(value)",  // LegacyDoubleToFloat
   "(value)",  // LegacyDoubleToSInt32
   "(value)",  // LegacyDoubleToUInt32
   "(value)",  // WaveAllBitCount
-  "(value)",  // WavePrefixBitCount
-  "()",  // SampleIndex
-  "()",  // Coverage
-  "()"  // InnerCoverage
+  "(value)"  // WavePrefixBitCount
 };
 // OPCODE-SIGS:END
 
@@ -1789,6 +1780,7 @@ class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
 private:
   CompilerInstance &m_CI;
   DxcLangExtensionsHelper &m_langExtensionsHelper;
+  std::string m_rootSigDefine;
 
   // The metadata format is a root node that has pointers to metadata
   // nodes for each define. The metatdata node for a define is a pair
@@ -1828,8 +1820,9 @@ private:
   }
 
 public:
-  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper)
+  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine)
   : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
+  , m_rootSigDefine(rootSigDefine)
   {}
 
   // Write semantic defines as metadata in the module.
@@ -1852,6 +1845,24 @@ public:
   virtual std::string GetIntrinsicName(UINT opcode) override {
     return m_langExtensionsHelper.GetIntrinsicName(opcode);
   }
+  
+  virtual HLSLExtensionsCodegenHelper::CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) {
+    // Find macro definition in preprocessor.
+    Preprocessor &pp = m_CI.getPreprocessor();
+    MacroInfo *macro = MacroExpander::FindMacroInfo(pp, m_rootSigDefine);
+    if (!macro)
+      return CustomRootSignature::NOT_FOUND;
+
+    // Combine tokens into single string
+    MacroExpander expander(pp, MacroExpander::STRIP_QUOTES);
+    if (!expander.ExpandMacro(macro, &out->RootSignature))
+      return CustomRootSignature::NOT_FOUND;
+
+    // Record source location of root signature macro.
+    out->EncodedSourceLocation = macro->getDefinitionLoc().getRawEncoding();
+
+    return CustomRootSignature::FOUND;
+  }
 };
 
 // Class to manage lifetime of llvm module and provide some utility
@@ -1869,7 +1880,7 @@ public:
  void WrapModuleInDxilContainer(IMalloc *pMalloc,  AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
     CComPtr<AbstractMemoryStream> pContainerStream;
     IFT(CreateMemoryStream(pMalloc, &pContainerStream));
-    SerializeDxilContainerForModule(m_llvmModule.get(), pModuleBitcode, pContainerStream);
+    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(), pModuleBitcode, pContainerStream);
 
     pDxilContainerBlob.Release();
     IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
@@ -2048,17 +2059,25 @@ public:
       compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint.m_psz;
       compiler.getCodeGenOpts().HLSLProfile = pUtf8TargetProfile.m_psz;
 
+      unsigned rootSigMajor = 0;
+      unsigned rootSigMinor = 0;
+      if (compiler.getCodeGenOpts().HLSLProfile == "rootsig_1_1") {
+        rootSigMajor = 1;
+        rootSigMinor = 1;
+      } else if (compiler.getCodeGenOpts().HLSLProfile == "rootsig_1_0") {
+        rootSigMajor = 1;
+        rootSigMinor = 0;
+      }
+
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool needsValidation = !opts.CodeGenHighLevel && !opts.DisableValidation;
       bool internalValidator = false;
-      dxc::DxcDllSupport lib;
       CComPtr<IDxcValidator> pValidator;
       CComPtr<IDxcOperationResult> pValResult;
       if (needsValidation) {
-        if (SUCCEEDED(lib.InitializeForDll(L"dxil.dll", "DxcCreateInstance"))) {
-          // If the DLL is found but doesn't work, warn.
-          if (FAILED(lib.CreateInstance(CLSID_DxcValidator, &pValidator))) {
+        if (DxilLibIsEnabled()) {
+          if (FAILED(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator))) {
             w << "Unable to create validator from dxil.dll, fallback to built-in.";
           }
         }
@@ -2093,6 +2112,29 @@ public:
         action.Execute();
         action.EndSourceFile();
         outStream.flush();
+      }
+      else if (rootSigMajor) {
+        HLSLRootSignatureAction action(
+            compiler.getCodeGenOpts().HLSLEntryFunction, rootSigMajor,
+            rootSigMinor);
+        FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+        action.BeginSourceFile(compiler, file);
+        action.Execute();
+        action.EndSourceFile();
+        outStream.flush();
+        // Don't do work to put in a container if an error has occurred
+        bool compileOK = !compiler.getDiagnostics().hasErrorOccurred();
+        if (compileOK) {
+          auto rootSigHandle = action.takeRootSigHandle();
+
+          CComPtr<AbstractMemoryStream> pContainerStream;
+          IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+          SerializeDxilContainerForRootSignature(rootSigHandle.get(),
+                                                 pContainerStream);
+
+          pOutputBlob.Release();
+          IFT(pContainerStream.QueryInterface(&pOutputBlob));
+        }
       }
       else {
         llvm::LLVMContext llvmContext;
@@ -2526,6 +2568,15 @@ public:
     compiler.getCodeGenOpts().HLSLNotUseLegacyCBufLoad = Opts.NotUseLegacyCBufLoad;
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
+
+    // Translate signature packing options
+    if (Opts.PackPrefixStable)
+      compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::PrefixStable;
+    else if (Opts.PackOptimized)
+      compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Optimized;
+    else
+      compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Default;
+
     // Constructing vector of wide strings to pass in to codegen. Just passing in pArguments will expose ownership of memory to both CodeGenOptions and this caller, which can lead to unexpected behavior.
     for (UINT32 i = 0; i != argCount; ++i) {
       compiler.getCodeGenOpts().HLSLArguments.emplace_back(Unicode::UTF16ToUTF8StringOrThrow(pArguments[i]));
@@ -2540,7 +2591,7 @@ public:
     compiler.getCodeGenOpts().setInlining(
         clang::CodeGenOptions::OnlyAlwaysInlining);
 
-    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper);
+    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
   }
 };
 

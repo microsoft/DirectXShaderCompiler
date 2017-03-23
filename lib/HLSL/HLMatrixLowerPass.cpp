@@ -1416,7 +1416,7 @@ void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(
     Value *matGlobal, ArrayRef<Value *> vecGlobals,
     CallInst *matLdStInst) {
   // No dynamic indexing on matrix, flatten matrix to scalars.
-
+  // Internal global matrix use row major follow the initializer.
   Type *matType = matGlobal->getType()->getPointerElementType();
   unsigned col, row;
   HLMatrixLower::GetMatrixInfo(matType, col, row);
@@ -2179,6 +2179,9 @@ void HLMatrixLowerPass::finalMatTranslation(Instruction *matInst) {
     case HLOpcodeGroup::HLSelect: {
       TranslateMatSelect(CI);
     } break;
+    default:
+      // Skip group already translated.
+      break;
     }
   }
 }
@@ -2208,6 +2211,22 @@ static bool OnlyUsedByMatrixLdSt(Value *V) {
   return onlyLdSt;
 }
 
+static Constant *LowerMatrixArrayConst(Constant *MA, ArrayType *ResultTy) {
+  if (ArrayType *AT = dyn_cast<ArrayType>(MA->getType())) {
+    std::vector<Constant *> Elts;
+    ArrayType *EltResultTy = cast<ArrayType>(ResultTy->getElementType());
+    for (unsigned i = 0; i < AT->getNumElements(); i++) {
+      Constant *Elt =
+          LowerMatrixArrayConst(MA->getAggregateElement(i), EltResultTy);
+      Elts.emplace_back(Elt);
+    }
+    return ConstantArray::get(ResultTy, Elts);
+  } else {
+    // Get float[row][col] from the struct.
+    return MA->getAggregateElement((unsigned)0);
+  }
+}
+
 void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
   // Lower to array of vector array like float[row][col].
   // DynamicIndexingVectorToArray will change it to scalar array.
@@ -2227,10 +2246,11 @@ void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
     Ty = ArrayType::get(Ty, *arraySize);
 
   Type *VecArrayTy = Ty;
-
-  // Matrix will use store to initialize.
-  // So set init val to undef.
-  Constant *InitVal = UndefValue::get(VecArrayTy);
+  Constant *OldInitVal = GV->getInitializer();
+  Constant *InitVal =
+      isa<UndefValue>(OldInitVal)
+          ? UndefValue::get(VecArrayTy)
+          : LowerMatrixArrayConst(OldInitVal, cast<ArrayType>(VecArrayTy));
 
   bool isConst = GV->isConstant();
   GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();
@@ -2282,6 +2302,24 @@ void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
   GV->eraseFromParent();
 }
 
+static void FlattenMatConst(Constant *M, std::vector<Constant *> &Elts) {
+  unsigned row, col;
+  Type *EltTy = HLMatrixLower::GetMatrixInfo(M->getType(), col, row);
+  if (isa<UndefValue>(M)) {
+    Constant *Elt = UndefValue::get(EltTy);
+    for (unsigned i=0;i<col*row;i++)
+      Elts.emplace_back(Elt);
+  } else {
+    M = M->getAggregateElement((unsigned)0);
+    for (unsigned r = 0; r < row; r++) {
+      Constant *R = M->getAggregateElement(r);
+      for (unsigned c = 0; c < col; c++) {
+        Elts.emplace_back(R->getAggregateElement(c));
+      }
+    }
+  }
+}
+
 void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
   if (HLMatrixLower::IsMatrixArrayPointer(GV->getType())) {
     runOnGlobalMatrixArray(GV);
@@ -2300,13 +2338,13 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
   Module *M = GV->getParent();
   const DataLayout &DL = M->getDataLayout();
 
+  std::vector<Constant *> Elts;
+  FlattenMatConst(GV->getInitializer(), Elts);
+
   if (onlyLdSt) {
     Type *EltTy = vecTy->getVectorElementType();
     unsigned vecSize = vecTy->getVectorNumElements();
     std::vector<Value *> vecGlobals(vecSize);
-    // Matrix will use store to initialize.
-    // So set init val to undef.
-    Constant *InitVal = UndefValue::get(EltTy);
 
     GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();
     unsigned AddressSpace = GV->getType()->getAddressSpace();
@@ -2315,6 +2353,7 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
     unsigned size = DL.getTypeAllocSizeInBits(EltTy);
     unsigned align = DL.getPrefTypeAlignment(EltTy);
     for (int i = 0, e = vecSize; i != e; ++i) {
+      Constant *InitVal = Elts[i];
       GlobalVariable *EltGV = new llvm::GlobalVariable(
           *M, EltTy, /*IsConstant*/ isConst, linkage,
           /*InitVal*/ InitVal, GV->getName() + "." + Twine(i),
@@ -2341,9 +2380,10 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
   else {
     // lower to array of scalar here.
     ArrayType *AT = ArrayType::get(vecTy->getVectorElementType(), vecTy->getVectorNumElements());
+    Constant *InitVal = ConstantArray::get(AT, Elts);
     GlobalVariable *arrayMat = new llvm::GlobalVariable(
       *M, AT, /*IsConstant*/ false, llvm::GlobalValue::InternalLinkage,
-      /*InitVal*/ UndefValue::get(AT), GV->getName());
+      /*InitVal*/ InitVal, GV->getName());
     // Add debug info.
     if (m_HasDbgInfo) {
       DebugInfoFinder &Finder = m_pHLModule->GetOrCreateDebugInfoFinder();

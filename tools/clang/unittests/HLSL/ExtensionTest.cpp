@@ -15,6 +15,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HLSL/HLOperationLowerExtension.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "llvm/Support/Regex.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Support for test intrinsics.
@@ -90,6 +91,12 @@ static const HLSL_INTRINSIC_ARGUMENT TestUnsigned[] = {
   { "x", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 1},
 };
 
+// float2 = MyBufferOp(uint2 addr)
+static const HLSL_INTRINSIC_ARGUMENT TestMyBufferOp[] = {
+  { "MyBufferOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_FLOAT, 1, 2 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+};
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -119,11 +126,79 @@ Intrinsic Intrinsics[] = {
   {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, -1, countof(TestUnsigned), TestUnsigned}},
 };
 
+Intrinsic BufferIntrinsics[] = {
+  {L"MyBufferOp",   "MyBufferOp",      "m", { 12, false, true, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+};
+
+class IntrinsicTable {
+public:
+  IntrinsicTable(wchar_t *ns, Intrinsic *begin, Intrinsic *end)
+    :  m_namespace(ns), m_begin(begin), m_end(end)
+  { }
+
+  struct SearchResult {
+    Intrinsic *intrinsic;
+    uint64_t index;
+
+    SearchResult() : SearchResult(nullptr, 0) {}
+    SearchResult(Intrinsic *i, uint64_t n) : intrinsic(i), index(n) {}
+    operator bool() { return intrinsic != nullptr; }
+  };
+
+  SearchResult Search(const wchar_t *name, std::ptrdiff_t startIndex) const {
+    Intrinsic *begin = m_begin + startIndex;
+    assert(std::distance(begin, m_end) >= 0);
+    if (IsStar(name))
+      return BuildResult(begin);
+
+    Intrinsic *found = std::find_if(begin, m_end, [name](const Intrinsic &i) {
+      return wcscmp(i.hlslName, name) == 0;
+    });
+
+    return BuildResult(found);
+  }
+  
+  SearchResult Search(unsigned opcode) const {
+    Intrinsic *begin = m_begin;
+    assert(std::distance(begin, m_end) >= 0);
+    
+    Intrinsic *found = std::find_if(begin, m_end, [opcode](const Intrinsic &i) {
+      return i.hlsl.Op == opcode;
+    });
+
+    return BuildResult(found);
+  }
+  
+  bool MatchesNamespace(const wchar_t *ns) const {
+    return wcscmp(m_namespace, ns) == 0;
+  }
+
+private:
+  const wchar_t *m_namespace;
+  Intrinsic *m_begin;
+  Intrinsic *m_end;
+
+  bool IsStar(const wchar_t *name) const {
+    return wcscmp(name, L"*") == 0;
+  }
+
+  SearchResult BuildResult(Intrinsic *found) const {
+    if (found == m_end)
+      return SearchResult{ nullptr, std::numeric_limits<uint64_t>::max() };
+
+    return SearchResult{ found, static_cast<uint64_t>(std::distance(m_begin, found)) };
+  }
+};
+
 class TestIntrinsicTable : public IDxcIntrinsicTable {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef);
+  std::vector<IntrinsicTable> m_tables;
 public:
-  TestIntrinsicTable() : m_dwRef(0) { }
+  TestIntrinsicTable() : m_dwRef(0) { 
+    m_tables.push_back(IntrinsicTable(L"",       std::begin(Intrinsics), std::end(Intrinsics)));
+    m_tables.push_back(IntrinsicTable(L"Buffer", std::begin(BufferIntrinsics), std::end(BufferIntrinsics)));
+  }
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   __override HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) {
     return DoBasicQueryInterface<IDxcIntrinsicTable>(this, iid, ppvObject);
@@ -138,46 +213,60 @@ public:
   __override HRESULT STDMETHODCALLTYPE LookupIntrinsic(
       LPCWSTR typeName, LPCWSTR functionName, const HLSL_INTRINSIC **pIntrinsic,
       _Inout_ UINT64 *pLookupCookie) {
-    if (typeName != nullptr && *typeName) return E_FAIL;
-    Intrinsic *intrinsic =
-      std::find_if(std::begin(Intrinsics), std::end(Intrinsics), [functionName](const Intrinsic &i) {
-        return wcscmp(i.hlslName, functionName) == 0;
-    });
-    if (intrinsic == std::end(Intrinsics))
+    if (typeName == nullptr)
       return E_FAIL;
 
-    *pIntrinsic = &intrinsic->hlsl;
-    *pLookupCookie = 0;
-    return S_OK;
+    // Search for matching intrinsic name in matching namespace.
+    IntrinsicTable::SearchResult result;
+    for (const IntrinsicTable &table : m_tables) {
+      if (table.MatchesNamespace(typeName)) {
+        result = table.Search(functionName, *pLookupCookie);
+        break;
+      }
+    }
+
+    if (result) {
+      *pIntrinsic = &result.intrinsic->hlsl;
+      *pLookupCookie = result.index + 1;
+    }
+    else {
+      *pIntrinsic = nullptr;
+      *pLookupCookie = 0;
+    }
+
+    return result.intrinsic ? S_OK : E_FAIL;
   }
 
   __override HRESULT STDMETHODCALLTYPE
   GetLoweringStrategy(UINT opcode, _Outptr_ LPCSTR *pStrategy) {
-    Intrinsic *intrinsic =
-      std::find_if(std::begin(Intrinsics), std::end(Intrinsics), [opcode](const Intrinsic &i) {
-      return i.hlsl.Op == opcode;
-    });
+    Intrinsic *intrinsic = FindByOpcode(opcode);
     
-    if (intrinsic == std::end(Intrinsics))
+    if (!intrinsic)
       return E_FAIL;
 
     *pStrategy = intrinsic->strategy;
-
     return S_OK;
   }
 
   __override HRESULT STDMETHODCALLTYPE
   GetIntrinsicName(UINT opcode, _Outptr_ LPCSTR *pName) {
-    Intrinsic *intrinsic =
-      std::find_if(std::begin(Intrinsics), std::end(Intrinsics), [opcode](const Intrinsic &i) {
-      return i.hlsl.Op == opcode;
-    });
+    Intrinsic *intrinsic = FindByOpcode(opcode);
 
-    if (intrinsic == std::end(Intrinsics))
+    if (!intrinsic)
       return E_FAIL;
 
     *pName = intrinsic->dxilName;
     return S_OK;
+  }
+
+  Intrinsic *FindByOpcode(UINT opcode) {
+    IntrinsicTable::SearchResult result;
+    for (const IntrinsicTable &table : m_tables) {
+      result = table.Search(opcode);
+      if (result)
+        break;
+    }
+    return result.intrinsic;
   }
 };
 
@@ -306,12 +395,15 @@ public:
   TEST_METHOD(DefineValidationError);
   TEST_METHOD(DefineValidationWarning);
   TEST_METHOD(DefineNoValidatorOk);
+  TEST_METHOD(DefineFromMacro);
   TEST_METHOD(IntrinsicWhenAvailableThenUsed);
   TEST_METHOD(CustomIntrinsicName);
   TEST_METHOD(NoLowering);
   TEST_METHOD(PackedLowering);
   TEST_METHOD(ReplicateLoweringWhenOnlyVectorIsResult);
   TEST_METHOD(UnsignedOpcodeIsUnchanged);
+  TEST_METHOD(ResourceExtensionIntrinsic);
+  TEST_METHOD(NameLoweredWhenNoReplicationNeeded);
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -419,6 +511,26 @@ TEST_F(ExtensionTest, DefineNoValidatorOk) {
   c.RegisterSemanticDefine(L"FOO*");
   c.Compile(
     "#define FOO 1\n"
+    "float4 main() : SV_Target {\n"
+    "  return 0;\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+
+  std::string disassembly = c.Disassemble();
+  // Check the define is emitted.
+  // #define FOO 1
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("!{!\"FOO\", !\"1\"}"));
+}
+
+TEST_F(ExtensionTest, DefineFromMacro) {
+  Compiler c(m_dllSupport);
+  c.RegisterSemanticDefine(L"FOO*");
+  c.Compile(
+    "#define BAR 1\n"
+    "#define FOO BAR\n"
     "float4 main() : SV_Target {\n"
     "  return 0;\n"
     "}\n",
@@ -590,4 +702,45 @@ TEST_F(ExtensionTest, UnsignedOpcodeIsUnchanged) {
   VERIFY_IS_TRUE(
     disassembly.npos !=
     disassembly.find("call i32 @test_unsigned(i32 113, "));
+}
+
+TEST_F(ExtensionTest, ResourceExtensionIntrinsic) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "Buffer<float2> buf;"
+    "float2 main(uint2 v1 : V1) : SV_Target {\n"
+    "  return buf.MyBufferOp(uint2(1, 2));\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // Things to check
+  // - return type is translated to dx.types.ResRet
+  // - buffer is translated to dx.types.Handle
+  // - vector is exploded
+  llvm::Regex regex("call %dx.types.ResRet.f32 @MyBufferOp\\(i32 12, %dx.types.Handle %.*, i32 1, i32 2\\)");
+  std::string regexErrors;
+  VERIFY_IS_TRUE(regex.isValid(regexErrors));
+  VERIFY_IS_TRUE(regex.match(disassembly));
+}
+
+TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "int main(int v1 : V1) : SV_Target {\n"
+    "  return test_int(v1);\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // Make sure the name is still lowered even when no replication
+  // is needed because a non-vector overload of the function
+  // was used.
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("call i32 @test_int("));
 }

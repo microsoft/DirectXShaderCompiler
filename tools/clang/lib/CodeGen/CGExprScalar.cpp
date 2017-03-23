@@ -1818,6 +1818,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   }
   case CK_HLSLCC_IntegralToBoolean:
     return EmitIntToBoolConversion(Visit(E));
+  case CK_HLSLCC_FloatingToBoolean:
+    return EmitFloatToBoolConversion(Visit(E));
   // HLSL Change Ends
   }
 

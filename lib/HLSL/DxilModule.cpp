@@ -22,6 +22,8 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include <unordered_set>
 
@@ -30,6 +32,21 @@ using std::string;
 using std::vector;
 using std::unique_ptr;
 
+
+namespace {
+class DxilErrorDiagnosticInfo : public DiagnosticInfo {
+private:
+  const char *m_message;
+public:
+  DxilErrorDiagnosticInfo(const char *str)
+    : DiagnosticInfo(DK_FirstPluginKind, DiagnosticSeverity::DS_Error),
+    m_message(str) { }
+
+  __override void print(DiagnosticPrinter &DP) const {
+    DP << m_message;
+  }
+};
+} // anon namespace
 
 namespace hlsl {
 
@@ -66,7 +83,7 @@ DxilModule::DxilModule(Module *pModule)
 
   m_NumThreads[0] = m_NumThreads[1] = m_NumThreads[2] = 0;
 
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(DBG)
   // Pin LLVM dump methods.
   void (__thiscall Module::*pfnModuleDump)() const = &Module::dump;
   void (__thiscall Type::*pfnTypeDump)() const = &Type::dump;
@@ -338,6 +355,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           case DXIL::OpCode::InnerCoverage:
             hasInnerCoverage = true;
             break;
+          default:
+            // Normal opcodes.
+            break;
           }
         }
       }
@@ -421,6 +441,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
     case DXIL::ResourceKind::StructuredBuffer:
       hasRawAndStructuredBuffer = true;
       break;
+    default:
+      // Not raw/structured.
+      break;
     }
   }
   for (auto &SRV : m_SRVs) {
@@ -428,6 +451,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
     case DXIL::ResourceKind::RawBuffer:
     case DXIL::ResourceKind::StructuredBuffer:
       hasRawAndStructuredBuffer = true;
+      break;
+    default:
+      // Not raw/structured.
       break;
     }
   }
@@ -716,6 +742,13 @@ static void ConvertUsedResource(std::unordered_set<unsigned> &immResID,
   }
 }
 
+void DxilModule::RemoveFunction(llvm::Function *F) {
+  DXASSERT_NOMSG(F != nullptr);
+  if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
+    m_pTypeSystem.get()->EraseFunctionAnnotation(F);
+  m_pOP->RemoveFunction(F);
+}
+
 void DxilModule::RemoveUnusedResources() {
   hlsl::OP *hlslOP = GetOP();
   Function *createHandleFunc = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(GetCtx()));
@@ -808,6 +841,13 @@ const RootSignatureHandle &DxilModule::GetRootSignature() const {
   return *m_RootSignature;
 }
 
+void DxilModule::StripRootSignatureFromMetadata() {
+  NamedMDNode *pRootSignatureNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilRootSignatureMDName);
+  if (pRootSignatureNamedMD) {
+    GetModule()->eraseNamedMetadata(pRootSignatureNamedMD);
+  }
+}
+
 void DxilModule::ResetInputSignature(DxilSignature *pValue) {
   m_InputSignature.reset(pValue);
 }
@@ -830,6 +870,10 @@ DxilTypeSystem &DxilModule::GetTypeSystem() {
 
 void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
   m_pTypeSystem.reset(pValue);
+}
+
+void DxilModule::ResetOP(hlsl::OP *hlslOP) {
+  m_pOP.reset(hlslOP);
 }
 
 void DxilModule::EmitLLVMUsed() {
@@ -887,6 +931,10 @@ void DxilModule::EmitDxilMetadata() {
   vector<MDNode *> Entries;
   Entries.emplace_back(pEntry);
   m_pMDHelper->EmitDxilEntryPoints(Entries);
+
+  if (!m_RootSignature->IsEmpty()) {
+    m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
+  }
 }
 
 bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
@@ -916,6 +964,8 @@ void DxilModule::LoadDxilMetadata() {
   LoadDxilResources(*pResources);
   LoadDxilShaderProperties(*pProperties);
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
+
+  m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
 }
 
 MDTuple *DxilModule::EmitDxilResources() {
@@ -1062,11 +1112,6 @@ MDTuple *DxilModule::EmitDxilShaderProperties() {
     MDVals.emplace_back(pMDTuple);
   }
 
-  if (!m_RootSignature->IsEmpty()) {
-    MDVals.emplace_back(m_pMDHelper->Uint32ToConstMD(DxilMDHelper::kDxilRootSignatureTag));
-    MDVals.emplace_back(m_pMDHelper->EmitRootSignature(*m_RootSignature.get()));
-  }
-
   if (!MDVals.empty())
     return MDNode::get(m_Ctx, MDVals);
   else
@@ -1118,10 +1163,6 @@ void DxilModule::LoadDxilShaderProperties(const MDOperand &MDO) {
                                    m_TessellatorPartitioning,
                                    m_TessellatorOutputPrimitive,
                                    m_MaxTessellationFactor);
-      break;
-
-    case DxilMDHelper::kDxilRootSignatureTag:
-      m_pMDHelper->LoadRootSignature(MDO, *m_RootSignature.get());
       break;
 
     default:
@@ -1188,6 +1229,34 @@ DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {
   }
   return *m_pDebugInfoFinder;
 }
+
+hlsl::DxilModule *hlsl::DxilModule::TryGetDxilModule(llvm::Module *pModule) {
+  LLVMContext &Ctx = pModule->getContext();
+  std::string diagStr;
+  raw_string_ostream diagStream(diagStr);
+
+  hlsl::DxilModule *pDxilModule = nullptr;
+  // TODO: add detail error in DxilMDHelper.
+  try {
+    pDxilModule = &pModule->GetOrCreateDxilModule();
+  } catch (const ::hlsl::Exception &hlslException) {
+    diagStream << "load dxil metadata failed -";
+    try {
+      const char *msg = hlslException.what();
+      if (msg == nullptr || *msg == '\0')
+        diagStream << " error code " << hlslException.hr << "\n";
+      else
+        diagStream << msg;
+    } catch (...) {
+      diagStream << " unable to retrieve error message.\n";
+    }
+    Ctx.diagnose(DxilErrorDiagnosticInfo(diagStream.str().c_str()));
+  } catch (...) {
+    Ctx.diagnose(DxilErrorDiagnosticInfo("load dxil metadata failed - unknown error.\n"));
+  }
+  return pDxilModule;
+}
+
 } // namespace hlsl
 
 namespace llvm {

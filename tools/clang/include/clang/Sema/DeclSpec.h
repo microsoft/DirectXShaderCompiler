@@ -588,15 +588,10 @@ public:
 
   /// \brief Return true if any type-specifier has been found.
   bool hasTypeSpecifier() const {
-    // HLSL Note: snorm and unorm are not, by themselves, good enough to generate a type
-    // (unlike, for example, 'unsigned' in 'unsigned i = 0;').
-    // If they were, the parser would need to be updated, because typedefs will not work
-    // correctly (so, unsigned min16uint foo fails because min16uint isn't a keyword, and
-    // it will try to parse it as the identifier name).
-    return getTypeSpecType() != DeclSpec::TST_unspecified ||
-           getTypeSpecWidth() != DeclSpec::TSW_unspecified ||
-           getTypeSpecComplex() != DeclSpec::TSC_unspecified ||
-           getTypeSpecSign() != DeclSpec::TSS_unspecified;
+      return getTypeSpecType() != DeclSpec::TST_unspecified ||
+            getTypeSpecWidth() != DeclSpec::TSW_unspecified ||
+          getTypeSpecComplex() != DeclSpec::TSC_unspecified;
+           //getTypeSpecSign() != DeclSpec::TSS_unspecified; // HLSL Change - unsigned is not a complete type specifier.
   }
 
   /// \brief Return a bitmask of which flavors of specifiers this

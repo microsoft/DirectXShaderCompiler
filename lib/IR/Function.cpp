@@ -28,6 +28,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "dxc/HLSL/HLModule.h" // HLSL Change
+#include "dxc/HLSL/DxilModule.h" // HLSL Change
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/RWMutex.h"
 #include "llvm/Support/StringPool.h"
@@ -237,11 +238,13 @@ Type *Function::getReturnType() const {
 
 void Function::removeFromParent() {
   if (getParent()->HasHLModule()) getParent()->GetHLModule().RemoveFunction(this); // HLSL Change
+  if (getParent()->HasDxilModule()) getParent()->GetDxilModule().RemoveFunction(this); // HLSL Change
   getParent()->getFunctionList().remove(this);
 }
 
 void Function::eraseFromParent() {
   if (getParent()->HasHLModule()) getParent()->GetHLModule().RemoveFunction(this); // HLSL Change
+  if (getParent()->HasDxilModule()) getParent()->GetDxilModule().RemoveFunction(this); // HLSL Change
   getParent()->getFunctionList().erase(this);
 }
 

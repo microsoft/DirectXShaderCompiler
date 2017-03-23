@@ -284,6 +284,9 @@ enum ArBasicKind {
 #define IS_BPROP_MIN_PRECISION(_Props) \
     (((_Props) & BPROP_MIN_PRECISION) != 0)
 
+#define IS_BPROP_UNSIGNABLE(_Props) \
+    (IS_BPROP_AINT(_Props) && GET_BPROP_BITS(_Props) != BPROP_BITS12)
+
 const UINT g_uBasicKindProps[] =
 {
   BPROP_PRIMITIVE | BPROP_BOOLEAN | BPROP_INTEGER | BPROP_NUMERIC | BPROP_BITS0,  // AR_BASIC_BOOL
@@ -452,6 +455,9 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 
 #define IS_BASIC_MIN_PRECISION(_Kind) \
     IS_BPROP_MIN_PRECISION(GetBasicKindProps(_Kind))
+
+#define IS_BASIC_UNSIGNABLE(_Kind) \
+    IS_BPROP_UNSIGNABLE(GetBasicKindProps(_Kind))
 
 #define BITWISE_ENUM_OPS(_Type)                                         \
 inline _Type operator|(_Type F1, _Type F2)                              \
@@ -2735,6 +2741,35 @@ private:
 
   HRESULT CombineDimensions(QualType leftType, QualType rightType, QualType *resultType);
 
+  clang::TypedefDecl *LookupMatrixShorthandType(HLSLScalarType scalarType, UINT rowCount, UINT colCount) {
+    DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
+                   rowCount >= 0 && rowCount <= 4 && colCount >= 0 &&
+                   colCount <= 4);
+    TypedefDecl *qts =
+        m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1];
+    if (qts == nullptr) {
+      QualType type = LookupMatrixType(scalarType, rowCount, colCount);
+      qts = CreateMatrixSpecializationShorthand(*m_context, type, scalarType,
+                                                rowCount, colCount);
+      m_matrixShorthandTypes[scalarType][rowCount - 1][colCount - 1] = qts;
+    }
+    return qts;
+  }
+
+  clang::TypedefDecl *LookupVectorShorthandType(HLSLScalarType scalarType, UINT colCount) {
+    DXASSERT_NOMSG(scalarType != HLSLScalarType::HLSLScalarType_unknown &&
+                   colCount >= 0 && colCount <= 4);
+    TypedefDecl *qts = m_vectorTypedefs[scalarType][colCount - 1];
+    if (qts == nullptr) {
+
+        QualType type = LookupVectorType(scalarType, colCount);
+      qts = CreateVectorSpecializationShorthand(*m_context, type, scalarType,
+                                                colCount);
+      m_vectorTypedefs[scalarType][colCount - 1] = qts;
+    }
+    return qts;
+  }
+
 public:
   HLSLExternalSource() :
     m_context(nullptr),
@@ -2822,11 +2857,7 @@ public:
       else if (parsedType == HLSLScalarType_float_min10)
         m_sema->Diag(R.getNameLoc(), diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << "min16float";
 
-      TypedefDecl* qts = m_matrixShorthandTypes[parsedType][rowCount - 1][colCount - 1];
-      if (qts == nullptr) {
-        qts = CreateMatrixSpecializationShorthand(*m_context, qt, parsedType, rowCount, colCount);
-        m_matrixShorthandTypes[parsedType][rowCount - 1][colCount - 1] = qts;
-      }
+      TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
 
       R.addDecl(qts);
       return true;
@@ -2838,11 +2869,7 @@ public:
       else if (parsedType == HLSLScalarType_float_min10)
         m_sema->Diag(R.getNameLoc(), diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << "min16float";
 
-      TypedefDecl* qts = m_vectorTypedefs[parsedType][colCount - 1];
-      if (qts == nullptr) {
-        qts = CreateVectorSpecializationShorthand(*m_context, qt, parsedType, colCount);
-        m_vectorTypedefs[parsedType][colCount - 1] = qts;
-      }
+      TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
 
       R.addDecl(qts);
       return true;
@@ -3073,15 +3100,15 @@ public:
       const HLSL_INTRINSIC *pPrior = nullptr;
       UINT64 lookupCookie = 0;
       CA2W wideTypeName(typeName);
-      table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
-      while (pIntrinsic != nullptr) {
+      HRESULT found = table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
+      while (pIntrinsic != nullptr && SUCCEEDED(found)) {
         if (!AreIntrinsicTemplatesEquivalent(pIntrinsic, pPrior)) {
           AddObjectIntrinsicTemplate(recordDecl, startDepth, pIntrinsic);
           // NOTE: this only works with the current implementation because
           // intrinsics are alive as long as the table is alive.
           pPrior = pIntrinsic;
         }
-        table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
+        found = table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic, &lookupCookie);
       }
     }
   }
@@ -3600,6 +3627,12 @@ public:
     _In_ ExprResult &RHS,
     _In_ SourceLocation QuestionLoc);
 
+  clang::QualType ApplyTypeSpecSignToParsedType(
+      _In_ clang::QualType &type,
+      _In_ TypeSpecifierSign TSS,
+      _In_ SourceLocation Loc
+  );
+
   bool CheckRangedTemplateArgument(SourceLocation diagLoc, llvm::APSInt& sintValue)
   {
     if (!sintValue.isStrictlyPositive() || sintValue.getLimitedValue() > 4)
@@ -3868,6 +3901,7 @@ public:
 
   FunctionDecl* AddHLSLIntrinsicMethod(
     LPCSTR tableName,
+    LPCSTR lowering,
     _In_ const HLSL_INTRINSIC* intrinsic,
     _In_ FunctionTemplateDecl *FunctionTemplate,
     ArrayRef<Expr *> Args,
@@ -3956,7 +3990,7 @@ public:
       SC_Extern, InlineSpecifiedFalse, IsConstexprFalse, NoLoc);
 
     // Add intrinsic attr
-    AddHLSLIntrinsicAttr(method, *m_context, tableName, "", intrinsic);
+    AddHLSLIntrinsicAttr(method, *m_context, tableName, lowering, intrinsic);
 
     // Record this function template specialization.
     TemplateArgumentList *argListCopy = TemplateArgumentList::CreateCopy(
@@ -3982,6 +4016,7 @@ public:
   UINT64 ScoreFunction(OverloadCandidateSet::iterator &Cand);
   UINT64 ScoreImplicitConversionSequence(const ImplicitConversionSequence *s);
   unsigned GetNumElements(QualType anyType);
+  unsigned GetNumBasicElements(QualType anyType);
   unsigned GetNumConvertCheckElts(QualType leftType, unsigned leftSize, QualType rightType, unsigned rightSize);
   QualType GetNthElementType(QualType type, unsigned index);
   bool IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind);
@@ -4300,7 +4335,8 @@ static bool CombineObjectTypes(ArBasicKind Target, __in ArBasicKind Source,
   return false;
 }
 
-static ArBasicKind LiteralToConcrete(Expr *litExpr) {
+static ArBasicKind LiteralToConcrete(Expr *litExpr,
+                                     HLSLExternalSource *pHLSLExternalSource) {
   if (IntegerLiteral *intLit = dyn_cast<IntegerLiteral>(litExpr)) {
     llvm::APInt val = intLit->getValue();
     unsigned width = val.getActiveBits();
@@ -4328,7 +4364,7 @@ static ArBasicKind LiteralToConcrete(Expr *litExpr) {
     else
       return AR_BASIC_FLOAT64;
   } else if (UnaryOperator *UO = dyn_cast<UnaryOperator>(litExpr)) {
-    ArBasicKind kind = LiteralToConcrete(UO->getSubExpr());
+    ArBasicKind kind = LiteralToConcrete(UO->getSubExpr(), pHLSLExternalSource);
     if (UO->getOpcode() == UnaryOperator::Opcode::UO_Minus) {
       if (kind == ArBasicKind::AR_BASIC_UINT32)
         kind = ArBasicKind::AR_BASIC_INT32;
@@ -4337,20 +4373,32 @@ static ArBasicKind LiteralToConcrete(Expr *litExpr) {
     }
     return kind;
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(litExpr)) {
-    ArBasicKind kind = LiteralToConcrete(BO->getLHS());
-    ArBasicKind kind1 = LiteralToConcrete(BO->getRHS());
+    ArBasicKind kind = LiteralToConcrete(BO->getLHS(), pHLSLExternalSource);
+    ArBasicKind kind1 = LiteralToConcrete(BO->getRHS(), pHLSLExternalSource);
     CombineBasicTypes(kind, kind1, &kind);
+    return kind;
+  } else if (ParenExpr *PE = dyn_cast<ParenExpr>(litExpr)) {
+    ArBasicKind kind = LiteralToConcrete(PE->getSubExpr(), pHLSLExternalSource);
+    return kind;
+  } else if (ConditionalOperator *CO = dyn_cast<ConditionalOperator>(litExpr)) {
+    ArBasicKind kind = LiteralToConcrete(CO->getLHS(), pHLSLExternalSource);
+    ArBasicKind kind1 = LiteralToConcrete(CO->getRHS(), pHLSLExternalSource);
+    CombineBasicTypes(kind, kind1, &kind);
+    return kind;
+  } else if (ImplicitCastExpr *IC = dyn_cast<ImplicitCastExpr>(litExpr)) {
+    // Use target Type for cast.
+    ArBasicKind kind = pHLSLExternalSource->GetTypeElementKind(IC->getType());
     return kind;
   } else {
     // Could only be function call.
     CallExpr *CE = cast<CallExpr>(litExpr);
     // TODO: calculate the function call result.
     if (CE->getNumArgs() == 1)
-      return LiteralToConcrete(CE->getArg(0));
+      return LiteralToConcrete(CE->getArg(0), pHLSLExternalSource);
     else {
-      ArBasicKind kind = LiteralToConcrete(CE->getArg(0));
+      ArBasicKind kind = LiteralToConcrete(CE->getArg(0), pHLSLExternalSource);
       for (unsigned i = 1; i < CE->getNumArgs(); i++) {
-        ArBasicKind kindI = LiteralToConcrete(CE->getArg(i));
+        ArBasicKind kindI = LiteralToConcrete(CE->getArg(i), pHLSLExternalSource);
         CombineBasicTypes(kind, kindI, &kind);
       }
       return kind;
@@ -4367,9 +4415,10 @@ static bool SearchTypeInTable(ArBasicKind kind, const ArBasicKind *pCT) {
   return false;
 }
 
-static ArBasicKind ConcreteLiteralType(Expr *litExpr,
-                                                 ArBasicKind kind,
-                                                 unsigned uLegalComponentTypes) {
+static ArBasicKind
+ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
+                    unsigned uLegalComponentTypes,
+                    HLSLExternalSource *pHLSLExternalSource) {
   const ArBasicKind *pCT = g_LegalIntrinsicCompTypes[uLegalComponentTypes];
   ArBasicKind defaultKind = *pCT;
   // Use first none literal kind as defaultKind.
@@ -4383,7 +4432,7 @@ static ArBasicKind ConcreteLiteralType(Expr *litExpr,
     break;
   }
 
-  ArBasicKind litKind = LiteralToConcrete(litExpr);
+  ArBasicKind litKind = LiteralToConcrete(litExpr, pHLSLExternalSource);
 
   if (kind == AR_BASIC_LITERAL_INT) {
     // Search for match first.
@@ -4493,7 +4542,7 @@ bool HLSLExternalSource::MatchArguments(
       //   CombineBasicTypes will cover the rest cases.
       if (!affectRetType) {
         TypeInfoEltKind = ConcreteLiteralType(
-            pCallArg, TypeInfoEltKind, pIntrinsicArg->uLegalComponentTypes);
+            pCallArg, TypeInfoEltKind, pIntrinsicArg->uLegalComponentTypes, this);
       }
     }
 
@@ -5134,6 +5183,60 @@ unsigned HLSLExternalSource::GetNumElements(QualType anyType) {
     return total;
   }
   case AR_TOBJ_ARRAY:
+  case AR_TOBJ_MATRIX:
+  case AR_TOBJ_VECTOR:
+    return GetElementCount(anyType);
+  default:
+    DXASSERT(kind == AR_TOBJ_VOID,
+             "otherwise the type cannot be classified or is not supported");
+    return 0;
+  }
+}
+
+unsigned HLSLExternalSource::GetNumBasicElements(QualType anyType) {
+  if (anyType.isNull()) {
+    return 0;
+  }
+
+  anyType = GetStructuralForm(anyType);
+
+  ArTypeObjectKind kind = GetTypeObjectKind(anyType);
+  switch (kind) {
+  case AR_TOBJ_BASIC:
+  case AR_TOBJ_OBJECT:
+    return 1;
+  case AR_TOBJ_COMPOUND: {
+    // TODO: consider caching this value for perf
+    unsigned total = 0;
+    const RecordType *recordType = anyType->getAs<RecordType>();
+    RecordDecl * RD = recordType->getDecl();
+    // Take care base.
+    if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+      if (CXXRD->getNumBases()) {
+        for (const auto &I : CXXRD->bases()) {
+          const CXXRecordDecl *BaseDecl =
+              cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
+          if (BaseDecl->field_empty())
+            continue;
+          QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
+          total += GetNumBasicElements(parentTy);
+        }
+      }
+    }
+    RecordDecl::field_iterator fi = RD->field_begin();
+    RecordDecl::field_iterator fend = RD->field_end();
+    while (fi != fend) {
+      total += GetNumBasicElements(fi->getType());
+      ++fi;
+    }
+    return total;
+  }
+  case AR_TOBJ_ARRAY: {
+    unsigned arraySize = GetElementCount(anyType);
+    unsigned eltSize = GetNumBasicElements(
+        QualType(anyType->getArrayElementTypeNoTypeQual(), 0));
+    return arraySize * eltSize;
+  }
   case AR_TOBJ_MATRIX:
   case AR_TOBJ_VECTOR:
     return GetElementCount(anyType);
@@ -5895,6 +5998,28 @@ bool HLSLExternalSource::IsConversionToLessOrEqualElements(
       sourceType.getCanonicalType().getUnqualifiedType() ==
           targetType.getCanonicalType().getUnqualifiedType()) {
     return true;
+  }
+  // DerivedFrom is less.
+  if (sourceTypeInfo.ShapeKind == AR_TOBJ_COMPOUND ||
+      GetTypeObjectKind(sourceType) == AR_TOBJ_COMPOUND) {
+    const RecordType *targetRT = targetType->getAsStructureType();
+    if (!targetRT)
+      targetRT = dyn_cast<RecordType>(targetType);
+
+    const RecordType *sourceRT = sourceType->getAsStructureType();
+    if (!sourceRT)
+      sourceRT = dyn_cast<RecordType>(sourceType);
+
+    if (targetRT && sourceRT) {
+      RecordDecl *targetRD = targetRT->getDecl();
+      RecordDecl *sourceRD = sourceRT->getDecl();
+      const CXXRecordDecl *targetCXXRD = dyn_cast<CXXRecordDecl>(targetRD);
+      const CXXRecordDecl *sourceCXXRD = dyn_cast<CXXRecordDecl>(sourceRD);
+      if (targetCXXRD && sourceCXXRD) {
+        if (sourceCXXRD->isDerivedFrom(targetCXXRD))
+          return true;
+      }
+    }
   }
 
   if (sourceTypeInfo.ShapeKind != AR_TOBJ_SCALAR &&
@@ -7291,6 +7416,21 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   // Handle Assign and Comma operators and return
   switch (Opc)
   {
+  case BO_AddAssign:
+  case BO_AndAssign:
+  case BO_DivAssign:
+  case BO_MulAssign:
+  case BO_RemAssign:
+  case BO_ShlAssign:
+  case BO_ShrAssign:
+  case BO_SubAssign:
+  case BO_XorAssign: {
+    extern bool CheckForModifiableLvalue(Expr * E, SourceLocation Loc,
+                                         Sema & S);
+    if (CheckForModifiableLvalue(LHS.get(), OpLoc, *m_sema)) {
+      return;
+    }
+  } break;
   case BO_Assign: {
       extern bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S);
       if (CheckForModifiableLvalue(LHS.get(), OpLoc, *m_sema)) {
@@ -7707,6 +7847,49 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   return ResultTy;
 }
 
+// Apply type specifier sign to the given QualType.
+// Other than privmitive int type, only allow shorthand vectors and matrices to be unsigned.
+clang::QualType HLSLExternalSource::ApplyTypeSpecSignToParsedType(
+    _In_ clang::QualType &type, _In_ clang::TypeSpecifierSign TSS,
+    _In_ clang::SourceLocation Loc) {
+  if (TSS == TypeSpecifierSign::TSS_unspecified) {
+    return type;
+  }
+  DXASSERT(TSS != TypeSpecifierSign::TSS_signed, "else signed keyword is supported in HLSL");
+  ArTypeObjectKind objKind = GetTypeObjectKind(type);
+  if (objKind != AR_TOBJ_VECTOR && objKind != AR_TOBJ_MATRIX &&
+      objKind != AR_TOBJ_BASIC && objKind != AR_TOBJ_ARRAY) {
+    return type;
+  }
+  // check if element type is unsigned and check if such vector exists
+  // If not create a new one, Make a QualType of the new kind
+  ArBasicKind elementKind = GetTypeElementKind(type);
+  // Only ints can have signed/unsigend ty
+  if (!IS_BASIC_UNSIGNABLE(elementKind)) {
+    return type;
+  }
+  else {
+    // Check given TypeSpecifierSign. If unsigned, change int to uint.
+    HLSLScalarType scalarType = ScalarTypeForBasic(elementKind);
+    HLSLScalarType newScalarType = MakeUnsigned(scalarType);
+
+    // Get new vector types for a given TypeSpecifierSign.
+    if (objKind == AR_TOBJ_VECTOR) {
+      UINT colCount = GetHLSLVecSize(type);
+      TypedefDecl *qts = LookupVectorShorthandType(newScalarType, colCount);
+      return m_context->getTypeDeclType(qts);
+    } else if (objKind == AR_TOBJ_MATRIX) {
+      UINT rowCount, colCount;
+      GetRowsAndCols(type, rowCount, colCount);
+      TypedefDecl *qts = LookupMatrixShorthandType(newScalarType, rowCount, colCount);
+      return m_context->getTypeDeclType(qts);
+    } else {
+      DXASSERT_NOMSG(objKind == AR_TOBJ_BASIC || objKind == AR_TOBJ_ARRAY);
+      return m_scalarTypes[newScalarType];
+    }
+  }
+}
+
 Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL(
   FunctionTemplateDecl *FunctionTemplate,
   TemplateArgumentListInfo *ExplicitTemplateArgs, ArrayRef<Expr *> Args,
@@ -7791,7 +7974,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       continue;
     }
 
-    Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), *cursor, FunctionTemplate, Args, argTypes, argCount);
+    Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
@@ -8198,6 +8381,19 @@ void hlsl::DiagnoseAssignmentResultForHLSL(Sema* self,
     ->DiagnoseAssignmentResultForHLSL(ConvTy, Loc, DstType, SrcType, SrcExpr, Action, Complained);
 }
 
+void hlsl::DiagnoseControlFlowConditionForHLSL(Sema *self, Expr *condExpr, StringRef StmtName) {
+  while (ImplicitCastExpr *IC = dyn_cast<ImplicitCastExpr>(condExpr)) {
+    if (IC->getCastKind() == CastKind::CK_HLSLMatrixTruncationCast ||
+        IC->getCastKind() == CastKind::CK_HLSLVectorTruncationCast) {
+      self->Diag(condExpr->getLocStart(),
+                 diag::err_hlsl_control_flow_cond_not_scalar)
+          << StmtName;
+      return;
+    }
+    condExpr = IC->getSubExpr();
+  }
+}
+
 static bool ShaderModelsMatch(const StringRef& left, const StringRef& right)
 {
   // TODO: handle shorthand cases.
@@ -8262,7 +8458,8 @@ void hlsl::DiagnoseRegisterType(
   case AR_BASIC_MIN16INT:
   case AR_BASIC_MIN16UINT:
     expected = "'b', 'c', or 'i'";
-    isValid = registerType == 'b' || registerType == 'c' || registerType == 'i';
+    isValid = registerType == 'b' || registerType == 'c' || registerType == 'i' ||
+		registerType == 'B' || registerType == 'C' || registerType == 'I';
     break;
 
   case AR_OBJECT_TEXTURE1D:
@@ -8275,7 +8472,8 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_TEXTURE2DMS:
   case AR_OBJECT_TEXTURE2DMS_ARRAY:
     expected = "'t' or 's'";
-    isValid = registerType == 't' || registerType == 's';
+    isValid = registerType == 't' || registerType == 's' ||
+		    registerType == 'T' || registerType == 'S';
     break;
 
   case AR_OBJECT_SAMPLER:
@@ -8285,12 +8483,13 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_SAMPLERCUBE:
   case AR_OBJECT_SAMPLERCOMPARISON:
     expected = "'s' or 't'";
-    isValid = registerType == 's' || registerType == 't';
+    isValid = registerType == 's' || registerType == 't' ||
+		registerType == 'S' || registerType == 'T';
     break;
 
   case AR_OBJECT_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't';
+    isValid = registerType == 't' || registerType == 'T';
     break;
 
   case AR_OBJECT_POINTSTREAM:
@@ -8313,13 +8512,13 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_RWTEXTURE3D:
   case AR_OBJECT_RWBUFFER:
     expected = "'u'";
-    isValid = registerType == 'u';
+    isValid = registerType == 'u' || registerType == 'U';
     break;
 
   case AR_OBJECT_BYTEADDRESS_BUFFER:
   case AR_OBJECT_STRUCTURED_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't';
+    isValid = registerType == 't' || registerType == 'T';
     break;
 
   case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
@@ -8329,16 +8528,16 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_RWSTRUCTURED_BUFFER_CONSUME:
   case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     expected = "'u'";
-    isValid = registerType == 'u';
+    isValid = registerType == 'u' || registerType == 'U';
     break;
 
   case AR_OBJECT_CONSTANT_BUFFER:
     expected = "'b'";
-    isValid = registerType == 'b';
+    isValid = registerType == 'b' || registerType == 'B';
     break;
   case AR_OBJECT_TEXTURE_BUFFER:
     expected = "'t'";
-    isValid = registerType == 't';
+    isValid = registerType == 't' || registerType == 'T';
     break;
 
   case AR_OBJECT_ROVBUFFER:
@@ -8350,7 +8549,7 @@ void hlsl::DiagnoseRegisterType(
   case AR_OBJECT_ROVTEXTURE2D_ARRAY:
   case AR_OBJECT_ROVTEXTURE3D:
     expected = "'u'";
-    isValid = registerType == 'u';
+    isValid = registerType == 'u' || registerType == 'U';
     break;
 
   case AR_OBJECT_LEGACY_EFFECT:   // Used for all unsupported but ignored legacy effect types
@@ -8447,6 +8646,36 @@ void hlsl::InitializeInitSequenceForHLSL(Sema *self,
                                          InitializationSequence *initSequence) {
   return HLSLExternalSource::FromSema(self)
     ->InitializeInitSequenceForHLSL(Entity, Kind, Args, TopLevelOfInitList, initSequence);
+}
+
+static unsigned CaculateInitListSize(HLSLExternalSource *hlslSource,
+                                     const clang::InitListExpr *InitList) {
+  unsigned totalSize = 0;
+  for (unsigned i = 0; i < InitList->getNumInits(); i++) {
+    const clang::Expr *EltInit = InitList->getInit(i);
+    QualType EltInitTy = EltInit->getType();
+    if (const InitListExpr *EltInitList = dyn_cast<InitListExpr>(EltInit)) {
+      totalSize += CaculateInitListSize(hlslSource, EltInitList);
+    } else {
+      totalSize += hlslSource->GetNumBasicElements(EltInitTy);
+    }
+  }
+  return totalSize;
+}
+
+unsigned hlsl::CaculateInitListArraySizeForHLSL(
+  _In_ clang::Sema* sema,
+  _In_ const clang::InitListExpr *InitList,
+  _In_ const clang::QualType EltTy) {
+  HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(sema);
+  unsigned totalSize = CaculateInitListSize(hlslSource, InitList);
+  unsigned eltSize = hlslSource->GetNumBasicElements(EltTy);
+
+  if (totalSize > 0 && (totalSize % eltSize)==0) {
+    return totalSize / eltSize;
+  } else {
+    return 0;
+  }
 }
 
 bool hlsl::IsConversionToLessOrEqualElements(
@@ -9375,6 +9604,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLTriangleAdjAttr(A.getRange(), S.Context,
       A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLGloballyCoherent:
+    declAttr = ::new (S.Context) HLSLGloballyCoherentAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
 
   default:
     Handled = false;
@@ -9577,7 +9810,7 @@ Decl* Sema::ActOnStartHLSLBuffer(
     case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
       hlsl::RegisterAssignment* registerAssignment = cast<hlsl::RegisterAssignment>(*unusualIter);
 
-      if (registerAssignment->RegisterType != expectedRegisterType) {
+      if (registerAssignment->RegisterType != expectedRegisterType && registerAssignment->RegisterType != toupper(expectedRegisterType)) {
         Diag(registerAssignment->Loc, cbuffer ? diag::err_hlsl_unsupported_cbuffer_register : 
                                                 diag::err_hlsl_unsupported_tbuffer_register);
       } else if (registerAssignment->ShaderProfile.size() > 0) {
@@ -9764,6 +9997,16 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   bool isStatic = storage == DeclSpec::SCS::SCS_static;
   bool isExtern = storage == DeclSpec::SCS::SCS_extern;
 
+  bool hasSignSpec = D.getDeclSpec().getTypeSpecSign() != DeclSpec::TSS::TSS_unspecified;
+
+  // Function declarations are not allowed in parameter declaration
+  // TODO : Remove this check once we support function declarations/pointers in HLSL
+  if (isParameter && isFunction) {
+      Diag(D.getLocStart(), diag::err_hlsl_func_in_func_decl);
+      D.setInvalidType();
+      return false;
+  }
+
   assert(
     (1 == (isLocalVar ? 1 : 0) + (isGlobal ? 1 : 0) + (isField ? 1 : 0) +
     (isTypedef ? 1 : 0) + (isFunction ? 1 : 0) + (isMethod ? 1 : 0) +
@@ -9810,12 +10053,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
   // Check for deprecated effect object type here, warn, and invalidate decl
   bool bDeprecatedEffectObject = false;
+  bool bIsObject = false;
   if (hlsl::IsObjectType(this, qt, &bDeprecatedEffectObject)) {
+    bIsObject = true;
     if (bDeprecatedEffectObject) {
       Diag(D.getLocStart(), diag::warn_hlsl_effect_object);
-      // Setting to invalid but not returning false prevents cascading errors
-      // on subsequent references to the decl
       D.setInvalidType();
+      return false;
     }
     // Add methods if not ready.
     HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
@@ -9859,6 +10103,24 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
                                                           << declarationType;
       result = false;
     }
+  }
+
+  if (hasSignSpec) {
+     HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
+     ArTypeObjectKind objKind = hlslSource->GetTypeObjectKind(qt);
+     ArBasicKind basicKind = hlslSource->GetTypeElementKind(qt);
+     // vectors or matrices can only have unsigned integer types.
+     if (objKind == AR_TOBJ_MATRIX || objKind == AR_TOBJ_VECTOR || objKind == AR_TOBJ_BASIC || objKind == AR_TOBJ_ARRAY) {
+         if (!IS_BASIC_UNSIGNABLE(basicKind)) {
+             Diag(D.getLocStart(), diag::err_sema_invalid_sign_spec)
+                 << g_ArBasicTypeNames[basicKind];
+             result = false;
+         }
+     }
+     else {
+         Diag(D.getLocStart(), diag::err_sema_invalid_sign_spec) << g_ArBasicTypeNames[basicKind];
+         result = false;
+     }
   }
 
   // Validate attributes
@@ -9914,6 +10176,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
         result = false;
       }
       pGroupShared = pAttr;
+      break;
+    case AttributeList::AT_HLSLGloballyCoherent:
+      if (!bIsObject) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
+            << pAttr->getName() << "non-UAV type";
+        result = false;
+      }
       break;
     case AttributeList::AT_HLSLUniform:
       if (!(isGlobal || isParameter)) {
@@ -10516,6 +10785,10 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Out << "triangleadj ";
     break;
 
+  case clang::attr::HLSLGloballyCoherent:
+    Out << "globallycoherent ";
+    break;
+
   default:
     A->printPretty(Out, Policy);
     break;
@@ -10566,6 +10839,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLLineAdj:
   case clang::attr::HLSLTriangle:
   case clang::attr::HLSLTriangleAdj:
+  case clang::attr::HLSLGloballyCoherent:
     return true;
   }
   
@@ -10629,4 +10903,54 @@ clang::QualType hlsl::CheckVectorConditional(
   _In_ clang::SourceLocation QuestionLoc)
 {
   return HLSLExternalSource::FromSema(self)->CheckVectorConditional(Cond, LHS, RHS, QuestionLoc);
+}
+
+bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type) {
+  UINT count;
+  return HLSLExternalSource::FromSema(self)->IsTypeNumeric(type, &count);
+}
+
+void Sema::CheckHLSLArrayAccess(const Expr *expr) {
+  DXASSERT_NOMSG(isa<CXXOperatorCallExpr>(expr));
+  const CXXOperatorCallExpr *OperatorCallExpr = cast<CXXOperatorCallExpr>(expr);
+  DXASSERT_NOMSG(OperatorCallExpr->getOperator() == OverloadedOperatorKind::OO_Subscript);
+
+  const Expr *RHS = OperatorCallExpr->getArg(1); // first subscript expression
+  llvm::APSInt index;
+  if (RHS->EvaluateAsInt(index, Context)) {
+      int64_t intIndex = index.getLimitedValue();
+      const QualType LHSQualType = OperatorCallExpr->getArg(0)->getType();
+      if (IsVectorType(this, LHSQualType)) {
+          uint32_t vectorSize = GetHLSLVecSize(LHSQualType);
+          // If expression is a double two subscript operator for matrix (e.g x[0][1])
+          // we also have to check the first subscript oprator by recursively calling
+          // this funciton for the first CXXOperatorCallExpr
+          if (isa<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0))) {
+              CheckHLSLArrayAccess(cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0)));
+          }
+          if (intIndex < 0 || (uint32_t)intIndex >= vectorSize) {
+              Diag(RHS->getExprLoc(),
+                  diag::err_hlsl_vector_element_index_out_of_bounds)
+                  << (int)intIndex;
+          }
+      }
+      else if (IsMatrixType(this, LHSQualType)) {
+          uint32_t rowCount, colCount;
+          GetHLSLMatRowColCount(LHSQualType, rowCount, colCount);
+          if (intIndex < 0 || (uint32_t)intIndex >= rowCount) {
+              Diag(RHS->getExprLoc(), diag::err_hlsl_matrix_row_index_out_of_bounds)
+                  << (int)intIndex;
+          }
+      }
+  }
+}
+
+clang::QualType ApplyTypeSpecSignToParsedType(
+    _In_ clang::Sema* self,
+    _In_ clang::QualType &type,
+    _In_ clang::TypeSpecifierSign TSS, 
+    _In_ clang::SourceLocation Loc
+)
+{
+    return HLSLExternalSource::FromSema(self)->ApplyTypeSpecSignToParsedType(type, TSS, Loc);
 }

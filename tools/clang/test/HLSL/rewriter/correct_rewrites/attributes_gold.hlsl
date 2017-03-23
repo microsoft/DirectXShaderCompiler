@@ -18,11 +18,11 @@ int long_unroll() {
 
 
 RWByteAddressBuffer bab;
-int bab_address;
-bool g_bool;
-uint g_uint;
-uint g_dealiasTableOffset;
-uint g_dealiasTableSize;
+const int bab_address;
+const bool g_bool;
+const uint g_uint;
+const uint g_dealiasTableOffset;
+const uint g_dealiasTableSize;
 int uav() {
   uint i;
   [allow_uav_condition]
@@ -50,11 +50,11 @@ HSFoo HSMain(InputPatch<HSFoo, 16> p, uint i : SV_OutputControlPointID, uint Pat
 }
 
 
-float4 cp4[2];
-int4 i4;
-float4 cp5;
-float4x4 m4;
-float f;
+const float4 cp4[2];
+const int4 i4;
+const float4 cp5;
+const float4x4 m4;
+const float f;
 struct global_struct {
   float4 cp5[5];
 };
@@ -67,11 +67,11 @@ float4 myexpr() {
 
 
 static const float4 f4_const = float4(1, 2, 3, 4);
-bool b;
-int clip_index;
+const bool b;
+const int clip_index;
 static const bool b_true = true;
-global_struct gs;
-float4 f4;
+const global_struct gs;
+const float4 f4;
 [clipplanes(f4, cp4[0], gs.cp5[2])]
 float4 clipplanes_good();
 [clipplanes((f4), cp4[(0)], (gs).cp5[2], ((gs).cp5[2]))]

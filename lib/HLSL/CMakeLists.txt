@@ -9,6 +9,7 @@ add_llvm_library(LLVMHLSL
   DxilContainerReflection.cpp
   DxilGenerationPass.cpp
   DxilInterpolationMode.cpp
+  DxilLegalizeSampleOffsetPass.cpp
   DxilMetadataHelper.cpp
   DxilModule.cpp
   DXILOperations.cpp

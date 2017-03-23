@@ -20,6 +20,7 @@ class raw_ostream;
 namespace hlsl {
 enum class DxilRootSignatureVersion;
 struct DxilVersionedRootSignatureDesc;
+class  RootSignatureHandle;
 }
 
 namespace clang {
@@ -33,6 +34,10 @@ bool ParseHLSLRootSignature(_In_count_(Len) const char *pData, unsigned Len,
 void ReportHLSLRootSigError(clang::DiagnosticsEngine &Diags,
                             clang::SourceLocation Loc,
                             _In_count_(Len) const char *pData, unsigned Len);
+void CompileRootSignature(StringRef rootSigStr, DiagnosticsEngine &Diags,
+                          SourceLocation SLoc,
+                          hlsl::DxilRootSignatureVersion rootSigVer,
+                          hlsl::RootSignatureHandle *pRootSigHandle);
 }
 
 #endif

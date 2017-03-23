@@ -87,27 +87,27 @@ def H : Flag<["-"], "H">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
 def I : JoinedOrSeparate<["-", "/"], "I">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
     HelpText<"Add directory to include search path">;
 def O0 : Flag<["-", "/"], "O0">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
-    HelpText<"Optimization Level 0 - Disables instruction reordering">;
+    HelpText<"Optimization Level 0">;
 def O1 : Flag<["-", "/"], "O1">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
-    HelpText<"Optimization Level 1 - All standard optimizations">;
+    HelpText<"Optimization Level 1">;
 def O2 : Flag<["-", "/"], "O2">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
-    HelpText<"Optimization Level 2 - Same as O1. Reserved for future use.">;
+    HelpText<"Optimization Level 2">;
 def O3 : Flag<["-", "/"], "O3">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
-    HelpText<"Optimization Level 3 - Same as O1. Reserved for future use.">;
+    HelpText<"Optimization Level 3 (Default)">;
 def O4 : Flag<["-", "/"], "O4">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
-    HelpText<"Optimization Level 4 - Same as O1. Reserved for future use.">;
+    HelpText<"Optimization Level 4">;
 def Odump : Flag<["-", "/"], "Odump">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
     HelpText<"Print the optimizer commands.">;
 def Qunused_arguments : Flag<["-"], "Qunused-arguments">, Group<hlslcore_Group>, Flags<[CoreOption]>,
   HelpText<"Don't emit warning for unused driver arguments">;
 def Wall : Flag<["-"], "Wall">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
 def Wdeprecated : Flag<["-"], "Wdeprecated">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
-def W_Joined : Joined<["-"], "W">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-  MetaVarName<"<warning>">, HelpText<"Enable the specified warning">;
+//def W_Joined : Joined<["-"], "W">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+//  MetaVarName<"<warning>">, HelpText<"Enable the specified warning">;
 def d_Flag : Flag<["-"], "d">, Group<d_Group>;
 def d_Joined : Joined<["-"], "d">, Group<d_Group>;
-def fcolor_diagnostics : Flag<["-"], "fcolor-diagnostics">, Group<hlslcomp_Group>,
-  Flags<[CoreOption, DriverOption]>, HelpText<"Use colors in diagnostics">;
+//def fcolor_diagnostics : Flag<["-"], "fcolor-diagnostics">, Group<hlslcomp_Group>,
+//  Flags<[CoreOption, DriverOption]>, HelpText<"Use colors in diagnostics">;
 def fdiagnostics_color : Flag<["-"], "fdiagnostics-color">, Group<hlslcomp_Group>,
   Flags<[CoreOption, DriverOption]>;
 def fdiagnostics_color_EQ : Joined<["-"], "fdiagnostics-color=">, Group<hlslcomp_Group>;
@@ -117,8 +117,8 @@ def fconstexpr_depth_EQ : Joined<["-"], "fconstexpr-depth=">, Group<f_Group>;
 def fconstexpr_steps_EQ : Joined<["-"], "fconstexpr-steps=">, Group<f_Group>;
 def fconstexpr_backtrace_limit_EQ : Joined<["-"], "fconstexpr-backtrace-limit=">,
                                     Group<f_Group>;
-def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
-    Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
+//def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
+//    Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
 def fdiagnostics_show_category_EQ : Joined<["-"], "fdiagnostics-show-category=">, Group<hlslcomp_Group>;
 def ferror_limit_EQ : Joined<["-"], "ferror-limit=">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
 
@@ -128,27 +128,29 @@ def fno_unsafe_math_optimizations : Flag<["-"], "fno-unsafe-math-optimizations">
   Group<hlsloptz_Group>;
 def fassociative_math : Flag<["-"], "fassociative-math">, Group<hlsloptz_Group>;
 def fno_associative_math : Flag<["-"], "fno-associative-math">, Group<hlsloptz_Group>;
-def freciprocal_math :
-  Flag<["-"], "freciprocal-math">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
-  HelpText<"Allow division operations to be reassociated">;
+//def freciprocal_math :
+//  Flag<["-"], "freciprocal-math">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
+//  HelpText<"Allow division operations to be reassociated">;
 def fno_reciprocal_math : Flag<["-"], "fno-reciprocal-math">, Group<hlsloptz_Group>;
 def ffinite_math_only : Flag<["-"], "ffinite-math-only">, Group<hlsloptz_Group>, Flags<[CoreOption]>;
 def fno_finite_math_only : Flag<["-"], "fno-finite-math-only">, Group<hlsloptz_Group>;
 def fsigned_zeros : Flag<["-"], "fsigned-zeros">, Group<hlsloptz_Group>;
-def fno_signed_zeros :
-  Flag<["-"], "fno-signed-zeros">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
-  HelpText<"Allow optimizations that ignore the sign of floating point zeros">;
+//def fno_signed_zeros :
+//  Flag<["-"], "fno-signed-zeros">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
+//  HelpText<"Allow optimizations that ignore the sign of floating point zeros">;
 def fhonor_nans : Flag<["-"], "fhonor-nans">, Group<hlsloptz_Group>;
 def fno_honor_nans : Flag<["-"], "fno-honor-nans">, Group<hlsloptz_Group>;
 def fhonor_infinities : Flag<["-"], "fhonor-infinities">, Group<hlsloptz_Group>;
 def fno_honor_infinities : Flag<["-"], "fno-honor-infinities">, Group<hlsloptz_Group>;
 //def ftrapping_math : Flag<["-"], "ftrapping-math">, Group<f_Group>;
 //def fno_trapping_math : Flag<["-"], "fno-trapping-math">, Group<f_Group>;
-def ffp_contract : Joined<["-"], "ffp-contract=">, Group<hlsloptz_Group>,
-  Flags<[CoreOption]>, HelpText<"Form fused FP ops (e.g. FMAs): fast (everywhere)"
-  " | on (according to FP_CONTRACT pragma, default) | off (never fuse)">;
+//def ffp_contract : Joined<["-"], "ffp-contract=">, Group<hlsloptz_Group>,
+//  Flags<[CoreOption]>, HelpText<"Form fused FP ops (e.g. FMAs): fast (everywhere)"
+//  " | on (according to FP_CONTRACT pragma, default) | off (never fuse)">;
 def flimited_precision_EQ : Joined<["-"], "flimited-precision=">, Group<hlsloptz_Group>;
 
+
+/*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
  Flags<[CoreOption]>;
 def fno_color_diagnostics : Flag<["-"], "fno-color-diagnostics">, Group<hlslcomp_Group>,
@@ -171,7 +173,7 @@ def freroll_loops : Flag<["-"], "freroll-loops">, Group<hlsloptz_Group>,
   HelpText<"Turn on loop reroller">, Flags<[CoreOption]>;
 def fno_reroll_loops : Flag<["-"], "fno-reroll-loops">, Group<hlsloptz_Group>,
   HelpText<"Turn off loop reroller">;
-
+*/
 def help : Flag<["-", "--", "/"], "help">, Flags<[DriverOption]>, Group<hlslcore_Group>,
   HelpText<"Display available options">;
 /*
@@ -214,11 +216,17 @@ def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Fl
 def fcgl : Flag<["-", "/"], "fcgl">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Generate high-level code only">;
 def not_use_legacy_cbuf_load : Flag<["-", "/"], "not_use_legacy_cbuf_load">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-  HelpText<"Not use legacy cbuffer load">;  
+  HelpText<"Do not use legacy cbuffer load">;
+def pack_prefix_stable : Flag<["-", "/"], "pack_prefix_stable">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"(default) Pack signatures preserving prefix-stable property - appended elements will not disturb placement of prior elements">;
+def pack_optimized : Flag<["-", "/"], "pack_optimized">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
 def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-  HelpText<"HLSL version (2015, 2016)">;
+  HelpText<"HLSL version (Only supports 2016 for now)">;
 def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Suppress warnings">;
+def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Read root signature from a #define">;
 
 //////////////////////////////////////////////////////////////////////////////
 // fxc-based flags that don't match those previously defined.
@@ -239,7 +247,7 @@ def VD : Flag<["-", "/"], "Vd">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
 def _SLASH_Zi : Flag<["-", "/"], "Zi">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Enable debug information">;
 def recompile : Flag<["-", "/"], "recompile">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
-  HelpText<"recompile from Container or DXIL Bitcode file (not .hlsl file)">;
+  HelpText<"recompile from DXIL container with Debug Info or Debug Info bitcode file">;
 def Zpr : Flag<["-", "/"], "Zpr">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Pack matrices in row-major order">;
 def Zpc : Flag<["-", "/"], "Zpc">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
@@ -258,12 +266,12 @@ def Fc : JoinedOrSeparate<["-", "/"], "Fc">, MetaVarName<"<file>">, HelpText<"Ou
 //def Fx : JoinedOrSeparate<["-", "/"], "Fx">, MetaVarName<"<file>">, HelpText<"Output assembly code and hex listing file">;
 def Fh : JoinedOrSeparate<["-", "/"], "Fh">, MetaVarName<"<file>">, HelpText<"Output header file containing object code">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Fe : JoinedOrSeparate<["-", "/"], "Fe">, MetaVarName<"<file>">, HelpText<"Output warnings and errors to a specific file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
-def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">, HelpText<"Extract shader PDB and write to given file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
+def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">, HelpText<"Extract LLVM Debug IR and write to given file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Vn : JoinedOrSeparate<["-", "/"], "Vn">, MetaVarName<"<name>">, HelpText<"Use <name> as variable name in header file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
-def Cc : Flag<["-", "/"], "Cc">, HelpText<"Output color coded assembly listings">, Group<hlslcomp_Group>;
-def Ni : Flag<["-", "/"], "Ni">, HelpText<"Output instruction numbers in assembly listings">, Group<hlslcomp_Group>;
-def No : Flag<["-", "/"], "No">, HelpText<"Output instruction byte offsets in assembly listings">, Group<hlslcomp_Group>;
-def Lx : Flag<["-", "/"], "Lx">, HelpText<"Output hexadecimal literals">, Group<hlslcomp_Group>;
+def Cc : Flag<["-", "/"], "Cc">, HelpText<"Output color coded assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
+def Ni : Flag<["-", "/"], "Ni">, HelpText<"Output instruction numbers in assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
+def No : Flag<["-", "/"], "No">, HelpText<"Output instruction byte offsets in assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
+def Lx : Flag<["-", "/"], "Lx">, HelpText<"Output hexadecimal literals">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
 
 // In place of 'E' for clang; fxc uses 'E' for entry point.
 def P : Separate<["-", "/"], "P">, Flags<[DriverOption]>, Group<hlslutil_Group>,
@@ -273,19 +281,20 @@ def P : Separate<["-", "/"], "P">, Flags<[DriverOption]>, Group<hlslutil_Group>,
 
 def dumpbin : Flag<["-", "/"], "dumpbin">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Load a binary file rather than compiling">;
-def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Group<hlslutil_Group>,
-  HelpText<"Strip reflection data from shader bytecode">;
-def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Group<hlslutil_Group>,
-  HelpText<"Strip debug information from 4_0+ shader bytecode">;
-def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Group<hlslutil_Group>,
-  HelpText<"Strip private data from shader bytecode">;
+def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+  HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
+def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+  HelpText<"Strip debug information from 4_0+ shader bytecode  (must be used with /Fo <file>)">;
+def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+  HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 
-def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">,     Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode">;
-def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;
-def extractrootsignature : JoinedOrSeparate<["-", "/"], "extractrootsignature">, MetaVarName<"<file>">, Group<hlslutil_Group>, HelpText<"Extract root signature from shader bytecode">;
-def verifyrootsignature  : JoinedOrSeparate<["-", "/"], "verifyrootsignature">,  MetaVarName<"<file>">, Group<hlslutil_Group>, HelpText<"Verify shader bytecode with root signature">;
+def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode  (must be used with /Fo <file>)">;
+def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;
+def extractrootsignature : Flag<["-", "/"], "extractrootsignature">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Extract root signature from shader bytecode (must be used with /Fo <file>)">;
+def verifyrootsignature  : JoinedOrSeparate<["-", "/"], "verifyrootsignature">,  MetaVarName<"<file>">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Verify shader bytecode with root signature">;
 def force_rootsig_ver    : JoinedOrSeparate<["-", "/"], "force_rootsig_ver">,    Flags<[CoreOption]>, MetaVarName<"<profile>">, Group<hlslcomp_Group>, HelpText<"force root signature version (rootsig_1_1 if omitted)">;
 
+/*
 def shtemplate : JoinedOrSeparate<["-", "/"], "shtemplate">, MetaVarName<"<file>">, Group<hlslcomp_Group>,
   HelpText<"Template shader file for merging/matching resources">;
 def mergeUAVs : JoinedOrSeparate<["-", "/"], "mergeUAVs">, MetaVarName<"<file>">, Group<hlslcomp_Group>,
@@ -296,15 +305,16 @@ def res_may_alias : Flag<["-", "/"], "res_may_alias">, Flags<[CoreOption]>, Grou
   HelpText<"Assume that UAVs/SRVs may alias">;
 def enable_unbounded_descriptor_tables : Flag<["-", "/"], "enable_unbounded_descriptor_tables">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Enables unbounded descriptor tables">;
+*/
 def all_resources_bound : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Enables agressive flattening">;
 
-def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, MetaVarName<"<file>">, Group<hlslutil_Group>,
+def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Private data to add to compiled shader blob">;
-def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, MetaVarName<"<file>">, Group<hlslutil_Group>,
+def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Save private data from shader blob">;
 
-def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>,
+def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption]>,
   HelpText<"Suppress copyright message">;
 
 // Also removed: compress, decompress, /Gch (child effect), /Gec (back compat), /Gpp (partial precision)

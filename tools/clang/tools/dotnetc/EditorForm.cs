@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace MainNs
@@ -221,8 +222,8 @@ namespace MainNs
                 "  <InputElement SemanticName='POSITION' Format='R32G32B32_FLOAT' AlignedByteOffset='0' />\r\n" +
                 "  <InputElement SemanticName='COLOR' Format='R32G32B32A32_FLOAT' AlignedByteOffset='12' />\r\n" +
                 " </InputElements>\r\n" +
-                " <Shader Name='VS' Target='vs_5_1' EntryPoint='VSMain' />\r\n" +
-                " <Shader Name='PS' Target='ps_5_1' EntryPoint='PSMain' />\r\n" +
+                " <Shader Name='VS' Target='vs_6_0' EntryPoint='VSMain' />\r\n" +
+                " <Shader Name='PS' Target='ps_6_0' EntryPoint='PSMain' />\r\n" +
                 "</ShaderOp>\r\n";
 
             this.CodeBox.Text =
@@ -400,6 +401,7 @@ namespace MainNs
         {
             this.DisassemblyTextBox.Font = this.CodeBox.Font;
             this.ASTDumpBox.Font = this.CodeBox.Font;
+            SelectionHighlightData.ClearAnyFromRtb(this.CodeBox);
 
             var library = this.Library;
 
@@ -670,7 +672,7 @@ namespace MainNs
                 result.SetFromText = options.Count > 0;
                 result.Mode = GetValueOrDefault(options, "mode", "hlsl");
                 result.Entry = GetValueOrDefault(options, "hlsl-entry", "main");
-                result.Target = GetValueOrDefault(options, "hlsl-target", "ps_5_1");
+                result.Target = GetValueOrDefault(options, "hlsl-target", "ps_6_0");
                 result.Arguments = GetValueOrDefault(options, "hlsl-args", "").Split(' ').Select(a => a.Trim()).ToArray();
                 return result;
             }
@@ -1073,6 +1075,65 @@ namespace MainNs
             font.BackColor = ColorToCOLORREF(color);
         }
 
+        private void HandleDebugMetadata(string dbgLine)
+        {
+            Regex lineRE = new Regex(@"line: (\d+)");
+            Match lineMatch = lineRE.Match(dbgLine);
+            if (!lineMatch.Success)
+            {
+                return;
+            }
+
+            int lineVal = Int32.Parse(lineMatch.Groups[1].Value) - 1;
+            int targetStart = this.CodeBox.GetFirstCharIndexFromLine(lineVal);
+            int targetEnd = this.CodeBox.GetFirstCharIndexFromLine(lineVal + 1);
+            var highlights = SelectionHighlightData.FromRtb(CodeBox);
+            highlights.ClearFromRtb(CodeBox);
+            highlights.Add(targetStart, targetEnd - targetStart);
+            highlights.ApplyToRtb(CodeBox, Color.Yellow);
+        }
+
+        private void HandleDebugTokenOnDisassemblyLine(RichTextBox rtb)
+        {
+            // Get the line.
+            string[] lines = rtb.Lines;
+            string line = lines[rtb.GetLineFromCharIndex(rtb.SelectionStart)];
+            Regex re = new Regex(@"!dbg !(\d+)");
+            Match m = re.Match(line);
+            if (!m.Success)
+            {
+                return;
+            }
+
+            string val = m.Groups[1].Value;
+            int dbgMetadata = Int32.Parse(val);
+            for (int dbgLineIndex = lines.Length - 1; dbgLineIndex >= 0;)
+            {
+                string dbgLine = lines[dbgLineIndex];
+                if (dbgLine.StartsWith("!"))
+                {
+                    int dbgIdx = Int32.Parse(dbgLine.Substring(1, dbgLine.IndexOf(' ') - 1));
+                    if (dbgIdx == dbgMetadata)
+                    {
+                        HandleDebugMetadata(dbgLine);
+                        return;
+                    }
+                    else if (dbgIdx < dbgMetadata)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        dbgLineIndex -= (dbgIdx - dbgMetadata);
+                    }
+                }
+                else
+                {
+                    --dbgLineIndex;
+                }
+            }
+        }
+
         private void DisassemblyTextBox_SelectionChanged(object sender, EventArgs e)
         {
             // We use [) ranges for selection
@@ -1081,10 +1142,17 @@ namespace MainNs
             SelectionExpandResult expand = SelectionExpandResult.Expand(rtb);
             if (expand.IsEmpty)
                 return;
-            if (data.SelectedToken == expand.Token)
+
+            string token = expand.Token;
+
+            if (token == "dbg")
+            {
+                HandleDebugTokenOnDisassemblyLine(rtb);
+            }
+
+            if (data.SelectedToken == token)
                 return;
             string text = expand.Text;
-            string token = expand.Token;
 
             // OK, time to do work.
             using (new RichTextBoxEditAction(rtb))
@@ -1287,6 +1355,7 @@ namespace MainNs
                 });
             rtb.SelectionChanged += DisassemblyTextBox_SelectionChanged;
             form.Controls.Add(rtb);
+            form.StartPosition = FormStartPosition.CenterParent;
             form.Show(this);
         }
 
@@ -1636,6 +1705,13 @@ namespace MainNs
                 return result;
             }
 
+            public static void ClearAnyFromRtb(RichTextBox rtb)
+            {
+                SelectionHighlightData data = (SelectionHighlightData)rtb.Tag;
+                if (data != null)
+                    data.ClearFromRtb(rtb);
+            }
+
             public void Add(int start, int length)
             {
                 this.StartLengthHighlights.Add(new Tuple<int, int>(start, length));
@@ -1809,6 +1885,7 @@ namespace MainNs
             form.Controls.Add(container);
             form.Controls.Add(statusBar);
             binaryView.Bytes = bytes;
+            form.StartPosition = FormStartPosition.CenterParent;
             form.Show(this);
         }
 

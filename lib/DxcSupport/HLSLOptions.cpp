@@ -113,6 +113,11 @@ void DxcDefines::BuildDefines() {
   }
 }
 
+bool DxcOpts::IsRootSignatureProfile() {
+  return TargetProfile == "rootsig_1_0" ||
+      TargetProfile == "rootsig_1_1";
+}
+
 MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
   if (argc > skipArgCount) {
     Utf8StringVector.reserve(argc - skipArgCount);
@@ -208,7 +213,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   DXASSERT(opts.ExternalLib.empty() == opts.ExternalFn.empty(),
            "else flow above is incorrect");
 
-  opts.OutputWarnings = Args.hasFlag(OPT_no_warnings, OPT_INVALID, true);
+  // when no-warnings option is present, do not output warnings.
+  opts.OutputWarnings = Args.hasFlag(OPT_INVALID, OPT_no_warnings, true);
   opts.EntryPoint = Args.getLastArgValue(OPT_entrypoint);
   // Entry point is required in arguments only for drivers; APIs take this through an argument.
   // The value should default to 'main', but we let the caller apply this policy.
@@ -236,7 +242,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
-  opts.ExtractRootSignatureFile = Args.getLastArgValue(OPT_extractrootsignature);
+  opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
   opts.OutputHeader = Args.getLastArgValue(OPT_Fh);
   opts.OutputWarningsFile = Args.getLastArgValue(OPT_Fe);
@@ -251,6 +257,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.VariableName = Args.getLastArgValue(OPT_Vn);
   opts.InputFile = Args.getLastArgValue(OPT_INPUT);
   opts.ForceRootSigVer = Args.getLastArgValue(OPT_force_rootsig_ver);
+  opts.PrivateSource = Args.getLastArgValue(OPT_setprivate);
+  opts.RootSignatureSource = Args.getLastArgValue(OPT_setrootsignature);
+  opts.VerifyRootSignatureSource = Args.getLastArgValue(OPT_verifyrootsignature);
+  opts.RootSignatureDefine = Args.getLastArgValue(OPT_rootsig_define);
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
       opts.ForceRootSigVer != "rootsig_1_1") {
@@ -284,19 +294,34 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DefaultRowMajor = Args.hasFlag(OPT_Zpr, OPT_INVALID, false);
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
-  opts.EnableUnboundedDescriptorTables = Args.hasFlag(OPT_enable_unbounded_descriptor_tables, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load, OPT_INVALID, false);
+  opts.PackPrefixStable = Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
+  opts.PackOptimized = Args.hasFlag(OPT_pack_optimized, OPT_INVALID, false);
   opts.DisplayIncludeProcess = Args.hasFlag(OPT_H, OPT_INVALID, false);
   opts.WarningAsError = Args.hasFlag(OPT__SLASH_WX, OPT_INVALID, false);
   opts.AvoidFlowControl = Args.hasFlag(OPT_Gfa, OPT_INVALID, false);
   opts.PreferFlowControl = Args.hasFlag(OPT_Gfp, OPT_INVALID, false);
   opts.RecompileFromBinary = Args.hasFlag(OPT_recompile, OPT_INVALID, false);
+  opts.StripDebug = Args.hasFlag(OPT_Qstrip_debug, OPT_INVALID, false);
+  opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
+  opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
+  opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
+  opts.ExtractRootSignature = Args.hasFlag(OPT_extractrootsignature, OPT_INVALID, false);
+  opts.DisassembleColorCoded = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
+  opts.DisassembleInstNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID, false);
+  opts.DisassembleByteOffset = Args.hasFlag(OPT_No, OPT_INVALID, false);
+  opts.DisaseembleHex = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
+
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
     return 1;
   }
   if (opts.AvoidFlowControl && opts.PreferFlowControl) {
     errors << "Cannot specify /Gfa and /Gfp together, use /? to get usage information";
+    return 1;
+  }
+  if (opts.PackPrefixStable && opts.PackOptimized) {
+    errors << "Cannot specify /pack_prefix_stable and /pack_optimized together, use /? to get usage information";
     return 1;
   }
   // TODO: more fxc option check.
@@ -311,7 +336,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if ((flagsToInclude & hlsl::options::DriverOption) && opts.InputFile.empty()) {
     // Input file is required in arguments only for drivers; APIs take this through an argument.
-    errors << "Required input file argument is missing.";
+    errors << "Required input file argument is missing. use -help to get more information.";
     return 1;
   }
   if (opts.OutputHeader.empty() && !opts.VariableName.empty()) {
@@ -321,7 +346,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if (!opts.Preprocess.empty() &&
       (!opts.OutputHeader.empty() || !opts.OutputObject.empty() ||
-       opts.OutputWarnings || !opts.OutputWarningsFile.empty())) {
+       !opts.OutputWarnings || !opts.OutputWarningsFile.empty())) {
     errors << "Preprocess cannot be specified with other options.";
     return 1;
   }
@@ -334,7 +359,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     if (opts.AllResourcesBound || opts.AvoidFlowControl ||
         opts.CodeGenHighLevel || opts.DebugInfo || opts.DefaultColMajor ||
         opts.DefaultRowMajor || opts.Defines.size() != 0 ||
-        opts.DisableOptimizations || opts.EnableUnboundedDescriptorTables ||
+        opts.DisableOptimizations || 
         !opts.EntryPoint.empty() || !opts.ForceRootSigVer.empty() ||
         opts.PreferFlowControl || !opts.TargetProfile.empty()) {
       errors << "Cannot specify compilation options when reading a binary file.";

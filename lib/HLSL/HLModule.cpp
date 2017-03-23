@@ -212,6 +212,7 @@ void HLModule::RemoveFunction(llvm::Function *F) {
   m_HLFunctionPropsMap.erase(F);
   if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
     m_pTypeSystem.get()->EraseFunctionAnnotation(F);
+  m_pOP->RemoveFunction(F);
 }
 
 template <typename TResource>
@@ -313,6 +314,10 @@ DxilSignature *HLModule::ReleasePatchConstantSignature() {
 
 DxilTypeSystem *HLModule::ReleaseTypeSystem() {
   return m_pTypeSystem.release();
+}
+
+hlsl::OP *HLModule::ReleaseOP() {
+  return m_pOP.release();
 }
 
 RootSignatureHandle *HLModule::ReleaseRootSignature() {
@@ -467,6 +472,10 @@ void HLModule::EmitHLMetadata() {
     NamedMDNode * resTyAnnotations = m_pModule->getOrInsertNamedMetadata(kHLDxilResourceTypeAnnotationMDName);
     resTyAnnotations->addOperand(EmitResTyAnnotations());
   }
+
+  if (!m_RootSignature->IsEmpty()) {
+    m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
+  }
 }
 
 void HLModule::LoadHLMetadata() {
@@ -541,6 +550,8 @@ void HLModule::LoadHLMetadata() {
     if (MDResTyAnnotations->getNumOperands())
       LoadResTyAnnotations(MDResTyAnnotations->getOperand(0));
   }
+
+  m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
 }
 
 void HLModule::ClearHLMetadata(llvm::Module &M) {
@@ -553,6 +564,7 @@ void HLModule::ClearHLMetadata(llvm::Module &M) {
     if (name == DxilMDHelper::kDxilVersionMDName ||
         name == DxilMDHelper::kDxilShaderModelMDName ||
         name == DxilMDHelper::kDxilEntryPointsMDName ||
+        name == DxilMDHelper::kDxilRootSignatureMDName ||
         name == DxilMDHelper::kDxilResourcesMDName ||
         name == DxilMDHelper::kDxilTypeSystemMDName ||
         name == kHLDxilFunctionPropertiesMDName || // TODO: adjust to proper name
@@ -691,34 +703,11 @@ void HLModule::LoadResTyAnnotations(const llvm::MDOperand &MDO) {
 }
 
 MDTuple *HLModule::EmitHLShaderProperties() {
-  vector<Metadata *> MDVals;
-  if (!m_RootSignature->IsEmpty()) {
-    MDVals.emplace_back(m_pMDHelper->Uint32ToConstMD(DxilMDHelper::kDxilRootSignatureTag));
-    MDVals.emplace_back(m_pMDHelper->EmitRootSignature(*m_RootSignature.get()));
-  }
-  return MDNode::get(m_Ctx, MDVals);
+  return nullptr;
 }
 
 void HLModule::LoadHLShaderProperties(const MDOperand &MDO) {
-  if (MDO.get() == nullptr)
-    return;
-
-  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
-  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  IFTBOOL((pTupleMD->getNumOperands() & 0x1) == 0, DXC_E_INCORRECT_DXIL_METADATA);
-  for (unsigned iNode = 0; iNode < pTupleMD->getNumOperands(); iNode += 2) {
-    unsigned Tag = DxilMDHelper::ConstMDToUint32(pTupleMD->getOperand(iNode));
-    const MDOperand &MDO = pTupleMD->getOperand(iNode + 1);
-    IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-    switch (Tag) {
-    case DxilMDHelper::kDxilRootSignatureTag:
-      m_pMDHelper->LoadRootSignature(MDO, *m_RootSignature.get());
-      break;
-    default:
-      // Ignore other extended properties for now.
-      break;
-    }
-  }
+  return;
 }
 
 // TODO: Don't check names.
@@ -985,7 +974,8 @@ bool HLModule::HasPreciseAttributeWithMetadata(Instruction *I) {
 void HLModule::MarkPreciseAttributeWithMetadata(Instruction *I) {
   LLVMContext &Ctx = I->getContext();
   MDNode *preciseNode = MDNode::get(
-      Ctx, {MDString::get(Ctx, DxilMDHelper::kDxilPreciseAttributeMDName)});
+      Ctx,
+      {ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1))});
 
   I->setMetadata(DxilMDHelper::kDxilPreciseAttributeMDName, preciseNode);
 }
