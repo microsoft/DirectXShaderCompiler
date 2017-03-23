@@ -1416,7 +1416,7 @@ void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(
     Value *matGlobal, ArrayRef<Value *> vecGlobals,
     CallInst *matLdStInst) {
   // No dynamic indexing on matrix, flatten matrix to scalars.
-  // Internal global matrix use row major follow the initializer.
+  // vecGlobals already in col major.
   Type *matType = matGlobal->getType()->getPointerElementType();
   unsigned col, row;
   HLMatrixLower::GetMatrixInfo(matType, col, row);
@@ -1429,23 +1429,19 @@ void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(
   case HLMatLoadStoreOpcode::ColMatLoad:
   case HLMatLoadStoreOpcode::RowMatLoad: {
     Value *Result = UndefValue::get(vecType);
-    for (unsigned c = 0; c < col; c++)
-      for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = c * row + r;
-        Value *Elt = Builder.CreateLoad(vecGlobals[matIdx]);
-        Result = Builder.CreateInsertElement(Result, Elt, matIdx);
-      }
+    for (unsigned matIdx = 0; matIdx < col * row; matIdx++) {
+      Value *Elt = Builder.CreateLoad(vecGlobals[matIdx]);
+      Result = Builder.CreateInsertElement(Result, Elt, matIdx);
+    }
     matLdStInst->replaceAllUsesWith(Result);
   } break;
   case HLMatLoadStoreOpcode::ColMatStore:
   case HLMatLoadStoreOpcode::RowMatStore: {
     Value *Val = matLdStInst->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-    for (unsigned c = 0; c < col; c++)
-      for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = c * row + r;
-        Value *Elt = Builder.CreateExtractElement(Val, matIdx);
-        Builder.CreateStore(Elt, vecGlobals[matIdx]);
-      }
+    for (unsigned matIdx = 0; matIdx < col * row; matIdx++) {
+      Value *Elt = Builder.CreateExtractElement(Val, matIdx);
+      Builder.CreateStore(Elt, vecGlobals[matIdx]);
+    }
   } break;
   }
 }
@@ -1453,6 +1449,8 @@ void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(
 void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(GlobalVariable *matGlobal,
                                                       GlobalVariable *scalarArrayGlobal,
                                                       CallInst *matLdStInst) {
+  // vecGlobals already in col major.
+  const bool bColMajor = true;
   HLMatLoadStoreOpcode opcode =
       static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(matLdStInst));
   switch (opcode) {
@@ -1466,16 +1464,14 @@ void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(GlobalVariable *matGlobal,
 
     std::vector<Value *> matElts(col * row);
 
-    for (unsigned c = 0; c < col; c++)
-      for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = c * row + r;
-        Value *GEP = Builder.CreateInBoundsGEP(
-            scalarArrayGlobal, {zeroIdx, Builder.getInt32(matIdx)});
-        matElts[matIdx] = Builder.CreateLoad(GEP);
-      }
+    for (unsigned matIdx = 0; matIdx < col * row; matIdx++) {
+      Value *GEP = Builder.CreateInBoundsGEP(
+          scalarArrayGlobal, {zeroIdx, Builder.getInt32(matIdx)});
+      matElts[matIdx] = Builder.CreateLoad(GEP);
+    }
 
     Value *newVec =
-        HLMatrixLower::BuildMatrix(EltTy, col, row, false, matElts, Builder);
+        HLMatrixLower::BuildMatrix(EltTy, col, row, bColMajor, matElts, Builder);
     matLdStInst->replaceAllUsesWith(newVec);
     matLdStInst->eraseFromParent();
   } break;
@@ -1491,14 +1487,12 @@ void HLMatrixLowerPass::TranslateMatLoadStoreOnGlobal(GlobalVariable *matGlobal,
 
     std::vector<Value *> matElts(col * row);
 
-    for (unsigned c = 0; c < col; c++)
-      for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = c * row + r;
-        Value *GEP = Builder.CreateInBoundsGEP(
-            scalarArrayGlobal, {zeroIdx, Builder.getInt32(matIdx)});
-        Value *Elt = Builder.CreateExtractElement(Val, matIdx);
-        Builder.CreateStore(Elt, GEP);
-      }
+    for (unsigned matIdx = 0; matIdx < col * row; matIdx++) {
+      Value *GEP = Builder.CreateInBoundsGEP(
+          scalarArrayGlobal, {zeroIdx, Builder.getInt32(matIdx)});
+      Value *Elt = Builder.CreateExtractElement(Val, matIdx);
+      Builder.CreateStore(Elt, GEP);
+    }
 
     matLdStInst->eraseFromParent();
   } break;
@@ -2229,6 +2223,7 @@ static Constant *LowerMatrixArrayConst(Constant *MA, ArrayType *ResultTy) {
 
 void HLMatrixLowerPass::runOnGlobalMatrixArray(GlobalVariable *GV) {
   // Lower to array of vector array like float[row][col].
+  // It's row major.
   // DynamicIndexingVectorToArray will change it to scalar array.
   Type *Ty = GV->getType()->getPointerElementType();
   std::vector<unsigned> arraySizeList;
@@ -2311,9 +2306,11 @@ static void FlattenMatConst(Constant *M, std::vector<Constant *> &Elts) {
       Elts.emplace_back(Elt);
   } else {
     M = M->getAggregateElement((unsigned)0);
-    for (unsigned r = 0; r < row; r++) {
-      Constant *R = M->getAggregateElement(r);
-      for (unsigned c = 0; c < col; c++) {
+    // Initializer is row major.
+    // Make it col major to match temp matrix.
+    for (unsigned c = 0; c < col; c++) {
+      for (unsigned r = 0; r < row; r++) {
+        Constant *R = M->getAggregateElement(r);
         Elts.emplace_back(R->getAggregateElement(c));
       }
     }
@@ -2339,6 +2336,8 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
   const DataLayout &DL = M->getDataLayout();
 
   std::vector<Constant *> Elts;
+  // Lower to vector or array for scalar matrix.
+  // Make it col major so don't need shuffle when load/store.
   FlattenMatConst(GV->getInitializer(), Elts);
 
   if (onlyLdSt) {

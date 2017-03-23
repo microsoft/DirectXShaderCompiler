@@ -333,6 +333,10 @@ public:
   TEST_METHOD(CodeGenClip)
   TEST_METHOD(CodeGenClipPlanes)
   TEST_METHOD(CodeGenConstoperand1)
+  TEST_METHOD(CodeGenConstMat)
+  TEST_METHOD(CodeGenConstMat2)
+  TEST_METHOD(CodeGenConstMat3)
+  TEST_METHOD(CodeGenConstMat4)
   TEST_METHOD(CodeGenDiscard)
   TEST_METHOD(CodeGenDivZero)
   TEST_METHOD(CodeGenDot1)
@@ -2051,6 +2055,22 @@ TEST_F(CompilerTest, CodeGenClipPlanes) {
 
 TEST_F(CompilerTest, CodeGenConstoperand1) {
   CodeGenTest(L"..\\CodeGenHLSL\\constoperand1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstMat) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstMat2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstMat3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstMat4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenDiscard) {

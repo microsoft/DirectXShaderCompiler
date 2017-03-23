@@ -6,8 +6,8 @@
 // CHECK: [3 x float] [float 6.000000e+00, float 0.000000e+00, float 0.000000e+00]
 // CHECK: [3 x float] [float 7.000000e+00, float 0.000000e+00, float 0.000000e+00]
 // CHECK: [3 x float] [float 8.000000e+00, float 0.000000e+00, float 0.000000e+00]
-// CHECK: [16 x float] [float 1.500000e+01, float 1.600000e+01, float 1.700000e+01, float 1.800000e+01, float 1.500000e+01, float 1.600000e+01, float 1.700000e+01, float 1.800000e+01, float 1.500000e+01, float 1.600000e+01, float 1.700000e+01, float 1.800000e+01, float 1.500000e+01, float 1.600000e+01, float 1.700000e+01, float 1.800000e+01]
-// CHECK: [16 x float] [float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00]
+// CHECK: [16 x float] [float 1.500000e+01, float 1.500000e+01, float 1.500000e+01, float 1.500000e+01, float 1.600000e+01, float 1.600000e+01, float 1.600000e+01, float 1.600000e+01, float 1.700000e+01, float 1.700000e+01, float 1.700000e+01, float 1.700000e+01, float 1.800000e+01, float 1.800000e+01, float 1.800000e+01, float 1.800000e+01]
+// CHECK: [16 x float] [float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00]
 // CHECK: [4 x float] [float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00]
 // CHECK: [16 x float] [float 2.500000e+01, float 2.600000e+01, float 2.700000e+01, float 2.800000e+01, float 2.500000e+01, float 2.600000e+01, float 2.700000e+01, float 2.800000e+01, float 2.500000e+01, float 2.600000e+01, float 2.700000e+01, float 2.800000e+01, float 2.500000e+01, float 2.600000e+01, float 2.700000e+01, float 2.800000e+01]
 
