@@ -324,9 +324,14 @@ bool OP::CheckOpCodeTable() {
   return true;
 }
 
-bool OP::IsDxilOpFunc(const llvm::Function *F) {
-  StringRef name = F->getName();
+bool OP::IsDxilOpFuncName(StringRef name) {
   return name.startswith(OP::m_NamePrefix);
+}
+
+bool OP::IsDxilOpFunc(const llvm::Function *F) {
+  if (!F->hasName())
+    return false;
+  return IsDxilOpFuncName(F->getName());
 }
 
 bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I) {
