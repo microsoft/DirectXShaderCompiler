@@ -18,7 +18,6 @@ add_clang_library(clang-hlsl-tests SHARED
   AllocatorTest.cpp
   CompilationResult.h
   CompilerTest.cpp
-  DiscardStmt.cpp
   DxilContainerTest.cpp
   DXIsenseTest.cpp
   ExecutionTest.cpp

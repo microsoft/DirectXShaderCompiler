@@ -83,7 +83,6 @@ set(GENERATED_HEADERS
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
 target_link_libraries(dxcompiler PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})
-add_dependencies(dxcompiler ${GENERATED_HEADERS} clang-headers)
 add_dependencies(dxcompiler DxcEtw)
 include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
 
