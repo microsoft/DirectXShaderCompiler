@@ -658,7 +658,7 @@ DISubprogram *DIBuilder::createFunction(DIScope *Context, StringRef Name,
       LinkageName, File, LineNo, Ty, isLocalToUnit, isDefinition, ScopeLine,
       nullptr, 0, 0, Flags, isOptimized, Fn, cast_or_null<MDTuple>(TParams),
       cast_or_null<DISubprogram>(Decl),
-      MDTuple::getTemporary(VMContext, None).release());
+      nullptr); // HLSL Change - this leaked, better nullptr than empty anyway - MDTuple::getTemporary(VMContext, None).release());
 
   if (isDefinition)
     AllSubprograms.push_back(Node);

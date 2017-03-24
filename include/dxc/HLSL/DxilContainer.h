@@ -375,6 +375,7 @@ inline uint32_t EncodeVersion(DXIL::ShaderKind shaderType, uint32_t major,
 
 class DxilPartWriter {
 public:
+  virtual ~DxilPartWriter() {}
   virtual uint32_t size() const = 0;
   virtual void write(AbstractMemoryStream *pStream) = 0;
 };
@@ -387,6 +388,7 @@ DxilPartWriter *NewPSVWriter(const DxilModule &M);
 class DxilContainerWriter : public DxilPartWriter  {
 public:
   typedef std::function<void(AbstractMemoryStream*)> WriteFn;
+  virtual ~DxilContainerWriter() {}
   virtual void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) = 0;
 };
 
