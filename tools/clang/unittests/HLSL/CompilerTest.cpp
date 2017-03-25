@@ -1999,7 +1999,7 @@ TEST_F(CompilerTest, CodeGenCast6) {
 }
 
 TEST_F(CompilerTest, CodeGenCbuf_init_static) {
-  CodeGenTest(L"..\\CodeGenHLSL\\cbuf_init_static.hlsl.hlsl");
+  CodeGenTest(L"..\\CodeGenHLSL\\cbuf_init_static.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCbuffer_unused) {
