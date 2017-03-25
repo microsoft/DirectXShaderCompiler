@@ -4416,6 +4416,8 @@ static bool ScanConstInitList(CodeGenModule &CGM, InitListExpr *E,
         return false;
     } else if (DeclRefExpr *ref = dyn_cast<DeclRefExpr>(init)) {
       if (VarDecl *D = dyn_cast<VarDecl>(ref->getDecl())) {
+        if (!D->hasInit())
+          return false;
         if (Constant *initVal = CGM.EmitConstantInit(*D)) {
           FlatConstToList(initVal, EltValList);
         } else {
