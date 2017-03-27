@@ -58,7 +58,7 @@ if(CLANG_PLUGIN_SUPPORT)
   export_executable_symbols(clang)
 endif()
 
-add_dependencies(clang clang-headers)
+# add_dependencies(clang clang-headers) - HLSL Change
 
 if(UNIX)
   set(CLANGXX_LINK_OR_COPY create_symlink)

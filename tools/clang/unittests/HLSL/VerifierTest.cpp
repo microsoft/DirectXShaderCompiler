@@ -13,6 +13,7 @@
 #include <string>
 #include "CompilationResult.h"
 #include "HLSLTestData.h"
+#include "llvm/Support/ManagedStatic.h"
 
 #include <fstream>
 
@@ -20,6 +21,9 @@
 #include "HlslTestUtils.h"
 
 using namespace std;
+
+MODULE_SETUP(TestModuleSetup);
+MODULE_CLEANUP(TestModuleCleanup);
 
 // The test fixture.
 class VerifierTest
@@ -115,6 +119,19 @@ public:
     CheckVerifies(hlsl_test::GetPathToHlslDataFile(name).c_str());
   }
 };
+
+bool TestModuleSetup() {
+  // Use this module-level function to set up LLVM dependencies.
+  return true;
+}
+
+bool TestModuleCleanup() {
+  // Use this module-level function to set up LLVM dependencies.
+  // In particular, clean up managed static allocations used by
+  // parsing options with the LLVM library.
+  ::llvm::llvm_shutdown();
+  return true;
+}
 
 TEST_F(VerifierTest, RunAttributes) {
   CheckVerifiesHLSL(L"attributes.hlsl");
