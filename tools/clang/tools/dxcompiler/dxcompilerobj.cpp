@@ -2056,6 +2056,7 @@ public:
       compiler.WriteDefaultOutputDirectly = true;
       compiler.setOutStream(&outStream);
 
+      compiler.getLangOpts().HLSLEntryFunction =
       compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint.m_psz;
       compiler.getCodeGenOpts().HLSLProfile = pUtf8TargetProfile.m_psz;
 

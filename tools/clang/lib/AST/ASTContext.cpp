@@ -8461,7 +8461,10 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     if (Linkage == GVA_Internal || Linkage == GVA_AvailableExternally ||
         Linkage == GVA_DiscardableODR)
       return false;
-    return true;
+    // HLSL Change Starts
+    // Don't just return true because of visibility, unless building a library (which is not currently implemented)
+    return FD->getName() == getLangOpts().HLSLEntryFunction || IsPatchConstantFunctionDecl(FD);
+    // HLSL Change Ends
   }
   
   const VarDecl *VD = cast<VarDecl>(D);

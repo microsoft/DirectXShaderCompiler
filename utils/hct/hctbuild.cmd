@@ -165,8 +165,8 @@ echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
 echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
-echo
-echo   AppVeyor Support
+echo.
+echo AppVeyor Support
 echo   -Release builds release
 echo   -Debug builds debug
 echo   -vs2017 uses Visual Studio 2017 to build

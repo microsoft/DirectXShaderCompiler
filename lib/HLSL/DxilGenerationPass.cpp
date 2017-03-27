@@ -838,6 +838,9 @@ void DxilGenerationPass::CreateDxilSignatures() {
   if (SM->IsHS()) {
     HLFunctionProps &EntryProps = m_pHLModule->GetHLFunctionProps(EntryFunc);
     Function *patchConstantFunc = EntryProps.ShaderProps.HS.patchConstantFunc;
+    if (patchConstantFunc == nullptr) {
+      EntryFunc->getContext().emitError("Patch constant function is not specified.");
+    }
 
     DxilFunctionAnnotation *patchFuncAnnotation = m_pHLModule->GetFunctionAnnotation(patchConstantFunc);
     DXASSERT(patchFuncAnnotation, "must have function annotation for patch constant function");

@@ -1,7 +1,6 @@
 // RUN: %dxc -E main -T cs_6_0 -fcgl %s  | FileCheck %s
 
 // CHECK: float %a, <4 x float> %b, %struct.T* %t, %class.matrix.float.2.3 %m, [3 x <2 x float>]* %n
-
 // CHECK: float* dereferenceable(4) %a, <4 x float>* dereferenceable(16) %b, %struct.T* %t, %class.matrix.float.2.3* dereferenceable(24) %m, [3 x <2 x float>]* %n
 
 struct T{
@@ -30,5 +29,6 @@ void main() {
   test(a, b, t, m, n);
   // TODO: report error on use float as out float4 in front-end.
   // FXC error message is "cannot convert output parameter from 'float4' to 'float'"
-  //test2(a, b, t, m, n);
+  float4 out_b = b;
+  test2(a, out_b, t, m, n);
 }

@@ -3878,13 +3878,12 @@ CalculateCallDepth(CallGraphNode *node,
   funcSet.insert(node->getFunction());
   for (auto it = node->begin(), ei = node->end(); it != ei; it++) {
     CallGraphNode *toNode = it->second;
-    if (callStack.count(toNode) > 0) {
-      // Recursive
+    if (callStack.insert(toNode).second == false) {
+      // Recursive.
       return true;
     }
     if (depthMap[toNode] < depth)
       depthMap[toNode] = depth;
-    callStack.insert(toNode);
     if (CalculateCallDepth(toNode, depthMap, callStack, funcSet)) {
       // Recursive
       return true;
