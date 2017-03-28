@@ -51,12 +51,12 @@ llvm::StringRef ExtensionLowering::GetStrategyName(Strategy strategy) {
   return "?";
 }
 
-ExtensionLowering::ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, const HandleMap &handleMap, OP& hlslOp)
-  : m_strategy(strategy), m_helper(helper), m_handleMap(handleMap), m_hlslOp(hlslOp)
+ExtensionLowering::ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp)
+  : m_strategy(strategy), m_helper(helper), m_hlslOp(hlslOp)
   {}
 
-ExtensionLowering::ExtensionLowering(StringRef strategy, HLSLExtensionsCodegenHelper *helper, const HandleMap &handleMap, OP& hlslOp)
-  : ExtensionLowering(GetStrategy(strategy), helper, handleMap, hlslOp)
+ExtensionLowering::ExtensionLowering(StringRef strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp)
+  : ExtensionLowering(GetStrategy(strategy), helper, hlslOp)
   {}
 
 llvm::Value *ExtensionLowering::Translate(llvm::CallInst *CI) {
@@ -457,8 +457,7 @@ Value *ExtensionLowering::Pack(CallInst *CI) {
 // Modify a call to a resouce method. Makes the following transformation:
 //
 // 1. Convert non-void return value to dx.types.ResRet.
-// 2. Convert resource parameters to the corresponding dx.types.Handle value.
-// 3. Expand vectors in place as separate arguments.
+// 2. Expand vectors in place as separate arguments.
 //
 // Example
 // -----------------------------------------------------------------------------
@@ -472,10 +471,9 @@ Value *ExtensionLowering::Pack(CallInst *CI) {
 //  %v.2 = insertelement %v.1, %y, 1
 class ResourceMethodCall {
 public:
-  ResourceMethodCall(CallInst *CI, Function &explodedFunction, const ExtensionLowering::HandleMap &handleMap)
+  ResourceMethodCall(CallInst *CI, Function &explodedFunction)
     : m_CI(CI)
     , m_explodedFunction(explodedFunction)
-    , m_handleMap(handleMap)
     , m_builder(CI)
   { }
 
@@ -487,27 +485,10 @@ public:
     return result;
   }
   
-  // Check to see if the value is mapped to a handle in the handleMap.
-  static Instruction *IsResourceHandle(Value *OrigArg, const ExtensionLowering::HandleMap &handleMap) {
-    if (Instruction *Inst = dyn_cast<Instruction>(OrigArg)) {
-      if (handleMap.count(Inst))
-        return Inst;
-    }
-    return nullptr;
-  }
-  
 private:
   CallInst *m_CI;
   Function &m_explodedFunction;
-  const ExtensionLowering::HandleMap &m_handleMap;
   IRBuilder<> m_builder;
-  
-  Value *GetResourceHandle(Value *OrigArg) {
-    if (Instruction *Inst = IsResourceHandle(OrigArg, m_handleMap))
-      return m_handleMap.at(Inst);
-    return nullptr;
-    
-  }
 
   void ExplodeArgs(SmallVectorImpl<Value*> &args) {
     for (Value *arg : m_CI->arg_operands()) {
@@ -517,10 +498,6 @@ private:
           Value *xarg = m_builder.CreateExtractElement(arg, i);
           args.push_back(xarg);
         }
-      }
-      // resource handle arg: handle -> dx.types.Handle
-      else if (Value *handle = GetResourceHandle(arg)) {
-        args.push_back(handle);
       }
       // any other value: arg -> arg
       else {
@@ -580,10 +557,7 @@ private:
 // Translate function return and argument types for resource method lowering.
 class ResourceFunctionTypeTranslator : public FunctionTypeTranslator {
 public:
-  ResourceFunctionTypeTranslator(const ExtensionLowering::HandleMap &handleMap, OP& hlslOp)
-    : m_handleMap(handleMap)
-    , m_hlslOp(hlslOp)
-  { }
+  ResourceFunctionTypeTranslator(OP &hlslOp) : m_hlslOp(hlslOp) {}
 
   // Translate return type as follows:
   //
@@ -613,25 +587,21 @@ public:
       count = ty->getVectorNumElements();
       ty = ty->getVectorElementType();
     }
-    else if (ResourceMethodCall::IsResourceHandle(OrigArg, m_handleMap)) {
-      ty = m_hlslOp.GetHandleType();
-    }
 
     return ArgumentType(ty, count);
   }
 
 private:
-  const ExtensionLowering::HandleMap &m_handleMap;
   OP& m_hlslOp;
 };
 
 Value *ExtensionLowering::Resource(CallInst *CI) {
-  ResourceFunctionTypeTranslator resourceTypeTranslator(m_handleMap, m_hlslOp);
+  ResourceFunctionTypeTranslator resourceTypeTranslator(m_hlslOp);
   Function *resourceFunction = FunctionTranslator::GetLoweredFunction(resourceTypeTranslator, CI, *this);
   if (!resourceFunction)
     return NoTranslation(CI);
 
-  ResourceMethodCall explode(CI, *resourceFunction, m_handleMap);
+  ResourceMethodCall explode(CI, *resourceFunction);
   Value *result = explode.Generate();
   return result;
 }

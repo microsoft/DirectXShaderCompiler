@@ -43,6 +43,8 @@ ModulePass *createHLEmitMetadataPass();
 ModulePass *createHLEnsureMetadataPass();
 ModulePass *createDxilEmitMetadataPass();
 ModulePass *createDxilPrecisePropagatePass();
+FunctionPass *createDxilLegalizeResourceUsePass();
+ModulePass *createDxilLegalizeStaticResourceUsePass();
 FunctionPass *createDxilLegalizeSampleOffsetPass();
 FunctionPass *createSimplifyInstPass();
 
@@ -52,6 +54,8 @@ void initializeHLEnsureMetadataPass(llvm::PassRegistry&);
 void initializeHLEmitMetadataPass(llvm::PassRegistry&);
 void initializeDxilEmitMetadataPass(llvm::PassRegistry&);
 void initializeDxilPrecisePropagatePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeResourceUsePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeStaticResourceUsePassPass(llvm::PassRegistry&);
 void initializeDxilLegalizeSampleOffsetPassPass(llvm::PassRegistry&);
 void initializeSimplifyInstPass(llvm::PassRegistry&);
 

@@ -29,6 +29,7 @@ class LLVMContext;
 class Module;
 class Function;
 class Instruction;
+class CallInst;
 class MDTuple;
 class MDNode;
 class GlobalVariable;
@@ -181,6 +182,12 @@ public:
   void LoadHLMetadata();
   /// Delete any HLDXIR from the specified module.
   static void ClearHLMetadata(llvm::Module &M);
+  /// Create Metadata from a resource.
+  llvm::MDNode *DxilSamplerToMDNode(const DxilSampler &S);
+  llvm::MDNode *DxilSRVToMDNode(const DxilResource &SRV);
+  llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
+  llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
+  DxilResourceBase LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD);
 
   // Type related methods.
   static bool IsStreamOutputPtrType(llvm::Type *Ty);
@@ -198,7 +205,7 @@ public:
 
   // HL code gen.
   template<class BuilderTy>
-  static llvm::Value *EmitHLOperationCall(BuilderTy &Builder,
+  static llvm::CallInst *EmitHLOperationCall(BuilderTy &Builder,
                                           HLOpcodeGroup group, unsigned opcode,
                                           llvm::Type *RetType,
                                           llvm::ArrayRef<llvm::Value *> paramList,
@@ -217,6 +224,9 @@ public:
   static void MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
                                                         llvm::Module &M);
   static bool HasPreciseAttribute(llvm::Function *F);
+  // Resource attribute.
+  static void  MarkDxilResourceAttrib(llvm::Function *F, llvm::MDNode *MD);
+  static llvm::MDNode *GetDxilResourceAttrib(llvm::Function *F);
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();

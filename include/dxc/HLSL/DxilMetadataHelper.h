@@ -172,6 +172,9 @@ public:
   // Control flow hint.
   static const char kDxilControlFlowHintMDName[];
 
+  // Resource attribute.
+  static const char kDxilResourceAttributeMDName[];
+
   // Precise attribute.
   static const char kDxilPreciseAttributeMDName[];
 
