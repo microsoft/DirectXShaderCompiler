@@ -720,6 +720,15 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
 /* <py::lines('OPCODE-OLOAD-TYPES')>hctdb_instrhelp.get_funcs_oload_type()</py>*/
   switch (OpCode) {            // return     OpCode
   // OPCODE-OLOAD-TYPES:BEGIN
+  case OpCode::TempRegStore:
+    DXASSERT_NOMSG(FT->getNumParams() > 2);
+    return FT->getParamType(2);
+  case OpCode::MinPrecXRegStore:
+  case OpCode::StoreOutput:
+  case OpCode::BufferStore:
+  case OpCode::StorePatchConstant:
+    DXASSERT_NOMSG(FT->getNumParams() > 4);
+    return FT->getParamType(4);
   case OpCode::IsNaN:
   case OpCode::IsInf:
   case OpCode::IsFinite:
@@ -736,38 +745,9 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::WaveActiveAllEqual:
     DXASSERT_NOMSG(FT->getNumParams() > 1);
     return FT->getParamType(1);
-  case OpCode::TempRegStore:
-    DXASSERT_NOMSG(FT->getNumParams() > 2);
-    return FT->getParamType(2);
-  case OpCode::MinPrecXRegStore:
-  case OpCode::StoreOutput:
-  case OpCode::BufferStore:
-  case OpCode::StorePatchConstant:
-    DXASSERT_NOMSG(FT->getNumParams() > 4);
-    return FT->getParamType(4);
   case OpCode::TextureStore:
     DXASSERT_NOMSG(FT->getNumParams() > 5);
     return FT->getParamType(5);
-  case OpCode::MakeDouble:
-  case OpCode::SplitDouble:
-    return Type::getDoubleTy(m_Ctx);
-  case OpCode::CheckAccessFullyMapped:
-  case OpCode::AtomicBinOp:
-  case OpCode::AtomicCompareExchange:
-  case OpCode::SampleIndex:
-  case OpCode::Coverage:
-  case OpCode::InnerCoverage:
-  case OpCode::ThreadId:
-  case OpCode::GroupId:
-  case OpCode::ThreadIdInGroup:
-  case OpCode::FlattenedThreadIdInGroup:
-  case OpCode::GSInstanceID:
-  case OpCode::OutputControlPointID:
-  case OpCode::PrimitiveID:
-    return IntegerType::get(m_Ctx, 32);
-  case OpCode::CalculateLOD:
-  case OpCode::DomainLocation:
-    return Type::getFloatTy(m_Ctx);
   case OpCode::CreateHandle:
   case OpCode::BufferUpdateCounter:
   case OpCode::GetDimensions:
@@ -800,6 +780,26 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::WaveAllBitCount:
   case OpCode::WavePrefixBitCount:
     return Type::getVoidTy(m_Ctx);
+  case OpCode::CheckAccessFullyMapped:
+  case OpCode::AtomicBinOp:
+  case OpCode::AtomicCompareExchange:
+  case OpCode::SampleIndex:
+  case OpCode::Coverage:
+  case OpCode::InnerCoverage:
+  case OpCode::ThreadId:
+  case OpCode::GroupId:
+  case OpCode::ThreadIdInGroup:
+  case OpCode::FlattenedThreadIdInGroup:
+  case OpCode::GSInstanceID:
+  case OpCode::OutputControlPointID:
+  case OpCode::PrimitiveID:
+    return IntegerType::get(m_Ctx, 32);
+  case OpCode::CalculateLOD:
+  case OpCode::DomainLocation:
+    return Type::getFloatTy(m_Ctx);
+  case OpCode::MakeDouble:
+  case OpCode::SplitDouble:
+    return Type::getDoubleTy(m_Ctx);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
   case OpCode::SampleBias:
