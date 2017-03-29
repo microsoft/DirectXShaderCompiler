@@ -1,23 +1,14 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: FirstbitLo
-// CHECK: icmp ne i32
-// CHECK: select
-// CHECK: i32 -1
 
 // CHECK: FirstbitLo
-// CHECK: icmp ne i32
-// CHECK: select
-// CHECK: i32 -1
 
 // CHECK: FirstbitLo
 // CHECK: FirstbitLo
 
 // CHECK: dx.op.unaryBits.i64
 // CHECK: FirstbitLo
-// CHECK: icmp ne i32
-// CHECK: select
-// CHECK: i32 -1
 
 uint a;
 int2 b;

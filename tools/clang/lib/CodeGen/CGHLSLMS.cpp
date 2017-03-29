@@ -3640,49 +3640,6 @@ static Value * TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
     CI->eraseFromParent();
     return cNan;
   } break;
-  case IntrinsicOp::IOP_firstbithigh: {
-    Value *V = CI->getArgOperand(0);
-    ConstantInt *iV = cast<ConstantInt>(V);
-    APInt v = iV->getValue();
-    Value *firstbit = nullptr;
-    if (v == 0) {
-      firstbit = ConstantInt::get(CI->getType(), -1);
-    } else {
-      bool mask = true;
-      if (v.isNegative())
-        mask = false;
-      unsigned bitWidth = v.getBitWidth();
-      for (int i = bitWidth - 2; i >= 0; i--) {
-        if (v[i] == mask) {
-          firstbit = ConstantInt::get(CI->getType(), bitWidth-1-i);
-          break;
-        }
-      }
-    }
-    CI->replaceAllUsesWith(firstbit);
-    CI->eraseFromParent();
-    return firstbit;
-  } break;
-  case IntrinsicOp::IOP_ufirstbithigh: {
-    Value *V = CI->getArgOperand(0);
-    ConstantInt *iV = cast<ConstantInt>(V);
-    APInt v = iV->getValue();
-    Value *firstbit = nullptr;
-    if (v == 0) {
-      firstbit = ConstantInt::get(CI->getType(), -1);
-    } else {
-      unsigned bitWidth = v.getBitWidth();
-      for (int i = bitWidth - 1; i >= 0; i--) {
-        if (v[i]) {
-          firstbit = ConstantInt::get(CI->getType(), bitWidth-1-i);
-          break;
-        }
-      }
-    }
-    CI->replaceAllUsesWith(firstbit);
-    CI->eraseFromParent();
-    return firstbit;
-  } break;
   default:
     return nullptr;
   }
