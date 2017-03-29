@@ -39,6 +39,7 @@ static StringRef HLOpcodeGroupNames[]{
     "subscript",   // HLSubscript,
     "matldst",     // HLMatLoadStore,
     "select",      // HLSelect,
+    "createhandle",// HLCreateHandle,
     "numOfHLDXIL", // NumOfHLOps
 };
 
@@ -53,6 +54,7 @@ static StringRef HLOpcodeGroupFullNames[]{
     "dx.hl.subscript", // HLSubscript,
     "dx.hl.matldst",   // HLMatLoadStore,
     "dx.hl.select",    // HLSelect,
+    "dx.hl.createhandle",  // HLCreateHandle,
     "numOfHLDXIL",     // NumOfHLOps
 };
 
@@ -62,7 +64,12 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
     case 'o': // op
       return HLOpcodeGroup::HLIntrinsic;
     case 'c': // cast
-      return HLOpcodeGroup::HLCast;
+      switch (group[1]) {
+      case 'a': // cast
+        return HLOpcodeGroup::HLCast;
+      case 'r': // createhandle
+        return HLOpcodeGroup::HLCreateHandle;
+      }
     case 'i': // init
       return HLOpcodeGroup::HLInit;
     case 'b': // binaryOp
@@ -83,7 +90,7 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
   return HLOpcodeGroup::NotHL;
 }
 // GetHLOpGroup by function name.
-HLOpcodeGroup GetHLOpcodeGroupByName(Function *F) {
+HLOpcodeGroup GetHLOpcodeGroupByName(const Function *F) {
   StringRef name = F->getName();
 
   if (!name.startswith(HLPrefix)) {
@@ -127,6 +134,7 @@ StringRef GetHLOpcodeGroupName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLSubscript:
   case HLOpcodeGroup::HLMatLoadStore:
   case HLOpcodeGroup::HLSelect:
+  case HLOpcodeGroup::HLCreateHandle:
     return HLOpcodeGroupNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
@@ -144,6 +152,7 @@ StringRef GetHLOpcodeGroupFullName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLSubscript:
   case HLOpcodeGroup::HLMatLoadStore:
   case HLOpcodeGroup::HLSelect:
+  case HLOpcodeGroup::HLCreateHandle:
     return HLOpcodeGroupFullNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
@@ -399,6 +408,11 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
         matOp == HLMatLoadStoreOpcode::RowMatLoad)
       if (!F->hasFnAttribute(Attribute::ReadOnly))
         F->addFnAttr(Attribute::ReadOnly);
+  } break;
+  case HLOpcodeGroup::HLCreateHandle: {
+    F->addFnAttr(Attribute::ReadNone);
+    F->addFnAttr(Attribute::NoInline);
+    F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
   } break;
   }
 }

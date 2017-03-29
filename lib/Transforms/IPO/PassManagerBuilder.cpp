@@ -212,6 +212,8 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   MPM.add(createSimplifyInstPass());
   MPM.add(createCFGSimplificationPass());
 
+  MPM.add(createDxilLegalizeResourceUsePass());
+  MPM.add(createDxilLegalizeStaticResourceUsePass());
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
 
   MPM.add(createSimplifyInstPass());

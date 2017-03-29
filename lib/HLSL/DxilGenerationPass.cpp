@@ -34,6 +34,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <memory>
 #include <unordered_set>
 
@@ -43,144 +45,6 @@ using namespace hlsl;
 // TODO: use hlsl namespace for the most of this file.
 
 namespace {
-
-class LocalResourcePromoter : public LoadAndStorePromoter {
-  AllocaInst *AI;
-  AllocaInst *NewAI;
-  bool        HasUnmappedLd;
-  std::unordered_map<Instruction *, Value *> &handleMap;
-public:
-  LocalResourcePromoter(ArrayRef<Instruction *> Insts, SSAUpdater &S,
-                   std::unordered_map<Instruction *, Value *> &handleMap)
-      : LoadAndStorePromoter(Insts, S), AI(nullptr), handleMap(handleMap),
-        HasUnmappedLd(false) {}
-
-  AllocaInst *run(AllocaInst *AI, const SmallVectorImpl<Instruction *> &Insts) {
-    // Remember which alloca we're promoting (for isInstInList).
-    this->AI = AI;
-    // Only want to add load of resource allocas to handleMap.
-    // But LoadAndStorePromoter::run will remove all load/store and alloca.
-    // So need to clone.
-    // Clone to keep the debug info.
-    NewAI = cast<AllocaInst>(AI->clone());
-    IRBuilder<> Builder(AI);
-    Builder.Insert(NewAI);
-    LoadAndStorePromoter::run(Insts);
-    AI->eraseFromParent();
-    bool allLoadMapped = true;
-    for (User *U : NewAI->users()) {
-      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-        if (handleMap.count(LI) == 0) {
-          allLoadMapped = false;
-          break;
-        }
-      }
-    }
-    return allLoadMapped? nullptr : NewAI;
-  }
-
-  bool
-  isInstInList(Instruction *I,
-               const SmallVectorImpl<Instruction *> &Insts) const override {
-    if (LoadInst *LI = dyn_cast<LoadInst>(I))
-      return LI->getOperand(0) == AI;
-    return cast<StoreInst>(I)->getPointerOperand() == AI;
-  }
-
-  void replaceLoadWithValue(LoadInst *LI, Value *V) const override {
-    if (PHINode *phi = dyn_cast<PHINode>(V)) {
-      LI->replaceAllUsesWith(phi);
-      // Add nullptr for phi, will create real handle in
-      // AddCreateHandleForPhiNodeAndSelect.
-      handleMap[phi] = nullptr;
-      return;
-    }
-
-    // Load use go here.
-    // Clone to keep the debug info.
-    Instruction *NewInst = LI->clone();
-    NewInst->replaceUsesOfWith(AI, NewAI);
-    IRBuilder<> Builder(LI);
-    Builder.Insert(NewInst);
-    LI->replaceAllUsesWith(NewInst);
-
-    // Mark handle map.
-    // If cannot find, will return false in run();
-    if (Instruction *I = dyn_cast<Instruction>(V)) {
-      if (handleMap.count(I)) {
-        Instruction *handle = cast<Instruction>(handleMap[I]);
-        // Clone the handle to save debug info of LI.
-        handle = handle->clone();
-        Builder.Insert(handle);
-        handleMap[NewInst] = handle;
-      }
-    }
-  }
-};
-
-class StaticResourcePromoter : public LoadAndStorePromoter {
-  GlobalVariable *GV;
-  bool        HasUnmappedLd;
-  std::unordered_map<Instruction *, Value *> &handleMap;
-public:
-  StaticResourcePromoter(ArrayRef<Instruction *> Insts, SSAUpdater &S,
-                   std::unordered_map<Instruction *, Value *> &handleMap)
-      : LoadAndStorePromoter(Insts, S), GV(nullptr), handleMap(handleMap),
-        HasUnmappedLd(false) {}
-
-  bool run(GlobalVariable *GV, const SmallVectorImpl<Instruction *> &Insts) {
-    // Remember which alloca we're promoting (for isInstInList).
-    this->GV = GV;
-
-    LoadAndStorePromoter::run(Insts);
-
-    bool allLoadMapped = true;
-    for (User *U : GV->users()) {
-      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-        if (handleMap.count(LI) == 0) {
-          allLoadMapped = false;
-          break;
-        }
-      }
-    }
-    return allLoadMapped;
-  }
-
-  bool
-  isInstInList(Instruction *I,
-               const SmallVectorImpl<Instruction *> &Insts) const override {
-    if (LoadInst *LI = dyn_cast<LoadInst>(I))
-      return LI->getOperand(0) == GV;
-    return cast<StoreInst>(I)->getPointerOperand() == GV;
-  }
-
-  void replaceLoadWithValue(LoadInst *LI, Value *V) const override {
-    if (PHINode *phi = dyn_cast<PHINode>(V)) {
-      LI->replaceAllUsesWith(phi);
-      // Add nullptr for phi, will create real handle in
-      // AddCreateHandleForPhiNodeAndSelect.
-      handleMap[phi] = nullptr;
-      return;
-    }
-    // Load use go here.
-    // Clone to keep the debug info.
-    Instruction *NewInst = LI->clone();
-    IRBuilder<> Builder(LI);
-    Builder.Insert(NewInst);
-    LI->replaceAllUsesWith(NewInst);
-    // Mark handle map.
-    // If cannot find, will return false in run();
-    if (Instruction *I = dyn_cast<Instruction>(V)) {
-      if (handleMap.count(I)) {
-        Instruction *handle = cast<Instruction>(handleMap[I]);
-        // Clone the handle to save debug info of LI.
-        handle = handle->clone();
-        Builder.Insert(handle);
-        handleMap[NewInst] = handle;
-      }
-    }
-  }
-};
 
 // Collect unused phi of resources and remove them.
 class ResourceRemover : public LoadAndStorePromoter {
@@ -408,29 +272,30 @@ public:
       GenerateDxilPatchConstantLdSt();
     if (SM->IsHS())
       GenerateDxilPatchConstantFunctionInputs();
+    std::unordered_set<LoadInst *> UpdateCounterSet;
+    std::unordered_set<Value *> NonUniformSet;
+
+    GenerateDxilOperations(M, UpdateCounterSet, NonUniformSet);
 
     std::unordered_map<Instruction *, Value *> handleMap;
-    GenerateDxilResourceHandles(handleMap);
-    GenerateDxilCBufferHandles(handleMap);
-
-    // Map local or static global resource to global resource.
-    // Require inline for static global resource.
-    MapLocalDxilResourceHandles(handleMap);
-
-    // Take care phi node of resource.
-    AddCreateHandleForPhiNodeAndSelect(handleMap, m_pHLModule->GetOP());
-
+    GenerateDxilCBufferHandles(NonUniformSet);
     GenerateParamDxilResourceHandles(handleMap);
+    GenerateDxilResourceHandles(UpdateCounterSet, NonUniformSet);
+    AddCreateHandleForPhiNodeAndSelect(m_pHLModule->GetOP());
 
-    GenerateDxilOperations(M, handleMap);
-
-    if (NotOptimized || m_HasDbgInfo) {
-      // For module which not promote mem2reg.
-      // Remove local resource alloca/load/store/phi.
-      Module &M = *m_pHLModule->GetModule();
-      for (Function &F : M.functions()) {
-        if (!F.isDeclaration())
-          RemoveLocalDxilResourceAllocas(&F);
+    // For module which not promote mem2reg.
+    // Remove local resource alloca/load/store/phi.
+    for (auto It = M.begin(); It != M.end();) {
+      Function &F = *(It++);
+      if (!F.isDeclaration()) {
+        RemoveLocalDxilResourceAllocas(&F);
+        if (hlsl::GetHLOpcodeGroupByName(&F) == HLOpcodeGroup::HLCreateHandle) {
+          if (F.user_empty()) {
+            F.eraseFromParent();
+          } else {
+            M.getContext().emitError("Fail to lower createHandle.");
+          }
+        }
       }
     }
 
@@ -469,24 +334,21 @@ private:
   void GenerateClipPlanesForVS(Value *outPosition);
   bool HasClipPlanes();
 
-  void TranslateLocalDxilResourceUses(
-      Function *F, std::vector<GlobalVariable *> &staticResources,
-      std::unordered_map<Instruction *, Value *> &handleMap);
   void RemoveLocalDxilResourceAllocas(Function *F);
-  void MapLocalDxilResourceHandles(
-      std::unordered_map<Instruction *, Value *> &handleMap);
-  void TranslateDxilResourceUses(
-      DxilResourceBase &res,
-      std::unordered_map<Instruction *, Value *> &handleMap);
-  void AddCreateHandleForPhiNodeAndSelect(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP);
-  void GenerateDxilResourceHandles(
-      std::unordered_map<Instruction *, Value *> &handleMap);
+  void
+  TranslateDxilResourceUses(DxilResourceBase &res,
+                            std::unordered_set<LoadInst *> &UpdateCounterSet,
+                            std::unordered_set<Value *> &NonUniformSet);
+  void
+  GenerateDxilResourceHandles(std::unordered_set<LoadInst *> &UpdateCounterSet,
+                              std::unordered_set<Value *> &NonUniformSet);
+  void AddCreateHandleForPhiNodeAndSelect(OP *hlslOP);
   void TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
   void GenerateParamDxilResourceHandles(
       std::unordered_map<Instruction *, Value *> &handleMap);
   // Generate DXIL cbuffer handles.
-  void GenerateDxilCBufferHandles(
-      std::unordered_map<Instruction *, Value *> &handleMap);
+  void
+  GenerateDxilCBufferHandles(std::unordered_set<Value *> &NonUniformSet);
 
   // Generate DXIL stream output operation.
   void GenerateStreamOutputOperation(Value *streamVal, unsigned streamID);
@@ -494,8 +356,9 @@ private:
   void GenerateStreamOutputOperations();
 
   // change built-in funtion into DXIL operations
-  void GenerateDxilOperations(
-      Module &M, std::unordered_map<Instruction *, Value *> &handleMap);
+  void GenerateDxilOperations(Module &M,
+                              std::unordered_set<LoadInst *> &UpdateCounterSet,
+                              std::unordered_set<Value *> &NonUniformSet);
 
   // Change struct type to legacy layout for cbuf and struct buf.
   void UpdateStructTypeForLegacyLayout();
@@ -1849,192 +1712,16 @@ static Value *SelectOnOperand(Value *Cond, CallInst *CIT, CallInst *CIF,
   return OpSel;
 }
 
-void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
-  Function *createHandle = hlslOP->GetOpFunc(
-      OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
-
-  std::unordered_set<PHINode *> objPhiList;
-  std::unordered_set<SelectInst *> objSelectList;
-  for (auto It : handleMap) {
-    Instruction *I = It.first;
-    for (User *U : I->users()) {
-      if (PHINode *phi = dyn_cast<PHINode>(U)) {
-        if (objPhiList.count(phi) == 0)
-          objPhiList.insert(phi);
-      } else if (SelectInst *sel = dyn_cast<SelectInst>(U)) {
-        if (objSelectList.count(sel) == 0)
-          objSelectList.insert(sel);
-      }
-    }
+static void ReplaceResourceUserWithHandle(LoadInst *Res, Value *handle) {
+  for (auto resUser = Res->user_begin(); resUser != Res->user_end();) {
+    CallInst *CI = dyn_cast<CallInst>(*(resUser++));
+    DXASSERT(GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
+                 HLOpcodeGroup::HLCreateHandle,
+             "must be createHandle");
+    CI->replaceAllUsesWith(handle);
+    CI->eraseFromParent();
   }
-
-  // Scan phi list to add resource phi node which all operands are phi nodes.
-  std::vector<PHINode *> objPhiVec(objPhiList.begin(), objPhiList.end());
-  while (!objPhiVec.empty()) {
-    PHINode *phi = objPhiVec.back();
-    objPhiVec.pop_back();
-    unsigned numOperands = phi->getNumOperands();
-    for (unsigned i = 0; i < numOperands; i++) {
-      if (PHINode *nestPhi = dyn_cast<PHINode>(phi->getIncomingValue(i))) {
-        if (objPhiList.count(nestPhi) == 0) {
-          objPhiList.insert(nestPhi);
-          objPhiVec.emplace_back(nestPhi);
-        }
-      }
-    }
-  }
-
-  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandle);
-  Type *resClassTy = Type::getInt8Ty(opArg->getContext());
-  Type *resIDTy = opArg->getType();
-  Type *resAddressTy = opArg->getType();
-  // Phi node object is not uniform
-  Value *isUniformRes = hlslOP->GetI1Const(0);
-
-  // Generate phi for each operands of the createHandle
-  // Then generate createHandle with phi operands.
-  for (PHINode *phi : objPhiList) {
-    IRBuilder<> Builder(phi);
-    unsigned numOperands = phi->getNumOperands();
-    // res class must be same.
-    Value *resClassPhi = Builder.CreatePHI(resClassTy, numOperands);
-    Value *resIDPhi = Builder.CreatePHI(resIDTy, numOperands);
-    Value *resAddressPhi = Builder.CreatePHI(resAddressTy, numOperands);
-
-    IRBuilder<> HandleBuilder(phi->getParent()->getFirstNonPHI());
-    Value *handlePhi = HandleBuilder.CreateCall(createHandle, { opArg, resClassPhi, resIDPhi, resAddressPhi, isUniformRes});
-    handleMap[phi] = handlePhi;
-  }
-
-  // Setup operands for phi operands.
-  for (PHINode *phi : objPhiList) {
-    IRBuilder<> Builder(phi);
-    unsigned numOperands = phi->getNumOperands();
-
-    CallInst *handlePhi = cast<CallInst>(handleMap[phi]);
-
-    PHINode *resClassPhi = cast<PHINode>(handlePhi->getArgOperand(
-        DXIL::OperandIndex::kCreateHandleResClassOpIdx));
-    PHINode *resIDPhi = cast<PHINode>(
-        handlePhi->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx));
-    PHINode *resAddressPhi = cast<PHINode>(handlePhi->getArgOperand(
-        DXIL::OperandIndex::kCreateHandleResIndexOpIdx));
-    Value *resClass0 = nullptr;
-    Value *resID0 = nullptr;
-    for (unsigned i = 0; i < numOperands; i++) {
-
-      BasicBlock *BB = phi->getIncomingBlock(i);
-      if (isa<UndefValue>(phi->getOperand(i))) {
-        phi->getContext().emitError(
-            phi, kResourceMapErrorMsg);
-        return;
-      }
-      Instruction *phiOperand = cast<Instruction>(phi->getOperand(i));
-      if (!handleMap.count(phiOperand)) {
-        phi->getContext().emitError(
-            phi, kResourceMapErrorMsg);
-        return;
-      }
-      CallInst *handleI = cast<CallInst>(handleMap[phiOperand]);
-
-      Value *resClassI = handleI->getArgOperand(
-          DXIL::OperandIndex::kCreateHandleResClassOpIdx);
-      resClassPhi->addIncoming(resClassI, BB);
-
-      Value *resIDI =
-          handleI->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
-      resIDPhi->addIncoming(resIDI, BB);
-      if (i == 0) {
-        resClass0 = resClassI;
-        resID0 = resIDI;
-      } else {
-        if (resClass0 != resClassI)
-          resClass0 = nullptr;
-        if (resID0 != resIDI)
-          resID0 = nullptr;
-      }
-      Value *resAddressI = handleI->getArgOperand(
-          DXIL::OperandIndex::kCreateHandleResIndexOpIdx);
-      resAddressPhi->addIncoming(resAddressI, BB);
-    }
-
-    if (resClass0) {
-      resClassPhi->replaceAllUsesWith(resClass0);
-      resClassPhi->eraseFromParent();
-    }
-    if (resID0) {
-      resIDPhi->replaceAllUsesWith(resID0);
-      resIDPhi->eraseFromParent();
-    }
-  }
-
-  // Merge res class into imm.
-  for (PHINode *phi : objPhiList) {
-    Instruction *phiOperand = cast<Instruction>(phi->getOperand(0));
-    CallInst *handle0 = cast<CallInst>(handleMap[phiOperand]);
-    Value *resClass =
-        handle0->getArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx);
-    Value *immResClass = MergeImmResClass(resClass);
-    handle0->setArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx,
-                           immResClass);
-
-    CallInst *handlePhi = cast<CallInst>(handleMap[phi]);
-
-    if (PHINode *resID = dyn_cast<PHINode>(handlePhi->getArgOperand(
-            DXIL::OperandIndex::kCreateHandleResIDOpIdx))) {
-      unsigned numOperands = resID->getNumOperands();
-      if (numOperands > 0) {
-        Value *resID0 = resID->getIncomingValue(0);
-        for (unsigned i=1;i<numOperands;i++) {
-          if (resID->getIncomingValue(i) != resID0) {
-            resID->getContext().emitError(handle0, kResourceMapErrorMsg);
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // Drop all ref of the phi to help remove the useless createHandles.
-  for (PHINode *phi : objPhiList) {
-    Value *undefObj = UndefValue::get(phi->getType());
-    unsigned numOperands = phi->getNumOperands();
-    for (unsigned i = 0; i < numOperands; i++) {
-      phi->setIncomingValue(i, undefObj);
-    }
-  }
-
-  // Create sel for each operands of the createHandle.
-  // Generate createHandle with sel operand.
-  // Map createHandle to original sel.
-  for (SelectInst *Sel : objSelectList) {
-    Value *Cond = Sel->getCondition();
-    Value *ValT = Sel->getTrueValue();
-    Value *ValF = Sel->getFalseValue();
-
-    if (!isa<Instruction>(ValT) || !handleMap.count(cast<Instruction>(ValT)) ||
-        !isa<Instruction>(ValF) || !handleMap.count(cast<Instruction>(ValF))) {
-      Sel->getContext().emitError(Sel, kResourceMapErrorMsg);
-      continue;
-    }
-
-    CallInst *handleT = cast<CallInst>(handleMap[cast<Instruction>(ValT)]);
-    CallInst *handleF = cast<CallInst>(handleMap[cast<Instruction>(ValF)]);
-    IRBuilder<> Builder(Sel);
-    Value *ResClass = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResClassOpIdx,
-        Builder);
-    Value *ResID = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResIDOpIdx,
-        Builder);
-
-    if (isa<SelectInst>(ResID) || isa<SelectInst>(ResClass)) {
-      Sel->getContext().emitError(Sel, kResourceMapErrorMsg);
-    }
-    Value *ResAddress = SelectOnOperand(Cond, handleT, handleF, DXIL::OperandIndex::kCreateHandleResIndexOpIdx,
-        Builder);
-
-    Value *handleSel = Builder.CreateCall(createHandle, { opArg, ResClass, ResID, ResAddress, isUniformRes});
-    handleMap[Sel] = handleSel;
-  }
+  Res->eraseFromParent();
 }
 
 static bool IsResourceType(Type *Ty) {
@@ -2050,69 +1737,6 @@ static bool IsResourceType(Type *Ty) {
     DXASSERT(!isResource, "local resource array");
   }
   return isResource;
-}
-
-void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::vector<GlobalVariable*> &staticResources,
-    std::unordered_map<Instruction *, Value *> &handleMap) {
-  BasicBlock &BB = F->getEntryBlock(); // Get the entry node for the function
-  std::unordered_set<Value *> localResources(staticResources.begin(),
-                                             staticResources.end());
-
-  for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
-    if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-      if (IsResourceType(AI->getAllocatedType())) {
-        localResources.insert(AI);
-      }
-    }
-
-  SSAUpdater SSA;
-  SmallVector<Instruction *, 4> Insts;
-  // Make sure every resource load has mapped to handle.
-  while (!localResources.empty()) {
-    bool bUpdated = false;
-    for (auto it = localResources.begin(); it != localResources.end();) {
-      Value *V = *(it++);
-      bool hasHandleStore = false;
-      // Build list of instructions to promote.
-      for (User *U : V->users()) {
-        Instruction *I = cast<Instruction>(U);
-        if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
-          if (Instruction *resI =
-                  dyn_cast<Instruction>(SI->getValueOperand())) {
-            if (handleMap.count(resI))
-              hasHandleStore = true;
-          }
-        }
-        Insts.emplace_back(I);
-      }
-
-      // No handle here, wait for next round.
-      if (!hasHandleStore) {
-        Insts.clear();
-        continue;
-      }
-
-      bUpdated = true;
-
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
-        AllocaInst *NewAI =
-            LocalResourcePromoter(Insts, SSA, handleMap).run(AI, Insts);
-        localResources.erase(AI);
-        if (NewAI)
-          localResources.insert(NewAI);
-      } else {
-        GlobalVariable *GV = cast<GlobalVariable>(V);
-        if (StaticResourcePromoter(Insts, SSA, handleMap).run(GV, Insts)) {
-          localResources.erase(GV);
-        }
-      }
-      Insts.clear();
-    }
-    if (!bUpdated) {
-      F->getContext().emitError(kResourceMapErrorMsg);
-      break;
-    }
-  }
 }
 
 void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
@@ -2136,23 +1760,6 @@ void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
     ResourceRemover(Insts, SSA).run(AI, Insts);
 
     Insts.clear();
-  }
-}
-
-void DxilGenerationPass::MapLocalDxilResourceHandles(
-    std::unordered_map<Instruction *, Value *> &handleMap) {
-  Module &M = *m_pHLModule->GetModule();
-  std::vector<GlobalVariable*> staticResources;
-  for (auto &GV : M.globals()) {
-    if (GV.getLinkage() == GlobalValue::LinkageTypes::InternalLinkage &&
-        IsResourceType(GV.getType()->getElementType())) {
-      staticResources.emplace_back(&GV);
-    }
-  }
-
-  for (Function &F : M.functions()) {
-    if (!F.isDeclaration())
-      TranslateLocalDxilResourceUses(&F, staticResources, handleMap);
   }
 }
 
@@ -2185,7 +1792,6 @@ void DxilGenerationPass::TranslateParamDxilResourceHandles(Function *F, std::uno
 
       for (User *U : arg.users()) {
         Instruction *I = cast<Instruction>(U);
-
         IRBuilder<> userBuilder(I);
         if (LoadInst *ldInst = dyn_cast<LoadInst>(U)) {
           Value *handleLd = userBuilder.CreateLoad(castToHandle);
@@ -2238,7 +1844,9 @@ void DxilGenerationPass::GenerateParamDxilResourceHandles(
   }
 }
 
-void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::unordered_map<Instruction *, Value *> &handleMap) {
+void DxilGenerationPass::TranslateDxilResourceUses(
+    DxilResourceBase &res, std::unordered_set<LoadInst *> &UpdateCounterSet,
+    std::unordered_set<Value *> &NonUniformSet) {
   OP *hlslOP = m_pHLModule->GetOP();
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(m_pHLModule->GetCtx()));
@@ -2259,7 +1867,6 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
   Value *resLowerBound = hlslOP->GetU32Const(0);
   // TODO: Set Non-uniform resource bit based on whether index comes from IOP_NonUniformResourceIndex.
   Value *isUniformRes = hlslOP->GetI1Const(0);
-  Value *createHandleArgs[] = {opArg, resClassArg, resIDArg, resLowerBound, isUniformRes};
 
   Value *GV = res.GetGlobalSymbol();
   Module *pM = m_pHLModule->GetModule();
@@ -2277,7 +1884,10 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
   }
 
   bool isResArray = res.GetRangeSize() > 1;
-  std::unordered_map<Function *, Value *> handleMapOnFunction;
+  std::unordered_map<Function *, Instruction *> handleMapOnFunction;
+
+  Value *createHandleArgs[] = {opArg, resClassArg, resIDArg, resLowerBound,
+                               isUniformRes};
 
   for (iplist<Function>::iterator F : pM->getFunctionList()) {
     if (!F->isDeclaration()) {
@@ -2299,10 +1909,16 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
       continue;
 
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
+      if (UpdateCounterSet.count(ldInst)) {
+        DxilResource *resource = dynamic_cast<DxilResource*>(&res);
+        DXASSERT_NOMSG(resource);
+        DXASSERT_NOMSG(resource->GetClass() == DXIL::ResourceClass::UAV);
+        resource->SetHasCounter(true);
+      }
       Function *userF = ldInst->getParent()->getParent();
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
       Value *handle = handleMapOnFunction[userF];
-      handleMap[ldInst] = handle;
+      ReplaceResourceUserWithHandle(ldInst, handle);
     } else {
       DXASSERT(dyn_cast<GEPOperator>(user) != nullptr,
                "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
@@ -2336,6 +1952,13 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
       }
 
       createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] = idx;
+      if (!NonUniformSet.count(idx))
+        createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+            isUniformRes;
+      else
+        createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+            hlslOP->GetI1Const(1);
+
       Value *handle = nullptr;
       if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
         IRBuilder<> Builder = IRBuilder<>(GEPInst);
@@ -2345,37 +1968,280 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
       for (auto GEPU = GEP->user_begin(), GEPE = GEP->user_end(); GEPU != GEPE; ) {
         // Must be load inst.
         LoadInst *ldInst = cast<LoadInst>(*(GEPU++));
-        if (handle)
-          handleMap[ldInst] = handle;
+        if (UpdateCounterSet.count(ldInst)) {
+          DxilResource *resource = dynamic_cast<DxilResource *>(&res);
+          DXASSERT_NOMSG(resource);
+          DXASSERT_NOMSG(resource->GetClass() == DXIL::ResourceClass::UAV);
+          resource->SetHasCounter(true);
+        }
+        if (handle) {
+          ReplaceResourceUserWithHandle(ldInst, handle);
+        }
         else {
           IRBuilder<> Builder = IRBuilder<>(ldInst);
-          handleMap[ldInst] = Builder.CreateCall(createHandle, createHandleArgs, handleName);
+          Value *localHandle = Builder.CreateCall(createHandle, createHandleArgs, handleName);
+          ReplaceResourceUserWithHandle(ldInst, localHandle);
         }
       }
     }
   }
+  // Erase unused handle.
+  for (auto It : handleMapOnFunction) {
+    Instruction *I = It.second;
+    if (I->user_empty())
+      I->eraseFromParent();
+  }
 }
 
-void DxilGenerationPass::GenerateDxilResourceHandles(std::unordered_map<Instruction *, Value *> &handleMap) {
+void DxilGenerationPass::GenerateDxilResourceHandles(
+    std::unordered_set<LoadInst *> &UpdateCounterSet,
+    std::unordered_set<Value *> &NonUniformSet) {
   // Create sampler handle first, may be used by SRV operations.
   for (size_t i = 0; i < m_pHLModule->GetSamplers().size(); i++) {
     DxilSampler &S = m_pHLModule->GetSampler(i);
-    TranslateDxilResourceUses(S, handleMap);
+    TranslateDxilResourceUses(S, UpdateCounterSet, NonUniformSet);
   }
 
   for (size_t i = 0; i < m_pHLModule->GetSRVs().size(); i++) {
     HLResource &SRV = m_pHLModule->GetSRV(i);
-    TranslateDxilResourceUses(SRV, handleMap);
+    TranslateDxilResourceUses(SRV, UpdateCounterSet, NonUniformSet);
   }
 
   for (size_t i = 0; i < m_pHLModule->GetUAVs().size(); i++) {
     HLResource &UAV = m_pHLModule->GetUAV(i);
-    TranslateDxilResourceUses(UAV, handleMap);
+    TranslateDxilResourceUses(UAV, UpdateCounterSet, NonUniformSet);
   }
 }
 
-void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instruction *, Value *> &handleMap) {
-  // For CBuffer, handle are mapped to CBufferSubscript.
+static void
+AddResourceToSet(Instruction *Res, std::unordered_set<Instruction *> &resSet) {
+  unsigned startOpIdx = 0;
+  // Skip Cond for Select.
+  if (isa<SelectInst>(Res))
+    startOpIdx = 1;
+  else if (!isa<PHINode>(Res))
+    // Only check phi and select here.
+    return;
+
+  // Already add.
+  if (resSet.count(Res))
+    return;
+
+  resSet.insert(Res);
+
+  // Scan operand to add resource node which only used by phi/select.
+  unsigned numOperands = Res->getNumOperands();
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    Value *V = Res->getOperand(i);
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      AddResourceToSet(I, resSet);
+    }
+  }
+}
+
+// Transform
+//
+//  %g_texture_texture_2d1 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
+//  %g_texture_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 2, i1 false)
+//  %13 = select i1 %cmp, %dx.types.Handle %g_texture_texture_2d1, %dx.types.Handle %g_texture_texture_2d
+// Into
+//  %11 = select i1 %cmp, i32 0, i32 2
+//  %12 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 %11, i1 false)
+//
+
+static bool MergeHandleOpWithSameValue(Instruction *HandleOp,
+                                       unsigned startOpIdx,
+                                       unsigned numOperands) {
+  Value *op0 = nullptr;
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    Value *op = HandleOp->getOperand(i);
+    if (i == startOpIdx) {
+      op0 = op;
+    } else {
+      if (op0 != op)
+        op0 = nullptr;
+    }
+  }
+  if (op0) {
+    HandleOp->replaceAllUsesWith(op0);
+    return true;
+  }
+  return false;
+}
+
+static void
+UpdateHandleOperands(Instruction *Res,
+                     std::unordered_map<Instruction *, CallInst *> &handleMap,
+                     std::unordered_set<Instruction *> &nonUniformOps) {
+  unsigned numOperands = Res->getNumOperands();
+
+  unsigned startOpIdx = 0;
+  // Skip Cond for Select.
+  if (SelectInst *Sel = dyn_cast<SelectInst>(Res))
+    startOpIdx = 1;
+
+  CallInst *Handle = handleMap[Res];
+
+  Instruction *resClass = cast<Instruction>(
+      Handle->getArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx));
+  Instruction *resID = cast<Instruction>(
+      Handle->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx));
+  Instruction *resAddr = cast<Instruction>(
+      Handle->getArgOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx));
+
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    if (!isa<Instruction>(Res->getOperand(i))) {
+      Res->getContext().emitError(Res, kResourceMapErrorMsg);
+      continue;
+    }
+    Instruction *ResOp = cast<Instruction>(Res->getOperand(i));
+    CallInst *HandleOp = dyn_cast<CallInst>(ResOp);
+
+    if (!HandleOp) {
+      if (handleMap.count(ResOp)) {
+        Res->getContext().emitError(Res, kResourceMapErrorMsg);
+        continue;
+      }
+      HandleOp = handleMap[ResOp];
+    }
+
+    Value *resClassOp =
+        HandleOp->getArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx);
+    Value *resIDOp =
+        HandleOp->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
+    Value *resAddrOp =
+        HandleOp->getArgOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx);
+
+    resClass->setOperand(i, resClassOp);
+    resID->setOperand(i, resIDOp);
+    resAddr->setOperand(i, resAddrOp);
+  }
+
+  if (!MergeHandleOpWithSameValue(resClass, startOpIdx, numOperands))
+    nonUniformOps.insert(resClass);
+  if (!MergeHandleOpWithSameValue(resID, startOpIdx, numOperands))
+    nonUniformOps.insert(resID);
+  MergeHandleOpWithSameValue(resAddr, startOpIdx, numOperands);
+}
+
+void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
+  Function *createHandle = hlslOP->GetOpFunc(
+      OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
+
+  std::unordered_set<PHINode *> objPhiList;
+  std::unordered_set<SelectInst *> objSelectList;
+  std::unordered_set<Instruction *> resSelectSet;
+  for (User *U : createHandle->users()) {
+    for (User *HandleU : U->users()) {
+      Instruction *I = cast<Instruction>(HandleU);
+      if (!isa<CallInst>(I))
+        AddResourceToSet(I, resSelectSet);
+    }
+  }
+
+  // Generate Handle inst for Res inst.
+  FunctionType *FT = createHandle->getFunctionType();
+  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandle);
+  Type *resClassTy =
+      FT->getParamType(DXIL::OperandIndex::kCreateHandleResClassOpIdx);
+  Type *resIDTy = FT->getParamType(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
+  Type *resAddrTy =
+      FT->getParamType(DXIL::OperandIndex::kCreateHandleResIndexOpIdx);
+  Value *UndefResClass = UndefValue::get(resClassTy);
+  Value *UndefResID = UndefValue::get(resIDTy);
+  Value *UndefResAddr = UndefValue::get(resAddrTy);
+
+  // phi/select node resource is not uniform
+  Value *nonUniformRes = hlslOP->GetI1Const(1);
+  std::unordered_map<Instruction *, CallInst *> handleMap;
+  for (Instruction *Res : resSelectSet) {
+    unsigned numOperands = Res->getNumOperands();
+    IRBuilder<> Builder(Res);
+
+    unsigned startOpIdx = 0;
+    // Skip Cond for Select.
+    if (SelectInst *Sel = dyn_cast<SelectInst>(Res)) {
+      startOpIdx = 1;
+      Value *Cond = Sel->getCondition();
+
+      Value *resClassSel =
+          Builder.CreateSelect(Cond, UndefResClass, UndefResClass);
+      Value *resIDSel = Builder.CreateSelect(Cond, UndefResID, UndefResID);
+      Value *resAddrSel =
+          Builder.CreateSelect(Cond, UndefResAddr, UndefResAddr);
+
+      CallInst *HandleSel =
+          Builder.CreateCall(createHandle, {opArg, resClassSel, resIDSel,
+                                            resAddrSel, nonUniformRes});
+      handleMap[Res] = HandleSel;
+      Res->replaceAllUsesWith(HandleSel);
+    } else {
+      PHINode *Phi = cast<PHINode>(Res); // res class must be same.
+      PHINode *resClassPhi = Builder.CreatePHI(resClassTy, numOperands);
+      PHINode *resIDPhi = Builder.CreatePHI(resIDTy, numOperands);
+      PHINode *resAddrPhi = Builder.CreatePHI(resAddrTy, numOperands);
+      for (unsigned i = 0; i < numOperands; i++) {
+        BasicBlock *BB = Phi->getIncomingBlock(i);
+        resClassPhi->addIncoming(UndefResClass, BB);
+        resIDPhi->addIncoming(UndefResID, BB);
+        resAddrPhi->addIncoming(UndefResAddr, BB);
+      }
+      IRBuilder<> HandleBuilder(Phi->getParent()->getFirstNonPHI());
+      CallInst *HandlePhi =
+          HandleBuilder.CreateCall(createHandle, {opArg, resClassPhi, resIDPhi,
+                                                  resAddrPhi, nonUniformRes});
+      handleMap[Res] = HandlePhi;
+      Res->replaceAllUsesWith(HandlePhi);
+    }
+  }
+
+  // Update operand for Handle phi/select.
+  // If ResClass or ResID is phi/select, save to nonUniformOps.
+  std::unordered_set<Instruction *> nonUniformOps;
+  for (Instruction *Res : resSelectSet) {
+    UpdateHandleOperands(Res, handleMap, nonUniformOps);
+  }
+
+  // ResClass and ResID must be uniform.
+  // Try to merge res class, res id into imm.
+  while (1) {
+    bool bUpdated = false;
+
+    for (auto It = nonUniformOps.begin(); It != nonUniformOps.end();) {
+      Instruction *I = *(It++);
+      unsigned numOperands = I->getNumOperands();
+
+      unsigned startOpIdx = 0;
+      // Skip Cond for Select.
+      if (SelectInst *Sel = dyn_cast<SelectInst>(I))
+        startOpIdx = 1;
+      if (MergeHandleOpWithSameValue(I, startOpIdx, numOperands)) {
+        nonUniformOps.erase(I);
+        bUpdated = true;
+      }
+    }
+
+    if (!bUpdated) {
+      if (!nonUniformOps.empty()) {
+        for (Instruction *I : nonUniformOps) {
+          // Non uniform res class or res id.
+          FT->getContext().emitError(I, kResourceMapErrorMsg);
+        }
+        return;
+      }
+      break;
+    }
+  }
+
+  // Remove useless select/phi.
+  for (Instruction *Res : resSelectSet) {
+    Res->eraseFromParent();
+  }
+}
+
+void DxilGenerationPass::GenerateDxilCBufferHandles(
+    std::unordered_set<Value *> &NonUniformSet) {
+  // For CBuffer, handle are mapped to HLCreateHandle.
   OP *hlslOP = m_pHLModule->GetOP();
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(m_pHLModule->GetCtx()));
@@ -2385,13 +2251,14 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
       static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
           DXIL::ResourceClass::CBuffer));
 
-  Value *args[] = { opArg, resClassArg, nullptr, nullptr, hlslOP->GetI1Const(0)};
 
   for (size_t i = 0; i < m_pHLModule->GetCBuffers().size(); i++) {
     DxilCBuffer &CB = m_pHLModule->GetCBuffer(i);
     GlobalVariable *GV = cast<GlobalVariable>(CB.GetGlobalSymbol());
     std::string handleName = std::string(GV->getName()) + "_buffer";
 
+    Value *args[] = {opArg, resClassArg, nullptr, nullptr,
+                     hlslOP->GetI1Const(0)};
     DIVariable *DIV = nullptr;
     DILocation *DL = nullptr;
     if (m_HasDbgInfo) {
@@ -2411,9 +2278,9 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
 
     if (CB.GetRangeSize() == 1) {
       args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] = resLowerBound;
-      for (auto U : GV->users()) {
-        // Must CBufferSubscript.
-        CallInst *CI = cast<CallInst>((U));
+      for (auto U = GV->user_begin(); U != GV->user_end(); ) {
+        // Must HLCreateHandle.
+        CallInst *CI = cast<CallInst>(*(U++));
         // Put createHandle to entry block.
         auto InsertPt =
             CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt();
@@ -2424,14 +2291,15 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
           // TODO: add debug info.
           //handle->setDebugLoc(DL);
         }
-        handleMap[CI] = handle;
+        CI->replaceAllUsesWith(handle);
+        CI->eraseFromParent();
       }
     } else {
-      for (auto U : GV->users()) {
-        // Must CBufferSubscript.
-        CallInst *CI = cast<CallInst>(U);
+      for (auto U = GV->user_begin(); U != GV->user_end(); ) {
+        // Must HLCreateHandle.
+        CallInst *CI = cast<CallInst>(*(U++));
         IRBuilder<> Builder(CI);
-        Value *CBIndex = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
+        Value *CBIndex = CI->getArgOperand(HLOperandIndex::kCreateHandleIndexOpIdx);
         args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
             CBIndex;
         if (isa<ConstantInt>(CBIndex)) {
@@ -2442,8 +2310,16 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
                               .getFirstInsertionPt();
           Builder.SetInsertPoint(InsertPt);
         }
+        if (!NonUniformSet.count(CBIndex))
+          args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+              hlslOP->GetI1Const(0);
+        else
+          args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+              hlslOP->GetI1Const(1);
+
         CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
-        handleMap[CI] = handle;
+        CI->replaceAllUsesWith(handle);
+        CI->eraseFromParent();
       }
     }
   } 
@@ -2538,7 +2414,8 @@ void DxilGenerationPass::GenerateStreamOutputOperations() {
 }
 
 void DxilGenerationPass::GenerateDxilOperations(
-    Module &M, std::unordered_map<Instruction *, Value *> &handleMap) {
+    Module &M, std::unordered_set<LoadInst *> &UpdateCounterSet,
+    std::unordered_set<Value *> &NonUniformSet) {
   // remove all functions except entry function
   Function *entry = m_pHLModule->GetEntryFunction();
   const ShaderModel *pSM = m_pHLModule->GetShaderModel();
@@ -2561,7 +2438,8 @@ void DxilGenerationPass::GenerateDxilOperations(
       func->eraseFromParent();
   }
 
-  TranslateBuiltinOperations(*m_pHLModule, handleMap, m_extensionsCodegenHelper);
+  TranslateBuiltinOperations(*m_pHLModule, m_extensionsCodegenHelper,
+                             UpdateCounterSet, NonUniformSet);
 
   if (pSM->IsGS())
     GenerateStreamOutputOperations();
@@ -2571,7 +2449,7 @@ void DxilGenerationPass::GenerateDxilOperations(
   for (iplist<Function>::iterator F : M.getFunctionList()) {
     if (F->isDeclaration()) {
       hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
-      if (group != HLOpcodeGroup::NotHL || F->isIntrinsic()) 
+      if (group != HLOpcodeGroup::NotHL || F->isIntrinsic())
         if (F->user_empty())
           deadList.emplace_back(F);
     }
@@ -3166,3 +3044,279 @@ ModulePass *llvm::createDxilPrecisePropagatePass() {
 }
 
 INITIALIZE_PASS(DxilPrecisePropagatePass, "hlsl-dxil-precise", "DXIL precise attribute propagate", false, false)
+
+///////////////////////////////////////////////////////////////////////////////
+// Legalize resource use.
+// Map local or static global resource to global resource.
+// Require inline for static global resource.
+
+namespace {
+
+class DxilLegalizeStaticResourceUsePass : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilLegalizeStaticResourceUsePass()
+      : ModulePass(ID) {}
+
+  const char *getPassName() const override {
+    return "DXIL Legalize Static Resource Use";
+  }
+
+  bool runOnModule(Module &M) override {
+    // Promote static global variables.
+    PromoteStaticGlobalResources(M);
+
+    // Transform PHINode/SelectInst on resource into PHINode/SelectInst on
+    // Handle. This will make sure resource only have ld/st/gep use.
+    TransformResourcePHINodeToHandlePHINode(M);
+    return true;
+  }
+
+private:
+  void PromoteStaticGlobalResources(Module &M);
+  void TransformResourcePHINodeToHandlePHINode(Module &M);
+};
+
+char DxilLegalizeStaticResourceUsePass::ID = 0;
+
+class DxilLegalizeResourceUsePass : public FunctionPass {
+  HLModule *m_pHLModule;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilLegalizeResourceUsePass()
+      : FunctionPass(ID), m_pHLModule(nullptr) {}
+
+  const char *getPassName() const override {
+    return "DXIL Legalize Resource Use";
+  }
+
+  bool runOnFunction(Function &F) override {
+    // Promote local resource first.
+    PromoteLocalResource(F);
+    return true;
+  }
+
+private:
+  void PromoteLocalResource(Function &F);
+};
+
+char DxilLegalizeResourceUsePass::ID = 0;
+
+}
+
+void DxilLegalizeResourceUsePass::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.setPreservesAll();
+}
+
+void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
+  std::vector<AllocaInst *> Allocas;
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  AssumptionCache &AC =
+      getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+
+  BasicBlock &BB = F.getEntryBlock();
+  unsigned allocaSize = 0;
+  while (1) {
+    Allocas.clear();
+
+    // Find allocas that are safe to promote, by looking at all instructions in
+    // the entry node
+    for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
+        if (IsResourceType(AI->getAllocatedType()))
+          Allocas.push_back(AI);
+      }
+    if (Allocas.empty())
+      break;
+
+    // No update.
+    // Report error and break.
+    if (allocaSize == Allocas.size()) {
+      F.getContext().emitError(kResourceMapErrorMsg);
+      break;
+    }
+    allocaSize = Allocas.size();
+
+    PromoteMemToReg(Allocas, *DT, nullptr, &AC);
+  }
+
+  return;
+}
+
+FunctionPass *llvm::createDxilLegalizeResourceUsePass() {
+  return new DxilLegalizeResourceUsePass();
+}
+
+INITIALIZE_PASS_BEGIN(DxilLegalizeResourceUsePass,
+                      "hlsl-dxil-legalize-resource-use",
+                      "DXIL legalize resource use", false, true)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_END(DxilLegalizeResourceUsePass,
+                    "hlsl-dxil-legalize-resource-use",
+                    "DXIL legalize resource use", false, true)
+
+void DxilLegalizeStaticResourceUsePass::PromoteStaticGlobalResources(
+    Module &M) {
+  std::set<GlobalVariable *> staticResources;
+  for (auto &GV : M.globals()) {
+    if (GV.getLinkage() == GlobalValue::LinkageTypes::InternalLinkage &&
+        IsResourceType(GV.getType()->getElementType())) {
+      staticResources.insert(&GV);
+    }
+  }
+  SSAUpdater SSA;
+  SmallVector<Instruction *, 4> Insts;
+  // Make sure every resource load has mapped to global variable.
+  while (!staticResources.empty()) {
+    bool bUpdated = false;
+    for (auto it = staticResources.begin(); it != staticResources.end();) {
+      GlobalVariable *GV = *(it++);
+      // Build list of instructions to promote.
+      for (User *U : GV->users()) {
+        Instruction *I = cast<Instruction>(U);
+        Insts.emplace_back(I);
+      }
+
+      LoadAndStorePromoter(Insts, SSA).run(Insts);
+      if (GV->user_empty()) {
+        bUpdated = true;
+        staticResources.erase(GV);
+      }
+
+      Insts.clear();
+    }
+    if (!bUpdated) {
+      M.getContext().emitError(kResourceMapErrorMsg);
+      break;
+    }
+  }
+}
+
+void DxilLegalizeStaticResourceUsePass::TransformResourcePHINodeToHandlePHINode(
+    Module &M) {
+  HLModule &HLM = M.GetOrCreateHLModule();
+  OP *hlslOP = HLM.GetOP();
+  Type *HandleTy = hlslOP->GetHandleType();
+
+  std::unordered_set<Instruction *> resSet;
+  // Find all hl create handle which use a phi/select.
+  for (Function &TempF : M.functions()) {
+    if (GetHLOpcodeGroupByName(&TempF) == HLOpcodeGroup::HLCreateHandle) {
+      for (User *U : TempF.users()) {
+        CallInst *CI = cast<CallInst>(U);
+        Value *ResOp =
+            CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
+        if (Instruction *Res = dyn_cast<Instruction>(ResOp))
+          AddResourceToSet(Res, resSet);
+        else if (isa<UndefValue>(ResOp)) {
+          CI->getContext().emitError(CI, kResourceMapErrorMsg);
+          continue;
+        }
+      }
+    }
+  }
+
+  Value *UndefHandle = UndefValue::get(HandleTy);
+
+  // Generate Handle inst for Res inst.
+  std::unordered_map<Instruction *, Value *> resHandleMap;
+  for (Instruction *Res : resSet) {
+    unsigned numOperands = Res->getNumOperands();
+    IRBuilder<> Builder(Res);
+
+    unsigned startOpIdx = 0;
+    // Skip Cond for Select.
+    if (SelectInst *Sel = dyn_cast<SelectInst>(Res)) {
+      startOpIdx = 1;
+      Value *Cond = Sel->getCondition();
+      // Use undef handle to create, will be updated in next loop.
+      Value *Handle = Builder.CreateSelect(Cond, UndefHandle, UndefHandle);
+      resHandleMap[Res] = Handle;
+    } else {
+      PHINode *Phi = cast<PHINode>(Res);
+      PHINode *HandlePhi = Builder.CreatePHI(HandleTy, numOperands);
+      // Use undef handle to create, will be updated in next loop.
+      for (unsigned i = 0; i < numOperands; i++) {
+        BasicBlock *BB = Phi->getIncomingBlock(i);
+        HandlePhi->addIncoming(UndefHandle, BB);
+      }
+      resHandleMap[Res] = HandlePhi;
+    }
+
+    // Generate createHandle for LdInst opreands.
+    for (unsigned i = startOpIdx; i < numOperands; i++) {
+      if (LoadInst *LI = dyn_cast<LoadInst>(Res->getOperand(i))) {
+        if (resHandleMap.count(LI))
+          continue;
+        IRBuilder<> LocalBuilder(LI);
+
+        Instruction *Handle =
+            HLM.EmitHLOperationCall(LocalBuilder, HLOpcodeGroup::HLCreateHandle,
+                                    /*opcode*/ 0, HandleTy, {LI}, M);
+        // No new HL createHandle will be created.
+        // So don't need MarkResourceAttribute here.
+        resHandleMap[LI] = Handle;
+      }
+    }
+  }
+
+  // Update operand for Handle phi/select.
+  for (Instruction *Res : resSet) {
+    unsigned numOperands = Res->getNumOperands();
+
+    unsigned startOpIdx = 0;
+    // Skip Cond for Select.
+    if (SelectInst *Sel = dyn_cast<SelectInst>(Res))
+      startOpIdx = 1;
+
+    Instruction *Handle = cast<Instruction>(resHandleMap[Res]);
+
+    for (unsigned i = startOpIdx; i < numOperands; i++) {
+      if (!isa<Instruction>(Res->getOperand(i))) {
+        Res->getContext().emitError(Res, kResourceMapErrorMsg);
+        continue;
+      }
+      Instruction *ResOp = cast<Instruction>(Res->getOperand(i));
+      if (resHandleMap.count(ResOp) == 0) {
+        Res->getContext().emitError(Res, kResourceMapErrorMsg);
+        continue;
+      }
+      Instruction *HandleOp = cast<Instruction>(resHandleMap[ResOp]);
+      Handle->setOperand(i, HandleOp);
+    }
+  }
+
+  // Replace use of handle with new created handle.
+  for (Instruction *Res : resSet) {
+    Value *Handle = resHandleMap[Res];
+    for (auto U = Res->user_begin(); U != Res->user_end();) {
+      User *ResU = *(U++);
+      if (isa<CallInst>(ResU) && ResU->getType() == HandleTy) {
+        ResU->replaceAllUsesWith(Handle);
+        cast<Instruction>(ResU)->eraseFromParent();
+      }
+    }
+  }
+
+  // Remove the unused phi/select on resource.
+  for (Instruction *Res : resSet) {
+    Res->dropAllReferences();
+  }
+
+  for (Instruction *Res : resSet) {
+    Res->eraseFromParent();
+  }
+}
+
+ModulePass *llvm::createDxilLegalizeStaticResourceUsePass() {
+  return new DxilLegalizeStaticResourceUsePass();
+}
+
+INITIALIZE_PASS(DxilLegalizeStaticResourceUsePass,
+                "hlsl-dxil-legalize-static-resource-use",
+                "DXIL legalize static resource use", false, false)

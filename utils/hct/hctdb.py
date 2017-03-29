@@ -1208,6 +1208,8 @@ class db_dxil(object):
         add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [])
         add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
             {'n':'ReplaceAllVector','t':'ReplaceAllVector','c':1}])
+        add_pass('hlsl-dxil-legalize-resource-use', 'DxilLegalizeResourceUsePass', 'DXIL legalize resource use', [])
+        add_pass('hlsl-dxil-legalize-static-resource-use', 'DxilLegalizeStaticResourceUsePass', 'DXIL legalize static resource use', [])
         add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
             {'n':'NotOptimized','t':'bool','c':1}])
         add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])

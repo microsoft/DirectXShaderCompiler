@@ -39,11 +39,9 @@ namespace hlsl {
       Resource,       // Convert return value to resource return and explode vectors.
     };
 
-    typedef std::unordered_map<llvm::Instruction *, llvm::Value *> HandleMap;
-
     // Create the lowering using the given strategy and custom codegen helper.
-    ExtensionLowering(llvm::StringRef strategy, HLSLExtensionsCodegenHelper *helper, const HandleMap &handleMap, OP& hlslOp);
-    ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, const HandleMap &handleMap, OP& hlslOp);
+    ExtensionLowering(llvm::StringRef strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp);
+    ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp);
 
     // Translate the HL op call to a DXIL op call.
     // Returns a new value if translation was successful.
@@ -69,7 +67,6 @@ namespace hlsl {
   private:
     Strategy m_strategy;
     HLSLExtensionsCodegenHelper *m_helper;
-    const HandleMap &m_handleMap;
     OP &m_hlslOp;
 
     llvm::Value *Unknown(llvm::CallInst *CI);

@@ -710,6 +710,74 @@ void HLModule::LoadHLShaderProperties(const MDOperand &MDO) {
   return;
 }
 
+MDNode *HLModule::DxilSamplerToMDNode(const DxilSampler &S) {
+  MDNode *MD = m_pMDHelper->EmitDxilSampler(S);
+  ValueAsMetadata *ResClass =
+      m_pMDHelper->Uint32ToConstMD((unsigned)DXIL::ResourceClass::Sampler);
+
+  return MDNode::get(m_Ctx, {ResClass, MD});
+}
+MDNode *HLModule::DxilSRVToMDNode(const DxilResource &SRV) {
+  MDNode *MD = m_pMDHelper->EmitDxilSRV(SRV);
+  ValueAsMetadata *ResClass =
+      m_pMDHelper->Uint32ToConstMD((unsigned)DXIL::ResourceClass::SRV);
+
+  return MDNode::get(m_Ctx, {ResClass, MD});
+}
+MDNode *HLModule::DxilUAVToMDNode(const DxilResource &UAV) {
+  MDNode *MD = m_pMDHelper->EmitDxilUAV(UAV);
+  ValueAsMetadata *ResClass =
+      m_pMDHelper->Uint32ToConstMD((unsigned)DXIL::ResourceClass::UAV);
+
+  return MDNode::get(m_Ctx, {ResClass, MD});
+}
+MDNode *HLModule::DxilCBufferToMDNode(const DxilCBuffer &CB) {
+  MDNode *MD = m_pMDHelper->EmitDxilCBuffer(CB);
+  ValueAsMetadata *ResClass =
+      m_pMDHelper->Uint32ToConstMD((unsigned)DXIL::ResourceClass::CBuffer);
+
+  return MDNode::get(m_Ctx, {ResClass, MD});
+}
+
+DxilResourceBase HLModule::LoadDxilResourceBaseFromMDNode(
+                                              MDNode *MD) {
+  const unsigned kDxilResourceAttributeNumFields = 2;
+  const unsigned kDxilResourceAttributeClass = 0;
+  const unsigned kDxilResourceAttributeMeta = 1;
+  IFTBOOL(MD->getNumOperands() >= kDxilResourceAttributeNumFields,
+          DXC_E_INCORRECT_DXIL_METADATA);
+
+  DxilResource::Class RC =
+      static_cast<DxilResource::Class>(m_pMDHelper->ConstMDToUint32(
+          MD->getOperand(kDxilResourceAttributeClass)));
+  switch (RC) {
+  case DxilResource::Class::CBuffer: {
+    DxilCBuffer CB;
+    m_pMDHelper->LoadDxilCBuffer(MD->getOperand(kDxilResourceAttributeMeta),
+                                 CB);
+    return CB;
+  } break;
+  case DxilResource::Class::Sampler: {
+    DxilSampler S;
+    m_pMDHelper->LoadDxilSampler(MD->getOperand(kDxilResourceAttributeMeta), S);
+    return S;
+  } break;
+  case DxilResource::Class::SRV: {
+    DxilResource Res;
+    m_pMDHelper->LoadDxilSRV(MD->getOperand(kDxilResourceAttributeMeta), Res);
+    return Res;
+  } break;
+  case DxilResource::Class::UAV: {
+    DxilResource Res;
+    m_pMDHelper->LoadDxilUAV(MD->getOperand(kDxilResourceAttributeMeta), Res);
+    return Res;
+  } break;
+  default:
+    DXASSERT(0, "Invalid metadata");
+    return DxilResourceBase(DXIL::ResourceClass::Invalid);
+  }
+}
+
 // TODO: Don't check names.
 bool HLModule::IsStreamOutputType(llvm::Type *Ty) {
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
@@ -891,7 +959,7 @@ const char *HLModule::GetLegacyDataLayoutDesc() {
 }
 
 template<typename BuilderTy>
-Value *HLModule::EmitHLOperationCall(BuilderTy &Builder,
+CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
                                            HLOpcodeGroup group, unsigned opcode,
                                            Type *RetType,
                                            ArrayRef<Value *> paramList,
@@ -918,7 +986,7 @@ Value *HLModule::EmitHLOperationCall(BuilderTy &Builder,
 }
 
 template
-Value *HLModule::EmitHLOperationCall(IRBuilder<> &Builder,
+CallInst *HLModule::EmitHLOperationCall(IRBuilder<> &Builder,
                                            HLOpcodeGroup group, unsigned opcode,
                                            Type *RetType,
                                            ArrayRef<Value *> paramList,
@@ -1057,6 +1125,14 @@ bool HLModule::HasPreciseAttribute(Function *F) {
   MDNode *preciseNode =
       F->getMetadata(DxilMDHelper::kDxilPreciseAttributeMDName);
   return preciseNode != nullptr;
+}
+
+void HLModule::MarkDxilResourceAttrib(llvm::Function *F, MDNode *MD) {
+  F->setMetadata(DxilMDHelper::kDxilResourceAttributeMDName, MD);
+}
+
+MDNode *HLModule::GetDxilResourceAttrib(llvm::Function *F) {
+  return F->getMetadata(DxilMDHelper::kDxilResourceAttributeMDName);
 }
 
 DIGlobalVariable *

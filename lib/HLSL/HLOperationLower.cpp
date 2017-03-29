@@ -58,70 +58,145 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
 struct HLObjectOperationLowerHelper {
 private:
   // For object intrinsics.
-  std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap;
   HLModule &HLM;
+  struct ResAttribute {
+    DXIL::ResourceClass RC;
+    DXIL::ResourceKind RK;
+    Type *ResourceType;
+  };
+  std::unordered_map<Value *, ResAttribute> HandleMetaMap;
+  std::unordered_set<LoadInst *> &UpdateCounterSet;
+  std::unordered_set<Value *> &NonUniformSet;
+
 public:
-  HLObjectOperationLowerHelper(std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap,
-  HLModule &HLM) : HLM(HLM), handleMap(handleMap) {
+  HLObjectOperationLowerHelper(HLModule &HLM,
+                               std::unordered_set<LoadInst *> &UpdateCounter,
+                               std::unordered_set<Value *> &NonUniform)
+      : HLM(HLM), UpdateCounterSet(UpdateCounter), NonUniformSet(NonUniform) {}
+
+  DXIL::ResourceClass GetRC(Value *Handle) {
+    ResAttribute &Res = FindCreateHandleResourceBase(Handle);
+    return Res.RC;
   }
-  DXIL::ResourceClass GetRC(Type *Ty) {
-    return HLM.GetResourceClass(Ty);
+  DXIL::ResourceKind  GetRK(Value *Handle) {
+    ResAttribute &Res = FindCreateHandleResourceBase(Handle);
+    return Res.RK;
   }
-  DXIL::ResourceKind  GetRK(Type *Ty) {
-    return HLM.GetResourceKind(Ty);
+  Type *GetResourceType(Value *Handle) {
+    ResAttribute &Res = FindCreateHandleResourceBase(Handle);
+    return Res.ResourceType;
   }
 
   void MarkHasCounter(Type *Ty, Value *handle) {
-    DXIL::ResourceClass RC = GetRC(Ty);
+    DXIL::ResourceClass RC = GetRC(handle);
     DXASSERT_LOCALVAR(RC, RC == DXIL::ResourceClass::UAV, "must UAV for counter");
-    CallInst *CI = cast<CallInst>(handle);
-    Value *resID =
-        CI->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
-
-    std::vector<unsigned> immResIDs;
-    if (ConstantInt *constResID = dyn_cast<ConstantInt>(resID)) {
-      immResIDs.emplace_back(constResID->getValue().getLimitedValue());
-    } else {
-      PHINode *phi = cast<PHINode>(resID);
-      std::unordered_set<Value *> resSet;
-      CollectImmFromPhiChain(phi, immResIDs, resSet);
-    }
-
-    auto &uavs = HLM.GetUAVs();
-
-    for (unsigned i : immResIDs) {
-      uavs[i]->SetHasCounter(true);
-    }
+    std::unordered_set<Value*> resSet;
+    MarkHasCounterOnCreateHandle(handle, resSet);
   }
+  void MarkNonUniform(Value *V) {
+    NonUniformSet.insert(V);
+  }
+private:
+  ResAttribute &FindCreateHandleResourceBase(Value *Handle) {
+    if (HandleMetaMap.count(Handle))
+      return HandleMetaMap[Handle];
 
-  void CollectImmFromPhiChain(Value *resID, std::vector<unsigned> &immResIDs, std::unordered_set<Value *> &resSet) {
-    // Already checked.
-    if (resSet.count(resID))
-      return;
+    // Add invalid first to avoid dead loop.
+    HandleMetaMap[Handle] = {DXIL::ResourceClass::Invalid,
+                             DXIL::ResourceKind::Invalid,
+                             StructType::get(Type::getVoidTy(HLM.GetCtx()))};
 
-    resSet.insert(resID);
-
-    if (ConstantInt *constResID = dyn_cast<ConstantInt>(resID)) {
-      immResIDs.emplace_back(constResID->getValue().getLimitedValue());
-    } else {
-      PHINode *phi = cast<PHINode>(resID);
-      for (Use &U : phi->incoming_values()) {
-        Value *V = U.get();
-        CollectImmFromPhiChain(V, immResIDs, resSet);
+    if (CallInst *CI = dyn_cast<CallInst>(Handle)) {
+      MDNode *MD = HLM.GetDxilResourceAttrib(CI->getCalledFunction());
+      if (!MD) {
+        Handle->getContext().emitError("cannot map resource to handle");
+        return HandleMetaMap[Handle];
       }
-    }
-  }
+      DxilResourceBase Res = HLM.LoadDxilResourceBaseFromMDNode(MD);
 
-  Value *FindHandle(Instruction *I) {
-    if (handleMap.count(I)) {
-      return handleMap[I];
-    } else {
-      I->getContext().emitError(I, "cannot map resource to handle");
+      ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
+                             Res.GetGlobalSymbol()->getType()};
+
+      HandleMetaMap[Handle] = Attrib;
+      return HandleMetaMap[Handle];
+    }
+    if (SelectInst *Sel = dyn_cast<SelectInst>(Handle)) {
+      ResAttribute &ResT = FindCreateHandleResourceBase(Sel->getTrueValue());
+      // Use MDT here, ResourceClass, ResourceID match is done at
+      // DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect.
+      HandleMetaMap[Handle] = ResT;
+      FindCreateHandleResourceBase(Sel->getFalseValue());
+      return ResT;
+    }
+    if (PHINode *Phi = dyn_cast<PHINode>(Handle)) {
+      if (Phi->getNumOperands() == 0) {
+        Handle->getContext().emitError("cannot map resource to handle");
+        return HandleMetaMap[Handle];
+      }
+      ResAttribute &Res0 = FindCreateHandleResourceBase(Phi->getOperand(0));
+      // Use Res0 here, ResourceClass, ResourceID match is done at
+      // DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect.
+      HandleMetaMap[Handle] = Res0;
+      for (unsigned i = 1; i < Phi->getNumOperands(); i++) {
+        FindCreateHandleResourceBase(Phi->getOperand(i));
+      }
+      return Res0;
+    }
+    Handle->getContext().emitError("cannot map resource to handle");
+
+    return HandleMetaMap[Handle];
+  }
+  CallInst *FindCreateHandle(Value *handle, std::unordered_set<Value *> &resSet) {
+    // Already checked.
+    if (resSet.count(handle))
+      return nullptr;
+    resSet.insert(handle);
+
+    if (CallInst *CI = dyn_cast<CallInst>(handle))
+      return CI;
+    if (SelectInst *Sel = dyn_cast<SelectInst>(handle)) {
+      if (CallInst *CI = FindCreateHandle(Sel->getTrueValue(), resSet))
+          return CI;
+      if (CallInst *CI = FindCreateHandle(Sel->getFalseValue(), resSet))
+          return CI;
       return nullptr;
     }
+    if (PHINode *Phi = dyn_cast<PHINode>(handle)) {
+      for (unsigned i = 0; i < Phi->getNumOperands(); i++) {
+        if (CallInst *CI = FindCreateHandle(Phi->getOperand(i), resSet))
+          return CI;
+      }
+      return nullptr;
+    }
+
+    return nullptr;
   }
-  void EraseHandle(Instruction *I) {
-    handleMap.erase(I);
+  void MarkHasCounterOnCreateHandle(Value *handle,
+                                    std::unordered_set<Value *> &resSet) {
+    // Already checked.
+    if (resSet.count(handle))
+      return;
+    resSet.insert(handle);
+
+    if (CallInst *CI = dyn_cast<CallInst>(handle)) {
+      Value *Res = CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
+      LoadInst *LdRes = dyn_cast<LoadInst>(Res);
+      if (!LdRes) {
+        CI->getContext().emitError(CI, "cannot map resource to handle");
+        return;
+      }
+      UpdateCounterSet.insert(LdRes);
+      return;
+    }
+    if (SelectInst *Sel = dyn_cast<SelectInst>(handle)) {
+      MarkHasCounterOnCreateHandle(Sel->getTrueValue(), resSet);
+      MarkHasCounterOnCreateHandle(Sel->getFalseValue(), resSet);
+    }
+    if (PHINode *Phi = dyn_cast<PHINode>(handle)) {
+      for (unsigned i = 0; i < Phi->getNumOperands(); i++) {
+        MarkHasCounterOnCreateHandle(Phi->getOperand(i), resSet);
+      }
+    }
   }
 };
 
@@ -283,30 +358,15 @@ Value *TrivialIsSpecialFloat(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TrivialDxilOperation(opcode, args, Ty, RetTy, hlslOP, Builder);
 }
 
-void MarkNonUniformResourceIndex(Instruction *I, hlsl::OP &hlslOP) {
-  for (User *U : I->users()) {
-    if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      if (OP::IsDxilOpFunc(CI->getCalledFunction())) {
-        Value *opArg = CI->getArgOperand(DXIL::OperandIndex::kOpcodeIdx);
-        unsigned opcode = cast<ConstantInt>(opArg)->getLimitedValue();
-        if (opcode == static_cast<unsigned>(DXIL::OpCode::CreateHandle)) {
-          CI->setArgOperand(DXIL::OperandIndex::kCreateHandleIsUniformOpIdx,
-                            hlslOP.GetI1Const(true));
-        }
-      }
-    }
-  }
-}
-
 Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
-  MarkNonUniformResourceIndex(CI, helper.hlslOP);
   for (User *U : CI->users()) {
     if (CastInst *I = dyn_cast<CastInst>(U)) {
-      MarkNonUniformResourceIndex(I, helper.hlslOP);
+      pObjHelper->MarkNonUniform(I);
     }
   }
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  pObjHelper->MarkNonUniform(V);
   CI->replaceAllUsesWith(V);
   return nullptr;
 }
@@ -1835,11 +1895,7 @@ Value *TranslateGetSamplePosition(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  Value *handle = pObjHelper->FindHandle(thisArg);
-  if (!handle) {
-    Translated = false;
-    return nullptr;
-  }
+  Value *handle = thisArg;
 
   IRBuilder<> Builder(CI);
   Value *sampleIdx =
@@ -1868,12 +1924,8 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
 
-  Value *handle = pObjHelper->FindHandle(thisArg);
-  if (!handle) {
-    Translated = false;
-    return nullptr;
-  }
-  DxilResource::Kind RK = pObjHelper->GetRK(thisArg->getType());
+  Value *handle = thisArg;
+  DxilResource::Kind RK = pObjHelper->GetRK(handle);
 
   IRBuilder<> Builder(CI);
   OP::OpCode opcode = OP::OpCode::GetDimensions;
@@ -1971,11 +2023,7 @@ Value *GenerateUpdateCounter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  Value *handle = pObjHelper->FindHandle(thisArg);
-  if (!handle) {
-    Translated = false;
-    return nullptr;
-  }
+  Value *handle = thisArg;
   pObjHelper->MarkHasCounter(thisArg->getType(), handle);
 
   bool bInc = IOP == IntrinsicOp::MOP_IncrementCounter;
@@ -2118,14 +2166,10 @@ SampleHelper::SampleHelper(
       cast<Instruction>(CI->getArgOperand(kSamplerArgIndex));
 
   IRBuilder<> Builder(CI);
-  texHandle = pObjHelper->FindHandle(texArg);
-  samplerHandle = pObjHelper->FindHandle(samplerArg);
-  if (!texHandle || !samplerHandle) {
-    opcode = DXIL::OpCode::NumOpCodes;
-    return;
-  }
+  texHandle = texArg;
+  samplerHandle = samplerArg;
 
-  DXIL::ResourceKind RK = pObjHelper->GetRK(texArg->getType());
+  DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
   unsigned coordDimensions = DxilResource::GetNumCoords(RK);
   unsigned offsetDimensions = DxilResource::GetNumOffsets(RK);
 
@@ -2462,14 +2506,10 @@ GatherHelper::GatherHelper(
   }
 
   IRBuilder<> Builder(CI);
-  texHandle = pObjHelper->FindHandle(texArg);
-  samplerHandle = pObjHelper->FindHandle(samplerArg);
-  if (!texHandle || !samplerHandle) {
-    opcode = DXIL::OpCode::NumOpCodes;
-    return;
-  }
+  texHandle = texArg;
+  samplerHandle = samplerArg;
 
-  DXIL::ResourceKind RK = pObjHelper->GetRK(texArg->getType());
+  DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
   unsigned coordSize = DxilResource::GetNumCoords(RK);
   unsigned offsetSize = DxilResource::GetNumOffsets(RK);
 
@@ -2901,16 +2941,11 @@ Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  Value *handle = pObjHelper->FindHandle(thisArg);
-  if (!handle) {
-    Translated = false;
-    return nullptr;
-  }
+  Value *handle = thisArg;
   IRBuilder<> Builder(CI);
 
-  Type *resTy = thisArg->getType();
-  DXIL::ResourceClass RC = pObjHelper->GetRC(resTy);
-  DXIL::ResourceKind RK = pObjHelper->GetRK(resTy);
+  DXIL::ResourceClass RC = pObjHelper->GetRC(handle);
+  DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
 
   ResLoadHelper loadHelper(CI, RK, RC, handle);
   TranslateLoad(loadHelper, RK, Builder, hlslOP, helper.legacyDataLayout);
@@ -3102,13 +3137,9 @@ Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   hlsl::OP *hlslOP = &helper.hlslOP;
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  Value *handle = pObjHelper->FindHandle(thisArg);
-  if (!handle) {
-    Translated = false;
-    return nullptr;
-  }
+  Value *handle = thisArg;
   IRBuilder<> Builder(CI);
-  DXIL::ResourceKind RK = pObjHelper->GetRK(thisArg->getType());
+  DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
 
   Value *val = CI->getArgOperand(HLOperandIndex::kStoreValOpIdx);
   Value *offset = CI->getArgOperand(HLOperandIndex::kStoreOffsetOpIdx);
@@ -3224,11 +3255,7 @@ Value *TranslateMopAtomicBinaryOperation(CallInst *CI, IntrinsicOp IOP,
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
 
-  Value *handle = pObjHelper->FindHandle(thisArg);
-  if (!handle) {
-    Translated = false;
-    return nullptr;
-  }
+  Value *handle = thisArg;
   IRBuilder<> Builder(CI);
 
   switch (IOP) {
@@ -3329,11 +3356,7 @@ Value *TranslateMopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
   Instruction *thisArg =
       cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
 
-  Value *handle = pObjHelper->FindHandle(thisArg);
-  if (!handle) {
-    Translated = false;
-    return nullptr;
-  }
+  Value *handle = thisArg;
   IRBuilder<> Builder(CI);
   AtomicHelper atomicHelper(CI, OP::OpCode::AtomicCompareExchange, handle);
   TranslateAtomicCmpXChg(atomicHelper, Builder, hlslOP);
@@ -5851,14 +5874,9 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
 
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Resource ptr.
-  Value *handle = pObjHelper->FindHandle(ptrInst);
-  if (!handle) {
-    Translated = false;
-    return;
-  }
-  Type *resTy = ptrInst->getType();
-  DXIL::ResourceClass RC = pObjHelper->GetRC(resTy);
-  DXIL::ResourceKind RK = pObjHelper->GetRK(resTy);
+  Value *handle = ptrInst;
+  DXIL::ResourceClass RC = pObjHelper->GetRC(handle);
+  DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
 
   Type *Ty = CI->getType()->getPointerElementType();
 
@@ -6076,11 +6094,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
   if (opcode == HLSubscriptOpcode::CBufferSubscript) {
     // Resource ptr.
-    Value *handle = pObjHelper->FindHandle(CI);
-    if (!handle) {
-      Translated = false;
-      return;
-    }
+    Value *handle = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
     if (helper.bLegacyCBufferLoad)
       TranslateCBOperationsLegacy(handle, CI, hlslOP, helper.dxilTypeSys,
                                   helper.legacyDataLayout);
@@ -6089,19 +6103,13 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
                             hlslOP, helper.dxilTypeSys,
                             CI->getModule()->getDataLayout());
     }
-    // CI will be removed, so erase it from handleMap.
-    pObjHelper->EraseHandle(CI);
     Translated = true;
     return;
   } else if (opcode == HLSubscriptOpcode::DoubleSubscript) {
     Instruction *ptrInst = dyn_cast<Instruction>(ptr);
     // Resource ptr.
-    Value *handle = pObjHelper->FindHandle(ptrInst);
-    if (!handle) {
-      Translated = false;
-      return;
-    }
-    DXIL::ResourceKind RK = pObjHelper->GetRK(ptrInst->getType());
+    Value *handle = ptrInst;
+    DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
     Value *coord = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
     Value *mipLevel =
         CI->getArgOperand(HLOperandIndex::kDoubleSubscriptMipLevelOpIdx);
@@ -6117,16 +6125,17 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     Translated = true;
     return;
   } else if (Instruction *ptrInst = dyn_cast<Instruction>(ptr)) {
-    if (HLModule::IsHLSLObjectType(ptrInst->getType())) {
+    Type *HandleTy = hlslOP->GetHandleType();
+    if (ptrInst->getType() == HandleTy) {
       // Resource ptr.
-      Value *handle = pObjHelper->FindHandle(ptrInst);
-      if (!handle) {
+      Value *handle = ptrInst;
+      DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
+      if (RK == DxilResource::Kind::Invalid) {
         Translated = false;
         return;
       }
-      DXIL::ResourceKind RK = pObjHelper->GetRK(ptrInst->getType());
       Translated = true;
-      Type *ObjTy = ptrInst->getType();
+      Type *ObjTy = pObjHelper->GetResourceType(handle);
       Type *RetTy = ObjTy->getStructElementType(0);
       if (RK == DxilResource::Kind::StructuredBuffer) {
         TranslateStructBufSubscript(CI, handle, /*status*/ nullptr, hlslOP,
@@ -6138,6 +6147,9 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
         // Clear offset for typed buf.
         for (auto User : handle->users()) {
           CallInst *CI = cast<CallInst>(User);
+          // Skip not lowered HL functions.
+          if (hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction()) != HLOpcodeGroup::NotHL)
+            continue;
           switch (hlslOP->GetDxilOpFuncCallInst(CI)) {
           case DXIL::OpCode::BufferLoad: {
             CI->setArgOperand(DXIL::OperandIndex::kBufferLoadCoord1OpIdx,
@@ -6251,7 +6263,6 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
 typedef std::unordered_map<llvm::Instruction *, llvm::Value *> HandleMap;
 static void TranslateHLExtension(Function *F,
                                  HLSLExtensionsCodegenHelper *helper,
-                                 const HandleMap &handleMap,
                                  OP& hlslOp) {
   // Find all calls to the function F.
   // Store the calls in a vector for now to be replaced the loop below.
@@ -6266,7 +6277,7 @@ static void TranslateHLExtension(Function *F,
 
   // Get the lowering strategy to use for this intrinsic.
   llvm::StringRef LowerStrategy = GetHLLowerStrategy(F);
-  ExtensionLowering lower(LowerStrategy, helper, handleMap, hlslOp);
+  ExtensionLowering lower(LowerStrategy, helper, hlslOp);
 
   // Replace all calls that were successfully translated.
   for (CallInst *CI : CallsToReplace) {
@@ -6282,27 +6293,34 @@ static void TranslateHLExtension(Function *F,
 namespace hlsl {
 
 void TranslateBuiltinOperations(
-    HLModule &HLM,
-    std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap,
-    HLSLExtensionsCodegenHelper *extCodegenHelper
-  ) {
+    HLModule &HLM, HLSLExtensionsCodegenHelper *extCodegenHelper,
+    std::unordered_set<LoadInst *> &UpdateCounterSet,
+    std::unordered_set<Value *> &NonUniformSet) {
   HLOperationLowerHelper helper(HLM);
 
-  HLObjectOperationLowerHelper objHelper = {handleMap, HLM};
+  HLObjectOperationLowerHelper objHelper = {HLM, UpdateCounterSet,
+                                            NonUniformSet};
 
   Module *M = HLM.GetModule();
+
   // generate dxil operation
   for (iplist<Function>::iterator F : M->getFunctionList()) {
     if (!F->isDeclaration()) {
       continue;
     }
+    if (F->user_empty())
+      continue;
     hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
     if (group == HLOpcodeGroup::NotHL) {
       // Nothing to do.
       continue;
     }
     if (group == HLOpcodeGroup::HLExtIntrinsic) {
-      TranslateHLExtension(F, extCodegenHelper, handleMap, helper.hlslOP);
+      TranslateHLExtension(F, extCodegenHelper, helper.hlslOP);
+      continue;
+    }
+    if (group == HLOpcodeGroup::HLCreateHandle) {
+      // Will lower in later pass.
       continue;
     }
     TranslateHLBuiltinOperation(F, helper, group, &objHelper);
