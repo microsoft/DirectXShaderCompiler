@@ -365,6 +365,7 @@ public:
   TEST_METHOD(CodeGenGatherOffset)
   TEST_METHOD(CodeGenGepZeroIdx)
   TEST_METHOD(CodeGenGloballyCoherent)
+  TEST_METHOD(CodeGenI32ColIdx)
   TEST_METHOD(CodeGenIcb1)
   TEST_METHOD(CodeGenIf1)
   TEST_METHOD(CodeGenIf2)
@@ -2241,6 +2242,10 @@ TEST_F(CompilerTest, CodeGenGepZeroIdx) {
 
 TEST_F(CompilerTest, CodeGenGloballyCoherent) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\globallycoherent.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenI32ColIdx) {
+  CodeGenTest(L"..\\CodeGenHLSL\\i32colIdx.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenIcb1) {
