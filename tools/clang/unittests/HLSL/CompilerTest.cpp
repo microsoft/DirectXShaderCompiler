@@ -362,6 +362,7 @@ public:
   TEST_METHOD(CodeGenGatherCmp)
   TEST_METHOD(CodeGenGatherCubeOffset)
   TEST_METHOD(CodeGenGatherOffset)
+  TEST_METHOD(CodeGenGepZeroIdx)
   TEST_METHOD(CodeGenGloballyCoherent)
   TEST_METHOD(CodeGenIcb1)
   TEST_METHOD(CodeGenIf1)
@@ -2227,6 +2228,10 @@ TEST_F(CompilerTest, CodeGenGatherCubeOffset) {
 
 TEST_F(CompilerTest, CodeGenGatherOffset) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\gatherOffset.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenGepZeroIdx) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\gep_zero_idx.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenGloballyCoherent) {
