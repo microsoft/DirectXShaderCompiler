@@ -300,6 +300,7 @@ public:
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
   TEST_METHOD(CodeGenAllLit)
+  TEST_METHOD(CodeGenAllocaAtEntryBlk)
   TEST_METHOD(CodeGenAddUint64)
   TEST_METHOD(CodeGenArrayArg)
   TEST_METHOD(CodeGenArrayArg2)
@@ -1980,6 +1981,10 @@ TEST_F(CompilerTest, CodeGenAbs2) {
 
 TEST_F(CompilerTest, CodeGenAllLit) {
   CodeGenTest(L"..\\CodeGenHLSL\\all_lit.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAllocaAtEntryBlk) {
+  CodeGenTest(L"..\\CodeGenHLSL\\alloca_at_entry_blk.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAddUint64) {

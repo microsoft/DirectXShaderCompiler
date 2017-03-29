@@ -236,7 +236,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
           llvm::Type *Ty = ConvertType(LV.getType());
 
           llvm::Constant *zero = Builder.getInt32(0);
-          llvm::Value *TmpThis = Builder.CreateAlloca(Ty);
+          llvm::Value *TmpThis = CreateTempAlloca(Ty);
           for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
             llvm::Value *EltIdx = Elts->getAggregateElement(i);
             llvm::Value *EltGEP = Builder.CreateGEP(This, {zero, EltIdx});
