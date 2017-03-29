@@ -1146,29 +1146,27 @@ Value *TranslateFirstbitHi(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            bool &Translated) {
   Value *firstbitHi =
       TrivialUnaryOperation(CI, IOP, opcode, helper, pObjHelper, Translated);
-  // src != 0? (bitWidth-1 -firstbitHi) : -1;
+  // firstbitHi == -1? -1 : (bitWidth-1 -firstbitHi);
   IRBuilder<> Builder(CI);
   Constant *neg1 = Builder.getInt32(-1);
   Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
 
   Type *Ty = src->getType();
   IntegerType *EltTy = cast<IntegerType>(Ty->getScalarType());
-  Constant *zero = ConstantInt::get(EltTy, 0);
   Constant *bitWidth = Builder.getInt32(EltTy->getBitWidth()-1);
 
   if (Ty == Ty->getScalarType()) {
     Value *sub = Builder.CreateSub(bitWidth, firstbitHi);
-    Value *cond = Builder.CreateICmpNE(zero, src);
-    return Builder.CreateSelect(cond, sub, neg1);
+    Value *cond = Builder.CreateICmpEQ(neg1, firstbitHi);
+    return Builder.CreateSelect(cond, neg1, sub);
   } else {
     Value *result = UndefValue::get(CI->getType());
     unsigned vecSize = Ty->getVectorNumElements();
     for (unsigned i = 0; i < vecSize; i++) {
       Value *EltFirstBit = Builder.CreateExtractElement(firstbitHi, i);
       Value *sub = Builder.CreateSub(bitWidth, EltFirstBit);
-      Value *EltSrc = Builder.CreateExtractElement(src, i);
-      Value *cond = Builder.CreateICmpNE(zero, EltSrc);
-      Value *Elt = Builder.CreateSelect(cond, sub, neg1);
+      Value *cond = Builder.CreateICmpEQ(neg1, EltFirstBit);
+      Value *Elt = Builder.CreateSelect(cond, neg1, sub);
       result = Builder.CreateInsertElement(result, Elt, i);
     }
     return result;
@@ -1181,30 +1179,7 @@ Value *TranslateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            bool &Translated) {
   Value *firstbitLo =
       TrivialUnaryOperation(CI, IOP, opcode, helper, pObjHelper, Translated);
-  // src != 0? (firstbitLo) : -1;
-  IRBuilder<> Builder(CI);
-  Constant *neg1 = Builder.getInt32(-1);
-  Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-
-  Type *Ty = src->getType();
-  IntegerType *EltTy = cast<IntegerType>(Ty->getScalarType());
-  Constant *zero = ConstantInt::get(EltTy, 0);
-
-  if (Ty == Ty->getScalarType()) {
-    Value *cond = Builder.CreateICmpNE(zero, src);
-    return Builder.CreateSelect(cond, firstbitLo, neg1);
-  } else {
-    Value *result = UndefValue::get(CI->getType());
-    unsigned vecSize = Ty->getVectorNumElements();
-    for (unsigned i = 0; i < vecSize; i++) {
-      Value *EltFirstBit = Builder.CreateExtractElement(firstbitLo, i);
-      Value *EltSrc = Builder.CreateExtractElement(src, i);
-      Value *cond = Builder.CreateICmpNE(zero, EltSrc);
-      Value *Elt = Builder.CreateSelect(cond, EltFirstBit, neg1);
-      result = Builder.CreateInsertElement(result, Elt, i);
-    }
-    return result;
-  }
+  return firstbitLo;
 }
 
 Value *TranslateLit(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,

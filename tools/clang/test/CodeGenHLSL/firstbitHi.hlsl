@@ -2,22 +2,22 @@
 
 // CHECK: FirstbitHi
 // CHECK: sub i32 31
-// CHECK: icmp ne i32
+// CHECK: icmp eq i32 {{.*}}, -1
 // CHECK: select
 // CHECK: i32 -1
 
 // CHECK: FirstbitSHi
 // CHECK: sub i32 31
-// CHECK: icmp ne i32
+// CHECK: icmp eq i32 {{.*}}, -1
 // CHECK: select
 // CHECK: i32 -1
 
-// CHECK: op.bufferStore.i32(i32 69, %dx.types.Handle %outputUAV_UAV_rawbuf, i32 2, i32 undef, i32 26
-// CHECK: op.bufferStore.i32(i32 69, %dx.types.Handle %outputUAV_UAV_rawbuf, i32 3, i32 undef, i32 23
+// CHECK: FirstbitSHi
+// CHECK: FirstbitSHi
 
 // CHECK: dx.op.unaryBits.i64(i32 33, i64
 // CHECK: sub i32 63
-// CHECK: icmp ne i32
+// CHECK: icmp eq i32 {{.*}}, -1
 // CHECK: select
 // CHECK: i32 -1
 

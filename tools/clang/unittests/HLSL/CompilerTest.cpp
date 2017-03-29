@@ -2201,6 +2201,7 @@ TEST_F(CompilerTest, CodeGenFloatToBool) {
 
 TEST_F(CompilerTest, CodeGenFirstbitHi) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitHi.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitshi_const.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFirstbitLo) {
