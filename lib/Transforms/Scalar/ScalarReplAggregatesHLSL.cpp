@@ -1799,10 +1799,6 @@ void SROA_HLSL::isSafeForScalarRepl(Instruction *I, uint64_t Offset,
                       SI, true /*AllowWholeAccess*/);
       Info.hasALoadOrStore = true;
     } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(User)) {
-      HLOpcodeGroup group = GetHLOpcodeGroupByName(II->getCalledFunction());
-      // HL functions are safe for scalar repl.
-      if (group != HLOpcodeGroup::NotHL)
-        return;
       if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
           II->getIntrinsicID() != Intrinsic::lifetime_end)
         return MarkUnsafe(Info, User);

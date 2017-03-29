@@ -2193,12 +2193,14 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
   }
 
   // Update operand for Handle phi/select.
+  // If ResClass or ResID is phi/select, save to nonUniformOps.
   std::unordered_set<Instruction *> nonUniformOps;
   for (Instruction *Res : resSelectSet) {
     UpdateHandleOperands(Res, handleMap, nonUniformOps);
   }
 
-  // Merge res class, res id into imm.
+  // ResClass and ResID must be uniform.
+  // Try to merge res class, res id into imm.
   while (1) {
     bool bUpdated = false;
 
