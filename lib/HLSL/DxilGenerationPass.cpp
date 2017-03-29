@@ -838,6 +838,10 @@ static Value *replaceLdWithLdInput(Function *loadInput,
     if (colIdx == nullptr) {
       DXASSERT(cols == 1, "only support scalar here");
       colIdx = Builder.getInt8(0);
+    } else {
+      if (colIdx->getType() == Builder.getInt32Ty()) {
+        colIdx = Builder.CreateTrunc(colIdx, Builder.getInt8Ty());
+      }
     }
 
     if (isa<ConstantInt>(colIdx)) {
