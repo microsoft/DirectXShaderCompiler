@@ -173,10 +173,10 @@ public:
   static const char kDxilControlFlowHintMDName[];
 
   // Resource attribute.
-  static const char kDxilResourceAttributeMDName[];
-  static const unsigned kDxilResourceAttributeNumFields = 2;
-  static const unsigned kDxilResourceAttributeClass = 0;
-  static const unsigned kDxilResourceAttributeMeta = 1;
+  static const char kHLDxilResourceAttributeMDName[];
+  static const unsigned kHLDxilResourceAttributeNumFields = 2;
+  static const unsigned kHLDxilResourceAttributeClass = 0;
+  static const unsigned kHLDxilResourceAttributeMeta = 1;
 
   // Precise attribute.
   static const char kDxilPreciseAttributeMDName[];

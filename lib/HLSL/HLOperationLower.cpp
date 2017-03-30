@@ -67,8 +67,13 @@ private:
   std::unordered_map<Value *, ResAttribute> HandleMetaMap;
   std::unordered_set<LoadInst *> &UpdateCounterSet;
   std::unordered_set<Value *> &NonUniformSet;
-  // Map from pointer of cbuffer to pointer of resource created for this
-  // pointer when strip resource out of cbuffer.
+  // Map from pointer of cbuffer to pointer of resource.
+  // For cbuffer like this:
+  //   cbuffer A {
+  //     Texture2D T;
+  //   };
+  // A global resource Texture2D T2 will be created for Texture2D T.
+  // CBPtrToResourceMap[T] will return T2.
   std::unordered_map<Value *, Value *> CBPtrToResourceMap;
 
 public:

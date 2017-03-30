@@ -742,14 +742,14 @@ MDNode *HLModule::DxilCBufferToMDNode(const DxilCBuffer &CB) {
 
 DxilResourceBase HLModule::LoadDxilResourceBaseFromMDNode(
                                               MDNode *MD) {
-  IFTBOOL(MD->getNumOperands() >= DxilMDHelper::kDxilResourceAttributeNumFields,
+  IFTBOOL(MD->getNumOperands() >= DxilMDHelper::kHLDxilResourceAttributeNumFields,
           DXC_E_INCORRECT_DXIL_METADATA);
 
   DxilResource::Class RC =
       static_cast<DxilResource::Class>(m_pMDHelper->ConstMDToUint32(
-          MD->getOperand(DxilMDHelper::kDxilResourceAttributeClass)));
+          MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
   const MDOperand &Meta =
-      MD->getOperand(DxilMDHelper::kDxilResourceAttributeMeta);
+      MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeMeta);
 
   switch (RC) {
   case DxilResource::Class::CBuffer: {
@@ -780,14 +780,14 @@ DxilResourceBase HLModule::LoadDxilResourceBaseFromMDNode(
 
 void HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
                                                       llvm::MDNode *MD) {
-  IFTBOOL(MD->getNumOperands() >= DxilMDHelper::kDxilResourceAttributeNumFields,
+  IFTBOOL(MD->getNumOperands() >= DxilMDHelper::kHLDxilResourceAttributeNumFields,
           DXC_E_INCORRECT_DXIL_METADATA);
 
   DxilResource::Class RC =
       static_cast<DxilResource::Class>(m_pMDHelper->ConstMDToUint32(
-          MD->getOperand(DxilMDHelper::kDxilResourceAttributeClass)));
+          MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
   const MDOperand &Meta =
-      MD->getOperand(DxilMDHelper::kDxilResourceAttributeMeta);
+      MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeMeta);
   unsigned rangeSize = 1;
   Type *Ty = GV->getType()->getPointerElementType();
   if (ArrayType *AT = dyn_cast<ArrayType>(Ty))
@@ -1261,11 +1261,11 @@ bool HLModule::HasPreciseAttribute(Function *F) {
 }
 
 void HLModule::MarkDxilResourceAttrib(llvm::Function *F, MDNode *MD) {
-  F->setMetadata(DxilMDHelper::kDxilResourceAttributeMDName, MD);
+  F->setMetadata(DxilMDHelper::kHLDxilResourceAttributeMDName, MD);
 }
 
 MDNode *HLModule::GetDxilResourceAttrib(llvm::Function *F) {
-  return F->getMetadata(DxilMDHelper::kDxilResourceAttributeMDName);
+  return F->getMetadata(DxilMDHelper::kHLDxilResourceAttributeMDName);
 }
 
 DIGlobalVariable *
