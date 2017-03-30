@@ -405,6 +405,7 @@ public:
   TEST_METHOD(CodeGenIntrinsic4)
   TEST_METHOD(CodeGenIntrinsic4_dbg)
   TEST_METHOD(CodeGenIntrinsic5)
+  TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
   TEST_METHOD(CodeGenLitInParen)
   TEST_METHOD(CodeGenLiteralShift)
@@ -2388,6 +2389,10 @@ TEST_F(CompilerTest, CodeGenIntrinsic4_dbg) {
 
 TEST_F(CompilerTest, CodeGenIntrinsic5) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInvalidInputOutputTypes) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\invalid_input_output_types.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLegacyStruct) {
