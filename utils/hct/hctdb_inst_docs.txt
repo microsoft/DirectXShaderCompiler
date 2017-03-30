@@ -11,20 +11,6 @@
 # h = hctdb.db_dxil()
 # for i in [item.name for item in h.instr if item.is_dxil_op and not item.remarks]: print(i)
 
-* Inst: Cos - returns cosine(theta) for theta in radians.
-
-Theta values can be any IEEE 32-bit floating point values.
-
-The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
-
-
-+----------+------+------------+---------+----+----+---------+------------+------+-----+
-| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
-+----------+------+------------+---------+----+----+---------+------------+------+-----+
-| cos(src) |  NaN | [-1 to +1] |      -0 | -0 | +0 |      +0 | [-1 to +1] |  NaN | NaN |
-+----------+------+------------+---------+----+----+---------+------------+------+-----+
-
-
 * Inst: FAbs - returns the absolute value of the input value.
 
 The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF values.
@@ -86,6 +72,19 @@ where min() and max() in the above expression behave in the way Min and Max beha
 
 Saturate(NaN) returns 0, by the rules for min and max.
 
+
+* Inst: Cos - returns cosine(theta) for theta in radians.
+
+Theta values can be any IEEE 32-bit floating point values.
+
+The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| cos(src) |  NaN | [-1 to +1] |      +1 | +1 | +1 |      +1 | [-1 to +1] |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
 * Inst: Sin - returns sine(theta) for theta in radians.
 
 Theta values can be any IEEE 32-bit floating point values.
@@ -95,6 +94,212 @@ The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
-| sin(src) |  NaN | [-1 to +1] |      +1 | +1 | +1 |      +1 | [-1 to +1] |  NaN | NaN |
+| sin(src) |  NaN | [-1 to +1] |      -0 | -0 | +0 |      +0 | [-1 to +1] |  NaN | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 
+* Inst: Exp - returns component-wise e^exponent
+
+Maximum relative error is e^{-21}
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| exp(src) |  0   | +F         |    1    |  1 |  1 |       1 | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: Frc
+
+component-wise, extract fracitonal component.
+
++------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src        | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++------------+------+------------+---------+----+----+---------+------------+------+-----+
+| frc(src)   | NaN  | [+0,1)     |    +0   | +0 | +0 |      +0 | [+0,1)     | NaN  | NaN |
++------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: Log - returns component-wise natural log.
+
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| log(src) |  NaN | NaN        |    -inf |-inf|-inf|    -inf |  F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: Sqrt - returns component-wise square root
+
+Precision is 1 ulp.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| sqrt(src)|  NaN | NaN        |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: Rsqrt- returns component-wise reciprocal square root (1 / sqrt(src))
+
+Maximum relative error is 2^21.
++-----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src       | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++-----------+------+------------+---------+----+----+---------+------------+------+-----+
+| rsqrt(src)|  NaN | NaN        |  -inf   |-inf|+inf|  +inf   | +F         | +0   | NaN |
++-----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: Round_ne - floating-point round to integral float.
+
+Component-wise floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_ne rounds towards nearest even. For halfway, it rounds away from zero.
+
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| round_ne(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: Round_ni - floating-point round to integral float.
+
+Component-wise floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_ni rounds towards -INF, commonly known as floor().
+
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| round_ni(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: Round_pi - floating-point round to integral float.
+
+Component-wise floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_pi rounds towards +INF, commonly known as ceil().
+
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| round_pi(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: Round_z - floating-point round to integral float.
+
+Component-wise floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_z rounds towards zero.
+
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| round_z(src) | -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+* Inst: IsInf
+
+Returns true if x is +INF or -INF, false otherwise.
+
+* Inst: IsNaN
+
+Returns true if x is NAN or QNAN, false otherwise.
+
+* Inst: IsFinite
+
+Returns true if x is finite, false otherwise.
+
+
+* Inst: Countbits
+
+Counts the number of bits (per component) in the input integer.
+
+* Inst: Bfrev
+
+Reverses the order of the bits, per component.
+
+* Inst: FirstbitHi
+
+Gets the location of the first set bit starting from the highest order bit and working downward, per component.
+
+* Inst: FirstbitLo
+
+Returns the location of the first set bit starting from the lowest order bit and working upward, per component.
+
+* Inst: FirstbitSHi
+
+Returns the location of the first set bit of signed integer starting from the lowest order bit and working upward, per component.
+
+* Inst: IMax
+
+IMax(a,b) returns a if a >= b, else b
+
+* Inst: IMin
+
+IMin(a,b) returns a if a < b, else b
+
+* Inst: IsNormal
+
+* Inst: IMul - there is no way to call this directly in HLSL.
+
+Component-wise multiply of 32-bit operands src0 and src1 (note they are signed), producing the correct full 64-bit (per component) result.
+The low 32 bits (per component) are placed in destLO.  The high 32 bits (per component) are placed in destHI.
+
+Either of destHI or destLO may be specified as NULL instead of specifying a register, in the case high or low 32 bits of the 64-bit result are not needed.
+
+Optional negate modifier on source operands takes 2's complement before performing arithmetic operation.
+
+* Inst: UMul
+
+Component-wise multiply of 32-bit operands  src0 and src1 (note they are unsigned), producing the correct  full 64-bit (per component) result.
+The low 32 bits (per  component) are placed in destLO. The high 32 bits (per  component) are placed in destHI.
+Either of destHI or destLO may be specified as NULL instead of  specifying a register, in the case high or low 32 bits of the  64-bit result are not needed
+
+* Inst: UDiv
+
+Component-wise unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+The results of the divides are the 32-bit quotients (placed in destQUOT) and 32-bit remainders (placed in destREM).
+Divide by zero returns 0xffffffff for both quotient and remainder. Either destQUOT or destREM may be specified as NULL instead of specifying a register, in the case the quotient or remainder are not needed.
+
+* Inst: UAddc
+
+Component-wise unsigned add of 32-bit operands src0 and src1, placing the LSB part of the 32-bit result in dest0. \
+The corresponding component in dest1 is written with: 1 if a carry is produced, 0 otherwise. Dest1 can be NULL if the carry is not needed
+
+* Inst: USubb
+
+Component-wise unsigned subtract of 32-bit operands src1 from src0, placing the LSB part of the 32-bit result in dest0.
+The corresponding component in dest1 is written with: 1 if a borrow is produced, 0 otherwise. Dest1 can be NULL if the borrow is not needed
+
+* Inst: Acos
+
+Returns the arccosine of the specified value. Each component should be a floating-point value within the range of -1 to 1.
+The return value is within the range of -PI/2 to PI/2.
+
+* Inst: Asin
+
+Returns the arccosine of the specified value. Each component should be a floating-point value within the range of -1 to 1
+The return value is within the range of -PI/2 to PI/2.
+
+* Inst: Atan
+
+Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
+
+* Inst: Hcos
+
+returns the hyperbolic cosine of the specified value.
+
+* Inst: Hsin
+
+returns the hyperbolic sine of the specified value.
+
+* Inst: Htan
+
+returns the hyperbolic tangent of the specified value.
+
+* Inst: UMax
+
+Component-wise unsigned integer maximum. UMax(a,b) = a > b ? a : b
+
+* Inst: UMin
+
+Component-wise unsigned integer minimum. UMin(a,b) = a < b ? a : b

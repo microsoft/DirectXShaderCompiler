@@ -1907,44 +1907,44 @@ ID  Name                          Description
 5   StoreOutput                   stores the value to shader output
 6   FAbs                          returns the absolute value of the input value.
 7   Saturate                      clamps the result of a single or double precision floating point value to [0.0f...1.0f]
-8   IsNaN                         returns the IsNaN
-9   IsInf                         returns the IsInf
-10  IsFinite                      returns the IsFinite
-11  IsNormal                      returns the IsNormal
+8   IsNaN                         IsNaN
+9   IsInf                         IsInf
+10  IsFinite                      IsFinite
+11  IsNormal                      IsNormal
 12  Cos                           returns cosine(theta) for theta in radians.
-13  Sin                           returns the Sin
+13  Sin                           returns sine(theta) for theta in radians.
 14  Tan                           returns the Tan
-15  Acos                          returns the Acos
-16  Asin                          returns the Asin
-17  Atan                          returns the Atan
-18  Hcos                          returns the Hcos
-19  Hsin                          returns the Hsin
-20  Htan                          returns the Htan
-21  Exp                           returns the Exp
-22  Frc                           returns the Frc
-23  Log                           returns the Log
-24  Sqrt                          returns the Sqrt
-25  Rsqrt                         returns the Rsqrt
-26  Round_ne                      returns the Round_ne
-27  Round_ni                      returns the Round_ni
-28  Round_pi                      returns the Round_pi
-29  Round_z                       returns the Round_z
-30  Bfrev                         returns the reverse bit pattern of the input value
-31  Countbits                     returns the Countbits
-32  FirstbitLo                    returns the FirstbitLo
-33  FirstbitHi                    returns src != 0? (BitWidth-1 - FirstbitHi) : -1
-34  FirstbitSHi                   returns src != 0? (BitWidth-1 - FirstbitSHi) : -1
+15  Acos                          Acos
+16  Asin                          Asin
+17  Atan                          Atan
+18  Hcos                          Hcos
+19  Hsin                          Hsin
+20  Htan                          Htan
+21  Exp                           returns component-wise e^exponent
+22  Frc                           Frc
+23  Log                           returns component-wise natural log.
+24  Sqrt                          returns component-wise square root
+25  Rsqrt                         returns component-wise reciprocal square root (1 / sqrt(src))
+26  Round_ne                      floating-point round to integral float.
+27  Round_ni                      floating-point round to integral float.
+28  Round_pi                      floating-point round to integral float.
+29  Round_z                       floating-point round to integral float.
+30  Bfrev                         Bfrev
+31  Countbits                     Countbits
+32  FirstbitLo                    FirstbitLo
+33  FirstbitHi                    FirstbitHi
+34  FirstbitSHi                   FirstbitSHi
 35  FMax                          returns a if a >= b, else b
 36  FMin                          returns a if a < b, else b
-37  IMax                          returns the IMax of the input values
-38  IMin                          returns the IMin of the input values
-39  UMax                          returns the UMax of the input values
+37  IMax                          IMax
+38  IMin                          IMin
+39  UMax                          UMax
 40  UMin                          returns the UMin of the input values
-41  IMul                          returns the IMul of the input values
-42  UMul                          returns the UMul of the input values
-43  UDiv                          returns the UDiv of the input values
-44  UAddc                         returns the UAddc of the input values
-45  USubb                         returns the USubb of the input values
+41  IMul                          there is no way to call this directly in HLSL.
+42  UMul                          UMul
+43  UDiv                          UDiv
+44  UAddc                         UAddc
+45  USubb                         USubb
 46  FMad                          performs a fused multiply add (FMA) of the form a * b + c
 47  Fma                           performs a fused multiply add (FMA) of the form a * b + c
 48  IMad                          performs an integral IMad
@@ -2039,6 +2039,28 @@ ID  Name                          Description
 === ============================= ================================================================================================================
 
 
+Acos
+~~~~
+
+Returns the arccosine of the specified value. Each component should be a floating-point value within the range of -1 to 1.
+The return value is within the range of -PI/2 to PI/2.
+
+Asin
+~~~~
+
+Returns the arccosine of the specified value. Each component should be a floating-point value within the range of -1 to 1
+The return value is within the range of -PI/2 to PI/2.
+
+Atan
+~~~~
+
+Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
+
+Bfrev
+~~~~~
+
+Reverses the order of the bits, per component.
+
 Cos
 ~~~
 
@@ -2046,11 +2068,25 @@ Theta values can be any IEEE 32-bit floating point values.
 
 The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
 
-
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
-| cos(src) |  NaN | [-1 to +1] |      -0 | -0 | +0 |      +0 | [-1 to +1] |  NaN | NaN |
+| cos(src) |  NaN | [-1 to +1] |      +1 | +1 | +1 |      +1 | [-1 to +1] |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Countbits
+~~~~~~~~~
+
+Counts the number of bits (per component) in the input integer.
+
+Exp
+~~~
+
+Maximum relative error is e^{-21}
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| exp(src) |  0   | +F         |    1    |  1 |  1 |       1 | +F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 
 FAbs
@@ -2107,6 +2143,157 @@ Denorms are flushed (sign preserved) before comparison, however the result writt
 | NaN  | -inf | b      | +inf | NaN  |
 +------+------+--------+------+------+
 
+FirstbitHi
+~~~~~~~~~~
+
+Gets the location of the first set bit starting from the highest order bit and working downward, per component.
+
+FirstbitLo
+~~~~~~~~~~
+
+Returns the location of the first set bit starting from the lowest order bit and working upward, per component.
+
+FirstbitSHi
+~~~~~~~~~~~
+
+Returns the location of the first set bit of signed integer starting from the lowest order bit and working upward, per component.
+
+Frc
+~~~
+
+component-wise, extract fracitonal component.
+
++------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src        | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++------------+------+------------+---------+----+----+---------+------------+------+-----+
+| frc(src)   | NaN  | [+0,1)     |    +0   | +0 | +0 |      +0 | [+0,1)     | NaN  | NaN |
++------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Hcos
+~~~~
+
+returns the hyperbolic cosine of the specified value.
+
+Hsin
+~~~~
+
+returns the hyperbolic sine of the specified value.
+
+Htan
+~~~~
+
+returns the hyperbolic tangent of the specified value.
+
+IMax
+~~~~
+
+IMax(a,b) returns a if a >= b, else b
+
+IMin
+~~~~
+
+IMin(a,b) returns a if a < b, else b
+
+IMul
+~~~~
+
+Component-wise multiply of 32-bit operands src0 and src1 (note they are signed), producing the correct full 64-bit (per component) result.
+The low 32 bits (per component) are placed in destLO.  The high 32 bits (per component) are placed in destHI.
+
+Either of destHI or destLO may be specified as NULL instead of specifying a register, in the case high or low 32 bits of the 64-bit result are not needed.
+
+Optional negate modifier on source operands takes 2's complement before performing arithmetic operation.
+
+IsFinite
+~~~~~~~~
+
+Returns true if x is finite, false otherwise.
+
+IsInf
+~~~~~
+
+Returns true if x is +INF or -INF, false otherwise.
+
+IsNaN
+~~~~~
+
+Returns true if x is NAN or QNAN, false otherwise.
+
+Log
+~~~
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| log(src) |  NaN | NaN        |    -inf |-inf|-inf|    -inf |  F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Round_ne
+~~~~~~~~
+
+Component-wise floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_ne rounds towards nearest even. For halfway, it rounds away from zero.
+
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| round_ne(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Round_ni
+~~~~~~~~
+
+Component-wise floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_ni rounds towards -INF, commonly known as floor().
+
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| round_ni(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Round_pi
+~~~~~~~~
+
+Component-wise floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_pi rounds towards +INF, commonly known as ceil().
+
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| round_pi(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Round_z
+~~~~~~~
+
+Component-wise floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_z rounds towards zero.
+
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+| round_z(src) | -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++--------------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Rsqrt
+~~~~~
+
+Maximum relative error is 2^21.
++-----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src       | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++-----------+------+------------+---------+----+----+---------+------------+------+-----+
+| rsqrt(src)|  NaN | NaN        |  -inf   |-inf|+inf|  +inf   | +F         | +0   | NaN |
++-----------+------+------------+---------+----+----+---------+------------+------+-----+
+
 Saturate
 ~~~~~~~~
 
@@ -2128,8 +2315,55 @@ The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
-| sin(src) |  NaN | [-1 to +1] |      +1 | +1 | +1 |      +1 | [-1 to +1] |  NaN | NaN |
+| sin(src) |  NaN | [-1 to +1] |      -0 | -0 | +0 |      +0 | [-1 to +1] |  NaN | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Sqrt
+~~~~
+
+Precision is 1 ulp.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| sqrt(src)|  NaN | NaN        |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+UAddc
+~~~~~
+
+Component-wise unsigned add of 32-bit operands src0 and src1, placing the LSB part of the 32-bit result in dest0. \
+The corresponding component in dest1 is written with: 1 if a carry is produced, 0 otherwise. Dest1 can be NULL if the carry is not needed
+
+UDiv
+~~~~
+
+Component-wise unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+The results of the divides are the 32-bit quotients (placed in destQUOT) and 32-bit remainders (placed in destREM).
+Divide by zero returns 0xffffffff for both quotient and remainder. Either destQUOT or destREM may be specified as NULL instead of specifying a register, in the case the quotient or remainder are not needed.
+
+UMax
+~~~~
+
+Component-wise unsigned integer maximum. UMax(a,b) = a > b ? a : b
+
+UMin
+~~~~
+
+Component-wise unsigned integer minimum. UMin(a,b) = a < b ? a : b
+
+UMul
+~~~~
+
+Component-wise multiply of 32-bit operands  src0 and src1 (note they are unsigned), producing the correct  full 64-bit (per component) result.
+The low 32 bits (per  component) are placed in destLO. The high 32 bits (per  component) are placed in destHI.
+Either of destHI or destLO may be specified as NULL instead of  specifying a register, in the case high or low 32 bits of the  64-bit result are not needed
+
+USubb
+~~~~~
+
+Component-wise unsigned subtract of 32-bit operands src1 from src0, placing the LSB part of the 32-bit result in dest0.
+The corresponding component in dest1 is written with: 1 if a borrow is produced, 0 otherwise. Dest1 can be NULL if the borrow is not needed
 
 .. OPCODES-RST:END
 

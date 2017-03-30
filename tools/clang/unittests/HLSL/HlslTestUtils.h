@@ -80,6 +80,14 @@ inline void LogCommentFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...)
   WEX::Logging::Log::Comment(buf.data());
 }
 
+inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    std::wstring buf(vFormatToWString(fmt, args));
+    va_end(args);
+    WEX::Logging::Log::Error(buf.data());
+}
+
 inline std::wstring GetPathToHlslDataFile(const wchar_t* relative) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   WEX::Common::String HlslDataDirValue;
@@ -171,6 +179,30 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
   return false;
 }
 
+}
+
+inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance) {
+    if (isnan(fsrc)) {
+        return isnan(fref);
+    }
+    if (fsrc == fref) {
+        return true;
+    }
+    int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
+    unsigned int uDiff = diff < 0 ? -diff : diff;
+    return uDiff <= (unsigned int)ULPTolerance;
+}
+
+inline bool CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon) {
+    if (isnan(fsrc)) {
+        return isnan(fref);
+    }
+    return fsrc == fref || fabsf(fsrc - fref) < epsilon;
+}
+
+// Compare using relative error (relative error < 2^{nRelativeExp})
+inline bool CompareFloatRelativeEpsilon(const float &fsrc, const float &fref, int nRelativeExp) {
+    return CompareFloatULP(fsrc, fref, 23 - nRelativeExp);
 }
 
 #define SIMPLE_IUNKNOWN_IMPL1(_IFACE_) \
