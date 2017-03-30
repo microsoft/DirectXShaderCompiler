@@ -879,9 +879,12 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(ST);
 
     return ConstructStructAnnotation(annotation, RD, dxilTypeSys);
-  } else if (IsHLSLResouceType(Ty))
-    return AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
-  else {
+  } else if (IsHLSLResouceType(Ty)) {
+    // Save result type info.
+    AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
+    // Resource don't count for cbuffer size.
+    return 0;
+  } else {
     unsigned arraySize = 0;
     QualType arrayElementTy = Ty;
     if (Ty->isConstantArrayType()) {
@@ -2255,17 +2258,16 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     CGM.EmitGlobal(constDecl);
     return;
   }
-
   // Search defined structure for resource objects and fail
-  if (IsResourceInType(CGM.getContext(), constDecl->getType())) {
+  if (CB.GetRangeSize() > 1 &&
+      IsResourceInType(CGM.getContext(), constDecl->getType())) {
     DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error,
-        "object types not supported in global aggregate instances, cbuffers, or tbuffers.");
+        "object types not supported in cbuffer/tbuffer view arrays.");
     Diags.Report(constDecl->getLocation(), DiagID);
     return;
   }
-
   llvm::Constant *constVal = CGM.GetAddrOfGlobalVar(constDecl);
 
   bool isGlobalCB = CB.GetID() == globalCBIndex;

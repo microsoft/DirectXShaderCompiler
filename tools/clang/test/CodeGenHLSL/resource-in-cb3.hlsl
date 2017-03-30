@@ -1,11 +1,11 @@
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
 
-// CHECK: error: object types not supported in cbuffer/tbuffer view arrays.
+// CHECK: Tex1                              texture     f32          2d      T0             t0     2
 
 SamplerState Samp;
-struct Resource
+cbuffer CB
 {
-  Texture2D Tex1;
+  Texture2D Tex1[2];
   // Texture3D Tex2;
   // RWTexture2D<float4> RWTex1;
   // RWTexture3D<float4> RWTex2;
@@ -13,15 +13,7 @@ struct Resource
   float4 foo;
 };
 
-struct MyStruct
-{
-  Resource res;
-  int4 bar;
-};
-
-TextureBuffer<MyStruct> TB[4];
-
 float4 main(int4 a : A, float4 coord : TEXCOORD) : SV_TARGET
 {
-  return TB[2].res.foo;
+  return Tex1[0].Sample(Samp, coord.xy) * foo;
 }

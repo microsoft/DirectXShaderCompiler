@@ -2259,6 +2259,8 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
   for (size_t i = 0; i < m_pHLModule->GetCBuffers().size(); i++) {
     DxilCBuffer &CB = m_pHLModule->GetCBuffer(i);
     GlobalVariable *GV = cast<GlobalVariable>(CB.GetGlobalSymbol());
+    // Remove GEP created in HLObjectOperationLowerHelper::UniformCbPtr.
+    GV->removeDeadConstantUsers();
     std::string handleName = std::string(GV->getName()) + "_buffer";
 
     Value *args[] = {opArg, resClassArg, nullptr, nullptr,

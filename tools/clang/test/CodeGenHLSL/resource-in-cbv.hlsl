@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
 
-// CHECK: error: object types not supported in global aggregate instances, cbuffers, or tbuffers.
+// CHECK: error: object types not supported in cbuffer/tbuffer view arrays.
 
 SamplerState Samp;
 struct Resources
