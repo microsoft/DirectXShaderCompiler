@@ -174,6 +174,9 @@ public:
 
   // Resource attribute.
   static const char kDxilResourceAttributeMDName[];
+  static const unsigned kDxilResourceAttributeNumFields = 2;
+  static const unsigned kDxilResourceAttributeClass = 0;
+  static const unsigned kDxilResourceAttributeMeta = 1;
 
   // Precise attribute.
   static const char kDxilPreciseAttributeMDName[];

@@ -188,6 +188,8 @@ public:
   llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
   llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
   DxilResourceBase LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD);
+  void AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
+                                              llvm::MDNode *MD);
 
   // Type related methods.
   static bool IsStreamOutputPtrType(llvm::Type *Ty);
@@ -202,6 +204,8 @@ public:
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
   static const char *GetLegacyDataLayoutDesc();
+
+  static void MergeGepUse(llvm::Value *V);
 
   // HL code gen.
   template<class BuilderTy>

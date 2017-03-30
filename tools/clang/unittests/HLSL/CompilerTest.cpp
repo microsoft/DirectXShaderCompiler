@@ -613,15 +613,18 @@ public:
   TEST_METHOD(CodeGenBindings2)
   TEST_METHOD(CodeGenBindings3)
   TEST_METHOD(CodeGenResCopy)
-  TEST_METHOD(CodeGenResourceInStruct)
   TEST_METHOD(CodeGenResourceInCB)
-  TEST_METHOD(CodeGenResourceInCBV)
-  TEST_METHOD(CodeGenResourceInTB)
-  TEST_METHOD(CodeGenResourceInTBV)
-  TEST_METHOD(CodeGenResourceInStruct2)
   TEST_METHOD(CodeGenResourceInCB2)
+  TEST_METHOD(CodeGenResourceInCB3)
+  TEST_METHOD(CodeGenResourceInCB4)
+  TEST_METHOD(CodeGenResourceInCBV)
   TEST_METHOD(CodeGenResourceInCBV2)
+  TEST_METHOD(CodeGenResourceInStruct)
+  TEST_METHOD(CodeGenResourceInStruct2)
+  TEST_METHOD(CodeGenResourceInStruct3)
+  TEST_METHOD(CodeGenResourceInTB)
   TEST_METHOD(CodeGenResourceInTB2)
+  TEST_METHOD(CodeGenResourceInTBV)
   TEST_METHOD(CodeGenResourceInTBV2)
   TEST_METHOD(CodeGenResPhi)
   TEST_METHOD(CodeGenResPhi2)
@@ -3239,8 +3242,20 @@ TEST_F(CompilerTest, CodeGenResourceInStruct2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-struct2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenResourceInStruct3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-struct3.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenResourceInCB2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceInCB3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceInCB4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenResourceInCBV2) {
