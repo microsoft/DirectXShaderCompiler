@@ -1359,7 +1359,7 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
       raw_string_ostream OSS(O);
       Ty->print(OSS);
       OSS << "(type for " << SE->GetName() << ")";
-      OSS << " cannot used as shader inputs or outputs.";
+      OSS << " cannot be used as shader inputs or outputs.";
       OSS.flush();
       M.getContext().emitError(O);
       continue;
