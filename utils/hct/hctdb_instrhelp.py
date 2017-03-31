@@ -1,6 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 import argparse
+import functools
 import collections
 from hctdb import *
 
@@ -538,11 +539,11 @@ class macro_table_gen:
 
     def format_row(self, row, widths, sep=', '):
         frow = [str(item) + sep + (' ' * (width - len(item)))
-                for item, width in zip(row, widths)[:-1]] + [str(row[-1])]
+                for item, width in list(zip(row, widths))[:-1]] + [str(row[-1])]
         return ''.join(frow)
 
     def format_table(self, table, *args, **kwargs):
-        widths = [  reduce(max, [   len(row[i])
+        widths = [  functools.reduce(max, [   len(row[i])
                                     for row in table], 1)
                     for i in range(len(table[0]))]
         formatted = []
