@@ -442,6 +442,7 @@ public:
   TEST_METHOD(CodeGenMinprec5)
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
+  TEST_METHOD(CodeGenMinprecCast)
   TEST_METHOD(CodeGenMultiStream)
   TEST_METHOD(CodeGenMultiStream2)
   TEST_METHOD(CodeGenNeg1)
@@ -2538,6 +2539,10 @@ TEST_F(CompilerTest, CodeGenMinprec6) {
 
 TEST_F(CompilerTest, CodeGenMinprec7) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\minprec7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMinprecCast) {
+  CodeGenTest(L"..\\CodeGenHLSL\\minprec_cast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiStream) {
