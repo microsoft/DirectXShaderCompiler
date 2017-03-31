@@ -124,7 +124,8 @@ $type1 [[rn]] EvaluateAttributeSnapped(in numeric<> value, in int<2> offset);
 $type1 [[rn]] exp(in float_like<> x);
 $type1 [[rn]] exp2(in float_like<> x);
 float<> [[rn]] f16tof32(in uint<> x);
-uint<> [[rn]] f32tof16(in float_like<> x);
+// Use float for DXIL don't support f16 on f32tof16.
+uint<> [[rn]] f32tof16(in float<> x);
 $type1 [[rn]] faceforward(in float_like<c> N, in $type1 I, in $type1 Ng);
 $match<1, 0> uint<> [[rn,unsigned_op=ufirstbithigh,overload=0]] firstbithigh(in any_int<> x);
 $match<1, 0> uint<> [[rn]] firstbitlow(in u32_64<> x);
@@ -273,9 +274,9 @@ void [[]] RestartStrip() : stream_restart;
 } namespace
 
 namespace Texture1DMethods {
-
-float [[ro]] CalculateLevelOfDetail(in sampler1d s, in float_like<1> x) : tex1d_t_calc_lod;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<1> x) : tex1d_t_calc_lod_unclamped;
+// Use float for DXIL don't support f16 on CalcLOD.
+float [[ro]] CalculateLevelOfDetail(in sampler1d s, in float<1> x) : tex1d_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<1> x) : tex1d_t_calc_lod_unclamped;
 void [[]] GetDimensions(in uint x, out uint_only width, out $type2 levels) : resinfo_uint;
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width) : resinfo_o;
@@ -309,8 +310,8 @@ $unspec [[ro]] SampleGrad(in sampler s, in float_like<1> x, in $type2 ddx, in $t
 
 namespace Texture1DArrayMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<1> x) : tex1d_t_calc_lod_array;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<1> x) : tex1d_t_calc_lod_unclamped_array;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<1> x) : tex1d_t_calc_lod_array;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<1> x) : tex1d_t_calc_lod_unclamped_array;
 void [[]] GetDimensions(in uint x, out uint_only width, out $type2 elements, out $type2 levels) : resinfo_uint;
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 elements, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 elements) : resinfo_uint_o;
@@ -344,8 +345,8 @@ $unspec [[]] SampleGrad(in sampler s, in float_like<2> x, in $match<2, 2> float_
 
 namespace Texture2DMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<2> x) : tex2d_t_calc_lod;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<2> x) : tex2d_t_calc_lod_unclamped;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<2> x) : tex2d_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<2> x) : tex2d_t_calc_lod_unclamped;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<2> x) : tex2d_t_gather;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<2> x, in int<2> o) : tex2d_t_gather_o;
 $match<0, -1> void<4> [[ro]] GatherAlpha(in sampler s, in float_like<2> x) : tex2d_t_gather_alpha;
@@ -438,8 +439,8 @@ $unspec [[ro]] Load(in int<2> x, in int s, in int<2> o, out uint_only status) : 
 
 namespace Texture2DArrayMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<2> x) : tex2d_t_calc_lod_array;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<2> x) : tex2d_t_calc_lod_unclamped_array;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<2> x) : tex2d_t_calc_lod_array;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<2> x) : tex2d_t_calc_lod_unclamped_array;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<3> x) : tex2d_t_gather_array;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<3> x, in int<2> o) : tex2d_t_gather_array_o;
 $match<0, -1> void<4> [[ro]] GatherAlpha(in sampler s, in float_like<3> x) : tex2d_t_gather_alpha_array;
@@ -530,8 +531,8 @@ $unspec [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : te
 
 namespace Texture3DMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<3> x) : tex3d_t_calc_lod;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<3> x) : tex3d_t_calc_lod_unclamped;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<3> x) : tex3d_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<3> x) : tex3d_t_calc_lod_unclamped;
 void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $type2 depth, out $type2 levels) : resinfo_uint;
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 depth, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 depth) : resinfo_uint_o;
@@ -558,8 +559,8 @@ $unspec [[]] SampleGrad(in sampler s, in float_like<3> x, in $type2 ddx, in $typ
 
 namespace TextureCUBEMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<3> x) : texcube_t_calc_lod;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<3> x) : texcube_t_calc_lod_unclamped;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<3> x) : texcube_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<3> x) : texcube_t_calc_lod_unclamped;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<3> x) : texcube_t_gather;
 $match<0, -1> void<4> [[ro]] GatherAlpha(in sampler s, in float_like<3> x) : texcube_t_gather_alpha;
 $match<0, -1> void<4> [[ro]] GatherBlue(in sampler s, in float_like<3> x) : texcube_t_gather_blue;
@@ -604,8 +605,8 @@ $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float_like<3> x, 
 
 namespace TextureCUBEArrayMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<3> x) : texcube_t_calc_lod_array;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<3> x) : texcube_t_calc_lod_unclamped_array;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<3> x) : texcube_t_calc_lod_array;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<3> x) : texcube_t_calc_lod_unclamped_array;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<4> x) : texcube_t_gather_array;
 $match<0, -1> void<4> [[ro]] GatherAlpha(in sampler s, in float_like<4> x) : texcube_t_gather_alpha_array;
 $match<0, -1> void<4> [[ro]] GatherBlue(in sampler s, in float_like<4> x) : texcube_t_gather_blue_array;
