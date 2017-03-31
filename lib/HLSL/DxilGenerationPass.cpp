@@ -838,6 +838,10 @@ static Value *replaceLdWithLdInput(Function *loadInput,
     if (colIdx == nullptr) {
       DXASSERT(cols == 1, "only support scalar here");
       colIdx = Builder.getInt8(0);
+    } else {
+      if (colIdx->getType() == Builder.getInt32Ty()) {
+        colIdx = Builder.CreateTrunc(colIdx, Builder.getInt8Ty());
+      }
     }
 
     if (isa<ConstantInt>(colIdx)) {
@@ -1350,7 +1354,16 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
       bI1Cast = true;
       Ty = i32Ty;
     }
-
+    if (!hlslOP->IsOverloadLegal(opcode, Ty)) {
+      std::string O;
+      raw_string_ostream OSS(O);
+      Ty->print(OSS);
+      OSS << "(type for " << SE->GetName() << ")";
+      OSS << " cannot be used as shader inputs or outputs.";
+      OSS.flush();
+      M.getContext().emitError(O);
+      continue;
+    }
     Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
     Constant *ID = hlslOP->GetU32Const(i);
     unsigned cols = SE->GetCols();
@@ -2255,6 +2268,8 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(
   for (size_t i = 0; i < m_pHLModule->GetCBuffers().size(); i++) {
     DxilCBuffer &CB = m_pHLModule->GetCBuffer(i);
     GlobalVariable *GV = cast<GlobalVariable>(CB.GetGlobalSymbol());
+    // Remove GEP created in HLObjectOperationLowerHelper::UniformCbPtr.
+    GV->removeDeadConstantUsers();
     std::string handleName = std::string(GV->getName()) + "_buffer";
 
     Value *args[] = {opArg, resClassArg, nullptr, nullptr,

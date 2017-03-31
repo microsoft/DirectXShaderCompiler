@@ -365,6 +365,7 @@ public:
   TEST_METHOD(CodeGenGatherOffset)
   TEST_METHOD(CodeGenGepZeroIdx)
   TEST_METHOD(CodeGenGloballyCoherent)
+  TEST_METHOD(CodeGenI32ColIdx)
   TEST_METHOD(CodeGenIcb1)
   TEST_METHOD(CodeGenIf1)
   TEST_METHOD(CodeGenIf2)
@@ -404,6 +405,7 @@ public:
   TEST_METHOD(CodeGenIntrinsic4)
   TEST_METHOD(CodeGenIntrinsic4_dbg)
   TEST_METHOD(CodeGenIntrinsic5)
+  TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
   TEST_METHOD(CodeGenLitInParen)
   TEST_METHOD(CodeGenLiteralShift)
@@ -440,6 +442,7 @@ public:
   TEST_METHOD(CodeGenMinprec5)
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
+  TEST_METHOD(CodeGenMinprecCast)
   TEST_METHOD(CodeGenMultiStream)
   TEST_METHOD(CodeGenMultiStream2)
   TEST_METHOD(CodeGenNeg1)
@@ -613,15 +616,18 @@ public:
   TEST_METHOD(CodeGenBindings2)
   TEST_METHOD(CodeGenBindings3)
   TEST_METHOD(CodeGenResCopy)
-  TEST_METHOD(CodeGenResourceInStruct)
   TEST_METHOD(CodeGenResourceInCB)
-  TEST_METHOD(CodeGenResourceInCBV)
-  TEST_METHOD(CodeGenResourceInTB)
-  TEST_METHOD(CodeGenResourceInTBV)
-  TEST_METHOD(CodeGenResourceInStruct2)
   TEST_METHOD(CodeGenResourceInCB2)
+  TEST_METHOD(CodeGenResourceInCB3)
+  TEST_METHOD(CodeGenResourceInCB4)
+  TEST_METHOD(CodeGenResourceInCBV)
   TEST_METHOD(CodeGenResourceInCBV2)
+  TEST_METHOD(CodeGenResourceInStruct)
+  TEST_METHOD(CodeGenResourceInStruct2)
+  TEST_METHOD(CodeGenResourceInStruct3)
+  TEST_METHOD(CodeGenResourceInTB)
   TEST_METHOD(CodeGenResourceInTB2)
+  TEST_METHOD(CodeGenResourceInTBV)
   TEST_METHOD(CodeGenResourceInTBV2)
   TEST_METHOD(CodeGenResPhi)
   TEST_METHOD(CodeGenResPhi2)
@@ -2201,6 +2207,7 @@ TEST_F(CompilerTest, CodeGenFloatToBool) {
 
 TEST_F(CompilerTest, CodeGenFirstbitHi) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitHi.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitshi_const.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFirstbitLo) {
@@ -2241,6 +2248,10 @@ TEST_F(CompilerTest, CodeGenGepZeroIdx) {
 
 TEST_F(CompilerTest, CodeGenGloballyCoherent) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\globallycoherent.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenI32ColIdx) {
+  CodeGenTest(L"..\\CodeGenHLSL\\i32colIdx.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenIcb1) {
@@ -2379,6 +2390,10 @@ TEST_F(CompilerTest, CodeGenIntrinsic4_dbg) {
 
 TEST_F(CompilerTest, CodeGenIntrinsic5) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInvalidInputOutputTypes) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\invalid_input_output_types.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLegacyStruct) {
@@ -2524,6 +2539,10 @@ TEST_F(CompilerTest, CodeGenMinprec6) {
 
 TEST_F(CompilerTest, CodeGenMinprec7) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\minprec7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMinprecCast) {
+  CodeGenTest(L"..\\CodeGenHLSL\\minprec_cast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiStream) {
@@ -3239,8 +3258,20 @@ TEST_F(CompilerTest, CodeGenResourceInStruct2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-struct2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenResourceInStruct3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-struct3.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenResourceInCB2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceInCB3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceInCB4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenResourceInCBV2) {

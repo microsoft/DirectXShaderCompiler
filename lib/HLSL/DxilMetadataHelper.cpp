@@ -44,7 +44,7 @@ const char DxilMDHelper::kDxilTypeSystemMDName[]                      = "dx.type
 const char DxilMDHelper::kDxilTypeSystemHelperVariablePrefix[]        = "dx.typevar.";
 const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.controlflow.hints";
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
-const char DxilMDHelper::kDxilResourceAttributeMDName[]               = "dx.resource.attribute";
+const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
 
 // This named metadata is not valid in final module (should be moved to DxilContainer)

@@ -25,6 +25,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 
 using namespace llvm;
 using std::string;
@@ -741,40 +742,84 @@ MDNode *HLModule::DxilCBufferToMDNode(const DxilCBuffer &CB) {
 
 DxilResourceBase HLModule::LoadDxilResourceBaseFromMDNode(
                                               MDNode *MD) {
-  const unsigned kDxilResourceAttributeNumFields = 2;
-  const unsigned kDxilResourceAttributeClass = 0;
-  const unsigned kDxilResourceAttributeMeta = 1;
-  IFTBOOL(MD->getNumOperands() >= kDxilResourceAttributeNumFields,
+  IFTBOOL(MD->getNumOperands() >= DxilMDHelper::kHLDxilResourceAttributeNumFields,
           DXC_E_INCORRECT_DXIL_METADATA);
 
   DxilResource::Class RC =
       static_cast<DxilResource::Class>(m_pMDHelper->ConstMDToUint32(
-          MD->getOperand(kDxilResourceAttributeClass)));
+          MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
+  const MDOperand &Meta =
+      MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeMeta);
+
   switch (RC) {
   case DxilResource::Class::CBuffer: {
     DxilCBuffer CB;
-    m_pMDHelper->LoadDxilCBuffer(MD->getOperand(kDxilResourceAttributeMeta),
-                                 CB);
+    m_pMDHelper->LoadDxilCBuffer(Meta, CB);
     return CB;
   } break;
   case DxilResource::Class::Sampler: {
     DxilSampler S;
-    m_pMDHelper->LoadDxilSampler(MD->getOperand(kDxilResourceAttributeMeta), S);
+    m_pMDHelper->LoadDxilSampler(Meta, S);
     return S;
   } break;
   case DxilResource::Class::SRV: {
     DxilResource Res;
-    m_pMDHelper->LoadDxilSRV(MD->getOperand(kDxilResourceAttributeMeta), Res);
+    m_pMDHelper->LoadDxilSRV(Meta, Res);
     return Res;
   } break;
   case DxilResource::Class::UAV: {
     DxilResource Res;
-    m_pMDHelper->LoadDxilUAV(MD->getOperand(kDxilResourceAttributeMeta), Res);
+    m_pMDHelper->LoadDxilUAV(Meta, Res);
     return Res;
   } break;
   default:
     DXASSERT(0, "Invalid metadata");
     return DxilResourceBase(DXIL::ResourceClass::Invalid);
+  }
+}
+
+void HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
+                                                      llvm::MDNode *MD) {
+  IFTBOOL(MD->getNumOperands() >= DxilMDHelper::kHLDxilResourceAttributeNumFields,
+          DXC_E_INCORRECT_DXIL_METADATA);
+
+  DxilResource::Class RC =
+      static_cast<DxilResource::Class>(m_pMDHelper->ConstMDToUint32(
+          MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
+  const MDOperand &Meta =
+      MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeMeta);
+  unsigned rangeSize = 1;
+  Type *Ty = GV->getType()->getPointerElementType();
+  if (ArrayType *AT = dyn_cast<ArrayType>(Ty))
+    rangeSize = AT->getNumElements();
+
+  switch (RC) {
+  case DxilResource::Class::Sampler: {
+    std::unique_ptr<DxilSampler> S = std::make_unique<DxilSampler>();
+    m_pMDHelper->LoadDxilSampler(Meta, *S);
+    S->SetGlobalSymbol(GV);
+    S->SetGlobalName(GV->getName());
+    S->SetRangeSize(rangeSize);
+    AddSampler(std::move(S));
+  } break;
+  case DxilResource::Class::SRV: {
+    std::unique_ptr<HLResource> Res = std::make_unique<HLResource>();
+    m_pMDHelper->LoadDxilSRV(Meta, *Res);
+    Res->SetGlobalSymbol(GV);
+    Res->SetGlobalName(GV->getName());
+    Res->SetRangeSize(rangeSize);
+    AddSRV(std::move(Res));
+  } break;
+  case DxilResource::Class::UAV: {
+    std::unique_ptr<HLResource> Res = std::make_unique<HLResource>();
+    m_pMDHelper->LoadDxilUAV(Meta, *Res);
+    Res->SetGlobalSymbol(GV);
+    Res->SetGlobalName(GV->getName());
+    Res->SetRangeSize(rangeSize);
+    AddUAV(std::move(Res));
+  } break;
+  default:
+    DXASSERT(0, "Invalid metadata for AddResourceWithGlobalVariableAndMDNode");
   }
 }
 
@@ -958,6 +1003,94 @@ const char *HLModule::GetLegacyDataLayoutDesc() {
   return kLegacyLayoutString.data();
 }
 
+static Value *MergeGEP(GEPOperator *SrcGEP, GetElementPtrInst *GEP) {
+  IRBuilder<> Builder(GEP);
+  SmallVector<Value *, 8> Indices;
+
+  // Find out whether the last index in the source GEP is a sequential idx.
+  bool EndsWithSequential = false;
+  for (gep_type_iterator I = gep_type_begin(*SrcGEP), E = gep_type_end(*SrcGEP);
+       I != E; ++I)
+    EndsWithSequential = !(*I)->isStructTy();
+  if (EndsWithSequential) {
+    Value *Sum;
+    Value *SO1 = SrcGEP->getOperand(SrcGEP->getNumOperands() - 1);
+    Value *GO1 = GEP->getOperand(1);
+    if (SO1 == Constant::getNullValue(SO1->getType())) {
+      Sum = GO1;
+    } else if (GO1 == Constant::getNullValue(GO1->getType())) {
+      Sum = SO1;
+    } else {
+      // If they aren't the same type, then the input hasn't been processed
+      // by the loop above yet (which canonicalizes sequential index types to
+      // intptr_t).  Just avoid transforming this until the input has been
+      // normalized.
+      if (SO1->getType() != GO1->getType())
+        return nullptr;
+      // Only do the combine when GO1 and SO1 are both constants. Only in
+      // this case, we are sure the cost after the merge is never more than
+      // that before the merge.
+      if (!isa<Constant>(GO1) || !isa<Constant>(SO1))
+        return nullptr;
+      Sum = Builder.CreateAdd(SO1, GO1);
+    }
+
+    // Update the GEP in place if possible.
+    if (SrcGEP->getNumOperands() == 2) {
+      GEP->setOperand(0, SrcGEP->getOperand(0));
+      GEP->setOperand(1, Sum);
+      return GEP;
+    }
+    Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end() - 1);
+    Indices.push_back(Sum);
+    Indices.append(GEP->op_begin() + 2, GEP->op_end());
+  } else if (isa<Constant>(*GEP->idx_begin()) &&
+             cast<Constant>(*GEP->idx_begin())->isNullValue() &&
+             SrcGEP->getNumOperands() != 1) {
+    // Otherwise we can do the fold if the first index of the GEP is a zero
+    Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end());
+    Indices.append(GEP->idx_begin() + 1, GEP->idx_end());
+  }
+  if (!Indices.empty())
+    return Builder.CreateInBoundsGEP(SrcGEP->getSourceElementType(),
+                                     SrcGEP->getOperand(0), Indices,
+                                     GEP->getName());
+  else
+    llvm_unreachable("must merge");
+}
+
+void HLModule::MergeGepUse(Value *V) {
+  for (auto U = V->user_begin(); U != V->user_end();) {
+    auto Use = U++;
+
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(*Use)) {
+      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
+        // merge the 2 GEPs
+        Value *newGEP = MergeGEP(prevGEP, GEP);
+        GEP->replaceAllUsesWith(newGEP);
+        GEP->eraseFromParent();
+        MergeGepUse(newGEP);
+      } else {
+        MergeGepUse(*Use);
+      }
+    } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(*Use)) {
+      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
+        // merge the 2 GEPs
+        Value *newGEP = MergeGEP(prevGEP, GEP);
+        GEP->replaceAllUsesWith(newGEP);
+        GEP->eraseFromParent();
+        MergeGepUse(newGEP);
+      } else {
+        MergeGepUse(*Use);
+      }
+    }
+  }
+  if (V->user_empty()) {
+    if (Instruction *I = dyn_cast<Instruction>(V))
+      I->eraseFromParent();
+  }
+}
+
 template<typename BuilderTy>
 CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
                                            HLOpcodeGroup group, unsigned opcode,
@@ -1128,11 +1261,11 @@ bool HLModule::HasPreciseAttribute(Function *F) {
 }
 
 void HLModule::MarkDxilResourceAttrib(llvm::Function *F, MDNode *MD) {
-  F->setMetadata(DxilMDHelper::kDxilResourceAttributeMDName, MD);
+  F->setMetadata(DxilMDHelper::kHLDxilResourceAttributeMDName, MD);
 }
 
 MDNode *HLModule::GetDxilResourceAttrib(llvm::Function *F) {
-  return F->getMetadata(DxilMDHelper::kDxilResourceAttributeMDName);
+  return F->getMetadata(DxilMDHelper::kHLDxilResourceAttributeMDName);
 }
 
 DIGlobalVariable *

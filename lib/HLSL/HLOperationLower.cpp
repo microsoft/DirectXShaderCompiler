@@ -67,18 +67,25 @@ private:
   std::unordered_map<Value *, ResAttribute> HandleMetaMap;
   std::unordered_set<LoadInst *> &UpdateCounterSet;
   std::unordered_set<Value *> &NonUniformSet;
+  // Map from pointer of cbuffer to pointer of resource.
+  // For cbuffer like this:
+  //   cbuffer A {
+  //     Texture2D T;
+  //   };
+  // A global resource Texture2D T2 will be created for Texture2D T.
+  // CBPtrToResourceMap[T] will return T2.
+  std::unordered_map<Value *, Value *> CBPtrToResourceMap;
 
 public:
   HLObjectOperationLowerHelper(HLModule &HLM,
                                std::unordered_set<LoadInst *> &UpdateCounter,
                                std::unordered_set<Value *> &NonUniform)
       : HLM(HLM), UpdateCounterSet(UpdateCounter), NonUniformSet(NonUniform) {}
-
   DXIL::ResourceClass GetRC(Value *Handle) {
     ResAttribute &Res = FindCreateHandleResourceBase(Handle);
     return Res.RC;
   }
-  DXIL::ResourceKind  GetRK(Value *Handle) {
+  DXIL::ResourceKind GetRK(Value *Handle) {
     ResAttribute &Res = FindCreateHandleResourceBase(Handle);
     return Res.RK;
   }
@@ -89,13 +96,50 @@ public:
 
   void MarkHasCounter(Type *Ty, Value *handle) {
     DXIL::ResourceClass RC = GetRC(handle);
-    DXASSERT_LOCALVAR(RC, RC == DXIL::ResourceClass::UAV, "must UAV for counter");
-    std::unordered_set<Value*> resSet;
+    DXASSERT_LOCALVAR(RC, RC == DXIL::ResourceClass::UAV,
+                      "must UAV for counter");
+    std::unordered_set<Value *> resSet;
     MarkHasCounterOnCreateHandle(handle, resSet);
   }
-  void MarkNonUniform(Value *V) {
-    NonUniformSet.insert(V);
+  void MarkNonUniform(Value *V) { NonUniformSet.insert(V); }
+
+  Value *GetOrCreateResourceForCbPtr(GetElementPtrInst *CbPtr,
+                                     GlobalVariable *CbGV, MDNode *MD) {
+    // Change array idx to 0 to make sure all array ptr share same key.
+    Value *Key = UniformCbPtr(CbPtr, CbGV);
+    if (CBPtrToResourceMap.count(Key))
+      return CBPtrToResourceMap[Key];
+    Value *Resource = CreateResourceForCbPtr(CbPtr, CbGV, MD);
+    CBPtrToResourceMap[Key] = Resource;
+    return Resource;
   }
+
+  Value *LowerCbResourcePtr(GetElementPtrInst *CbPtr, Value *ResPtr) {
+    // Simple case.
+    if (ResPtr->getType() == CbPtr->getType())
+      return ResPtr;
+
+    // Array case.
+    DXASSERT_NOMSG(ResPtr->getType()->getPointerElementType()->isArrayTy());
+
+    IRBuilder<> Builder(CbPtr);
+    gep_type_iterator GEPIt = gep_type_begin(CbPtr), E = gep_type_end(CbPtr);
+
+    Value *arrayIdx = GEPIt.getOperand();
+
+    // Only calc array idx and size.
+    // Ignore struct type part.
+    for (; GEPIt != E; ++GEPIt) {
+      if (GEPIt->isArrayTy()) {
+        arrayIdx = Builder.CreateMul(
+            arrayIdx, Builder.getInt32(GEPIt->getArrayNumElements()));
+        arrayIdx = Builder.CreateAdd(arrayIdx, GEPIt.getOperand());
+      }
+    }
+
+    return Builder.CreateGEP(ResPtr, {Builder.getInt32(0), arrayIdx});
+  }
+
 private:
   ResAttribute &FindCreateHandleResourceBase(Value *Handle) {
     if (HandleMetaMap.count(Handle))
@@ -146,7 +190,8 @@ private:
 
     return HandleMetaMap[Handle];
   }
-  CallInst *FindCreateHandle(Value *handle, std::unordered_set<Value *> &resSet) {
+  CallInst *FindCreateHandle(Value *handle,
+                             std::unordered_set<Value *> &resSet) {
     // Already checked.
     if (resSet.count(handle))
       return nullptr;
@@ -156,9 +201,9 @@ private:
       return CI;
     if (SelectInst *Sel = dyn_cast<SelectInst>(handle)) {
       if (CallInst *CI = FindCreateHandle(Sel->getTrueValue(), resSet))
-          return CI;
+        return CI;
       if (CallInst *CI = FindCreateHandle(Sel->getFalseValue(), resSet))
-          return CI;
+        return CI;
       return nullptr;
     }
     if (PHINode *Phi = dyn_cast<PHINode>(handle)) {
@@ -179,7 +224,8 @@ private:
     resSet.insert(handle);
 
     if (CallInst *CI = dyn_cast<CallInst>(handle)) {
-      Value *Res = CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
+      Value *Res =
+          CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
       LoadInst *LdRes = dyn_cast<LoadInst>(Res);
       if (!LdRes) {
         CI->getContext().emitError(CI, "cannot map resource to handle");
@@ -197,6 +243,67 @@ private:
         MarkHasCounterOnCreateHandle(Phi->getOperand(i), resSet);
       }
     }
+  }
+
+  Value *UniformCbPtr(GetElementPtrInst *CbPtr, GlobalVariable *CbGV) {
+    gep_type_iterator GEPIt = gep_type_begin(CbPtr), E = gep_type_end(CbPtr);
+    std::vector<Value *> idxList(CbPtr->idx_begin(), CbPtr->idx_end());
+    unsigned i = 0;
+    IRBuilder<> Builder(HLM.GetCtx());
+    Value *zero = Builder.getInt32(0);
+    for (; GEPIt != E; ++GEPIt, ++i) {
+      if (GEPIt->isArrayTy()) {
+        // Change array idx to 0 to make sure all array ptr share same key.
+        idxList[i] = zero;
+      }
+    }
+
+    Value *Key = Builder.CreateInBoundsGEP(CbGV, idxList);
+    return Key;
+  }
+
+  Value *CreateResourceForCbPtr(GetElementPtrInst *CbPtr, GlobalVariable *CbGV,
+                                MDNode *MD) {
+    Type *CbTy = CbPtr->getPointerOperandType();
+    DXASSERT_NOMSG(CbTy == CbGV->getType());
+
+    gep_type_iterator GEPIt = gep_type_begin(CbPtr), E = gep_type_end(CbPtr);
+    unsigned i = 0;
+    IRBuilder<> Builder(HLM.GetCtx());
+    unsigned arraySize = 1;
+    DxilTypeSystem &typeSys = HLM.GetTypeSystem();
+
+    std::string Name;
+    for (; GEPIt != E; ++GEPIt, ++i) {
+      if (GEPIt->isArrayTy()) {
+        arraySize *= GEPIt->getArrayNumElements();
+      } else if (GEPIt->isStructTy()) {
+        DxilStructAnnotation *typeAnnot =
+            typeSys.GetStructAnnotation(cast<StructType>(*GEPIt));
+        DXASSERT_NOMSG(typeAnnot);
+        unsigned idx = cast<ConstantInt>(GEPIt.getOperand())->getLimitedValue();
+        DXASSERT_NOMSG(typeAnnot->GetNumFields() > idx);
+        DxilFieldAnnotation &fieldAnnot = typeAnnot->GetFieldAnnotation(idx);
+        if (!Name.empty())
+          Name += ".";
+        Name += fieldAnnot.GetFieldName();
+      }
+    }
+
+    Type *Ty = CbPtr->getResultElementType();
+    if (arraySize > 1) {
+      Ty = ArrayType::get(Ty, arraySize);
+    }
+
+    return CreateResourceGV(Ty, Name, MD);
+  }
+
+  Value *CreateResourceGV(Type *Ty, StringRef Name, MDNode *MD) {
+    Module &M = *HLM.GetModule();
+    Constant *GV = M.getOrInsertGlobal(Name, Ty);
+    // Create resource and set GV as globalSym.
+    HLM.AddResourceWithGlobalVariableAndMDNode(GV, MD);
+    return GV;
   }
 };
 
@@ -1146,29 +1253,27 @@ Value *TranslateFirstbitHi(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            bool &Translated) {
   Value *firstbitHi =
       TrivialUnaryOperation(CI, IOP, opcode, helper, pObjHelper, Translated);
-  // src != 0? (bitWidth-1 -firstbitHi) : -1;
+  // firstbitHi == -1? -1 : (bitWidth-1 -firstbitHi);
   IRBuilder<> Builder(CI);
   Constant *neg1 = Builder.getInt32(-1);
   Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
 
   Type *Ty = src->getType();
   IntegerType *EltTy = cast<IntegerType>(Ty->getScalarType());
-  Constant *zero = ConstantInt::get(EltTy, 0);
   Constant *bitWidth = Builder.getInt32(EltTy->getBitWidth()-1);
 
   if (Ty == Ty->getScalarType()) {
     Value *sub = Builder.CreateSub(bitWidth, firstbitHi);
-    Value *cond = Builder.CreateICmpNE(zero, src);
-    return Builder.CreateSelect(cond, sub, neg1);
+    Value *cond = Builder.CreateICmpEQ(neg1, firstbitHi);
+    return Builder.CreateSelect(cond, neg1, sub);
   } else {
     Value *result = UndefValue::get(CI->getType());
     unsigned vecSize = Ty->getVectorNumElements();
     for (unsigned i = 0; i < vecSize; i++) {
       Value *EltFirstBit = Builder.CreateExtractElement(firstbitHi, i);
       Value *sub = Builder.CreateSub(bitWidth, EltFirstBit);
-      Value *EltSrc = Builder.CreateExtractElement(src, i);
-      Value *cond = Builder.CreateICmpNE(zero, EltSrc);
-      Value *Elt = Builder.CreateSelect(cond, sub, neg1);
+      Value *cond = Builder.CreateICmpEQ(neg1, EltFirstBit);
+      Value *Elt = Builder.CreateSelect(cond, neg1, sub);
       result = Builder.CreateInsertElement(result, Elt, i);
     }
     return result;
@@ -1181,30 +1286,7 @@ Value *TranslateFirstbitLo(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                            bool &Translated) {
   Value *firstbitLo =
       TrivialUnaryOperation(CI, IOP, opcode, helper, pObjHelper, Translated);
-  // src != 0? (firstbitLo) : -1;
-  IRBuilder<> Builder(CI);
-  Constant *neg1 = Builder.getInt32(-1);
-  Value *src = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-
-  Type *Ty = src->getType();
-  IntegerType *EltTy = cast<IntegerType>(Ty->getScalarType());
-  Constant *zero = ConstantInt::get(EltTy, 0);
-
-  if (Ty == Ty->getScalarType()) {
-    Value *cond = Builder.CreateICmpNE(zero, src);
-    return Builder.CreateSelect(cond, firstbitLo, neg1);
-  } else {
-    Value *result = UndefValue::get(CI->getType());
-    unsigned vecSize = Ty->getVectorNumElements();
-    for (unsigned i = 0; i < vecSize; i++) {
-      Value *EltFirstBit = Builder.CreateExtractElement(firstbitLo, i);
-      Value *EltSrc = Builder.CreateExtractElement(src, i);
-      Value *cond = Builder.CreateICmpNE(zero, EltSrc);
-      Value *Elt = Builder.CreateSelect(cond, EltFirstBit, neg1);
-      result = Builder.CreateInsertElement(result, Elt, i);
-    }
-    return result;
-  }
+  return firstbitLo;
 }
 
 Value *TranslateLit(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -4722,14 +4804,38 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
                           Value *legacyIdx, unsigned channelOffset,
                           hlsl::OP *hlslOP, IRBuilder<> &Builder,
                           DxilFieldAnnotation *prevFieldAnnotation,
-                          const DataLayout &DL, DxilTypeSystem &dxilTypeSys);
+                          const DataLayout &DL, DxilTypeSystem &dxilTypeSys,
+                          HLObjectOperationLowerHelper *pObjHelper);
+
+void TranslateResourceInCB(LoadInst *LI,
+                           HLObjectOperationLowerHelper *pObjHelper,
+                           GlobalVariable *CbGV) {
+  if (LI->user_empty()) {
+    LI->eraseFromParent();
+    return;
+  }
+
+  GetElementPtrInst *Ptr = cast<GetElementPtrInst>(LI->getPointerOperand());
+  CallInst *CI = cast<CallInst>(LI->user_back());
+  MDNode *MD = HLModule::GetDxilResourceAttrib(CI->getCalledFunction());
+
+  Value *ResPtr = pObjHelper->GetOrCreateResourceForCbPtr(Ptr, CbGV, MD);
+
+  // Lower Ptr to GV base Ptr.
+  Value *GvPtr = pObjHelper->LowerCbResourcePtr(Ptr, ResPtr);
+  IRBuilder<> Builder(LI);
+  Value *GvLd = Builder.CreateLoad(GvPtr);
+  LI->replaceAllUsesWith(GvLd);
+  LI->eraseFromParent();
+}
 
 void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
                                   Value *legacyIdx, unsigned channelOffset,
                                   hlsl::OP *hlslOP,
                                   DxilFieldAnnotation *prevFieldAnnotation,
                                   DxilTypeSystem &dxilTypeSys,
-                                  const DataLayout &DL) {
+                                  const DataLayout &DL,
+                                  HLObjectOperationLowerHelper *pObjHelper) {
   Value *zeroIdx = hlslOP->GetU32Const(0);
 
   IRBuilder<> Builder(user);
@@ -4904,6 +5010,14 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
   } else if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
     Type *Ty = ldInst->getType();
     Type *EltTy = Ty->getScalarType();
+    // Resource inside cbuffer is lowered after GenerateDxilOperations.
+    if (HLModule::IsHLSLObjectType(Ty)) {
+      CallInst *CI = cast<CallInst>(handle);
+      GlobalVariable *CbGV = cast<GlobalVariable>(
+          CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
+      TranslateResourceInCB(ldInst, pObjHelper, CbGV);
+      return;
+    }
     DXASSERT(!Ty->isAggregateType(), "should be flat in previous pass");
     
     Value *newLd = nullptr;
@@ -4922,7 +5036,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
     // Must be GEP here
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);
     TranslateCBGepLegacy(GEP, handle, legacyIdx, channelOffset, hlslOP, Builder,
-                         prevFieldAnnotation, DL, dxilTypeSys);
+                         prevFieldAnnotation, DL, dxilTypeSys, pObjHelper);
     GEP->eraseFromParent();
   }
 }
@@ -4931,7 +5045,8 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
                           Value *legacyIndex, unsigned channel,
                           hlsl::OP *hlslOP, IRBuilder<> &Builder,
                           DxilFieldAnnotation *prevFieldAnnotation,
-                          const DataLayout &DL, DxilTypeSystem &dxilTypeSys) {
+                          const DataLayout &DL, DxilTypeSystem &dxilTypeSys,
+                          HLObjectOperationLowerHelper *pObjHelper) {
   SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
 
   // update offset
@@ -5085,20 +5200,23 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
     Instruction *user = cast<Instruction>(*(U++));
 
     TranslateCBAddressUserLegacy(user, handle, legacyIndex, channel, hlslOP, fieldAnnotation,
-                           dxilTypeSys, DL);
+                           dxilTypeSys, DL, pObjHelper);
   }
 }
 
 void TranslateCBOperationsLegacy(Value *handle, Value *ptr, OP *hlslOP,
-                           DxilTypeSystem &dxilTypeSys, const DataLayout &DL) {
+                                 DxilTypeSystem &dxilTypeSys,
+                                 const DataLayout &DL,
+                                 HLObjectOperationLowerHelper *pObjHelper) {
   auto User = ptr->user_begin();
   auto UserE = ptr->user_end();
   Value *zeroIdx = hlslOP->GetU32Const(0);
   for (; User != UserE;) {
     // Must be Instruction.
     Instruction *I = cast<Instruction>(*(User++));
-    TranslateCBAddressUserLegacy(I, handle, zeroIdx, /*channelOffset*/0, hlslOP,
-                           /*prevFieldAnnotation*/ nullptr, dxilTypeSys, DL);
+    TranslateCBAddressUserLegacy(
+        I, handle, zeroIdx, /*channelOffset*/ 0, hlslOP,
+        /*prevFieldAnnotation*/ nullptr, dxilTypeSys, DL, pObjHelper);
   }
 }
 
@@ -6093,11 +6211,12 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
 
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
   if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+    HLModule::MergeGepUse(CI);
     // Resource ptr.
     Value *handle = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
     if (helper.bLegacyCBufferLoad)
       TranslateCBOperationsLegacy(handle, CI, hlslOP, helper.dxilTypeSys,
-                                  helper.legacyDataLayout);
+                                  helper.legacyDataLayout, pObjHelper);
     else {
       TranslateCBOperations(handle, CI, /*offset*/ hlslOP->GetU32Const(0),
                             hlslOP, helper.dxilTypeSys,

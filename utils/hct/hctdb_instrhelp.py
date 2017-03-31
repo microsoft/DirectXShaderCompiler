@@ -2,6 +2,7 @@
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 import argparse
 import functools
+import collections
 from hctdb import *
 
 # get db singletons
@@ -403,8 +404,8 @@ class db_oload_gen:
 
         last_category = None
 
-        index_dict = {}
-        single_dict = {}
+        index_dict = collections.OrderedDict()
+        single_dict = collections.OrderedDict()
         struct_list = []
 
         for instr in self.instrs:
@@ -797,7 +798,7 @@ def get_is_pass_option_name():
     db = db_dxil()
     prefix = ""
     result = "return "
-    for k in db.pass_idx_args:
+    for k in sorted(db.pass_idx_args):
         result += prefix + "S.equals(\"%s\")" % k
         prefix = "\n  ||  "
     return result + ";"

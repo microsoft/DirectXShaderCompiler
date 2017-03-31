@@ -10300,6 +10300,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
     hlslSource->AddHLSLObjectMethodsIfNotReady(qt);
   } else if (qt->isArrayType()) {
     QualType eltQt(qt->getArrayElementTypeNoTypeQual(), 0);
+    while (eltQt->isArrayType())
+      eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
+
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
       // Add methods if not ready.
       HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(this);
