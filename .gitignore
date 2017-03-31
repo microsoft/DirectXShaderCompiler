@@ -24,6 +24,8 @@
 *.dmp
 # Visual Studio Code directory.
 .vscode
+# Visual Studio 2017
+.vs/
 
 #==============================================================================#
 # Explicit files to ignore (only matches one).
