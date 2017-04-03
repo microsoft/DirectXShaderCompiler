@@ -298,6 +298,9 @@ public:
       }
       VERIFY_SUCCEEDED(D3D12CreateDevice(hardwareAdapter, FeatureLevelRequired,
                                          IID_PPV_ARGS(&pDevice)));
+      DXGI_ADAPTER_DESC1 AdapterDesc;
+      VERIFY_SUCCEEDED(hardwareAdapter->GetDesc1(&AdapterDesc));
+      LogCommentFmt(L"Using Adapter: %s", AdapterDesc.Description);
     }
     if (pDevice == nullptr)
       return false;
@@ -1840,9 +1843,14 @@ RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
     VERIFY_FAIL(msgWide.m_psz);
   }
 
+  // This won't actually be used since we're supplying the device,
+  // but let's make it consistent.
+  pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
+
   std::shared_ptr<st::ShaderOpTest> test = std::make_shared<st::ShaderOpTest>();
   test->SetDxcSupport(&support);
   test->SetInitCallback(pInitCallback);
+  test->SetDevice(pDevice);
   test->RunShaderOp(pShaderOp);
 
   std::shared_ptr<ShaderOpTestResult> result =
