@@ -1082,12 +1082,23 @@ class db_dxil(object):
     def populate_extended_docs(self):
         "Update the documentation with text from external files."
         inst_starter = "* Inst: "
+        block_starter = "* BLOCK-BEGIN"
+        block_end = "* BLOCK-END"
         with open("hctdb_inst_docs.txt") as ops_file:
             inst_name = ""
             inst_doc = ""
             inst_remarks = ""
-            for line in ops_file:
+            is_block = False
+            for idx, line in enumerate(ops_file):
                 if line.startswith("#"): continue
+                if line.startswith(block_starter):
+                    assert is_block == False, "unexpected block begin at line %i" % (idx+1) 
+                    is_block = True
+                    continue
+                if line.startswith(block_end):
+                    assert is_block == True, "unexpected block end at line %i" % (idx+1)
+                    is_block = False
+                    continue
                 if line.startswith(inst_starter):
                     if inst_name:
                         # print(inst_name + " - " + inst_remarks.strip())
@@ -1099,7 +1110,7 @@ class db_dxil(object):
                     inst_name = line[:sep_idx].strip()
                     inst_doc = line[sep_idx+1:].strip()
                 else:
-                    inst_remarks += "\n" + line.strip()
+                    inst_remarks += line if is_block else "\n" + line.strip()
             if inst_name:
                 self.name_idx[inst_name].remarks = inst_remarks.strip()
                     

@@ -6,6 +6,7 @@
         <ParameterType Name="Validation.Tolerance">double</ParameterType>
         <ParameterType Name="Validation.Input" Array="true">String</ParameterType>
         <ParameterType Name="Validation.Expected" Array="true">String</ParameterType>
+        <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
         <ParameterType Name="ShaderOp.Name">String</ParameterType>
         <ParameterType Name="ShaderOp.Target">String</ParameterType>
         <ParameterType Name="ShaderOp.EntryPoint">String</ParameterType>
@@ -15,6 +16,7 @@
       <Row Name="sin">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -59,6 +61,7 @@
       <Row Name="cos">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -102,6 +105,7 @@
       <Row Name="tan">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -145,6 +149,7 @@
       <Row Name="Hcos">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -188,6 +193,7 @@
       <Row Name="Hsin">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -231,6 +237,7 @@
       <Row Name="Htan">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -274,6 +281,7 @@
       <Row Name="acos">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">11</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -321,6 +329,7 @@
       <Row Name="asin">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">11</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -368,6 +377,7 @@
       <Row Name="atan">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -411,6 +421,7 @@
       <Row Name="exp">
         <Parameter Name="Validation.Type">Relative</Parameter>
         <Parameter Name="Validation.Tolerance">21</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -454,6 +465,7 @@
       <Row Name="frc">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+        <Parameter Name="Validation.NumInput">11</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -501,6 +513,7 @@
       <Row Name="log">
         <Parameter Name="Validation.Type">Relative</Parameter>
         <Parameter Name="Validation.Tolerance">21</Parameter>
+        <Parameter Name="Validation.NumInput">11</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -547,6 +560,7 @@
       <Row Name="sqrt">
         <Parameter Name="Validation.Type">ulp</Parameter>
         <Parameter Name="Validation.Tolerance">1</Parameter>
+        <Parameter Name="Validation.NumInput">11</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -594,6 +608,7 @@
       <Row Name="rsqrt">
         <Parameter Name="Validation.Type">ulp</Parameter>
         <Parameter Name="Validation.Tolerance">1</Parameter>
+        <Parameter Name="Validation.NumInput">11</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -641,6 +656,7 @@
        <Row Name="rsqrt">
         <Parameter Name="Validation.Type">ulp</Parameter>
         <Parameter Name="Validation.Tolerance">1</Parameter>
+        <Parameter Name="Validation.NumInput">11</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -688,6 +704,7 @@
       <Row Name="round_ne">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">16</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -745,6 +762,7 @@
       <Row Name="round_ni">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">15</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -800,6 +818,7 @@
        <Row Name="round_pi">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">15</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -855,6 +874,7 @@
       <Row Name="round_z">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">15</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -910,6 +930,7 @@
       <Row Name="IsNaN">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -955,6 +976,7 @@
       <Row Name="IsInf">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -1000,6 +1022,7 @@
       <Row Name="Isfinite">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -1046,6 +1069,7 @@
       <Row Name="FAbs">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
           <Value>-Inf</Value>
@@ -1094,6 +1118,7 @@
         <ParameterType Name="Validation.Input2" Array="true">String</ParameterType>
         <ParameterType Name="Validation.Expected1" Array="true">String</ParameterType>
         <ParameterType Name="Validation.Expected2" Array="true">String</ParameterType>
+        <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
         <ParameterType Name="ShaderOp.Name">String</ParameterType>
         <ParameterType Name="ShaderOp.Target">String</ParameterType>
         <ParameterType Name="ShaderOp.EntryPoint">String</ParameterType>
@@ -1103,6 +1128,7 @@
       <Row Name="MinMax">
         <Parameter Name="Validation.Type">epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">17</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>-inf</Value>
             <Value>-inf</Value>
@@ -1202,7 +1228,107 @@
         </Parameter>
       </Row>
 
-    </Table>
+      </Table>
+
+      <Table Id="TertiaryFloatOpTable">
+        <ParameterTypes>
+            <ParameterType Name="Description">String</ParameterType>
+            <ParameterType Name="ShaderOp.Name">String</ParameterType>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.EntryPoint">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">int</ParameterType>
+            <ParameterType Name="Validation.Input1" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.Input2" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.Input3" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.Expected" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
+        </ParameterTypes>
+
+        <Row Name="FMad">
+            <Parameter Name="ShaderOp.Name">FMad</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
+            <Parameter Name="ShaderOp.Text">
+            <![CDATA[
+                struct STertiaryFloatOp {
+                    float input1;
+                    float input2;
+                    float input3;
+                    float output;
+                };
+                RWStructuredBuffer<STertiaryFloatOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    STertiaryFloatOp l = g_buf[GI];
+                    l.output = mad(l.input1, l.input2, l.input3);
+                    g_buf[GI] = l;
+                };
+            ]]>
+            </Parameter>
+            <Parameter Name="Validation.Type">epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>1.0</Value>
+                <Value>-1.0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>1.5</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>1.0</Value>
+                <Value>-1.0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>NaN</Value>
+                <Value>-Inf</Value>
+                <Value>-denorm</Value>
+                <Value>-0</Value>
+                <Value>0</Value>
+                <Value>denorm</Value>
+                <Value>Inf</Value>
+                <Value>1.0</Value>
+                <Value>-1.0</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>-5.5</Value>
+            </Parameter>
+
+            <Parameter Name="Validation.Expected">
+                <Value>NaN</Value>
+                <Value>NaN</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>Inf</Value>
+                <Value>2</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>9.5</Value>
+            </Parameter>
+            <Parameter Name="Validation.NumInput">12</Parameter>
+      </Row>
+      </Table>
 
     <Table Id="UnaryIntOpTable">
       <ParameterTypes>
@@ -1213,6 +1339,7 @@
         <ParameterType Name="Validation.Input" Array="true">int</ParameterType>
         <ParameterType Name="Validation.Expected" Array="true">int</ParameterType>
         <ParameterType Name="Validation.Tolerance">int</ParameterType>
+        <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
       </ParameterTypes>
 
       <Row Name="Bfrev">
@@ -1236,6 +1363,7 @@
         </Parameter>
 
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
             <Value>-2147483648</Value>
             <Value>-65536</Value>
@@ -1260,7 +1388,7 @@
         </Parameter>
       </Row>
 
-      <Row Name="FirstbitHi">
+      <Row Name="FirstbitSHi">
         <Parameter Name="ShaderOp.Name">Firstbithi</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
@@ -1281,6 +1409,7 @@
         </Parameter>
 
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
             <Value>-2147483648</Value>
             <Value>-65536</Value>
@@ -1296,7 +1425,7 @@
             <Value>30</Value>
             <Value>15</Value>
             <Value>2</Value>
-            <Value>32</Value>
+            <Value>-1</Value>
             <Value>-1</Value>
             <Value>0</Value>
             <Value>3</Value>
@@ -1326,6 +1455,7 @@
         </Parameter>
 
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
             <Value>-2147483648</Value>
             <Value>-65536</Value>
@@ -1371,6 +1501,7 @@
         </Parameter>
 
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
             <Value>-2147483648</Value>
             <Value>-65536</Value>
@@ -1405,6 +1536,7 @@
         <ParameterType Name="Validation.Input" Array="true">unsigned int</ParameterType>
         <ParameterType Name="Validation.Expected" Array="true">unsigned int</ParameterType>
         <ParameterType Name="Validation.Tolerance">int</ParameterType>
+        <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
       </ParameterTypes>
 
       <Row Name="FirstbitHi">
@@ -1427,6 +1559,7 @@
         ]]>
         </Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.NumInput">6</Parameter>
         <Parameter Name="Validation.Input">
             <Value>0</Value>
             <Value>1</Value>
@@ -1458,6 +1591,7 @@
         <ParameterType Name="Validation.Expected1" Array="true">int</ParameterType>
         <ParameterType Name="Validation.Expected2" Array="true">int</ParameterType>
         <ParameterType Name="Validation.Tolerance">int</ParameterType>
+        <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
       </ParameterTypes>
 
       <Row Name="IMax">
@@ -1469,7 +1603,7 @@
             struct SBinaryIntOp {
                 int input1;
                 int input2;
-                int output1; 
+                int output1;
                 int output2;
             };
             RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
@@ -1482,13 +1616,14 @@
         ]]>
         </Parameter>
         <Parameter Name="Validation.NumExpected">1</Parameter>
+        <Parameter Name="Validation.NumInput">6</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>-2147483648</Value>
             <Value>-10</Value>
             <Value>0</Value>
             <Value>0</Value>
             <Value>10</Value>
-            <Value>2147483647</Value> 
+            <Value>2147483647</Value>
         </Parameter>
         <Parameter Name="Validation.Input2">
             <Value>0</Value>
@@ -1517,7 +1652,7 @@
             struct SBinaryIntOp {
                 int input1;
                 int input2;
-                int output1; 
+                int output1;
                 int output2;
             };
             RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
@@ -1530,13 +1665,14 @@
         ]]>
         </Parameter>
         <Parameter Name="Validation.NumExpected">1</Parameter>
+        <Parameter Name="Validation.NumInput">6</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>-2147483648</Value>
             <Value>-10</Value>
             <Value>0</Value>
             <Value>0</Value>
             <Value>10</Value>
-            <Value>2147483647</Value> 
+            <Value>2147483647</Value>
         </Parameter>
         <Parameter Name="Validation.Input2">
             <Value>0</Value>
@@ -1566,7 +1702,7 @@
             struct SBinaryIntOp {
                 int input1;
                 int input2;
-                int output1; 
+                int output1;
                 int output2;
             };
             RWStructuredBuffer<SBinaryIntOp> g_buf : register(u0);
@@ -1579,6 +1715,7 @@
         ]]>
         </Parameter>
         <Parameter Name="Validation.NumExpected">1</Parameter>
+        <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>-2147483648</Value>
             <Value>-10</Value>
@@ -1628,6 +1765,7 @@
         <ParameterType Name="Validation.Expected1" Array="true">unsigned int</ParameterType>
         <ParameterType Name="Validation.Expected2" Array="true">unsigned int</ParameterType>
         <ParameterType Name="Validation.Tolerance">int</ParameterType>
+        <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
       </ParameterTypes>
       <Row Name="UMax">
         <Parameter Name="ShaderOp.Name">UMax</Parameter>
@@ -1638,7 +1776,7 @@
             struct SBinaryUintOp {
                 uint input1;
                 uint input2;
-                uint output1; 
+                uint output1;
                 uint output2;
             };
             RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
@@ -1651,6 +1789,7 @@
         ]]>
         </Parameter>
         <Parameter Name="Validation.NumExpected">1</Parameter>
+        <Parameter Name="Validation.NumInput">6</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>0</Value>
             <Value>0</Value>
@@ -1686,7 +1825,7 @@
             struct SBinaryUintOp {
                 uint input1;
                 uint input2;
-                uint output1; 
+                uint output1;
                 uint output2;
             };
             RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
@@ -1699,6 +1838,7 @@
         ]]>
         </Parameter>
         <Parameter Name="Validation.NumExpected">1</Parameter>
+        <Parameter Name="Validation.NumInput">6</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>0</Value>
             <Value>0</Value>
@@ -1736,7 +1876,7 @@
             struct SBinaryUintOp {
                 uint input1;
                 uint input2;
-                uint output1; 
+                uint output1;
                 uint output2;
             };
             RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
@@ -1749,6 +1889,7 @@
         ]]>
         </Parameter>
         <Parameter Name="Validation.NumExpected">1</Parameter>
+        <Parameter Name="Validation.NumInput">5</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>0</Value>
             <Value>1</Value>
@@ -1783,7 +1924,7 @@
             struct SBinaryUintOp {
                 uint input1;
                 uint input2;
-                uint output1; 
+                uint output1;
                 uint output2;
             };
             RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
@@ -1798,6 +1939,7 @@
         </Parameter>
         <Parameter Name="Operation.Unsigned">true</Parameter>
         <Parameter Name="Validation.NumExpected">2</Parameter>
+        <Parameter Name="Validation.NumInput">7</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>1</Value>
             <Value>1</Value>
@@ -1847,7 +1989,7 @@
             struct SBinaryUintOp {
                 uint input1;
                 uint input2;
-                uint output1; 
+                uint output1;
                 uint output2;
             };
             RWStructuredBuffer<SBinaryUintOp> g_buf : register(u0);
@@ -1864,6 +2006,7 @@
         </Parameter>
         <Parameter Name="Operation.Unsigned">true</Parameter>
         <Parameter Name="Validation.NumExpected">2</Parameter>
+        <Parameter Name="Validation.NumInput">6</Parameter>
         <Parameter Name="Validation.Input1">
             <Value>1</Value>
             <Value>1</Value>
@@ -1899,4 +2042,350 @@
         <Parameter Name="Validation.Tolerance">0</Parameter>
       </Row>
     </Table>
-  </Data>
+
+    <Table Id="TertiaryIntOpTable">
+      <ParameterTypes>
+        <ParameterType Name="Description">String</ParameterType>
+        <ParameterType Name="ShaderOp.Name">String</ParameterType>
+        <ParameterType Name="ShaderOp.Target">String</ParameterType>
+        <ParameterType Name="ShaderOp.EntryPoint">String</ParameterType>
+        <ParameterType Name="ShaderOp.Text">String</ParameterType>
+        <ParameterType Name="Validation.Type">String</ParameterType>
+        <ParameterType Name="Validation.Tolerance">int</ParameterType>
+        <ParameterType Name="Validation.Input1" Array="true">int</ParameterType>
+        <ParameterType Name="Validation.Input2" Array="true">int</ParameterType>
+        <ParameterType Name="Validation.Input3" Array="true">int</ParameterType>
+        <ParameterType Name="Validation.Expected" Array="true">int</ParameterType>
+        <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
+      </ParameterTypes>
+
+      <Row Name="IMad">
+        <Parameter Name="ShaderOp.Name">msad4</Parameter>
+        <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+        <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
+        <Parameter Name="ShaderOp.Text">
+        <![CDATA[
+            struct STertiaryIntOp {
+                int input1;
+                int input2;
+                int input3;
+                int output;
+            };
+            RWStructuredBuffer<STertiaryIntOp> g_buf : register(u0);
+            [numthreads(8,8,1)]
+            void main(uint GI : SV_GroupIndex) {
+                STertiaryIntOp l = g_buf[GI];
+                l.output = mad(l.input1, l.input2, l.input3);
+                g_buf[GI] = l;
+            };
+        ]]>
+        </Parameter>
+        <Parameter Name="Validation.Type">epsilon</Parameter>
+        <Parameter Name="Validation.Tolerance">0</Parameter>
+        <Parameter Name="Validation.Input1">
+            <Value>-2147483647</Value>
+            <Value>-256</Value>
+            <Value>-1</Value>
+            <Value>0</Value>
+            <Value>1</Value>
+            <Value>2</Value>
+            <Value>16</Value>
+            <Value>2147483647</Value>
+            <Value>1</Value>
+            <Value>-1</Value>
+            <Value>1</Value>
+            <Value>10</Value>
+        </Parameter>
+        <Parameter Name="Validation.Input2">
+            <Value>1</Value>
+            <Value>-256</Value>
+            <Value>-1</Value>
+            <Value>0</Value>
+            <Value>1</Value>
+            <Value>3</Value>
+            <Value>16</Value>
+            <Value>0</Value>
+            <Value>1</Value>
+            <Value>-1</Value>
+            <Value>10</Value>
+            <Value>100</Value>
+        </Parameter>
+        <Parameter Name="Validation.Input3">
+            <Value>0</Value>
+            <Value>0</Value>
+            <Value>0</Value>
+            <Value>0</Value>
+            <Value>1</Value>
+            <Value>3</Value>
+            <Value>1</Value>
+            <Value>255</Value>
+            <Value>2147483646</Value>
+            <Value>-2147483647</Value>
+            <Value>-10</Value>
+            <Value>-2000</Value>
+        </Parameter>
+
+        <Parameter Name="Validation.Expected">
+            <Value>-2147483647</Value>
+            <Value>65536</Value>
+            <Value>1</Value>
+            <Value>0</Value>
+            <Value>2</Value>
+            <Value>9</Value>
+            <Value>257</Value>
+            <Value>255</Value>
+            <Value>2147483647</Value>
+            <Value>-2147483646</Value>
+            <Value>0</Value>
+            <Value>-1000</Value>
+        </Parameter>
+        <Parameter Name="Validation.NumInput">12</Parameter>
+      </Row>
+      </Table>
+
+      <Table Id="TertiaryUintOpTable">
+        <ParameterTypes>
+            <ParameterType Name="Description">String</ParameterType>
+            <ParameterType Name="ShaderOp.Name">String</ParameterType>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.EntryPoint">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">int</ParameterType>
+            <ParameterType Name="Validation.Input1" Array="true">int</ParameterType>
+            <ParameterType Name="Validation.Input2" Array="true">int</ParameterType>
+            <ParameterType Name="Validation.Input3" Array="true">int</ParameterType>
+            <ParameterType Name="Validation.Expected" Array="true">int</ParameterType>
+            <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
+        </ParameterTypes>
+
+        <Row Name="UMad">
+            <Parameter Name="ShaderOp.Name">UMad</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
+            <Parameter Name="ShaderOp.Text">
+            <![CDATA[
+                struct STertiaryUintOp {
+                    uint input1;
+                    uint input2;
+                    uint input3;
+                    uint output;
+                };
+                RWStructuredBuffer<STertiaryUintOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    STertiaryUintOp l = g_buf[GI];
+                    l.output = mad(l.input1, l.input2, l.input3);
+                    g_buf[GI] = l;
+                };
+            ]]>
+            </Parameter>
+            <Parameter Name="Validation.Type">epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>16</Value>
+                <Value>2147483647</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>16</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>15</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+                <Value>10</Value>
+            </Parameter>
+
+            <Parameter Name="Validation.Expected">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>5</Value>
+                <Value>271</Value>
+                <Value>2147483647</Value>
+                <Value>10</Value>
+                <Value>110</Value>
+            </Parameter>
+            <Parameter Name="Validation.NumInput">7</Parameter>
+      </Row>
+      </Table>
+
+      <Table Id="DotOpTable">
+        <ParameterTypes>
+            <ParameterType Name="Description">String</ParameterType>
+            <ParameterType Name="ShaderOp.Name">String</ParameterType>
+            <ParameterType Name="ShaderOp.Target">String</ParameterType>
+            <ParameterType Name="ShaderOp.EntryPoint">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">int</ParameterType>
+            <ParameterType Name="Validation.Input1" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.Input2" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.dot2" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.dot3" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.dot4" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
+        </ParameterTypes>
+
+        <Row Name="Dot">
+            <Parameter Name="ShaderOp.Name">Dot</Parameter>
+            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
+            <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
+            <Parameter Name="ShaderOp.Text">
+            <![CDATA[
+                struct SDotOp {
+                   float4 input1;
+                   float4 input2;
+                   float o_dot2;
+                   float o_dot3;
+                   float o_dot4;
+                };
+                RWStructuredBuffer<SDotOp> g_buf : register(u0);
+                [numthreads(8,8,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    SDotOp l = g_buf[GI];
+                    l.o_dot2 = dot(l.input1.xy, l.input2.xy);
+                    l.o_dot3 = dot(l.input1.xyz, l.input2.xyz);
+                    l.o_dot4 = dot(l.input1.xyzw, l.input2.xyzw);
+                    g_buf[GI] = l;
+                };
+            ]]>
+            </Parameter>
+            <Parameter Name="Validation.Type">epsilon</Parameter>
+            <Parameter Name="Validation.Tolerance">0.008</Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>NaN,NaN,NaN,NaN</Value>
+                <Value>-Inf,-Inf,-Inf,-Inf</Value>
+                <Value>-denorm,-denorm,-denorm,-denorm</Value>
+                <Value>-0,-0,-0,-0</Value>
+                <Value>0,0,0,0</Value>
+                <Value>denorm,denorm,denorm,denorm</Value>
+                <Value>Inf,Inf,Inf,Inf</Value>
+                <Value>1,1,1,1</Value>
+                <Value>-10,0,0,10</Value>
+                <Value>Inf,Inf,Inf,-Inf</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>NaN,NaN,NaN,NaN</Value>
+                <Value>-Inf,-Inf,-Inf,-Inf</Value>
+                <Value>-denorm,-denorm,-denorm,-denorm</Value>
+                <Value>-0,-0,-0,-0</Value>
+                <Value>0,0,0,0</Value>
+                <Value>denorm,denorm,denorm,denorm</Value>
+                <Value>Inf,Inf,Inf,Inf</Value>
+                <Value>1,1,1,1</Value>
+                <Value>10,0,0,10</Value>
+                <Value>Inf,Inf,Inf,Inf</Value>
+            </Parameter>
+            <Parameter Name="Validation.dot2">
+                <Value>NaN</Value>
+                <Value>Inf</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>Inf</Value>
+                <Value>2</Value>
+                <Value>-100</Value>
+                <Value>Inf</Value>
+            </Parameter>
+            <Parameter Name="Validation.dot3">
+                <Value>NaN</Value>
+                <Value>Inf</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>Inf</Value>
+                <Value>3</Value>
+                <Value>-100</Value>
+                <Value>Inf</Value>
+            </Parameter>
+            <Parameter Name="Validation.dot4">
+                <Value>NaN</Value>
+                <Value>Inf</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+                <Value>Inf</Value>
+                <Value>4</Value>
+                <Value>0</Value>
+                <Value>NaN</Value>
+            </Parameter>
+            <Parameter Name="Validation.NumInput">10</Parameter>
+        </Row>
+      </Table>
+
+      <Table Id="MSad4Table">
+        <ParameterTypes>
+            <ParameterType Name="Description">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">int</ParameterType>
+            <ParameterType Name="Validation.Reference" Array="true">unsigned int</ParameterType>
+            <ParameterType Name="Validation.Source" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.Accum" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.Expected" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.NumInput">unsigned int</ParameterType>
+        </ParameterTypes>
+        <Row Name="MSad4">
+            <Parameter Name="Description">Msad4 intrinsic calls both Bfi and Msad</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct SMsad4 {
+                        uint ref;
+                        uint2 source;
+                        uint4 accum;
+                        uint4 result;
+                    };
+                    RWStructuredBuffer<SMsad4> g_buf : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        SMsad4 l = g_buf[GI];
+                        l.result = msad4(l.ref, l.source, l.accum);
+                        g_buf[GI] = l;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="Validation.NumInput">4</Parameter>
+            <Parameter Name="Validation.Reference">
+                <Value>0xA100B2C3</Value>
+                <Value>0x00000000</Value>
+                <Value>0xFFFF01C1</Value>
+                <Value>0xFFFFFFFF</Value>
+            </Parameter>
+            <Parameter Name="Validation.Source">
+                <Value>0xD7B0C372, 0x4F57C2A3</Value>
+                <Value>0xFFFFFFFF, 0x00000000</Value>
+                <Value>0x38A03AEF, 0x38194DA3</Value>
+                <Value>0xFFFFFFFF, 0x00000000</Value>
+            </Parameter>
+            <Parameter Name="Validation.Accum">
+                <Value>1,2,3,4</Value>
+                <Value>1,2,3,4</Value>
+                <Value>0,0,0,0</Value>
+                <Value>10,10,10,10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected">
+                <Value>153,6,92,113</Value>
+                <Value>1,2,3,4</Value>
+                <Value>397,585,358,707</Value>
+                <Value>10,265,520,775</Value>
+            </Parameter>
+        </Row>
+       </Table>
+</Data>

@@ -22,6 +22,8 @@
 #include "HLSLTestData.h"
 #include <Shlwapi.h>
 #include <atlcoll.h>
+#include <locale>
+#include <algorithm>
 
 #undef _read
 #include "WexTestClass.h"
@@ -201,11 +203,15 @@ public:
   TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsInPSTest);
 
+  // TAEF data-driven tests.
   BEGIN_TEST_METHOD(UnaryFloatOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryFloatOpTable")
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryFloatOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#BinaryFloatOpTable")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(TertiaryFloatOpTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryFloatOpTable")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(UnaryIntOpTest)
@@ -214,12 +220,26 @@ public:
   BEGIN_TEST_METHOD(BinaryIntOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#BinaryIntOpTable")
   END_TEST_METHOD()
+  BEGIN_TEST_METHOD(TertiaryIntOpTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryIntOpTable")
+  END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(UnaryUintOpTest)
      TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryUintOpTable")
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryUintOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#BinaryUintOpTable")
+  END_TEST_METHOD()
+  BEGIN_TEST_METHOD(TertiaryUintOpTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryUintOpTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(DotTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#DotOpTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(Msad4Test)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#Msad4Table")
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_support;
@@ -1980,6 +2000,8 @@ TEST_F(ExecutionTest, BasicTriangleOpTest) {
   ReportLiveObjects();
 }
 
+// Resource structure for data-driven tests.
+
 struct SUnaryFPOp {
     float input;
     float output;
@@ -1990,6 +2012,13 @@ struct SBinaryFPOp {
     float input2;
     float output1;
     float output2;
+};
+
+struct STertiaryFPOp {
+    float input1;
+    float input2;
+    float input3;
+    float output;
 };
 
 struct SUnaryIntOp {
@@ -2009,6 +2038,13 @@ struct SBinaryIntOp {
     int output2;
 };
 
+struct STertiaryIntOp {
+    int input1;
+    int input2;
+    int input3;
+    int output;
+};
+
 struct SBinaryUintOp {
     unsigned int input1;
     unsigned int input2;
@@ -2016,6 +2052,68 @@ struct SBinaryUintOp {
     unsigned int output2;
 };
 
+struct STertiaryUintOp {
+    unsigned int input1;
+    unsigned int input2;
+    unsigned int input3;
+    unsigned int output;
+};
+
+// representation for HLSL float vectors
+
+struct float2 {
+    float x;
+    float y;
+};
+
+struct float3 {
+    float x;
+    float y;
+    float z;
+};
+
+struct float4 {
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+struct SDotOp {
+    float4 input1;
+    float4 input2;
+    float o_dot2;
+    float o_dot3;
+    float o_dot4;
+};
+
+// HLSL representation for unsigned int vectors 
+struct uint2 {
+    unsigned int x;
+    unsigned int y;
+};
+
+struct uint3 {
+    unsigned int x;
+    unsigned int y;
+    unsigned int z;
+};
+
+struct uint4 {
+    unsigned int x;
+    unsigned int y;
+    unsigned int z;
+    unsigned int w;
+};
+
+struct SMsad4 {
+    unsigned int ref;
+    uint2 src;
+    uint4 accum;
+    uint4 result;
+};
+
+// Parameter representation for taef data-driven tests
 struct TableParameter {
     LPCWSTR m_name;
     enum TableParameterType {
@@ -2050,7 +2148,8 @@ static TableParameter UnaryFPOpParameters[] = {
     { L"Validation.Input", TableParameter::STRING_TABLE, true },
     { L"Validation.Expected", TableParameter::STRING_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
-    { L"Validation.Tolerance", TableParameter::DOUBLE, true }
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter BinaryFPOpParameters[] = {
@@ -2063,7 +2162,22 @@ static TableParameter BinaryFPOpParameters[] = {
     { L"Validation.Expected1", TableParameter::STRING_TABLE, true },
     { L"Validation.Expected2", TableParameter::STRING_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
-    { L"Validation.Tolerance", TableParameter::DOUBLE, true }
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
+};
+
+static TableParameter TertiaryFPOpParameters[] = {
+    { L"ShaderOp.Name", TableParameter::STRING, true },
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input2", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input3", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected", TableParameter::STRING_TABLE, true },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter UnaryIntOpParameters[] = {
@@ -2073,7 +2187,8 @@ static TableParameter UnaryIntOpParameters[] = {
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input", TableParameter::INT_TABLE, true },
     { L"Validation.Expected", TableParameter::INT_TABLE, true },
-    { L"Validation.Tolerance", TableParameter::INT, true }
+    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter UnaryUintOpParameters[] = {
@@ -2083,7 +2198,8 @@ static TableParameter UnaryUintOpParameters[] = {
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected", TableParameter::UINT_TABLE, true },
-    { L"Validation.Tolerance", TableParameter::INT, true }
+    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter BinaryIntOpParameters[] = {
@@ -2096,7 +2212,21 @@ static TableParameter BinaryIntOpParameters[] = {
     { L"Validation.Input2", TableParameter::INT_TABLE, true },
     { L"Validation.Expected1", TableParameter::INT_TABLE, true },
     { L"Validation.Expected2", TableParameter::INT_TABLE, false },
-    { L"Validation.Tolerance", TableParameter::INT, true }
+    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
+};
+
+static TableParameter TertiaryIntOpParameters[] = {
+    { L"ShaderOp.Name", TableParameter::STRING, true },
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::INT_TABLE, true },
+    { L"Validation.Input2", TableParameter::INT_TABLE, true },
+    { L"Validation.Input3", TableParameter::INT_TABLE, true },
+    { L"Validation.Expected", TableParameter::INT_TABLE, true },
+    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
 static TableParameter BinaryUintOpParameters[] = {
@@ -2109,31 +2239,73 @@ static TableParameter BinaryUintOpParameters[] = {
     { L"Validation.Input2", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected1", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected2", TableParameter::UINT_TABLE, false },
-    { L"Validation.Tolerance", TableParameter::INT, true }
+    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
-static HRESULT ParseValueToFloat(PCWSTR str, float &value) {
-  if (wcscmp(str, L"NaN") == 0) {
+static TableParameter TertiaryUintOpParameters[] = {
+    { L"ShaderOp.Name", TableParameter::STRING, true },
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::UINT_TABLE, true },
+    { L"Validation.Input2", TableParameter::UINT_TABLE, true },
+    { L"Validation.Input3", TableParameter::UINT_TABLE, true },
+    { L"Validation.Expected", TableParameter::UINT_TABLE, true },
+    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
+};
+
+static TableParameter DotOpParameters[] = {
+    { L"ShaderOp.Name", TableParameter::STRING, true },
+    { L"ShaderOp.Target", TableParameter::STRING, true },
+    { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Input1", TableParameter::STRING_TABLE, true },
+    { L"Validation.Input2", TableParameter::STRING_TABLE, true },
+    { L"Validation.dot2", TableParameter::STRING_TABLE, true },
+    { L"Validation.dot3", TableParameter::STRING_TABLE, true },
+    { L"Validation.dot4", TableParameter::STRING_TABLE, true },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+    { L"Validation.NumInput", TableParameter::UINT, true }
+};
+
+static TableParameter Msad4OpParameters[] = { 
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+    { L"Validation.NumInput", TableParameter::UINT, true },
+    { L"Validation.Reference", TableParameter::UINT_TABLE, true},
+    { L"Validation.Source", TableParameter::STRING_TABLE, true },
+    { L"Validation.Accum", TableParameter::STRING_TABLE, true },
+    { L"Validation.Expected", TableParameter::STRING_TABLE, true }
+};
+
+static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
+  std::wstring wString(str);
+  wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
+  PCWSTR wstr = wString.data();
+  if (_wcsicmp(wstr, L"NaN") == 0) {
     value = NAN;
-  } else if (wcscmp(str, L"-Inf") == 0) {
+  } else if (_wcsicmp(wstr, L"-inf") == 0) {
     value = -(INFINITY);
-  } else if (wcscmp(str, L"Inf") == 0) {
+  } else if (_wcsicmp(wstr, L"inf") == 0) {
     value = INFINITY;
-  } else if (wcscmp(str, L"-denorm") == 0) {
+  } else if (_wcsicmp(wstr, L"-denorm") == 0) {
     value = -(FLT_MIN / 2);
-  } else if (wcscmp(str, L"denorm") == 0) {
+  } else if (_wcsicmp(wstr, L"denorm") == 0) {
     value = FLT_MIN / 2;
-  } else if (wcscmp(str, L"-0.0f") == 0 || wcscmp(str, L"-0.0") == 0 ||
-             wcscmp(str, L"-0") == 0) {
+  } else if (_wcsicmp(wstr, L"-0.0f") == 0 || _wcsicmp(wstr, L"-0.0") == 0 ||
+             _wcsicmp(wstr, L"-0") == 0) {
     value = -0.0f;
-  } else if (wcscmp(str, L"0.0f") == 0 || wcscmp(str, L"0.0") == 0 ||
-             wcscmp(str, L"0") == 0) {
+  } else if (_wcsicmp(wstr, L"0.0f") == 0 || _wcsicmp(wstr, L"0.0") == 0 ||
+             _wcsicmp(wstr, L"0") == 0) {
     value = 0.0f;
   } else {
-    // evaluate the expression of string
-    double val = _wtof(str);
+    // evaluate the expression of wstring
+    double val = _wtof(wstr);
     if (val == 0) {
-      LogErrorFmt(L"Failed to parse parameter %s to float", str);
+      LogErrorFmt(L"Failed to parse parameter %s to float", wstr);
       return E_FAIL;
     }
     value = val;
@@ -2141,19 +2313,73 @@ static HRESULT ParseValueToFloat(PCWSTR str, float &value) {
   return S_OK;
 }
 
-static HRESULT ParseValueToInt(PCWSTR str, int &value) {
+static HRESULT ParseDataToInt(PCWSTR str, int &value) {
+  std::wstring wString(str);
+  wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
+  PCWSTR wstr = wString.data();
   // evaluate the expression of string
-  if (wcscmp(str, L"0.0") == 0 || wcscmp(str, L"0") == 0) {
+  if (_wcsicmp(wstr, L"0.0") == 0 || _wcsicmp(wstr, L"0") == 0) {
       value = 0;
       return S_OK;
   }
-  int val = _wtoi(str);
+  int val = _wtoi(wstr);
   if (val == 0) {
-      LogErrorFmt(L"Failed to parse parameter %s to int", str);
+      LogErrorFmt(L"Failed to parse parameter %s to int", wstr);
       return E_FAIL;
   }
   value = val;
   return S_OK;
+}
+
+static HRESULT ParseDataToUint(PCWSTR str, unsigned int &value) {
+    std::wstring wString(str);
+    wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
+    PCWSTR wstr = wString.data();
+    // evaluate the expression of string
+    if (_wcsicmp(wstr, L"0") == 0 || _wcsicmp(wstr, L"0x00000000") == 0) {
+        value = 0;
+        return S_OK;
+    }
+    wchar_t *end;
+    unsigned int val = std::wcstoul(wstr, &end, 0);
+    if (val == 0) {
+        LogErrorFmt(L"Failed to parse parameter %s to int", wstr);
+        return E_FAIL;
+    }
+    value = val;
+    return S_OK;
+}
+
+static HRESULT ParseDataToVectorFloat(PCWSTR str, float *ptr, size_t count) {
+    std::wstring wstr(str);
+    size_t curPosition = 0;
+    // parse a string of dot product separated by commas
+    for (size_t i = 0; i < count; ++i) {
+        size_t nextPosition = wstr.find(L",", curPosition);
+        if (FAILED(ParseDataToFloat(
+            wstr.substr(curPosition, nextPosition - curPosition).data(),
+            *(ptr + i)))) {
+            return E_FAIL;
+        }
+        curPosition = nextPosition + 1;
+    }
+    return S_OK;
+}
+
+static HRESULT ParseDataToVectorUint(PCWSTR str, unsigned int *ptr, size_t count) {
+    std::wstring wstr(str);
+    size_t curPosition = 0;
+    // parse a string of dot product separated by commas
+    for (size_t i = 0; i < count; ++i) {
+        size_t nextPosition = wstr.find(L",", curPosition);
+        if (FAILED(ParseDataToUint(
+            wstr.substr(curPosition, nextPosition - curPosition).data(),
+            *(ptr + i)))) {
+            return E_FAIL;
+        }
+        curPosition = nextPosition + 1;
+    }
+    return S_OK;
 }
 
 static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
@@ -2229,18 +2455,18 @@ static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
   return S_OK;
 }
 
-static void VerifyIntOutputWithRefValue(int output, int ref, int tolerance) {
+static void VerifyOutputWithExpectedValueInt(int output, int ref, int tolerance) {
     VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
 }
 
-static void VerifyOutputWithRefValue(float output, float ref, LPCWSTR type, double tolerance) {
-    if (wcscmp(type, L"Relative") == 0 || wcscmp(type, L"relative") == 0) {
+static void VerifyOutputWithExpectedValueFloat(float output, float ref, LPCWSTR type, double tolerance) {
+    if (_wcsicmp(type, L"Relative") == 0) {
         VERIFY_IS_TRUE(CompareFloatRelativeEpsilon(output, ref, tolerance));
     }
-    else if (wcscmp(type, L"Epsilon") == 0 || wcscmp(type, L"epsilon") == 0) {
+    else if (_wcsicmp(type, L"Epsilon") == 0) {
         VERIFY_IS_TRUE(CompareFloatEpsilon(output, ref, tolerance));
     }
-    else if (wcscmp(type, L"ULP") == 0 || wcscmp(type, L"ulp") == 0) {
+    else if (_wcsicmp(type, L"ULP") == 0) {
         VERIFY_IS_TRUE(CompareFloatULP(output, ref, (int)tolerance));
     }
     else {
@@ -2280,13 +2506,14 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     LPCWSTR Validation_Type = UnaryFPOpParameters[6].m_str;
     double Validation_Tolerance = UnaryFPOpParameters[7].m_double;
 
+    size_t count = UnaryFPOpParameters[8].m_uint;
+
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "UnaryFPOp",
         // this callbacked is called when the test
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
           VERIFY_IS_TRUE(0 == _stricmp(Name, "SUnaryFPOp"));
-          size_t count = 8 * 8;
           size_t size = sizeof(SUnaryFPOp) * count;
           Data.resize(size);
           SUnaryFPOp *pPrimitives = (SUnaryFPOp *)Data.data();
@@ -2294,10 +2521,9 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
             SUnaryFPOp *p = &pPrimitives[i];
             PCWSTR str = (*Validation_Input)[i % Validation_Input->GetSize()];
             float val;
-            VERIFY_SUCCEEDED(ParseValueToFloat(str, val));
+            VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
             p->input = val;
           }
-
           // use shader from data table
           pShaderOp->Shaders.at(0).Text = shader.Text;
         });
@@ -2305,18 +2531,17 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     MappedData data;
     test->Test->GetReadBackData("SUnaryFPOp", &data);
 
-    unsigned count = 8 * 8;
     SUnaryFPOp *pPrimitives = (SUnaryFPOp*)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
         SUnaryFPOp *p = &pPrimitives[i];
         LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->GetSize()];
         float val;
-        VERIFY_SUCCEEDED(ParseValueToFloat(str, val));
+        VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
         LogCommentFmt(
             L"element #%u, input = %10f, output = %10f, expected = %10f", i,
             p->input, p->output, val);
-        VerifyOutputWithRefValue(p->output, val, Validation_Type, Validation_Tolerance);
+        VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type, Validation_Tolerance);
     }
 }
 
@@ -2358,6 +2583,7 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
 
     LPCWSTR Validation_Type = BinaryFPOpParameters[8].m_str;
     double Validation_Tolerance = BinaryFPOpParameters[9].m_double;
+    size_t count = BinaryFPOpParameters[10].m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "BinaryFPOp", 
@@ -2365,7 +2591,6 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
         VERIFY_IS_TRUE(0 == _stricmp(Name, "SBinaryFPOp"));
-        size_t count = 8 * 8;
         size_t size = sizeof(SBinaryFPOp) * count;
         Data.resize(size);
         SBinaryFPOp *pPrimitives = (SBinaryFPOp *)Data.data();
@@ -2374,8 +2599,8 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
             PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
             PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
             float val1, val2;
-            VERIFY_SUCCEEDED(ParseValueToFloat(str1, val1));
-            VERIFY_SUCCEEDED(ParseValueToFloat(str2, val2));
+            VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+            VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
             p->input1 = val1;
             p->input2 = val2;
         }
@@ -2387,7 +2612,6 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     MappedData data;
     test->Test->GetReadBackData("SBinaryFPOp", &data);
 
-    unsigned count = 8 * 8;
     SBinaryFPOp *pPrimitives = (SBinaryFPOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
 
@@ -2396,16 +2620,101 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
         LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->GetSize()];
         LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->GetSize()];
         float val1, val2;
-        VERIFY_SUCCEEDED(ParseValueToFloat(str1, val1));
-        VERIFY_SUCCEEDED(ParseValueToFloat(str2, val2));
+        VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+        VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
         LogCommentFmt(L"element #%u, input1 = %10f, input2 = %10f, output1 = "
             L"%10f, expected1 = %10f, output2 = %10f, expected2 = %10f",
             i, p->input1, p->input2, p->output1, val1, p->output2,
             val2);
-        VerifyOutputWithRefValue(p->output1, val1, Validation_Type,
+        VerifyOutputWithExpectedValueFloat(p->output1, val1, Validation_Type,
             Validation_Tolerance);
-        VerifyOutputWithRefValue(p->output2, val2, Validation_Type,
+        VerifyOutputWithExpectedValueFloat(p->output2, val2, Validation_Type,
             Validation_Tolerance);
+    }
+}
+
+TEST_F(ExecutionTest, TertiaryFloatOpTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice)) {
+        return;
+    }
+    // Read data from the table
+
+    VERIFY_SUCCEEDED(ParseTableRow(TertiaryFPOpParameters, sizeof(TertiaryFPOpParameters) / sizeof(TableParameter)));
+
+    st::ShaderOpShader shader;
+
+    CW2A Name(TertiaryFPOpParameters[0].m_str);
+    CW2A Target(TertiaryFPOpParameters[1].m_str);
+    CW2A EntryPoint(TertiaryFPOpParameters[2].m_str);
+    CW2A Text(TertiaryFPOpParameters[3].m_str);
+    shader.Name = Name.m_psz;
+    shader.Target = Target.m_psz;
+    shader.EntryPoint = EntryPoint.m_psz;
+    shader.Text = Text.m_psz;
+
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input1 =
+        &(TertiaryFPOpParameters[4].m_StringTable);
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input2 =
+        &(TertiaryFPOpParameters[5].m_StringTable);
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input3 =
+        &(TertiaryFPOpParameters[6].m_StringTable);
+
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Expected =
+        &(TertiaryFPOpParameters[7].m_StringTable);
+
+    LPCWSTR Validation_Type = TertiaryFPOpParameters[8].m_str;
+    double Validation_Tolerance = TertiaryFPOpParameters[9].m_double;
+    size_t count = TertiaryFPOpParameters[10].m_uint;
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "TertiaryFPOp",
+        // this callbacked is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "STertiaryFPOp"));
+        size_t size = sizeof(STertiaryFPOp) * count;
+        Data.resize(size);
+        STertiaryFPOp *pPrimitives = (STertiaryFPOp *)Data.data();
+        for (size_t i = 0; i < count; ++i) {
+            STertiaryFPOp *p = &pPrimitives[i];
+            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
+            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
+            PCWSTR str3 = (*Validation_Input3)[i % Validation_Input3->GetSize()];
+            float val1, val2, val3;
+            VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
+            VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
+            VERIFY_SUCCEEDED(ParseDataToFloat(str3, val3));
+            p->input1 = val1;
+            p->input2 = val2;
+            p->input3 = val3;
+        }
+
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Text = shader.Text;
+    });
+
+    MappedData data;
+    test->Test->GetReadBackData("STertiaryFPOp", &data);
+
+    STertiaryFPOp *pPrimitives = (STertiaryFPOp *)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+
+    for (unsigned i = 0; i < count; ++i) {
+      STertiaryFPOp *p = &pPrimitives[i];
+      LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+      float val;
+      VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
+      LogCommentFmt(L"element #%u, input1 = %10f, input2 = %10f, input3 = %10f, output1 = "
+                    L"%10f, expected = %10f",
+                    i, p->input1, p->input2, p->input3, p->output, val);
+      VerifyOutputWithExpectedValueFloat(p->output, val, Validation_Type,
+                               Validation_Tolerance);
     }
 }
 
@@ -2440,6 +2749,7 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
     WEX::TestExecution::TestDataArray<int> *Validation_Expected =
         &UnaryIntOpParameters[5].m_intTable;
     int Validation_Tolerance = UnaryIntOpParameters[6].m_int;
+    size_t count = UnaryIntOpParameters[7].m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "UnaryIntOp",
@@ -2447,7 +2757,6 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
           VERIFY_IS_TRUE(0 == _stricmp(Name, "SUnaryIntOp"));
-          size_t count = 8 * 8;
           size_t size = sizeof(SUnaryIntOp) * count;
           Data.resize(size);
           SUnaryIntOp *pPrimitives = (SUnaryIntOp *)Data.data();
@@ -2463,7 +2772,6 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
     MappedData data;
     test->Test->GetReadBackData("SUnaryIntOp", &data);
 
-    unsigned count = 8 * 8;
     SUnaryIntOp *pPrimitives = (SUnaryIntOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
@@ -2472,7 +2780,7 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
       LogCommentFmt(L"element #%u, input = %11i(0x%08x), output = %11i(0x%08x), "
                     L"expected = %11i(0x%08x)",
                     i, p->input, p->input, p->output, p->output, val, val);
-      VerifyIntOutputWithRefValue(p->output, val, Validation_Tolerance);
+      VerifyOutputWithExpectedValueInt(p->output, val, Validation_Tolerance);
     }
 }
 
@@ -2507,6 +2815,7 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
     WEX::TestExecution::TestDataArray<unsigned int> *Validation_Expected =
         &UnaryUintOpParameters[5].m_uintTable;
     int Validation_Tolerance = UnaryUintOpParameters[6].m_int;
+    size_t count = UnaryUintOpParameters[7].m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "UnaryUintOp",
@@ -2514,7 +2823,6 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
         VERIFY_IS_TRUE(0 == _stricmp(Name, "SUnaryUintOp"));
-        size_t count = 8 * 8;
         size_t size = sizeof(SUnaryUintOp) * count;
         Data.resize(size);
         SUnaryUintOp *pPrimitives = (SUnaryUintOp *)Data.data();
@@ -2530,7 +2838,6 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
     MappedData data;
     test->Test->GetReadBackData("SUnaryUintOp", &data);
 
-    unsigned count = 8 * 8;
     SUnaryUintOp *pPrimitives = (SUnaryUintOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
@@ -2539,7 +2846,7 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
         LogCommentFmt(L"element #%u, input = %11u(0x%08x), output = %11u(0x%08x), "
             L"expected = %11u(0x%08x)",
             i, p->input, p->input, p->output, p->output, val, val);
-        VerifyIntOutputWithRefValue(p->output, val, Validation_Tolerance);
+        VerifyOutputWithExpectedValueInt(p->output, val, Validation_Tolerance);
     }
 }
 
@@ -2579,7 +2886,8 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
         &BinaryIntOpParameters[7].m_intTable;
     WEX::TestExecution::TestDataArray<int> *Validation_Expected2 =
         &BinaryIntOpParameters[8].m_intTable;
-    int Validation_Tolerance = BinaryIntOpParameters[10].m_int;
+    int Validation_Tolerance = BinaryIntOpParameters[9].m_int;
+    size_t count = BinaryIntOpParameters[10].m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "BinaryIntOp",
@@ -2587,7 +2895,6 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
           VERIFY_IS_TRUE(0 == _stricmp(Name, "SBinaryIntOp"));
-          size_t count = 8 * 8;
           size_t size = sizeof(SBinaryIntOp) * count;
           Data.resize(size);
           SBinaryIntOp *pPrimitives = (SBinaryIntOp *)Data.data();
@@ -2606,7 +2913,6 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
     MappedData data;
     test->Test->GetReadBackData("SBinaryIntOp", &data);
 
-    unsigned count = 8 * 8;
     SBinaryIntOp *pPrimitives = (SBinaryIntOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
 
@@ -2622,8 +2928,8 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
                 i, p->input1, p->input1, p->input2, p->input2, p->output1,
                 p->output1, val1, val1, p->output2, p->output2, val2,
                 val2);
-            VerifyIntOutputWithRefValue(p->output1, val1, Validation_Tolerance);
-            VerifyIntOutputWithRefValue(p->output2, val2, Validation_Tolerance);
+            VerifyOutputWithExpectedValueInt(p->output1, val1, Validation_Tolerance);
+            VerifyOutputWithExpectedValueInt(p->output2, val2, Validation_Tolerance);
         }
     }
     else if (numExpected == 1) {
@@ -2635,11 +2941,89 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
                           L"%11i(0x%08x), expected = %11i(0x%08x)", i,
                           p->input1, p->input1, p->input2, p->input2,
                           p->output1, p->output1, val1, val1);
-            VerifyIntOutputWithRefValue(p->output1, val1, Validation_Tolerance);
+            VerifyOutputWithExpectedValueInt(p->output1, val1, Validation_Tolerance);
         }
     }
     else {
         LogErrorFmt(L"Unexpected number of expected values for operation %i", numExpected);
+    }
+}
+
+TEST_F(ExecutionTest, TertiaryIntOpTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice)) {
+        return;
+    }
+    // Read data from the table
+    VERIFY_SUCCEEDED(
+        ParseTableRow(TertiaryIntOpParameters,
+            sizeof(TertiaryIntOpParameters) / sizeof(TableParameter)));
+
+    st::ShaderOpShader shader;
+
+    CW2A Name(TertiaryIntOpParameters[0].m_str);
+    CW2A Target(TertiaryIntOpParameters[1].m_str);
+    CW2A EntryPoint(TertiaryIntOpParameters[2].m_str);
+    CW2A Text(TertiaryIntOpParameters[3].m_str);
+    shader.Name = Name.m_psz;
+    shader.Target = Target.m_psz;
+    shader.EntryPoint = EntryPoint.m_psz;
+    shader.Text = Text.m_psz;
+
+    WEX::TestExecution::TestDataArray<int> *Validation_Input1 =
+        &TertiaryIntOpParameters[4].m_intTable;
+    WEX::TestExecution::TestDataArray<int> *Validation_Input2 =
+        &TertiaryIntOpParameters[5].m_intTable;
+    WEX::TestExecution::TestDataArray<int> *Validation_Input3 =
+        &TertiaryIntOpParameters[6].m_intTable;
+    WEX::TestExecution::TestDataArray<int> *Validation_Expected =
+        &TertiaryIntOpParameters[7].m_intTable;
+    int Validation_Tolerance = TertiaryIntOpParameters[8].m_int;
+    size_t count = TertiaryIntOpParameters[9].m_uint;
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "TertiaryIntOp",
+        // this callbacked is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "STertiaryIntOp"));
+        size_t size = sizeof(STertiaryIntOp) * count;
+        Data.resize(size);
+        STertiaryIntOp *pPrimitives = (STertiaryIntOp *)Data.data();
+        for (size_t i = 0; i < count; ++i) {
+            STertiaryIntOp *p = &pPrimitives[i];
+            int val1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
+            int val2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
+            int val3 = (*Validation_Input3)[i % Validation_Input3->GetSize()];
+            p->input1 = val1;
+            p->input2 = val2;
+            p->input3 = val3;
+        }
+
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Text = shader.Text;
+    });
+
+    MappedData data;
+    test->Test->GetReadBackData("STertiaryIntOp", &data);
+
+    STertiaryIntOp *pPrimitives = (STertiaryIntOp *)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+    for (unsigned i = 0; i < count; ++i) {
+        STertiaryIntOp *p = &pPrimitives[i];
+        int val1 = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+        LogCommentFmt(L"element #%u, input1 = %11i(0x%08x), input2 = "
+            L"%11i(0x%08x), input3= %11i(0x%08x), output = "
+            L"%11i(0x%08x), expected = %11i(0x%08x)",
+            i, p->input1, p->input1, p->input2, p->input2,
+            p->input3, p->input3, p->output, p->output, val1,
+            val1);
+        VerifyOutputWithExpectedValueInt(p->output, val1, Validation_Tolerance);
     }
 }
 
@@ -2679,7 +3063,8 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
         &BinaryUintOpParameters[7].m_uintTable;
     WEX::TestExecution::TestDataArray<unsigned int> *Validation_Expected2 =
         &BinaryUintOpParameters[8].m_uintTable;
-    int Validation_Tolerance = BinaryUintOpParameters[10].m_int;
+    int Validation_Tolerance = BinaryUintOpParameters[9].m_int;
+    size_t count = BinaryUintOpParameters[10].m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
         pDevice, m_support, pStream, "BinaryUintOp",
@@ -2687,7 +3072,6 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
         // is creating the resource to run the test
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
         VERIFY_IS_TRUE(0 == _stricmp(Name, "SBinaryUintOp"));
-        size_t count = 8 * 8;
         size_t size = sizeof(SBinaryUintOp) * count;
         Data.resize(size);
         SBinaryUintOp *pPrimitives = (SBinaryUintOp *)Data.data();
@@ -2706,7 +3090,6 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     MappedData data;
     test->Test->GetReadBackData("SBinaryUintOp", &data);
 
-    unsigned count = 8 * 8;
     SBinaryUintOp *pPrimitives = (SBinaryUintOp *)data.data();
     WEX::TestExecution::DisableVerifyExceptions dve;
     if (numExpected == 2) {
@@ -2721,8 +3104,8 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
                 i, p->input1, p->input1, p->input2, p->input2, p->output1,
                 p->output1, val1, val1, p->output2, p->output2, val2,
                 val2);
-            VerifyIntOutputWithRefValue(p->output1, val1, Validation_Tolerance);
-            VerifyIntOutputWithRefValue(p->output2, val2, Validation_Tolerance);
+            VerifyOutputWithExpectedValueInt(p->output1, val1, Validation_Tolerance);
+            VerifyOutputWithExpectedValueInt(p->output2, val2, Validation_Tolerance);
         }
     }
     else if (numExpected == 1) {
@@ -2734,11 +3117,256 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
                 L"%11u(0x%08x), expected = %11u(0x%08x)", i,
                 p->input1, p->input1, p->input2, p->input2,
                 p->output1, p->output1, val1, val1);
-            VerifyIntOutputWithRefValue(p->output1, val1, Validation_Tolerance);
+            VerifyOutputWithExpectedValueInt(p->output1, val1, Validation_Tolerance);
         }
     }
     else {
         LogErrorFmt(L"Unexpected number of expected values for operation %i", numExpected);
+    }
+}
+
+TEST_F(ExecutionTest, TertiaryUintOpTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice)) {
+        return;
+    }
+    // Read data from the table
+    VERIFY_SUCCEEDED(
+        ParseTableRow(TertiaryUintOpParameters,
+            sizeof(TertiaryUintOpParameters) / sizeof(TableParameter)));
+
+    st::ShaderOpShader shader;
+
+    CW2A Name(TertiaryUintOpParameters[0].m_str);
+    CW2A Target(TertiaryUintOpParameters[1].m_str);
+    CW2A EntryPoint(TertiaryUintOpParameters[2].m_str);
+    CW2A Text(TertiaryUintOpParameters[3].m_str);
+    shader.Name = Name.m_psz;
+    shader.Target = Target.m_psz;
+    shader.EntryPoint = EntryPoint.m_psz;
+    shader.Text = Text.m_psz;
+
+    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input1 =
+        &TertiaryUintOpParameters[4].m_uintTable;
+    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input2 =
+        &TertiaryUintOpParameters[5].m_uintTable;
+    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input3 =
+        &TertiaryUintOpParameters[6].m_uintTable;
+    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Expected =
+        &TertiaryUintOpParameters[7].m_uintTable;
+    int Validation_Tolerance = TertiaryUintOpParameters[8].m_int;
+    size_t count = TertiaryUintOpParameters[9].m_uint;
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "TertiaryUintOp",
+        // this callbacked is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "STertiaryUintOp"));
+        size_t size = sizeof(STertiaryUintOp) * count;
+        Data.resize(size);
+        STertiaryUintOp *pPrimitives = (STertiaryUintOp *)Data.data();
+        for (size_t i = 0; i < count; ++i) {
+            STertiaryUintOp *p = &pPrimitives[i];
+            unsigned int val1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
+            unsigned int val2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
+            unsigned int val3 = (*Validation_Input3)[i % Validation_Input3->GetSize()];
+            p->input1 = val1;
+            p->input2 = val2;
+            p->input3 = val3;
+        }
+
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Text = shader.Text;
+    });
+
+    MappedData data;
+    test->Test->GetReadBackData("STertiaryUintOp", &data);
+
+    STertiaryUintOp *pPrimitives = (STertiaryUintOp *)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+    for (unsigned i = 0; i < count; ++i) {
+        STertiaryUintOp *p = &pPrimitives[i];
+        unsigned int val1 = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+        LogCommentFmt(L"element #%u, input1 = %11u(0x%08x), input2 = "
+            L"%11u(0x%08x), input3 = %11u(0x%08x), output = "
+            L"%11u(0x%08x), expected = %11u(0x%08x)", i,
+            p->input1, p->input1, p->input2, p->input2, p->input3, p->input3,
+            p->output, p->output, val1, val1);
+        VerifyOutputWithExpectedValueInt(p->output, val1, Validation_Tolerance);
+    }
+}
+
+TEST_F(ExecutionTest, DotTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice)) {
+        return;
+    }
+    VERIFY_SUCCEEDED(ParseTableRow(
+        DotOpParameters, sizeof(DotOpParameters) / sizeof(DotOpParameters[0])));
+
+    st::ShaderOpShader shader;
+
+    CW2A Name(DotOpParameters[0].m_str);
+    CW2A Target(DotOpParameters[1].m_str);
+    CW2A EntryPoint(DotOpParameters[2].m_str);
+    CW2A Text(DotOpParameters[3].m_str);
+    shader.Name = Name.m_psz;
+    shader.Target = Target.m_psz;
+    shader.EntryPoint = EntryPoint.m_psz;
+    shader.Text = Text.m_psz;
+
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input1 =
+        &DotOpParameters[4].m_StringTable;
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input2 =
+        &DotOpParameters[5].m_StringTable;
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_dot2 =
+        &DotOpParameters[6].m_StringTable;
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_dot3 =
+        &DotOpParameters[7].m_StringTable;
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_dot4 =
+        &DotOpParameters[8].m_StringTable;
+
+    PCWSTR Validation_type = DotOpParameters[9].m_str;
+    double tolerance = DotOpParameters[10].m_double;
+    unsigned int count = DotOpParameters[11].m_uint;
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "DotOp",
+        // this callbacked is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "SDotOp"));
+        size_t size = sizeof(SDotOp) * count;
+        Data.resize(size);
+        SDotOp *pPrimitives = (SDotOp*)Data.data();
+        for (size_t i = 0; i < count; ++i) {
+            SDotOp *p = &pPrimitives[i];
+            float4 val1,val2;
+            VERIFY_SUCCEEDED(ParseDataToVectorFloat((*Validation_Input1)[i],
+                                                    (float *)&val1, 4));
+            VERIFY_SUCCEEDED(ParseDataToVectorFloat((*Validation_Input2)[i],
+                                                    (float *)&val2, 4));
+            p->input1 = val1;
+            p->input2 = val2;
+        }
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Text = shader.Text;
+    });
+
+    MappedData data;
+    test->Test->GetReadBackData("SDotOp", &data);
+
+    SDotOp *pPrimitives = (SDotOp*)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+    for (size_t i = 0; i < count; ++i) {
+        SDotOp *p = &pPrimitives[i];
+        float dot2, dot3, dot4;
+        VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot2)[i], dot2));
+        VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot3)[i], dot3));
+        VERIFY_SUCCEEDED(ParseDataToFloat((*Validation_dot4)[i], dot4));
+        LogCommentFmt(
+            L"element #%u, input1 = (%f, %f, %f, %f), input2 = (%f, %f, "
+            L"%f, %f), \n dot2 = %f, dot2_expected = %f, dot3 = %f, "
+            L"dot3_expected = %f, dot4 = %f, dot4_expected = %f",
+            i, p->input1.x, p->input1.y, p->input1.z, p->input1.w, p->input2.x,
+            p->input2.y, p->input2.z, p->input2.w, p->o_dot2, dot2, p->o_dot3, dot3,
+            p->o_dot4, dot4);
+        VerifyOutputWithExpectedValueFloat(p->o_dot2, dot2, Validation_type,
+                                           tolerance);
+        VerifyOutputWithExpectedValueFloat(p->o_dot3, dot3, Validation_type,
+                                           tolerance);
+        VerifyOutputWithExpectedValueFloat(p->o_dot4, dot4, Validation_type,
+                                           tolerance);
+    }
+}
+
+TEST_F(ExecutionTest, Msad4Test) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice)) {
+        return;
+    }
+    VERIFY_SUCCEEDED(ParseTableRow(
+        Msad4OpParameters, sizeof(Msad4OpParameters) / sizeof(Msad4OpParameters[0])));
+
+    CW2A Text(Msad4OpParameters[0].m_str);
+    double tolerance = Msad4OpParameters[1].m_double;
+    unsigned int count = Msad4OpParameters[2].m_uint;
+
+    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Reference =
+        &Msad4OpParameters[3].m_uintTable;
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Source =
+        &Msad4OpParameters[4].m_StringTable;
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Accum =
+        &Msad4OpParameters[5].m_StringTable;
+    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Expected =
+        &Msad4OpParameters[6].m_StringTable;
+
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "Msad4",
+        // this callbacked is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "SMsad4"));
+        size_t size = sizeof(SMsad4) * count;
+        Data.resize(size);
+        SMsad4 *pPrimitives = (SMsad4*)Data.data();
+        for (size_t i = 0; i < count; ++i) {
+            SMsad4 *p = &pPrimitives[i];
+            uint2 src;
+            uint4 accum;
+            VERIFY_SUCCEEDED(ParseDataToVectorUint((*Validation_Source)[i], (unsigned int*)&src, 2));
+            VERIFY_SUCCEEDED(ParseDataToVectorUint((*Validation_Accum)[i], (unsigned int*)&accum, 4));
+            p->ref = (*Validation_Reference)[i];
+            p->src = src;
+            p->accum = accum;
+        }
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
+    });
+
+    MappedData data;
+    test->Test->GetReadBackData("SMsad4", &data);
+
+    SMsad4 *pPrimitives = (SMsad4*)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+    for (size_t i = 0; i < count; ++i) {
+        SMsad4 *p = &pPrimitives[i];
+        uint4 result;
+        VERIFY_SUCCEEDED(ParseDataToVectorUint((*Validation_Expected)[i],
+                                               (unsigned int *)&result, 4));
+        LogCommentFmt(
+            L"element #%u, ref = %u(0x%08x), src = %u(0x%08x), %u(0x%08x), "
+            L"accum = %u(0x%08x), %u(0x%08x), %u(0x%08x), %u(0x%08x),\n"
+            L"result = %u(0x%08x), %u(0x%08x), %u(0x%08x), %u(0x%08x),\n"
+            L"expected = %u(0x%08x), %u(0x%08x), %u(0x%08x), %u(0x%08x)", i,
+            p->ref, p->ref, p->src.x, p->src.x, p->src.y, p->src.y, p->accum.x,
+            p->accum.x, p->accum.y, p->accum.y, p->accum.z, p->accum.z,
+            p->accum.w, p->accum.w, p->result.x, p->result.x, p->result.y,
+            p->result.y, p->result.z, p->result.z, p->result.w, p->result.w,
+            result.x, result.x, result.y, result.y, result.z, result.z,
+            result.w, result.w);
+
+        VerifyOutputWithExpectedValueInt(p->result.x, result.x, tolerance);
+        VerifyOutputWithExpectedValueInt(p->result.y, result.y, tolerance);
+        VerifyOutputWithExpectedValueInt(p->result.z, result.z, tolerance);
+        VerifyOutputWithExpectedValueInt(p->result.w, result.w, tolerance);
     }
 }
 

@@ -536,7 +536,7 @@ The classification of behavior for various system values in various signature lo
 
 Each SigPointKind also has a corresponding element allocation (or packing) behavior called PackingKind.  Some SigPointKinds do not result in a signature at all, which corresponds to the packing kind of PackingKind::None.
 
-Signature Points are enumerated as follows in the SigPointKind enum::
+Signature Points are enumerated as follows in the SigPointKind
 
 .. <py>import hctdb_instrhelp</py>
 .. <py::lines('SIGPOINT-RST')>hctdb_instrhelp.get_sigpoint_rst()</py>
@@ -565,7 +565,8 @@ ID SigPoint Related ShaderKind PackingKind    SignatureKind Description
 
 .. SIGPOINT-RST:END
 
-Semantic Interpretations are as follows (SemanticInterpretationKind)::
+Semantic Interpretations are as follows (SemanticInterpretationKind)
+
 
 .. <py>import hctdb_instrhelp</py>
 .. <py::lines('SEMINT-RST')>hctdb_instrhelp.get_sem_interpretation_enum_rst()</py>
@@ -587,7 +588,8 @@ ID Name       Description
 
 .. SEMINT-RST:END
 
-Semantic Interpretations for each SemanticKind at each SigPointKind are as follows::
+Semantic Interpretations for each SemanticKind at each SigPointKind are as follows
+
 
 .. <py>import hctdb_instrhelp</py>
 .. <py::lines('SEMINT-TABLE-RST')>hctdb_instrhelp.get_sem_interpretation_table_rst()</py>
@@ -1829,6 +1831,7 @@ DXIL uses a subset of core LLVM IR instructions that make sense for HLSL, where 
 
 The following LLVM instructions are valid in a DXIL program, with the specified operand types where applicable. The legend for overload types (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong.
 
+
 .. <py>import hctdb_instrhelp</py>
 .. <py::lines('INSTR-RST')>hctdb_instrhelp.get_instrs_rst()</py>
 .. INSTR-RST:BEGIN
@@ -1896,170 +1899,179 @@ Opcodes are defined on a dense range and will be provided as enum in a header fi
 .. <py::lines('OPCODES-RST')>hctdb_instrhelp.get_opcodes_rst()</py>
 .. OPCODES-RST:BEGIN
 
-=== ============================= ================================================================================================================
-ID  Name                          Description
-=== ============================= ================================================================================================================
-0   TempRegLoad                   helper load operation
-1   TempRegStore                  helper store operation
-2   MinPrecXRegLoad               helper load operation for minprecision
-3   MinPrecXRegStore              helper store operation for minprecision
-4   LoadInput                     loads the value from shader input
-5   StoreOutput                   stores the value to shader output
-6   FAbs                          returns the absolute value of the input value.
-7   Saturate                      clamps the result of a single or double precision floating point value to [0.0f...1.0f]
-8   IsNaN                         IsNaN
-9   IsInf                         IsInf
-10  IsFinite                      IsFinite
-11  IsNormal                      IsNormal
-12  Cos                           returns cosine(theta) for theta in radians.
-13  Sin                           returns sine(theta) for theta in radians.
-14  Tan                           returns the Tan
-15  Acos                          Acos
-16  Asin                          Asin
-17  Atan                          Atan
-18  Hcos                          Hcos
-19  Hsin                          Hsin
-20  Htan                          Htan
-21  Exp                           returns component-wise e^exponent
-22  Frc                           Frc
-23  Log                           returns component-wise natural log.
-24  Sqrt                          returns component-wise square root
-25  Rsqrt                         returns component-wise reciprocal square root (1 / sqrt(src))
-26  Round_ne                      floating-point round to integral float.
-27  Round_ni                      floating-point round to integral float.
-28  Round_pi                      floating-point round to integral float.
-29  Round_z                       floating-point round to integral float.
-30  Bfrev                         Bfrev
-31  Countbits                     Countbits
-32  FirstbitLo                    FirstbitLo
-33  FirstbitHi                    FirstbitHi
-34  FirstbitSHi                   FirstbitSHi
-35  FMax                          returns a if a >= b, else b
-36  FMin                          returns a if a < b, else b
-37  IMax                          IMax
-38  IMin                          IMin
-39  UMax                          UMax
-40  UMin                          returns the UMin of the input values
-41  IMul                          there is no way to call this directly in HLSL.
-42  UMul                          UMul
-43  UDiv                          UDiv
-44  UAddc                         UAddc
-45  USubb                         USubb
-46  FMad                          performs a fused multiply add (FMA) of the form a * b + c
-47  Fma                           performs a fused multiply add (FMA) of the form a * b + c
-48  IMad                          performs an integral IMad
-49  UMad                          performs an integral UMad
-50  Msad                          performs an integral Msad
-51  Ibfe                          performs an integral Ibfe
-52  Ubfe                          performs an integral Ubfe
-53  Bfi                           given a bit range from the LSB of a number, places that number of bits in another number at any offset
-54  Dot2                          two-dimensional vector dot-product
-55  Dot3                          three-dimensional vector dot-product
-56  Dot4                          four-dimensional vector dot-product
-57  CreateHandle                  creates the handle to a resource
-58  CBufferLoad                   loads a value from a constant buffer resource
-59  CBufferLoadLegacy             loads a value from a constant buffer resource
-60  Sample                        samples a texture
-61  SampleBias                    samples a texture after applying the input bias to the mipmap level
-62  SampleLevel                   samples a texture using a mipmap-level offset
-63  SampleGrad                    samples a texture using a gradient to influence the way the sample location is calculated
-64  SampleCmp                     samples a texture and compares a single component against the specified comparison value
-65  SampleCmpLevelZero            samples a texture and compares a single component against the specified comparison value
-66  TextureLoad                   reads texel data without any filtering or sampling
-67  TextureStore                  reads texel data without any filtering or sampling
-68  BufferLoad                    reads from a TypedBuffer
-69  BufferStore                   writes to a RWTypedBuffer
-70  BufferUpdateCounter           atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
-71  CheckAccessFullyMapped        determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
-72  GetDimensions                 gets texture size information
-73  TextureGather                 gathers the four texels that would be used in a bi-linear filtering operation
-74  TextureGatherCmp              same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
-75  Texture2DMSGetSamplePosition  gets the position of the specified sample
-76  RenderTargetGetSamplePosition gets the position of the specified sample
-77  RenderTargetGetSampleCount    gets the number of samples for a render target
-78  AtomicBinOp                   performs an atomic operation on two operands
-79  AtomicCompareExchange         atomic compare and exchange to memory
-80  Barrier                       inserts a memory barrier in the shader
-81  CalculateLOD                  calculates the level of detail
-82  Discard                       discard the current pixel
-83  DerivCoarseX                  computes the rate of change of components per stamp
-84  DerivCoarseY                  computes the rate of change of components per stamp
-85  DerivFineX                    computes the rate of change of components per pixel
-86  DerivFineY                    computes the rate of change of components per pixel
-87  EvalSnapped                   evaluates an input attribute at pixel center with an offset
-88  EvalSampleIndex               evaluates an input attribute at a sample location
-89  EvalCentroid                  evaluates an input attribute at pixel center
-90  SampleIndex                   returns the sample index in a sample-frequency pixel shader
-91  Coverage                      returns the coverage mask input in a pixel shader
-92  InnerCoverage                 returns underestimated coverage input from conservative rasterization in a pixel shader
-93  ThreadId                      reads the thread ID
-94  GroupId                       reads the group ID (SV_GroupID)
-95  ThreadIdInGroup               reads the thread ID within the group (SV_GroupThreadID)
-96  FlattenedThreadIdInGroup      provides a flattened index for a given thread within a given group (SV_GroupIndex)
-97  EmitStream                    emits a vertex to a given stream
-98  CutStream                     completes the current primitive topology at the specified stream
-99  EmitThenCutStream             equivalent to an EmitStream followed by a CutStream
-100 GSInstanceID                  GSInstanceID
-101 MakeDouble                    creates a double value
-102 SplitDouble                   splits a double into low and high parts
-103 LoadOutputControlPoint        LoadOutputControlPoint
-104 LoadPatchConstant             LoadPatchConstant
-105 DomainLocation                DomainLocation
-106 StorePatchConstant            StorePatchConstant
-107 OutputControlPointID          OutputControlPointID
-108 PrimitiveID                   PrimitiveID
-109 CycleCounterLegacy            CycleCounterLegacy
-110 WaveIsFirstLane               returns 1 for the first lane in the wave
-111 WaveGetLaneIndex              returns the index of the current lane in the wave
-112 WaveGetLaneCount              returns the number of lanes in the wave
-113 WaveAnyTrue                   returns 1 if any of the lane evaluates the value to true
-114 WaveAllTrue                   returns 1 if all the lanes evaluate the value to true
-115 WaveActiveAllEqual            returns 1 if all the lanes have the same value
-116 WaveActiveBallot              returns a struct with a bit set for each lane where the condition is true
-117 WaveReadLaneAt                returns the value from the specified lane
-118 WaveReadLaneFirst             returns the value from the first lane
-119 WaveActiveOp                  returns the result the operation across waves
-120 WaveActiveBit                 returns the result of the operation across all lanes
-121 WavePrefixOp                  returns the result of the operation on prior lanes
-122 QuadReadLaneAt                reads from a lane in the quad
-123 QuadOp                        returns the result of a quad-level operation
-124 BitcastI16toF16               bitcast between different sizes
-125 BitcastF16toI16               bitcast between different sizes
-126 BitcastI32toF32               bitcast between different sizes
-127 BitcastF32toI32               bitcast between different sizes
-128 BitcastI64toF64               bitcast between different sizes
-129 BitcastF64toI64               bitcast between different sizes
-130 LegacyF32ToF16                legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
-131 LegacyF16ToF32                legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
-132 LegacyDoubleToFloat           legacy fuction to convert double to float
-133 LegacyDoubleToSInt32          legacy fuction to convert double to int32
-134 LegacyDoubleToUInt32          legacy fuction to convert double to uint32
-135 WaveAllBitCount               returns the count of bits set to 1 across the wave
-136 WavePrefixBitCount            returns the count of bits set to 1 on prior lanes
-=== ============================= ================================================================================================================
+=== ============================== =================================================================================================================
+ID  Name                           Description
+=== ============================== =================================================================================================================
+0   TempRegLoad_                   Helper load operation
+1   TempRegStore_                  Helper store operation
+2   MinPrecXRegLoad_               Helper load operation for minprecision
+3   MinPrecXRegStore_              Helper store operation for minprecision
+4   LoadInput_                     Loads the value from shader input
+5   StoreOutput_                   Stores the value to shader output
+6   FAbs_                          returns the absolute value of the input value.
+7   Saturate_                      clamps the result of a single or double precision floating point value to [0.0f...1.0f]
+8   IsNaN_                         Returns true if x is NAN or QNAN, false otherwise.
+9   IsInf_                         Returns true if x is +INF or -INF, false otherwise.
+10  IsFinite_                      Returns true if x is finite, false otherwise.
+11  IsNormal_                      returns IsNormal
+12  Cos_                           returns cosine(theta) for theta in radians.
+13  Sin_                           returns sine(theta) for theta in radians.
+14  Tan_                           returns tan(theta) for theta in radians.
+15  Acos_                          Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1.
+16  Asin_                          Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1
+17  Atan_                          Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
+18  Hcos_                          returns the hyperbolic cosine of the specified value.
+19  Hsin_                          returns the hyperbolic sine of the specified value.
+20  Htan_                          returns the hyperbolic tangent of the specified value.
+21  Exp_                           returns e^exponent
+22  Frc_                           extract fracitonal component.
+23  Log_                           returns natural log.
+24  Sqrt_                          returns square root
+25  Rsqrt_                         returns reciprocal square root (1 / sqrt(src)
+26  Round_ne_                      floating-point round to integral float.
+27  Round_ni_                      floating-point round to integral float.
+28  Round_pi_                      floating-point round to integral float.
+29  Round_z_                       floating-point round to integral float.
+30  Bfrev_                         Reverses the order of the bits.
+31  Countbits_                     Counts the number of bits in the input integer.
+32  FirstbitLo_                    Returns the location of the first set bit starting from the lowest order bit and working upward.
+33  FirstbitHi_                    Returns the location of the first set bit starting from the highest order bit and working downward.
+34  FirstbitSHi_                   Returns the location of the first set bit from the highest order bit based on the sign.
+35  FMax_                          returns a if a >= b, else b
+36  FMin_                          returns a if a < b, else b
+37  IMax_                          IMax(a,b) returns a if a > b, else b
+38  IMin_                          IMin(a,b) returns a if a < b, else b
+39  UMax_                          unsigned integer maximum. UMax(a,b) = a > b ? a : b
+40  UMin_                          unsigned integer minimum. UMin(a,b) = a < b ? a : b
+41  IMul_                          multiply of 32-bit operands to produce the correct full 64-bit result.
+42  UMul_                          multiply of 32-bit operands to produce the correct full 64-bit result.
+43  UDiv_                          unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+44  UAddc_                         unsigned add of 32-bit operand with the carry
+45  USubb_                         returns the USubb of the input values
+46  FMad_                          floating point multiply & add
+47  Fma_                           fused multiple-add
+48  IMad_                          Signed integer multiply & add
+49  UMad_                          Unsigned integer multiply & add
+50  Msad_                          masked Sum of Absolute Differences.
+51  Ibfe_                          Integer bitfield extract
+52  Ubfe_                          Unsigned integer bitfield extract
+53  Bfi_                           Given a bit range from the LSB of a number, places that number of bits in another number at any offset
+54  Dot2_                          Two-dimensional vector dot-product
+55  Dot3_                          Three-dimensional vector dot-product
+56  Dot4_                          Four-dimensional vector dot-product
+57  CreateHandle_                  creates the handle to a resource
+58  CBufferLoad_                   loads a value from a constant buffer resource
+59  CBufferLoadLegacy_             loads a value from a constant buffer resource
+60  Sample_                        samples a texture
+61  SampleBias_                    samples a texture after applying the input bias to the mipmap level
+62  SampleLevel_                   samples a texture using a mipmap-level offset
+63  SampleGrad_                    samples a texture using a gradient to influence the way the sample location is calculated
+64  SampleCmp_                     samples a texture and compares a single component against the specified comparison value
+65  SampleCmpLevelZero_            samples a texture and compares a single component against the specified comparison value
+66  TextureLoad_                   reads texel data without any filtering or sampling
+67  TextureStore_                  reads texel data without any filtering or sampling
+68  BufferLoad_                    reads from a TypedBuffer
+69  BufferStore_                   writes to a RWTypedBuffer
+70  BufferUpdateCounter_           atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
+71  CheckAccessFullyMapped_        determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
+72  GetDimensions_                 gets texture size information
+73  TextureGather_                 gathers the four texels that would be used in a bi-linear filtering operation
+74  TextureGatherCmp_              same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+75  Texture2DMSGetSamplePosition_  gets the position of the specified sample
+76  RenderTargetGetSamplePosition_ gets the position of the specified sample
+77  RenderTargetGetSampleCount_    gets the number of samples for a render target
+78  AtomicBinOp_                   performs an atomic operation on two operands
+79  AtomicCompareExchange_         atomic compare and exchange to memory
+80  Barrier_                       inserts a memory barrier in the shader
+81  CalculateLOD_                  calculates the level of detail
+82  Discard_                       discard the current pixel
+83  DerivCoarseX_                  computes the rate of change of components per stamp
+84  DerivCoarseY_                  computes the rate of change of components per stamp
+85  DerivFineX_                    computes the rate of change of components per pixel
+86  DerivFineY_                    computes the rate of change of components per pixel
+87  EvalSnapped_                   evaluates an input attribute at pixel center with an offset
+88  EvalSampleIndex_               evaluates an input attribute at a sample location
+89  EvalCentroid_                  evaluates an input attribute at pixel center
+90  SampleIndex_                   returns the sample index in a sample-frequency pixel shader
+91  Coverage_                      returns the coverage mask input in a pixel shader
+92  InnerCoverage_                 returns underestimated coverage input from conservative rasterization in a pixel shader
+93  ThreadId_                      reads the thread ID
+94  GroupId_                       reads the group ID (SV_GroupID)
+95  ThreadIdInGroup_               reads the thread ID within the group (SV_GroupThreadID)
+96  FlattenedThreadIdInGroup_      provides a flattened index for a given thread within a given group (SV_GroupIndex)
+97  EmitStream_                    emits a vertex to a given stream
+98  CutStream_                     completes the current primitive topology at the specified stream
+99  EmitThenCutStream_             equivalent to an EmitStream followed by a CutStream
+100 GSInstanceID_                  GSInstanceID
+101 MakeDouble_                    creates a double value
+102 SplitDouble_                   splits a double into low and high parts
+103 LoadOutputControlPoint_        LoadOutputControlPoint
+104 LoadPatchConstant_             LoadPatchConstant
+105 DomainLocation_                DomainLocation
+106 StorePatchConstant_            StorePatchConstant
+107 OutputControlPointID_          OutputControlPointID
+108 PrimitiveID_                   PrimitiveID
+109 CycleCounterLegacy_            CycleCounterLegacy
+110 WaveIsFirstLane_               returns 1 for the first lane in the wave
+111 WaveGetLaneIndex_              returns the index of the current lane in the wave
+112 WaveGetLaneCount_              returns the number of lanes in the wave
+113 WaveAnyTrue_                   returns 1 if any of the lane evaluates the value to true
+114 WaveAllTrue_                   returns 1 if all the lanes evaluate the value to true
+115 WaveActiveAllEqual_            returns 1 if all the lanes have the same value
+116 WaveActiveBallot_              returns a struct with a bit set for each lane where the condition is true
+117 WaveReadLaneAt_                returns the value from the specified lane
+118 WaveReadLaneFirst_             returns the value from the first lane
+119 WaveActiveOp_                  returns the result the operation across waves
+120 WaveActiveBit_                 returns the result of the operation across all lanes
+121 WavePrefixOp_                  returns the result of the operation on prior lanes
+122 QuadReadLaneAt_                reads from a lane in the quad
+123 QuadOp_                        returns the result of a quad-level operation
+124 BitcastI16toF16_               bitcast between different sizes
+125 BitcastF16toI16_               bitcast between different sizes
+126 BitcastI32toF32_               bitcast between different sizes
+127 BitcastF32toI32_               bitcast between different sizes
+128 BitcastI64toF64_               bitcast between different sizes
+129 BitcastF64toI64_               bitcast between different sizes
+130 LegacyF32ToF16_                legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
+131 LegacyF16ToF32_                legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
+132 LegacyDoubleToFloat_           legacy fuction to convert double to float
+133 LegacyDoubleToSInt32_          legacy fuction to convert double to int32
+134 LegacyDoubleToUInt32_          legacy fuction to convert double to uint32
+135 WaveAllBitCount_               returns the count of bits set to 1 across the wave
+136 WavePrefixBitCount_            returns the count of bits set to 1 on prior lanes
+=== ============================== =================================================================================================================
 
 
 Acos
 ~~~~
 
-Returns the arccosine of the specified value. Each component should be a floating-point value within the range of -1 to 1.
 The return value is within the range of -PI/2 to PI/2.
 
 Asin
 ~~~~
 
-Returns the arccosine of the specified value. Each component should be a floating-point value within the range of -1 to 1
 The return value is within the range of -PI/2 to PI/2.
 
 Atan
 ~~~~
 
-Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
+Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2
+
+Bfi
+~~~
+
+Given a bit range from the LSB of a number, place that number of bits in another number at any offset.
+
+dst = Bfi(src0, src1, src2, src3);
+
+The LSB 5 bits of src0 provide the bitfield width (0-31) to take from src2.
+The LSB 5 bits of src1 provide the bitfield offset (0-31) to start replacing bits in the  number read from src3.
+Given width, offset: bitmask = (((1 << width)-1) << offset) & 0xffffffff, dest = ((src2 << offset) & bitmask) | (src3 & ~bitmask)
 
 Bfrev
 ~~~~~
 
-Reverses the order of the bits, per component.
+Reverses the order of the bits. For example given 0x12345678 the result would be 0x1e6a2c48.
 
 Cos
 ~~~
@@ -2077,12 +2089,28 @@ The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
 Countbits
 ~~~~~~~~~
 
-Counts the number of bits (per component) in the input integer.
+Counts the number of bits in the input integer.
+
+Dot2
+~~~~
+
+Two-dimensional vector dot-product
+
+Dot3
+~~~~
+
+Three-dimensional vector dot-product
+
+Dot4
+~~~~
+
+Four-dimensional vector dot-product
 
 Exp
 ~~~
 
 Maximum relative error is e^{-21}
+
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
@@ -2094,6 +2122,12 @@ FAbs
 
 The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF values.
 Applying FAbs on NaN preserves NaN, although the particular NaN bit pattern that results is not defined.
+
+FMad
+~~~~
+
+Floating point multiply & add. This operation is not fused for "precise" operations.
+FMad(a,b,c) = a * b + c
 
 FMax
 ~~~~
@@ -2146,63 +2180,102 @@ Denorms are flushed (sign preserved) before comparison, however the result writt
 FirstbitHi
 ~~~~~~~~~~
 
-Gets the location of the first set bit starting from the highest order bit and working downward, per component.
+Returns the integer position of the first bit set in the 32-bit input starting from the MSB. For example, 0x10000000 would return 3. Returns 0xffffffff if no match was found.
 
 FirstbitLo
 ~~~~~~~~~~
 
-Returns the location of the first set bit starting from the lowest order bit and working upward, per component.
+Returns the integer position of the first bit set in the 32-bit input starting from the LSB. For example, 0x00000000 would return 1. Returns 0xffffffff if no match was found.
 
 FirstbitSHi
 ~~~~~~~~~~~
 
-Returns the location of the first set bit of signed integer starting from the lowest order bit and working upward, per component.
+Returns the first 0 from the MSB if the number is negative, else the first 1 from the MSB. Returns 0xffffffff if no match was found.
+
+Fma
+~~~
+
+Fused multiple-add. This operation is only defined in double precision.
+Fma(a,b,c) = a * b + c
 
 Frc
 ~~~
 
-component-wise, extract fracitonal component.
-
-+------------+------+------------+---------+----+----+---------+------------+------+-----+
-| src        | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
-+------------+------+------------+---------+----+----+---------+------------+------+-----+
-| frc(src)   | NaN  | [+0,1)     |    +0   | +0 | +0 |      +0 | [+0,1)     | NaN  | NaN |
-+------------+------+------------+---------+----+----+---------+------------+------+-----+
++--------------+------+------+---------+----+----+---------+--------+------+-----+
+| src          | -inf | -F   | -denorm | -0 | +0 | +denorm | +F     | +inf | NaN |
++--------------+------+------+---------+----+----+---------+--------+------+-----+
+| log(src)     | NaN  |[+0,1)| +0      | +0 | +0 | +0      | [+0,1) | NaN  | NaN |
++--------------+------+------+---------+----+----+---------+--------+------+-----+
 
 Hcos
 ~~~~
 
-returns the hyperbolic cosine of the specified value.
+Returns the hyperbolic cosine of the specified value.
 
 Hsin
 ~~~~
 
-returns the hyperbolic sine of the specified value.
+Returns the hyperbolic sine of the specified value.
 
 Htan
 ~~~~
 
-returns the hyperbolic tangent of the specified value.
+Returns the hyperbolic tangent of the specified value.
+
+IMad
+~~~~
+
+Signed integer multiply & add
+
+IMad(a,b,c) = a * b + c
 
 IMax
 ~~~~
 
-IMax(a,b) returns a if a >= b, else b
+IMax(a,b) returns a if a > b, else b. Optional negate modifier on source operands takes 2's complement before performing operation.
 
 IMin
 ~~~~
 
-IMin(a,b) returns a if a < b, else b
+IMin(a,b) returns a if a < b, else b. Optional negate modifier on source operands takes 2's complement before performing operation.
 
 IMul
 ~~~~
 
-Component-wise multiply of 32-bit operands src0 and src1 (note they are signed), producing the correct full 64-bit (per component) result.
-The low 32 bits (per component) are placed in destLO.  The high 32 bits (per component) are placed in destHI.
+IMul(src0, src1) = destHi, destLo
+multiply of 32-bit operands src0 and src1 (note they are signed), producing the correct full 64-bit result.
+The low 32 bits are placed in destLO. The high 32 bits are placed in destHI.
 
 Either of destHI or destLO may be specified as NULL instead of specifying a register, in the case high or low 32 bits of the 64-bit result are not needed.
 
 Optional negate modifier on source operands takes 2's complement before performing arithmetic operation.
+
+Ibfe
+~~~~
+
+dest = Ibfe(src0, src1, src2)
+
+Given a range of bits in a number, shift those bits to the LSB and sign extend the MSB of the range.
+
+width : The LSB 5 bits of src0 (0-31).
+
+offset: The LSB 5 bits of src1 (0-31)
+
+.. code:: c
+
+    if( width == 0 )
+    {
+        dest = 0
+    }
+    else if( width + offset < 32 )
+    {
+        shl dest, src2, 32-(width+offset)
+        ishr dest, dest, 32-width
+    }
+    else
+    {
+        ishr dest, src2, offset
+    }
 
 IsFinite
 ~~~~~~~~
@@ -2219,6 +2292,16 @@ IsNaN
 
 Returns true if x is NAN or QNAN, false otherwise.
 
+IsNormal
+~~~~~~~~
+
+Returns IsNormal.
+
+LoadInput
+~~~~~~~~~
+
+Loads the value from shader input
+
 Log
 ~~~
 
@@ -2228,71 +2311,138 @@ Log
 | log(src) |  NaN | NaN        |    -inf |-inf|-inf|    -inf |  F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 
+MinPrecXRegLoad
+~~~~~~~~~~~~~~~
+
+Helper load operation for minprecision
+
+MinPrecXRegStore
+~~~~~~~~~~~~~~~~
+
+Helper store operation for minprecision
+
+Msad
+~~~~
+
+Returns the masked Sum of Absolute Differences.
+
+dest = msad(ref, src, accum)
+
+ref: contains 4 packed 8-bit unsigned integers in 32 bits.
+
+src: contains 4 packed 8-bit unsigned integers in 32 bits.
+
+accum: a 32-bit unsigned integer, providing an existing accumulation.
+
+dest receives the result of the masked SAD operation added to the accumulation value.
+
+.. code:: c
+
+    UINT msad( UINT ref, UINT src, UINT accum )
+    {
+        for (UINT i = 0; i < 4; i++)
+        {
+            BYTE refByte, srcByte, absDiff;
+
+            refByte = (BYTE)(ref >> (i * 8));
+            if (!refByte)
+            {
+                continue;
+            }
+
+            srcByte = (BYTE)(src >> (i * 8));
+            if (refByte >= srcByte)
+            {
+                absDiff = refByte - srcByte;
+            }
+            else
+            {
+                absDiff = srcByte - refByte;
+            }
+
+            // The recommended overflow behavior for MSAD is
+            // to do a 32-bit saturate. This is not
+            // required, however, and wrapping is allowed.
+            // So from an application point of view,
+            // overflow behavior is undefined.
+            if (UINT_MAX - accum < absDiff)
+            {
+                accum = UINT_MAX;
+                break;
+            }
+
+            accum += absDiff;
+        }
+
+        return accum;
+    }
+
 Round_ne
 ~~~~~~~~
 
-Component-wise floating-point round of the values in src,
+Floating-point round of the values in src,
 writing integral floating-point values to dest.
 
 round_ne rounds towards nearest even. For halfway, it rounds away from zero.
 
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
-| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
-| round_ne(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| round_ne(src)| -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
 
 Round_ni
 ~~~~~~~~
 
-Component-wise floating-point round of the values in src,
+Floating-point round of the values in src,
 writing integral floating-point values to dest.
 
 round_ni rounds towards -INF, commonly known as floor().
 
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
-| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
-| round_ni(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| round_ni(src)| -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
 
 Round_pi
 ~~~~~~~~
 
-Component-wise floating-point round of the values in src,
+Floating-point round of the values in src,
 writing integral floating-point values to dest.
 
 round_pi rounds towards +INF, commonly known as ceil().
 
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
-| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
-| round_pi(src)| -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| round_pi(src)| -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
 
 Round_z
 ~~~~~~~
 
-Component-wise floating-point round of the values in src,
+Floating-point round of the values in src,
 writing integral floating-point values to dest.
 
 round_z rounds towards zero.
 
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
-| src          | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
-| round_z(src) | -inf | -F         |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
-+--------------+------+------------+---------+----+----+---------+------------+------+-----+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| round_z(src) | -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
 
 Rsqrt
 ~~~~~
 
 Maximum relative error is 2^21.
-+-----------+------+------------+---------+----+----+---------+------------+------+-----+
-| src       | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
-+-----------+------+------------+---------+----+----+---------+------------+------+-----+
-| rsqrt(src)|  NaN | NaN        |  -inf   |-inf|+inf|  +inf   | +F         | +0   | NaN |
-+-----------+------+------------+---------+----+----+---------+------------+------+-----+
+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| rsqrt(src)   | -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
 
 Saturate
 ~~~~~~~~
@@ -2323,47 +2473,119 @@ Sqrt
 
 Precision is 1 ulp.
 
-+----------+------+------------+---------+----+----+---------+------------+------+-----+
-| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
-+----------+------+------------+---------+----+----+---------+------------+------+-----+
-| sqrt(src)|  NaN | NaN        |    -0   | -0 | +0 |      +0 | +F         | +inf | NaN |
-+----------+------+------------+---------+----+----+---------+------------+------+-----+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| sqrt(src)    | NaN  | NaN| -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+
+StoreOutput
+~~~~~~~~~~~
+
+Stores the value to shader output
+
+Tan
+~~~
+
+Theta values can be any IEEE 32-bit floating point values.
+
++----------+----------+----------------+---------+----+----+---------+----------------+------+-----+
+| src      | -inf     | -F             | -denorm | -0 | +0 | +denorm | +F             | +inf | NaN |
++----------+----------+----------------+---------+----+----+---------+----------------+------+-----+
+| tan(src) | NaN      | [-inf to +inf] | -0      | -0 | +0 | +0      | [-inf to +inf] | NaN  | NaN |
++----------+----------+----------------+---------+----+----+---------+----------------+------+-----+
+
+TempRegLoad
+~~~~~~~~~~~
+
+Helper load operation
+
+TempRegStore
+~~~~~~~~~~~~
+
+Helper store operation
 
 UAddc
 ~~~~~
 
-Component-wise unsigned add of 32-bit operands src0 and src1, placing the LSB part of the 32-bit result in dest0. \
-The corresponding component in dest1 is written with: 1 if a carry is produced, 0 otherwise. Dest1 can be NULL if the carry is not needed
+dest0, dest1 = UAddc(src0, src1)
+
+unsigned add of 32-bit operands src0 and src1, placing the LSB part of the 32-bit result in dest0.
+dest1 is written with: 1 if a carry is produced, 0 otherwise. Dest1 can be NULL if the carry is not needed
 
 UDiv
 ~~~~
 
-Component-wise unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+destQUOT, destREM = UDiv(src0, src1);
+
+unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+
 The results of the divides are the 32-bit quotients (placed in destQUOT) and 32-bit remainders (placed in destREM).
-Divide by zero returns 0xffffffff for both quotient and remainder. Either destQUOT or destREM may be specified as NULL instead of specifying a register, in the case the quotient or remainder are not needed.
+
+Divide by zero returns 0xffffffff for both quotient and remainder.
+
+Either destQUOT or destREM may be specified as NULL instead of specifying a register, in the case the quotient or remainder are not needed.
+
+Unsigned subtract of 32-bit operands src1 from src0, placing the LSB part of the 32-bit result in dest0.
+dest1 is written with: 1 if a borrow is produced, 0 otherwise. Dest1 can be NULL if the borrow is not needed
+
+UMad
+~~~~
+
+Unsigned integer multiply & add.
+
+Umad(a,b,c) = a * b + c
 
 UMax
 ~~~~
 
-Component-wise unsigned integer maximum. UMax(a,b) = a > b ? a : b
+unsigned integer maximum. UMax(a,b) = a > b ? a : b
 
 UMin
 ~~~~
 
-Component-wise unsigned integer minimum. UMin(a,b) = a < b ? a : b
+unsigned integer minimum. UMin(a,b) = a < b ? a : b
 
 UMul
 ~~~~
 
-Component-wise multiply of 32-bit operands  src0 and src1 (note they are unsigned), producing the correct  full 64-bit (per component) result.
-The low 32 bits (per  component) are placed in destLO. The high 32 bits (per  component) are placed in destHI.
-Either of destHI or destLO may be specified as NULL instead of  specifying a register, in the case high or low 32 bits of the  64-bit result are not needed
+multiply of 32-bit operands src0 and src1 (note they are unsigned), producing the correct full 64-bit result.
+The low 32 bits are placed in destLO. The high 32 bits are placed in destHI.
+Either of destHI or destLO may be specified as NULL instead of specifying a register, in the case high or low 32 bits of the 64-bit result are not needed
 
 USubb
 ~~~~~
 
-Component-wise unsigned subtract of 32-bit operands src1 from src0, placing the LSB part of the 32-bit result in dest0.
-The corresponding component in dest1 is written with: 1 if a borrow is produced, 0 otherwise. Dest1 can be NULL if the borrow is not needed
+dest0, dest1 = USubb(src0, src1)
+
+Ubfe
+~~~~
+
+dest = ubfe(src0, src1, src2)
+
+Given a range of bits in a number, shift those bits to the LSB and set remaining bits to 0.
+
+width : The LSB 5 bits of src0 (0-31).
+
+offset: The LSB 5 bits of src1 (0-31).
+
+Given width, offset:
+
+.. code:: c
+
+    if( width == 0 )
+    {
+        dest = 0
+    }
+    else if( width + offset < 32 )
+    {
+        shl dest, src2, 32-(width+offset)
+        ushr dest, dest, 32-width
+    }
+    else
+    {
+        ushr dest, src2, offset
+    }
 
 .. OPCODES-RST:END
 
