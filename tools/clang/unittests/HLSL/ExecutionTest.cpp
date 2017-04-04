@@ -1634,7 +1634,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   {
     MappedData mappedData(pReadCounterBuffer, sizeof(uint32_t));
     appendCount = *((uint32_t *)mappedData.data());
-    LogCommentFmt(L"%u elements in append buffer");
+    LogCommentFmt(L"%u elements in append buffer", appendCount);
   }
 
   {
