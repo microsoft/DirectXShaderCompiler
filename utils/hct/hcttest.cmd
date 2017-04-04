@@ -182,7 +182,7 @@ if "%TEST_SPIRV%"=="1" (
     exit /b 1
   )
   echo Running SPIRV tests ...
-  %BIN_DIR%\clang-spirv-tests.exe
+  %BIN_DIR%\clang-spirv-tests.exe --spirv-test-root %HLSL_SRC_DIR%\tools\clang\test\CodeGenSPIRV
   if errorlevel 1 (
     echo Failure occured in SPIRV unit tests
     exit /b 1

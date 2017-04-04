@@ -60,12 +60,12 @@ TEST(ValidateSPIRVContext, ValidateUniqueIdForUniqueAggregateType) {
   const auto mem_0_position =
       Decoration::getBuiltIn(ctx, spv::BuiltIn::Position, 0);
 
-  const Type *struct_1 = Type::getType(
-      ctx, spv::Op::OpTypeStruct, {intt_id, boolt_id},
+  const Type *struct_1 = Type::getStruct(
+      ctx, {intt_id, boolt_id},
       {relaxed, bufferblock, mem_0_offset, mem_1_offset, mem_0_position});
 
-  const Type *struct_2 = Type::getType(
-      ctx, spv::Op::OpTypeStruct, {intt_id, boolt_id},
+  const Type *struct_2 = Type::getStruct(
+      ctx, {intt_id, boolt_id},
       {relaxed, bufferblock, mem_0_offset, mem_1_offset, mem_0_position});
 
   const uint32_t struct_1_id = ctx.getResultIdForType(struct_1);
