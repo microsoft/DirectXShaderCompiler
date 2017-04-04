@@ -21,6 +21,7 @@ class Value;
 class Instruction;
 };
 #include "llvm/IR/Attributes.h"
+#include "llvm/ADT/StringRef.h"
 
 #include "DxilConstants.h"
 #include <unordered_map>
@@ -72,6 +73,7 @@ public:
   static const char *GetOpCodeClassName(OpCode OpCode);
   static bool IsOverloadLegal(OpCode OpCode, llvm::Type *pType);
   static bool CheckOpCodeTable();
+  static bool IsDxilOpFuncName(llvm::StringRef name);
   static bool IsDxilOpFunc(const llvm::Function *F);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I);
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);

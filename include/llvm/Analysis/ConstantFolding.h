@@ -22,6 +22,7 @@
 
 namespace llvm {
   class Constant;
+  class ConstantFP;
   class ConstantExpr;
   class Instruction;
   class DataLayout;
@@ -108,6 +109,11 @@ bool canConstantFoldCallTo(const Function *F);
 /// with the specified arguments, returning null if unsuccessful.
 Constant *ConstantFoldCall(Function *F, ArrayRef<Constant *> Operands,
                            const TargetLibraryInfo *TLI = nullptr);
+
+/// HLSL Change - make these functions external so we can call them from 
+/// DxilConstantFolding.cpp.
+Constant *ConstantFoldFP(double(__cdecl *NativeFP)(double), double V, Type *Ty);
+double getValueAsDouble(ConstantFP *Op);
 }
 
 #endif

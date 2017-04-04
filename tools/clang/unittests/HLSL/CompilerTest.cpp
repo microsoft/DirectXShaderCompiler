@@ -839,6 +839,7 @@ public:
   TEST_METHOD(CodeGenDx12MiniEngineTonemapcs)
   TEST_METHOD(CodeGenDx12MiniEngineUpsampleandblurcs)
   TEST_METHOD(DxilGen_StoreOutput)
+  TEST_METHOD(ConstantFolding)
 
   dxc::DxcDllSupport m_dllSupport;
   bool m_CompilerPreservesBBNames;
@@ -4100,6 +4101,56 @@ TEST_F(CompilerTest, CodeGenDx12MiniEngineUpsampleandblurcs){
 
 TEST_F(CompilerTest, DxilGen_StoreOutput) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\dxilgen_storeoutput.hlsl");
+}
+
+TEST_F(CompilerTest, ConstantFolding) {
+  CodeGenTestCheck(L"constprop\\FAbs.hlsl");
+  CodeGenTestCheck(L"constprop\\Saturate_half.hlsl");
+  CodeGenTestCheck(L"constprop\\Saturate_float.hlsl");
+  CodeGenTestCheck(L"constprop\\Saturate_double.hlsl");
+  CodeGenTestCheck(L"constprop\\Cos.hlsl");
+  CodeGenTestCheck(L"constprop\\Sin.hlsl");
+  CodeGenTestCheck(L"constprop\\Tan.hlsl");
+  CodeGenTestCheck(L"constprop\\Acos.hlsl");
+  CodeGenTestCheck(L"constprop\\Asin.hlsl");
+  CodeGenTestCheck(L"constprop\\Atan.hlsl");
+  CodeGenTestCheck(L"constprop\\Hcos.hlsl");
+  CodeGenTestCheck(L"constprop\\Hsin.hlsl");
+  CodeGenTestCheck(L"constprop\\Htan.hlsl");
+  CodeGenTestCheck(L"constprop\\Exp.hlsl");
+  CodeGenTestCheck(L"constprop\\Frc.hlsl");
+  CodeGenTestCheck(L"constprop\\Log.hlsl");
+  CodeGenTestCheck(L"constprop\\Sqrt.hlsl");
+  CodeGenTestCheck(L"constprop\\Rsqrt.hlsl");
+  CodeGenTestCheck(L"constprop\\Round_ne.hlsl");
+  CodeGenTestCheck(L"constprop\\Round_ni.hlsl");
+  CodeGenTestCheck(L"constprop\\Round_pi.hlsl");
+  CodeGenTestCheck(L"constprop\\Round_z.hlsl");
+  
+  CodeGenTestCheck(L"constprop\\Bfrev.hlsl");
+  CodeGenTestCheck(L"constprop\\Countbits.hlsl");
+  CodeGenTestCheck(L"constprop\\Firstbitlo.hlsl");
+  CodeGenTestCheck(L"constprop\\Firstbithi.hlsl");
+
+  CodeGenTestCheck(L"constprop\\FMin.hlsl");
+  CodeGenTestCheck(L"constprop\\FMax.hlsl");
+  CodeGenTestCheck(L"constprop\\IMin.hlsl");
+  CodeGenTestCheck(L"constprop\\IMax.hlsl");
+  CodeGenTestCheck(L"constprop\\UMin.hlsl");
+  CodeGenTestCheck(L"constprop\\UMax.hlsl");
+  
+  CodeGenTestCheck(L"constprop\\FMad.hlsl");
+  CodeGenTestCheck(L"constprop\\Fma.hlsl");
+  CodeGenTestCheck(L"constprop\\IMad.hlsl");
+  CodeGenTestCheck(L"constprop\\UMad.hlsl");
+  
+  CodeGenTestCheck(L"constprop\\Dot2.hlsl");
+  CodeGenTestCheck(L"constprop\\Dot3.hlsl");
+  CodeGenTestCheck(L"constprop\\Dot4.hlsl");
+
+  CodeGenTestCheck(L"constprop\\ibfe.ll");
+  CodeGenTestCheck(L"constprop\\ubfe.ll");
+  CodeGenTestCheck(L"constprop\\bfi.ll");
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {

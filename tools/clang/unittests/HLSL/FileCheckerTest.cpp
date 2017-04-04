@@ -341,8 +341,11 @@ static string trim(string value) {
       for (llvm::StringRef S : splitArgs) {
         optionStrings.push_back(
             Unicode::UTF8ToUTF16StringOrThrow(trim(S.str()).c_str()));
-        options.push_back(optionStrings.back().c_str());
       }
+
+      // Add the options outside the above loop in case the vector is resized.
+      for (const std::wstring& str : optionStrings)
+        options.push_back(str.c_str());
 
       IFT(pOptimizer->RunOptimizer(pSource, options.data(), options.size(),
                                    &pOutputModule, &pOutputText));
