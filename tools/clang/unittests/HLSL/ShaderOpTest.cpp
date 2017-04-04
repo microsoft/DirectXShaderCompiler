@@ -498,9 +498,9 @@ void ShaderOpTest::CreatePipelineState() {
       ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i]);
       GDesc.RTVFormats[i] = R->Desc.Format;
     }
-    GDesc.SampleDesc.Count = 1; // TODO: read from file, set form shader operation; also apply to count
+    GDesc.SampleDesc.Count = 1; // TODO: read from file, set from shader operation; also apply to count
     GDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT); // TODO: read from file, set from op
-    GDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT); // TODO: read frm file, set from op
+    GDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT); // TODO: read from file, set from op
 
     // TODO: pending values to set
 #if 0
@@ -1888,10 +1888,10 @@ void ShaderOpParser::ParseResource(IXmlReader *pReader, ShaderOpResource *pResou
           fVal = NAN;
         }
         else if (0 == _wcsicmp(pText, L"-inf")) {
-          fVal = INFINITY;
+          fVal = -(INFINITY);
         }
         else if (0 == _wcsicmp(pText, L"inf") || 0 == _wcsicmp(pText, L"+inf")) {
-          fVal = -(INFINITY);
+          fVal = INFINITY;
         }
         else if (0 == _wcsicmp(pText, L"-denorm")) {
           fVal = -(FLT_MIN / 2);
