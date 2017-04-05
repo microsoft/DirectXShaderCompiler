@@ -1923,8 +1923,7 @@ void DxilGenerationPass::TranslateDxilResourceUses(
 
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
       if (UpdateCounterSet.count(ldInst)) {
-        DxilResource *resource = dynamic_cast<DxilResource*>(&res);
-        DXASSERT_NOMSG(resource);
+        DxilResource *resource = llvm::dyn_cast<DxilResource>(&res);
         DXASSERT_NOMSG(resource->GetClass() == DXIL::ResourceClass::UAV);
         resource->SetHasCounter(true);
       }
@@ -1982,8 +1981,7 @@ void DxilGenerationPass::TranslateDxilResourceUses(
         // Must be load inst.
         LoadInst *ldInst = cast<LoadInst>(*(GEPU++));
         if (UpdateCounterSet.count(ldInst)) {
-          DxilResource *resource = dynamic_cast<DxilResource *>(&res);
-          DXASSERT_NOMSG(resource);
+          DxilResource *resource = dyn_cast<DxilResource>(&res);
           DXASSERT_NOMSG(resource->GetClass() == DXIL::ResourceClass::UAV);
           resource->SetHasCounter(true);
         }
