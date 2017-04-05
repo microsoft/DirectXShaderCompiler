@@ -95,3 +95,6 @@
 
 // 0X80AA0016 - Unexpected failure in macro expansion.
 #define DXC_E_MACRO_EXPANSION_FAILURE                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0016))
+
+// 0X80AA0017 - DXIL optimization pass failed.
+#define DXC_E_OPTIMIZATION_FAILED                     DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0017))
