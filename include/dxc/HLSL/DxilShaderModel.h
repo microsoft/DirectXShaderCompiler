@@ -60,6 +60,9 @@ public:
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
 
+  bool operator==(const ShaderModel &other) const;
+  bool operator!=(const ShaderModel &other) const { return !(*this == other); }
+
 private:
   Kind m_Kind;
   unsigned m_Major;
