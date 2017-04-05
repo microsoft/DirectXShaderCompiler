@@ -150,18 +150,6 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 #define DXVERIFY_NOMSG(exp) DXASSERT(exp, "")
 
-// This should be improved with global enabled mask rather than a compile-time mask.
-#define DXTRACE_MASK_ENABLED  0
-#define DXTRACE_MASK_APIFS    1
-#define DXTRACE_ENABLED(subsystem) (DXTRACE_MASK_ENABLED & subsystem)
-
-// DXTRACE_FMT formats a debugger trace message if DXTRACE_MASK allows it.
-#define DXTRACE_FMT(subsystem, fmt, ...) do { \
-  if (DXTRACE_ENABLED(subsystem)) OutputDebugFormatA(fmt, __VA_ARGS__); \
-} while (0)
-/// DXTRACE_FMT_APIFS is used by the API-based virtual filesystem.
-#define DXTRACE_FMT_APIFS(fmt, ...) DXTRACE_FMT(DXTRACE_MASK_APIFS, fmt, __VA_ARGS__)
-
 #else
 
 // DXASSERT is disabled in free builds.
@@ -175,9 +163,5 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
 #define DXVERIFY_NOMSG(exp) do { (exp); _Analysis_assume_(exp); } while (0)
-
-// DXTRACE_FMT and the subsystem versions are disabled in free builds.
-#define DXTRACE_FMT(...) (void)(0)
-#define DXTRACE_FMT_APIFS(...) (void)(0)
 
 #endif // DBG
