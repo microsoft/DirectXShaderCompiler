@@ -730,8 +730,7 @@ void OP::RemoveFunction(Function *F) {
 OP::OpCodeClass OP::GetOpClassForDxilFunction(const Function *F) {
   auto iter = m_FunctionToOpClass.find(F);
   if (iter == m_FunctionToOpClass.end()) {
-    DXASSERT(false, "should only be called for dxil functions");
-    return OpCodeClass::NumOpClasses;
+    throw hlsl::Exception(DXC_E_OPTIMIZATION_FAILED, "should only be called for dxil functions");
   }
   return iter->second;
 }
