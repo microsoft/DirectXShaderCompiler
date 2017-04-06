@@ -526,7 +526,6 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     return E_INVALIDARG;
   }
 
-
   legacy::PassManager ModulePasses;
   legacy::FunctionPassManager FunctionPasses(M.get());
   legacy::PassManagerBase *pPassManager = &ModulePasses;

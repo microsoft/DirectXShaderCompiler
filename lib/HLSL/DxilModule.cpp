@@ -127,7 +127,7 @@ Module *DxilModule::GetModule() const { return m_pModule; }
 OP *DxilModule::GetOP() const { return m_pOP.get(); }
 
 void DxilModule::SetShaderModel(const ShaderModel *pSM) {
-  DXASSERT(m_pSM == nullptr, "shader model must not change for the module");
+  DXASSERT(m_pSM == nullptr || (pSM != nullptr && *m_pSM == *pSM), "shader model must not change for the module");
   m_pSM = pSM;
   m_pMDHelper->SetShaderModel(m_pSM);
   DXIL::ShaderKind shaderKind = pSM->GetKind();

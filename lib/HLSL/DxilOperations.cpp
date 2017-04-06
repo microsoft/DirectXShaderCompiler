@@ -427,8 +427,14 @@ void OP::RefreshCache(llvm::Module *pModule) {
       Type *pOverloadType = OP::GetOverloadType(OpCode, &F);
       Function *OpFunc = GetOpFunc(OpCode, pOverloadType);
       DXASSERT_NOMSG(OpFunc == &F);
+
     }
   }
+}
+
+void OP::UpdateCache(OpCodeClass opClass, unsigned typeSlot, llvm::Function *F) {
+  m_OpCodeClassCache[(unsigned)opClass].pOverloads[typeSlot] = F;
+  m_FunctionToOpClass[F] = opClass;
 }
 
 Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
@@ -438,8 +444,10 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
   OpCodeClass opClass = m_OpCodeProps[(unsigned)OpCode].OpCodeClass;
   Function *&F = m_OpCodeClassCache[(unsigned)opClass].pOverloads[TypeSlot];
-  if (F != nullptr)
+  if (F != nullptr) {
+    UpdateCache(opClass, TypeSlot, F);
     return F;
+  }
 
   vector<Type*> ArgTypes;      // RetType is ArgTypes[0]
   Type *pETy = pOverloadType;
@@ -470,6 +478,7 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   // Try to find exist function with the same name in the module.
   if (Function *existF = m_pModule->getFunction(funcName)) {
     F = existF;
+    UpdateCache(opClass, TypeSlot, F);
     return F;
   }
 
@@ -690,7 +699,7 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
 
   F = cast<Function>(m_pModule->getOrInsertFunction(funcName, pFT));
 
-  m_FunctionToOpClass[F] = opClass;
+  UpdateCache(opClass, TypeSlot, F);
   F->setCallingConv(CallingConv::C);
   F->addFnAttr(Attribute::NoUnwind);
   if (m_OpCodeProps[(unsigned)OpCode].FuncAttr != Attribute::None)
@@ -716,6 +725,16 @@ void OP::RemoveFunction(Function *F) {
       }
     }
   }
+}
+
+bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
+  auto iter = m_FunctionToOpClass.find(F);
+  if (iter == m_FunctionToOpClass.end()) {
+    DXASSERT(!IsDxilOpFunc(F), "dxil function without an opcode class mapping?");
+    return false;
+  }
+  opClass = iter->second;
+  return true;
 }
 
 llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {

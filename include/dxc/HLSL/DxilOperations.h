@@ -54,6 +54,11 @@ public:
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
 
+  // Try to get the opcode class for a function.
+  // Return true and set `opClass` if the given function is a dxil function.
+  // Return false if the given function is not a dxil function.
+  bool GetOpCodeClass(const llvm::Function *F, OpCodeClass &opClass);
+
   // LLVM helpers. Perhaps, move to a separate utility class.
   llvm::Constant *GetI1Const(bool v);
   llvm::Constant *GetI8Const(char v);
@@ -102,8 +107,9 @@ private:
     llvm::Function *pOverloads[kNumTypeOverloads];
   };
   OpCodeCacheItem m_OpCodeClassCache[(unsigned)OpCodeClass::NumOpClasses];
-  std::unordered_map<llvm::Function *, OpCodeClass> m_FunctionToOpClass;
+  std::unordered_map<const llvm::Function *, OpCodeClass> m_FunctionToOpClass;
   void RefreshCache(llvm::Module *pModule);
+  void UpdateCache(OpCodeClass opClass, unsigned typeSlot, llvm::Function *F);
 private:
   // Static properties.
   struct OpCodeProperty {

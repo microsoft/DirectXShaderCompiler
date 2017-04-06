@@ -30,16 +30,18 @@ entry:
   %4 = call i32 @dx.op.quaternary.i32(i32 53, i32 0, i32 8, i32 0, i32 15)
   call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %buf_UAV_rawbuf, i32 16, i32 undef, i32 %4, i32 undef, i32 undef, i32 undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
   
-  ; CHECK: @dx.op.bufferStore{{.*}}, i32 2560,
-  %5 = call i64 @dx.op.quaternary.i64(i32 53, i64 4, i64 8, i64 4010, i64 0)
-  %6 = trunc i64 %5 to i32
-  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %buf_UAV_rawbuf, i32 20, i32 undef, i32 %6, i32 undef, i32 undef, i32 undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
+  ; No i64 overloads for bfi in dxil yet.
+  ; xHECK: @dx.op.bufferStore{{.*}}, i32 2560,
+  ;%5 = call i64 @dx.op.quaternary.i64(i32 53, i64 4, i64 8, i64 4010, i64 0)
+  ;%6 = trunc i64 %5 to i32
+  ;call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %buf_UAV_rawbuf, i32 20, i32 undef, i32 %6, i32 undef, i32 undef, i32 undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
   
-  ; CHECK: @dx.op.bufferStore{{.*}}, i32 10,
-  %7 = call i64 @dx.op.quaternary.i64(i32 53, i64 4, i64 32, i64 4010, i64 0)
-  %8 = lshr i64 %7, 32
-  %9 = trunc i64 %8 to i32
-  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %buf_UAV_rawbuf, i32 24, i32 undef, i32 %9, i32 undef, i32 undef, i32 undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
+  ; No i64 overloads for bfi in dxil yet.
+  ; xHECK: @dx.op.bufferStore{{.*}}, i32 10,
+  ;%7 = call i64 @dx.op.quaternary.i64(i32 53, i64 4, i64 32, i64 4010, i64 0)
+  ;%8 = lshr i64 %7, 32
+  ;%9 = trunc i64 %8 to i32
+  ;call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %buf_UAV_rawbuf, i32 24, i32 undef, i32 %9, i32 undef, i32 undef, i32 undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
   
   call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 0)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
   ret void
