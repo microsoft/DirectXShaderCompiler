@@ -6962,7 +6962,9 @@ bool HLSLExternalSource::CanConvert(
   TYPE_CONVERSION_FLAGS Flags = explicitConversion ? TYPE_CONVERSION_EXPLICIT : TYPE_CONVERSION_DEFAULT;
   TYPE_CONVERSION_REMARKS Remarks = TYPE_CONVERSION_NONE;
   QualType source = sourceExpr->getType();
-  
+  // Cannot cast function type.
+  if (source->isFunctionType())
+    return false;
   // Convert to an r-value to begin with.
   bool needsLValueToRValue = sourceExpr->isLValue() &&
     !target->isLValueReferenceType() && 
