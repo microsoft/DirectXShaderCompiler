@@ -1,4 +1,4 @@
-; RUN: %opt %s -sccp -S | FileCheck %s
+; RUN: %opt %s -hlsl-dxilload -sccp -S | FileCheck %s
 
 target datalayout = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "dxil-ms-dx"
