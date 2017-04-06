@@ -808,11 +808,11 @@ void HLMatrixLowerPass::TrivialMatBinOpReplace(CallInst *matInst,
 }
 
 static Function *GetOrCreateMadIntrinsic(Type *Ty, Type *opcodeTy, IntrinsicOp madOp, Module &M) {
-  llvm::FunctionType *SubscriptFuncTy =
+  llvm::FunctionType *MadFuncTy =
       llvm::FunctionType::get(Ty, { opcodeTy, Ty, Ty, Ty}, false);
 
   Function *MAD =
-      GetOrCreateHLFunction(M, SubscriptFuncTy, HLOpcodeGroup::HLIntrinsic,
+      GetOrCreateHLFunction(M, MadFuncTy, HLOpcodeGroup::HLIntrinsic,
                             (unsigned)madOp);
   return MAD;
 }
