@@ -102,6 +102,7 @@ const Decoration *Decoration::getPatch(SPIRVContext &context,
 const Decoration *Decoration::getCentroid(SPIRVContext &context,
                                           llvm::Optional<uint32_t> member_idx) {
   Decoration d = Decoration(spv::Decoration::Centroid);
+  d.setMemberIndex(member_idx);
   return getUniqueDecoration(context, d);
 }
 const Decoration *Decoration::getSample(SPIRVContext &context,
@@ -199,7 +200,7 @@ const Decoration *Decoration::getDescriptorSet(SPIRVContext &context,
 }
 const Decoration *Decoration::getOffset(SPIRVContext &context,
                                         uint32_t byte_offset,
-                                        llvm::Optional<uint32_t> member_idx) {
+                                        uint32_t member_idx) {
   Decoration d = Decoration(spv::Decoration::Offset, {byte_offset});
   d.setMemberIndex(member_idx);
   return getUniqueDecoration(context, d);
@@ -211,9 +212,11 @@ Decoration::getXfbBuffer(SPIRVContext &context, uint32_t xfb_buf,
   d.setMemberIndex(member_idx);
   return getUniqueDecoration(context, d);
 }
-const Decoration *Decoration::getXfbStride(SPIRVContext &context,
-                                           uint32_t xfb_stride) {
+const Decoration *
+Decoration::getXfbStride(SPIRVContext &context, uint32_t xfb_stride,
+                         llvm::Optional<uint32_t> member_idx) {
   Decoration d = Decoration(spv::Decoration::XfbStride, {xfb_stride});
+  d.setMemberIndex(member_idx);
   return getUniqueDecoration(context, d);
 }
 const Decoration *

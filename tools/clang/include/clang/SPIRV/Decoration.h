@@ -103,13 +103,14 @@ public:
   static const Decoration *getBinding(SPIRVContext &ctx,
                                       uint32_t binding_point);
   static const Decoration *getDescriptorSet(SPIRVContext &ctx, uint32_t set);
-  static const Decoration *
-  getOffset(SPIRVContext &ctx, uint32_t byte_offset,
-            llvm::Optional<uint32_t> member_idx = llvm::None);
+  static const Decoration *getOffset(SPIRVContext &ctx, uint32_t byte_offset,
+                                     uint32_t member_idx);
   static const Decoration *
   getXfbBuffer(SPIRVContext &ctx, uint32_t xfb_buf,
                llvm::Optional<uint32_t> member_idx = llvm::None);
-  static const Decoration *getXfbStride(SPIRVContext &ctx, uint32_t xfb_stride);
+  static const Decoration *
+  getXfbStride(SPIRVContext &ctx, uint32_t xfb_stride,
+               llvm::Optional<uint32_t> member_idx = llvm::None);
   static const Decoration *
   getFuncParamAttr(SPIRVContext &ctx, spv::FunctionParameterAttribute attr);
   static const Decoration *getFPRoundingMode(SPIRVContext &ctx,
