@@ -562,6 +562,7 @@ public:
   TEST_METHOD(CodeGenUintSample)
   TEST_METHOD(CodeGenUmaxObjectAtomic)
   TEST_METHOD(CodeGenUnsignedShortHandMatrixVector)
+  TEST_METHOD(CodeGenUnusedCB)
   TEST_METHOD(CodeGenUpdateCounter)
   TEST_METHOD(CodeGenUpperCaseRegister1);
   TEST_METHOD(CodeGenVcmp)
@@ -3021,6 +3022,10 @@ TEST_F(CompilerTest, CodeGenUmaxObjectAtomic) {
 
 TEST_F(CompilerTest, CodeGenUnsignedShortHandMatrixVector) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\unsignedShortHandMatrixVector.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenUnusedCB) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\unusedCB.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenUpdateCounter) {
