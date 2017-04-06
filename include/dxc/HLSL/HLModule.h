@@ -205,7 +205,7 @@ public:
                                       DxilParameterAnnotation &paramAnnotation);
   static const char *GetLegacyDataLayoutDesc();
 
-  static void MergeGepUse(llvm::Value *V, bool bDelete=true);
+  static void MergeGepUse(llvm::Value *V);
 
   // HL code gen.
   template<class BuilderTy>
