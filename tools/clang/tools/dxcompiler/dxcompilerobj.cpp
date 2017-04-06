@@ -41,7 +41,6 @@
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/HLSL/DxilRootSignature.h"
 
-#ifdef _DEBUG
 #if defined(_MSC_VER)
 #include <io.h>
 #ifndef STDOUT_FILENO
@@ -49,7 +48,6 @@
 #endif
 #ifndef STDERR_FILENO
 # define STDERR_FILENO 2
-#endif
 #endif
 #endif
 

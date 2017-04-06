@@ -9,7 +9,10 @@ set TEST_CLANG=1
 set TEST_EXEC=1
 set TEST_CLANG_VERIF=0
 set TEST_EXTRAS=1
-set BUILD_CONFIG=Debug
+
+if "%BUILD_CONFIG%"=="" (
+  set BUILD_CONFIG=Debug
+)
 
 if "%1"=="clean" (
   set TEST_CLEAN=1
@@ -175,7 +178,7 @@ exit /b 0
 :showhelp
 
 echo Usage:
-echo   hcttest [target]
+echo   hcttest [-rel] [-arm or -x86 or -x64] [target]
 echo.
 echo target can be empty or a specific subset.
 echo.
@@ -184,6 +187,13 @@ echo.
 echo 'clang' will only run clang tests.
 echo 'exec' will only run execution tests.
 echo 'v' will run the clang tests that are verified-based.
+echo.
+echo   -rel builds release rather than debug
+echo.
+echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
+echo   -x86 targets an x86 build (aka. Win32)
+echo   -x64 targets an x64 build (aka. Win64)
+echo   -arm targets an ARM build
 echo.
 echo Use the HCT_EXTRAS environment variable to add hcttest-before and hcttest-after hooks.
 echo.
