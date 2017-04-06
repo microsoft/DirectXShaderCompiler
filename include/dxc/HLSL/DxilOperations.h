@@ -54,9 +54,10 @@ public:
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
 
-  // Return the opcode class for the given dx.op function.
-  // Caller must ensure that dxilFunction is a valid dxil function.
-  OpCodeClass GetOpClassForDxilFunction(const llvm::Function *dxilFunction);
+  // Try to get the opcode class for a function.
+  // Return true and set `opClass` if the given function is a dxil function.
+  // Return false if the given function is not a dxil function.
+  bool GetOpCodeClass(const llvm::Function *F, OpCodeClass &opClass);
 
   // LLVM helpers. Perhaps, move to a separate utility class.
   llvm::Constant *GetI1Const(bool v);

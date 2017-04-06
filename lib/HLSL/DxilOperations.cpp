@@ -727,12 +727,14 @@ void OP::RemoveFunction(Function *F) {
   }
 }
 
-OP::OpCodeClass OP::GetOpClassForDxilFunction(const Function *F) {
+bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
   auto iter = m_FunctionToOpClass.find(F);
   if (iter == m_FunctionToOpClass.end()) {
-    throw hlsl::Exception(DXC_E_OPTIMIZATION_FAILED, "should only be called for dxil functions");
+    DXASSERT(!IsDxilOpFunc(F), "dxil function without an opcode class mapping?");
+    return false;
   }
-  return iter->second;
+  opClass = iter->second;
+  return true;
 }
 
 llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
