@@ -6212,7 +6212,8 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
 
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
   if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-    HLModule::MergeGepUse(CI);
+    // Unused CI will be removed in TranslateSubscriptOperation.
+    HLModule::MergeGepUse(CI, /*bDelete*/false);
     // Resource ptr.
     Value *handle = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
     if (helper.bLegacyCBufferLoad)

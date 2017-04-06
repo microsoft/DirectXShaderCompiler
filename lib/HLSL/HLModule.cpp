@@ -1059,7 +1059,7 @@ static Value *MergeGEP(GEPOperator *SrcGEP, GetElementPtrInst *GEP) {
     llvm_unreachable("must merge");
 }
 
-void HLModule::MergeGepUse(Value *V) {
+void HLModule::MergeGepUse(Value *V, bool bDelete) {
   for (auto U = V->user_begin(); U != V->user_end();) {
     auto Use = U++;
 
@@ -1085,7 +1085,7 @@ void HLModule::MergeGepUse(Value *V) {
       }
     }
   }
-  if (V->user_empty()) {
+  if (V->user_empty() && bDelete) {
     if (Instruction *I = dyn_cast<Instruction>(V))
       I->eraseFromParent();
   }
