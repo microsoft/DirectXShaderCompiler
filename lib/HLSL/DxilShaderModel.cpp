@@ -32,7 +32,7 @@ bool ShaderModel::operator==(const ShaderModel &other) const {
     return m_Kind          == other.m_Kind
         && m_Major         == other.m_Major
         && m_Minor         == other.m_Minor
-        && m_pszName       == other.m_pszName
+        && strcmp(m_pszName,  other.m_pszName) == 0
         && m_NumInputRegs  == other.m_NumInputRegs
         && m_NumOutputRegs == other.m_NumOutputRegs
         && m_bTypedUavs    == other.m_bTypedUavs
