@@ -2764,6 +2764,36 @@ INITIALIZE_PASS(HLEnsureMetadata, "hlsl-hlensure", "HLSL High-Level Metadata Ens
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
+class DxilLoadMetadata : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilLoadMetadata () : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "HLSL load DxilModule from metadata"; }
+
+  bool runOnModule(Module &M) override {
+    if (!M.HasDxilModule()) {
+      (void)M.GetOrCreateDxilModule();
+      return true;
+    }
+
+    return false;
+  }
+};
+}
+
+char DxilLoadMetadata::ID = 0;
+
+ModulePass *llvm::createDxilLoadMetadataPass() {
+  return new DxilLoadMetadata();
+}
+
+INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+namespace {
 
 Function *StripFunctionParameter(Function *F, DxilModule &DM,
     DenseMap<const Function *, DISubprogram *> &FunctionDIs) {

@@ -544,25 +544,31 @@ Constant *hlsl::ConstantFoldScalarCall(StringRef Name, Type *Ty, ArrayRef<Consta
 // we only have the function value here instead of the call. We need the
 // actual call to get the opcode for the intrinsic.
 bool hlsl::CanConstantFoldCallTo(const Function *F) {
-  if (!OP::IsDxilOpFunc(F))
+  // Only constant fold dxil functions when we have a valid dxil module.
+  if (!F->getParent()->HasDxilModule()) {
+    assert(!OP::IsDxilOpFunc(F) && "dx.op function with no dxil module?");
     return false;
+  }
 
-  // Check match using startswith to get all overloads.
-  // We cannot use the opcode class here because constant folding
-  // may run without a DxilModule available.
-  StringRef Name = F->getName();
-  if (Name.startswith("dx.op.unary"))
-    return true;
-  else if (Name.startswith("dx.op.unaryBits"))
-    return true;
-  else if (Name.startswith("dx.op.binary"))
-    return true;
-  else if (Name.startswith("dx.op.tertiary"))
-    return true;
-  else if (Name.startswith("dx.op.quaternary"))
-    return true;
-  else if (Name.startswith("dx.op.dot"))
-    return true;
+  // Lookup opcode class in dxil module. Set default value to invalid class.
+  OP::OpCodeClass opClass = OP::OpCodeClass::NumOpClasses;
+  const bool found = F->getParent()->GetDxilModule().GetOP()->GetOpCodeClass(F, opClass);
+
+  // Return true for those dxil operation classes we can constant fold.
+  if (found) {
+    switch (opClass) {
+    default: break;
+    case OP::OpCodeClass::Unary:
+    case OP::OpCodeClass::UnaryBits:
+    case OP::OpCodeClass::Binary:
+    case OP::OpCodeClass::Tertiary:
+    case OP::OpCodeClass::Quaternary:
+    case OP::OpCodeClass::Dot2:
+    case OP::OpCodeClass::Dot3:
+    case OP::OpCodeClass::Dot4:
+      return true;
+    }
+  }
 
   return false;
 }

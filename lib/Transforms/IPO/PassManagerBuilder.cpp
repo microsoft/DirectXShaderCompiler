@@ -215,6 +215,7 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   MPM.add(createDxilLegalizeResourceUsePass());
   MPM.add(createDxilLegalizeStaticResourceUsePass());
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
+  MPM.add(createDxilLoadMetadataPass()); // Ensure DxilModule is loaded for optimizations.
 
   MPM.add(createSimplifyInstPass());
 
