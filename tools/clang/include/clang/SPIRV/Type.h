@@ -116,6 +116,9 @@ public:
            decorations == other.decorations;
   }
 
+  // \brief Construct the SPIR-V words for this type with the given <result-id>.
+  std::vector<uint32_t> withResultId(uint32_t resultId) const;
+
 private:
   /// \brief Private constructor.
   Type(spv::Op op, std::vector<uint32_t> arg = {},
