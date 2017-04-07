@@ -286,6 +286,7 @@ public:
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileWhenIncludeMissingThenFail)
+  TEST_METHOD(CompileWhenIncludeHasPathThenOK)
 
   TEST_METHOD(CompileWhenODumpThenPassConfig)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
@@ -1767,6 +1768,38 @@ TEST_F(CompilerTest, CompileWhenIncludeMissingThenFail) {
   HRESULT hr;
   VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
   VERIFY_FAILED(hr);
+}
+
+TEST_F(CompilerTest, CompileWhenIncludeHasPathThenOK) {
+  CComPtr<IDxcCompiler> pCompiler;
+  LPCWSTR Source = L"c:\\temp\\OddIncludes\\main.hlsl";
+  LPCWSTR Args[] = { L"/I", L"c:\\temp" };
+  LPCWSTR ArgsUp[] = { L"/I", L"c:\\Temp" };
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  bool useUpValues[] = { false, true };
+  for (bool useUp : useUpValues) {
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+#if TEST_ON_DISK
+    CComPtr<IDxcLibrary> pLibrary;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(pLibrary->CreateIncludeHandler(&pInclude));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(Source, nullptr, &pSource));
+#else
+    CComPtr<TestIncludeHandler> pInclude;
+    pInclude = new TestIncludeHandler(m_dllSupport);
+    pInclude->CallResults.emplace_back("// Empty");
+    CreateBlobFromText("#include \"include.hlsl\"\r\n"
+                       "float4 main() : SV_Target { return 0; }",
+                       &pSource);
+#endif
+
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, Source, L"main",
+      L"ps_6_0", useUp ? ArgsUp : Args, _countof(Args), nullptr, 0, pInclude, &pResult));
+    HRESULT hr;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+    VERIFY_SUCCEEDED(hr);
+ }
 }
 
 static const char EmptyCompute[] = "[numthreads(8,8,1)] void main() { }";
