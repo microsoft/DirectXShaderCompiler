@@ -142,6 +142,7 @@ public:
   D3D12_RESOURCE_STATES TransitionTo;           // State to transition before running shader.
   BOOL                  ReadBack;               // TRUE to read back to CPU after operations are done.
   std::vector<BYTE>     InitBytes;              // Byte payload for initialization.
+  D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology;     // Primitive topology.
 };
 
 // Use this class to represent a shader.
@@ -177,7 +178,8 @@ public:
   LPCWSTR AdapterName = nullptr;
   LPCSTR CS = nullptr, VS = nullptr, PS = nullptr;
   UINT DispatchX = 1, DispatchY = 1, DispatchZ = 1;
-  D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; // TODO: parse from file
+  D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
   UINT SampleMask = UINT_MAX; // TODO: parse from file
   DXGI_FORMAT RTVFormats[8]; // TODO: parse from file
   bool IsCompute() const {
