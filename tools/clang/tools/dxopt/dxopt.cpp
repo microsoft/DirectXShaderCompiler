@@ -47,11 +47,18 @@ bool isStdIn(LPCWSTR fName) {
   return wcscmp(STDIN_FILE_NAME, fName) == 0;
 }
 
+// Arg does not start with '-' or '/' and so assume it is a filename,
+// or next arg equals '-' which is the name of stdin.
+bool isFileInputArg(LPCWSTR arg) {
+  const bool isNonOptionArg = !wcsistarts(arg, L"-") && !wcsistarts(arg, L"/");
+  return isNonOptionArg || isStdIn(arg);
+}
+
 static HRESULT ReadStdin(std::string &input) {
   HANDLE hStdIn = GetStdHandle(STD_INPUT_HANDLE);
   std::vector<unsigned char> buffer(1024);
   DWORD numBytesRead = -1;
-  bool ok = false;
+  BOOL ok = FALSE;
 
   // Read all data from stdin.
   while (ok = ReadFile(hStdIn, buffer.data(), buffer.size(), &numBytesRead, NULL)) {
@@ -62,14 +69,14 @@ static HRESULT ReadStdin(std::string &input) {
 
   DWORD lastError = GetLastError();
 
-  // Make sure we reached EOF successfully.
-  if (ok && numBytesRead == 0)
+  // Make sure we reached finished successfully.
+  if (ok)
     return S_OK;
   // Or reached the end of a pipe.
   else if (!ok && numBytesRead == 0 && lastError == ERROR_BROKEN_PIPE)
     return S_OK;
   else
-    return E_FAIL;
+    return HRESULT_FROM_WIN32(lastError);
 }
 
 static void BlobFromFile(LPCWSTR pFileName, IDxcBlob **ppBlob) {
@@ -185,9 +192,8 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       }
       else {
         action = ProgramAction::RunOptimizer;
-        // Next arg does not start with '-' and so is a filename,
-        // or next arg equals '-' so we should read from stdin.
-        if (!wcsistarts(arg, L"-") || isStdIn(arg)) {
+        // See if arg is file input specifier.
+        if (isFileInputArg(arg)) {
           inFileName = arg;
           argIdx++;
         }
