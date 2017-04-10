@@ -134,10 +134,12 @@ if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\Te.exe" set path=
 if exist "%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF
 if exist "%programfiles%\windows kits\8.1\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles%\windows kits\8.1\Testing\Runtimes\TAEF
 if exist "%programfiles(x86)%\windows kits\8.1\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles(x86)%\windows kits\8.1\Testing\Runtimes\TAEF
+if exist "%HLSL_SRC_DIR%\external\taef\build\Binaries\amd64\TE.exe" set path=%path%;%HLSL_SRC_DIR%\external\taef\build\Binaries\amd64
 where te.exe 1>nul 2>nul
 if errorlevel 1 (
   echo Unable to find TAEF te.exe on path - you will have to add this before running tests.
   echo WDK includes TAEF and is available from https://msdn.microsoft.com/en-us/windows/hardware/dn913721.aspx
+  echo Alternatively, consider a project-local install by running %HLSL_SRC_DIR%\utils\hct\hctgettaef.py
   echo Please see the README.md instructions in the project root.
   exit /b 1
 )
@@ -178,7 +180,11 @@ if not exist "%kit_root%" (
   echo Windows 10 SDK was installed but is not accessible.
   exit /b 1
 )
-rem 10.0.14393.0 will work properly. Reject 10586 and 10240 explicitly.
+rem 10.0.15063.0 and 10.0.14393.0 will work properly. Reject 10586 and 10240 explicitly.
+if exist "%kit_root%\include\10.0.15063.0\um\d3d12.h" (
+  echo Found Windows SDK 10.0.15063.0
+  goto :eof
+)
 if exist "%kit_root%\include\10.0.14393.0\um\d3d12.h" (
   echo Found Windows SDK 10.0.14393.0
   goto :eof

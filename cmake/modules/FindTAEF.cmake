@@ -7,6 +7,7 @@ get_filename_component(WINDOWS_KIT_81_PATH "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Micro
 set(pfx86 "programfiles(x86)")  # Work around behavior for environment names allows chars.
 find_path(TAEF_INCLUDE_DIR      # Set variable TAEF_INCLUDE_DIR
           Wex.Common.h          # Find a path with Wex.Common.h
+          HINTS "${CMAKE_SOURCE_DIR}/external/taef/build/Include"
           HINTS "${WINDOWS_KIT_10_PATH}/Testing/Development/inc"
           HINTS "${WINDOWS_KIT_81_PATH}/Testing/Development/inc"
           DOC "path to TAEF header files"
@@ -15,24 +16,33 @@ find_path(TAEF_INCLUDE_DIR      # Set variable TAEF_INCLUDE_DIR
 
 if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
   find_library(TAEF_COMMON_LIBRARY NAMES Te.Common.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/x64
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x64 )
   find_library(TAEF_WEX_COMMON_LIBRARY NAMES Wex.Common.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/x64
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x64 )
   find_library(TAEF_WEX_LOGGER_LIBRARY NAMES Wex.Logger.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/x64
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x64 )
 elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" )
   find_library(TAEF_COMMON_LIBRARY NAMES Te.Common.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/arm
                HINTS ${TAEF_INCLUDE_DIR}/../lib/arm )
   find_library(TAEF_WEX_COMMON_LIBRARY NAMES Wex.Common.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/arm
                HINTS ${TAEF_INCLUDE_DIR}/../lib/arm )
   find_library(TAEF_WEX_LOGGER_LIBRARY NAMES Wex.Logger.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/arm
                HINTS ${TAEF_INCLUDE_DIR}/../lib/arm )
 else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
   find_library(TAEF_COMMON_LIBRARY NAMES Te.Common.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/x86
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x86 )
   find_library(TAEF_WEX_COMMON_LIBRARY NAMES Wex.Common.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/x86
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x86 )
   find_library(TAEF_WEX_LOGGER_LIBRARY NAMES Wex.Logger.lib
+               HINTS ${TAEF_INCLUDE_DIR}/../Library/x86
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x86 )
 endif (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
 
@@ -40,7 +50,9 @@ set(TAEF_LIBRARIES ${TAEF_COMMON_LIBRARY} ${TAEF_WEX_COMMON_LIBRARY} ${TAEF_WEX_
 set(TAEF_INCLUDE_DIRS ${TAEF_INCLUDE_DIR})
 
 # Prefer the version that supports both x86 and x64, else prefer latest.
-if(EXISTS "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF/x86/te.exe"
+if(EXISTS "${CMAKE_SOURCE_DIR}/external/taef/build/Binaries/amd64/te.exe")
+  set(TAEF_BIN_DIR "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF")
+elseif(EXISTS "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF/x86/te.exe"
    AND EXISTS "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF/x64/te.exe")
   set(TAEF_BIN_DIR "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF")
 elseif(EXISTS "${WINDOWS_KIT_81_PATH}/Testing/Runtimes/TAEF/x86/te.exe"
