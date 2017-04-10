@@ -169,7 +169,7 @@ static void AllocateDxilResource(const std::vector<std::unique_ptr<T> > &resourc
 
   for (auto &res : resourceList) {
     const unsigned space = res->GetSpaceID();
-    SpacesAllocator<unsigned, T>::Allocator &alloc = SAlloc.Get(space);
+    typename SpacesAllocator<unsigned, T>::Allocator &alloc = SAlloc.Get(space);
 
     if (res->IsAllocated()) {
       const unsigned reg = res->GetLowerBound();
@@ -204,7 +204,7 @@ static void AllocateDxilResource(const std::vector<std::unique_ptr<T> > &resourc
 
   // Allocate.
   const unsigned space = 0;
-  SpacesAllocator<unsigned, T>::Allocator &alloc0 = SAlloc.Get(space);
+  typename SpacesAllocator<unsigned, T>::Allocator &alloc0 = SAlloc.Get(space);
   for (auto &res : resourceList) {
     if (!res->IsAllocated()) {
       DXASSERT(res->GetSpaceID() == 0, "otherwise non-zero space has no user register assignment");
