@@ -57,10 +57,10 @@ public:
   // TODO: check whether we can make this a protected method.
   void SetID(unsigned ID);
 
-  const char *DxilResourceBase::GetResClassName() const;
-  const char *DxilResourceBase::GetResDimName() const;
-  const char *DxilResourceBase::GetResIDPrefix() const;
-  const char *DxilResourceBase::GetResBindPrefix() const;
+  const char *GetResClassName() const;
+  const char *GetResDimName() const;
+  const char *GetResIDPrefix() const;
+  const char *GetResBindPrefix() const;
 
 protected:
   void SetClass(Class C);

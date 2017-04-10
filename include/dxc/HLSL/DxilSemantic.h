@@ -34,7 +34,7 @@ public:
     unsigned MajorVersion = ShaderModel::kHighestMajor, unsigned MinorVersion = ShaderModel::kHighestMinor);
   static const Semantic *GetInvalid();
   static const Semantic *GetArbitrary();
-  static bool Semantic::HasSVPrefix(llvm::StringRef Name);
+  static bool HasSVPrefix(llvm::StringRef Name);
   static void DecomposeNameAndIndex(llvm::StringRef FullName, llvm::StringRef *pName, unsigned *pIndex);
 
   Kind GetKind() const;
