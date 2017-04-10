@@ -4428,7 +4428,7 @@ FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(
 /// and want to treat either side equally you should call it twice, swapping the
 /// parameter order.
 /// </summary>
-static bool CombineObjectTypes(ArBasicKind Target, __in ArBasicKind Source,
+static bool CombineObjectTypes(ArBasicKind Target, _In_ ArBasicKind Source,
                                _Out_opt_ ArBasicKind *pCombined) {
   if (Target == Source) {
     AssignOpt(Target, pCombined);

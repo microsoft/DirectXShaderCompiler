@@ -117,7 +117,7 @@ public:
   HRESULT AddBlock(void *pData, unsigned cbSize, unsigned *pOffset);
   HRESULT ReserveBlock(void **ppData, unsigned cbSize, unsigned *pOffset);
 
-  HRESULT Compact(__out_bcount(cbSize) char *pData, unsigned cbSize);
+  HRESULT Compact(_Out_writes_bytes_(cbSize) char *pData, unsigned cbSize);
   unsigned GetSize();
 
 protected:
@@ -205,7 +205,7 @@ Cleanup:
   return hr;
 }
 
-HRESULT SimpleSerializer::Compact(__out_bcount(cbSize) char *pData,
+HRESULT SimpleSerializer::Compact(_Out_writes_bytes_(cbSize) char *pData,
                                   unsigned cbSize) {
   unsigned cb = GetSize();
   IFRBOOL(cb <= cbSize, E_FAIL);
@@ -1264,11 +1264,11 @@ template<typename T_ROOT_SIGNATURE_DESC,
   typename T_ROOT_PARAMETER,
   typename T_ROOT_DESCRIPTOR_INTERNAL,
   typename T_DESCRIPTOR_RANGE_INTERNAL>
-void SerializeRootSignatureTemplate(__in const T_ROOT_SIGNATURE_DESC* pRootSignature,
+void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSignature,
                                     DxilRootSignatureVersion DescVersion,
                                     _COM_Outptr_ IDxcBlob** ppBlob,
                                     DiagnosticPrinter &DiagPrinter,
-                                    __in bool bAllowReservedRegisterSpace) {
+                                    _In_ bool bAllowReservedRegisterSpace) {
   DxilContainerRootSignatureDesc RS;
   uint32_t Offset;
   SimpleSerializer Serializer;
@@ -1423,8 +1423,8 @@ public:
   CVersionedRootSignatureDeserializer();
   ~CVersionedRootSignatureDeserializer();
 
-  void Initialize(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
-                  __in uint32_t SrcDataSizeInBytes);
+  void Initialize(_In_reads_bytes_(SrcDataSizeInBytes) const void *pSrcData,
+                  _In_ uint32_t SrcDataSizeInBytes);
 
   const DxilVersionedRootSignatureDesc *GetRootSignatureDescAtVersion(DxilRootSignatureVersion convertToVersion);
 
@@ -1442,8 +1442,8 @@ CVersionedRootSignatureDeserializer::~CVersionedRootSignatureDeserializer() {
   DeleteRootSignature(m_pRootSignature11);
 }
 
-void CVersionedRootSignatureDeserializer::Initialize(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
-                                                     __in uint32_t SrcDataSizeInBytes) {
+void CVersionedRootSignatureDeserializer::Initialize(_In_reads_bytes_(SrcDataSizeInBytes) const void *pSrcData,
+                                                     _In_ uint32_t SrcDataSizeInBytes) {
   const DxilVersionedRootSignatureDesc *pRootSignature = nullptr;
   DeserializeRootSignature(pSrcData, SrcDataSizeInBytes, &pRootSignature);
 
@@ -1501,8 +1501,8 @@ template<typename T_ROOT_SIGNATURE_DESC,
          typename T_ROOT_DESCRIPTOR_INTERNAL,
          typename T_DESCRIPTOR_RANGE,
          typename T_DESCRIPTOR_RANGE_INTERNAL>
-void DeserializeRootSignatureTemplate(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
-                                      __in uint32_t SrcDataSizeInBytes,
+void DeserializeRootSignatureTemplate(_In_reads_bytes_(SrcDataSizeInBytes) const void *pSrcData,
+                                      _In_ uint32_t SrcDataSizeInBytes,
                                       DxilRootSignatureVersion DescVersion,
                                       T_ROOT_SIGNATURE_DESC &RootSignatureDesc) {
   // Note that in case of failure, outside code must deallocate memory.

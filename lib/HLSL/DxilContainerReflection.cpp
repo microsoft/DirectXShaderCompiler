@@ -302,7 +302,7 @@ public:
   STDMETHOD(IsOfType)(THIS_ ID3D12ShaderReflectionType* pType);
   STDMETHOD(ImplementsInterface)(THIS_ ID3D12ShaderReflectionType* pBase);
 
-  bool CheckEqual(__in CShaderReflectionType *pOther) {
+  bool CheckEqual(_In_ CShaderReflectionType *pOther) {
     return m_Identity == pOther->m_Identity;
   }
 };

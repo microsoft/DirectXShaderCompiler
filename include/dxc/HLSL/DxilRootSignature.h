@@ -346,16 +346,16 @@ void SerializeRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature
                             _Outptr_ IDxcBlob **ppBlob, _Outptr_ IDxcBlobEncoding **ppErrorBlob,
                             bool bAllowReservedRegisterSpace);
 
-void DeserializeRootSignature(__in_bcount(SrcDataSizeInBytes) const void *pSrcData,
-                              __in uint32_t SrcDataSizeInBytes,
-                              __out const DxilVersionedRootSignatureDesc **ppRootSignature);
+void DeserializeRootSignature(_In_reads_bytes_(SrcDataSizeInBytes) const void *pSrcData,
+                              _In_ uint32_t SrcDataSizeInBytes,
+                              _Out_ const DxilVersionedRootSignatureDesc **ppRootSignature);
 
 // Takes PSV - pipeline state validation data, not shader container.
-bool VerifyRootSignatureWithShaderPSV(__in const DxilVersionedRootSignatureDesc *pDesc,
-                                      __in DXIL::ShaderKind ShaderKind,
+bool VerifyRootSignatureWithShaderPSV(_In_ const DxilVersionedRootSignatureDesc *pDesc,
+                                      _In_ DXIL::ShaderKind ShaderKind,
                                       _In_reads_bytes_(PSVSize) const void *pPSVData,
-                                      __in uint32_t PSVSize,
-                                      __in llvm::raw_ostream &DiagStream);
+                                      _In_ uint32_t PSVSize,
+                                      _In_ llvm::raw_ostream &DiagStream);
 
 } // namespace hlsl
 
