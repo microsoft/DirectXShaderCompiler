@@ -23,7 +23,7 @@ typedef _Return_type_success_(return >= 0) long HRESULT;
 #endif // !_HRESULT_DEFINED
 
 #include <stdarg.h>
-#include "dxc/Support/Exception.h"
+#include "dxc/Support/exception.h"
 
 namespace std { class error_code; }
 void CheckLLVMErrorCode(const std::error_code &ec);

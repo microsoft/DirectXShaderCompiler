@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "dxc/HLSL/DXILConstants.h"
+#include "dxc/HLSL/DxilConstants.h"
 #include <string>
 
 

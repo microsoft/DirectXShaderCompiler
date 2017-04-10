@@ -18,7 +18,7 @@
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "dxc/HLSL/DXILOperations.h"
+#include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
