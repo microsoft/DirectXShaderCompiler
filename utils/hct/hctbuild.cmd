@@ -200,6 +200,9 @@ if "%DO_SETUP%"=="1" (
   cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   if errorlevel 1 (
     echo Failed to configure cmake projects.
+    echo ===== begin cmake-log.txt =====
+    type %3\cmake-log.txt
+    echo ===== end cmake-log.txt =====
     echo Run 'cmake %HLSL_SRC_DIR%' in %3 will continue project generation after fixing the issue.
     cmake --version | findstr 3.4
     if errorlevel 1 (
