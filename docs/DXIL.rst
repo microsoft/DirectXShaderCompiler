@@ -1923,9 +1923,9 @@ ID  Name                           Description
 18  Hcos_                          returns the hyperbolic cosine of the specified value.
 19  Hsin_                          returns the hyperbolic sine of the specified value.
 20  Htan_                          returns the hyperbolic tangent of the specified value.
-21  Exp_                           returns e^exponent
+21  Exp_                           returns 2^exponent
 22  Frc_                           extract fracitonal component.
-23  Log_                           returns natural log.
+23  Log_                           returns log base 2.
 24  Sqrt_                          returns square root
 25  Rsqrt_                         returns reciprocal square root (1 / sqrt(src)
 26  Round_ne_                      floating-point round to integral float.
@@ -2127,7 +2127,7 @@ Four-dimensional vector dot-product
 Exp
 ~~~
 
-Maximum relative error is e^{-21}
+Returns 2^exponent. Note that hlsl log intrinsic returns the base-e exponent. Maximum relative error is e^-21.
 
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
@@ -2340,6 +2340,8 @@ Loads the value from shader input
 
 Log
 ~~~
+
+Returns log base 2. Note that hlsl log intrinsic returns natural log.
 
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |

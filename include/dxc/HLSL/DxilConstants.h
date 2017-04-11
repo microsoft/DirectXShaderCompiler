@@ -402,7 +402,7 @@ namespace DXIL {
     Asin = 16, // Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1
     Atan = 17, // Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
     Cos = 12, // returns cosine(theta) for theta in radians.
-    Exp = 21, // returns e^exponent
+    Exp = 21, // returns 2^exponent
     FAbs = 6, // returns the absolute value of the input value.
     Frc = 22, // extract fracitonal component.
     Hcos = 18, // returns the hyperbolic cosine of the specified value.
@@ -412,7 +412,7 @@ namespace DXIL {
     IsInf = 9, // Returns true if x is +INF or -INF, false otherwise.
     IsNaN = 8, // Returns true if x is NAN or QNAN, false otherwise.
     IsNormal = 11, // returns IsNormal
-    Log = 23, // returns natural log.
+    Log = 23, // returns log base 2.
     Rsqrt = 25, // returns reciprocal square root (1 / sqrt(src)
     Saturate = 7, // clamps the result of a single or double precision floating point value to [0.0f...1.0f]
     Sin = 13, // returns sine(theta) for theta in radians.

@@ -82,9 +82,9 @@ Three-dimensional vector dot-product
 
 Four-dimensional vector dot-product
 
-* Inst: Exp - returns e^exponent
+* Inst: Exp - returns 2^exponent
 
-Maximum relative error is e^{-21}
+Returns 2^exponent. Note that hlsl log intrinsic returns the base-e exponent. Maximum relative error is e^-21.
 
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
@@ -274,7 +274,9 @@ Returns true if x is NAN or QNAN, false otherwise.
 
 Returns IsNormal.
 
-* Inst: Log - returns natural log.
+* Inst: Log - returns log base 2.
+
+Returns log base 2. Note that hlsl log intrinsic returns natural log.
 
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |

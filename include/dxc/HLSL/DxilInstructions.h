@@ -1076,7 +1076,7 @@ struct DxilInst_Htan {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns e^exponent
+/// This instruction returns 2^exponent
 struct DxilInst_Exp {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1112,7 +1112,7 @@ struct DxilInst_Frc {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns natural log.
+/// This instruction returns log base 2.
 struct DxilInst_Log {
   const llvm::Instruction *Instr;
   // Construction and identification
