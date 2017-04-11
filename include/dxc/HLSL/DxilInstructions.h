@@ -1557,7 +1557,7 @@ struct DxilInst_FMad {
   llvm::Value *get_c() const { return Instr->getOperand(3); }
 };
 
-/// This instruction fused multiple-add
+/// This instruction fused multiply-add
 struct DxilInst_Fma {
   const llvm::Instruction *Instr;
   // Construction and identification

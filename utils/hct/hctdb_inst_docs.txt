@@ -15,10 +15,28 @@
 * Inst: Acos - Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1.
 The return value is within the range of -PI/2 to PI/2.
 
++----------+------+--------------+---------+------+------+---------+------+-----+
+| src      | -inf | [-1,1]       | -denorm | -0   | +0   | +denorm | +inf | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+| acos(src)|  NaN | (-PI/2,+PI/2)|    PI/2 | PI/2 | PI/2 |    PI/2 |  NaN | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+
 * Inst: Asin - Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1
 The return value is within the range of -PI/2 to PI/2.
 
++----------+------+--------------+---------+------+------+---------+------+-----+
+| src      | -inf | [-1,1]       | -denorm | -0   | +0   | +denorm | +inf | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+| asin(src)|  NaN | (-PI/2,+PI/2)|    0    |  0   |  0   |    0    |  NaN | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+
 * Inst: Atan - Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
+
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
+| src      | -inf | -F           | -denorm | -0   | +0   | +denorm | +F            |+inf | NaN |
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
+| atan(src)| -PI/2| (-PI/2,+PI/2)|    0    |  0   |  0   |    0    | (-PI/2,+PI/2) |PI/2 | NaN |
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
 
 Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2
 
@@ -91,9 +109,9 @@ Returns the integer position of the first bit set in the 32-bit input starting f
 
 Returns the first 0 from the MSB if the number is negative, else the first 1 from the MSB. Returns 0xffffffff if no match was found.
 
-* Inst: Fma - fused multiple-add
+* Inst: Fma - fused multiply-add
 
-Fused multiple-add. This operation is only defined in double precision.
+Fused multiply-add. This operation is only defined in double precision.
 Fma(a,b,c) = a * b + c
 
 * Inst: FMad - floating point multiply & add
@@ -159,13 +177,32 @@ Denorms are flushed (sign preserved) before comparison, however the result writt
 
 Returns the hyperbolic cosine of the specified value.
 
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| hcos(src)| +inf | (1, +inf)  |      +1 | +1 | +1 |      +1 | (1, +inf)  | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
 * Inst: Hsin - returns the hyperbolic sine of the specified value.
 
 Returns the hyperbolic sine of the specified value.
 
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| hsin(src)| -inf | -F         |       0 |  0 |  0 |       0 | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+
 * Inst: Htan - returns the hyperbolic tangent of the specified value.
 
 Returns the hyperbolic tangent of the specified value.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| htan(src)|  NaN | -F         |       0 |  0 |  0 |       0 | +F         |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
 
 * Inst: Ibfe - Integer bitfield extract
 

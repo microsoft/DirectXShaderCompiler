@@ -382,7 +382,7 @@ namespace DXIL {
   
     // Tertiary float
     FMad = 46, // floating point multiply & add
-    Fma = 47, // fused multiple-add
+    Fma = 47, // fused multiply-add
   
     // Tertiary int
     IMad = 48, // Signed integer multiply & add

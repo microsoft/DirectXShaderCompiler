@@ -1949,7 +1949,7 @@ ID  Name                           Description
 44  UAddc_                         unsigned add of 32-bit operand with the carry
 45  USubb_                         returns the USubb of the input values
 46  FMad_                          floating point multiply & add
-47  Fma_                           fused multiple-add
+47  Fma_                           fused multiply-add
 48  IMad_                          Signed integer multiply & add
 49  UMad_                          Unsigned integer multiply & add
 50  Msad_                          masked Sum of Absolute Differences.
@@ -2047,13 +2047,31 @@ Acos
 
 The return value is within the range of -PI/2 to PI/2.
 
++----------+------+--------------+---------+------+------+---------+------+-----+
+| src      | -inf | [-1,1]       | -denorm | -0   | +0   | +denorm | +inf | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+| acos(src)|  NaN | (-PI/2,+PI/2)|    PI/2 | PI/2 | PI/2 |    PI/2 |  NaN | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+
 Asin
 ~~~~
 
 The return value is within the range of -PI/2 to PI/2.
 
++----------+------+--------------+---------+------+------+---------+------+-----+
+| src      | -inf | [-1,1]       | -denorm | -0   | +0   | +denorm | +inf | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+| asin(src)|  NaN | (-PI/2,+PI/2)|    0    |  0   |  0   |    0    |  NaN | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+
 Atan
 ~~~~
+
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
+| src      | -inf | -F           | -denorm | -0   | +0   | +denorm | +F            |+inf | NaN |
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
+| atan(src)| -PI/2| (-PI/2,+PI/2)|    0    |  0   |  0   |    0    | (-PI/2,+PI/2) |PI/2 | NaN |
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
 
 Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2
 
@@ -2195,7 +2213,7 @@ Returns the first 0 from the MSB if the number is negative, else the first 1 fro
 Fma
 ~~~
 
-Fused multiple-add. This operation is only defined in double precision.
+Fused multiply-add. This operation is only defined in double precision.
 Fma(a,b,c) = a * b + c
 
 Frc
@@ -2212,15 +2230,33 @@ Hcos
 
 Returns the hyperbolic cosine of the specified value.
 
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| hcos(src)| +inf | (1, +inf)  |      +1 | +1 | +1 |      +1 | (1, +inf)  | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
 Hsin
 ~~~~
 
 Returns the hyperbolic sine of the specified value.
 
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| hsin(src)| -inf | -F         |       0 |  0 |  0 |       0 | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
 Htan
 ~~~~
 
 Returns the hyperbolic tangent of the specified value.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| htan(src)|  NaN | -F         |       0 |  0 |  0 |       0 | +F         |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
 
 IMad
 ~~~~
