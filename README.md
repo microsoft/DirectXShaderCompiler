@@ -1,4 +1,4 @@
-﻿# DirectX Shader Compiler
+# DirectX Shader Compiler
 
 [![Build status](https://ci.appveyor.com/api/projects/status/2wsw8t8clpgt1kfm?svg=true)](https://ci.appveyor.com/project/dmpots/directxshadercompiler)
 
@@ -35,7 +35,7 @@ Before you build, you will need to have some additional software installed.
       * Universal Windows Platform Development
       * Desktop Development with C++
 * [Windows 10 SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk). This is needed to build tests that reference the D3D12 runtime. You may get this as part of installing/updating Visual Studio.
-* [Windows Driver Kit](https://developer.microsoft.com/en-us/windows/hardware/windows-driver-kit). No need to download and install tests. This is used to build and run tests.
+* TAEF. You can run the script at `utils\hct\hctgettaef.py` from your build environment before you start building to download and unzip them as an external dependency. Alternatively, install the [Windows Driver Kit](https://developer.microsoft.com/en-us/windows/hardware/windows-driver-kit). No need to download and install tests. This is used to build and run tests.
 * [CMake](https://cmake.org/files/v3.4/cmake-3.4.3-win32-x86.exe). Version 3.4.3 and 3.7.2 are the supported versions. You need not change your PATH variable during installation.
 * [Python](https://www.python.org/downloads/). Version 2.7.x is required, 3.x might work but it's not officially supported. You need not change your PATH variable during installation.
 
@@ -50,7 +50,7 @@ utils\hct\hctstart.cmd C:\DirectXShaderCompiler C:\DirectXShaderCompiler.bin
 To create a shortcut to the build environment with the default build directory, double-click on the `utils\hct\hctshortcut.js` file.
 
 To build, open the HLSL Console and run this command.
-
+ 
     hctbuild
 
 You can also clean, build and run tests with this command.
@@ -65,7 +65,7 @@ You can build with vs2017 either on the command line or using the new integrated
 
 To build from the command line follow the normal build steps, but pass `-vs2017` as a parameter
 to `hctbuild`.
-
+ 
 To build using the integrated cmake support, simply start Visual Studio
 and open the folder where you have the source. From the CMake menu 
 select "Build CMakeLists.txt"
@@ -93,16 +93,15 @@ At the moment, the [Windows 10 Insider Preview Build 15007](https://blogs.window
 
 Drivers indicate they can run DXIL by reporting support for Shader Model 6, possibly in experimental mode. To enable support in these cases, the [Developer mode](https://msdn.microsoft.com/windows/uwp/get-started/enable-your-device-for-development) setting must be enabled.
 
-###Hardware Support
+### Hardware Support
 
 Hardware GPU support for DXIL is provided by the following vendors:
 
 NVIDIA r378 drivers (r378.49 and later) provide experimental mode support for DXIL and shader model 6. This is an early beta version to enable developers to try out DXIL and the new shader model 6 features – Wave Math and int64. Only DXIL version 0.7 (beta) is accepted by the r378 driver.  Experimental mode support for DXIL v1.0 will be provided in a future driver release. 
 
-###Software Rendering
+### Software Rendering
 
-in the absence of hardware support, tests will run using the Windows Advanced Rasterization Platform (WARP) adapter. To get the correct version of WARP working, in addition to setting Developer mode, you should install the 'Graphics Tools' optional feature via the Settings app (click the 'Apps' icon, then the 'Manage optional features' link, then 'Add a feature', and select 'Graphics Tools' from the list).
-
+In the absence of hardware support, tests will run using the Windows Advanced Rasterization Platform (WARP) adapter. To get the correct version of WARP working, in addition to setting Developer mode, you should install the 'Graphics Tools' optional feature via the Settings app (click the 'Apps' icon, then the 'Manage optional features' link, then 'Add a feature', and select 'Graphics Tools' from the list).
 
 For more information, see this [Wiki page](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Running-Shaders).
 
