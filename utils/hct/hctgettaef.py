@@ -14,7 +14,7 @@ try:
   urllib.urlretrieve(url, zipfile_name)
 except:
   print("Unable to read file with urllib, trying via powershell...")
-  from subprocess import check_call, check_output
+  from subprocess import check_call
   cmd = "(new-object System.Net.WebClient).DownloadFile('" + url + "', '" + zipfile_name + "')"
   check_call(['powershell.exe', '-Command', cmd])
 
