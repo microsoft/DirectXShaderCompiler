@@ -12,7 +12,7 @@ add_llvm_library(LLVMHLSL
   DxilLegalizeSampleOffsetPass.cpp
   DxilMetadataHelper.cpp
   DxilModule.cpp
-  DXILOperations.cpp
+  DxilOperations.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
   DxilRootSignature.cpp
