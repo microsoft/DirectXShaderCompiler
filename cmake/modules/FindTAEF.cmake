@@ -13,7 +13,7 @@ find_path(TAEF_INCLUDE_DIR      # Set variable TAEF_INCLUDE_DIR
           HINTS
           )
 
-if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+if ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
   find_library(TAEF_COMMON_LIBRARY NAMES Te.Common.lib
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x64 )
   find_library(TAEF_WEX_COMMON_LIBRARY NAMES Wex.Common.lib
@@ -27,14 +27,14 @@ elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" )
                HINTS ${TAEF_INCLUDE_DIR}/../lib/arm )
   find_library(TAEF_WEX_LOGGER_LIBRARY NAMES Wex.Logger.lib
                HINTS ${TAEF_INCLUDE_DIR}/../lib/arm )
-else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+elseif ("${DXC_BUILD_ARCH}" STREQUAL "Win32" )
   find_library(TAEF_COMMON_LIBRARY NAMES Te.Common.lib
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x86 )
   find_library(TAEF_WEX_COMMON_LIBRARY NAMES Wex.Common.lib
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x86 )
   find_library(TAEF_WEX_LOGGER_LIBRARY NAMES Wex.Logger.lib
                HINTS ${TAEF_INCLUDE_DIR}/../lib/x86 )
-endif (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+endif ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
 
 set(TAEF_LIBRARIES ${TAEF_COMMON_LIBRARY} ${TAEF_WEX_COMMON_LIBRARY} ${TAEF_WEX_LOGGER_LIBRARY})
 set(TAEF_INCLUDE_DIRS ${TAEF_INCLUDE_DIR})

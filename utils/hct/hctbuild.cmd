@@ -105,6 +105,11 @@ if "%BUILD_ARCH%"=="x64" (
   set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
 )
 
+if "%1"=="-ninja" (
+  set BUILD_GENERATOR=Ninja
+  shift /1
+)
+
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_ARCMT:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_STATIC_ANALYZER:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_INCLUDE_TESTS:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=OFF
@@ -128,6 +133,7 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_RTTI:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.14393.0
+set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_BUILD_ARCH=%BUILD_ARCH%
 
 rem This parameter is used with vcvarsall to force use of 64-bit build tools
 rem instead of 32-bit tools that run out of memory.
@@ -150,7 +156,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -x86 or -x64] [-Release] [-Debug] [-vs2017]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-ninja]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -165,6 +171,9 @@ echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
 echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
+echo.
+echo Generator:
+echo   -ninja   use Ninja as the generator
 echo.
 echo AppVeyor Support
 echo   -Release builds release

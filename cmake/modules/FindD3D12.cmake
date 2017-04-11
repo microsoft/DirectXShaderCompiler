@@ -30,7 +30,7 @@ find_path(DXGI_INCLUDE_DIR    # Set variable DXGI_INCLUDE_DIR
           HINTS
           )
 
-if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+if ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
   find_library(D3D12_LIBRARY NAMES d3d12.lib
                HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x64 )
 elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" )
@@ -39,12 +39,12 @@ elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" )
 elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM64" )
   find_library(D3D12_LIBRARY NAMES d3d12.lib
                HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm64 )
-else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win32" )
+elseif ("${DXC_BUILD_ARCH}" STREQUAL "Win32" )
   find_library(D3D12_LIBRARY NAMES d3d12.lib
                HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x86 )
-endif (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+endif ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
 
-if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+if ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
   find_library(DXGI_LIBRARY NAMES dxgi.lib
                HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x64 )
 elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" )
@@ -53,10 +53,10 @@ elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" )
 elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM64" )
   find_library(DXGI_LIBRARY NAMES dxgi.lib
                HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/arm64 )
-else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win32" )
+elseif ("${DXC_BUILD_ARCH}" STREQUAL "Win32" )
   find_library(DXGI_LIBRARY NAMES dxgi.lib
                HINTS ${WIN10_SDK_PATH}/Lib/${WIN10_SDK_VERSION}/um/x86 )
-endif (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+endif ("${DXC_BUILD_ARCH}" STREQUAL "x64" )
 
 set(D3D12_LIBRARIES ${D3D12_LIBRARY} ${DXGI_LIBRARY})
 set(D3D12_INCLUDE_DIRS ${D3D12_INCLUDE_DIR} ${DXGI_INCLUDE_DIR})
