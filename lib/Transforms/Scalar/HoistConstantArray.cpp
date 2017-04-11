@@ -279,7 +279,7 @@ bool CandidateArray::AnalyzeStore(StoreInst *SI) {
 bool CandidateArray::StoreConstant(uint64_t index, Constant *value) {
   EnsureSize();
   size_t i = static_cast<size_t>(index);
-  if (index >= m_Values.size())
+  if (i >= m_Values.size())
     return false;
   if (m_Values[i] == UndefElement())
     m_Values[i] = value;
@@ -291,11 +291,10 @@ bool CandidateArray::StoreConstant(uint64_t index, Constant *value) {
 // constant that we need to remember. This avoids memory overhead
 // for obviously non-constant arrays.
 void CandidateArray::EnsureSize() {
-  uint64_t arraySize = m_ArrayType->getNumElements();
-  if (m_Values.size() != arraySize) {
-    assert(m_Values.size() == 0);
-    m_Values.resize(arraySize, UndefElement());
+  if (m_Values.size() == 0) {
+    m_Values.resize(m_ArrayType->getNumElements(), UndefElement());
   }
+  assert(m_Values.size() == m_ArrayType->getNumElements());
 }
 
 // Get an undef value of the correct type for the array.

@@ -1,11 +1,12 @@
 // RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-hca -dce | %FileCheck %s
-// CHECK:     internal unnamed_addr constant [3 x i32]
-// CHECK:     internal unnamed_addr constant [3 x i32]
+// CHECK-DAG:     internal unnamed_addr constant [3 x i32]
+// CHECK-DAG:     internal unnamed_addr constant [3 x float]
 // CHECK-NOT: alloca [3 x i32]
+// CHECK-NOT: alloca [3 x float]
 
 struct S {
     int x;
-    int y;
+    float y;
 };
 
 int foo(int i) {

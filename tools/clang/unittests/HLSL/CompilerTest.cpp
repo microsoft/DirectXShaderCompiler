@@ -4211,6 +4211,7 @@ TEST_F(CompilerTest, HoistConstantArray) {
   CodeGenTestCheck(L"hca\\11.hlsl");
   CodeGenTestCheck(L"hca\\12.hlsl");
   CodeGenTestCheck(L"hca\\13.hlsl");
+  CodeGenTestCheck(L"hca\\14.hlsl");
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
