@@ -843,6 +843,7 @@ public:
   TEST_METHOD(CodeGenDx12MiniEngineUpsampleandblurcs)
   TEST_METHOD(DxilGen_StoreOutput)
   TEST_METHOD(ConstantFolding)
+  TEST_METHOD(HoistConstantArray)
 
   dxc::DxcDllSupport m_dllSupport;
   bool m_CompilerPreservesBBNames;
@@ -4194,6 +4195,23 @@ TEST_F(CompilerTest, ConstantFolding) {
   CodeGenTestCheck(L"constprop\\ibfe.ll");
   CodeGenTestCheck(L"constprop\\ubfe.ll");
   CodeGenTestCheck(L"constprop\\bfi.ll");
+}
+
+TEST_F(CompilerTest, HoistConstantArray) {
+  CodeGenTestCheck(L"hca\\01.hlsl");
+  CodeGenTestCheck(L"hca\\02.hlsl");
+  CodeGenTestCheck(L"hca\\03.hlsl");
+  CodeGenTestCheck(L"hca\\04.hlsl");
+  CodeGenTestCheck(L"hca\\05.hlsl");
+  CodeGenTestCheck(L"hca\\06.hlsl");
+  CodeGenTestCheck(L"hca\\07.hlsl");
+  CodeGenTestCheck(L"hca\\08.hlsl");
+  CodeGenTestCheck(L"hca\\09.hlsl");
+  CodeGenTestCheck(L"hca\\10.hlsl");
+  CodeGenTestCheck(L"hca\\11.hlsl");
+  CodeGenTestCheck(L"hca\\12.hlsl");
+  CodeGenTestCheck(L"hca\\13.hlsl");
+  CodeGenTestCheck(L"hca\\14.hlsl");
 }
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {

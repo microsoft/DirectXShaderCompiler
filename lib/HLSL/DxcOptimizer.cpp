@@ -92,6 +92,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeHLEmitMetadataPass(Registry);
     initializeHLEnsureMetadataPass(Registry);
     initializeHLMatrixLowerPassPass(Registry);
+    initializeHoistConstantArrayPass(Registry);
     initializeIPSCCPPass(Registry);
     initializeIndVarSimplifyPass(Registry);
     initializeInstructionCombiningPassPass(Registry);

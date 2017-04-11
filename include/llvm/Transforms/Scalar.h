@@ -134,6 +134,13 @@ void initializeDynamicIndexingVectorToArrayPass(PassRegistry&);
 //
 ModulePass *createMultiDimArrayToOneDimArrayPass();
 void initializeMultiDimArrayToOneDimArrayPass(PassRegistry&);
+
+//===----------------------------------------------------------------------===//
+// Hoist a local array initialized with constant values to a global array with
+// a constant initializer.
+//
+ModulePass *createHoistConstantArrayPass();
+void initializeHoistConstantArrayPass(PassRegistry&);
 // HLSL Change Ends
 
 //===----------------------------------------------------------------------===//
