@@ -24,6 +24,7 @@
 #include "clang/AST/HlslTypes.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Lex/HLSLMacroExpander.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -352,7 +353,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
            "else CGMSHLSLRuntime Constructor needs to be updated");
 
   // add globalCB
-  unique_ptr<HLCBuffer> CB = std::make_unique<HLCBuffer>();
+  unique_ptr<HLCBuffer> CB = llvm::make_unique<HLCBuffer>();
   std::string globalCBName = "$Globals";
   CB->SetGlobalSymbol(nullptr);
   CB->SetGlobalName(globalCBName);
@@ -954,7 +955,6 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   return DxilResource::Kind::Invalid;
 }
 
-
 static DxilSampler::SamplerKind KeywordToSamplerKind(const std::string &keyword) {
   // TODO: refactor for faster search (switch by 1/2/3 first letters, then
   // compare)
@@ -1041,7 +1041,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (isEntry)
     EntryFunc = F;
 
-  std::unique_ptr<HLFunctionProps> funcProps = std::make_unique<HLFunctionProps>();
+  std::unique_ptr<HLFunctionProps> funcProps = llvm::make_unique<HLFunctionProps>();
 
   // Save patch constant function to patchConstantFunctionMap.
   bool isPatchConstantFunction = false;
@@ -2310,7 +2310,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     }
   }
 
-  std::unique_ptr<DxilResourceBase> pHlslConst = std::make_unique<DxilResourceBase>(DXIL::ResourceClass::Invalid);
+  std::unique_ptr<DxilResourceBase> pHlslConst = llvm::make_unique<DxilResourceBase>(DXIL::ResourceClass::Invalid);
   pHlslConst->SetLowerBound(UINT_MAX);
   pHlslConst->SetGlobalSymbol(cast<llvm::GlobalVariable>(constVal));
   pHlslConst->SetGlobalName(constDecl->getName());
@@ -2352,7 +2352,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
 }
 
 uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
-  unique_ptr<HLCBuffer> CB = std::make_unique<HLCBuffer>();
+  unique_ptr<HLCBuffer> CB = llvm::make_unique<HLCBuffer>();
 
   // setup the CB
   CB->SetGlobalSymbol(nullptr);
@@ -2734,7 +2734,7 @@ static bool CreateCBufferVariable(HLCBuffer &CB,
           IRBuilder<> *instBuilder = &Builder;
           unique_ptr<IRBuilder<>> B;
           if (I) {
-            B = make_unique<IRBuilder<>>(I);
+            B = llvm::make_unique<IRBuilder<>>(I);
             instBuilder = B.get();
           }
 
