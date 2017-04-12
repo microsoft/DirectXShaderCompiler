@@ -41,6 +41,7 @@ if "%BUILD_ARCH%"=="" (
 )
 
 set BUILD_GENERATOR=Visual Studio 14 2015
+set BUILD_VS_VER=2015
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
@@ -98,7 +99,18 @@ if "%1"=="-Release" (
 )
 if "%1"=="-vs2017" (
   set BUILD_GENERATOR=Visual Studio 15 2017
+  set BUILD_VS_VER=2017
   shift /1
+)
+
+rem If only VS 2017 is available, pick that by default.
+if "%BUILD_VS_VER%"=="2015" (
+  reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DevDiv\vs\Servicing\14.0\devenv /v Install /reg:32 1>nul 2>nul
+  if errorlevel 1 (
+    echo Visual Studio 2015 not available, setting up build for Visual Studio 2017.
+    set BUILD_GENERATOR=Visual Studio 15 2017
+    set BUILD_VS_VER=2017
+  )
 )
 
 if "%BUILD_ARCH%"=="x64" (
@@ -225,9 +237,14 @@ if "%DO_SETUP%"=="1" (
 if "%DO_BUILD%"=="1" (
   rem Should add support for the non-x86-qualified programfiles.
   echo Building solution files for %2 with %1 configuration.
-  if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
-    call :buildvs_x86dir %1 %2 %3
+  if "%BUILD_VS_VER%"=="2015" (
+    if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
+      call :buildvs_x86dir %1 %2 %3
+    ) else (
+      cmake --build . --config %1
+    )
   ) else (
+    rem Just defer to cmake for now.
     cmake --build . --config %1
   )
   if errorlevel 1 (
