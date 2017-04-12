@@ -87,6 +87,9 @@ public:
 
     ArgumentType(Type *ty, int cnt = 1) : type(ty), count(cnt) {}
   };
+
+  virtual ~FunctionTypeTranslator() {}
+
   virtual Type *TranslateReturnType(CallInst *CI) = 0;
   virtual ArgumentType TranslateArgumentType(Value *OrigArg) = 0;
 };

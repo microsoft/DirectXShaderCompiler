@@ -219,6 +219,7 @@ public:
   class ExtraPropertyHelper {
   public:
     ExtraPropertyHelper(llvm::Module *pModule);
+    virtual ~ExtraPropertyHelper() {}
 
     virtual void EmitSRVProperties(const DxilResource &SRV, std::vector<llvm::Metadata *> &MDVals) = 0;
     virtual void LoadSRVProperties(const llvm::MDOperand &MDO, DxilResource &SRV) = 0;
@@ -372,6 +373,7 @@ private:
 class DxilExtraPropertyHelper : public DxilMDHelper::ExtraPropertyHelper {
 public:
   DxilExtraPropertyHelper(llvm::Module *pModule);
+  virtual ~DxilExtraPropertyHelper() {}
 
   virtual void EmitSRVProperties(const DxilResource &SRV, std::vector<llvm::Metadata *> &MDVals);
   virtual void LoadSRVProperties(const llvm::MDOperand &MDO, DxilResource &SRV);
