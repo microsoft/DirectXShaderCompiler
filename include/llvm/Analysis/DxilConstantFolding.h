@@ -33,9 +33,17 @@ namespace hlsl {
   /// If successful, the constant result is returned, if not, null is returned.
   llvm::Constant *ConstantFoldScalarCall(llvm::StringRef Name, llvm::Type *Ty, llvm::ArrayRef<llvm::Constant *> Operands);
 
+  /// ConstantFoldScalarCallExt
+  /// Hook point for constant folding of extensions.
+  llvm::Constant *ConstantFoldScalarCallExt(llvm::StringRef Name, llvm::Type *Ty, llvm::ArrayRef<llvm::Constant *> Operands);
+
   /// CanConstantFoldCallTo - Return true if we can potentially constant
   /// fold a call to the given function.
   bool CanConstantFoldCallTo(const llvm::Function *F);
+
+  /// CanConstantFoldCallToExt
+  /// Hook point for constant folding of extensions.
+  bool CanConstantFoldCallToExt(const llvm::Function *F);
 }
 
 #endif
