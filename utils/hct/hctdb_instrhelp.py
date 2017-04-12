@@ -277,7 +277,7 @@ class db_enumhelp_gen:
             "OpCode": "NumOpCodes",
             "OpCodeClass": "NumOpClasses"
         }
-    
+
     def print_enum(self, e, **kwargs):
         print("// %s" % e.doc)
         print("enum class %s : unsigned {" % e.name)
@@ -346,7 +346,7 @@ class db_oload_gen:
                 name=i.name+",", quotName='"'+i.name+'",', className=i.dxil_class+",", classNameQuot='"'+lower_fn(i.dxil_class)+'",',
                 v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), attr=attr_fn(i)))
         print("};")
-    
+
     def print_opfunc_table(self):
         # Print the table for OP::GetOpFunc
         op_type_texts = {
@@ -395,7 +395,7 @@ class db_oload_gen:
                     line = line + "{val:9}".format(val=op_type_text)
             line = line + "break;"
             print(line)
-    
+
     def print_opfunc_oload_type(self):
         # Print the function for OP::GetOverloadType
         elt_ty = "$o"
@@ -633,10 +633,10 @@ def get_hlsl_intrinsics():
             # This used to be qualified as __declspec(selectany), but that's no longer necessary.
             ns_table = "static const HLSL_INTRINSIC g_%s[] =\n{\n" % (last_ns)
             arg_idx = 0
-        ns_table += "    (UINT)%s::%s_%s, %s, %s, %d, %d, g_%s_Args%s,\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
+        ns_table += "    {(UINT)%s::%s_%s, %s, %s, %d, %d, g_%s_Args%s},\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
         result += "static const HLSL_INTRINSIC_ARGUMENT g_%s_Args%s[] =\n{\n" % (last_ns, arg_idx)
         for p in i.params:
-            result += "    \"%s\", %s, %s, %s, %s, %s, %s, %s,\n" % (
+            result += "    {\"%s\", %s, %s, %s, %s, %s, %s, %s},\n" % (
                 p.name, p.param_qual, p.template_id, p.template_list,
                 p.component_id, p.component_list, p.rows, p.cols)
         result += "};\n\n"
@@ -949,7 +949,7 @@ if __name__ == "__main__":
     parser.add_argument("-gen", choices=["docs-ref", "docs-spec", "inst-header", "enums", "oloads", "valfns"], help="Output type to generate.")
     parser.add_argument("-update-files", action="store_const", const=True)
     args = parser.parse_args()
-    
+
     db = get_db_dxil() # used by all generators, also handy to have it run validation
 
     if args.gen == "docs-ref":
@@ -984,7 +984,7 @@ if __name__ == "__main__":
         print("Updating files ...")
         import CodeTags
         import os
-        
+
         assert "HLSL_SRC_DIR" in os.environ, "Environment variable HLSL_SRC_DIR is not defined"
         hlsl_src_dir = os.environ["HLSL_SRC_DIR"]
         pj = lambda *parts: os.path.abspath(os.path.join(*parts))
