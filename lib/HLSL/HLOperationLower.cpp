@@ -42,7 +42,7 @@ struct HLOperationLowerHelper {
 };
 
 HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
-    : dxilTypeSys(HLM.GetTypeSystem()), hlslOP(*HLM.GetOP()),
+    : hlslOP(*HLM.GetOP()), dxilTypeSys(HLM.GetTypeSystem()),
       legacyDataLayout(HLModule::GetLegacyDataLayoutDesc()) {
   llvm::LLVMContext &Ctx = HLM.GetCtx();
   voidTy = Type::getVoidTy(Ctx);
@@ -2561,7 +2561,7 @@ struct GatherHelper {
 GatherHelper::GatherHelper(
     CallInst *CI, OP::OpCode op, HLObjectOperationLowerHelper *pObjHelper,
     GatherHelper::GatherChannel ch)
-    : opcode(op), hasSampleOffsets(false), special(nullptr) {
+    : opcode(op), special(nullptr), hasSampleOffsets(false) {
   const unsigned thisIdx =
       HLOperandIndex::kHandleOpIdx; // opcode takes arg0, this pointer is arg1.
   const unsigned kSamplerArgIndex = HLOperandIndex::kSampleSamplerArgIndex;
@@ -2757,8 +2757,8 @@ struct ResLoadHelper {
                 Value *h, Value *mip);
   // For double subscript.
   ResLoadHelper(Instruction *ldInst, Value *h, Value *idx, Value *mip)
-      : handle(h), retVal(ldInst), addr(idx), mipLevel(mip),
-        opcode(OP::OpCode::TextureLoad), offset(nullptr), status(nullptr){};
+      : opcode(OP::OpCode::TextureLoad), handle(h), retVal(ldInst), addr(idx),
+        offset(nullptr), status(nullptr), mipLevel(mip) {}
   OP::OpCode opcode;
   Value *handle;
   Value *retVal;
@@ -3249,7 +3249,7 @@ struct AtomicHelper {
 
 // For MOP version of Interlocked*.
 AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h)
-    : opcode(op), handle(h), originalValue(nullptr), offset(nullptr) {
+    : opcode(op), handle(h), offset(nullptr), originalValue(nullptr) {
   addr = CI->getArgOperand(HLOperandIndex::kObjectInterlockedDestOpIndex);
   if (op == OP::OpCode::AtomicCompareExchange) {
     compareValue = CI->getArgOperand(
@@ -3271,8 +3271,8 @@ AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h)
 // For IOP version of Interlocked*.
 AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, Value *bufIdx,
                            Value *baseOffset)
-    : opcode(op), handle(h), originalValue(nullptr), addr(bufIdx),
-      offset(baseOffset) {
+    : opcode(op), handle(h), addr(bufIdx),
+      offset(baseOffset), originalValue(nullptr) {
   if (op == OP::OpCode::AtomicCompareExchange) {
     compareValue =
         CI->getArgOperand(HLOperandIndex::kInterlockedCmpCompareValueOpIndex);

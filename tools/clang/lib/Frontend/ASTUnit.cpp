@@ -222,13 +222,13 @@ ASTUnit::ASTUnit(bool _MainFileIsAST)
     OwnsRemappedFileBuffers(true),
     NumStoredDiagnosticsFromDriver(0),
     PreambleRebuildCounter(0),
+    HlslLangExtensions(nullptr),    // HLSL Change
     NumWarningsInPreamble(0),
     ShouldCacheCodeCompletionResults(false),
     IncludeBriefCommentsInCodeCompletion(false), UserFilesAreVolatile(false),
     CompletionCacheTopLevelHashValue(0),
     PreambleTopLevelHashValue(0),
     CurrentTopLevelHashValue(0),
-    HlslLangExtensions(nullptr),    // HLSL Change
     UnsafeToFree(false) { 
   if (getenv("LIBCLANG_OBJTRACKING"))
     fprintf(stderr, "+++ %u translation units\n", ++ActiveASTUnitObjects);

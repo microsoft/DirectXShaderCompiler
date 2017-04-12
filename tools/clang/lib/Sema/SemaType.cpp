@@ -166,9 +166,10 @@ namespace {
 
   public:
     TypeProcessingState(Sema &sema, Declarator &declarator, Scope* S = nullptr) // HLSL Change: add Scope
-      : sema(sema), declarator(declarator), scope(S), // HLSL Change: add Scope
+      : sema(sema), declarator(declarator),
         chunkIndex(declarator.getNumTypeObjects()),
-        trivial(true), hasSavedAttrs(false) {}
+        trivial(true), hasSavedAttrs(false),
+        scope(S) {} // HLSL Change: add Scope
 
     // HLSL Change: add getScope
     Scope* getScope() const {
