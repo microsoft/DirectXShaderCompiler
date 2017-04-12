@@ -35,6 +35,7 @@ ExtensionLowering::Strategy ExtensionLowering::GetStrategy(StringRef strategy) {
     case 'r': return Strategy::Replicate;
     case 'p': return Strategy::Pack;
     case 'm': return Strategy::Resource;
+    case 'd': return Strategy::Dxil;
     default: break;
   }
   return Strategy::Unknown;
@@ -46,6 +47,7 @@ llvm::StringRef ExtensionLowering::GetStrategyName(Strategy strategy) {
     case Strategy::Replicate:     return "r";
     case Strategy::Pack:          return "p";
     case Strategy::Resource:      return "m"; // m for resource method
+    case Strategy::Dxil:          return "d";
     default: break;
   }
   return "?";
@@ -65,6 +67,7 @@ llvm::Value *ExtensionLowering::Translate(llvm::CallInst *CI) {
   case Strategy::Replicate:     return Replicate(CI);
   case Strategy::Pack:          return Pack(CI);
   case Strategy::Resource:      return Resource(CI);
+  case Strategy::Dxil:          return Dxil(CI);
   default: break;
   }
   return Unknown(CI);
@@ -187,7 +190,7 @@ llvm::Value *ExtensionLowering::NoTranslation(CallInst *CI) {
 ///////////////////////////////////////////////////////////////////////////////
 // Replicated Lowering.
 enum {
-  NO_COMMON_VECTOR_SIZE = 0xFFFFFFFF,
+  NO_COMMON_VECTOR_SIZE = 0x0,
 };
 // Find the vector size that will be used for replication.
 // The function call will be replicated once for each element of the vector
@@ -603,6 +606,39 @@ Value *ExtensionLowering::Resource(CallInst *CI) {
 
   ResourceMethodCall explode(CI, *resourceFunction);
   Value *result = explode.Generate();
+  return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Dxil Lowering.
+
+Value *ExtensionLowering::Dxil(CallInst *CI) {
+  // Map the extension opcode to the corresponding dxil opcode.
+  unsigned extOpcode = GetHLOpcode(CI);
+  OP::OpCode dxilOpcode;
+  if (!m_helper->GetDxilOpcode(extOpcode, dxilOpcode))
+    return nullptr;
+
+  // Find the dxil function based on the overload type.
+  Type *overloadTy = m_hlslOp.GetOverloadType(dxilOpcode, CI->getCalledFunction());
+  Function *F = m_hlslOp.GetOpFunc(dxilOpcode, overloadTy->getScalarType());
+
+  // Update the opcode in the original call so we can just copy it below.
+  // We are about to delete this call anyway.
+  CI->setOperand(0, m_hlslOp.GetI32Const(static_cast<unsigned>(dxilOpcode)));
+
+  // Create the new call.
+  Value *result = nullptr;
+  if (overloadTy->isVectorTy()) {
+    ReplicateCall replicate(CI, *F);
+    result = replicate.Generate();
+  }
+  else {
+    IRBuilder<> builder(CI);
+    SmallVector<Value *, 8> args(CI->arg_operands().begin(), CI->arg_operands().end());
+    result = builder.CreateCall(F, args);
+  }
+
   return result;
 }
 

@@ -134,6 +134,10 @@ public:
   // name. The string "$o" in the name will be replaced by the return type of the
   // intrinsic.
   virtual HRESULT STDMETHODCALLTYPE GetIntrinsicName(UINT opcode, LPCSTR *pName) = 0;
+
+  // Callback to support the 'dxil' lowering strategy.
+  // Returns the dxil opcode that the intrinsic should use for lowering.
+  virtual HRESULT STDMETHODCALLTYPE GetDxilOpCode(UINT opcode, UINT *pDxilOpcode) = 0;
 };
 
 struct __declspec(uuid("1d063e4f-515a-4d57-a12a-431f6a44cfb9"))

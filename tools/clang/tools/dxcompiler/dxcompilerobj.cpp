@@ -1903,6 +1903,17 @@ public:
     return m_langExtensionsHelper.GetIntrinsicName(opcode);
   }
   
+  virtual bool GetDxilOpcode(UINT opcode, OP::OpCode &dxilOpcode) override {
+    UINT dop = static_cast<UINT>(OP::OpCode::NumOpCodes);
+    if (m_langExtensionsHelper.GetDxilOpCode(opcode, dop)) {
+      if (dop < static_cast<UINT>(OP::OpCode::NumOpCodes)) {
+        dxilOpcode = static_cast<OP::OpCode>(dop);
+        return true;
+      }
+    }
+    return false;
+  }
+
   virtual HLSLExtensionsCodegenHelper::CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) {
     // Find macro definition in preprocessor.
     Preprocessor &pp = m_CI.getPreprocessor();
