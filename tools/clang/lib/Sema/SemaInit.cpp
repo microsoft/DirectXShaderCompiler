@@ -711,7 +711,7 @@ InitListChecker::InitListChecker(Sema &S, const InitializedEntity &Entity,
                                  const InitializationKind &K,    // HLSL Change - add K
                                  InitListExpr *IL, QualType &T,
                                  bool VerifyOnly)
-  : SemaRef(S), VerifyOnly(VerifyOnly), Kind(K) { // HLSL Change - add Kind
+  : SemaRef(S), Kind(K), VerifyOnly(VerifyOnly) { // HLSL Change - add Kind
   // FIXME: Check that IL isn't already the semantic form of some other
   // InitListExpr. If it is, we'd create a broken AST.
 

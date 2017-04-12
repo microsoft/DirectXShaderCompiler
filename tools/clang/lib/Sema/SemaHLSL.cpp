@@ -1640,7 +1640,7 @@ public:
 
 public:
   UsedIntrinsic(const HLSL_INTRINSIC* intrinsicSource, _In_count_(argCount) QualType* args, size_t argCount)
-    : m_intrinsicSource(intrinsicSource), m_argLength(argCount), m_functionDecl(nullptr)
+    : m_argLength(argCount), m_intrinsicSource(intrinsicSource), m_functionDecl(nullptr)
   {
     std::copy(args, args + argCount, m_args);
   }
@@ -2067,8 +2067,9 @@ private:
     StringRef typeName,
     StringRef functionName,
     unsigned argCount) :
-    _tables(tables), _typeName(typeName), _functionName(functionName), _argCount(argCount),
-    _tableIndex(0), _tableLookupCookie(0), _tableIntrinsic(nullptr), _firstChecked(false)
+    _typeName(typeName), _functionName(functionName), _tables(tables),
+    _tableIntrinsic(nullptr), _tableLookupCookie(0), _tableIndex(0),
+    _argCount(argCount), _firstChecked(false)
   {
   }
 
@@ -2276,8 +2277,9 @@ namespace hlsl {
   public:
     FnReferenceVisitor(FunctionSet &visitedFunctions,
       PendingFunctions &pendingFunctions, CallNodes &callNodes)
-      : m_visitedFunctions(visitedFunctions),
-      m_pendingFunctions(pendingFunctions), m_callNodes(callNodes) {}
+      : m_callNodes(callNodes),
+      m_visitedFunctions(visitedFunctions),
+      m_pendingFunctions(pendingFunctions) {}
 
     void setSourceFn(FunctionDecl *F) {
       F = getFunctionWithBody(F);
@@ -2907,10 +2909,10 @@ private:
 
 public:
   HLSLExternalSource() :
-    m_context(nullptr),
-    m_sema(nullptr),
+    m_matrixTemplateDecl(nullptr),
     m_vectorTemplateDecl(nullptr),
-    m_matrixTemplateDecl(nullptr)
+    m_context(nullptr),
+    m_sema(nullptr)
   {
     memset(m_matrixTypes, 0, sizeof(m_matrixTypes));
     memset(m_matrixShorthandTypes, 0, sizeof(m_matrixShorthandTypes));
@@ -4179,13 +4181,14 @@ private:
     MultiExprArg::iterator CurrentExpr;       // Current expression (advanceable for a list of expressions).
     MultiExprArg::iterator EndExpr;           // STL-style end of expressions.
     FlattenedIterKind IterKind;               // Kind of tracker.
+
     FlattenedTypeTracker(QualType type) : Type(type), Count(0), CurrentExpr(nullptr), IterKind(FK_IncompleteArray) {}
     FlattenedTypeTracker(QualType type, unsigned int count, MultiExprArg::iterator expression) :
         Type(type), Count(count), CurrentExpr(expression), IterKind(FK_Simple) {}
     FlattenedTypeTracker(QualType type, RecordDecl::field_iterator current, RecordDecl::field_iterator end)
-      : Type(type), CurrentField(current), EndField(end), Count(0), CurrentExpr(nullptr), IterKind(FK_Fields) {}
+      : Type(type), Count(0), CurrentField(current), EndField(end), CurrentExpr(nullptr), IterKind(FK_Fields) {}
     FlattenedTypeTracker(MultiExprArg::iterator current, MultiExprArg::iterator end)
-      : CurrentExpr(current), EndExpr(end), Count(0), IterKind(FK_Expressions) {}
+      : Count(0), CurrentExpr(current), EndExpr(end), IterKind(FK_Expressions) {}
 
     /// <summary>Gets the current expression if one is available.</summary>
     Expr* getExprOrNull() const { return CurrentExpr ? *CurrentExpr : nullptr; }
@@ -9005,7 +9008,7 @@ void hlsl::InitializeASTContextForHLSL(ASTContext& context)
 
 /// <summary>Constructs a FlattenedTypeIterator for the specified type.</summary>
 FlattenedTypeIterator::FlattenedTypeIterator(SourceLocation loc, QualType type, HLSLExternalSource& source) :
-  m_source(source), m_typeDepth(0), m_loc(loc), m_draining(false), m_springLoaded(false), m_incompleteCount(0)
+  m_source(source), m_draining(false), m_springLoaded(false), m_incompleteCount(0), m_typeDepth(0), m_loc(loc)
 {
   if (pushTrackerForType(type, nullptr)) {
     considerLeaf();
@@ -9014,7 +9017,7 @@ FlattenedTypeIterator::FlattenedTypeIterator(SourceLocation loc, QualType type, 
 
 /// <summary>Constructs a FlattenedTypeIterator for the specified expressions.</summary>
 FlattenedTypeIterator::FlattenedTypeIterator(SourceLocation loc, MultiExprArg args, HLSLExternalSource& source) :
-  m_source(source), m_typeDepth(0), m_loc(loc), m_draining(false), m_springLoaded(false), m_incompleteCount(0)
+  m_source(source), m_draining(false), m_springLoaded(false), m_incompleteCount(0), m_typeDepth(0), m_loc(loc)
 {
   if (!args.empty()) {
     MultiExprArg::iterator ii = args.begin();
@@ -10142,8 +10145,8 @@ HLSLBufferDecl::HLSLBufferDecl(
     std::vector<hlsl::UnusualAnnotation *> &BufferAttributes,
     SourceLocation LBrace)
     : NamedDecl(Decl::HLSLBuffer, DC, IdLoc, DeclarationName(Id)),
-      DeclContext(Decl::HLSLBuffer), IsCBuffer(cbuffer),
-      IsConstantBufferView(cbufferView), KwLoc(KwLoc), LBraceLoc(LBrace) {
+      DeclContext(Decl::HLSLBuffer), LBraceLoc(LBrace), KwLoc(KwLoc),
+      IsCBuffer(cbuffer), IsConstantBufferView(cbufferView) {
   if (!BufferAttributes.empty()) {
     setUnusualAnnotations(UnusualAnnotation::CopyToASTContextArray(
         getASTContext(), BufferAttributes.data(), BufferAttributes.size()));

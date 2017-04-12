@@ -57,14 +57,14 @@ HLModule::HLModule(Module *pModule)
     , m_pModule(pModule)
     , m_pEntryFunc(nullptr)
     , m_EntryName("")
-    , m_pSM(nullptr)
-    , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
-    , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
     , m_pMDHelper(llvm::make_unique<DxilMDHelper>(
           pModule, llvm::make_unique<HLExtraPropertyHelper>(pModule)))
     , m_pDebugInfoFinder(nullptr)
+    , m_pSM(nullptr)
     , m_DxilMajor(1)
-    , m_DxilMinor(0) {
+    , m_DxilMinor(0)
+    , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
+    , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule)) {
   DXASSERT_NOMSG(m_pModule != nullptr);
 
   // Pin LLVM dump methods. TODO: make debug-only.
