@@ -322,6 +322,7 @@ private:
 class HLExtraPropertyHelper : public DxilExtraPropertyHelper {
 public:
   HLExtraPropertyHelper(llvm::Module *pModule);
+  virtual ~HLExtraPropertyHelper() {}
 
   virtual void EmitSignatureElementProperties(const DxilSignatureElement &SE, std::vector<llvm::Metadata *> &MDVals);
   virtual void LoadSignatureElementProperties(const llvm::MDOperand &MDO, DxilSignatureElement &SE);

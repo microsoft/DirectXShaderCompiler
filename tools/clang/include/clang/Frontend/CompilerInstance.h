@@ -32,6 +32,8 @@ namespace hlsl {
   class DxcLangExtensionsHelper;
   class DxcLangExtensionsHelperApply {
   public:
+    virtual ~DxcLangExtensionsHelperApply() {}
+
     virtual void SetupSema(clang::Sema &S) = 0;
     virtual void SetupPreprocessorOptions(clang::PreprocessorOptions &PPOpts) = 0;
     virtual DxcLangExtensionsHelper *GetDxcLangExtensionsHelper() = 0;
