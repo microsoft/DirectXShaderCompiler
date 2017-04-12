@@ -9395,7 +9395,10 @@ static int ValidateAttributeIntArg(Sema& S, const AttributeList &Attr, unsigned 
     if (!Attr.isArgExpr(index)) {
       // For case arg is constant variable.
       IdentifierLoc *loc = Attr.getArgAsIdent(index);
-      VarDecl *decl = dyn_cast<VarDecl>(S.LookupSingleName(S.TUScope, loc->Ident, loc->Loc, Sema::LookupNameKind::LookupOrdinaryName));
+
+      VarDecl *decl = dyn_cast_or_null<VarDecl>(
+          S.LookupSingleName(S.getCurScope(), loc->Ident, loc->Loc,
+                             Sema::LookupNameKind::LookupOrdinaryName));
       if (!decl) {
         S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal) << Attr.getName();
         return value;
