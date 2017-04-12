@@ -1,11 +1,12 @@
-# Install the Windows Driver Kit (WDK). Only needed for TAEF.
-$http="https://go.microsoft.com/fwlink/p/?LinkId=526733"
-$path="$env:TEMP\wdk-installer.exe"
-Write-Host "Downloading WDK to $path"
-Invoke-WebRequest $http -OutFile $path
+$ErrorActionPreference = "Stop"
+# Install TAEF binaries.
+$http="https://github.com/Microsoft/WinObjC/raw/develop/deps/prebuilt/nuget/taef.redist.wlk.1.0.170206001-nativetargets.nupkg"
+$tempFile="$env:TEMP\taef.zip"
+Write-Host "Downloading TAEF to $tempFile"
+Invoke-WebRequest $http -OutFile $tempFile
 
-Write-Host "Installing WDK"
-$sw =  [Diagnostics.Stopwatch]::StartNew()
-Start-Process -FilePath $path -Wait -Args "/q /ceip off /features OptionId.WindowsDriverKitComplete"
-$sw.Stop()
-Write-Host ("Installation completed in {0:c}" -f $sw.Elapsed)
+$taefDir = "$env:HLSL_SRC_DIR\external\taef"
+Write-Host "Extracting TAEF to $taefDir"
+Expand-Archive -Path $tempFile -DestinationPath $taefDir -Force
+
+Write-Host "TAEF setup completed successfully"
