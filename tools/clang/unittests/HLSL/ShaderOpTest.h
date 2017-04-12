@@ -230,7 +230,7 @@ struct CommandListRefs {
 // Use this class to run the operation described in a ShaderOp object.
 class ShaderOpTest {
 public:
-  typedef std::function<void(LPCSTR Name, std::vector<BYTE> &Data)> TInitCallbackFn;
+  typedef std::function<void(LPCSTR Name, std::vector<BYTE> &Data, ShaderOp *pShaderOp)> TInitCallbackFn;
   void GetPipelineStats(D3D12_QUERY_DATA_PIPELINE_STATISTICS *pStats);
   void GetReadBackData(LPCSTR pResourceName, MappedData *pData);
   void RunShaderOp(ShaderOp *pShaderOp);

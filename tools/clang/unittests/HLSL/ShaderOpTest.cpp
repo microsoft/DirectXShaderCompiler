@@ -549,7 +549,7 @@ void ShaderOpTest::CreateResources() {
         memset(values.data(), 0, values.size());
       }
       else if (initByName) {
-        m_InitCallbackFn(R.Name, values);
+        m_InitCallbackFn(R.Name, values, m_pShaderOp);
         if (isBuffer) {
           R.Desc.Width = values.size();
         }
