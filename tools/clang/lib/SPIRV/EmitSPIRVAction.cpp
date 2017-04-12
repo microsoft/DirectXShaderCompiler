@@ -23,23 +23,96 @@
 
 namespace clang {
 namespace {
-class SPIRVEmitter : public ASTConsumer,
-                     public RecursiveASTVisitor<SPIRVEmitter> {
-public:
-  explicit SPIRVEmitter(raw_ostream *Out)
-      : OutStream(*Out), TheContext(), Builder(&TheContext) {}
 
-  void HandleTranslationUnit(ASTContext &Context) override {
-    std::vector<uint32_t> M = Builder.takeModule();
-    OutStream.write(reinterpret_cast<const char *>(M.data()), M.size() * 4);
+class SPIRVEmitter : public ASTConsumer {
+public:
+  explicit SPIRVEmitter(raw_ostream *out)
+      : outStream(*out), theContext(), theBuilder(&theContext) {}
+
+  void HandleTranslationUnit(ASTContext &context) override {
+    theBuilder.requireCapability(spv::Capability::Shader);
+
+    // Addressing and memory model are required in a valid SPIR-V module.
+    theBuilder.setAddressingModel(spv::AddressingModel::Logical);
+    theBuilder.setMemoryModel(spv::MemoryModel::GLSL450);
+
+    // Process all top level Decls.
+    for (auto *decl : context.getTranslationUnitDecl()->decls()) {
+      doDecl(decl);
+    }
+
+    // Output the constructed module.
+    std::vector<uint32_t> m = theBuilder.takeModule();
+    outStream.write(reinterpret_cast<const char *>(m.data()), m.size() * 4);
+  }
+
+  void doDecl(Decl *decl) {
+    if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
+      doFunctionDecl(funcDecl);
+    }
+    // TODO: provide diagnostics of unimplemented features instead of silently
+    // ignoring them here.
+  }
+
+  void doFunctionDecl(FunctionDecl *decl) {
+    const uint32_t funcType = translateFunctionType(decl);
+    const uint32_t retType = translateType(decl->getReturnType());
+
+    theBuilder.beginFunction(funcType, retType);
+    // TODO: handle function parameters
+    // TODO: handle function body
+    const uint32_t entryLabel = theBuilder.bbCreate();
+    theBuilder.bbReturn(entryLabel);
+    theBuilder.endFunction();
+  }
+
+  uint32_t translateFunctionType(FunctionDecl *decl) {
+    const uint32_t retType = translateType(decl->getReturnType());
+    std::vector<uint32_t> paramTypes;
+    for (auto *param : decl->params()) {
+      paramTypes.push_back(translateType(param->getType()));
+    }
+    return theBuilder.getFunctionType(retType, paramTypes);
+  }
+
+  uint32_t translateType(QualType type) {
+    // In AST, vector types are TypedefType of TemplateSpecializationType,
+    // which is nested deeply. So we do fast track check here.
+    const auto symbol = type.getAsString();
+    if (symbol == "float4") {
+      const uint32_t floatType = theBuilder.getFloatType();
+      return theBuilder.getVec4Type(floatType);
+    } else if (symbol == "float3") {
+      const uint32_t floatType = theBuilder.getFloatType();
+      return theBuilder.getVec3Type(floatType);
+    } else if (symbol == "float2") {
+      const uint32_t floatType = theBuilder.getFloatType();
+      return theBuilder.getVec2Type(floatType);
+    } else if (auto *builtinType = dyn_cast<BuiltinType>(type.getTypePtr())) {
+      switch (builtinType->getKind()) {
+      case BuiltinType::Void:
+        return theBuilder.getVoidType();
+      case BuiltinType::Float:
+        return theBuilder.getFloatType();
+      default:
+        // TODO: handle other primitive types
+        assert(false && "unhandled builtin type");
+        break;
+      }
+    } else {
+      // TODO: handle other types
+      assert(false && "unhandled clang type");
+    }
+    return 0;
   }
 
 private:
-  raw_ostream &OutStream;
-  spirv::SPIRVContext TheContext;
-  spirv::ModuleBuilder Builder;
+  raw_ostream &outStream;
+  spirv::SPIRVContext theContext;
+  spirv::ModuleBuilder theBuilder;
 };
-}
+
+} // namespace
 
 std::unique_ptr<ASTConsumer>
 EmitSPIRVAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {

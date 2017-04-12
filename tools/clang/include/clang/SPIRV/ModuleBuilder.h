@@ -49,6 +49,19 @@ public:
   /// Returns true on success, false on failure.
   bool setInsertPoint(uint32_t labelId);
 
+  inline void requireCapability(spv::Capability);
+
+  inline void setAddressingModel(spv::AddressingModel);
+  inline void setMemoryModel(spv::MemoryModel);
+
+  uint32_t getVoidType();
+  uint32_t getFloatType();
+  uint32_t getVec2Type(uint32_t elemType);
+  uint32_t getVec3Type(uint32_t elemType);
+  uint32_t getVec4Type(uint32_t elemType);
+  uint32_t getFunctionType(uint32_t returnType,
+                           const std::vector<uint32_t> &paramTypes);
+
   /// \brief Takes the SPIR-V module under building. This will consume the
   /// module under construction.
   std::vector<uint32_t> takeModule();
@@ -67,6 +80,18 @@ private:
   std::vector<uint32_t> constructSite;   ///< InstBuilder construction site.
   InstBuilder instBuilder;
 };
+
+void ModuleBuilder::setAddressingModel(spv::AddressingModel am) {
+  theModule.setAddressingModel(am);
+}
+
+void ModuleBuilder::setMemoryModel(spv::MemoryModel mm) {
+  theModule.setMemoryModel(mm);
+}
+
+void ModuleBuilder::requireCapability(spv::Capability cap) {
+  theModule.addCapability(cap);
+}
 
 } // end namespace spirv
 } // end namespace clang

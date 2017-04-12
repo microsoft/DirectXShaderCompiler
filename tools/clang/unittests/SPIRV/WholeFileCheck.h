@@ -55,7 +55,7 @@ public:
   /// It is also important that all generated SPIR-V code is valid. Users of
   /// WholeFileTest may choose not to run the SPIR-V Validator (for cases where
   /// a certain feature has not been added to the Validator yet).
-  bool runWholeFileTest(std::string path, bool generateHeader = false,
+  void runWholeFileTest(std::string path, bool generateHeader = false,
                         bool runSpirvValidation = true);
 
 private:
@@ -76,10 +76,6 @@ private:
   /// \brief Runs the SPIR-V tools validation on the SPIR-V Binary.
   /// Returns true if validation is successful; false otherwise.
   bool validateSpirvBinary();
-
-  /// \brief Compares the expected and the generated SPIR-V code.
-  /// Returns true if they match, and false otherwise.
-  bool compareExpectedSpirvAndGeneratedSpirv();
 
   /// \brief Parses the Target Profile and Entry Point from the Run command
   bool processRunCommandArgs(const std::string &runCommandLine);

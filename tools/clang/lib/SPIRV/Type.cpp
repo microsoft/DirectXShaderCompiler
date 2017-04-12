@@ -143,7 +143,7 @@ const Type *Type::getPointer(SPIRVContext &context,
   return getUniqueType(context, t);
 }
 const Type *Type::getFunction(SPIRVContext &context, uint32_t return_type,
-                              std::initializer_list<uint32_t> params,
+                              const std::vector<uint32_t> &params,
                               DecorationSet d) {
   std::vector<uint32_t> args = {return_type};
   args.insert(args.end(), params.begin(), params.end());

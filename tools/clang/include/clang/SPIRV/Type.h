@@ -100,7 +100,7 @@ public:
                                 spv::StorageClass storage_class, uint32_t type,
                                 DecorationSet decs = {});
   static const Type *getFunction(SPIRVContext &ctx, uint32_t return_type,
-                                 std::initializer_list<uint32_t> params,
+                                 const std::vector<uint32_t> &params,
                                  DecorationSet decs = {});
   static const Type *getEvent(SPIRVContext &ctx, DecorationSet decs = {});
   static const Type *getDeviceEvent(SPIRVContext &ctx, DecorationSet decs = {});

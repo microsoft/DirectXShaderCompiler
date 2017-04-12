@@ -94,6 +94,50 @@ bool ModuleBuilder::setInsertPoint(uint32_t labelId) {
   return true;
 }
 
+uint32_t ModuleBuilder::getVoidType() {
+  const Type *type = Type::getVoid(theContext);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getFloatType() {
+  const Type *type = Type::getFloat32(theContext);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getVec2Type(uint32_t elemType) {
+  const Type *type = Type::getVec2(theContext, elemType);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getVec3Type(uint32_t elemType) {
+  const Type *type = Type::getVec3(theContext, elemType);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getVec4Type(uint32_t elemType) {
+  const Type *type = Type::getVec4(theContext, elemType);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t
+ModuleBuilder::getFunctionType(uint32_t returnType,
+                               const std::vector<uint32_t> &paramTypes) {
+  const Type *type = Type::getFunction(theContext, returnType, paramTypes);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
 std::vector<uint32_t> ModuleBuilder::takeModule() {
   theModule.setBound(theContext.getNextId());
 
