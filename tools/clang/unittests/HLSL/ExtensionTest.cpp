@@ -15,6 +15,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HLSL/HLOperationLowerExtension.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "dxc/HLSL/DxilOperations.h"
 #include "llvm/Support/Regex.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -97,6 +98,20 @@ static const HLSL_INTRINSIC_ARGUMENT TestMyBufferOp[] = {
   { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// bool<> = test_isinf(float<> x)
+static const HLSL_INTRINSIC_ARGUMENT TestIsInf[] = {
+  { "test_isinf", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_BOOL, 1, IA_C },
+  { "x", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_FLOAT, 1, IA_C},
+};
+
+// int = test_ibfe(uint width, uint offset, uint val)
+static const HLSL_INTRINSIC_ARGUMENT TestIBFE[] = {
+  { "test_ibfe", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_INT, 1, 1 },
+  { "width",  AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+  { "offset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+  { "val",    AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+};
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -121,6 +136,8 @@ Intrinsic Intrinsics[] = {
   {L"test_pack_3",  "test_pack_3.$o",  "p", {  9, false, true, -1, countof(TestFnPack3), TestFnPack3}},
   {L"test_pack_4",  "test_pack_4.$o",  "p", { 10, false, true, -1, countof(TestFnPack4), TestFnPack4}},
   {L"test_rand",    "test_rand",       "r", { 11, false, false,-1, countof(TestRand), TestRand}},
+  {L"test_isinf",   "test_isinf",      "d", { 13, true,  true, -1, countof(TestIsInf), TestIsInf}},
+  {L"test_ibfe",    "test_ibfe",       "d", { 14, true,  true, -1, countof(TestIBFE), TestIBFE}},
   // Make this intrinsic have the same opcode as an hlsl intrinsic with an unsigned
   // counterpart for testing purposes.
   {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, -1, countof(TestUnsigned), TestUnsigned}},
@@ -257,6 +274,19 @@ public:
 
     *pName = intrinsic->dxilName;
     return S_OK;
+  }
+
+  __override HRESULT STDMETHODCALLTYPE
+  GetDxilOpCode(UINT opcode, _Outptr_ UINT *pDxilOpcode) {
+    if (opcode == 13) {
+      *pDxilOpcode = static_cast<UINT>(hlsl::OP::OpCode::IsInf);
+      return S_OK;
+    }
+    else if (opcode == 14) {
+      *pDxilOpcode = static_cast<UINT>(hlsl::OP::OpCode::Ibfe);
+      return S_OK;
+    }
+    return E_FAIL;
   }
 
   Intrinsic *FindByOpcode(UINT opcode) {
@@ -404,6 +434,9 @@ public:
   TEST_METHOD(UnsignedOpcodeIsUnchanged);
   TEST_METHOD(ResourceExtensionIntrinsic);
   TEST_METHOD(NameLoweredWhenNoReplicationNeeded);
+  TEST_METHOD(DxilLoweringVector1);
+  TEST_METHOD(DxilLoweringVector2);
+  TEST_METHOD(DxilLoweringScalar);
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -743,4 +776,58 @@ TEST_F(ExtensionTest, NameLoweredWhenNoReplicationNeeded) {
   VERIFY_IS_TRUE(
     disassembly.npos !=
     disassembly.find("call i32 @test_int("));
+}
+
+TEST_F(ExtensionTest, DxilLoweringVector1) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "int main(float v1 : V1) : SV_Target {\n"
+    "  return test_isinf(v1);\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // Check that the extension was lowered to the correct dxil intrinsic.
+  static_assert(9 == (unsigned)hlsl::OP::OpCode::IsInf, "isinf opcode changed?");
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("call i1 @dx.op.isSpecialFloat.f32(i32 9"));
+}
+
+TEST_F(ExtensionTest, DxilLoweringVector2) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "int2 main(float2 v1 : V1) : SV_Target {\n"
+    "  return test_isinf(v1);\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // Check that the extension was lowered to the correct dxil intrinsic.
+  static_assert(9 == (unsigned)hlsl::OP::OpCode::IsInf, "isinf opcode changed?");
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("call i1 @dx.op.isSpecialFloat.f32(i32 9"));
+}
+
+TEST_F(ExtensionTest, DxilLoweringScalar) {
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "int main(uint v1 : V1, uint v2 : V2, uint v3 : V3) : SV_Target {\n"
+    "  return test_ibfe(v1, v2, v3);\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // Check that the extension was lowered to the correct dxil intrinsic.
+  static_assert(51 == (unsigned)hlsl::OP::OpCode::Ibfe, "ibfe opcode changed?");
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("call i32 @dx.op.tertiary.i32(i32 51"));
 }

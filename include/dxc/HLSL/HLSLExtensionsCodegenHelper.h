@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include "dxc/HLSL/DxilOperations.h"
 #include <vector>
 #include <string>
 
@@ -64,6 +65,12 @@ public:
 
   // Get the name to use for the dxil intrinsic function.
   virtual std::string GetIntrinsicName(unsigned opcode) = 0;
+
+  // Get the dxil opcode the extension should use when lowering with
+  // dxil lowering strategy.
+  //
+  // Returns true if the opcode was successfully mapped to a dxil opcode.
+  virtual bool GetDxilOpcode(unsigned opcode, OP::OpCode &dxilOpcode) = 0;
 
   // Struct to hold a root signature that is read from a define.
   struct CustomRootSignature {

@@ -37,6 +37,7 @@ namespace hlsl {
       Replicate,      // Scalarize the vector arguments and replicate the call.
       Pack,           // Convert the vector arguments into structs.
       Resource,       // Convert return value to resource return and explode vectors.
+      Dxil,           // Convert call to a dxil intrinsic.
     };
 
     // Create the lowering using the given strategy and custom codegen helper.
@@ -74,5 +75,6 @@ namespace hlsl {
     llvm::Value *Replicate(llvm::CallInst *CI);
     llvm::Value *Pack(llvm::CallInst *CI);
     llvm::Value *Resource(llvm::CallInst *CI);
+    llvm::Value *Dxil(llvm::CallInst *CI);
   };
 }
