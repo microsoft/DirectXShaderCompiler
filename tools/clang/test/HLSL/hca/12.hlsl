@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-hca -dce | %FileCheck %s
+// RUN: %dxc -Emain -Tps_6_0 %s | %FileCheck %s
 // CHECK:     internal unnamed_addr constant [3 x i32]
 // CHECK:     internal unnamed_addr constant [3 x i32]
 // CHECK-NOT: alloca [3 x i32]

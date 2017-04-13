@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-hca -dce | %FileCheck %s
+// RUN: %dxc -Emain -Tps_6_0 %s | %FileCheck %s
 // CHECK: alloca [3 x float]
 
 float main(int i : I, float f : F) : SV_Target {
