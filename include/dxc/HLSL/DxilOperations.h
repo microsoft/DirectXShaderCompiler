@@ -74,7 +74,7 @@ public:
   static OpCode GetDxilOpFuncCallInst(const llvm::Instruction *I);
   static const char *GetOpCodeName(OpCode OpCode);
   static const char *GetAtomicOpName(DXIL::AtomicBinOpCode OpCode);
-  static const OpCodeClass GetOpCodeClass(OpCode OpCode);
+  static OpCodeClass GetOpCodeClass(OpCode OpCode);
   static const char *GetOpCodeClassName(OpCode OpCode);
   static bool IsOverloadLegal(OpCode OpCode, llvm::Type *pType);
   static bool CheckOpCodeTable();

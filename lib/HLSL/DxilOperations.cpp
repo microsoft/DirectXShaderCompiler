@@ -299,7 +299,7 @@ const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
   return AtomicBinOpCodeName[static_cast<unsigned>(OpCode)];
 }
 
-const OP::OpCodeClass OP::GetOpCodeClass(OpCode OpCode) {
+OP::OpCodeClass OP::GetOpCodeClass(OpCode OpCode) {
   DXASSERT(0 <= (unsigned)OpCode && OpCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)OpCode].OpCodeClass;
 }

@@ -99,7 +99,7 @@ DxilParameterAnnotation::DxilParameterAnnotation()
 : m_inputQual(DxilParamInputQual::In), DxilFieldAnnotation() {
 }
 
-const DxilParamInputQual DxilParameterAnnotation::GetParamInputQual() const {
+DxilParamInputQual DxilParameterAnnotation::GetParamInputQual() const {
   return m_inputQual;
 }
 void DxilParameterAnnotation::SetParamInputQual(DxilParamInputQual qual) {
