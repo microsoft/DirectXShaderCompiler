@@ -536,7 +536,8 @@ Constant *hlsl::ConstantFoldScalarCall(StringRef Name, Type *Ty, ArrayRef<Consta
       return ConstantFoldIntIntrinsic(opcode, Ty, IntrinsicOperands);
     }
   }
-  return nullptr;
+
+  return hlsl::ConstantFoldScalarCallExt(Name, Ty, RawOperands);
 }
 
 // External entry point to determine if we can constant fold calls to
@@ -570,5 +571,5 @@ bool hlsl::CanConstantFoldCallTo(const Function *F) {
     }
   }
 
-  return false;
+  return hlsl::CanConstantFoldCallToExt(F);
 }
