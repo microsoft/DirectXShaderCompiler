@@ -122,7 +122,7 @@ enum class DxilParamInputQual {
 class DxilParameterAnnotation : public DxilFieldAnnotation {
 public:
   DxilParameterAnnotation();
-  const DxilParamInputQual GetParamInputQual() const;
+  DxilParamInputQual GetParamInputQual() const;
   void SetParamInputQual(DxilParamInputQual qual);
   const std::vector<unsigned> &GetSemanticIndexVec() const;
   void SetSemanticIndexVec(const std::vector<unsigned> &Vec);
