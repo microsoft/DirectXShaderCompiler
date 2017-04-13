@@ -160,7 +160,11 @@ if "%BUILD_ARCH%"=="Win32" (
 call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%"
 if errorlevel 1 exit /b 1
 
-echo Success - files are available at %HLSL_BLD_DIR%\%BUILD_CONFIG%\bin
+if "%BUILD_GENERATOR%"=="Ninja" (
+  echo Success - files are available at %HLSL_BLD_DIR%\bin
+) else (
+  echo Success - files are available at %HLSL_BLD_DIR%\%BUILD_CONFIG%\bin
+)
 call :handlesuccess
 exit /b 0
 
@@ -215,10 +219,15 @@ if not exist %3 (
 )
 cd /d %3
 if "%DO_SETUP%"=="1" (
-  rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
   echo Creating solution files for %2, logging to %3\cmake-log.txt
-  echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-  cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  if "%BUILD_GENERATOR%"=="Ninja" (
+    echo Running cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  ) else (
+    rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
+    echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  )
   if errorlevel 1 (
     echo Failed to configure cmake projects.
     echo ===== begin cmake-log.txt =====

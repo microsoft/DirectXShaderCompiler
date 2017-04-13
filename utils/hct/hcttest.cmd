@@ -10,6 +10,9 @@ set TEST_EXEC=1
 set TEST_CLANG_VERIF=0
 set TEST_EXTRAS=1
 
+rem Whether we built the project using ninja as the generator.
+set GENERATOR_NINJA=0
+
 if "%BUILD_CONFIG%"=="" (
   set BUILD_CONFIG=Debug
 )
@@ -57,6 +60,11 @@ if "%1"=="none" (
   shift /1
 )
 
+if "%1"=="-ninja" (
+  set GENERATOR_NINJA=1
+  shift /1
+)
+
 if "%1"=="-rel" (
   set BUILD_CONFIG=Release
   shift /1
@@ -75,8 +83,6 @@ if "%1"=="-x86" (
 shift /1
 :donearch
 
-set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
-
 if "%1"=="/?" goto :showhelp
 if "%1"=="-?" goto :showhelp
 if "%1"=="-help" goto :showhelp
@@ -88,7 +94,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
+if "%GENERATOR_NINJA%"=="1" (
+  set TEST_DIR=%HLSL_BLD_DIR%\test
+) else (
+  set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
+)
+
 if exist %TEST_DIR% (
   echo Cleaning %TEST_DIR% ...
   rmdir /q /s %TEST_DIR%
@@ -102,7 +113,15 @@ if "%TEST_CLEAN%"=="1" (
 )
 
 echo Copying binaries to test to %TEST_DIR%:
-robocopy %HLSL_BLD_DIR%\%BUILD_CONFIG%\bin %TEST_DIR% *.exe *.dll
+
+Rem For the Ninja generator, artifacts are not generated into a directory
+Rem matching the current build configuration; instead, they are generated
+Rem directly into bin/ under the build root directory.
+if "%GENERATOR_NINJA%"=="1" (
+  robocopy %HLSL_BLD_DIR%\bin %TEST_DIR% *.exe *.dll
+) else (
+  robocopy %HLSL_BLD_DIR%\%BUILD_CONFIG%\bin %TEST_DIR% *.exe *.dll
+)
 
 echo Running HLSL tests ...
 
@@ -178,7 +197,7 @@ exit /b 0
 :showhelp
 
 echo Usage:
-echo   hcttest [-rel] [-arm or -x86 or -x64] [target]
+echo   hcttest [target] [-ninja] [-rel] [-arm or -x86 or -x64]
 echo.
 echo target can be empty or a specific subset.
 echo.
@@ -188,7 +207,8 @@ echo 'clang' will only run clang tests.
 echo 'exec' will only run execution tests.
 echo 'v' will run the clang tests that are verified-based.
 echo.
-echo   -rel builds release rather than debug
+echo   -rel   builds release rather than debug
+echo   -ninja artifacts were built using the Ninja generator
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
