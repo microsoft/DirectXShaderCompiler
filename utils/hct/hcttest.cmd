@@ -129,7 +129,7 @@ if "%TEST_CLEAN_ONLY%"=="1" (
 if not exist %TEST_DIR%\. (mkdir %TEST_DIR%)
 
 echo Copying binaries to test to %TEST_DIR%:
-call hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll
+call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll
 if errorlevel 1 exit /b 1
 
 echo Running HLSL tests ...
