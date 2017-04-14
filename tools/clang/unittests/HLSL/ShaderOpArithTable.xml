@@ -2388,4 +2388,185 @@
             </Parameter>
         </Row>
        </Table>
+
+       <Table Id="WaveIntrinsicPSTest">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.DataType">String</ParameterType>
+            <ParameterType Name="Validation.Input" Array="true">String</ParameterType>
+            <ParameterType Name="Validation.Output" Array="true">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="GetLaneIndex">
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                         struct PSInput {
+                            float4 position : SV_POSITION;
+                        };
+                        PSInput VSMain(float4 position : POSITION) {
+                            PSInput result;
+                            result.position = position;
+                            return result;
+                        }
+                        typedef uint uint32_t;
+                        uint pos_to_id(float4 pos) { return pos.x * 128 + pos.y; }
+                        struct PerPixelData {
+                            float4 position;
+                            uint32_t id, flags, laneIndex, laneCount, firstLaneId, sum1;
+                            uint32_t id0, id1, id2, id3;
+                            uint32_t acrossX, acrossY, acrossDiag, quadActiveCount;
+                        };
+                        AppendStructuredBuffer<PerPixelData> g_sb : register(u1);
+                        float4 PSMain(PSInput input) : SV_TARGET {
+                            uint one = 1;
+                            PerPixelData d;
+                            d.position = input.position;
+                            d.id = pos_to_id(input.position);
+                            d.flags = 0;
+                            if (WaveIsFirstLane()) d.flags |= 1;
+                            d.laneIndex = WaveGetLaneIndex();
+                            d.laneCount = WaveGetLaneCount();
+                            d.firstLaneId = WaveReadLaneFirst(d.id);
+                            d.sum1 = WaveActiveSum(one);
+                            d.id0 = QuadReadLaneAt(d.id, 0);
+                            d.id1 = QuadReadLaneAt(d.id, 1);
+                            d.id2 = QuadReadLaneAt(d.id, 2);
+                            d.id3 = QuadReadLaneAt(d.id, 3);
+                            d.acrossX = QuadReadAcrossX(d.id);
+                            d.acrossY = QuadReadAcrossY(d.id);
+                            d.acrossDiag = QuadReadAcrossDiagonal(d.id);
+                            d.quadActiveCount = one + QuadReadAcrossX(one) + QuadReadAcrossY(one) + QuadReadAcrossDiagonal(one);
+                            g_sb.Append(d);
+                            return 1;
+                        }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.DataType"></Parameter>
+            <Parameter Name="Validation.Input"></Parameter>
+            <Parameter Name="Validation.Output"></Parameter>
+        </Row>
+
+       </Table>
+
+       <Table Id="WaveIntrinsicAllIntTest">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Input1" Array="true">int</ParameterType>
+            <ParameterType Name="Validation.Input2" Array="true">int</ParameterType>
+            <ParameterType Name="Validation.Input3" Array="true">int</ParameterType>
+            <ParameterType Name="Validation.Input4" Array="true">int</ParameterType>
+            <ParameterType Name="Validation.Expected" Array="true">String</ParameterType>
+        </ParameterTypes>
+        
+        <Row Id="WaveActiveCountBits">
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.output = WaveActiveSum(output);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.Input1">
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>-100</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input2">
+                <Value>2</Value>
+                <Value>0</Value>
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input3">
+                <Value>3</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Input4">
+                <Value>4</Value>
+                <Value>0</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.Expected">
+                <Value>160</Value>
+                <Value>0</Value>
+                <Value>-1280</Value>
+            </Parameter>
+        </Row>
+       </Table>
+
+       <Table Id="WaveIntrinsicAllUintTest">
+        <ParameterType>
+            <ParaemterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.DataType">
+        </ParameterTypes>
+
+        <Row Id="WaveActiveCountBits">
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex, uint3 GTID : SV_GroupThreadID) {
+                    PerThreadData pts = g_sb[GI];
+                    uint diver = GTID.x + 2;
+                    pts.diver = diver;
+                    pts.flags = 0;
+                    pts.preds = 0;
+                    if (WaveIsFirstLane()) pts.flags |= 1;
+                    pts.laneIndex = WaveGetLaneIndex();
+                    pts.laneCount = WaveGetLaneCount();
+                    pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                    pts.preds |= ((WaveActiveAnyTrue(diver == 1) ? 1 : 0) << 0);
+                    pts.preds |= ((WaveActiveAllTrue(diver == 1) ? 1 : 0) << 1);
+                    pts.preds |= ((WaveActiveAllEqual(diver) ? 1 : 0) << 2);
+                    pts.preds |= ((WaveActiveAllEqual(GTID.z) ? 1 : 0) << 3);
+                    pts.preds |= ((WaveActiveAllEqual(WaveReadLaneFirst(diver)) ? 1 : 0) << 4);
+                    pts.ballot = WaveActiveBallot(diver > 3);
+                    pts.firstlaneX = WaveReadLaneFirst(GTID.x);
+                    pts.lane1X = WaveReadLaneAt(GTID.x, 1);
+                    
+                    pts.allBC = WaveActiveCountBits(diver > 3);
+                    pts.allSum = WaveActiveSum(diver);
+                    pts.allProd = WaveActiveProduct(diver);
+                    pts.allAND = WaveActiveBitAnd(diver);
+                    pts.allOR = WaveActiveBitOr(diver);
+                    pts.allXOR = WaveActiveBitXor(diver);
+                    pts.allMin = WaveActiveMin(diver);
+                    pts.allMax = WaveActiveMax(diver);
+                    
+                    pts.pfBC = WavePrefixCountBits(diver > 3);
+                    pts.pfSum = WavePrefixSum(diver);
+                    pts.pfProd = WavePrefixProduct(diver);
+                    
+                    int i_diver = pts.i_diver;
+                    pts.i_allMax = WaveActiveMax(i_diver);
+                    pts.i_allMin = WaveActiveMin(i_diver);
+                    pts.i_allSum = WaveActiveSum(i_diver);
+                    pts.i_allProd = WaveActiveProduct(i_diver);
+                    pts.i_pfSum = WavePrefixSum(i_diver);
+                    pts.i_pfProd = WavePrefixProduct(i_diver);
+                    
+                    g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.DataType"></Parameter>
+            <Parameter Name="Validation.Input1"></Parameter>
+            <Parameter Name="Validation.Input2"></Parameter>
+            <Parameter Name="Validation.Input3"></Parameter>
+            <Parameter Name="Validation.Input4"></Parameter>
+            <Parameter Name="Validation.Expected"></Parameter>
+        </Row>
+
+       </Table>
 </Data>
