@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-hca -dce | %FileCheck %s
+// RUN: %dxc -Emain -Tps_6_0 %s | %FileCheck %s
 // CHECK: alloca [3 x i32]
 
 // We could get hoist the arrays individually but the two allocas are

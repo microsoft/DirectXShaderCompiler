@@ -409,6 +409,8 @@ void PassManagerBuilder::populateModulePassManager(
   if (LoadCombine)
     MPM.add(createLoadCombinePass());
 
+  MPM.add(createHoistConstantArrayPass()); // HLSL change
+
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
   MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
   MPM.add(createInstructionCombiningPass());  // Clean up after everything.
