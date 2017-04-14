@@ -631,7 +631,7 @@ public:
       return S_OK;
     }
     if (!GetTestParamBool(L"ExperimentalShaders")) {
-      return S_OK;
+      return S_FALSE;
     }
     HRESULT hr = EnableExperimentalShaderModels();
     if (SUCCEEDED(hr)) {
@@ -777,6 +777,9 @@ bool ExecutionTest::ExecutionTestClassSetup() {
   HRESULT hr = EnableExperimentalMode();
   if (FAILED(hr)) {
     LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
+  }
+  else if (hr == S_FALSE) {
+    LogCommentFmt(L"Experimental mode not enabled.");
   }
   else {
     LogCommentFmt(L"Experimental mode enabled.");
