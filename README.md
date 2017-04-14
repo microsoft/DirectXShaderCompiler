@@ -1,6 +1,6 @@
 # DirectX Shader Compiler
 
-[![Build status](https://ci.appveyor.com/api/projects/status/2wsw8t8clpgt1kfm?svg=true)](https://ci.appveyor.com/project/dmpots/directxshadercompiler)
+[![Build status](https://ci.appveyor.com/api/projects/status/5cwy3b8y1oi71lvl?svg=true)](https://ci.appveyor.com/project/marcelolr/directxshadercompiler)
 
 The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) representation. Applications that make use of DirectX for graphics, games, and computation can use it to generate shader programs.
 
