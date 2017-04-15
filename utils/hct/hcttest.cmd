@@ -123,10 +123,10 @@ if "%TEST_CLEAN%"=="1" (
   if exist %TEST_DIR%\. (
     rmdir /q /s %TEST_DIR%
   )
-)
-if "%TEST_CLEAN_ONLY%"=="1" (
-  echo exiting after deleting test directory (if clean and test is desired, use -clean option)
-  exit /b 0
+  if "%TEST_CLEAN_ONLY%"=="1" (
+    echo exiting after deleting test directory. if clean and test is desired, use -clean option.
+    exit /b 0
+  )
 )
 
 if not exist %TEST_DIR%\. (mkdir %TEST_DIR%)
