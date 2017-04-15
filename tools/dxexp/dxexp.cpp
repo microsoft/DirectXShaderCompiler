@@ -116,8 +116,9 @@ int main(int argc, const char *argv[]) {
     printf("Failed to find export 'D3D12EnableExperimentalFeatures' in "
            "d3d12.dll - Win32 error %u%s\n", err,
            err == ERROR_PROC_NOT_FOUND ? " (The specified procedure could not be found.)" : "");
-    printf("Consider verifying the operating system version - a recent "
-           "flighting build is currently required.\n");
+    printf("Consider verifying the operating system version - Creators Update or newer "
+           "is currently required.\n");
+    PrintAdapters();
     return 2;
   }
 
