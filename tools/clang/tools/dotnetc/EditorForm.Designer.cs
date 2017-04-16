@@ -105,6 +105,7 @@ namespace MainNs
             this.OutputTabControl = new System.Windows.Forms.TabControl();
             this.RenderLogTabPage = new System.Windows.Forms.TabPage();
             this.RenderLogBox = new System.Windows.Forms.TextBox();
+            this.PrintAllPassesBox = new System.Windows.Forms.CheckBox();
             this.TheStatusStrip.SuspendLayout();
             this.TheMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -526,7 +527,7 @@ namespace MainNs
             this.ASTTabPage.Margin = new System.Windows.Forms.Padding(4);
             this.ASTTabPage.Name = "ASTTabPage";
             this.ASTTabPage.Padding = new System.Windows.Forms.Padding(4);
-            this.ASTTabPage.Size = new System.Drawing.Size(976, 968);
+            this.ASTTabPage.Size = new System.Drawing.Size(976, 970);
             this.ASTTabPage.TabIndex = 1;
             this.ASTTabPage.Text = "AST";
             this.ASTTabPage.UseVisualStyleBackColor = true;
@@ -538,12 +539,13 @@ namespace MainNs
             this.ASTDumpBox.Margin = new System.Windows.Forms.Padding(4);
             this.ASTDumpBox.Name = "ASTDumpBox";
             this.ASTDumpBox.ReadOnly = true;
-            this.ASTDumpBox.Size = new System.Drawing.Size(968, 960);
+            this.ASTDumpBox.Size = new System.Drawing.Size(968, 962);
             this.ASTDumpBox.TabIndex = 0;
             this.ASTDumpBox.Text = "";
             // 
             // OptimizerTabPage
             // 
+            this.OptimizerTabPage.Controls.Add(this.PrintAllPassesBox);
             this.OptimizerTabPage.Controls.Add(this.ResetDefaultPassesButton);
             this.OptimizerTabPage.Controls.Add(this.AnalyzeCheckBox);
             this.OptimizerTabPage.Controls.Add(this.AddPrintModuleButton);
@@ -558,7 +560,7 @@ namespace MainNs
             this.OptimizerTabPage.Margin = new System.Windows.Forms.Padding(4);
             this.OptimizerTabPage.Name = "OptimizerTabPage";
             this.OptimizerTabPage.Padding = new System.Windows.Forms.Padding(4);
-            this.OptimizerTabPage.Size = new System.Drawing.Size(976, 968);
+            this.OptimizerTabPage.Size = new System.Drawing.Size(976, 970);
             this.OptimizerTabPage.TabIndex = 2;
             this.OptimizerTabPage.Text = "Optimizer";
             this.OptimizerTabPage.UseVisualStyleBackColor = true;
@@ -566,7 +568,7 @@ namespace MainNs
             // ResetDefaultPassesButton
             // 
             this.ResetDefaultPassesButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.ResetDefaultPassesButton.Location = new System.Drawing.Point(560, 806);
+            this.ResetDefaultPassesButton.Location = new System.Drawing.Point(560, 808);
             this.ResetDefaultPassesButton.Margin = new System.Windows.Forms.Padding(4);
             this.ResetDefaultPassesButton.Name = "ResetDefaultPassesButton";
             this.ResetDefaultPassesButton.Size = new System.Drawing.Size(292, 48);
@@ -579,7 +581,7 @@ namespace MainNs
             // 
             this.AnalyzeCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.AnalyzeCheckBox.AutoSize = true;
-            this.AnalyzeCheckBox.Location = new System.Drawing.Point(14, 764);
+            this.AnalyzeCheckBox.Location = new System.Drawing.Point(14, 766);
             this.AnalyzeCheckBox.Margin = new System.Windows.Forms.Padding(6);
             this.AnalyzeCheckBox.Name = "AnalyzeCheckBox";
             this.AnalyzeCheckBox.Size = new System.Drawing.Size(196, 29);
@@ -590,7 +592,7 @@ namespace MainNs
             // AddPrintModuleButton
             // 
             this.AddPrintModuleButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.AddPrintModuleButton.Location = new System.Drawing.Point(14, 806);
+            this.AddPrintModuleButton.Location = new System.Drawing.Point(14, 844);
             this.AddPrintModuleButton.Margin = new System.Windows.Forms.Padding(4);
             this.AddPrintModuleButton.Name = "AddPrintModuleButton";
             this.AddPrintModuleButton.Size = new System.Drawing.Size(292, 48);
@@ -602,7 +604,7 @@ namespace MainNs
             // RunPassesButton
             // 
             this.RunPassesButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.RunPassesButton.Location = new System.Drawing.Point(560, 858);
+            this.RunPassesButton.Location = new System.Drawing.Point(560, 860);
             this.RunPassesButton.Margin = new System.Windows.Forms.Padding(4);
             this.RunPassesButton.Name = "RunPassesButton";
             this.RunPassesButton.Size = new System.Drawing.Size(292, 48);
@@ -614,7 +616,7 @@ namespace MainNs
             // SelectPassDownButton
             // 
             this.SelectPassDownButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.SelectPassDownButton.Location = new System.Drawing.Point(706, 746);
+            this.SelectPassDownButton.Location = new System.Drawing.Point(706, 748);
             this.SelectPassDownButton.Margin = new System.Windows.Forms.Padding(4);
             this.SelectPassDownButton.Name = "SelectPassDownButton";
             this.SelectPassDownButton.Size = new System.Drawing.Size(146, 48);
@@ -626,7 +628,7 @@ namespace MainNs
             // SelectPassUpButton
             // 
             this.SelectPassUpButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.SelectPassUpButton.Location = new System.Drawing.Point(560, 746);
+            this.SelectPassUpButton.Location = new System.Drawing.Point(560, 748);
             this.SelectPassUpButton.Margin = new System.Windows.Forms.Padding(4);
             this.SelectPassUpButton.Name = "SelectPassUpButton";
             this.SelectPassUpButton.Size = new System.Drawing.Size(138, 48);
@@ -775,6 +777,18 @@ namespace MainNs
             this.RenderLogBox.TabIndex = 0;
             this.RenderLogBox.WordWrap = false;
             // 
+            // PrintAllPassesBox
+            // 
+            this.PrintAllPassesBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.PrintAllPassesBox.AutoSize = true;
+            this.PrintAllPassesBox.Location = new System.Drawing.Point(14, 805);
+            this.PrintAllPassesBox.Margin = new System.Windows.Forms.Padding(6);
+            this.PrintAllPassesBox.Name = "PrintAllPassesBox";
+            this.PrintAllPassesBox.Size = new System.Drawing.Size(191, 29);
+            this.PrintAllPassesBox.TabIndex = 10;
+            this.PrintAllPassesBox.Text = "Print all passes";
+            this.PrintAllPassesBox.UseVisualStyleBackColor = true;
+            // 
             // EditorForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
@@ -886,5 +900,6 @@ namespace MainNs
         private System.Windows.Forms.TextBox RenderLogBox;
         private System.Windows.Forms.ToolStripMenuItem FontGrowToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem FontShrinkToolStripMenuItem;
+        private System.Windows.Forms.CheckBox PrintAllPassesBox;
     }
 }
