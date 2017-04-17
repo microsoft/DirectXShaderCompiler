@@ -2026,7 +2026,7 @@ TEST_F(ExecutionTest, PartialDerivTest) {
       L"center  ddx_fine: %8f, ddy_fine: %8f, ddx_coarse: %8f, ddy_coarse: %8f",
       CenterDDXFine, CenterDDYFine, CenterDDXCoarse, CenterDDYCoarse);
 
-  // The texture for the 9 pixels in the center should look like the folloing
+  // The texture for the 9 pixels in the center should look like the following
 
   // 256   32  64
   // 2048 256 512
@@ -2037,25 +2037,36 @@ TEST_F(ExecutionTest, PartialDerivTest) {
   // while for coarse derivatives there can be up to six possible results.
   int ulpTolerance = 1;
   // 512 - 256 or 2048 - 256
-  VERIFY_IS_TRUE(CompareFloatULP(CenterDDXFine, 256.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDXFine, 1792.0f, ulpTolerance));
+  bool left = CompareFloatULP(CenterDDXFine, -1792.0f, ulpTolerance);
+  VERIFY_IS_TRUE(left || CompareFloatULP(CenterDDXFine, 256.0f, ulpTolerance));
   // 256 - 32 or 256 - .125
-  VERIFY_IS_TRUE(CompareFloatULP(CenterDDYFine, 224.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDXFine, 255.875, ulpTolerance));
-  // 512 - 256 or 2048 - 256 or 64 - 32 or 256 - 32 or .25 - .125 or 1 - .875
-  VERIFY_IS_TRUE(CompareFloatULP(CenterDDXCoarse, 256.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDXCoarse, 1792.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDXCoarse, 32.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDXCoarse, 224.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDXCoarse, 0.125f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDXCoarse, .875f, ulpTolerance));
-  // 256 - 32 or 256 - .125 or 512 - 64 or 512 - .25 or 2048 - 256 or 2048 - 1
-  VERIFY_IS_TRUE(CompareFloatULP(CenterDDYCoarse, 224.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDYCoarse, 255.875f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDYCoarse, 448.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDYCoarse, 511.75f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDYCoarse, 1792.0f, ulpTolerance) ||
-                 CompareFloatULP(CenterDDYCoarse, 2047.0f, ulpTolerance));
+  bool top = CompareFloatULP(CenterDDYFine, 224.0f, ulpTolerance);
+  VERIFY_IS_TRUE(top || CompareFloatULP(CenterDDYFine, -255.875, ulpTolerance));
+
+  if (top && left) {
+    VERIFY_IS_TRUE((CompareFloatULP(CenterDDXCoarse, -224.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDXCoarse, -1792.0f, ulpTolerance)) &&
+                   (CompareFloatULP(CenterDDYCoarse, 224.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDYCoarse, 1792.0f, ulpTolerance)));
+  }
+  else if (top) { // top right quad
+    VERIFY_IS_TRUE((CompareFloatULP(CenterDDXCoarse, 256.0f, ulpTolerance)  ||
+                   CompareFloatULP(CenterDDXCoarse, 32.0f, ulpTolerance))   &&
+                   (CompareFloatULP(CenterDDYCoarse, 224.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDYCoarse, 448.0f, ulpTolerance)));
+  }
+  else if (left) { // bottom left quad
+    VERIFY_IS_TRUE((CompareFloatULP(CenterDDXCoarse, -1792.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDXCoarse, -.875f, ulpTolerance))   &&
+                   (CompareFloatULP(CenterDDYCoarse, -2047.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDYCoarse, -255.875f, ulpTolerance)));
+  }
+  else { // bottom right
+    VERIFY_IS_TRUE((CompareFloatULP(CenterDDXCoarse, 256.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDXCoarse, .125f, ulpTolerance))  &&
+                   (CompareFloatULP(CenterDDYCoarse, -255.875f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDYCoarse, -511.75f, ulpTolerance)));
+  }
 }
 
 // Resource structure for data-driven tests.

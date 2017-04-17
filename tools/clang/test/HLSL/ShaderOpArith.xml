@@ -2,7 +2,7 @@
 <ShaderOpSet xmlns="http://schemas.microsoft.com/test/ShaderOp">
   <ShaderOp Name="DerivFine" PS="PS" VS="VS" TopologyType="TRIANGLE">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(SRV(t0,numDescriptors=1))</RootSignature>
-    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
       { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
       { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
       { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
