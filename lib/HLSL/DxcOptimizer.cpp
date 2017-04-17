@@ -47,7 +47,7 @@ using namespace hlsl;
 inline static bool wcseq(LPCWSTR a, LPCWSTR b) {
   return 0 == wcscmp(a, b);
 }
-inline static bool wcsstarts(LPCWSTR value, LPCWSTR prefix) {
+inline static bool wcsstartswith(LPCWSTR value, LPCWSTR prefix) {
   while (*value && *prefix && *value == *prefix) {
     ++value;
     ++prefix;
@@ -591,7 +591,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       }
 
       // Handle some special cases where we can inject a redirected output stream.
-      if (wcsstarts(ppOptions[i], L"-print-module")) {
+      if (wcsstartswith(ppOptions[i], L"-print-module")) {
         LPCWSTR pName = ppOptions[i] + _countof(L"-print-module") - 1;
         std::string Banner;
         if (*pName) {
