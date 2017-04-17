@@ -374,7 +374,7 @@
     </Shader>
   </ShaderOp>
 
-  <ShaderOp Name="WaveIntrinsics" CS="CS" DispatchX="8" DispatchY="8">
+  <ShaderOp Name="WaveIntrinsicsOp" CS="CS" DispatchX="1" DispatchY="1">
     <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
     <Resource Name="SWaveIntrinsicsOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <RootValues>

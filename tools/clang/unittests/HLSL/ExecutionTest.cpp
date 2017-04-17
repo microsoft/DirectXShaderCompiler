@@ -201,11 +201,12 @@ public:
   TEST_METHOD(SaturateTest);
   TEST_METHOD(SignTest);
   TEST_METHOD(Int64Test);
+  TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(PartialDerivTest);
 
-  BEGIN_TEST_METHOD(WaveIntrinsicsAllIntTest)
-    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsAllIntTable")
+  BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveIntTable")
   END_TEST_METHOD()
 
   // TAEF data-driven tests.
@@ -1511,13 +1512,10 @@ struct SPrimitives {
 };
 
 std::shared_ptr<ShaderOpTestResult>
-RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
-                IStream *pStream, LPCSTR pName,
-                st::ShaderOpTest::TInitCallbackFn pInitCallback) {
+RunShaderOpTestAfterParse(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+  IStream *pStream, LPCSTR pName,
+  st::ShaderOpTest::TInitCallbackFn pInitCallback, std::shared_ptr<st::ShaderOpSet> ShaderOpSet) {
   DXASSERT_NOMSG(pStream != nullptr);
-  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
-      std::make_shared<st::ShaderOpSet>();
-  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp;
   if (pName == nullptr) {
     if (ShaderOpSet->ShaderOps.size() != 1) {
@@ -1557,6 +1555,17 @@ RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
   result->Test = test;
   result->ShaderOp = pShaderOp;
   return result;
+}
+
+std::shared_ptr<ShaderOpTestResult>
+RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+                IStream *pStream, LPCSTR pName,
+                st::ShaderOpTest::TInitCallbackFn pInitCallback) {
+  DXASSERT_NOMSG(pStream != nullptr);
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+        std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+  return RunShaderOpTestAfterParse(pDevice, support, pStream, pName, pInitCallback, ShaderOpSet);
 }
 
 static bool isdenorm(float f) {
@@ -1955,6 +1964,7 @@ static TableParameter BinaryUintOpParameters[] = {
     { L"Validation.Expected1", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected2", TableParameter::UINT_TABLE, false },
     { L"Validation.Tolerance", TableParameter::INT, true },
+
     { L"Validation.NumInput", TableParameter::UINT, true },
     { L"Validation.NumExpected", TableParameter::INT, true },
 };
@@ -1997,13 +2007,14 @@ static TableParameter Msad4OpParameters[] = {
     { L"Validation.Expected", TableParameter::STRING_TABLE, true }
 };
 
-static TableParameter WaveIntrinsicsParameters[] = {
+static TableParameter WaveIntrinsicsActiveIntParameters[] = {
+    { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Validaiton.InputType", TableParameter::STRING, true },
-    { L"Validaiton.ExpctedType", TableParameter::STRING, true },
-    { L"Validaiton.Input", TableParameter::STRING_TABLE, true },
-    { L"Validation.Expected", TableParameter::STRING_TABLE, true }
+    { L"Validation.NumInputSet", TableParameter::UINT, true },
+    { L"Validation.InputSet1", TableParameter::INT_TABLE, true },
+    { L"Validation.InputSet2", TableParameter::INT_TABLE, false },
+    { L"Validation.InputSet3", TableParameter::INT_TABLE, false },
+    { L"Validation.InputSet4", TableParameter::INT_TABLE, false }
 };
 
 static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
@@ -2286,7 +2297,7 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     int tableSize = sizeof(BinaryFPOpParameters) / sizeof(TableParameter);
     VERIFY_SUCCEEDED(ParseTableRow(BinaryFPOpParameters, tableSize));
     TableParameterHandler handler(BinaryFPOpParameters, tableSize);
-    
+
     st::ShaderOpShader shader;
 
     CW2A Name(handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
@@ -2527,8 +2538,8 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
     }
     // Read data from the table
 
-    int tableSize = sizeof(UnaryUintOpParameters) / sizeof(TableParameter); 
-    VERIFY_SUCCEEDED(ParseTableRow(UnaryUintOpParameters, tableSize)); 
+    int tableSize = sizeof(UnaryUintOpParameters) / sizeof(TableParameter);
+    VERIFY_SUCCEEDED(ParseTableRow(UnaryUintOpParameters, tableSize));
     TableParameterHandler handler(UnaryUintOpParameters, tableSize);
 
     st::ShaderOpShader shader;
@@ -2773,7 +2784,6 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     size_t tableSize = sizeof(BinaryUintOpParameters) / sizeof(TableParameter);
     VERIFY_SUCCEEDED(ParseTableRow(BinaryUintOpParameters, tableSize));
     TableParameterHandler handler(BinaryUintOpParameters, tableSize);
-    ;
 
     st::ShaderOpShader shader;
 
@@ -3106,251 +3116,632 @@ TEST_F(ExecutionTest, Msad4Test) {
     }
 }
 
-TEST_F(ExecutionTest, WaveIntrinsicsAllIntTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  typedef SUnaryIntOp PerThreadData;
+// Virtual class to compute the expected result given a set of inputs
 
-  int NumThreadsX = 8; 
+template <class T1, class T2>
+class ExpectedCalculator {
+public:
+    virtual T2 computeExpected(std::vector<int> &vec) = 0;
+    virtual ~ExpectedCalculator() {};
+};
+
+template <class T1, class T2>
+class WaveActiveSumCalculator : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<int> &vec) {
+    T2 sum = 0;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      sum += vec.at(i);
+    }
+    return sum;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveProductCalculator : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 prod = 1;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      prod *= vec.at(i);
+    }
+    return prod;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCountBitsCalculator : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 count = 0;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) > 3) {
+        count++;
+      }
+    }
+    return count;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveMaxCalculator : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 maximum = std::numeric_limits<T2>::min();
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) > maximum)
+        maximum = vec.at(i);
+    }
+    return maximum;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveMinCalculator : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 minimum = std::numeric_limits<T2>::max();
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) < minimum)
+        minimum = vec.at(i);
+    }
+    return minimum;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveBitOrCalculator : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 bits = 0x00000000;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) < bits)
+        bits |= vec.at(i);
+    }
+    return bits;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveBitAndCalculator : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 bits = 0xffffffff;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) < bits)
+        bits &= vec.at(i);
+    }
+    return bits;
+  }
+};;
+
+template <class T1, class T2>
+class WaveActiveBitXorCalculator : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 bits = 0x00000000;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) < bits)
+        bits ^= vec.at(i);
+    }
+    return bits;
+  }
+};
+
+template <class T1, class T2>
+struct CalculatorLookupPair {
+    PCWSTR name;
+    ExpectedCalculator<T1,T2> *calculator;
+};
+
+static WaveActiveSumCalculator<int, int> WaveActiveSumCalculatorInt;
+static WaveActiveProductCalculator<int, int> WaveActiveProdCalculatorInt;
+static WaveActiveCountBitsCalculator<int, int> WaveActiveCountBitsCalculatorInt;
+static WaveActiveMaxCalculator<int, int> WaveActiveMaxCalculatorInt;
+static WaveActiveMinCalculator<int, int> WaveActiveMinCalculatorInt;
+static WaveActiveBitOrCalculator<int, int> WaveActiveBitOrCalculatorInt;
+static WaveActiveBitAndCalculator<int, int> WaveActiveBitAndCalculatorInt;
+static WaveActiveBitXorCalculator<int, int> WaveActiveBitXorCalculatorInt;
+
+static CalculatorLookupPair<int, int> WaveIntrinsicsActiveIntCalculatorLookup[] = {
+    { L"WaveActiveSum", &WaveActiveSumCalculatorInt },
+    { L"WaveActiveProduct", &WaveActiveProdCalculatorInt },
+    { L"WaveActiveCountBits", &WaveActiveCountBitsCalculatorInt },
+    { L"WaveActiveMax", &WaveActiveMaxCalculatorInt },
+    { L"WaveActiveMin", &WaveActiveMinCalculatorInt },
+    { L"WaveActiveBitOr", &WaveActiveBitOrCalculatorInt },
+    { L"WaveActiveBitAnd", &WaveActiveBitAndCalculatorInt },
+    { L"WaveActiveBitXor", &WaveActiveBitXorCalculatorInt }
+};
+
+template <class T1, class T2>
+class ExpectedLookupHandler {
+private:
+    size_t m_size;
+    CalculatorLookupPair<T1,T2> *m_table;
+public:
+    ExpectedCalculator<T1, T2> *GetExpectedCalcFunc(PCWSTR name) {
+        for (size_t i = 0; i < m_size; ++i) {
+            if (_wcsicmp(name, m_table[i].name) == 0) {
+                return m_table[i].calculator;
+            }
+        }
+        DXASSERT(false, "Invalid Expected Calculation lookup %s", name);
+        return nullptr;
+    }
+    ExpectedLookupHandler(CalculatorLookupPair<T1, T2> *pTable, size_t size) : m_table(pTable), m_size(size) {}
+};
+
+TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  // Resource representation for compute shader
+  // firstLaneId is used to group different waves
+  struct PerThreadData {
+      int id;
+      int firstLaneId;
+      int input;
+      int output;
+  };
+
+  int NumThreadsX = 8;
   int NumThreadsY = 8;
   int NumThreadsZ = 1;
 
   static const int ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
   static const int DispatchGroupCount = 1;
-  static const int count = ThreadsPerGroup * DispatchGroupCount;
+  static const int ThreadCount = ThreadsPerGroup * DispatchGroupCount;
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
   CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice))
+  if (!CreateDevice(&pDevice)) {
     return;
-
+  }
   if (!DoesDeviceSupportWaveOps(pDevice)) {
     // Optional feature, so it's correct to not support it if declared as such.
     WEX::Logging::Log::Comment(L"Device does not support wave operations.");
     return;
   }
+  size_t tableSize = sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter);
+  VERIFY_SUCCEEDED(ParseTableRow(WaveIntrinsicsActiveIntParameters, tableSize));
+  TableParameterHandler handler(WaveIntrinsicsActiveIntParameters, tableSize);
 
-  size_t tableSize = sizeof(WaveIntrinsicsParameters) / sizeof(TableParameter);
-  VERIFY_SUCCEEDED(ParseTableRow(WaveIntrinsicsParameters, tableSize));
-  TableParameterHandler handler(WaveIntrinsicsParameters, tableSize);
 
-  WEX::TestExecution::TestDataArray<int> *Validation_Input1 =
-    &handler.GetTableParamByName(L"Validation.Input1")->m_intTable;
-  WEX::TestExecution::TestDataArray<int> *Validation_Input2 =
-    &handler.GetTableParamByName(L"Validation.Input2")->m_intTable;
-  WEX::TestExecution::TestDataArray<int> *Validation_Input3 =
-    &handler.GetTableParamByName(L"Validation.Input3")->m_intTable;
-  WEX::TestExecution::TestDataArray<int> *Validation_Input4 =
-    &handler.GetTableParamByName(L"Validation.Input4")->m_intTable;
+  unsigned int numInputSet = handler.GetTableParamByName(L"Validation.NumInputSet")->m_uint;
+
+  // Obtain the list of input lists
+
+  typedef WEX::TestExecution::TestDataArray<int> DataArrayInt;
+  std::vector<DataArrayInt *> InputList;
+  for (unsigned int i = 0;
+      i < numInputSet; ++i) {
+      std::wstring inputName = L"Validation.InputSet";
+      inputName.append(std::to_wstring(i+1));
+      InputList.push_back(&handler.GetTableParamByName(inputName.c_str())->m_intTable);
+  }
 
   CW2A Text(handler.GetTableParamByName(L"ShaderOp.text")->m_str);
 
-  CComPtr<IStream> pStream;
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
-    pDevice, m_support, pStream, "S",
-    // this callbacked is called when the test
-    // is creating the resource to run the test
-    [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-    VERIFY_IS_TRUE(0 == _stricmp(Name, ""));
-    size_t size = sizeof(PerThreadData) * count;
-    Data.resize(size);
-    PerThreadData *pPrimitives = (PerThreadData*)Data.data();
-    for (size_t i = 0; i < count; ++i) {
-      PerThreadData *p = &pPrimitives[i];
-     
-      // Parse data from handler. and assign it to p->input and p->output
-    }
-    // use shader from data table
-    pShaderOp->Shaders.at(0).Text = Text.m_psz;
-  });
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
+  for (size_t testIndex = 0; testIndex < numInputSet; ++testIndex) {
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+          pDevice, m_support, pStream, "WaveIntrinsicsOp",
+          // this callbacked is called when the test
+          // is creating the resource to run the test
+          [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+          VERIFY_IS_TRUE(0 == _stricmp(Name, "SWaveIntrinsicsOp"));
+          size_t size = sizeof(PerThreadData) * ThreadCount;
+          Data.resize(size);
+          PerThreadData *pPrimitives = (PerThreadData*)Data.data();
+          // 4 different inputs for each operation test
+          int index = 0;
+          while (index < ThreadCount) {
+              PerThreadData *p = &pPrimitives[index];
+              DataArrayInt *IntList = InputList[testIndex];
+              p->id = index;
+              p->input = (*IntList)[index % IntList->GetSize()];
+              index++;
+          }
+          // use shader from data table
+          pShaderOp->Shaders.at(0).Text = Text.m_psz;
+      }, ShaderOpSet);
 
-  std::vector<PerThreadData> values;
-  values.resize(ThreadsPerGroup * DispatchGroupCount);
-  for (size_t i = 0; i < values.size(); ++i) {
-    memset(&values[i], 0, sizeof(PerThreadData));
-    values[i].input = i;
-  }
+      // Check the value
+      MappedData data;
+      test->Test->GetReadBackData("SWaveIntrinsicsOp", &data);
 
-  // Run the compute shader and copy the results back to readable memory.
-  {
-    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-    uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = values.size();
-    uavDesc.Buffer.StructureByteStride = sizeof(PerThreadData);
-    uavDesc.Buffer.CounterOffsetInBytes = 0;
-    uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-    CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(pUavHeap->GetCPUDescriptorHandleForHeapStart());
-    CD3DX12_GPU_DESCRIPTOR_HANDLE uavHandleGpu(pUavHeap->GetGPUDescriptorHandleForHeapStart());
-    pDevice->CreateUnorderedAccessView(pUavResource, nullptr, &uavDesc, uavHandle);
-    SetDescriptorHeap(pCommandList, pUavHeap);
-    pCommandList->SetComputeRootSignature(pRootSignature);
-    pCommandList->SetComputeRootDescriptorTable(0, uavHandleGpu);
-  }
-  pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
-  RecordTransitionBarrier(pCommandList, pUavResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
-  pCommandList->CopyResource(pReadBuffer, pUavResource);
-  pCommandList->Close();
-  ExecuteCommandList(pCommandQueue, pCommandList);
-  WaitForSignal(pCommandQueue, FO);
-  {
-    MappedData mappedData(pReadBuffer, valueSizeInBytes);
-    PerThreadData *pData = (PerThreadData *)mappedData.data();
-    memcpy(values.data(), pData, valueSizeInBytes);
+      PerThreadData *pPrimitives = (PerThreadData*)data.data();
+      WEX::TestExecution::DisableVerifyExceptions dve;
+      // all outputs are equivalent for WaveIntrinsicsActive operations
 
-    // Gather some general data.
-    // The 'firstLaneId' captures a unique number per first-lane per wave.
-    // Counting the number distinct firstLaneIds gives us the number of waves.
-    std::vector<uint32_t> firstLaneIds;
-    for (size_t i = 0; i < values.size(); ++i) {
-      PerThreadData &pts = values[i];
-      uint32_t firstLaneId = pts.firstLaneId;
-      if (!contains(firstLaneIds, firstLaneId)) {
-        firstLaneIds.push_back(firstLaneId);
+      std::vector<int> firstLaneIds;
+      for (size_t i = 0; i < ThreadCount; ++i) {
+          PerThreadData *p = &pPrimitives[i];
+          int firstLaneId = p->firstLaneId;
+          if (!contains(firstLaneIds, firstLaneId)) {
+              firstLaneIds.push_back(firstLaneId);
+          }
       }
-    }
 
-    // Waves should cover 4 threads or more.
-    LogCommentFmt(L"Found %u distinct lane ids: %u", firstLaneIds.size());
-    if (!dxbc) {
-      VERIFY_IS_GREATER_THAN_OR_EQUAL(values.size() / 4, firstLaneIds.size());
-    }
+      std::map<int, std::unique_ptr<std::vector<PerThreadData *>>> waves;
+      for (size_t i = 0; i < firstLaneIds.size(); ++i) {
+          waves[firstLaneIds.at(i)] = std::make_unique<std::vector<PerThreadData*>>(std::vector<PerThreadData*>());
+      }
 
-    // Now, group threads into waves.
-    std::map<uint32_t, std::unique_ptr<std::vector<PerThreadData *> > > waves;
-    for (size_t i = 0; i < firstLaneIds.size(); ++i) {
-      waves[firstLaneIds[i]] = std::make_unique<std::vector<PerThreadData *> >();
-    }
-    for (size_t i = 0; i < values.size(); ++i) {
-      PerThreadData &pts = values[i];
-      std::unique_ptr<std::vector<PerThreadData *> > &wave = waves[pts.firstLaneId];
-      wave->push_back(&pts);
-    }
+      for (size_t i = 0; i < ThreadCount; ++i) {
+          PerThreadData *p= &pPrimitives[i];
+          waves[p->firstLaneId].get()->push_back(p);
+      }
 
-    // Verify that all the wave values are coherent across the wave.
-    for (size_t i = 0; i < values.size(); ++i) {
-      PerThreadData &pts = values[i];
-      std::unique_ptr<std::vector<PerThreadData *> > &wave = waves[pts.firstLaneId];
-      // Sort the lanes by increasing lane ID.
-      struct LaneIdOrderPred {
-        bool operator()(PerThreadData *a, PerThreadData *b) {
-          return a->laneIndex < b->laneIndex;
+      // Calculate expected value of a given wave inputs using ExpectedResultCalculator
+      ExpectedLookupHandler<int, int> expectedHandler(
+          WaveIntrinsicsActiveIntCalculatorLookup,
+          sizeof(WaveIntrinsicsActiveIntCalculatorLookup) /
+              sizeof(CalculatorLookupPair<int, int>));
+      ExpectedCalculator<int, int> *calculator =
+          expectedHandler.GetExpectedCalcFunc(
+              handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
+
+      for (size_t i = 0; i < firstLaneIds.size(); ++i) {
+        std::vector<PerThreadData *> *data = waves[firstLaneIds.at(i)].get();
+        std::vector<int> outputList(data->size());
+        // collect all inputs for given wave and calculate expected
+        std::wstring str = L"Inputs in this wave: ";
+        for (size_t j = 0; j < data->size(); ++j) {
+          outputList.at(j) = (data->at(j)->input);
+          str.append(std::to_wstring(data->at(j)->input));
+          str.append(L" ");
         }
-      };
-      std::sort(wave.get()->begin(), wave.get()->end(), LaneIdOrderPred());
-
-      // Verify some interesting properties of the first lane.
-      uint32_t pfBC, pfSum, pfProd;
-      int32_t i_pfSum, i_pfProd;
-      int32_t i_allMax, i_allMin;
-      {
-        PerThreadData *ptdFirst = wave->front();
-        VERIFY_IS_TRUE(0 != (ptdFirst->flags & 1)); // FirstLane sets this bit.
-        VERIFY_IS_TRUE(0 == ptdFirst->pfBC);
-        VERIFY_IS_TRUE(0 == ptdFirst->pfSum);
-        VERIFY_IS_TRUE(1 == ptdFirst->pfProd);
-        VERIFY_IS_TRUE(0 == ptdFirst->i_pfSum);
-        VERIFY_IS_TRUE(1 == ptdFirst->i_pfProd);
-        pfBC = (ptdFirst->diver > 3) ? 1 : 0;
-        pfSum = ptdFirst->diver;
-        pfProd = ptdFirst->diver;
-        i_pfSum = ptdFirst->i_diver;
-        i_pfProd = ptdFirst->i_diver;
-        i_allMax = i_allMin = ptdFirst->i_diver;
-      }
-
-      // Calculate values which take into consideration all lanes.
-      uint32_t preds = 0;
-      preds |= 1 << 1; // AllTrue starts true, switches to false if needed.
-      preds |= 1 << 2; // AllEqual starts true, switches to false if needed.
-      preds |= 1 << 3; // WaveActiveAllEqual(GTID.z) is always true
-      preds |= 1 << 4; // (WaveActiveAllEqual(WaveReadLaneFirst(diver)) is always true
-      uint32_t ballot[4] = { 0, 0, 0, 0 };
-      int32_t i_allSum = 0, i_allProd = 1;
-      for (size_t n = 0; n < wave->size(); ++n) {
-        std::vector<PerThreadData *> &lanes = *wave.get();
-        // pts.preds |= ((WaveActiveAnyTrue(diver == 1) ? 1 : 0) << 0);
-        if (lanes[n]->diver == 1) preds |= (1 << 0);
-        // pts.preds |= ((WaveActiveAllTrue(diver == 1) ? 1 : 0) << 1);
-        if (lanes[n]->diver != 1) preds &= ~(1 << 1);
-        // pts.preds |= ((WaveActiveAllEqual(diver) ? 1 : 0) << 2);
-        if (lanes[0]->diver != lanes[n]->diver) preds &= ~(1 << 2);
-        // pts.ballot = WaveActiveBallot(diver > 3);\r\n"
-        if (lanes[n]->diver > 3) {
-          // This is the uint4 result layout:
-          // .x -> bits  0 .. 31
-          // .y -> bits 32 .. 63
-          // .z -> bits 64 .. 95
-          // .w -> bits 96 ..127
-          uint32_t component = lanes[n]->laneIndex / 32;
-          uint32_t bit = lanes[n]->laneIndex % 32;
-          ballot[component] |= 1 << bit;
+        int expected = calculator->computeExpected(outputList);
+        LogCommentFmt(str.data());
+        LogCommentFmt(L"Expected : %d", expected);
+        // In a given wave output should be equivalent for WaveActiveOp
+        for (size_t j = 0; j < data->size(); ++j) {
+          VERIFY_ARE_EQUAL(data->at(j)->output, expected);
         }
-        i_allMax = std::max(lanes[n]->i_diver, i_allMax);
-        i_allMin = std::min(lanes[n]->i_diver, i_allMin);
-        i_allProd *= lanes[n]->i_diver;
-        i_allSum += lanes[n]->i_diver;
       }
-
-      for (size_t n = 1; n < wave->size(); ++n) {
-        // 'All' operations are uniform across the wave.
-        std::vector<PerThreadData *> &lanes = *wave.get();
-        VERIFY_IS_TRUE(0 == (lanes[n]->flags & 1)); // non-firstlanes do not set this bit
-        VERIFY_ARE_EQUAL(lanes[0]->allBC, lanes[n]->allBC);
-        VERIFY_ARE_EQUAL(lanes[0]->allSum, lanes[n]->allSum);
-        VERIFY_ARE_EQUAL(lanes[0]->allProd, lanes[n]->allProd);
-        VERIFY_ARE_EQUAL(lanes[0]->allAND, lanes[n]->allAND);
-        VERIFY_ARE_EQUAL(lanes[0]->allOR, lanes[n]->allOR);
-        VERIFY_ARE_EQUAL(lanes[0]->allXOR, lanes[n]->allXOR);
-        VERIFY_ARE_EQUAL(lanes[0]->allMin, lanes[n]->allMin);
-        VERIFY_ARE_EQUAL(lanes[0]->allMax, lanes[n]->allMax);
-        VERIFY_ARE_EQUAL(i_allMax, lanes[n]->i_allMax);
-        VERIFY_ARE_EQUAL(i_allMin, lanes[n]->i_allMin);
-        VERIFY_ARE_EQUAL(i_allProd, lanes[n]->i_allProd);
-        VERIFY_ARE_EQUAL(i_allSum, lanes[n]->i_allSum);
-
-        // first-lane reads and uniform reads are uniform across the wave.
-        VERIFY_ARE_EQUAL(lanes[0]->firstlaneX, lanes[n]->firstlaneX);
-        VERIFY_ARE_EQUAL(lanes[0]->lane1X, lanes[n]->lane1X);
-
-        // the lane count is uniform across the wave.
-        VERIFY_ARE_EQUAL(lanes[0]->laneCount, lanes[n]->laneCount);
-
-        // The predicates are uniform across the wave.
-        VERIFY_ARE_EQUAL(lanes[n]->preds, preds);
-
-        // the lane index is distinct per thread.
-        for (size_t prior = 0; prior < n; ++prior) {
-          VERIFY_ARE_NOT_EQUAL(lanes[prior]->laneIndex, lanes[n]->laneIndex);
-        }
-        // Ballot results are uniform across the wave.
-        VERIFY_ARE_EQUAL(0, memcmp(ballot, lanes[n]->ballot, sizeof(ballot)));
-
-        // Keep running total of prefix calculation. Prefix values are exclusive to
-        // the executing lane.
-        VERIFY_ARE_EQUAL(pfBC, lanes[n]->pfBC);
-        VERIFY_ARE_EQUAL(pfSum, lanes[n]->pfSum);
-        VERIFY_ARE_EQUAL(pfProd, lanes[n]->pfProd);
-        VERIFY_ARE_EQUAL(i_pfSum, lanes[n]->i_pfSum);
-        VERIFY_ARE_EQUAL(i_pfProd, lanes[n]->i_pfProd);
-        pfBC += (lanes[n]->diver > 3) ? 1 : 0;
-        pfSum += lanes[n]->diver;
-        pfProd *= lanes[n]->diver;
-        i_pfSum += lanes[n]->i_diver;
-        i_pfProd *= lanes[n]->i_diver;
-      }
-      // TODO: add divergent branching and verify that the otherwise uniform values properly diverge
-    }
-
-    // Compare each value of each per-thread element.
-    for (size_t i = 0; i < values.size(); ++i) {
-      PerThreadData &pts = values[i];
-      VERIFY_ARE_EQUAL(i, pts.id); // ID is unchanged.
-    }
   }
 }
 
+TEST_F(ExecutionTest, WaveIntrinsicsTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+    struct PerThreadData {
+        uint32_t id, flags, laneIndex, laneCount, firstLaneId, preds, firstlaneX, lane1X;
+        uint32_t allBC, allSum, allProd, allAND, allOR, allXOR, allMin, allMax;
+        uint32_t pfBC, pfSum, pfProd;
+        uint32_t ballot[4];
+        uint32_t diver;   // divergent value, used in calculation
+        int32_t i_diver;  // divergent value, used in calculation
+        int32_t i_allMax, i_allMin, i_allSum, i_allProd;
+        int32_t i_pfSum, i_pfProd;
+    };
+    static const char pShader[] =
+        WAVE_INTRINSIC_DXBC_GUARD
+        "struct PerThreadData {\r\n"
+        " uint id, flags, laneIndex, laneCount, firstLaneId, preds, firstlaneX, lane1X;\r\n"
+        " uint allBC, allSum, allProd, allAND, allOR, allXOR, allMin, allMax;\r\n"
+        " uint pfBC, pfSum, pfProd;\r\n"
+        " uint4 ballot;\r\n"
+        " uint diver;\r\n"
+        " int i_diver;\r\n"
+        " int i_allMax, i_allMin, i_allSum, i_allProd;\r\n"
+        " int i_pfSum, i_pfProd;\r\n"
+        "};\r\n"
+        "RWStructuredBuffer<PerThreadData> g_sb : register(u0);\r\n"
+        "[numthreads(8,8,1)]\r\n"
+        "void main(uint GI : SV_GroupIndex, uint3 GTID : SV_GroupThreadID) {"
+        "  PerThreadData pts = g_sb[GI];\r\n"
+        "  uint diver = GTID.x + 2;\r\n"
+        "  pts.diver = diver;\r\n"
+        "  pts.flags = 0;\r\n"
+        "  pts.preds = 0;\r\n"
+        "  if (WaveIsFirstLane()) pts.flags |= 1;\r\n"
+        "  pts.laneIndex = WaveGetLaneIndex();\r\n"
+        "  pts.laneCount = WaveGetLaneCount();\r\n"
+        "  pts.firstLaneId = WaveReadLaneFirst(pts.id);\r\n"
+        "  pts.preds |= ((WaveActiveAnyTrue(diver == 1) ? 1 : 0) << 0);\r\n"
+        "  pts.preds |= ((WaveActiveAllTrue(diver == 1) ? 1 : 0) << 1);\r\n"
+        "  pts.preds |= ((WaveActiveAllEqual(diver) ? 1 : 0) << 2);\r\n"
+        "  pts.preds |= ((WaveActiveAllEqual(GTID.z) ? 1 : 0) << 3);\r\n"
+        "  pts.preds |= ((WaveActiveAllEqual(WaveReadLaneFirst(diver)) ? 1 : 0) << 4);\r\n"
+        "  pts.ballot = WaveActiveBallot(diver > 3);\r\n"
+        "  pts.firstlaneX = WaveReadLaneFirst(GTID.x);\r\n"
+        "  pts.lane1X = WaveReadLaneAt(GTID.x, 1);\r\n"
+        "\r\n"
+        "  pts.allBC = WaveActiveCountBits(diver > 3);\r\n"
+        "  pts.allSum = WaveActiveSum(diver);\r\n"
+        "  pts.allProd = WaveActiveProduct(diver);\r\n"
+        "  pts.allAND = WaveActiveBitAnd(diver);\r\n"
+        "  pts.allOR = WaveActiveBitOr(diver);\r\n"
+        "  pts.allXOR = WaveActiveBitXor(diver);\r\n"
+        "  pts.allMin = WaveActiveMin(diver);\r\n"
+        "  pts.allMax = WaveActiveMax(diver);\r\n"
+        "\r\n"
+        "  pts.pfBC = WavePrefixCountBits(diver > 3);\r\n"
+        "  pts.pfSum = WavePrefixSum(diver);\r\n"
+        "  pts.pfProd = WavePrefixProduct(diver);\r\n"
+        "\r\n"
+        "  int i_diver = pts.i_diver;\r\n"
+        "  pts.i_allMax = WaveActiveMax(i_diver);\r\n"
+        "  pts.i_allMin = WaveActiveMin(i_diver);\r\n"
+        "  pts.i_allSum = WaveActiveSum(i_diver);\r\n"
+        "  pts.i_allProd = WaveActiveProduct(i_diver);\r\n"
+        "  pts.i_pfSum = WavePrefixSum(i_diver);\r\n"
+        "  pts.i_pfProd = WavePrefixProduct(i_diver);\r\n"
+        "\r\n"
+        "  g_sb[GI] = pts;\r\n"
+        "}";
+    static const int NumtheadsX = 8;
+    static const int NumtheadsY = 8;
+    static const int NumtheadsZ = 1;
+    static const int ThreadsPerGroup = NumtheadsX * NumtheadsY * NumtheadsZ;
+    static const int DispatchGroupCount = 1;
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice))
+        return;
+
+    if (!DoesDeviceSupportWaveOps(pDevice)) {
+        // Optional feature, so it's correct to not support it if declared as such.
+        WEX::Logging::Log::Comment(L"Device does not support wave operations.");
+        return;
+    }
+
+    std::vector<PerThreadData> values;
+    values.resize(ThreadsPerGroup * DispatchGroupCount);
+    for (size_t i = 0; i < values.size(); ++i) {
+        memset(&values[i], 0, sizeof(PerThreadData));
+        values[i].id = i;
+        values[i].i_diver = (int)i;
+        values[i].i_diver *= (i % 2) ? 1 : -1;
+    }
+
+    static const int DispatchGroupX = 1;
+    static const int DispatchGroupY = 1;
+    static const int DispatchGroupZ = 1;
+
+    CComPtr<ID3D12GraphicsCommandList> pCommandList;
+    CComPtr<ID3D12CommandQueue> pCommandQueue;
+    CComPtr<ID3D12DescriptorHeap> pUavHeap;
+    CComPtr<ID3D12CommandAllocator> pCommandAllocator;
+    UINT uavDescriptorSize;
+    FenceObj FO;
+    bool dxbc = UseDxbc();
+
+    const size_t valueSizeInBytes = values.size() * sizeof(PerThreadData);
+    CreateComputeCommandQueue(pDevice, L"WaveIntrinsicsTest Command Queue", &pCommandQueue);
+    InitFenceObj(pDevice, &FO);
+
+    // Describe and create a UAV descriptor heap.
+    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+    heapDesc.NumDescriptors = 1;
+    heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
+    uavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
+
+    // Create root signature.
+    CComPtr<ID3D12RootSignature> pRootSignature;
+    {
+        CD3DX12_DESCRIPTOR_RANGE ranges[1];
+        ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, 0);
+
+        CD3DX12_ROOT_PARAMETER rootParameters[1];
+        rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+
+        CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+        rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
+
+        CComPtr<ID3DBlob> signature;
+        CComPtr<ID3DBlob> error;
+        VERIFY_SUCCEEDED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
+        VERIFY_SUCCEEDED(pDevice->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&pRootSignature)));
+    }
+
+    // Create pipeline state object.
+    CComPtr<ID3D12PipelineState> pComputeState;
+    CreateComputePSO(pDevice, pRootSignature, pShader, &pComputeState);
+
+    // Create a command allocator and list for compute.
+    VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&pCommandAllocator)));
+    VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, pCommandAllocator, pComputeState, IID_PPV_ARGS(&pCommandList)));
+
+    // Set up UAV resource.
+    CComPtr<ID3D12Resource> pUavResource;
+    CComPtr<ID3D12Resource> pReadBuffer;
+    CComPtr<ID3D12Resource> pUploadResource;
+    CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+
+    // Close the command list and execute it to perform the GPU setup.
+    pCommandList->Close();
+    ExecuteCommandList(pCommandQueue, pCommandList);
+    WaitForSignal(pCommandQueue, FO);
+    VERIFY_SUCCEEDED(pCommandAllocator->Reset());
+    VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, pComputeState));
+
+    // Run the compute shader and copy the results back to readable memory.
+    {
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+        uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+        uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+        uavDesc.Buffer.FirstElement = 0;
+        uavDesc.Buffer.NumElements = values.size();
+        uavDesc.Buffer.StructureByteStride = sizeof(PerThreadData);
+        uavDesc.Buffer.CounterOffsetInBytes = 0;
+        uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+        CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(pUavHeap->GetCPUDescriptorHandleForHeapStart());
+        CD3DX12_GPU_DESCRIPTOR_HANDLE uavHandleGpu(pUavHeap->GetGPUDescriptorHandleForHeapStart());
+        pDevice->CreateUnorderedAccessView(pUavResource, nullptr, &uavDesc, uavHandle);
+        SetDescriptorHeap(pCommandList, pUavHeap);
+        pCommandList->SetComputeRootSignature(pRootSignature);
+        pCommandList->SetComputeRootDescriptorTable(0, uavHandleGpu);
+    }
+    pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
+    RecordTransitionBarrier(pCommandList, pUavResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    pCommandList->CopyResource(pReadBuffer, pUavResource);
+    pCommandList->Close();
+    ExecuteCommandList(pCommandQueue, pCommandList);
+    WaitForSignal(pCommandQueue, FO);
+    {
+        MappedData mappedData(pReadBuffer, valueSizeInBytes);
+        PerThreadData *pData = (PerThreadData *)mappedData.data();
+        memcpy(values.data(), pData, valueSizeInBytes);
+
+        // Gather some general data.
+        // The 'firstLaneId' captures a unique number per first-lane per wave.
+        // Counting the number distinct firstLaneIds gives us the number of waves.
+        std::vector<uint32_t> firstLaneIds;
+        for (size_t i = 0; i < values.size(); ++i) {
+            PerThreadData &pts = values[i];
+            uint32_t firstLaneId = pts.firstLaneId;
+            if (!contains(firstLaneIds, firstLaneId)) {
+                firstLaneIds.push_back(firstLaneId);
+            }
+        }
+
+        // Waves should cover 4 threads or more.
+        LogCommentFmt(L"Found %u distinct lane ids: %u", firstLaneIds.size());
+        if (!dxbc) {
+            VERIFY_IS_GREATER_THAN_OR_EQUAL(values.size() / 4, firstLaneIds.size());
+        }
+
+        // Now, group threads into waves.
+        std::map<uint32_t, std::unique_ptr<std::vector<PerThreadData *> > > waves;
+        for (size_t i = 0; i < firstLaneIds.size(); ++i) {
+            waves[firstLaneIds[i]] = std::make_unique<std::vector<PerThreadData *> >();
+        }
+        for (size_t i = 0; i < values.size(); ++i) {
+            PerThreadData &pts = values[i];
+            std::unique_ptr<std::vector<PerThreadData *> > &wave = waves[pts.firstLaneId];
+            wave->push_back(&pts);
+        }
+
+        // Verify that all the wave values are coherent across the wave.
+        for (size_t i = 0; i < values.size(); ++i) {
+            PerThreadData &pts = values[i];
+            std::unique_ptr<std::vector<PerThreadData *> > &wave = waves[pts.firstLaneId];
+            // Sort the lanes by increasing lane ID.
+            struct LaneIdOrderPred {
+                bool operator()(PerThreadData *a, PerThreadData *b) {
+                    return a->laneIndex < b->laneIndex;
+                }
+            };
+            std::sort(wave.get()->begin(), wave.get()->end(), LaneIdOrderPred());
+
+            // Verify some interesting properties of the first lane.
+            uint32_t pfBC, pfSum, pfProd;
+            int32_t i_pfSum, i_pfProd;
+            int32_t i_allMax, i_allMin;
+            {
+                PerThreadData *ptdFirst = wave->front();
+                VERIFY_IS_TRUE(0 != (ptdFirst->flags & 1)); // FirstLane sets this bit.
+                VERIFY_IS_TRUE(0 == ptdFirst->pfBC);
+                VERIFY_IS_TRUE(0 == ptdFirst->pfSum);
+                VERIFY_IS_TRUE(1 == ptdFirst->pfProd);
+                VERIFY_IS_TRUE(0 == ptdFirst->i_pfSum);
+                VERIFY_IS_TRUE(1 == ptdFirst->i_pfProd);
+                pfBC = (ptdFirst->diver > 3) ? 1 : 0;
+                pfSum = ptdFirst->diver;
+                pfProd = ptdFirst->diver;
+                i_pfSum = ptdFirst->i_diver;
+                i_pfProd = ptdFirst->i_diver;
+                i_allMax = i_allMin = ptdFirst->i_diver;
+            }
+
+            // Calculate values which take into consideration all lanes.
+            uint32_t preds = 0;
+            preds |= 1 << 1; // AllTrue starts true, switches to false if needed.
+            preds |= 1 << 2; // AllEqual starts true, switches to false if needed.
+            preds |= 1 << 3; // WaveActiveAllEqual(GTID.z) is always true
+            preds |= 1 << 4; // (WaveActiveAllEqual(WaveReadLaneFirst(diver)) is always true
+            uint32_t ballot[4] = { 0, 0, 0, 0 };
+            int32_t i_allSum = 0, i_allProd = 1;
+            for (size_t n = 0; n < wave->size(); ++n) {
+                std::vector<PerThreadData *> &lanes = *wave.get();
+                // pts.preds |= ((WaveActiveAnyTrue(diver == 1) ? 1 : 0) << 0);
+                if (lanes[n]->diver == 1) preds |= (1 << 0);
+                // pts.preds |= ((WaveActiveAllTrue(diver == 1) ? 1 : 0) << 1);
+                if (lanes[n]->diver != 1) preds &= ~(1 << 1);
+                // pts.preds |= ((WaveActiveAllEqual(diver) ? 1 : 0) << 2);
+                if (lanes[0]->diver != lanes[n]->diver) preds &= ~(1 << 2);
+                // pts.ballot = WaveActiveBallot(diver > 3);\r\n"
+                if (lanes[n]->diver > 3) {
+                    // This is the uint4 result layout:
+                    // .x -> bits  0 .. 31
+                    // .y -> bits 32 .. 63
+                    // .z -> bits 64 .. 95
+                    // .w -> bits 96 ..127
+                    uint32_t component = lanes[n]->laneIndex / 32;
+                    uint32_t bit = lanes[n]->laneIndex % 32;
+                    ballot[component] |= 1 << bit;
+                }
+                i_allMax = std::max(lanes[n]->i_diver, i_allMax);
+                i_allMin = std::min(lanes[n]->i_diver, i_allMin);
+                i_allProd *= lanes[n]->i_diver;
+                i_allSum += lanes[n]->i_diver;
+            }
+
+            for (size_t n = 1; n < wave->size(); ++n) {
+                // 'All' operations are uniform across the wave.
+                std::vector<PerThreadData *> &lanes = *wave.get();
+                VERIFY_IS_TRUE(0 == (lanes[n]->flags & 1)); // non-firstlanes do not set this bit
+                VERIFY_ARE_EQUAL(lanes[0]->allBC, lanes[n]->allBC);
+                VERIFY_ARE_EQUAL(lanes[0]->allSum, lanes[n]->allSum);
+                VERIFY_ARE_EQUAL(lanes[0]->allProd, lanes[n]->allProd);
+                VERIFY_ARE_EQUAL(lanes[0]->allAND, lanes[n]->allAND);
+                VERIFY_ARE_EQUAL(lanes[0]->allOR, lanes[n]->allOR);
+                VERIFY_ARE_EQUAL(lanes[0]->allXOR, lanes[n]->allXOR);
+                VERIFY_ARE_EQUAL(lanes[0]->allMin, lanes[n]->allMin);
+                VERIFY_ARE_EQUAL(lanes[0]->allMax, lanes[n]->allMax);
+                VERIFY_ARE_EQUAL(i_allMax, lanes[n]->i_allMax);
+                VERIFY_ARE_EQUAL(i_allMin, lanes[n]->i_allMin);
+                VERIFY_ARE_EQUAL(i_allProd, lanes[n]->i_allProd);
+                VERIFY_ARE_EQUAL(i_allSum, lanes[n]->i_allSum);
+
+                // first-lane reads and uniform reads are uniform across the wave.
+                VERIFY_ARE_EQUAL(lanes[0]->firstlaneX, lanes[n]->firstlaneX);
+                VERIFY_ARE_EQUAL(lanes[0]->lane1X, lanes[n]->lane1X);
+
+                // the lane count is uniform across the wave.
+                VERIFY_ARE_EQUAL(lanes[0]->laneCount, lanes[n]->laneCount);
+
+                // The predicates are uniform across the wave.
+                VERIFY_ARE_EQUAL(lanes[n]->preds, preds);
+
+                // the lane index is distinct per thread.
+                for (size_t prior = 0; prior < n; ++prior) {
+                    VERIFY_ARE_NOT_EQUAL(lanes[prior]->laneIndex, lanes[n]->laneIndex);
+                }
+                // Ballot results are uniform across the wave.
+                VERIFY_ARE_EQUAL(0, memcmp(ballot, lanes[n]->ballot, sizeof(ballot)));
+
+                // Keep running total of prefix calculation. Prefix values are exclusive to
+                // the executing lane.
+                VERIFY_ARE_EQUAL(pfBC, lanes[n]->pfBC);
+                VERIFY_ARE_EQUAL(pfSum, lanes[n]->pfSum);
+                VERIFY_ARE_EQUAL(pfProd, lanes[n]->pfProd);
+                VERIFY_ARE_EQUAL(i_pfSum, lanes[n]->i_pfSum);
+                VERIFY_ARE_EQUAL(i_pfProd, lanes[n]->i_pfProd);
+                pfBC += (lanes[n]->diver > 3) ? 1 : 0;
+                pfSum += lanes[n]->diver;
+                pfProd *= lanes[n]->diver;
+                i_pfSum += lanes[n]->i_diver;
+                i_pfProd *= lanes[n]->i_diver;
+            }
+            // TODO: add divergent branching and verify that the otherwise uniform values properly diverge
+        }
+
+        // Compare each value of each per-thread element.
+        for (size_t i = 0; i < values.size(); ++i) {
+            PerThreadData &pts = values[i];
+            VERIFY_ARE_EQUAL(i, pts.id); // ID is unchanged.
+        }
+}
+}
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
                               char **pReadBackDump) {
   std::stringstream str;
