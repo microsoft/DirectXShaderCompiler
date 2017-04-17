@@ -1190,6 +1190,14 @@ namespace MainNs
             return pass.GetOptionName() + OptDescSeparator + pass.GetDescription();
         }
 
+        private string PassStringToBanner(string value)
+        {
+            int separator = value.IndexOf(OptDescSeparator);
+            if (separator >= 0)
+                value = value.Substring(0, separator);
+            return value;
+        }
+
         private string PassStringToOption(string value)
         {
             int separator = value.IndexOf(OptDescSeparator);
@@ -1306,12 +1314,70 @@ namespace MainNs
             List<string> result = new List<string>();
             if (this.AnalyzeCheckBox.Checked)
                 result.Add("-analyze");
+            bool printAll = this.PrintAllPassesBox.Checked;
             var items = this.SelectedPassesBox.Items;
+            if (printAll)
+                result.Add("-print-module:start");
             for (int i = 0; i < items.Count; ++i)
             {
-                result.Add(PassStringToOption(items[i].ToString()));
+                string itemText = items[i].ToString();
+                result.Add(PassStringToOption(itemText));
+                if (printAll)
+                    result.Add("-print-module:" + itemText);
             }
             return result.ToArray();
+        }
+
+        class TextSection
+        {
+            private string[] lines;
+            private int[] lineHashes;
+            public string Title;
+            public string Text;
+            public bool HasChange;
+            public string[] Lines
+            {
+                get
+                {
+                    if (lines == null)
+                       lines = Text.Split(new char[] { '\n' });
+                    return lines;
+                }
+            }
+            public int[] LineHashes
+            {
+                get
+                {
+                    if (lineHashes == null)
+                       lineHashes = lines.Select(l => l.GetHashCode()).ToArray();
+                    return lineHashes;
+                }
+            }
+            public override string ToString()
+            {
+                return Title;
+            }
+        }
+
+        private static IEnumerable<TextSection> EnumerateSections(string separator, string text)
+        {
+            string prior = null;
+            int idx = text.IndexOf(separator);
+            while (idx >= 0)
+            {
+                int lineEnd = text.IndexOf('\n', idx);
+                if (lineEnd < 0) break;
+                string title = text.Substring(idx + separator.Length, lineEnd - (idx + separator.Length));
+                title = title.Trim();
+                int next = text.IndexOf(separator, lineEnd);
+                string sectionText = (next < 0) ? text.Substring(lineEnd + 1) : text.Substring(lineEnd + 1, next - (lineEnd + 1));
+                sectionText = sectionText.Trim();
+                if (sectionText == prior)
+                    sectionText = prior;
+                yield return new TextSection { Title = title, Text = sectionText };
+                idx = next;
+                prior = sectionText;
+            }
         }
 
         private void RunPassesButton_Click(object sender, EventArgs e)
@@ -1360,16 +1426,139 @@ namespace MainNs
             LogContextMenuHelper helper = new LogContextMenuHelper(rtb);
             rtb.Dock = DockStyle.Fill;
             rtb.Font = this.CodeBox.Font;
-            rtb.Text = resultText;
             rtb.ContextMenu = new ContextMenu(
                 new MenuItem[]
                 {
                     new MenuItem("Show Graph", helper.ShowGraphClick)
                 });
             rtb.SelectionChanged += DisassemblyTextBox_SelectionChanged;
-            form.Controls.Add(rtb);
+            if (this.PrintAllPassesBox.Checked)
+            {
+                SplitContainer split = new SplitContainer() { Dock = DockStyle.Fill };
+                ListBox sectionBox = new ListBox() { Dock = DockStyle.Fill };
+                RadioButton leftButton = new RadioButton() { Text = "Left Only" };
+                RadioButton diffButton = new RadioButton() { Checked = true, Text = "Both", Left = leftButton.Right };
+                RadioButton rightButton = new RadioButton() { Text = "Right Only", Left = diffButton.Right };
+                Panel optionsPanel = new Panel() { Dock = DockStyle.Top, Height = diffButton.Bottom };
+                optionsPanel.Controls.AddRange(new Control[] { leftButton, diffButton, rightButton } );
+                var sections = EnumerateSections("MODULE-PRINT", resultText).ToArray();
+                TextSection last = null;
+                foreach (var s in sections)
+                {
+                    s.HasChange = last != null && !object.ReferenceEquals(last.Text, s.Text);
+                    if (s.HasChange) s.Title = "* " + s.Title;
+                    last = s;
+                }
+                sectionBox.Items.AddRange(sections);
+                Action updateBox = () =>
+                {
+                    rtb.Clear();
+                    int index = sectionBox.SelectedIndex;
+                    if (index == -1) return;
+                    TextSection section = (TextSection)sectionBox.SelectedItem;
+                    TextSection prior = index == 0 ? null : sectionBox.Items[index-1] as TextSection;
+                    if (prior == null || section.Text == prior.Text || rightButton.Checked)
+                        rtb.Text = section.Text;
+                    else if (leftButton.Checked)
+                        rtb.Text = (prior == null) ? "(no prior text)" : prior.Text;
+                    else
+                        RunDiff(prior, section, rtb);
+                };
+                EventHandler H = (ccChanged, __) =>
+                {
+                    if (((RadioButton)ccChanged).Checked) updateBox();
+                };
+                leftButton.CheckedChanged += H;
+                diffButton.CheckedChanged += H;
+                rightButton.CheckedChanged += H;
+                sectionBox.SelectedIndexChanged += (_, __) => { updateBox(); };
+                split.Panel1.Controls.Add(sectionBox);
+                split.Panel2.Controls.Add(rtb);
+                split.Panel2.Controls.Add(optionsPanel);
+                form.Controls.Add(split);
+            }
+            else
+            {
+                rtb.Text = resultText;
+                form.Controls.Add(rtb);
+            }
             form.StartPosition = FormStartPosition.CenterParent;
             form.Show(this);
+        }
+
+        private void RunDiff(TextSection oldText, TextSection newText, RichTextBox rtb)
+        {
+            // Longest common subsequence, simple edition. If/when something faster is needed,
+            // should probably take a dependency on a proper diff package. Other than shorter
+            // comparison windows, other things to look for are avoiding creating strings here,
+            // working on the RichTextBox buffer directly for color, and unique'ing lines.
+            string[] oldLines = oldText.Lines;
+            string[] newLines = newText.Lines;
+            // Reduce strings to hashes.
+            int[] oldHashes = oldText.LineHashes;
+            int[] newHashes = newText.LineHashes;
+            // Reduce by trimming prefix and suffix.
+            int diffStart = 0;
+            while (diffStart < oldHashes.Length && diffStart < newHashes.Length && oldHashes[diffStart] == newHashes[diffStart])
+                diffStart++;
+            int newDiffEndExc = newLines.Length, oldDiffEndExc = oldLines.Length;
+            while (newDiffEndExc > diffStart && oldDiffEndExc > diffStart)
+            {
+                if (oldHashes[oldDiffEndExc - 1] == newHashes[newDiffEndExc - 1])
+                {
+                    oldDiffEndExc--;
+                    newDiffEndExc--;
+                }
+                else
+                    break;
+            }
+            int suffixLength = (newLines.Length - newDiffEndExc);
+            // Build LCS table.
+            int oldLen = oldDiffEndExc - diffStart, newLen = newDiffEndExc - diffStart;
+            int[,] lcs = new int[oldLen + 1, newLen + 1]; // already zero-initialized
+            for (int i = 0; i < oldLen; i++)
+                for (int j = 0; j < newLen; j++)
+                    if (oldHashes[i + diffStart] == newHashes[j + diffStart])
+                        lcs[i + 1, j + 1] = lcs[i, j] + 1;
+                    else
+                        lcs[i + 1, j + 1] = Math.Max(lcs[i, j + 1], lcs[i + 1, j]);
+            // Print the diff - common prefix, backtracked diff and common suffix.
+            rtb.AppendLines("  ", newLines, 0, diffStart, Color.White);
+            {
+                int i = oldLen, j = newLen;
+                Stack<string> o = new Stack<string>();
+                for (;;)
+                {
+                    if (i > 0 && j > 0 && oldHashes[diffStart + i - 1] == newHashes[diffStart + j - 1])
+                    {
+                        o.Push("  " + oldLines[diffStart + i - 1]);
+                        i--;
+                        j--;
+                    }
+                    else if (j > 0 && (i == 0 || lcs[i, j - 1] >= lcs[i - 1, j]))
+                    {
+                        o.Push("+ " + newLines[diffStart + j - 1]);
+                        j--;
+                    }
+                    else if (i > 0 && (j == 0 || lcs[i, j - 1] < lcs[i - 1, j]))
+                    {
+                        o.Push("- " + oldLines[diffStart + i - 1]);
+                        i--;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                while (o.Count != 0)
+                {
+                    string line = o.Pop();
+                    Color c = (line[0] == ' ') ? Color.White :
+                        ((line[0] == '+') ? Color.Yellow : Color.Red);
+                    rtb.AppendLine(line, c);
+                }
+            }
+            rtb.AppendLines("  ", newLines, newDiffEndExc, (newLines.Length - newDiffEndExc), Color.White);
         }
 
         private void SelectPassUpButton_Click(object sender, EventArgs e)
@@ -2576,6 +2765,24 @@ namespace MainNs
             Control target = this.DeepActiveControl;
             if (target == null) return;
             target.Font = new Font(target.Font.FontFamily, target.Font.Size / 1.1f);
+        }
+    }
+
+    public static class RichTextBoxExt
+    {
+        public static void AppendLine(this RichTextBox rtb, string line, Color c)
+        {
+            rtb.SelectionBackColor = c;
+            rtb.AppendText(line);
+            rtb.AppendText("\r\n");
+        }
+
+        public static void AppendLines(this RichTextBox rtb, string prefix, string[] lines, int start, int length, Color c)
+        {
+            for (int i = start; i < (start + length); ++i)
+            {
+                rtb.AppendLine(prefix + lines[i], c);
+            }
         }
     }
 }
