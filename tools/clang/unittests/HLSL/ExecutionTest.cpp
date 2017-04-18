@@ -202,6 +202,7 @@ public:
   TEST_METHOD(Int64Test);
   TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsInPSTest);
+  TEST_METHOD(PartialDerivTest);
 
   // TAEF data-driven tests.
   BEGIN_TEST_METHOD(UnaryFloatOpTest)
@@ -1842,18 +1843,6 @@ struct SPrimitives {
   float f_float2_o;
 };
 
-static float g_SinCosFloats[] = {
-  -(INFINITY),
-  -1.0f,
-  -(FLT_MIN/2),
-  -0.0f,
-  0.0f,
-  FLT_MIN / 2,
-  1.0f,
-  INFINITY,
-  NAN
-};
-
 std::shared_ptr<ShaderOpTestResult>
 RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
                 IStream *pStream, LPCSTR pName,
@@ -2003,6 +1992,83 @@ TEST_F(ExecutionTest, BasicTriangleOpTest) {
   ReportLiveObjects();
 }
 
+// Rendering two right triangles forming a square and assigning a texture value
+// for each pixel to calculate derivates.
+TEST_F(ExecutionTest, PartialDerivTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+      return;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "DerivFine", nullptr);
+  MappedData data;
+  D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
+  UINT width = (UINT64)D.Width;
+  UINT height = (UINT64)D.Height;
+  UINT pixelSize = GetByteSizeForFormat(D.Format) / 4;
+
+  test->Test->GetReadBackData("RTarget", &data);
+  const float *pPixels = (float *)data.data();
+
+  UINT centerIndex = (UINT64)width * height / 2 - width / 2;
+
+  // pixel at the center
+  UINT offsetCenter = centerIndex * pixelSize;
+  float CenterDDXFine = pPixels[offsetCenter];
+  float CenterDDYFine = pPixels[offsetCenter + 1];
+  float CenterDDXCoarse = pPixels[offsetCenter + 2];
+  float CenterDDYCoarse = pPixels[offsetCenter + 3];
+
+  LogCommentFmt(
+      L"center  ddx_fine: %8f, ddy_fine: %8f, ddx_coarse: %8f, ddy_coarse: %8f",
+      CenterDDXFine, CenterDDYFine, CenterDDXCoarse, CenterDDYCoarse);
+
+  // The texture for the 9 pixels in the center should look like the following
+
+  // 256   32  64
+  // 2048 256 512
+  // 1   .125 .25
+
+  // In D3D12 there is no guarantee of how the adapter is grouping 2x2 pixels
+  // So for fine derivatives there can be up to two possible results for the center pixel,
+  // while for coarse derivatives there can be up to six possible results.
+  int ulpTolerance = 1;
+  // 512 - 256 or 2048 - 256
+  bool left = CompareFloatULP(CenterDDXFine, -1792.0f, ulpTolerance);
+  VERIFY_IS_TRUE(left || CompareFloatULP(CenterDDXFine, 256.0f, ulpTolerance));
+  // 256 - 32 or 256 - .125
+  bool top = CompareFloatULP(CenterDDYFine, 224.0f, ulpTolerance);
+  VERIFY_IS_TRUE(top || CompareFloatULP(CenterDDYFine, -255.875, ulpTolerance));
+
+  if (top && left) {
+    VERIFY_IS_TRUE((CompareFloatULP(CenterDDXCoarse, -224.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDXCoarse, -1792.0f, ulpTolerance)) &&
+                   (CompareFloatULP(CenterDDYCoarse, 224.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDYCoarse, 1792.0f, ulpTolerance)));
+  }
+  else if (top) { // top right quad
+    VERIFY_IS_TRUE((CompareFloatULP(CenterDDXCoarse, 256.0f, ulpTolerance)  ||
+                   CompareFloatULP(CenterDDXCoarse, 32.0f, ulpTolerance))   &&
+                   (CompareFloatULP(CenterDDYCoarse, 224.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDYCoarse, 448.0f, ulpTolerance)));
+  }
+  else if (left) { // bottom left quad
+    VERIFY_IS_TRUE((CompareFloatULP(CenterDDXCoarse, -1792.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDXCoarse, -.875f, ulpTolerance))   &&
+                   (CompareFloatULP(CenterDDYCoarse, -2047.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDYCoarse, -255.875f, ulpTolerance)));
+  }
+  else { // bottom right
+    VERIFY_IS_TRUE((CompareFloatULP(CenterDDXCoarse, 256.0f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDXCoarse, .125f, ulpTolerance))  &&
+                   (CompareFloatULP(CenterDDYCoarse, -255.875f, ulpTolerance) ||
+                   CompareFloatULP(CenterDDYCoarse, -511.75f, ulpTolerance)));
+  }
+}
+
 // Resource structure for data-driven tests.
 
 struct SUnaryFPOp {
@@ -2063,57 +2129,19 @@ struct STertiaryUintOp {
 };
 
 // representation for HLSL float vectors
-
-struct float2 {
-    float x;
-    float y;
-};
-
-struct float3 {
-    float x;
-    float y;
-    float z;
-};
-
-struct float4 {
-    float x;
-    float y;
-    float z;
-    float w;
-};
-
 struct SDotOp {
-    float4 input1;
-    float4 input2;
+    XMFLOAT4 input1;
+    XMFLOAT4 input2;
     float o_dot2;
     float o_dot3;
     float o_dot4;
 };
 
-// HLSL representation for unsigned int vectors 
-struct uint2 {
-    unsigned int x;
-    unsigned int y;
-};
-
-struct uint3 {
-    unsigned int x;
-    unsigned int y;
-    unsigned int z;
-};
-
-struct uint4 {
-    unsigned int x;
-    unsigned int y;
-    unsigned int z;
-    unsigned int w;
-};
-
 struct SMsad4 {
     unsigned int ref;
-    uint2 src;
-    uint4 accum;
-    uint4 result;
+    XMUINT2 src;
+    XMUINT4 accum;
+    XMUINT4 result;
 };
 
 // Parameter representation for taef data-driven tests
@@ -2274,7 +2302,7 @@ static TableParameter DotOpParameters[] = {
     { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
-static TableParameter Msad4OpParameters[] = { 
+static TableParameter Msad4OpParameters[] = {
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
     { L"Validation.NumInput", TableParameter::UINT, true },
@@ -3255,7 +3283,7 @@ TEST_F(ExecutionTest, DotTest) {
         SDotOp *pPrimitives = (SDotOp*)Data.data();
         for (size_t i = 0; i < count; ++i) {
             SDotOp *p = &pPrimitives[i];
-            float4 val1,val2;
+            XMFLOAT4 val1,val2;
             VERIFY_SUCCEEDED(ParseDataToVectorFloat((*Validation_Input1)[i],
                                                     (float *)&val1, 4));
             VERIFY_SUCCEEDED(ParseDataToVectorFloat((*Validation_Input2)[i],
@@ -3332,8 +3360,8 @@ TEST_F(ExecutionTest, Msad4Test) {
         SMsad4 *pPrimitives = (SMsad4*)Data.data();
         for (size_t i = 0; i < count; ++i) {
             SMsad4 *p = &pPrimitives[i];
-            uint2 src;
-            uint4 accum;
+            XMUINT2 src;
+            XMUINT4 accum;
             VERIFY_SUCCEEDED(ParseDataToVectorUint((*Validation_Source)[i], (unsigned int*)&src, 2));
             VERIFY_SUCCEEDED(ParseDataToVectorUint((*Validation_Accum)[i], (unsigned int*)&accum, 4));
             p->ref = (*Validation_Reference)[i];
@@ -3351,7 +3379,7 @@ TEST_F(ExecutionTest, Msad4Test) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (size_t i = 0; i < count; ++i) {
         SMsad4 *p = &pPrimitives[i];
-        uint4 result;
+        XMUINT4 result;
         VERIFY_SUCCEEDED(ParseDataToVectorUint((*Validation_Expected)[i],
                                                (unsigned int *)&result, 4));
         LogCommentFmt(

@@ -2364,7 +2364,7 @@ struct DxilInst_Discard {
   llvm::Value *get_condition() const { return Instr->getOperand(1); }
 };
 
-/// This instruction computes the rate of change of components per stamp
+/// This instruction computes the rate of change per stamp in x direction.
 struct DxilInst_DerivCoarseX {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -2382,7 +2382,7 @@ struct DxilInst_DerivCoarseX {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction computes the rate of change of components per stamp
+/// This instruction computes the rate of change per stamp in y direction.
 struct DxilInst_DerivCoarseY {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -2400,7 +2400,7 @@ struct DxilInst_DerivCoarseY {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction computes the rate of change of components per pixel
+/// This instruction computes the rate of change per pixel in x direction.
 struct DxilInst_DerivFineX {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -2418,7 +2418,7 @@ struct DxilInst_DerivFineX {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction computes the rate of change of components per pixel
+/// This instruction computes the rate of change per pixel in y direction.
 struct DxilInst_DerivFineY {
   const llvm::Instruction *Instr;
   // Construction and identification
