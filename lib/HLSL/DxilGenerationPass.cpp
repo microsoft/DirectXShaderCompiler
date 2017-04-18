@@ -3115,6 +3115,21 @@ public:
     // Promote static global variables.
     PromoteStaticGlobalResources(M);
 
+    // Lower handle cast.
+    for (Function &F : M.functions()) {
+      if (!F.isDeclaration())
+        continue;
+      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(&F);
+      if (group != HLOpcodeGroup::HLCast)
+        continue;
+      Type *Ty = F.getFunctionType()->getReturnType();
+      if (Ty->isPointerTy())
+        Ty = Ty->getPointerElementType();
+      if (HLModule::IsHLSLObjectType(Ty)) {
+        TransformHandleCast(F);
+      }
+    }
+
     // Transform PHINode/SelectInst on resource into PHINode/SelectInst on
     // Handle. This will make sure resource only have ld/st/gep use.
     TransformResourcePHINodeToHandlePHINode(M);
@@ -3124,6 +3139,7 @@ public:
 private:
   void PromoteStaticGlobalResources(Module &M);
   void TransformResourcePHINodeToHandlePHINode(Module &M);
+  void TransformHandleCast(Function &F);
 };
 
 char DxilLegalizeStaticResourceUsePass::ID = 0;
@@ -3359,6 +3375,32 @@ void DxilLegalizeStaticResourceUsePass::TransformResourcePHINodeToHandlePHINode(
 
   for (Instruction *Res : resSet) {
     Res->eraseFromParent();
+  }
+}
+
+static void ReplaceResUseWithHandle(Instruction *Res, Value *Handle) {
+  Type *HandleTy = Handle->getType();
+  for (auto ResU = Res->user_begin(); ResU != Res->user_end();) {
+    Instruction *I = cast<Instruction>(*(ResU++));
+    if (isa<LoadInst>(I)) {
+      ReplaceResUseWithHandle(I, Handle);
+    } else if (isa<CallInst>(I)) {
+      if (I->getType() == HandleTy)
+        I->replaceAllUsesWith(Handle);
+    }
+    if (I->user_empty()) {
+      I->eraseFromParent();
+    }
+  }
+}
+
+void DxilLegalizeStaticResourceUsePass::TransformHandleCast(Function &F) {
+  for (auto U = F.user_begin(); U != F.user_end(); ) {
+    CallInst *CI = cast<CallInst>(*(U++));
+    Value *Handle = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+    ReplaceResUseWithHandle(CI, Handle);
+    if (CI->user_empty())
+      CI->eraseFromParent();
   }
 }
 

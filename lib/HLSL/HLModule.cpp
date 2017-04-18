@@ -740,42 +740,8 @@ MDNode *HLModule::DxilCBufferToMDNode(const DxilCBuffer &CB) {
   return MDNode::get(m_Ctx, {ResClass, MD});
 }
 
-DxilResourceBase HLModule::LoadDxilResourceBaseFromMDNode(
-                                              MDNode *MD) {
-  IFTBOOL(MD->getNumOperands() >= DxilMDHelper::kHLDxilResourceAttributeNumFields,
-          DXC_E_INCORRECT_DXIL_METADATA);
-
-  DxilResource::Class RC =
-      static_cast<DxilResource::Class>(m_pMDHelper->ConstMDToUint32(
-          MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
-  const MDOperand &Meta =
-      MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeMeta);
-
-  switch (RC) {
-  case DxilResource::Class::CBuffer: {
-    DxilCBuffer CB;
-    m_pMDHelper->LoadDxilCBuffer(Meta, CB);
-    return CB;
-  } break;
-  case DxilResource::Class::Sampler: {
-    DxilSampler S;
-    m_pMDHelper->LoadDxilSampler(Meta, S);
-    return S;
-  } break;
-  case DxilResource::Class::SRV: {
-    DxilResource Res;
-    m_pMDHelper->LoadDxilSRV(Meta, Res);
-    return Res;
-  } break;
-  case DxilResource::Class::UAV: {
-    DxilResource Res;
-    m_pMDHelper->LoadDxilUAV(Meta, Res);
-    return Res;
-  } break;
-  default:
-    DXASSERT(0, "Invalid metadata");
-    return DxilResourceBase(DXIL::ResourceClass::Invalid);
-  }
+DxilResourceBase HLModule::LoadDxilResourceBaseFromMDNode(MDNode *MD) {
+  return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD);
 }
 
 void HLModule::AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
@@ -1267,6 +1233,40 @@ void HLModule::MarkDxilResourceAttrib(llvm::Function *F, MDNode *MD) {
 
 MDNode *HLModule::GetDxilResourceAttrib(llvm::Function *F) {
   return F->getMetadata(DxilMDHelper::kHLDxilResourceAttributeMDName);
+}
+
+void HLModule::MarkDxilResourceAttrib(llvm::Argument *Arg, llvm::MDNode *MD) {
+  unsigned i = Arg->getArgNo();
+  Function *F = Arg->getParent();
+  DxilFunctionAnnotation *FuncAnnot = m_pTypeSystem->GetFunctionAnnotation(F);
+  if (!FuncAnnot) {
+    DXASSERT(0, "Invalid function");
+    return;
+  }
+  DxilParameterAnnotation &ParamAnnot = FuncAnnot->GetParameterAnnotation(i);
+  ParamAnnot.SetResourceAttribute(MD);
+}
+
+MDNode *HLModule::GetDxilResourceAttrib(llvm::Argument *Arg) {
+  unsigned i = Arg->getArgNo();
+  Function *F = Arg->getParent();
+  DxilFunctionAnnotation *FuncAnnot = m_pTypeSystem->GetFunctionAnnotation(F);
+  if (!FuncAnnot)
+    return nullptr;
+  DxilParameterAnnotation &ParamAnnot = FuncAnnot->GetParameterAnnotation(i);
+  return ParamAnnot.GetResourceAttribute();
+}
+
+MDNode *HLModule::GetDxilResourceAttrib(Type *Ty, Module &M) {
+  for (Function &F : M.functions()) {
+    if (hlsl::GetHLOpcodeGroupByName(&F) == HLOpcodeGroup::HLCreateHandle) {
+      Type *ResTy = F.getFunctionType()->getParamType(
+          HLOperandIndex::kCreateHandleResourceOpIdx);
+      if (ResTy == Ty)
+        return GetDxilResourceAttrib(&F);
+    }
+  }
+  return nullptr;
 }
 
 DIGlobalVariable *
