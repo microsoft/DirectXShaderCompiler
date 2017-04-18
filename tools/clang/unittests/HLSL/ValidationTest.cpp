@@ -293,6 +293,14 @@ public:
   dxc::DxcDllSupport m_dllSupport;
   bool m_CompilerPreservesBBNames;
 
+  bool SkipIRSensitiveTest() {
+    if (!m_CompilerPreservesBBNames) {
+      WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirment.");
+      return true;
+    }
+    return false;
+  }
+
   void TestCheck(LPCWSTR name) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
     FileRunTestResult t = FileRunTestResult::RunFromFileCommands(fullPath.c_str());
@@ -512,7 +520,7 @@ bool ValidationTest::InitSupport() {
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
     VERIFY_SUCCEEDED(pValidator.QueryInterface(&pVersionInfo));
     VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerPreservesBBNames = VersionFlags & DxcVersionInfoFlags_Debug;
+    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
   }
   return true;
 }
@@ -636,7 +644,7 @@ TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
 }
 
 TEST_F(ValidationTest, BarrierFail) {
-  if (!m_CompilerPreservesBBNames) return;    // This test requires name preservation to succeed currently.
+  if (SkipIRSensitiveTest()) return;
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\barrier.hlsl", "cs_6_0",
       {"dx.op.barrier(i32 80, i32 8)",
@@ -685,7 +693,7 @@ TEST_F(ValidationTest, CsThreadSizeFail) {
       });
 }
 TEST_F(ValidationTest, DeadLoopFail) {
-  if (!m_CompilerPreservesBBNames) return;    // This test requires name preservation to succeed currently.
+  if (SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\loop1.hlsl", "ps_6_0",
       {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
@@ -781,7 +789,7 @@ TEST_F(ValidationTest, MultiStream2Fail) {
       "Multiple GS output streams are used but 'XXX' is not pointlist");
 }
 TEST_F(ValidationTest, PhiTGSMFail) {
-  if (!m_CompilerPreservesBBNames) return;    // This test requires name preservation to succeed currently.
+  if (SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\phiTGSM.hlsl", "cs_6_0",
       "ret void",
@@ -791,7 +799,7 @@ TEST_F(ValidationTest, PhiTGSMFail) {
       "TGSM pointers must originate from an unambiguous TGSM global variable");
 }
 TEST_F(ValidationTest, ReducibleFail) {
-  if (!m_CompilerPreservesBBNames) return;    // This test requires name preservation to succeed currently.
+  if (SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\reducible.hlsl", "ps_6_0",
       {"%conv\n"
@@ -937,7 +945,7 @@ TEST_F(ValidationTest, SimpleGs1Fail) {
        "Stream index (5) must between 0 and 3"});
 }
 TEST_F(ValidationTest, UavBarrierFail) {
-  if (!m_CompilerPreservesBBNames) return;    // This test requires name preservation to succeed currently.
+  if (SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\uavBarrier.hlsl", "ps_6_0",
       {"dx.op.barrier(i32 80, i32 2)",
@@ -959,7 +967,7 @@ TEST_F(ValidationTest, UndefValueFail) {
   TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
-  if (!m_CompilerPreservesBBNames) return;    // This test requires name preservation to succeed currently.
+  if (SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\UpdateCounter2.hlsl", "ps_6_0",
       {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
