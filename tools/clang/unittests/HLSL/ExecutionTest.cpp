@@ -184,6 +184,221 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
   hlsl::WriteBinaryFile(pFileName, pStream->GetPtr(), pStream->GetPtrSize());
 }
 
+// Virtual class to compute the expected result given a set of inputs
+struct TableParameter;
+
+template <class T1, class T2>
+class ExpectedCalculator {
+public:
+  virtual T2 computeExpected(std::vector<T1> &vec) = 0;
+  virtual ~ExpectedCalculator() {};
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorSum : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 sum = 0;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      sum += vec.at(i);
+    }
+    return sum;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorProduct : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 prod = 1;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      prod *= vec.at(i);
+    }
+    return prod;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorCountBits : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 count = 0;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) > 3) {
+        count++;
+      }
+    }
+    return count;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorMax : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 maximum = std::numeric_limits<T2>::min();
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) > maximum)
+        maximum = vec.at(i);
+    }
+    return maximum;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorMin : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 minimum = std::numeric_limits<T2>::max();
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) < minimum)
+        minimum = vec.at(i);
+    }
+    return minimum;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorBitOr : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 bits = 0x00000000;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      bits |= vec.at(i);
+    }
+    return bits;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorBitAnd : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 bits = 0xffffffff;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      bits &= vec.at(i);
+    }
+    return bits;
+  }
+};;
+
+template <class T1, class T2>
+class WaveActiveCalculatorBitXor : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 bits = 0x00000000;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      bits ^= vec.at(i);
+    }
+    return bits;
+  }
+};
+
+// In HLSL, boolean is represented in a 4 byte (uint32) format,
+// So we cannot use c++ bool type to represent bool in HLSL
+// HLSL returns 0 for false and 1 for true
+template <class T1, class T2>
+class WaveActiveCalculatorAnyTrue : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) != 0) {
+        return 1;
+      }
+    }
+    return 0;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorAllTrue : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (vec.at(i) == 0) {
+        return 0;
+      }
+    }
+    return 1;
+  }
+};
+
+template <class T1, class T2>
+class WaveActiveCalculatorAllEqual : public ExpectedCalculator<T1, T2> {
+public:
+  T2 computeExpected(std::vector<T1> &vec) {
+    T2 val = vec.at(0); // assuming there is always one lane per wave
+    for (size_t i = 1; i < vec.size(); ++i) {
+      if (val != vec.at(i)) {
+        return 0;
+      }
+    }
+    return 1;
+  }
+};
+
+template <class T1, class T2>
+struct CalculatorMap {
+  PCWSTR name;
+  ExpectedCalculator<T1, T2> *calculator;
+};
+
+static WaveActiveCalculatorSum<int, int> WaveActiveCalculatorSumInt;
+static WaveActiveCalculatorProduct<int, int> WaveActiveCalculatorProdInt;
+static WaveActiveCalculatorCountBits<int, int> WaveActiveCalculatorCountBitsInt;
+static WaveActiveCalculatorMax<int, int> WaveActiveCalculatorMaxInt;
+static WaveActiveCalculatorMin<int, int> WaveActiveCalculatorMinInt;
+static WaveActiveCalculatorAllEqual<int, int> waveActiveAllEqual;
+static WaveActiveCalculatorAnyTrue<int,int> waveActiveCalculatorAnyTrue;
+static WaveActiveCalculatorAllTrue<int,int> waveActiveCalculatorAllTrue;
+
+static CalculatorMap<int, int> WaveActiveCalculatorsInt[] = {
+  { L"WaveActiveSum", &WaveActiveCalculatorSumInt },
+  { L"WaveActiveProduct", &WaveActiveCalculatorProdInt },
+  { L"WaveActiveCountBits", &WaveActiveCalculatorCountBitsInt },
+  { L"WaveActiveMax", &WaveActiveCalculatorMaxInt },
+  { L"WaveActiveMin", &WaveActiveCalculatorMinInt },
+  { L"WaveActiveAllEqual", &waveActiveAllEqual },
+  { L"WaveActiveAnyTrue", &waveActiveCalculatorAnyTrue },
+  { L"WaveActiveAllTrue", &waveActiveCalculatorAllTrue }
+};
+
+static WaveActiveCalculatorMax<unsigned int, unsigned int> WaveActiveCalculatorMaxUint;
+static WaveActiveCalculatorMin<unsigned int, unsigned int> WaveActiveCalculatorMinUint;
+static WaveActiveCalculatorSum<unsigned int, unsigned int> WaveActiveCalculatorSumUint;
+static WaveActiveCalculatorProduct<unsigned int, unsigned int> WaveActiveCalculatorProdUint;
+static WaveActiveCalculatorBitOr<unsigned int, unsigned int> WaveActiveCalculatorBitOr;
+static WaveActiveCalculatorBitAnd<unsigned int, unsigned int> WaveActiveCalculatorBitAnd;
+static WaveActiveCalculatorBitXor<unsigned int, unsigned int> WaveActiveCalculatorBitXor;
+
+static CalculatorMap<unsigned int, unsigned int> WaveActiveCalculatorsUint[] = {
+  { L"WaveActiveUMax", &WaveActiveCalculatorMaxUint },
+  { L"WaveActiveUMin", &WaveActiveCalculatorMinUint },
+  { L"WaveActiveUSum", &WaveActiveCalculatorSumUint },
+  { L"WaveActiveUProduct", &WaveActiveCalculatorProdUint },
+  { L"WaveActiveBitOr", &WaveActiveCalculatorBitOr },
+  { L"WaveActiveBitAnd", &WaveActiveCalculatorBitAnd },
+  { L"WaveActiveBitXor", &WaveActiveCalculatorBitXor }
+};
+
+template <class T1, class T2>
+class ExpectedLookupHandler {
+private:
+  size_t m_size;
+  CalculatorMap<T1, T2> *m_table;
+public:
+  ExpectedCalculator<T1, T2> *GetExpectedCalcFunc(PCWSTR name) {
+    for (size_t i = 0; i < m_size; ++i) {
+      if (_wcsicmp(name, m_table[i].name) == 0) {
+        return m_table[i].calculator;
+      }
+    }
+    DXASSERT(false, "Invalid Expected Calculation lookup %s", name);
+    return nullptr;
+  }
+  ExpectedLookupHandler(CalculatorMap<T1, T2> *pTable, size_t size) : m_table(pTable), m_size(size) {}
+};
+
 class ExecutionTest {
 public:
   // By default, ignore these tests, which require a recent build to run properly.
@@ -207,6 +422,10 @@ public:
 
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveIntTable")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(WaveIntrinsicsActiveUintTest)
+  TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveUintTable")
   END_TEST_METHOD()
 
   // TAEF data-driven tests.
@@ -251,6 +470,11 @@ public:
   dxc::DxcDllSupport m_support;
   bool m_ExperimentalModeEnabled = false;
   static const float ClearColor[4];
+
+  template <class T1, class T2>
+  void WaveIntrinsicsActiveTest(
+    TableParameter *pParameterList, size_t numParameter,
+    CalculatorMap<T1, T2> *pLookupPar, size_t numLookupPair);
 
   bool UseDxbc() {
     return GetTestParamBool(L"DXBC");
@@ -1832,7 +2056,8 @@ struct TableParameter {
         INT_TABLE,
         DOUBLE_TABLE,
         STRING_TABLE,
-        UINT_TABLE
+        UINT_TABLE,
+        BOOL_TABLE
     };
     TableParameterType m_type;
     bool m_required; // required parameter
@@ -1844,6 +2069,7 @@ struct TableParameter {
     WEX::TestExecution::TestDataArray<int> m_intTable;
     WEX::TestExecution::TestDataArray<unsigned int> m_uintTable;
     WEX::TestExecution::TestDataArray<double> m_doubleTable;
+    WEX::TestExecution::TestDataArray<bool> m_boolTable;
     WEX::TestExecution::TestDataArray<WEX::Common::String> m_StringTable;
 };
 
@@ -1858,6 +2084,55 @@ public:
     for (size_t i = 0; i < m_tableSize; ++i) {
       if (_wcsicmp(name, m_table[i].m_name) == 0) {
         return &m_table[i];
+      }
+    }
+    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    return nullptr;
+  }
+
+  template <class T1>
+  WEX::TestExecution::TestDataArray<T1> *GetDataArray(LPCWSTR name) {
+    return nullptr;
+  }
+
+  template <>
+  WEX::TestExecution::TestDataArray<int> *GetDataArray(LPCWSTR name) {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      if (_wcsicmp(name, m_table[i].m_name) == 0) {
+        return &(m_table[i].m_intTable);
+      }
+    }
+    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    return nullptr;
+  }
+
+  template <>
+  WEX::TestExecution::TestDataArray<unsigned int> *GetDataArray(LPCWSTR name) {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      if (_wcsicmp(name, m_table[i].m_name) == 0) {
+        return &(m_table[i].m_uintTable);
+      }
+    }
+    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    return nullptr;
+  }
+
+  template <>
+  WEX::TestExecution::TestDataArray<double> *GetDataArray(LPCWSTR name) {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      if (_wcsicmp(name, m_table[i].m_name) == 0) {
+        return &(m_table[i].m_doubleTable);
+      }
+    }
+    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    return nullptr;
+  }
+
+  template <>
+  WEX::TestExecution::TestDataArray<bool> *GetDataArray(LPCWSTR name) {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      if (_wcsicmp(name, m_table[i].m_name) == 0) {
+        return &(m_table[i].m_boolTable);
       }
     }
     DXASSERT(false, "Invalid Table Parameter Name %s", name);
@@ -2017,6 +2292,25 @@ static TableParameter WaveIntrinsicsActiveIntParameters[] = {
     { L"Validation.InputSet4", TableParameter::INT_TABLE, false }
 };
 
+static TableParameter WaveIntrinsicsActiveUintParameters[] = {
+  { L"ShaderOp.Name", TableParameter::STRING, true },
+  { L"ShaderOp.Text", TableParameter::STRING, true },
+  { L"Validation.NumInputSet", TableParameter::UINT, true },
+  { L"Validation.InputSet1", TableParameter::UINT_TABLE, true },
+  { L"Validation.InputSet2", TableParameter::UINT_TABLE, false },
+  { L"Validation.InputSet3", TableParameter::UINT_TABLE, false },
+  { L"Validation.InputSet4", TableParameter::UINT_TABLE, false }
+};
+
+static TableParameter WaveIntrinsicsActiveBoolParameters[] = {
+  { L"ShaderOp.Name", TableParameter::STRING, true },
+  { L"ShaderOp.Text", TableParameter::STRING, true },
+  { L"Validation.NumInputSet", TableParameter::UINT, true },
+  { L"Validation.InputSet1", TableParameter::BOOL_TABLE, true },
+  { L"Validation.InputSet2", TableParameter::BOOL_TABLE, false },
+  { L"Validation.InputSet3", TableParameter::BOOL_TABLE, false },
+};
+
 static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
@@ -2173,6 +2467,13 @@ static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
     case TableParameter::DOUBLE_TABLE:
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(
               table[i].m_name, table[i].m_doubleTable)) && table[i].m_required) {
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      break;
+    case TableParameter::BOOL_TABLE:
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(
+        table[i].m_name, table[i].m_boolTable)) && table[i].m_required) {
         LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
@@ -3116,163 +3417,10 @@ TEST_F(ExecutionTest, Msad4Test) {
     }
 }
 
-// Virtual class to compute the expected result given a set of inputs
-
 template <class T1, class T2>
-class ExpectedCalculator {
-public:
-    virtual T2 computeExpected(std::vector<int> &vec) = 0;
-    virtual ~ExpectedCalculator() {};
-};
-
-template <class T1, class T2>
-class WaveActiveSumCalculator : public ExpectedCalculator<T1, T2> {
-public:
-  T2 computeExpected(std::vector<int> &vec) {
-    T2 sum = 0;
-    for (size_t i = 0; i < vec.size(); ++i) {
-      sum += vec.at(i);
-    }
-    return sum;
-  }
-};
-
-template <class T1, class T2>
-class WaveActiveProductCalculator : public ExpectedCalculator<T1, T2> {
-public:
-  T2 computeExpected(std::vector<T1> &vec) {
-    T2 prod = 1;
-    for (size_t i = 0; i < vec.size(); ++i) {
-      prod *= vec.at(i);
-    }
-    return prod;
-  }
-};
-
-template <class T1, class T2>
-class WaveActiveCountBitsCalculator : public ExpectedCalculator<T1, T2> {
-public:
-  T2 computeExpected(std::vector<T1> &vec) {
-    T2 count = 0;
-    for (size_t i = 0; i < vec.size(); ++i) {
-      if (vec.at(i) > 3) {
-        count++;
-      }
-    }
-    return count;
-  }
-};
-
-template <class T1, class T2>
-class WaveActiveMaxCalculator : public ExpectedCalculator<T1, T2> {
-public:
-  T2 computeExpected(std::vector<T1> &vec) {
-    T2 maximum = std::numeric_limits<T2>::min();
-    for (size_t i = 0; i < vec.size(); ++i) {
-      if (vec.at(i) > maximum)
-        maximum = vec.at(i);
-    }
-    return maximum;
-  }
-};
-
-template <class T1, class T2>
-class WaveActiveMinCalculator : public ExpectedCalculator<T1, T2> {
-public:
-  T2 computeExpected(std::vector<T1> &vec) {
-    T2 minimum = std::numeric_limits<T2>::max();
-    for (size_t i = 0; i < vec.size(); ++i) {
-      if (vec.at(i) < minimum)
-        minimum = vec.at(i);
-    }
-    return minimum;
-  }
-};
-
-template <class T1, class T2>
-class WaveActiveBitOrCalculator : public ExpectedCalculator<T1, T2> {
-public:
-  T2 computeExpected(std::vector<T1> &vec) {
-    T2 bits = 0x00000000;
-    for (size_t i = 0; i < vec.size(); ++i) {
-      if (vec.at(i) < bits)
-        bits |= vec.at(i);
-    }
-    return bits;
-  }
-};
-
-template <class T1, class T2>
-class WaveActiveBitAndCalculator : public ExpectedCalculator<T1, T2> {
-public:
-  T2 computeExpected(std::vector<T1> &vec) {
-    T2 bits = 0xffffffff;
-    for (size_t i = 0; i < vec.size(); ++i) {
-      if (vec.at(i) < bits)
-        bits &= vec.at(i);
-    }
-    return bits;
-  }
-};;
-
-template <class T1, class T2>
-class WaveActiveBitXorCalculator : public ExpectedCalculator<T1, T2> {
-public:
-  T2 computeExpected(std::vector<T1> &vec) {
-    T2 bits = 0x00000000;
-    for (size_t i = 0; i < vec.size(); ++i) {
-      if (vec.at(i) < bits)
-        bits ^= vec.at(i);
-    }
-    return bits;
-  }
-};
-
-template <class T1, class T2>
-struct CalculatorLookupPair {
-    PCWSTR name;
-    ExpectedCalculator<T1,T2> *calculator;
-};
-
-static WaveActiveSumCalculator<int, int> WaveActiveSumCalculatorInt;
-static WaveActiveProductCalculator<int, int> WaveActiveProdCalculatorInt;
-static WaveActiveCountBitsCalculator<int, int> WaveActiveCountBitsCalculatorInt;
-static WaveActiveMaxCalculator<int, int> WaveActiveMaxCalculatorInt;
-static WaveActiveMinCalculator<int, int> WaveActiveMinCalculatorInt;
-static WaveActiveBitOrCalculator<int, int> WaveActiveBitOrCalculatorInt;
-static WaveActiveBitAndCalculator<int, int> WaveActiveBitAndCalculatorInt;
-static WaveActiveBitXorCalculator<int, int> WaveActiveBitXorCalculatorInt;
-
-static CalculatorLookupPair<int, int> WaveIntrinsicsActiveIntCalculatorLookup[] = {
-    { L"WaveActiveSum", &WaveActiveSumCalculatorInt },
-    { L"WaveActiveProduct", &WaveActiveProdCalculatorInt },
-    { L"WaveActiveCountBits", &WaveActiveCountBitsCalculatorInt },
-    { L"WaveActiveMax", &WaveActiveMaxCalculatorInt },
-    { L"WaveActiveMin", &WaveActiveMinCalculatorInt },
-    { L"WaveActiveBitOr", &WaveActiveBitOrCalculatorInt },
-    { L"WaveActiveBitAnd", &WaveActiveBitAndCalculatorInt },
-    { L"WaveActiveBitXor", &WaveActiveBitXorCalculatorInt }
-};
-
-template <class T1, class T2>
-class ExpectedLookupHandler {
-private:
-    size_t m_size;
-    CalculatorLookupPair<T1,T2> *m_table;
-public:
-    ExpectedCalculator<T1, T2> *GetExpectedCalcFunc(PCWSTR name) {
-        for (size_t i = 0; i < m_size; ++i) {
-            if (_wcsicmp(name, m_table[i].name) == 0) {
-                return m_table[i].calculator;
-            }
-        }
-        DXASSERT(false, "Invalid Expected Calculation lookup %s", name);
-        return nullptr;
-    }
-    ExpectedLookupHandler(CalculatorLookupPair<T1, T2> *pTable, size_t size) : m_table(pTable), m_size(size) {}
-};
-
-TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
+void ExecutionTest::WaveIntrinsicsActiveTest(
+    TableParameter *pParameterList, size_t numParameter,
+    CalculatorMap<T1, T2> *pLookupPair, size_t numLookupPair) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   // Resource representation for compute shader
@@ -3280,8 +3428,8 @@ TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
   struct PerThreadData {
       int id;
       int firstLaneId;
-      int input;
-      int output;
+      T1 input;
+      T2 output;
   };
 
   int NumThreadsX = 8;
@@ -3303,22 +3451,21 @@ TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
     WEX::Logging::Log::Comment(L"Device does not support wave operations.");
     return;
   }
-  size_t tableSize = sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter);
-  VERIFY_SUCCEEDED(ParseTableRow(WaveIntrinsicsActiveIntParameters, tableSize));
-  TableParameterHandler handler(WaveIntrinsicsActiveIntParameters, tableSize);
+  VERIFY_SUCCEEDED(ParseTableRow(pParameterList, numParameter));
+  TableParameterHandler handler(pParameterList, numParameter);
 
 
   unsigned int numInputSet = handler.GetTableParamByName(L"Validation.NumInputSet")->m_uint;
 
   // Obtain the list of input lists
 
-  typedef WEX::TestExecution::TestDataArray<int> DataArrayInt;
-  std::vector<DataArrayInt *> InputList;
+  typedef WEX::TestExecution::TestDataArray<T1> DataArray;
+  std::vector<DataArray*> InputList;
   for (unsigned int i = 0;
-      i < numInputSet; ++i) {
-      std::wstring inputName = L"Validation.InputSet";
-      inputName.append(std::to_wstring(i+1));
-      InputList.push_back(&handler.GetTableParamByName(inputName.c_str())->m_intTable);
+    i < numInputSet; ++i) {
+    std::wstring inputName = L"Validation.InputSet";
+    inputName.append(std::to_wstring(i + 1));
+    InputList.push_back(handler.GetDataArray<T1>(inputName.data()));
   }
 
   CW2A Text(handler.GetTableParamByName(L"ShaderOp.text")->m_str);
@@ -3327,83 +3474,103 @@ TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
   for (size_t testIndex = 0; testIndex < numInputSet; ++testIndex) {
-      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-          pDevice, m_support, pStream, "WaveIntrinsicsOp",
-          // this callbacked is called when the test
-          // is creating the resource to run the test
-          [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-          VERIFY_IS_TRUE(0 == _stricmp(Name, "SWaveIntrinsicsOp"));
-          size_t size = sizeof(PerThreadData) * ThreadCount;
-          Data.resize(size);
-          PerThreadData *pPrimitives = (PerThreadData*)Data.data();
-          // 4 different inputs for each operation test
-          int index = 0;
-          while (index < ThreadCount) {
-              PerThreadData *p = &pPrimitives[index];
-              DataArrayInt *IntList = InputList[testIndex];
-              p->id = index;
-              p->input = (*IntList)[index % IntList->GetSize()];
-              index++;
-          }
-          // use shader from data table
-          pShaderOp->Shaders.at(0).Text = Text.m_psz;
-      }, ShaderOpSet);
-
-      // Check the value
-      MappedData data;
-      test->Test->GetReadBackData("SWaveIntrinsicsOp", &data);
-
-      PerThreadData *pPrimitives = (PerThreadData*)data.data();
-      WEX::TestExecution::DisableVerifyExceptions dve;
-      // all outputs are equivalent for WaveIntrinsicsActive operations
-
-      std::vector<int> firstLaneIds;
-      for (size_t i = 0; i < ThreadCount; ++i) {
-          PerThreadData *p = &pPrimitives[i];
-          int firstLaneId = p->firstLaneId;
-          if (!contains(firstLaneIds, firstLaneId)) {
-              firstLaneIds.push_back(firstLaneId);
-          }
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+      pDevice, m_support, pStream, "WaveIntrinsicsOp",
+      // this callbacked is called when the test
+      // is creating the resource to run the test
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+      VERIFY_IS_TRUE(0 == _stricmp(Name, "SWaveIntrinsicsOp"));
+      size_t size = sizeof(PerThreadData) * ThreadCount;
+      Data.resize(size);
+      PerThreadData *pPrimitives = (PerThreadData*)Data.data();
+      // 4 different inputs for each operation test
+      int index = 0;
+      while (index < ThreadCount) {
+        PerThreadData *p = &pPrimitives[index];
+        DataArray *IntList = InputList[testIndex];
+        p->id = index;
+        p->input = (*IntList)[index % IntList->GetSize()];
+        index++;
       }
+      // use shader from data table
+      pShaderOp->Shaders.at(0).Text = Text.m_psz;
+    }, ShaderOpSet);
 
-      std::map<int, std::unique_ptr<std::vector<PerThreadData *>>> waves;
-      for (size_t i = 0; i < firstLaneIds.size(); ++i) {
-          waves[firstLaneIds.at(i)] = std::make_unique<std::vector<PerThreadData*>>(std::vector<PerThreadData*>());
+    // Check the value
+    MappedData data;
+    test->Test->GetReadBackData("SWaveIntrinsicsOp", &data);
+
+    PerThreadData *pPrimitives = (PerThreadData*)data.data();
+    WEX::TestExecution::DisableVerifyExceptions dve;
+
+    // Grouping data by waves
+    std::vector<int> firstLaneIds;
+    for (size_t i = 0; i < ThreadCount; ++i) {
+      PerThreadData *p = &pPrimitives[i];
+      int firstLaneId = p->firstLaneId;
+      if (!contains(firstLaneIds, firstLaneId)) {
+        firstLaneIds.push_back(firstLaneId);
       }
+    }
 
-      for (size_t i = 0; i < ThreadCount; ++i) {
-          PerThreadData *p= &pPrimitives[i];
-          waves[p->firstLaneId].get()->push_back(p);
+    std::map<int, std::unique_ptr<std::vector<PerThreadData *>>> waves;
+    for (size_t i = 0; i < firstLaneIds.size(); ++i) {
+      waves[firstLaneIds.at(i)] = std::make_unique<std::vector<PerThreadData*>>(std::vector<PerThreadData*>());
+    }
+
+    for (size_t i = 0; i < ThreadCount; ++i) {
+      PerThreadData *p = &pPrimitives[i];
+      waves[p->firstLaneId].get()->push_back(p);
+    }
+
+    // Calculate expected value of a given wave inputs using ExpectedResultCalculator
+    ExpectedLookupHandler<T1, T2> expectedHandler(
+      pLookupPair,
+      numLookupPair);
+    ExpectedCalculator<T1, T2> *calculator =
+      expectedHandler.GetExpectedCalcFunc(
+        handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
+
+    for (size_t i = 0; i < firstLaneIds.size(); ++i) {
+      std::vector<PerThreadData *> *data = waves[firstLaneIds.at(i)].get();
+      std::vector<T1> outputList(data->size());
+      // collect all inputs for given wave and calculate expected
+      std::wstring str = L"Inputs in this wave: ";
+      for (size_t j = 0; j < data->size(); ++j) {
+        outputList.at(j) = (data->at(j)->input);
+        str.append(std::to_wstring(data->at(j)->input));
+        str.append(L" ");
       }
-
-      // Calculate expected value of a given wave inputs using ExpectedResultCalculator
-      ExpectedLookupHandler<int, int> expectedHandler(
-          WaveIntrinsicsActiveIntCalculatorLookup,
-          sizeof(WaveIntrinsicsActiveIntCalculatorLookup) /
-              sizeof(CalculatorLookupPair<int, int>));
-      ExpectedCalculator<int, int> *calculator =
-          expectedHandler.GetExpectedCalcFunc(
-              handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
-
-      for (size_t i = 0; i < firstLaneIds.size(); ++i) {
-        std::vector<PerThreadData *> *data = waves[firstLaneIds.at(i)].get();
-        std::vector<int> outputList(data->size());
-        // collect all inputs for given wave and calculate expected
-        std::wstring str = L"Inputs in this wave: ";
-        for (size_t j = 0; j < data->size(); ++j) {
-          outputList.at(j) = (data->at(j)->input);
-          str.append(std::to_wstring(data->at(j)->input));
-          str.append(L" ");
+      T2 expected = calculator->computeExpected(outputList);
+      // In a given wave output should be equivalent for WaveActiveOp
+      for (size_t j = 0; j < data->size(); ++j) {
+        bool equal = data->at(j)->output == expected;
+        if (!equal) {
+          LogCommentFmt(str.data());
+          LogCommentFmt(L"output: %d, Expected : %d", data->at(j)->output, expected);
         }
-        int expected = calculator->computeExpected(outputList);
-        LogCommentFmt(str.data());
-        LogCommentFmt(L"Expected : %d", expected);
-        // In a given wave output should be equivalent for WaveActiveOp
-        for (size_t j = 0; j < data->size(); ++j) {
-          VERIFY_ARE_EQUAL(data->at(j)->output, expected);
-        }
+        VERIFY_IS_TRUE(equal);
       }
+    }
   }
+}
+
+TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
+  WaveIntrinsicsActiveTest(
+    WaveIntrinsicsActiveIntParameters,
+    sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter),
+    WaveActiveCalculatorsInt,
+    sizeof(WaveActiveCalculatorsInt) /
+        sizeof(CalculatorMap<int, int>));
+}
+
+TEST_F(ExecutionTest, WaveIntrinsicsActiveUintTest) {
+  WaveIntrinsicsActiveTest(
+      WaveIntrinsicsActiveUintParameters,
+      sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter),
+      WaveActiveCalculatorsUint,
+      sizeof(WaveActiveCalculatorsUint) /
+          sizeof(CalculatorMap<unsigned int, unsigned int>));
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsTest) {

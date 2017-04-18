@@ -39,7 +39,7 @@
           <Value>-0.0007346401</Value>
           <Value>0.0007346401</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">sin</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -84,7 +84,7 @@
           <Value>0.99999973015</Value>
           <Value>0.99999973015</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">cos</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -128,7 +128,7 @@
           <Value>-0.000735</Value>
           <Value>0.000735</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">tan</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -172,7 +172,7 @@
           <Value>1.543081</Value>
           <Value>1.543081</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">hcos</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -216,7 +216,7 @@
           <Value>1.175201</Value>
           <Value>-1.175201</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">hsin</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -260,7 +260,7 @@
           <Value>0.761594</Value>
           <Value>-0.761594</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">htan</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -308,7 +308,7 @@
           <Value>NaN</Value>
           <Value>NaN</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">acos</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -356,7 +356,7 @@
           <Value>NaN</Value>
           <Value>NaN</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">asin</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -400,7 +400,7 @@
           <Value>0.785398163</Value>
           <Value>-0.785398163</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">atan</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -444,7 +444,7 @@
           <Value>0.367879441</Value>
           <Value>22026.46579</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">exp</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -492,7 +492,7 @@
           <Value>0.599976</Value>
           <Value>0.611</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">frc</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -540,7 +540,7 @@
           <Value>1.99999998</Value>
           <Value>4.6051701</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">log</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -587,7 +587,7 @@
           <Value>4.0</Value>
           <Value>16.0</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">sqrt</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -635,7 +635,7 @@
           <Value>0.0625</Value>
           <Value>0.00390625</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">rsqrt</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -683,7 +683,7 @@
           <Value>0.0625</Value>
           <Value>0.00390625</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">rsqrt</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -741,7 +741,7 @@
           <Value>-10.0</Value>
           <Value>-11.0</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">round_ne</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -797,7 +797,7 @@
           <Value>-11.0</Value>
           <Value>-11.0</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">round_ni</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -853,7 +853,7 @@
           <Value>-10.0</Value>
           <Value>-10.0</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">round_pi</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -909,7 +909,7 @@
           <Value>-10.0</Value>
           <Value>-10.0</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">round_z</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -953,7 +953,7 @@
           <Value>0</Value>
           <Value>0</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">IsNaN</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -999,7 +999,7 @@
           <Value>0</Value>
           <Value>0</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">IsInf</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -1019,7 +1019,7 @@
             }
            ]]></Parameter>
       </Row>
-      <Row Name="Isfinite">
+      <Row Name="IsFinite">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
         <Parameter Name="Validation.NumInput">9</Parameter>
@@ -1045,7 +1045,7 @@
           <Value>1</Value>
           <Value>1</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">IsFinite</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -1092,7 +1092,7 @@
           <Value>1</Value>
           <Value>1</Value>
         </Parameter>
-        <Parameter Name="ShaderOp.Name">CS</Parameter>
+        <Parameter Name="ShaderOp.Name">FAbs</Parameter>
         <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
         <Parameter Name="ShaderOp.EntryPoint">main</Parameter>
         <Parameter Name="ShaderOp.Text"><![CDATA[
@@ -2495,6 +2495,7 @@
                 <Value>-64</Value>
             </Parameter>
         </Row>
+
          <Row Name="WaveActiveProduct">
             <Parameter Name="ShaderOp.Name">WaveActiveProduct</Parameter>
             <Parameter Name="ShaderOp.Text">
@@ -2532,48 +2533,7 @@
                 <Value>-64</Value>
             </Parameter>
         </Row>
-        <Row Name="WaveActiveCountBits">
-            <Parameter Name="ShaderOp.Name">WaveActiveCountBits</Parameter>
-            <Parameter Name="ShaderOp.Text">
-                <![CDATA[
-                    struct PerThreadData {
-                        int id;
-                        int firstLaneId;
-                        int input;
-                        int output;
-                    };
-                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
-                    void main(uint GI : SV_GroupIndex) {
-                        PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveCountBits(pts.input > 3);
-                        g_sb[GI] = pts;
-                    }
-                ]]>
-            </Parameter>
-            <Parameter Name="Validation.NumInputSet">4</Parameter>
-            <Parameter Name="Validation.InputSet1">
-                <Value>1</Value>
-                <Value>2</Value>
-                <Value>3</Value>
-                <Value>4</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet2">
-                <Value>0</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet3">
-                <Value>1</Value>
-                <Value>10</Value>
-                <Value>-4</Value>
-                <Value>-64</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet4">
-                <Value>-100</Value>
-                <Value>-1000</Value>
-                <Value>300</Value>
-            </Parameter>
-        </Row>
+
         <Row Name="WaveActiveCountBits">
             <Parameter Name="ShaderOp.Name">WaveActiveCountBits</Parameter>
             <Parameter Name="ShaderOp.Text">
@@ -2709,8 +2669,8 @@
             </Parameter>
         </Row>
 
-        <Row Name="WaveActiveMin">
-            <Parameter Name="ShaderOp.Name">WaveActiveMin</Parameter>
+        <Row Name="WaveActiveAllEqual">
+            <Parameter Name="ShaderOp.Name">WaveActiveAllEqual</Parameter>
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
@@ -2724,12 +2684,249 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveAllEqual(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>3</Value>
+                <Value>4</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>3</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>-10</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveAnyTrue">
+            <Parameter Name="ShaderOp.Name">WaveActiveAnyTrue</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        bool input;
+                        bool output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveAnyTrue(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>1</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveAllTrue">
+            <Parameter Name="ShaderOp.Name">WaveActiveAllTrue</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        bool input;
+                        bool output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveAllTrue(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>0</Value>
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>1</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>1</Value>
+            </Parameter>
+        </Row>
+      </Table>
+
+      <Table Id="WaveIntrinsicsActiveUintTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Name">String</ParameterType>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.NumInputSet">unsigned int</ParameterType>
+            <ParameterType Name="Validation.InputSet1" Array="true">unsigned int</ParameterType>
+            <ParameterType Name="Validation.InputSet2" Array="true">unsigned int</ParameterType>
+            <ParameterType Name="Validation.InputSet3" Array="true">unsigned int</ParameterType>
+            <ParameterType Name="Validation.InputSet4" Array="true">unsigned int</ParameterType>
+        </ParameterTypes>
+
+       <Row Name="WaveActiveUSum">
+            <Parameter Name="ShaderOp.Name">WaveActiveUSum</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        uint input;
+                        uint output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveSum(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>3</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>2</Value>
+                <Value>4</Value>
+                <Value>8</Value>
+                <Value>64</Value>
+            </Parameter>
+        </Row>
+
+         <Row Name="WaveActiveUProduct">
+            <Parameter Name="ShaderOp.Name">WaveActiveUProduct</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        uint input;
+                        uint output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveProduct(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>3</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>4</Value>
+                <Value>64</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveUMax">
+            <Parameter Name="ShaderOp.Name">WaveActiveUMax</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        uint input;
+                        uint output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveMax(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>3</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>1</Value>
+                <Value>10</Value>
+                <Value>4</Value>
+                <Value>64</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveUMin">
+            <Parameter Name="ShaderOp.Name">WaveActiveUMin</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        uint input;
+                        uint output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
                         pts.output = WaveActiveMin(pts.input);
                         g_sb[GI] = pts;
                     }
                 ]]>
             </Parameter>
-            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
                 <Value>2</Value>
@@ -2748,13 +2945,8 @@
             <Parameter Name="Validation.InputSet3">
                 <Value>1</Value>
                 <Value>10</Value>
-                <Value>-4</Value>
-                <Value>-64</Value>
-            </Parameter>
-            <Parameter Name="Validation.InputSet4">
-                <Value>-100</Value>
-                <Value>-1000</Value>
-                <Value>300</Value>
+                <Value>4</Value>
+                <Value>64</Value>
             </Parameter>
         </Row>
 
@@ -2765,8 +2957,8 @@
                     struct PerThreadData {
                         int id;
                         int firstLaneId;
-                        int input;
-                        int output;
+                        uint input;
+                        uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
                     [numthreads(8,8,1)]
@@ -2778,7 +2970,7 @@
                     }
                 ]]>
             </Parameter>
-            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>0xf000000</Value>
                 <Value>0x0f00000</Value>
@@ -2797,11 +2989,6 @@
                 <Value>8</Value>
                 <Value>16</Value>
             </Parameter>
-            <Parameter Name="Validation.InputSet4">
-                <Value>0xffffffff</Value>
-                <Value>0x0000ffff</Value>
-                <Value>0xffff0000</Value>
-            </Parameter>
         </Row>
 
         <Row Name="WaveActiveBitAnd">
@@ -2811,8 +2998,8 @@
                     struct PerThreadData {
                         int id;
                         int firstLaneId;
-                        int input;
-                        int output;
+                        uint input;
+                        uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
                     [numthreads(8,8,1)]
@@ -2824,7 +3011,7 @@
                     }
                 ]]>
             </Parameter>
-            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>0xf000000</Value>
                 <Value>0x0f00000</Value>
@@ -2843,11 +3030,6 @@
                 <Value>8</Value>
                 <Value>16</Value>
             </Parameter>
-            <Parameter Name="Validation.InputSet4">
-                <Value>0xffffffff</Value>
-                <Value>0x0000ffff</Value>
-                <Value>0xffff0000</Value>
-            </Parameter>
         </Row>
 
         <Row Name="WaveActiveBitXor">
@@ -2857,8 +3039,8 @@
                     struct PerThreadData {
                         int id;
                         int firstLaneId;
-                        int input;
-                        int output;
+                        uint input;
+                        uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
                     [numthreads(8,8,1)]
@@ -2870,7 +3052,7 @@
                     }
                 ]]>
             </Parameter>
-            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>0xf000000</Value>
                 <Value>0x0f00000</Value>
@@ -2889,12 +3071,6 @@
                 <Value>8</Value>
                 <Value>16</Value>
             </Parameter>
-            <Parameter Name="Validation.InputSet4">
-                <Value>0xffffffff</Value>
-                <Value>0x0000ffff</Value>
-                <Value>0xffff0000</Value>
-            </Parameter>
         </Row>
-       </Table>
-
+    </Table>
 </Data>
