@@ -2803,6 +2803,10 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   for (auto &arg : F->args()) {
     if (!arg.user_empty())
       return nullptr;
+    DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&arg);
+    if (DDI) {
+      DDI->eraseFromParent();
+    }
   }
 
   Function *NewFunc = Function::Create(FT, F->getLinkage(), F->getName());

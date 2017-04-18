@@ -286,6 +286,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.OptDump = Args.hasFlag(OPT_Odump, OPT_INVALID, false);
 
   opts.DisableOptimizations = Args.hasFlag(OPT_Od, OPT_INVALID, false);
+  if (opts.DisableOptimizations)
+    opts.OptLevel = 0;
 
   opts.DisableValidation = Args.hasFlag(OPT_VD, OPT_INVALID, false);
 
