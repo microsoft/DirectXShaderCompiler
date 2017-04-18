@@ -137,7 +137,7 @@ static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
 int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
   int retVal = 0;
   // Text output.
-  if (m_Opts.AstDump || m_Opts.OptDump || m_Opts.GenSPIRV) { // SPIRV change: add GenSPIRV
+  if (m_Opts.AstDump || m_Opts.OptDump) {
     WriteBlobToConsole(pBlob);
     return retVal;
   }
@@ -848,6 +848,22 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
       return 0;
     }
+
+    // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+    // This ideally should be put in ReadDxcOpts(), but ReadDxcOpts() are called
+    // again in DxcCompilerCompile() with -Fo stripped.
+    if (dxcOpts.GenSPIRV && dxcOpts.OutputObject.empty()) {
+      fprintf(stderr, "-spirv requires -Fo for output object file name.");
+      return 1;
+    }
+#else
+    if (dxcOpts.GenSPIRV) {
+      fprintf(stderr, "SPIR-V codegen not configured via ENABLE_SPIRV_CODEGEN");
+      return 1;
+    }
+#endif
+    // SPIRV change ends
 
     // Apply defaults.
     if (dxcOpts.EntryPoint.empty() && !dxcOpts.RecompileFromBinary) {

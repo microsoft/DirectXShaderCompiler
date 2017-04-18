@@ -67,7 +67,6 @@ set(LIBRARIES
   clangLex
   clangTooling
   clangBasic
-  clangSPIRV # SPIRV change
   libclang
   )
 
@@ -84,6 +83,11 @@ set(GENERATED_HEADERS
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
 target_link_libraries(dxcompiler PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})
+# SPIRV change starts
+if (ENABLE_SPIRV_CODEGEN)
+  target_link_libraries(dxcompiler PRIVATE clangSPIRV)
+endif (ENABLE_SPIRV_CODEGEN)
+# SPIRV change ends
 add_dependencies(dxcompiler DxcEtw)
 include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
 
