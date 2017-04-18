@@ -636,6 +636,8 @@ if(WITH_POLLY)
   endif()
 endif(WITH_POLLY)
 
+add_subdirectory(external) # SPIRV change
+
 if( LLVM_INCLUDE_TOOLS )
   add_subdirectory(tools)
 endif()
