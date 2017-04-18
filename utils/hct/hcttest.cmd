@@ -10,6 +10,11 @@ rem Whether we built the project using ninja as the generator.
 set GENERATOR_NINJA=0
 
 set TEST_ALL=1
+set TEST_CLANG=0
+set TEST_CMD=0
+set TEST_EXEC=0
+set TEST_EXTRAS=0
+set TEST_EXEC_REQUIRED=0
 set TEST_CLANG_FILTER= /select: "@Priority<1"
 set TEST_EXEC_FILTER=ExecutionTest::*
 if "%BUILD_CONFIG%"=="" (
