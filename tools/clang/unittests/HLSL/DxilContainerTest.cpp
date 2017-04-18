@@ -61,6 +61,7 @@ static uint8_t MaskCount(uint8_t V) {
 class DxilContainerTest {
 public:
   BEGIN_TEST_CLASS(DxilContainerTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 

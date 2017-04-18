@@ -416,6 +416,7 @@ public:
 class ExtensionTest {
 public:
   BEGIN_TEST_CLASS(ExtensionTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 

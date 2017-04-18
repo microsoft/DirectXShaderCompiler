@@ -188,6 +188,7 @@ class ExecutionTest {
 public:
   // By default, ignore these tests, which require a recent build to run properly.
   BEGIN_TEST_CLASS(ExecutionTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_CLASS_PROPERTY(L"Ignore", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
