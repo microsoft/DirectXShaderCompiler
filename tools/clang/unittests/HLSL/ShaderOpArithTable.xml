@@ -2616,6 +2616,285 @@
                 <Value>300</Value>
             </Parameter>
         </Row>
+
+        <Row Name="WaveActiveMax">
+            <Parameter Name="ShaderOp.Name">WaveActiveMax</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveMax(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>3</Value>
+                <Value>4</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>1</Value>
+                <Value>10</Value>
+                <Value>-4</Value>
+                <Value>-64</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>-100</Value>
+                <Value>-1000</Value>
+                <Value>300</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveMin">
+            <Parameter Name="ShaderOp.Name">WaveActiveMin</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveMin(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>3</Value>
+                <Value>4</Value>
+                <Value>5</Value>
+                <Value>6</Value>
+                <Value>7</Value>
+                <Value>8</Value>
+                <Value>9</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>1</Value>
+                <Value>10</Value>
+                <Value>-4</Value>
+                <Value>-64</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>-100</Value>
+                <Value>-1000</Value>
+                <Value>300</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveMin">
+            <Parameter Name="ShaderOp.Name">WaveActiveMin</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveMin(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>1</Value>
+                <Value>2</Value>
+                <Value>3</Value>
+                <Value>4</Value>
+                <Value>5</Value>
+                <Value>6</Value>
+                <Value>7</Value>
+                <Value>8</Value>
+                <Value>9</Value>
+                <Value>10</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>1</Value>
+                <Value>10</Value>
+                <Value>-4</Value>
+                <Value>-64</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>-100</Value>
+                <Value>-1000</Value>
+                <Value>300</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveBitOr">
+            <Parameter Name="ShaderOp.Name">WaveActiveBitOr</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveBitOr(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>0xf000000</Value>
+                <Value>0x0f00000</Value>
+                <Value>0x00f0000</Value>
+                <Value>0x000f000</Value>
+                <Value>0x0000f00</Value>
+                <Value>0x00000f0</Value>
+                <Value>0x000000f</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0x00000000</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>2</Value>
+                <Value>4</Value>
+                <Value>8</Value>
+                <Value>16</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>0xffffffff</Value>
+                <Value>0x0000ffff</Value>
+                <Value>0xffff0000</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveBitAnd">
+            <Parameter Name="ShaderOp.Name">WaveActiveBitAnd</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveBitAnd(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>0xf000000</Value>
+                <Value>0x0f00000</Value>
+                <Value>0x00f0000</Value>
+                <Value>0x000f000</Value>
+                <Value>0x0000f00</Value>
+                <Value>0x00000f0</Value>
+                <Value>0x000000f</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0x00000000</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>2</Value>
+                <Value>4</Value>
+                <Value>8</Value>
+                <Value>16</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>0xffffffff</Value>
+                <Value>0x0000ffff</Value>
+                <Value>0xffff0000</Value>
+            </Parameter>
+        </Row>
+
+        <Row Name="WaveActiveBitXor">
+            <Parameter Name="ShaderOp.Name">WaveActiveBitXor</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+                    struct PerThreadData {
+                        int id;
+                        int firstLaneId;
+                        int input;
+                        int output;
+                    };
+                    RWStructuredBuffer<PerThreadData> g_sb : register(u0);
+                    [numthreads(8,8,1)]
+                    void main(uint GI : SV_GroupIndex) {
+                        PerThreadData pts = g_sb[GI];
+                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
+                        pts.output = WaveActiveBitXor(pts.input);
+                        g_sb[GI] = pts;
+                    }
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
+            <Parameter Name="Validation.InputSet1">
+                <Value>0xf000000</Value>
+                <Value>0x0f00000</Value>
+                <Value>0x00f0000</Value>
+                <Value>0x000f000</Value>
+                <Value>0x0000f00</Value>
+                <Value>0x00000f0</Value>
+                <Value>0x000000f</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet2">
+                <Value>0x00000000</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet3">
+                <Value>2</Value>
+                <Value>4</Value>
+                <Value>8</Value>
+                <Value>16</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>0xffffffff</Value>
+                <Value>0x0000ffff</Value>
+                <Value>0xffff0000</Value>
+            </Parameter>
+        </Row>
        </Table>
 
 </Data>
