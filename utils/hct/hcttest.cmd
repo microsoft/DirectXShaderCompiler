@@ -17,6 +17,7 @@ set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
 set TEST_CLANG_FILTER= /select: "@Priority<1"
 set TEST_EXEC_FILTER=ExecutionTest::*
+set LOG_FILTER=/logOutput:LowWithConsoleBuffering
 if "%BUILD_CONFIG%"=="" (
   set BUILD_CONFIG=Debug
 )
@@ -92,7 +93,10 @@ if "%1"=="-clean" (
 ) else if "%1"=="-adapter" (
   set TEST_ADAPTER= /p:"Adapter=%~2"
   shift /1
-) else IF "%1"=="--" (
+) else if "%1"=="-verbose" (
+  set LOG_FILTER=
+  set PARALLEL_OPTION=
+) else if "%1"=="--" (
   shift /1
   goto :done_opt
 ) else (
@@ -249,6 +253,7 @@ echo   -clean - deletes test directory before copying binaries and testing
 echo   -ninja - artifacts were built using the Ninja generator
 echo   -rel   - builds release rather than debug
 echo   -adapter "adapter name" - overrides Adapter for execution tests
+echo   -verbose - for TAEF: turns off /parallel and removes logging filter
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -283,8 +288,8 @@ rem %2 - first argument to te
 rem %3 - second argument to te
 rem %4 - third argument to te
 
-echo te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering %PARALLEL_OPTION% %TEST_DIR%\%*
-call te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering %PARALLEL_OPTION% %TEST_DIR%\%*
+echo te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 if errorlevel 1 (
   call :showtesample %*
   exit /b 1
