@@ -21,6 +21,7 @@ class DXIntellisenseTest
 {
 public:
   BEGIN_TEST_CLASS(DXIntellisenseTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
