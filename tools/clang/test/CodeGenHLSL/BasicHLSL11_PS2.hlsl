@@ -18,13 +18,6 @@
 // Output.d
 // CHECK: llvm.dbg.declare(metadata float* %3
 
-// CHECK: DILocalVariable(tag: DW_TAG_arg_variable, name: "main.Ret"
-// CHECK: DIExpression(DW_OP_bit_piece, 0, 16)
-// CHECK: DIExpression(DW_OP_bit_piece, 16, 4)
-
-// CHECK: DILocalVariable(tag: DW_TAG_arg_variable, name: "Input"
-// CHECK: DIExpression(DW_OP_bit_piece, 0, 12)
-// CHECK: DIExpression(DW_OP_bit_piece, 12, 8)
 // CHECK: DILocalVariable(tag: DW_TAG_auto_variable, name: "vDiffuse"
 // CHECK: DILocalVariable(tag: DW_TAG_auto_variable, name: "fLighting"
 // CHECK: DILocalVariable(tag: DW_TAG_auto_variable, name: "Output"
