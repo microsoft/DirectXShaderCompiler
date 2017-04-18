@@ -1985,10 +1985,10 @@ ID  Name                           Description
 80  Barrier_                       inserts a memory barrier in the shader
 81  CalculateLOD_                  calculates the level of detail
 82  Discard_                       discard the current pixel
-83  DerivCoarseX_                  computes the rate of change of components per stamp
-84  DerivCoarseY_                  computes the rate of change of components per stamp
-85  DerivFineX_                    computes the rate of change of components per pixel
-86  DerivFineY_                    computes the rate of change of components per pixel
+83  DerivCoarseX_                  computes the rate of change per stamp in x direction.
+84  DerivCoarseY_                  computes the rate of change per stamp in y direction.
+85  DerivFineX_                    computes the rate of change per pixel in x direction.
+86  DerivFineY_                    computes the rate of change per pixel in y direction.
 87  EvalSnapped_                   evaluates an input attribute at pixel center with an offset
 88  EvalSampleIndex_               evaluates an input attribute at a sample location
 89  EvalCentroid_                  evaluates an input attribute at pixel center
@@ -2108,6 +2108,44 @@ Countbits
 ~~~~~~~~~
 
 Counts the number of bits in the input integer.
+
+DerivCoarseX
+~~~~~~~~~~~~
+
+dst = DerivCoarseX(src);
+
+Computes the rate of change per stamp in x direction. Only a single x derivative pair is computed for each 2x2 stamp of pixels.
+The data in the current Pixel Shader invocation may or may not participate in the calculation of the requested derivative, given the derivative will be calculated only once per 2x2 quad:
+As an example, the x derivative could be a delta from the top row of pixels.
+The exact calculation is up to the hardware vendor. There is also no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+DerivCoarseY
+~~~~~~~~~~~~
+
+dst = DerivCoarseY(src);
+
+Computes the rate of change per stamp in y direction. Only a single y derivative pair is computed for each 2x2 stamp of pixels.
+The data in the current Pixel Shader invocation may or may not participate in the calculation of the requested derivative, given the derivative will be calculated only once per 2x2 quad:
+As an example, the y derivative could be a delta from the left column of pixels.
+The exact calculation is up to the hardware vendor. There is also no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+DerivFineX
+~~~~~~~~~~
+
+dst = DerivFineX(src);
+
+Computes the rate of change per pixel in x direction. Each pixel in the 2x2 stamp gets a unique pair of x derivative calculations
+The data in the current Pixel Shader invocation always participates in the calculation of the requested derivative.
+There is no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+DerivFineY
+~~~~~~~~~~
+
+dst = DerivFineY(src);
+
+Computes the rate of change per pixel in y direction. Each pixel in the 2x2 stamp gets a unique pair of y derivative calculations
+The data in the current Pixel Shader invocation always participates in the calculation of the requested derivative.
+There is no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
 
 Dot2
 ~~~~

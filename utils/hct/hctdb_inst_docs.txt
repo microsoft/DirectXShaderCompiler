@@ -70,6 +70,41 @@ The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
 
 Counts the number of bits in the input integer.
 
+* Inst: DerivCoarseX - computes the rate of change per stamp in x direction.
+
+dst = DerivCoarseX(src);
+
+Computes the rate of change per stamp in x direction. Only a single x derivative pair is computed for each 2x2 stamp of pixels.
+The data in the current Pixel Shader invocation may or may not participate in the calculation of the requested derivative, given the derivative will be calculated only once per 2x2 quad: 
+As an example, the x derivative could be a delta from the top row of pixels.
+The exact calculation is up to the hardware vendor. There is also no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+
+* Inst: DerivCoarseY - computes the rate of change per stamp in y direction.
+
+dst = DerivCoarseY(src);
+
+Computes the rate of change per stamp in y direction. Only a single y derivative pair is computed for each 2x2 stamp of pixels.
+The data in the current Pixel Shader invocation may or may not participate in the calculation of the requested derivative, given the derivative will be calculated only once per 2x2 quad: 
+As an example, the y derivative could be a delta from the left column of pixels.
+The exact calculation is up to the hardware vendor. There is also no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+* Inst: DerivFineX - computes the rate of change per pixel in x direction.
+
+dst = DerivFineX(src);
+
+Computes the rate of change per pixel in x direction. Each pixel in the 2x2 stamp gets a unique pair of x derivative calculations
+The data in the current Pixel Shader invocation always participates in the calculation of the requested derivative.
+There is no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+* Inst: DerivFineY - computes the rate of change per pixel in y direction.
+
+dst = DerivFineY(src);
+
+Computes the rate of change per pixel in y direction. Each pixel in the 2x2 stamp gets a unique pair of y derivative calculations
+The data in the current Pixel Shader invocation always participates in the calculation of the requested derivative.
+There is no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
 * Inst: Dot2 - Two-dimensional vector dot-product
 
 Two-dimensional vector dot-product
@@ -549,4 +584,3 @@ Either of destHI or destLO may be specified as NULL instead of specifying a regi
 * Inst: USubb - unsigned subtract of 32-bit operands with the borrow
 
 dest0, dest1 = USubb(src0, src1)
-

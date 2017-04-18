@@ -1,5 +1,73 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <ShaderOpSet xmlns="http://schemas.microsoft.com/test/ShaderOp">
+  <ShaderOp Name="DerivFine" PS="PS" VS="VS" TopologyType="TRIANGLE">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(SRV(t0,numDescriptors=1))</RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
+    <Resource Name="T0" Dimension="Texture2D" Width="4" Height="4" InitialResourceState="COPY_DEST" Init="FromBytes" Format="R32_FLOAT">
+      {.125f, .25f, .5f, 1.0f},
+      {2.0f, 4.0f, 16.0f, 32.0f},
+      {32.0f, 64.0f, 128.0f, 256.0f},
+      {256.0f, 512.0f, 1024.0f, 2048.0f}
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='T0' Kind='SRV' ResName='T0' />
+    </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
+    <Shader Name="VS" Target="vs_6_0">
+      <![CDATA[
+        struct PSInput {
+          float4 position : SV_POSITION;
+          float2 uv : TEXCOORD;
+        };
+        PSInput main(float3 position : POSITION, float2 uv : TEXCOORD) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          return result;
+        }
+      ]]>
+    </Shader>
+    <Shader Name="PS" Target="ps_6_0">
+      <![CDATA[
+      struct PSInput {
+        float4 position : SV_POSITION;
+        float2 uv : TEXCOORD;
+      };
+
+      Texture2D<float> g_tex : register(t0);
+
+      float4 main(PSInput input) : SV_TARGET {
+        int3 offset = int3((input.uv * 64.0) % 4, 0);
+        float val = g_tex.Load(offset);
+        return float4(ddx_fine(val), ddy_fine(val), ddx_coarse(val), ddy_coarse(val));
+      }
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="WriteFloat4" CS="CS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
 

@@ -326,10 +326,10 @@ namespace DXIL {
     // Pixel shader
     CalculateLOD = 81, // calculates the level of detail
     Coverage = 91, // returns the coverage mask input in a pixel shader
-    DerivCoarseX = 83, // computes the rate of change of components per stamp
-    DerivCoarseY = 84, // computes the rate of change of components per stamp
-    DerivFineX = 85, // computes the rate of change of components per pixel
-    DerivFineY = 86, // computes the rate of change of components per pixel
+    DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
+    DerivCoarseY = 84, // computes the rate of change per stamp in y direction.
+    DerivFineX = 85, // computes the rate of change per pixel in x direction.
+    DerivFineY = 86, // computes the rate of change per pixel in y direction.
     Discard = 82, // discard the current pixel
     EvalCentroid = 89, // evaluates an input attribute at pixel center
     EvalSampleIndex = 88, // evaluates an input attribute at a sample location
