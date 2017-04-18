@@ -22,6 +22,18 @@ if "%BUILD_CONFIG%"=="" (
 )
 set HCT_DIR=%~dp0
 
+if "%NUMBER_OF_PROCESSORS%"=="" (
+  set PARALLEL_OPTION=
+) else if %NUMBER_OF_PROCESSORS% LEQ 1 (
+  set PARALLEL_OPTION=
+) else if %NUMBER_OF_PROCESSORS% LEQ 4 (
+  set PARALLEL_OPTION=/parallel:%NUMBER_OF_PROCESSORS%
+) else (
+  rem Sweet spot for /parallel seems to be NUMBER_OF_PROCESSORS - 1
+  set /a PARALLEL_COUNT=%NUMBER_OF_PROCESSORS%-1
+  set PARALLEL_OPTION=/parallel:!PARALLEL_COUNT!
+)
+
 :opt_loop
 if "%1"=="" (goto :done_opt)
 
@@ -271,8 +283,8 @@ rem %2 - first argument to te
 rem %3 - second argument to te
 rem %4 - third argument to te
 
-echo te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering /parallel %TEST_DIR%\%*
-call te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering /parallel %TEST_DIR%\%*
+echo te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering %PARALLEL_OPTION% %TEST_DIR%\%*
+call te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering %PARALLEL_OPTION% %TEST_DIR%\%*
 if errorlevel 1 (
   call :showtesample %*
   exit /b 1
