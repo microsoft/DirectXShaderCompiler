@@ -6,6 +6,7 @@ set(LLVM_LINK_COMPONENTS
 
 add_clang_unittest(clang-spirv-tests
   TestMain.cpp
+  UtilsTest.cpp
   )
 
 target_link_libraries(clang-spirv-tests
