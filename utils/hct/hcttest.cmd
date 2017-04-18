@@ -215,7 +215,7 @@ set TESTS_PASSED=0
 set TESTS_FAILED=0
 call :check_result "clang tests" %RES_CLANG%
 call :check_result "command line tests" %RES_CMD%
-if "%TEST_EXEC_REQUIRED%"=="1" (
+if "%TEST_EXEC%"=="1" (
   call :check_result "execution tests" %RES_EXEC%
 )
 call :check_result "hcttest-extras tests" %RES_EXTRAS%
