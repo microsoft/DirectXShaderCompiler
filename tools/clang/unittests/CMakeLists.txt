@@ -41,3 +41,12 @@ if (HLSL_INCLUDE_TESTS)
 endif (HLSL_INCLUDE_TESTS)
 
 # HLSL Change Ends
+
+
+# SPIRV Change Starts
+
+if (SPIRV_BUILD_TESTS)
+  add_subdirectory(SPIRV)
+endif (SPIRV_BUILD_TESTS)
+
+# SPIRV Change Ends
