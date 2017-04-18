@@ -10,12 +10,30 @@ rem Whether we built the project using ninja as the generator.
 set GENERATOR_NINJA=0
 
 set TEST_ALL=1
+set TEST_CLANG=0
+set TEST_CMD=0
+set TEST_EXEC=0
+set TEST_EXTRAS=0
+set TEST_EXEC_REQUIRED=0
 set TEST_CLANG_FILTER= /select: "@Priority<1"
 set TEST_EXEC_FILTER=ExecutionTest::*
+set LOG_FILTER=/logOutput:LowWithConsoleBuffering
 if "%BUILD_CONFIG%"=="" (
   set BUILD_CONFIG=Debug
 )
 set HCT_DIR=%~dp0
+
+if "%NUMBER_OF_PROCESSORS%"=="" (
+  set PARALLEL_OPTION=
+) else if %NUMBER_OF_PROCESSORS% LEQ 1 (
+  set PARALLEL_OPTION=
+) else if %NUMBER_OF_PROCESSORS% LEQ 4 (
+  set PARALLEL_OPTION=/parallel:%NUMBER_OF_PROCESSORS%
+) else (
+  rem Sweet spot for /parallel seems to be NUMBER_OF_PROCESSORS - 1
+  set /a PARALLEL_COUNT=%NUMBER_OF_PROCESSORS%-1
+  set PARALLEL_OPTION=/parallel:!PARALLEL_COUNT!
+)
 
 :opt_loop
 if "%1"=="" (goto :done_opt)
@@ -75,7 +93,10 @@ if "%1"=="-clean" (
 ) else if "%1"=="-adapter" (
   set TEST_ADAPTER= /p:"Adapter=%~2"
   shift /1
-) else IF "%1"=="--" (
+) else if "%1"=="-verbose" (
+  set LOG_FILTER=
+  set PARALLEL_OPTION=
+) else if "%1"=="--" (
   shift /1
   goto :done_opt
 ) else (
@@ -198,7 +219,7 @@ set TESTS_PASSED=0
 set TESTS_FAILED=0
 call :check_result "clang tests" %RES_CLANG%
 call :check_result "command line tests" %RES_CMD%
-if "%TEST_EXEC_REQUIRED%"=="1" (
+if "%TEST_EXEC%"=="1" (
   call :check_result "execution tests" %RES_EXEC%
 )
 call :check_result "hcttest-extras tests" %RES_EXTRAS%
@@ -232,6 +253,7 @@ echo   -clean - deletes test directory before copying binaries and testing
 echo   -ninja - artifacts were built using the Ninja generator
 echo   -rel   - builds release rather than debug
 echo   -adapter "adapter name" - overrides Adapter for execution tests
+echo   -verbose - for TAEF: turns off /parallel and removes logging filter
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -266,8 +288,8 @@ rem %2 - first argument to te
 rem %3 - second argument to te
 rem %4 - third argument to te
 
-echo te /labMode /miniDumpOnCrash %TEST_DIR%\%*
-call te /labMode /miniDumpOnCrash %TEST_DIR%\%*
+echo te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 if errorlevel 1 (
   call :showtesample %*
   exit /b 1

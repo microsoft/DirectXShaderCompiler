@@ -44,6 +44,7 @@ using namespace hlsl_test;
 class RewriterTest {
 public:
   BEGIN_TEST_CLASS(RewriterTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 

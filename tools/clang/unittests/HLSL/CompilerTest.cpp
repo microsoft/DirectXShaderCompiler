@@ -849,6 +849,14 @@ public:
   dxc::DxcDllSupport m_dllSupport;
   bool m_CompilerPreservesBBNames;
 
+  bool SkipIRSensitiveTest() {
+    if (!m_CompilerPreservesBBNames) {
+      WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirment.");
+      return true;
+    }
+    return false;
+  }
+
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
@@ -1250,7 +1258,7 @@ bool CompilerTest::InitSupport() {
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
     VERIFY_SUCCEEDED(pValidator.QueryInterface(&pVersionInfo));
     VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerPreservesBBNames = VersionFlags & DxcVersionInfoFlags_Debug;
+    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
   }
   return true;
 }
@@ -3948,7 +3956,7 @@ TEST_F(CompilerTest, CodeGenDx12MiniEngineFxaapass2Vdebugcs){
 }
 
 TEST_F(CompilerTest, CodeGenDx12MiniEngineFxaaresolveworkqueuecs){
-  if (!m_CompilerPreservesBBNames) return;
+  if (SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\Samples\\MiniEngine\\FXAAResolveWorkQueueCS.hlsl");
 }
 
