@@ -271,8 +271,8 @@ rem %2 - first argument to te
 rem %3 - second argument to te
 rem %4 - third argument to te
 
-echo te /labMode /miniDumpOnCrash %TEST_DIR%\%*
-call te /labMode /miniDumpOnCrash %TEST_DIR%\%*
+echo te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering /parallel %TEST_DIR%\%*
+call te /labMode /miniDumpOnCrash /logOutput:LowWithConsoleBuffering /parallel %TEST_DIR%\%*
 if errorlevel 1 (
   call :showtesample %*
   exit /b 1
