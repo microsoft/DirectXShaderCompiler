@@ -291,7 +291,8 @@ public:
   void LoadDxilCBuffer(const llvm::MDOperand &MDO, DxilCBuffer &CB);
   llvm::MDTuple *EmitDxilSampler(const DxilSampler &S);
   void LoadDxilSampler(const llvm::MDOperand &MDO, DxilSampler &S);
-  DxilResourceBase LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD);
+  const llvm::MDOperand &GetResourceClass(llvm::MDNode *MD, DXIL::ResourceClass &RC);
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
   void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
   void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 

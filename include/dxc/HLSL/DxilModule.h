@@ -86,7 +86,7 @@ public:
   const DxilResource &GetUAV(unsigned idx) const;
   const std::vector<std::unique_ptr<DxilResource> > &GetUAVs() const;
 
-  DxilResourceBase LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD);
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
   void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
   void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 

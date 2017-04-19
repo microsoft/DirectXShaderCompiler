@@ -3387,6 +3387,10 @@ static void ReplaceResUseWithHandle(Instruction *Res, Value *Handle) {
     } else if (isa<CallInst>(I)) {
       if (I->getType() == HandleTy)
         I->replaceAllUsesWith(Handle);
+      else
+        DXASSERT(0, "must createHandle here");
+    } else {
+      DXASSERT(0, "should only used by load and createHandle");
     }
     if (I->user_empty()) {
       I->eraseFromParent();

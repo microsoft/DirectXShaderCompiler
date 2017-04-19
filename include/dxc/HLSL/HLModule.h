@@ -187,7 +187,7 @@ public:
   llvm::MDNode *DxilSRVToMDNode(const DxilResource &SRV);
   llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
   llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
-  DxilResourceBase LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD);
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
   void AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
                                               llvm::MDNode *MD);
 

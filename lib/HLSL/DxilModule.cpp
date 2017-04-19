@@ -695,8 +695,8 @@ const vector<unique_ptr<DxilResource> > &DxilModule::GetUAVs() const {
   return m_UAVs;
 }
 
-DxilResourceBase DxilModule::LoadDxilResourceBaseFromMDNode(MDNode *MD) {
-  return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD);
+void DxilModule::LoadDxilResourceBaseFromMDNode(MDNode *MD, DxilResourceBase &R) {
+  return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD, R);
 }
 void DxilModule::LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R) {
   return m_pMDHelper->LoadDxilResourceFromMDNode(MD, R);

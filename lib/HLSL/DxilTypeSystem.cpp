@@ -50,7 +50,7 @@ bool DxilFieldAnnotation::HasMatrixAnnotation() const { return m_Matrix.Cols != 
 const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const { return m_Matrix; }
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) { m_Matrix = MA; }
 bool DxilFieldAnnotation::HasResourceAttribute() const {
-  return !m_ResourceAttribute;
+  return m_ResourceAttribute;
 }
 llvm::MDNode *DxilFieldAnnotation::GetResourceAttribute() const {
   return m_ResourceAttribute;
