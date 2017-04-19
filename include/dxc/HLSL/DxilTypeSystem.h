@@ -23,6 +23,7 @@ namespace llvm {
 class LLVMContext;
 class Module;
 class Function;
+class MDNode;
 class Type;
 class StructType;
 class StringRef;
@@ -53,6 +54,10 @@ public:
   const DxilMatrixAnnotation &GetMatrixAnnotation() const;
   void SetMatrixAnnotation(const DxilMatrixAnnotation &MA);
 
+  bool HasResourceAttribute() const;
+  llvm::MDNode *GetResourceAttribute() const;
+  void SetResourceAttribute(llvm::MDNode *MD);
+
   bool HasCBufferOffset() const;
   unsigned GetCBufferOffset() const;
   void SetCBufferOffset(unsigned Offset);
@@ -78,6 +83,7 @@ private:
   bool m_bPrecise;
   CompType m_CompType;
   DxilMatrixAnnotation m_Matrix;
+  llvm::MDNode *m_ResourceAttribute;
   unsigned m_CBufferOffset;
   std::string m_Semantic;
   InterpolationMode m_InterpMode;

@@ -863,6 +863,76 @@ void DxilMDHelper::LoadDxilSampler(const MDOperand &MDO, DxilSampler &S) {
   m_ExtraPropertyHelper->LoadSamplerProperties(pTupleMD->getOperand(kDxilSamplerNameValueList), S);
 }
 
+const MDOperand &DxilMDHelper::GetResourceClass(llvm::MDNode *MD,
+                                                DXIL::ResourceClass &RC) {
+  IFTBOOL(MD->getNumOperands() >=
+              DxilMDHelper::kHLDxilResourceAttributeNumFields,
+          DXC_E_INCORRECT_DXIL_METADATA);
+  RC = static_cast<DxilResource::Class>(ConstMDToUint32(
+      MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
+  return MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeMeta);
+}
+
+void DxilMDHelper::LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD,
+                                                  DxilResourceBase &R) {
+  DxilResource::Class RC = DxilResource::Class::Invalid;
+  const MDOperand &Meta = GetResourceClass(MD, RC);
+
+  switch (RC) {
+  case DxilResource::Class::CBuffer: {
+    DxilCBuffer CB;
+    LoadDxilCBuffer(Meta, CB);
+    R = CB;
+  } break;
+  case DxilResource::Class::Sampler: {
+    DxilSampler S;
+    LoadDxilSampler(Meta, S);
+    R = S;
+  } break;
+  case DxilResource::Class::SRV: {
+    DxilResource Res;
+    LoadDxilSRV(Meta, Res);
+    R = Res;
+  } break;
+  case DxilResource::Class::UAV: {
+    DxilResource Res;
+    LoadDxilUAV(Meta, Res);
+    R = Res;
+  } break;
+  default:
+    DXASSERT(0, "Invalid metadata");
+  }
+}
+
+void DxilMDHelper::LoadDxilResourceFromMDNode(llvm::MDNode *MD,
+                                              DxilResource &R) {
+  DxilResource::Class RC = DxilResource::Class::Invalid;
+  const MDOperand &Meta = GetResourceClass(MD, RC);
+
+  switch (RC) {
+  case DxilResource::Class::SRV: {
+    LoadDxilSRV(Meta, R);
+  } break;
+  case DxilResource::Class::UAV: {
+    LoadDxilUAV(Meta, R);
+  } break;
+  default:
+    DXASSERT(0, "Invalid metadata");
+  }
+}
+
+void DxilMDHelper::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
+  DxilResource::Class RC = DxilResource::Class::Invalid;
+  const MDOperand &Meta = GetResourceClass(MD, RC);
+
+  switch (RC) {
+  case DxilResource::Class::Sampler: {
+    LoadDxilSampler(Meta, S);
+  } break;
+  default:
+    DXASSERT(0, "Invalid metadata");
+  }
+}
 
 //
 // DxilExtraPropertyHelper shader-specific methods.

@@ -149,14 +149,29 @@ private:
     HandleMetaMap[Handle] = {DXIL::ResourceClass::Invalid,
                              DXIL::ResourceKind::Invalid,
                              StructType::get(Type::getVoidTy(HLM.GetCtx()))};
+    if (Argument *Arg = dyn_cast<Argument>(Handle)) {
+      MDNode *MD = HLM.GetDxilResourceAttrib(Arg);
+      if (!MD) {
+        Handle->getContext().emitError("cannot map resource to handle");
+        return HandleMetaMap[Handle];
+      }
+      DxilResourceBase Res(DxilResource::Class::Invalid);
+      HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
 
+      ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
+                             Res.GetGlobalSymbol()->getType()};
+
+      HandleMetaMap[Handle] = Attrib;
+      return HandleMetaMap[Handle];
+    }
     if (CallInst *CI = dyn_cast<CallInst>(Handle)) {
       MDNode *MD = HLM.GetDxilResourceAttrib(CI->getCalledFunction());
       if (!MD) {
         Handle->getContext().emitError("cannot map resource to handle");
         return HandleMetaMap[Handle];
       }
-      DxilResourceBase Res = HLM.LoadDxilResourceBaseFromMDNode(MD);
+      DxilResourceBase Res(DxilResource::Class::Invalid);
+      HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
 
       ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
                              Res.GetGlobalSymbol()->getType()};
@@ -1975,9 +1990,7 @@ namespace {
 Value *TranslateGetSamplePosition(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                                   HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Instruction *thisArg =
-      cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  Value *handle = thisArg;
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
 
   IRBuilder<> Builder(CI);
   Value *sampleIdx =
@@ -2003,10 +2016,7 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                               HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
 
-  Instruction *thisArg =
-      cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-
-  Value *handle = thisArg;
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   DxilResource::Kind RK = pObjHelper->GetRK(handle);
 
   IRBuilder<> Builder(CI);
@@ -2103,10 +2113,8 @@ Value *TranslateGetDimensions(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 Value *GenerateUpdateCounter(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Instruction *thisArg =
-      cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  Value *handle = thisArg;
-  pObjHelper->MarkHasCounter(thisArg->getType(), handle);
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+  pObjHelper->MarkHasCounter(handle->getType(), handle);
 
   bool bInc = IOP == IntrinsicOp::MOP_IncrementCounter;
   IRBuilder<> Builder(CI);
@@ -2243,13 +2251,10 @@ SampleHelper::SampleHelper(
   const unsigned thisIdx =
       HLOperandIndex::kHandleOpIdx; // opcode takes arg0, this pointer is arg1.
   const unsigned kSamplerArgIndex = HLOperandIndex::kSampleSamplerArgIndex;
-  Instruction *texArg = cast<Instruction>(CI->getArgOperand(thisIdx));
-  Instruction *samplerArg =
-      cast<Instruction>(CI->getArgOperand(kSamplerArgIndex));
 
   IRBuilder<> Builder(CI);
-  texHandle = texArg;
-  samplerHandle = samplerArg;
+  texHandle = CI->getArgOperand(thisIdx);
+  samplerHandle = CI->getArgOperand(kSamplerArgIndex);
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
   unsigned coordDimensions = DxilResource::GetNumCoords(RK);
@@ -2565,9 +2570,6 @@ GatherHelper::GatherHelper(
   const unsigned thisIdx =
       HLOperandIndex::kHandleOpIdx; // opcode takes arg0, this pointer is arg1.
   const unsigned kSamplerArgIndex = HLOperandIndex::kSampleSamplerArgIndex;
-  Instruction *texArg = cast<Instruction>(CI->getArgOperand(thisIdx));
-  Instruction *samplerArg =
-      cast<Instruction>(CI->getArgOperand(kSamplerArgIndex));
 
   switch (ch) {
   case GatherChannel::GatherAll:
@@ -2588,8 +2590,8 @@ GatherHelper::GatherHelper(
   }
 
   IRBuilder<> Builder(CI);
-  texHandle = texArg;
-  samplerHandle = samplerArg;
+  texHandle = CI->getArgOperand(thisIdx);
+  samplerHandle = CI->getArgOperand(kSamplerArgIndex);
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
   unsigned coordSize = DxilResource::GetNumCoords(RK);
@@ -3021,9 +3023,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
 Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Instruction *thisArg =
-      cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  Value *handle = thisArg;
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   IRBuilder<> Builder(CI);
 
   DXIL::ResourceClass RC = pObjHelper->GetRC(handle);
@@ -3217,9 +3217,7 @@ Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                               HLOperationLowerHelper &helper, 
                               HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Instruction *thisArg =
-      cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
-  Value *handle = thisArg;
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   IRBuilder<> Builder(CI);
   DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
 
@@ -3334,10 +3332,8 @@ Value *TranslateMopAtomicBinaryOperation(CallInst *CI, IntrinsicOp IOP,
                                          OP::OpCode opcode,
                                          HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Instruction *thisArg =
-      cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
 
-  Value *handle = thisArg;
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   IRBuilder<> Builder(CI);
 
   switch (IOP) {
@@ -3435,10 +3431,8 @@ Value *TranslateMopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
                                  OP::OpCode opcode,
                                  HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Instruction *thisArg =
-      cast<Instruction>(CI->getArgOperand(HLOperandIndex::kHandleOpIdx));
 
-  Value *handle = thisArg;
+  Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   IRBuilder<> Builder(CI);
   AtomicHelper atomicHelper(CI, OP::OpCode::AtomicCompareExchange, handle);
   TranslateAtomicCmpXChg(atomicHelper, Builder, hlslOP);
@@ -5989,11 +5983,10 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
   auto U = CI->user_begin();
 
   Value *ptr = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
-  Instruction *ptrInst = dyn_cast<Instruction>(ptr);
 
   hlsl::OP *hlslOP = &helper.hlslOP;
   // Resource ptr.
-  Value *handle = ptrInst;
+  Value *handle = ptr;
   DXIL::ResourceClass RC = pObjHelper->GetRC(handle);
   DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
 
@@ -6226,9 +6219,8 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     Translated = true;
     return;
   } else if (opcode == HLSubscriptOpcode::DoubleSubscript) {
-    Instruction *ptrInst = dyn_cast<Instruction>(ptr);
     // Resource ptr.
-    Value *handle = ptrInst;
+    Value *handle = ptr;
     DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
     Value *coord = CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
     Value *mipLevel =
@@ -6244,11 +6236,11 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     ldInst->eraseFromParent();
     Translated = true;
     return;
-  } else if (Instruction *ptrInst = dyn_cast<Instruction>(ptr)) {
+  } else {
     Type *HandleTy = hlslOP->GetHandleType();
-    if (ptrInst->getType() == HandleTy) {
+    if (ptr->getType() == HandleTy) {
       // Resource ptr.
-      Value *handle = ptrInst;
+      Value *handle = ptr;
       DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
       if (RK == DxilResource::Kind::Invalid) {
         Translated = false;

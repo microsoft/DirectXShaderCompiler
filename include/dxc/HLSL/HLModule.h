@@ -187,7 +187,7 @@ public:
   llvm::MDNode *DxilSRVToMDNode(const DxilResource &SRV);
   llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
   llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
-  DxilResourceBase LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD);
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
   void AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
                                               llvm::MDNode *MD);
 
@@ -231,6 +231,9 @@ public:
   // Resource attribute.
   static void  MarkDxilResourceAttrib(llvm::Function *F, llvm::MDNode *MD);
   static llvm::MDNode *GetDxilResourceAttrib(llvm::Function *F);
+  void MarkDxilResourceAttrib(llvm::Argument *Arg, llvm::MDNode *MD);
+  llvm::MDNode *GetDxilResourceAttrib(llvm::Argument *Arg);
+  static llvm::MDNode *GetDxilResourceAttrib(llvm::Type *Ty, llvm::Module &M);
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
