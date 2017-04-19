@@ -12,6 +12,7 @@ add_clang_unittest(clang-spirv-tests
   StructureTest.cpp
   TestMain.cpp
   StringTest.cpp
+  TypeTest.cpp
   )
 
 target_link_libraries(clang-spirv-tests

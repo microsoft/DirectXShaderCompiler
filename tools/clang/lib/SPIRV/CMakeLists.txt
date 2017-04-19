@@ -11,6 +11,7 @@ add_clang_library(clangSPIRV
   SPIRVContext.cpp
   String.cpp
   Structure.cpp
+  Type.cpp
 
   LINK_LIBS
   clangAST
