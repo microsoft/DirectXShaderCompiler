@@ -400,23 +400,30 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
   case HLOpcodeGroup::HLBinOp:
   case HLOpcodeGroup::HLCast:
   case HLOpcodeGroup::HLSubscript:
-    if (!F->hasFnAttribute(Attribute::ReadNone))
+    if (!F->hasFnAttribute(Attribute::ReadNone)) {
       F->addFnAttr(Attribute::ReadNone);
+      F->addFnAttr(Attribute::NoUnwind);
+    }
     break;
   case HLOpcodeGroup::HLInit:
     if (!F->hasFnAttribute(Attribute::ReadNone))
-      if (!F->getReturnType()->isVoidTy())
+      if (!F->getReturnType()->isVoidTy()) {
         F->addFnAttr(Attribute::ReadNone);
+        F->addFnAttr(Attribute::NoUnwind);
+      }
     break;
   case HLOpcodeGroup::HLMatLoadStore: {
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
     if (matOp == HLMatLoadStoreOpcode::ColMatLoad ||
         matOp == HLMatLoadStoreOpcode::RowMatLoad)
-      if (!F->hasFnAttribute(Attribute::ReadOnly))
+      if (!F->hasFnAttribute(Attribute::ReadOnly)) {
         F->addFnAttr(Attribute::ReadOnly);
+        F->addFnAttr(Attribute::NoUnwind);
+      }
   } break;
   case HLOpcodeGroup::HLCreateHandle: {
     F->addFnAttr(Attribute::ReadNone);
+    F->addFnAttr(Attribute::NoUnwind);
     F->addFnAttr(Attribute::NoInline);
     F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
   } break;

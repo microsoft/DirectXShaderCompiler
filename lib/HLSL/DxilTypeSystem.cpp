@@ -40,6 +40,7 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 //
 DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
+, m_ResourceAttribute(nullptr)
 , m_CBufferOffset(UINT_MAX) {
 }
 
@@ -48,6 +49,15 @@ void DxilFieldAnnotation::SetPrecise(bool b) { m_bPrecise = b; }
 bool DxilFieldAnnotation::HasMatrixAnnotation() const { return m_Matrix.Cols != 0; }
 const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const { return m_Matrix; }
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) { m_Matrix = MA; }
+bool DxilFieldAnnotation::HasResourceAttribute() const {
+  return m_ResourceAttribute;
+}
+llvm::MDNode *DxilFieldAnnotation::GetResourceAttribute() const {
+  return m_ResourceAttribute;
+}
+void DxilFieldAnnotation::SetResourceAttribute(llvm::MDNode *MD) {
+  m_ResourceAttribute = MD;
+}
 bool DxilFieldAnnotation::HasCBufferOffset() const { return m_CBufferOffset != UINT_MAX; }
 unsigned DxilFieldAnnotation::GetCBufferOffset() const { return m_CBufferOffset; }
 void DxilFieldAnnotation::SetCBufferOffset(unsigned Offset) { m_CBufferOffset = Offset; }
