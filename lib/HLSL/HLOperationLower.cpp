@@ -155,7 +155,8 @@ private:
         Handle->getContext().emitError("cannot map resource to handle");
         return HandleMetaMap[Handle];
       }
-      DxilResourceBase Res = HLM.LoadDxilResourceBaseFromMDNode(MD);
+      DxilResourceBase Res(DxilResource::Class::Invalid);
+      HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
 
       ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
                              Res.GetGlobalSymbol()->getType()};
@@ -169,7 +170,8 @@ private:
         Handle->getContext().emitError("cannot map resource to handle");
         return HandleMetaMap[Handle];
       }
-      DxilResourceBase Res = HLM.LoadDxilResourceBaseFromMDNode(MD);
+      DxilResourceBase Res(DxilResource::Class::Invalid);
+      HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
 
       ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
                              Res.GetGlobalSymbol()->getType()};
