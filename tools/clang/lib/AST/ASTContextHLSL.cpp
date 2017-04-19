@@ -190,15 +190,15 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
   QualType elementType = context.getTemplateTypeParmType(
       /*templateDepth*/ 0, 0, ParameterPackFalse, elementTemplateParamDecl);
   Expr *sizeExpr = DeclRefExpr::Create(
-      context, NestedNameSpecifierLoc(), NoLoc, colCountTemplateParamDecl,
-      false,
-      DeclarationNameInfo(colCountTemplateParamDecl->getDeclName(), NoLoc),
-      intType, ExprValueKind::VK_RValue);
-
-  Expr *rowSizeExpr = DeclRefExpr::Create(
       context, NestedNameSpecifierLoc(), NoLoc, rowCountTemplateParamDecl,
       false,
       DeclarationNameInfo(rowCountTemplateParamDecl->getDeclName(), NoLoc),
+      intType, ExprValueKind::VK_RValue);
+
+  Expr *rowSizeExpr = DeclRefExpr::Create(
+      context, NestedNameSpecifierLoc(), NoLoc, colCountTemplateParamDecl,
+      false,
+      DeclarationNameInfo(colCountTemplateParamDecl->getDeclName(), NoLoc),
       intType, ExprValueKind::VK_RValue);
 
   QualType vectorType = context.getDependentSizedExtVectorType(

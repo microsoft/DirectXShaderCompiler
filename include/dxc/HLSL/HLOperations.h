@@ -100,6 +100,9 @@ enum class HLCastOpcode {
   ToUnsignedCast,
   ColMatrixToVecCast,
   RowMatrixToVecCast,
+  ColMatrixToRowMatrix,
+  RowMatrixToColMatrix,
+  HandleToResCast,
 };
 
 enum class HLMatLoadStoreOpcode {

@@ -4311,38 +4311,17 @@ Value *TranslateConstBufMatLd(Type *matType, Value *handle, Value *offset,
   Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
   unsigned matSize = col * row;
   std::vector<Value *> elts(matSize);
-  unsigned EltByteSize = GetEltTypeByteSizeForConstBuf(EltTy, DL);
-  if (colMajor) {
-    // TODO: use real size after change constant buffer into linear layout.
-    unsigned colByteSize = 4 * EltByteSize;
-    for (unsigned c = 0; c < col; c++) {
-      Value *baseOffset = offset;
-      for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = c * row + r;
-        elts[matIdx] = GenerateCBLoad(handle, baseOffset, EltTy, OP, Builder);
-        baseOffset =
-            Builder.CreateAdd(baseOffset, OP->GetU32Const(EltByteSize));
-      }
-      // Update offset for a column.
-      offset = Builder.CreateAdd(offset, OP->GetU32Const(colByteSize));
-    }
-  } else {
-    // TODO: use real size after change constant buffer into linear layout.
-    unsigned rowByteSize = 4 * EltByteSize;
-    for (unsigned r = 0; r < row; r++) {
-      Value *baseOffset = offset;
-      for (unsigned c = 0; c < col; c++) {
-        unsigned matIdx = r * col + c;
-        elts[matIdx] = GenerateCBLoad(handle, baseOffset, EltTy, OP, Builder);
-        baseOffset =
-            Builder.CreateAdd(baseOffset, OP->GetU32Const(EltByteSize));
-      }
-      // Update offset for a row.
-      offset = Builder.CreateAdd(offset, OP->GetU32Const(rowByteSize));
-    }
+  Value *EltByteSize = ConstantInt::get(
+      offset->getType(), GetEltTypeByteSizeForConstBuf(EltTy, DL));
+
+  // TODO: use real size after change constant buffer into linear layout.
+  Value *baseOffset = offset;
+  for (unsigned i = 0; i < matSize; i++) {
+    elts[i] = GenerateCBLoad(handle, baseOffset, EltTy, OP, Builder);
+    baseOffset = Builder.CreateAdd(baseOffset, EltByteSize);
   }
 
-  return HLMatrixLower::BuildMatrix(EltTy, col, row, colMajor, elts, Builder);
+  return HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
 }
 
 void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
@@ -4411,7 +4390,8 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
       unsigned col, row;
       Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
 
-      unsigned EltByteSize = GetEltTypeByteSizeForConstBuf(EltTy, DL);
+      Value *EltByteSize = ConstantInt::get(
+          baseOffset->getType(), GetEltTypeByteSizeForConstBuf(EltTy, DL));
 
       Value *idx = CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx);
 
@@ -4424,48 +4404,23 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
       Value *idxList[16];
 
       switch (subOp) {
-      case HLSubscriptOpcode::ColMatSubscript: {
-        for (unsigned i = 0; i < resultSize; i++) {
-          Value *colBase = Builder.CreateAdd(
-              baseOffset, hlslOP->GetU32Const(i * col * EltByteSize));
-          idxList[i] = Builder.CreateAdd(colBase, idx);
-        }
-      } break;
+      case HLSubscriptOpcode::ColMatSubscript:
       case HLSubscriptOpcode::RowMatSubscript: {
-        // TODO: use real size after change constant buffer into linear layout.
-        col = 4;
-        unsigned rowSize = col * EltByteSize;
-        idx = Builder.CreateMul(idx, hlslOP->GetU32Const(rowSize));
-        idx = Builder.CreateAdd(idx, baseOffset);
         for (unsigned i = 0; i < resultSize; i++) {
-          idxList[i] = idx;
-          idx = Builder.CreateAdd(idx, hlslOP->GetU32Const(EltByteSize));
+          Value *idx =
+              CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx + i);
+          Value *offset = Builder.CreateMul(idx, EltByteSize);
+          idxList[i] = Builder.CreateAdd(baseOffset, offset);
         }
+
       } break;
       case HLSubscriptOpcode::RowMatElement:
       case HLSubscriptOpcode::ColMatElement: {
-        bool isRowMajor = subOp == HLSubscriptOpcode::RowMatElement;
-        // TODO: use real size after change constant buffer into linear layout.
-        col = 4;
-        row = 4;
-        if (ConstantDataSequential *elts =
-                dyn_cast<ConstantDataSequential>(idx)) {
-          unsigned count = elts->getNumElements();
-          for (unsigned i = 0; i < count; i += 2) {
-            unsigned rowIdx = elts->getElementAsInteger(i);
-            unsigned colIdx = elts->getElementAsInteger(i + 1);
-            unsigned matIdx =
-                isRowMajor ? (rowIdx * col + colIdx) : (colIdx * row + rowIdx);
-            Value *offset = hlslOP->GetU32Const(matIdx * EltByteSize);
-            idxList[i >> 1] = Builder.CreateAdd(baseOffset, offset);
-          }
-        } else {
-          ConstantAggregateZero *zeros = cast<ConstantAggregateZero>(idx);
-          unsigned size = zeros->getNumElements() >> 1;
-          DXASSERT(size <= 16, "up to 4x4 elements in vector or matrix");
-          _Analysis_assume_(size <= 16);
-          for (unsigned i = 0; i < size; i++)
-            idxList[i] = baseOffset;
+        Constant *EltIdxs = cast<Constant>(idx);
+        for (unsigned i = 0; i < resultSize; i++) {
+          Value *offset =
+              Builder.CreateMul(EltIdxs->getAggregateElement(i), EltByteSize);
+          idxList[i] = Builder.CreateAdd(baseOffset, offset);
         }
       } break;
       default:
@@ -4777,7 +4732,7 @@ Value *TranslateConstBufMatLdLegacy(Type *matType, Value *handle,
                                         EltTy, row, OP, Builder);
 
       for (unsigned r = 0; r < row; r++) {
-        unsigned matIdx = c * row + r;
+        unsigned matIdx = HLMatrixLower::GetColMajorIdx(r, c, row);
         elts[matIdx] = Builder.CreateExtractElement(col, r);
       }
       // Update offset for a column.
@@ -4790,7 +4745,7 @@ Value *TranslateConstBufMatLdLegacy(Type *matType, Value *handle,
       Value *row = GenerateCBLoadLegacy(handle, legacyIdx, /*channelOffset*/ 0,
                                         EltTy, col, OP, Builder);
       for (unsigned c = 0; c < col; c++) {
-        unsigned matIdx = r * col + c;
+        unsigned matIdx = HLMatrixLower::GetRowMajorIdx(r, c, col);
         elts[matIdx] = Builder.CreateExtractElement(row, c);
       }
       // Update offset for a row.
@@ -4798,7 +4753,7 @@ Value *TranslateConstBufMatLdLegacy(Type *matType, Value *handle,
     }
   }
 
-  return HLMatrixLower::BuildMatrix(EltTy, col, row, colMajor, elts, Builder);
+  return HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
 }
 
 void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
@@ -4837,8 +4792,6 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
                                   DxilTypeSystem &dxilTypeSys,
                                   const DataLayout &DL,
                                   HLObjectOperationLowerHelper *pObjHelper) {
-  Value *zeroIdx = hlslOP->GetU32Const(0);
-
   IRBuilder<> Builder(user);
   if (CallInst *CI = dyn_cast<CallInst>(user)) {
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
@@ -4862,7 +4815,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       Type *matType = basePtr->getType()->getPointerElementType();
       unsigned col, row;
       Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
-      
+
       Value *idx = CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx);
 
       Type *resultType = CI->getType()->getPointerElementType();
@@ -4873,7 +4826,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       _Analysis_assume_(resultSize <= 16);
       Value *idxList[16];
       bool colMajor = subOp == HLSubscriptOpcode::ColMatSubscript ||
-          subOp == HLSubscriptOpcode::ColMatElement;
+                      subOp == HLSubscriptOpcode::ColMatElement;
       bool dynamicIndexing = !isa<ConstantInt>(idx) &&
                              !isa<ConstantAggregateZero>(idx) &&
                              !isa<ConstantDataSequential>(idx);
@@ -4882,36 +4835,21 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       if (!dynamicIndexing) {
         Value *matLd = TranslateConstBufMatLdLegacy(
             matType, handle, legacyIdx, colMajor, hlslOP, DL, Builder);
-        // The matLd is col major, so use col major when calc index.
+        // The matLd is keep original layout, just use the idx calc in
+        // EmitHLSLMatrixElement and EmitHLSLMatrixSubscript.
         switch (subOp) {
         case HLSubscriptOpcode::RowMatSubscript:
         case HLSubscriptOpcode::ColMatSubscript: {
-          // matIdx = idx + i*row;
           for (unsigned i = 0; i < resultSize; i++) {
-            Value *colBase = hlslOP->GetU32Const(i * row);
-            idxList[i] = Builder.CreateAdd(colBase, idx);
+            idxList[i] =
+                CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx + i);
           }
         } break;
         case HLSubscriptOpcode::RowMatElement:
         case HLSubscriptOpcode::ColMatElement: {
-          if (ConstantDataSequential *elts =
-                  dyn_cast<ConstantDataSequential>(idx)) {
-            unsigned count = elts->getNumElements();
-            DXASSERT(count <= 16, "up to 4x4 elements in vector or matrix");
-
-            for (unsigned i = 0; i < count; i += 2) {
-              unsigned rowIdx = elts->getElementAsInteger(i);
-              unsigned colIdx = elts->getElementAsInteger(i + 1);
-              unsigned matIdx = (colIdx * row + rowIdx);
-              Value *offset = hlslOP->GetU32Const(matIdx);
-              idxList[i >> 1] = offset;
-            }
-          } else {
-            ConstantAggregateZero *zeros = cast<ConstantAggregateZero>(idx);
-            unsigned size = zeros->getNumElements() >> 1;
-            DXASSERT(size <= 16, "up to 4x4 elements in vector or matrix");
-            for (unsigned i = 0; i < size; i++)
-              idxList[i] = zeroIdx;
+          Constant *EltIdxs = cast<Constant>(idx);
+          for (unsigned i = 0; i < resultSize; i++) {
+            idxList[i] = EltIdxs->getAggregateElement(i);
           }
         } break;
         default:
@@ -4929,8 +4867,14 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
           ldData = eltData;
         }
       } else {
+        // Must be matSub here.
         Value *idx = CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx);
+
         if (colMajor) {
+          // idx is c * row + r;
+          // r = idx % row;
+          Value *cRow = ConstantInt::get(idx->getType(), row);
+          idx = Builder.CreateURem(idx, cRow);
           Value *one = Builder.getInt32(1);
           // row.x = c[0].[idx]
           // row.y = c[1].[idx]
@@ -4960,8 +4904,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
               Builder.CreateStore(Elt, Ptr);
             }
 
-            Value *Ptr = Builder.CreateInBoundsGEP(tempArray,
-                                                   {zero, idx});
+            Value *Ptr = Builder.CreateInBoundsGEP(tempArray, {zero, idx});
             Elts[c] = Builder.CreateLoad(Ptr);
             // Update cbufIdx.
             cbufIdx = Builder.CreateAdd(cbufIdx, one);
@@ -4974,6 +4917,10 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
             ldData = Elts[0];
           }
         } else {
+          // idx is r * col + c;
+          // r = idx / col;
+          Value *cCol = ConstantInt::get(idx->getType(), col);
+          idx = Builder.CreateUDiv(idx, cCol);
           idx = Builder.CreateAdd(idx, legacyIdx);
           // Just return a row.
           ldData = GenerateCBLoadLegacy(handle, idx, /*channelOffset*/ 0, EltTy,
@@ -5020,7 +4967,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       return;
     }
     DXASSERT(!Ty->isAggregateType(), "should be flat in previous pass");
-    
+
     Value *newLd = nullptr;
 
     if (Ty->isVectorTy())
@@ -5029,7 +4976,6 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
     else
       newLd = GenerateCBLoadLegacy(handle, legacyIdx, channelOffset, EltTy,
                                    hlslOP, Builder);
-    
 
     ldInst->replaceAllUsesWith(newLd);
     ldInst->eraseFromParent();
@@ -5466,7 +5412,7 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * 4));
   }
 
-  return HLMatrixLower::BuildMatrix(EltTy, col, row, colMajor, elts, Builder);
+  return HLMatrixLower::BuildVector(EltTy, col * row, elts, Builder);
 }
 
 void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
@@ -5575,7 +5521,8 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
   unsigned col, row;
   Type *EltTy = HLMatrixLower::GetMatrixInfo(matType, col, row);
 
-  unsigned EltByteSize = GetEltTypeByteSizeForConstBuf(EltTy, DL);
+  Value *EltByteSize = ConstantInt::get(
+      baseOffset->getType(), GetEltTypeByteSizeForConstBuf(EltTy, DL));
 
   Value *idx = CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx);
 
@@ -5588,45 +5535,22 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
   Value *idxList[16];
 
   switch (subOp) {
-  case HLSubscriptOpcode::ColMatSubscript: {
-    idx = subBuilder.CreateMul(idx, hlslOP->GetU32Const(EltByteSize));
-    for (unsigned i = 0; i < resultSize; i++) {
-      Value *colBase = subBuilder.CreateAdd(
-          baseOffset, hlslOP->GetU32Const(i * row * EltByteSize));
-      idxList[i] = subBuilder.CreateAdd(colBase, idx);
-    }
-  } break;
+  case HLSubscriptOpcode::ColMatSubscript:
   case HLSubscriptOpcode::RowMatSubscript: {
-    unsigned rowSize = col * EltByteSize;
-    idx = subBuilder.CreateMul(idx, hlslOP->GetU32Const(rowSize));
-    idx = subBuilder.CreateAdd(idx, baseOffset);
     for (unsigned i = 0; i < resultSize; i++) {
-      idxList[i] = idx;
-      idx = subBuilder.CreateAdd(idx, hlslOP->GetU32Const(EltByteSize));
+      Value *offset =
+          CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx + i);
+      offset = subBuilder.CreateMul(offset, EltByteSize);
+      idxList[i] = subBuilder.CreateAdd(baseOffset, offset);
     }
   } break;
   case HLSubscriptOpcode::RowMatElement:
   case HLSubscriptOpcode::ColMatElement: {
-    bool isRowMajor = subOp == HLSubscriptOpcode::RowMatElement;
-    if (ConstantDataSequential *elts = dyn_cast<ConstantDataSequential>(idx)) {
-      unsigned count = elts->getNumElements();
-      DXASSERT(count <= 16, "up to 4x4 elements in vector or matrix");
-      _Analysis_assume_(count <= 16);
-      for (unsigned i = 0; i < count; i += 2) {
-        unsigned rowIdx = elts->getElementAsInteger(i);
-        unsigned colIdx = elts->getElementAsInteger(i + 1);
-        unsigned matIdx =
-            isRowMajor ? (rowIdx * col + colIdx) : (colIdx * row + rowIdx);
-        Value *offset = hlslOP->GetU32Const(matIdx * EltByteSize);
-        idxList[i >> 1] = subBuilder.CreateAdd(baseOffset, offset);
-      }
-    } else {
-      ConstantAggregateZero *zeros = cast<ConstantAggregateZero>(idx);
-      unsigned size = zeros->getNumElements() >> 1;
-      DXASSERT(size <= 16, "up to 4x4 elements in vector or matrix");
-      _Analysis_assume_(size <= 16);
-      for (unsigned i = 0; i < size; i++)
-        idxList[i] = baseOffset;
+    Constant *EltIdxs = cast<Constant>(idx);
+    for (unsigned i = 0; i < resultSize; i++) {
+      Value *offset =
+          subBuilder.CreateMul(EltIdxs->getAggregateElement(i), EltByteSize);
+      idxList[i] = subBuilder.CreateAdd(baseOffset, offset);
     }
   } break;
   default:
@@ -5644,32 +5568,8 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
       continue;
     }
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(subsUser)) {
-      IRBuilder<> GEPBuilder(GEP);
-      DXASSERT(GEP->getNumIndices() == 2, "must have 2 level");
-      Value *baseIdx = (GEP->idx_begin())->get();
-      DXASSERT_LOCALVAR(baseIdx, baseIdx == zeroIdx, "base index must be 0");
-      Value *idx = (GEP->idx_begin() + 1)->get();
-      Value *GEPOffset = nullptr;
-      if (ConstantInt *immIdx = dyn_cast<ConstantInt>(idx)) {
-        GEPOffset = idxList[immIdx->getSExtValue()];
-      } else {
-        IRBuilder<> allocaBuilder(GEP->getParent()
-                                      ->getParent()
-                                      ->getEntryBlock()
-                                      .getFirstInsertionPt());
-        // Store idxList to temp array.
-        ArrayType *AT = ArrayType::get(allocaBuilder.getInt32Ty(), resultSize);
-        Value *tempArray = allocaBuilder.CreateAlloca(AT);
-
-        for (unsigned i = 0; i < resultSize; i++) {
-          Value *EltPtr = GEPBuilder.CreateGEP(
-              tempArray, {zeroIdx, GEPBuilder.getInt32(i)});
-          GEPBuilder.CreateStore(idxList[i], EltPtr);
-        }
-        // Load the idx.
-        GEPOffset = GEPBuilder.CreateGEP(tempArray, {zeroIdx, idx});
-        GEPOffset = GEPBuilder.CreateLoad(GEPOffset);
-      }
+      Value *GEPOffset =
+          HLMatrixLower::LowerGEPOnMatIndexListToIndex(GEP, idxList);
 
       for (auto gepU = GEP->user_begin(); gepU != GEP->user_end();) {
         Instruction *gepUserInst = cast<Instruction>(*(gepU++));
@@ -5706,12 +5606,13 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
         for (unsigned i = 0; i < resultSize; i++) {
           Value *ResultElt;
           GenerateStructBufLd(handle, bufIdx, idxList[i],
-                                  /*status*/ nullptr, EltTy, ResultElt, hlslOP, ldBuilder);
+                              /*status*/ nullptr, EltTy, ResultElt, hlslOP,
+                              ldBuilder);
           ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
         GenerateStructBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
-                                EltTy, ldData, hlslOP, ldBuilder);
+                            EltTy, ldData, hlslOP, ldBuilder);
       }
       ldUser->replaceAllUsesWith(ldData);
       ldUser->eraseFromParent();
