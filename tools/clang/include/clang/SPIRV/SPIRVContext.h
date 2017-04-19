@@ -10,9 +10,19 @@
 #define LLVM_CLANG_SPIRV_SPIRVCONTEXT_H
 
 #include <unordered_map>
+#include <unordered_set>
+
+#include "clang/SPIRV/Decoration.h"
 
 namespace clang {
 namespace spirv {
+
+struct DecorationHash {
+  std::size_t operator()(const Decoration &d) const {
+    // TODO: We could probably improve this hash function if needed.
+    return std::hash<uint32_t>{}(static_cast<uint32_t>(d.getValue()));
+  }
+};
 
 /// \brief A class for holding various data needed in SPIR-V codegen.
 /// It should outlive all SPIR-V codegen components that requires/allocates
@@ -33,8 +43,17 @@ public:
   /// \brief Consumes the next unused <result-id>.
   inline uint32_t takeNextId();
 
+  /// \brief Registers the existence of the given decoration in the current
+  /// context, and returns the unique Decoration pointer.
+  const Decoration *registerDecoration(const Decoration &);
+
 private:
+  using DecorationSet = std::unordered_set<Decoration, DecorationHash>;
+
   uint32_t nextId;
+
+  /// \brief All the unique Decorations defined in the current context.
+  DecorationSet existingDecorations;
 };
 
 SPIRVContext::SPIRVContext() : nextId(1) {}

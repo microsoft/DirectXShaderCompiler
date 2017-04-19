@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_unittest(clang-spirv-tests
+  DecorationTest.cpp
   InstBuilderTest.cpp
   ModuleBuilderTest.cpp
   SPIRVContextTest.cpp
