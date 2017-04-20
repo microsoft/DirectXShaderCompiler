@@ -23,3 +23,9 @@ TEST_F(WholeFileTest, PassThruPixelShader) {
                    /*generateHeader*/ true,
                    /*runValidation*/ false);
 }
+
+TEST_F(WholeFileTest, PassThruVertexShader) {
+  runWholeFileTest("passthru-vs.hlsl2spv",
+                   /*generateHeader*/ true,
+                   /*runValidation*/ false);
+}

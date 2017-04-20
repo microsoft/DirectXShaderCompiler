@@ -1,0 +1,48 @@
+// Run: %dxc -T vs_6_0 -E VSmain
+
+/*
+// This is the proper way to do it, but our code doesn't handle PSInput
+// as return type for now.
+
+struct PSInput {
+  float4 position : POSITION;
+  float4 color : COLOR;
+};
+
+PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
+  PSInput result;
+  result.position = position;
+  result.color = color;
+  return result;
+}
+*/
+
+float4 VSmain(float4 position: POSITION, float4 color: COLOR) {
+  return color;
+}
+
+// TODO:
+// Proper representation for the structure.
+// Input/Output interfaces for OpEntryPoint
+// Proper logic to determine ExecutionMode
+// Semantics
+// Function parameter
+// Function return value
+
+
+// CHECK-WHOLE-SPIR-V:
+// ; SPIR-V
+// ; Version: 1.0
+// ; Generator: Google spiregg; 0
+// ; Bound: 6
+// ; Schema: 0
+// OpCapability Shader
+// OpMemoryModel Logical GLSL450
+// OpEntryPoint Vertex %4 "VSmain"
+// %float = OpTypeFloat 32
+// %v4float = OpTypeVector %float 4
+// %3 = OpTypeFunction %v4float %v4float %v4float
+// %4 = OpFunction %v4float None %3
+// %5 = OpLabel
+// OpReturn
+// OpFunctionEnd
