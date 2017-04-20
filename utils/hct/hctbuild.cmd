@@ -255,16 +255,19 @@ if "%DO_SETUP%"=="1" (
 if "%DO_BUILD%"=="1" (
   rem Should add support for the non-x86-qualified programfiles.
   echo Building solution files for %2 with %1 configuration.
-  if "%BUILD_VS_VER%"=="2015" (
-    if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
-      call :buildvs_x86dir %1 %2 %3
-    ) else (
-      cmake --build . --config %1
+  if "%BUILD_GENERATOR%" NEQ "Ninja" (
+    if "%BUILD_VS_VER%"=="2015" (
+      if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
+        call :buildvs_x86dir %1 %2 %3
+        goto :donebuild
+      )
     )
-  ) else (
-    rem Just defer to cmake for now.
-    cmake --build . --config %1
   )
+
+  rem Just defer to cmake for now.
+  cmake --build . --config %1
+
+:donebuild
   if errorlevel 1 (
     echo Failed to build projects.
     echo After fixing, run 'cmake --build --config %1 .' in %2

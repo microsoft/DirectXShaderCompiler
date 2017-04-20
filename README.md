@@ -50,12 +50,12 @@ utils\hct\hctstart.cmd C:\DirectXShaderCompiler C:\DirectXShaderCompiler.bin
 To create a shortcut to the build environment with the default build directory, double-click on the `utils\hct\hctshortcut.js` file.
 
 To build, open the HLSL Console and run this command.
- 
+
     hctbuild
 
 You can also clean, build and run tests with this command.
 
-    hctcheckin 
+    hctcheckin
 
 To see a list of additional commands available, run `hcthelp`
 
@@ -65,9 +65,9 @@ You can build with vs2017 either on the command line or using the new integrated
 
 To build from the command line follow the normal build steps, but pass `-vs2017` as a parameter
 to `hctbuild`.
- 
+
 To build using the integrated cmake support, simply start Visual Studio
-and open the folder where you have the source. From the CMake menu 
+and open the folder where you have the source. From the CMake menu
 select "Build CMakeLists.txt"
 
 By default the binaries will be built in %LOCALAPPDATA%\CMakeBuild\DirectXShaderCompiler\build\{build-flavor}.
@@ -77,6 +77,20 @@ You can then use the build directory in the `hctstart` script to test the build.
 
     hctstart C:\source\DirectXShaderCompiler %LOCALAPPDATA%\CMakeBuild\DirectXShaderCompiler\build\x64-Debug
 
+### Building with Ninja
+
+To build with Ninja, please make sure that you have `ninja` and `cl` in your `%PATH%`.
+`ninja` can be installed from [here](https://github.com/ninja-build/ninja/releases);
+`cl` should already be installed together with Visual Studio and can be exported to `%PATH%` via the `vcvars*.bat` script in Visual Studio's VC build directory.
+
+To configure cmake with Ninja generator,
+
+    hctbuild -s -ninja
+
+To build with Ninja, go to the binary directory and run `ninja` directly or
+
+    hctbuild -b -ninja
+
 ## Running Tests
 
 To run tests, open the HLSL Console and run this command after a successful build.
@@ -84,6 +98,8 @@ To run tests, open the HLSL Console and run this command after a successful buil
     hcttest
 
 Some tests will run shaders and verify their behavior. These tests also involve a driver that can run these execute these shaders. See the next section on how this should be currently set up.
+
+If you use Ninja to build the project, please make sure to supply `-ninja` to `hcttest` for testing.
 
 ## Running Shaders
 
