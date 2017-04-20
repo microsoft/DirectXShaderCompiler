@@ -2425,7 +2425,7 @@
                     }
                 ]]>
             </Parameter>
-            <Parameter Name="Validation.NumInputSet">1</Parameter>
+            <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
                 <Value>2</Value>
@@ -3110,5 +3110,5 @@
                 <Value>0xffffffff</Value>
             </Parameter>
         </Row>
-    </Table>-->
+    </Table>
 </Data>
