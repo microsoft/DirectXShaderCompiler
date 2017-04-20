@@ -3807,13 +3807,13 @@ void ExecutionTest::WaveIntrinsicsActiveTest(
       T2 output;
   };
 
-  int NumThreadsX = 8;
-  int NumThreadsY = 12;
-  int NumThreadsZ = 1;
+  unsigned int NumThreadsX = 8;
+  unsigned int NumThreadsY = 12;
+  unsigned int NumThreadsZ = 1;
 
-  static const int ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
-  static const int DispatchGroupCount = 1;
-  static const int ThreadCount = ThreadsPerGroup * DispatchGroupCount;
+  static const unsigned int ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
+  static const unsigned int DispatchGroupCount = 1;
+  static const unsigned int ThreadCount = ThreadsPerGroup * DispatchGroupCount;
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
@@ -3859,7 +3859,7 @@ void ExecutionTest::WaveIntrinsicsActiveTest(
         Data.resize(size);
         PerThreadData *pPrimitives = (PerThreadData*)Data.data();
         // 4 different inputs for each operation test
-        int index = 0;
+        size_t index = 0;
         while (index < ThreadCount) {
           PerThreadData *p = &pPrimitives[index];
           DataArray *IntList = InputList[setIndex];
