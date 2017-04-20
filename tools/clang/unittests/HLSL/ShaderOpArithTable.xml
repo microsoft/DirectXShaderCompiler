@@ -2389,64 +2389,6 @@
         </Row>
        </Table>
 
-       <Table Id="WaveIntrinsicPSTest">
-        <ParameterTypes>
-            <ParameterType Name="ShaderOp.Text">String</ParameterType>
-            <ParameterType Name="Validation.DataType">String</ParameterType>
-            <ParameterType Name="Validation.Input" Array="true">String</ParameterType>
-            <ParameterType Name="Validation.Output" Array="true">String</ParameterType>
-        </ParameterTypes>
-        <Row Name="GetLaneIndex">
-            <Parameter Name="ShaderOp.Text">
-                <![CDATA[
-                         struct PSInput {
-                            float4 position : SV_POSITION;
-                        };
-                        PSInput VSMain(float4 position : POSITION) {
-                            PSInput result;
-                            result.position = position;
-                            return result;
-                        }
-                        typedef uint uint32_t;
-                        uint pos_to_id(float4 pos) { return pos.x * 128 + pos.y; }
-                        struct PerPixelData {
-                            float4 position;
-                            uint32_t id, flags, laneIndex, laneCount, firstLaneId, sum1;
-                            uint32_t id0, id1, id2, id3;
-                            uint32_t acrossX, acrossY, acrossDiag, quadActiveCount;
-                        };
-                        AppendStructuredBuffer<PerPixelData> g_sb : register(u1);
-                        float4 PSMain(PSInput input) : SV_TARGET {
-                            uint one = 1;
-                            PerPixelData d;
-                            d.position = input.position;
-                            d.id = pos_to_id(input.position);
-                            d.flags = 0;
-                            if (WaveIsFirstLane()) d.flags |= 1;
-                            d.laneIndex = WaveGetLaneIndex();
-                            d.laneCount = WaveGetLaneCount();
-                            d.firstLaneId = WaveReadLaneFirst(d.id);
-                            d.sum1 = WaveActiveSum(one);
-                            d.id0 = QuadReadLaneAt(d.id, 0);
-                            d.id1 = QuadReadLaneAt(d.id, 1);
-                            d.id2 = QuadReadLaneAt(d.id, 2);
-                            d.id3 = QuadReadLaneAt(d.id, 3);
-                            d.acrossX = QuadReadAcrossX(d.id);
-                            d.acrossY = QuadReadAcrossY(d.id);
-                            d.acrossDiag = QuadReadAcrossDiagonal(d.id);
-                            d.quadActiveCount = one + QuadReadAcrossX(one) + QuadReadAcrossY(one) + QuadReadAcrossDiagonal(one);
-                            g_sb.Append(d);
-                            return 1;
-                        }
-                ]]>
-            </Parameter>
-            <Parameter Name="Validation.DataType"></Parameter>
-            <Parameter Name="Validation.Input"></Parameter>
-            <Parameter Name="Validation.Output"></Parameter>
-        </Row>
-
-       </Table>
-
        <Table Id="WaveIntrinsicsActiveIntTable">
         <ParameterTypes>
             <ParameterType Name="ShaderOp.Name">String</ParameterType>
@@ -2463,22 +2405,27 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         int input;
                         int output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveSum(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveSum(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveSum(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
             </Parameter>
-            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.NumInputSet">1</Parameter>
             <Parameter Name="Validation.InputSet1">
                 <Value>1</Value>
                 <Value>2</Value>
@@ -2501,17 +2448,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         int input;
                         int output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveProduct(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveProduct(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveProduct(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2539,17 +2491,19 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         int input;
                         int output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveCountBits(pts.input > 3);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveCountBits(pts.input > 3);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2582,17 +2536,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         int input;
                         int output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveMax(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveMax(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveMax(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2625,17 +2584,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         int input;
                         int output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveMin(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveMin(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveMin(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2674,17 +2638,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         int input;
                         int output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveAllEqual(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveAllEqual(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveAllEqual(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2713,17 +2682,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         bool input;
                         bool output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveAnyTrue(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveAnyTrue(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveAnyTrue(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2740,7 +2714,7 @@
                 <Value>1</Value>
             </Parameter>
             <Parameter Name="Validation.InputSet3">
-                <Value>1</Value>
+                <Value>0</Value>
             </Parameter>
         </Row>
 
@@ -2749,17 +2723,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         bool input;
                         bool output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveAllTrue(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveAllTrue(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveAllTrue(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2797,17 +2776,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         uint input;
                         uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveSum(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveSum(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveSum(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2835,17 +2819,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         uint input;
                         uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveProduct(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveProduct(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveProduct(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2873,17 +2862,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         uint input;
                         uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveMax(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveMax(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveMax(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2911,17 +2905,22 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         uint input;
                         uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveMin(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveMin(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveMin(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
@@ -2955,39 +2954,52 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         uint input;
                         uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveBitOr(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveBitOr(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveBitOr(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
             </Parameter>
-            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
-                <Value>0xf000000</Value>
-                <Value>0x0f00000</Value>
-                <Value>0x00f0000</Value>
-                <Value>0x000f000</Value>
-                <Value>0x0000f00</Value>
-                <Value>0x00000f0</Value>
-                <Value>0x000000f</Value>
+                <Value>0xe0000000</Value>
+                <Value>0x0d000000</Value>
+                <Value>0x00b00000</Value>
+                <Value>0x00070000</Value>
+                <Value>0x0000e000</Value>
+                <Value>0x00000d00</Value>
+                <Value>0x000000b0</Value>
+                <Value>0x00000007</Value>
             </Parameter>
             <Parameter Name="Validation.InputSet2">
-                <Value>0x00000000</Value>
+                <Value>0xedb7edb7</Value>
+                <Value>0xdb7edb7e</Value>
+                <Value>0xb7edb7ed</Value>
+                <Value>0x7edb7edb</Value>
             </Parameter>
             <Parameter Name="Validation.InputSet3">
-                <Value>2</Value>
-                <Value>4</Value>
-                <Value>8</Value>
-                <Value>16</Value>
+                <Value>0x12481248</Value>
+                <Value>0x24812481</Value>
+                <Value>0x48124812</Value>
+                <Value>0x81248124</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>0x00000000</Value>
+                <Value>0xffffffff</Value>
             </Parameter>
         </Row>
 
@@ -2996,39 +3008,52 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         uint input;
                         uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveBitAnd(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveBitAnd(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveBitAnd(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
             </Parameter>
-            <Parameter Name="Validation.NumInputSet">3</Parameter>
+            <Parameter Name="Validation.NumInputSet">4</Parameter>
             <Parameter Name="Validation.InputSet1">
-                <Value>0xf000000</Value>
-                <Value>0x0f00000</Value>
-                <Value>0x00f0000</Value>
-                <Value>0x000f000</Value>
-                <Value>0x0000f00</Value>
-                <Value>0x00000f0</Value>
-                <Value>0x000000f</Value>
+                <Value>0xefffffff</Value>
+                <Value>0xfdffffff</Value>
+                <Value>0xffbfffff</Value>
+                <Value>0xfff7ffff</Value>
+                <Value>0xffffefff</Value>
+                <Value>0xfffffdff</Value>
+                <Value>0xffffffbf</Value>
+                <Value>0xfffffff7</Value>
             </Parameter>
             <Parameter Name="Validation.InputSet2">
-                <Value>0x00000000</Value>
+                <Value>0xedb7edb7</Value>
+                <Value>0xdb7edb7e</Value>
+                <Value>0xb7edb7ed</Value>
+                <Value>0x7edb7edb</Value>
             </Parameter>
             <Parameter Name="Validation.InputSet3">
-                <Value>2</Value>
-                <Value>4</Value>
-                <Value>8</Value>
-                <Value>16</Value>
+                <Value>0x12481248</Value>
+                <Value>0x24812481</Value>
+                <Value>0x48124812</Value>
+                <Value>0x81248124</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>0x00000000</Value>
+                <Value>0xffffffff</Value>
             </Parameter>
         </Row>
 
@@ -3037,40 +3062,53 @@
             <Parameter Name="ShaderOp.Text">
                 <![CDATA[
                     struct PerThreadData {
-                        int id;
                         int firstLaneId;
+                        int mask;
                         uint input;
                         uint output;
                     };
                     RWStructuredBuffer<PerThreadData> g_sb : register(u0);
-                    [numthreads(8,8,1)]
+                    [numthreads(8,12,1)]
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
-                        pts.firstLaneId = WaveReadLaneFirst(pts.id);
-                        pts.output = WaveActiveBitXor(pts.input);
+                        pts.firstLaneId = WaveReadLaneFirst(GI);
+                        if (pts.mask != 0) {
+                            pts.output = WaveActiveBitXor(pts.input);
+                        }
+                        else {
+                            pts.output = WaveActiveBitXor(pts.input);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
             </Parameter>
             <Parameter Name="Validation.NumInputSet">3</Parameter>
             <Parameter Name="Validation.InputSet1">
-                <Value>0xf000000</Value>
-                <Value>0x0f00000</Value>
-                <Value>0x00f0000</Value>
-                <Value>0x000f000</Value>
-                <Value>0x0000f00</Value>
-                <Value>0x00000f0</Value>
-                <Value>0x000000f</Value>
+                <Value>0xe0000000</Value>
+                <Value>0x0d000000</Value>
+                <Value>0x00b00000</Value>
+                <Value>0x00070000</Value>
+                <Value>0x0000e000</Value>
+                <Value>0x00000d00</Value>
+                <Value>0x000000b0</Value>
+                <Value>0x00000007</Value>
             </Parameter>
             <Parameter Name="Validation.InputSet2">
-                <Value>0x00000000</Value>
+                <Value>0xedb7edb7</Value>
+                <Value>0xdb7edb7e</Value>
+                <Value>0xb7edb7ed</Value>
+                <Value>0x7edb7edb</Value>
             </Parameter>
             <Parameter Name="Validation.InputSet3">
-                <Value>2</Value>
-                <Value>4</Value>
-                <Value>8</Value>
-                <Value>16</Value>
+                <Value>0x12481248</Value>
+                <Value>0x24812481</Value>
+                <Value>0x48124812</Value>
+                <Value>0x81248124</Value>
+            </Parameter>
+            <Parameter Name="Validation.InputSet4">
+                <Value>0x00000000</Value>
+                <Value>0xffffffff</Value>
             </Parameter>
         </Row>
-    </Table>
+    </Table>-->
 </Data>
