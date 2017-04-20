@@ -112,11 +112,12 @@ public:
   }
 
   void doFunctionDecl(FunctionDecl *decl) {
-    const uint32_t funcType = translateFunctionType(decl);
+    std::vector<uint32_t> funcParamTypeIds;
+    const uint32_t funcType = translateFunctionType(decl, &funcParamTypeIds);
     const uint32_t retType = translateType(decl->getReturnType());
 
-    const uint32_t funcId = theBuilder.beginFunction(funcType, retType);
-    // TODO: handle function parameters
+    const uint32_t funcId =
+        theBuilder.beginFunction(funcType, retType, funcParamTypeIds);
     // TODO: handle function body
     const uint32_t entryLabel = theBuilder.bbCreate();
     theBuilder.bbReturn(entryLabel);
@@ -135,13 +136,14 @@ public:
       AddExecutionModeForEntryPoint(em, funcId);
     }
   }
-  uint32_t translateFunctionType(FunctionDecl *decl) {
+
+  uint32_t translateFunctionType(FunctionDecl *decl,
+                                 std::vector<uint32_t> *paramTypes) {
     const uint32_t retType = translateType(decl->getReturnType());
-    std::vector<uint32_t> paramTypes;
     for (auto *param : decl->params()) {
-      paramTypes.push_back(translateType(param->getType()));
+      paramTypes->push_back(translateType(param->getType()));
     }
-    return theBuilder.getFunctionType(retType, paramTypes);
+    return theBuilder.getFunctionType(retType, *paramTypes);
   }
 
   uint32_t translateType(QualType type) {

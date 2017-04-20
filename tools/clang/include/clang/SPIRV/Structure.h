@@ -89,6 +89,7 @@ public:
 
   /// \brief Returns true if this function is empty.
   inline bool isEmpty() const;
+
   /// \brief Clears all paramters and basic blocks and turns this function into
   /// an empty function.
   void clear();
@@ -99,6 +100,7 @@ public:
 
   /// \brief Adds a parameter to this function.
   inline void addParameter(uint32_t paramResultType, uint32_t paramResultId);
+
   /// \brief Adds a basic block to this function.
   inline void addBasicBlock(std::unique_ptr<BasicBlock> block);
 

@@ -32,7 +32,9 @@ public:
   /// \brief Begins building a SPIR-V function. At any time, there can only
   /// exist at most one function under building. Returns the <result-id> for the
   /// function on success. Returns zero on failure.
-  uint32_t beginFunction(uint32_t funcType, uint32_t returnType);
+  uint32_t beginFunction(uint32_t funcType, uint32_t returnType,
+                         const std::vector<uint32_t> &paramTypeIds = {});
+
   /// \brief Ends building of the current function. Returns true of success,
   /// false on failure. All basic blocks constructed from the beginning or
   /// after ending the previous function will be collected into this function.
@@ -41,6 +43,7 @@ public:
   /// \brief Creates a SPIR-V basic block. On success, returns the <label-id>
   /// for the basic block. On failure, returns zero.
   uint32_t bbCreate();
+
   /// \brief Ends building the SPIR-V basic block having the given <label-id>
   /// with OpReturn. Returns true on success, false on failure.
   bool bbReturn(uint32_t labelId);
@@ -50,7 +53,6 @@ public:
   bool setInsertPoint(uint32_t labelId);
 
   inline void requireCapability(spv::Capability);
-
   inline void setAddressingModel(spv::AddressingModel);
   inline void setMemoryModel(spv::MemoryModel);
 
