@@ -11,7 +11,7 @@ RWBuffer<uint> uav2;
 void main( uint GI : SV_GroupIndex)
 {
     RWBuffer<uint> u = uav1;
-    u[GI] = GI;
+    u[GI] = u[GI] + 1;
     u = uav2;
     u[GI] = GI+1;
 }

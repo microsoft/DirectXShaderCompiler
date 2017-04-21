@@ -1,9 +1,9 @@
 // RUN: %dxc -E main -T ds_6_0 %s | FileCheck %s
 
-// CHECK: domainLocation
-// CHECK: domainLocation
-// CHECK: domainLocation
 // CHECK: loadPatchConstant
+// CHECK: domainLocation
+// CHECK: domainLocation
+// CHECK: domainLocation
 // CHECK: Sqrt
 // CHECK: dot3
 // CHECK: FMax
