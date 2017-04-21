@@ -2176,7 +2176,7 @@ Returns 2^exponent. Note that hlsl log intrinsic returns the base-e exponent. Ma
 FAbs
 ~~~~
 
-The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF values.
+The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF and denorm values.
 Applying FAbs on NaN preserves NaN, although the particular NaN bit pattern that results is not defined.
 
 FMad

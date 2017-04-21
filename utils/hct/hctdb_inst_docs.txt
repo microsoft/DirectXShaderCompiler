@@ -129,7 +129,7 @@ Returns 2^exponent. Note that hlsl log intrinsic returns the base-e exponent. Ma
 
 * Inst: FAbs - returns the absolute value of the input value.
 
-The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF values.
+The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF and denorm values.
 Applying FAbs on NaN preserves NaN, although the particular NaN bit pattern that results is not defined.
 
 * Inst: FirstbitHi - Returns the location of the first set bit starting from the highest order bit and working downward.
