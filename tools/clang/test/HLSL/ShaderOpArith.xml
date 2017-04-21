@@ -374,6 +374,19 @@
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="WaveIntrinsicsOp" CS="CS" DispatchX="1" DispatchY="1">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SWaveIntrinsicsOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SWaveIntrinsicsOp"/>
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+      void main(uint GI : SV_GroupIndex) {};
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="Triangle" PS="PS" VS="VS">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
 
