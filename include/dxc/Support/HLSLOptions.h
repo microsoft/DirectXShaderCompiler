@@ -125,6 +125,7 @@ public:
   bool EnableStrictMode;     // OPT_Ges
   bool HLSL2015;  // OPT_hlsl_version (=2015)
   bool HLSL2016;  // OPT_hlsl_version (=2016)
+  bool HLSL2017;  // OPT_hlsl_version (=2017)
   bool OptDump; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help

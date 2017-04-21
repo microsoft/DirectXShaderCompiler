@@ -221,22 +221,19 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.TargetProfile = Args.getLastArgValue(OPT_target_profile);
 
-  llvm::StringRef hlslVersion = Args.getLastArgValue(OPT_hlsl_version);
-  if (hlslVersion.empty() || hlslVersion == "2016") {
-    opts.HLSL2016 = true;
-  }
-  else if (hlslVersion == "2015") {
-    opts.HLSL2016 = false;
-    if (!(flagsToInclude & HlslFlags::ISenseOption)) {
-      errors << "HLSL Version 2015 is only supported for language services";
-      return 1;
-    }
-  }
+  llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
+  opts.HLSL2015 = opts.HLSL2016 = opts.HLSL2017 = false;
+  if (ver.empty() || ver == "2016") { opts.HLSL2016 = true; }   // Default to 2016
+  else if           (ver == "2015") { opts.HLSL2015 = true; }
+  else if           (ver == "2017") { opts.HLSL2017 = true; }
   else {
     errors << "Unknown HLSL version";
     return 1;
   }
-  opts.HLSL2015 = !opts.HLSL2016;
+  if (opts.HLSL2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
+    errors << "HLSL Version 2015 is only supported for language services";
+    return 1;
+  }
 
   // AssemblyCodeHex not supported (Fx)
   // OutputLibrary not supported (Fl)
