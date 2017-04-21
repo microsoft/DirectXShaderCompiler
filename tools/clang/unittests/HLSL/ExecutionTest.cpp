@@ -401,7 +401,7 @@ static int MaskEveryThird(int i) {
 // Add more masks when this is resolved
 typedef int(*MaskFunction)(int);
 static MaskFunction MaskFunctionTable[] = {
-  MaskAll
+  MaskAll, MaskEveryOther, MaskEveryThird
 };
 
 template <typename InType, typename OutType>
@@ -460,12 +460,15 @@ public:
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(PartialDerivTest);
 
+  // TODO: Change the priority to 0 once there is a driver that fixes the issue with WaveActive operations
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveIntTable")
+    TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveUintTest)
-  TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveUintTable")
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveUintTable")
+    TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   // TAEF data-driven tests.
