@@ -390,7 +390,7 @@
           <Value>-1</Value>
         </Parameter>
         <Parameter Name="Validation.Expected">
-          <Value>0.785410</Value>
+          <Value>NaN</Value>
           <Value>-1.570796</Value>
           <Value>0.0</Value>
           <Value>0.0</Value>
