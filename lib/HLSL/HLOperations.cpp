@@ -243,6 +243,10 @@ llvm::StringRef GetHLOpcodeName(HLCastOpcode Op) {
     return "colMatToVec";
   case HLCastOpcode::RowMatrixToVecCast:
     return "rowMatToVec";
+  case HLCastOpcode::ColMatrixToRowMatrix:
+    return "colMatToRowMat";
+  case HLCastOpcode::RowMatrixToColMatrix:
+    return "rowMatToColMat";
   case HLCastOpcode::HandleToResCast:
     return "handleToRes";
   }

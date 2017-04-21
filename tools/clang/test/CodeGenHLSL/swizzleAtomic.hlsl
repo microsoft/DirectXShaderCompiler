@@ -15,7 +15,7 @@
 // CHECK: i32 12,
 
 
-groupshared column_major uint2x2 dataC[8*8];
+groupshared row_major uint2x2 dataC[8*8];
 groupshared uint4 a;
 
 RWStructuredBuffer<uint2x2> mats;
