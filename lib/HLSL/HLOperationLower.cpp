@@ -4865,10 +4865,8 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
         Value *idx = CI->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx);
 
         if (colMajor) {
-          // idx is c * row + r;
-          // r = idx % row;
-          Value *cRow = ConstantInt::get(idx->getType(), row);
-          idx = Builder.CreateURem(idx, cRow);
+          // idx is c * row + r.
+          // For first col, c is 0, so idx is r.
           Value *one = Builder.getInt32(1);
           // row.x = c[0].[idx]
           // row.y = c[1].[idx]
@@ -4888,13 +4886,13 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
           for (unsigned int c = 0; c < col; c++) {
             Value *ColVal =
                 GenerateCBLoadLegacy(handle, cbufIdx, /*channelOffset*/ 0,
-                                     EltTy, col, hlslOP, Builder);
+                                     EltTy, row, hlslOP, Builder);
             // Convert ColVal to array for indexing.
-            for (unsigned int c = 0; c < col; c++) {
+            for (unsigned int r = 0; r < row; r++) {
               Value *Elt =
-                  Builder.CreateExtractElement(ColVal, Builder.getInt32(c));
+                  Builder.CreateExtractElement(ColVal, Builder.getInt32(r));
               Value *Ptr = Builder.CreateInBoundsGEP(
-                  tempArray, {zero, Builder.getInt32(c)});
+                  tempArray, {zero, Builder.getInt32(r)});
               Builder.CreateStore(Elt, Ptr);
             }
 

@@ -4303,8 +4303,7 @@ static void AddMissingCastOpsInInitList(SmallVector<Value *, 4> &elts, SmallVect
 
 static void StoreInitListToDestPtr(Value *DestPtr,
                                    SmallVector<Value *, 4> &elts, unsigned &idx,
-                                   SmallVector<QualType, 4> &EltTyList,
-                                   unsigned &tyIdx, bool bDefaultRowMajor,
+                                   QualType Type, CodeGenTypes &Types, bool bDefaultRowMajor,
                                    CGBuilderTy &Builder, llvm::Module &M) {
   llvm::Type *Ty = DestPtr->getType()->getPointerElementType();
   llvm::Type *i32Ty = llvm::Type::getInt32Ty(Ty->getContext());
@@ -4315,9 +4314,7 @@ static void StoreInitListToDestPtr(Value *DestPtr,
       Result = Builder.CreateInsertElement(Result, elts[idx + i], i);
     Builder.CreateStore(Result, DestPtr);
     idx += Ty->getVectorNumElements();
-    tyIdx++;
   } else if (HLMatrixLower::IsMatrixType(Ty)) {
-    QualType Type = EltTyList[tyIdx];
     bool isRowMajor =
         IsRowMajorMatrix(Type, bDefaultRowMajor);
 
@@ -4331,7 +4328,6 @@ static void StoreInitListToDestPtr(Value *DestPtr,
       }
     }
     idx += row * col;
-    tyIdx++;
     Value *matVal =
         EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLInit,
                                        /*opcode*/ 0, Ty, matInitList, M);
@@ -4359,22 +4355,47 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     if (HLModule::IsHLSLObjectType(Ty)) {
       Builder.CreateStore(elts[idx], DestPtr);
       idx++;
-      tyIdx++;
     } else {
       Constant *zero = ConstantInt::get(i32Ty, 0);
-      for (unsigned i = 0; i < Ty->getStructNumElements(); i++) {
+
+      const RecordType *RT = Type->getAsStructureType();
+      // For CXXRecord.
+      if (!RT)
+        RT = Type->getAs<RecordType>();
+      RecordDecl *RD = RT->getDecl();
+      const CGRecordLayout &RL = Types.getCGRecordLayout(RD);
+      // Take care base.
+      if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+        if (CXXRD->getNumBases()) {
+          for (const auto &I : CXXRD->bases()) {
+            const CXXRecordDecl *BaseDecl = cast<CXXRecordDecl>(
+                I.getType()->castAs<RecordType>()->getDecl());
+            if (BaseDecl->field_empty())
+              continue;
+            QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
+            unsigned i = RL.getNonVirtualBaseLLVMFieldNo(BaseDecl);
+            Constant *gepIdx = ConstantInt::get(i32Ty, i);
+            Value *GEP = Builder.CreateInBoundsGEP(DestPtr, {zero, gepIdx});
+            StoreInitListToDestPtr(GEP, elts, idx, parentTy, Types,
+                                   bDefaultRowMajor, Builder, M);
+          }
+        }
+      }
+      for (FieldDecl *field : RD->fields()) {
+        unsigned i = RL.getLLVMFieldNo(field);
         Constant *gepIdx = ConstantInt::get(i32Ty, i);
         Value *GEP = Builder.CreateInBoundsGEP(DestPtr, {zero, gepIdx});
-        StoreInitListToDestPtr(GEP, elts, idx, EltTyList, tyIdx,
+        StoreInitListToDestPtr(GEP, elts, idx, field->getType(), Types,
                                bDefaultRowMajor, Builder, M);
       }
     }
   } else if (Ty->isArrayTy()) {
     Constant *zero = ConstantInt::get(i32Ty, 0);
+    QualType EltType = Type->getAsArrayTypeUnsafe()->getElementType();
     for (unsigned i = 0; i < Ty->getArrayNumElements(); i++) {
       Constant *gepIdx = ConstantInt::get(i32Ty, i);
       Value *GEP = Builder.CreateInBoundsGEP(DestPtr, {zero, gepIdx});
-      StoreInitListToDestPtr(GEP, elts, idx, EltTyList, tyIdx, bDefaultRowMajor,
+      StoreInitListToDestPtr(GEP, elts, idx, EltType, Types, bDefaultRowMajor,
                              Builder, M);
     }
   } else {
@@ -4387,7 +4408,6 @@ static void StoreInitListToDestPtr(Value *DestPtr,
     }
     Builder.CreateStore(V, DestPtr);
     idx++;
-    tyIdx++;
   }
 }
 
@@ -4435,9 +4455,8 @@ Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr 
     ParamList.emplace_back(DestPtr);
     ParamList.append(EltValList.begin(), EltValList.end());
     idx = 0;
-    unsigned tyIdx = 0;
     bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
-    StoreInitListToDestPtr(DestPtr, EltValList, idx, EltTyList, tyIdx,
+    StoreInitListToDestPtr(DestPtr, EltValList, idx, ResultTy, CGF.getTypes(),
                            bDefaultRowMajor, CGF.Builder, TheModule);
     return nullptr;
   }
@@ -4873,11 +4892,12 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixSubscript(CodeGenFunction &CGF,
       isRowMajor ? static_cast<unsigned>(HLSubscriptOpcode::RowMatSubscript)
                  : static_cast<unsigned>(HLSubscriptOpcode::ColMatSubscript);
   Value *matBase = Ptr;
-  if (matBase->getType()->isPointerTy()) {
-    RetType =
-        llvm::PointerType::get(RetType->getPointerElementType(),
-                               matBase->getType()->getPointerAddressSpace());
-  }
+  DXASSERT(matBase->getType()->isPointerTy(),
+           "matrix subscript should return pointer");
+
+  RetType =
+      llvm::PointerType::get(RetType->getPointerElementType(),
+                             matBase->getType()->getPointerAddressSpace());
 
   // Lower mat[Idx] into real idx.
   SmallVector<Value *, 8> args;
@@ -4919,11 +4939,12 @@ Value *CGMSHLSLRuntime::EmitHLSLMatrixElement(CodeGenFunction &CGF,
                  : static_cast<unsigned>(HLSubscriptOpcode::ColMatElement);
 
   Value *matBase = paramList[0];
-  if (matBase->getType()->isPointerTy()) {
-    RetType =
-        llvm::PointerType::get(RetType->getPointerElementType(),
-                               matBase->getType()->getPointerAddressSpace());
-  }
+  DXASSERT(matBase->getType()->isPointerTy(),
+           "matrix element should return pointer");
+
+  RetType =
+      llvm::PointerType::get(RetType->getPointerElementType(),
+                             matBase->getType()->getPointerAddressSpace());
 
   Value *idx = paramList[HLOperandIndex::kMatSubscriptSubOpIdx-1];
 

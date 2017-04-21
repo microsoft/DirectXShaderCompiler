@@ -1159,7 +1159,7 @@ void HLMatrixLowerPass::TranslateMatMajorCast(CallInst *matInst,
   IRBuilder<> Builder(castInst);
 
   // shuf to change major.
-  std::vector<int> castMask(col * row);
+  SmallVector<int, 16> castMask(col * row);
   unsigned idx = 0;
   if (bRowToCol) {
     for (unsigned c = 0; c < col; c++)
@@ -1339,7 +1339,7 @@ void HLMatrixLowerPass::TranslateMatSubscript(Value *matInst, Value *vecInst,
                    (matOpcode == HLSubscriptOpcode::RowMatElement);
   Value *mask =
       matSubInst->getArgOperand(HLOperandIndex::kMatSubscriptSubOpIdx);
-  // For temp matrix, all use col major.
+
   if (isElement) {
     Type *resultType = matSubInst->getType()->getPointerElementType();
     unsigned resultSize = 1;
@@ -2302,7 +2302,11 @@ void HLMatrixLowerPass::runOnFunction(Function &F) {
         HLOpcodeGroup group =
             hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
         if (group == HLOpcodeGroup::HLMatLoadStore) {
-          // Must be matStore.
+          HLMatLoadStoreOpcode opcode =
+              static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+          DXASSERT(opcode == HLMatLoadStoreOpcode::ColMatStore ||
+                       opcode == HLMatLoadStoreOpcode::RowMatStore,
+                   "Must MatStore here, load will go IsMatrixType path");
           // Lower it here to make sure it is ready before replace.
           lowerToVec(&I);
         }
