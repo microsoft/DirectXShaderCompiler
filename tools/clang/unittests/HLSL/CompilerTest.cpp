@@ -429,7 +429,11 @@ public:
   TEST_METHOD(CodeGenMatInStruct)
   TEST_METHOD(CodeGenMatInStructRet)
   TEST_METHOD(CodeGenMatIn)
+  TEST_METHOD(CodeGenMatIn1)
+  TEST_METHOD(CodeGenMatIn2)
   TEST_METHOD(CodeGenMatOut)
+  TEST_METHOD(CodeGenMatOut1)
+  TEST_METHOD(CodeGenMatOut2)
   TEST_METHOD(CodeGenMatSubscript)
   TEST_METHOD(CodeGenMatSubscript2)
   TEST_METHOD(CodeGenMatSubscript3)
@@ -2532,8 +2536,24 @@ TEST_F(CompilerTest, CodeGenMatIn) {
   CodeGenTest(L"..\\CodeGenHLSL\\matrixIn.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenMatIn1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatIn2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn2.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenMatOut) {
   CodeGenTest(L"..\\CodeGenHLSL\\matrixOut.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatOut1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixOut1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatOut2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixOut2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatSubscript) {

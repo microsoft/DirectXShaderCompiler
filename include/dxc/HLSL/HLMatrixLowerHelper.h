@@ -34,10 +34,19 @@ bool IsMatrixArrayPointer(llvm::Type *Ty);
 // Translate matrix array pointer type to vector array pointer type.
 llvm::Type *LowerMatrixArrayPointer(llvm::Type *Ty);
 
-llvm::Value *BuildMatrix(llvm::Type *EltTy, unsigned col, unsigned row,
-                   bool colMajor, llvm::ArrayRef<llvm::Value *> elts,
-                   llvm::IRBuilder<> &Builder);
-
+llvm::Value *BuildVector(llvm::Type *EltTy, unsigned size,
+                         llvm::ArrayRef<llvm::Value *> elts,
+                         llvm::IRBuilder<> &Builder);
+// For case like mat[i][j].
+// IdxList is [i][0], [i][1], [i][2],[i][3].
+// Idx is j.
+// return [i][j] not mat[i][j] because resource ptr and temp ptr need different
+// code gen.
+llvm::Value *
+LowerGEPOnMatIndexListToIndex(llvm::GetElementPtrInst *GEP,
+                              llvm::ArrayRef<llvm::Value *> IdxList);
+unsigned GetColMajorIdx(unsigned r, unsigned c, unsigned row);
+unsigned GetRowMajorIdx(unsigned r, unsigned c, unsigned col);
 } // namespace HLMatrixLower
 
 } // namespace hlsl

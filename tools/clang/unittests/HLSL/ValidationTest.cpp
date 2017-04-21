@@ -1407,52 +1407,52 @@ TEST_F(ValidationTest, LocalRes6Dbg) {
 
 TEST_F(ValidationTest, AddrSpaceCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%([0-9]+) = getelementptr \\[4 x float\\], \\[4 x float\\]\\* %([0-9]+), i32 0, i32 0\n"
-                          "  store float %([0-9]+), float\\* %\\1, align 4",
-                          "%\\1 = getelementptr [4 x float], [4 x float]* %\\2, i32 0, i32 0\n"
-                          "  %X = addrspacecast float* %\\1 to float addrspace(1)*    \n"
-                          "  store float %\\3, float addrspace(1)* %X, align 4",
+                          "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store i32 %([0-9]+), i32\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
+                          "  %X = addrspacecast i32* %\\1 to i32 addrspace(1)*    \n"
+                          "  store i32 %\\3, i32 addrspace(1)* %X, align 4",
                           "generic address space",
                           /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, PtrBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%([0-9]+) = getelementptr \\[4 x float\\], \\[4 x float\\]\\* %([0-9]+), i32 0, i32 0\n"
-                          "  store float %([0-9]+), float\\* %\\1, align 4",
-                          "%\\1 = getelementptr [4 x float], [4 x float]* %\\2, i32 0, i32 0\n"
-                          "  %X = bitcast float* %\\1 to double*    \n"
-                          "  store float %\\3, float* %\\1, align 4",
+                          "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store i32 %([0-9]+), i32\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast i32* %\\1 to double*    \n"
+                          "  store i32 %\\3, i32* %\\1, align 4",
                           "Pointer type bitcast must be have same size",
                           /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, MinPrecisionBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%([0-9]+) = getelementptr \\[4 x float\\], \\[4 x float\\]\\* %([0-9]+), i32 0, i32 0\n"
-                          "  store float %([0-9]+), float\\* %\\1, align 4",
-                          "%\\1 = getelementptr [4 x float], [4 x float]* %\\2, i32 0, i32 0\n"
-                          "  %X = bitcast float* %\\1 to [2 x half]*    \n"
-                          "  store float %\\3, float* %\\1, align 4",
+                          "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store i32 %([0-9]+), i32\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast i32* %\\1 to [2 x half]*    \n"
+                          "  store i32 %\\3, i32* %\\1, align 4",
                           "Bitcast on minprecison types is not allowed",
                           /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, StructBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%([0-9]+) = getelementptr \\[4 x float\\], \\[4 x float\\]\\* %([0-9]+), i32 0, i32 0\n"
-                          "  store float %([0-9]+), float\\* %\\1, align 4",
-                          "%\\1 = getelementptr [4 x float], [4 x float]* %\\2, i32 0, i32 0\n"
-                          "  %X = bitcast float* %\\1 to %dx.types.Handle*    \n"
-                          "  store float %\\3, float* %\\1, align 4",
+                          "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store i32 %([0-9]+), i32\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast i32* %\\1 to %dx.types.Handle*    \n"
+                          "  store i32 %\\3, i32* %\\1, align 4",
                           "Bitcast on struct types is not allowed",
                           /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, MultiDimArray) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "= alloca [4 x float]",
-                          "= alloca [4 x float]\n"
+                          "= alloca [4 x i32]",
+                          "= alloca [4 x i32]\n"
                           "  %md = alloca [2 x [4 x float]]",
                           "Only one dimension allowed for array type");
 }
@@ -1487,8 +1487,8 @@ TEST_F(ValidationTest, NoFunctionParam) {
 
 TEST_F(ValidationTest, I8Type) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%([0-9]+) = alloca \\[4 x float\\]",
-                          "%\\1 = alloca [4 x float]\n"
+                          "%([0-9]+) = alloca \\[4 x i32\\]",
+                          "%\\1 = alloca [4 x i32]\n"
                           "  %m8 = alloca i8",
                           "I8 can only used as immediate value for intrinsic",
     /*bRegex*/true);
