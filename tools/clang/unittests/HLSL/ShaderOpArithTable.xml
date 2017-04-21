@@ -1035,7 +1035,7 @@
           <Value>-1.0</Value>
         </Parameter>
         <Parameter Name="Validation.Expected">
-          <Value>1</Value>
+          <Value>0</Value>
           <Value>0</Value>
           <Value>1</Value>
           <Value>1</Value>
