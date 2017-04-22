@@ -2838,11 +2838,30 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
 
+  void patchSM60(Module &M) {
+    for (iplist<Function>::iterator F : M.getFunctionList()) {
+      for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
+           ++BBI) {
+        BasicBlock *BB = BBI;
+        for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;
+             ++II) {
+          Instruction *I = II;
+          if (I->getMetadata(LLVMContext::MD_noalias)) {
+            I->setMetadata(LLVMContext::MD_noalias, nullptr);
+          }
+        }
+      }
+    }
+  }
+
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
       bool bIsSM61Plus = M.GetDxilModule().GetShaderModel()->IsSM61Plus();
+      if (!bIsSM61Plus) {
+        patchSM60(M);
+      }
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (!hlslOP->IsDxilOpFunc(F))
           continue;
@@ -2866,14 +2885,7 @@ public:
           continue;
 
         for (auto it = F->user_begin(); it != F->user_end();) {
-          Instruction *I = cast<Instruction>(*(it++));
-          if (!bIsSM61Plus) {
-            // Remove noalias metadata if not SM61 plus.
-            if (I->getMetadata(LLVMContext::MD_noalias)) {
-              I->setMetadata(LLVMContext::MD_noalias, nullptr);
-            }
-          }
-          CallInst *CI = dyn_cast<CallInst>(I);
+          CallInst *CI = dyn_cast<CallInst>(*(it++));
           if (!CI)
             continue;
 
