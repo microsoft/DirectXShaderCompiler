@@ -1,7 +1,6 @@
 ; RUN: %dxv %s | FileCheck %s
 
 ; CHECK: Recursion is not permitted
-; CHECK: with parameter is not permitted
 
 ; This test originally covered two validator error messages:
 ; 1. recursion not allowed

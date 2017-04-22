@@ -986,7 +986,7 @@ TEST_F(ValidationTest, UpdateCounterFail) {
 TEST_F(ValidationTest, LocalResCopy) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\resCopy.hlsl", "cs_6_0", {"ret void"},
-      {"%H = alloca %dx.types.Handle\n"
+      {"%H = alloca %dx.types.ResRet.i32\n"
        "ret void"},
       {"Dxil struct types should only used by ExtractValue"});
 }

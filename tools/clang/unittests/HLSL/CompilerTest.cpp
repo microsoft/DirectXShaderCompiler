@@ -422,6 +422,9 @@ public:
   TEST_METHOD(CodeGenLoop4)
   TEST_METHOD(CodeGenLoop5)
   TEST_METHOD(CodeGenLoop6)
+  TEST_METHOD(CodeGenMatParam)
+  TEST_METHOD(CodeGenMatParam2)
+ // TEST_METHOD(CodeGenMatParam3)
   TEST_METHOD(CodeGenMatElt)
   TEST_METHOD(CodeGenMatInit)
   TEST_METHOD(CodeGenMatMulMat)
@@ -621,10 +624,12 @@ public:
   TEST_METHOD(CodeGenBasicHLSL11_VS2)
   TEST_METHOD(CodeGenVecIndexingInput)
   TEST_METHOD(CodeGenVecMulMat)
+  TEST_METHOD(CodeGenVecArrayParam)
   TEST_METHOD(CodeGenBindings1)
   TEST_METHOD(CodeGenBindings2)
   TEST_METHOD(CodeGenBindings3)
   TEST_METHOD(CodeGenResCopy)
+  TEST_METHOD(CodeGenResourceParam)
   TEST_METHOD(CodeGenResourceInCB)
   TEST_METHOD(CodeGenResourceInCB2)
   TEST_METHOD(CodeGenResourceInCB3)
@@ -2507,6 +2512,18 @@ TEST_F(CompilerTest, CodeGenLoop6) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\loop6.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenMatParam) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\mat_param.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatParam2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\mat_param2.hlsl");
+}
+
+//TEST_F(CompilerTest, CodeGenMatParam3) {
+//  CodeGenTestCheck(L"..\\CodeGenHLSL\\mat_param3.hlsl");
+//}
+
 TEST_F(CompilerTest, CodeGenMatElt) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matElt.hlsl");
 }
@@ -2537,10 +2554,12 @@ TEST_F(CompilerTest, CodeGenMatIn) {
 }
 
 TEST_F(CompilerTest, CodeGenMatIn1) {
+  if (SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatIn2) {
+  if (SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn2.hlsl");
 }
 
@@ -3301,6 +3320,10 @@ TEST_F(CompilerTest, CodeGenVecMulMat) {
   CodeGenTest(L"..\\CodeGenHLSL\\vecMulMat.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenVecArrayParam) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vector_array_param.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenBindings1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\bindings1.hlsl");
 }
@@ -3319,6 +3342,10 @@ TEST_F(CompilerTest, CodeGenResCopy) {
 
 TEST_F(CompilerTest, CodeGenResourceInStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-struct.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceParam) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource_param.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenResourceInCB) {
