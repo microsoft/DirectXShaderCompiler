@@ -101,6 +101,16 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   return Get(Kind, Major, Minor);
 }
 
+void ShaderModel::SetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {
+  if (m_Major == 6) {
+    DxilMajor = 1;
+    DxilMinor = m_Minor;
+  } else {
+    DxilMajor = 1;
+    DxilMinor = 0;
+  }
+}
+
 std::string ShaderModel::GetKindName() const {
   return std::string(m_pszName).substr(0, 2);
 }
@@ -118,32 +128,38 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Compute,  5, 0, "cs_5_0",  0,  0,   true,  true,  64),
   SM(Kind::Compute,  5, 1, "cs_5_1",  0,  0,   true,  true,  UINT_MAX),
   SM(Kind::Compute,  6, 0, "cs_6_0",  0,  0,   true,  true,  UINT_MAX),
+  SM(Kind::Compute,  6, 1, "cs_6_1",  0,  0,   true,  true,  UINT_MAX),
 
   SM(Kind::Domain,   5, 0, "ds_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Domain,   5, 1, "ds_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Domain,   6, 0, "ds_6_0",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Domain,   6, 1, "ds_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Geometry, 4, 0, "gs_4_0",  16, 32,  false, false, 0),
   SM(Kind::Geometry, 4, 1, "gs_4_1",  32, 32,  false, false, 0),
   SM(Kind::Geometry, 5, 0, "gs_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Geometry, 5, 1, "gs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Geometry, 6, 0, "gs_6_0",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Geometry, 6, 1, "gs_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Hull,     5, 0, "hs_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Hull,     5, 1, "hs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Hull,     6, 0, "hs_6_0",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Hull,     6, 1, "hs_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Pixel,    4, 0, "ps_4_0",  32, 8,   false, false, 0),
   SM(Kind::Pixel,    4, 1, "ps_4_1",  32, 8,   false, false, 0),
   SM(Kind::Pixel,    5, 0, "ps_5_0",  32, 8,   true,  true,  64),
   SM(Kind::Pixel,    5, 1, "ps_5_1",  32, 8,   true,  true,  UINT_MAX),
   SM(Kind::Pixel,    6, 0, "ps_6_0",  32, 8,   true,  true,  UINT_MAX),
+  SM(Kind::Pixel,    6, 1, "ps_6_1",  32, 8,   true,  true,  UINT_MAX),
 
   SM(Kind::Vertex,   4, 0, "vs_4_0",  16, 16,  false, false, 0),
   SM(Kind::Vertex,   4, 1, "vs_4_1",  32, 32,  false, false, 0),
   SM(Kind::Vertex,   5, 0, "vs_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Vertex,   5, 1, "vs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Vertex,   6, 0, "vs_6_0",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Vertex,   6, 1, "vs_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Invalid,  0, 0, "invalid", 0,  0,   false, false, 0),
 };

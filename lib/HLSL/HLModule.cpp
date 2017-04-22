@@ -61,8 +61,8 @@ HLModule::HLModule(Module *pModule)
           pModule, llvm::make_unique<HLExtraPropertyHelper>(pModule)))
     , m_pDebugInfoFinder(nullptr)
     , m_pSM(nullptr)
-    , m_DxilMajor(1)
-    , m_DxilMinor(0)
+    , m_DxilMajor(DXIL::kDxilMajor)
+    , m_DxilMinor(DXIL::kDxilMinor)
     , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
     , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule)) {
   DXASSERT_NOMSG(m_pModule != nullptr);
@@ -83,6 +83,7 @@ OP *HLModule::GetOP() const { return m_pOP.get(); }
 void HLModule::SetShaderModel(const ShaderModel *pSM) {
   DXASSERT(m_pSM == nullptr, "shader model must not change for the module");
   m_pSM = pSM;
+  m_pSM->SetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   CreateSignatures(m_pSM, m_InputSignature, m_OutputSignature, m_PatchConstantSignature, m_RootSignature);
 }

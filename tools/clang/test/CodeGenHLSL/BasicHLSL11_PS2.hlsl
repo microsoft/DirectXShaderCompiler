@@ -20,7 +20,6 @@
 
 // CHECK: DILocalVariable(tag: DW_TAG_auto_variable, name: "vDiffuse"
 // CHECK: DILocalVariable(tag: DW_TAG_auto_variable, name: "fLighting"
-// CHECK: DILocalVariable(tag: DW_TAG_auto_variable, name: "Output"
 
 
 //--------------------------------------------------------------------------------------

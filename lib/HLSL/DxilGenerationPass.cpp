@@ -2842,6 +2842,7 @@ public:
     if (M.HasDxilModule()) {
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+      bool bIsSM61Plus = M.GetDxilModule().GetShaderModel()->IsSM61Plus();
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (!hlslOP->IsDxilOpFunc(F))
           continue;
@@ -2865,7 +2866,14 @@ public:
           continue;
 
         for (auto it = F->user_begin(); it != F->user_end();) {
-          CallInst *CI = dyn_cast<CallInst>(*(it++));
+          Instruction *I = cast<Instruction>(*(it++));
+          if (!bIsSM61Plus) {
+            // Remove noalias metadata if not SM61 plus.
+            if (I->getMetadata(LLVMContext::MD_noalias)) {
+              I->setMetadata(LLVMContext::MD_noalias, nullptr);
+            }
+          }
+          CallInst *CI = dyn_cast<CallInst>(I);
           if (!CI)
             continue;
 

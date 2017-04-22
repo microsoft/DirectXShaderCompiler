@@ -6181,7 +6181,14 @@ public:
   ABIArgInfo classifyReturnType(QualType RetTy) const {
     if (RetTy->isVoidType())
       return ABIArgInfo::getIgnore();
-    // do not create SRet for HLSL
+    if (isAggregateTypeForABI(RetTy))
+      return ABIArgInfo::getIndirect(0);
+
+    // Treat an enum type as its underlying type.
+    if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
+      RetTy = EnumTy->getDecl()->getIntegerType();
+
+    // do not use extend for hlsl.
     return ABIArgInfo::getDirect(CGT.ConvertType(RetTy));
   }
 
@@ -6218,7 +6225,16 @@ ABIArgInfo MSDXILABIInfo::classifyArgumentType(QualType Ty) const {
 }
 
 void MSDXILABIInfo::computeInfo(CGFunctionInfo &FI) const {
-  FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
+  QualType RetTy = FI.getReturnType();
+  if (RetTy->isVoidType()) {
+    FI.getReturnInfo() = ABIArgInfo::getIgnore();
+  } else if (isAggregateTypeForABI(RetTy)) {
+    if (!getCXXABI().classifyReturnType(FI))
+      FI.getReturnInfo() = classifyReturnType(RetTy);
+  } else {
+    // Make vector and matrix direct ret.
+    FI.getReturnInfo() = classifyReturnType(RetTy);
+  }
   for (auto &I : FI.arguments()) {
     I.info = classifyArgumentType(I.type);
     // Do not flat matrix
