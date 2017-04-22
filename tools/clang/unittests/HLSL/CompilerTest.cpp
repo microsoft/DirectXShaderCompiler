@@ -315,6 +315,8 @@ public:
   TEST_METHOD(CodeGenAsUint)
   TEST_METHOD(CodeGenAsUint2)
   TEST_METHOD(CodeGenAtomic)
+  TEST_METHOD(CodeGenAttributeAtVertex)
+  TEST_METHOD(CodeGenBarycentrics)
   TEST_METHOD(CodeGenBinary1)
   TEST_METHOD(CodeGenBoolComb)
   TEST_METHOD(CodeGenBoolSvTarget)
@@ -2167,6 +2169,14 @@ TEST_F(CompilerTest, CodeGenAsUint2) {
 
 TEST_F(CompilerTest, CodeGenAtomic) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\atomic.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenBarycentrics) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBinary1) {

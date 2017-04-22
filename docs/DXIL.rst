@@ -1947,7 +1947,7 @@ ID  Name                           Description
 42  UMul_                          multiply of 32-bit operands to produce the correct full 64-bit result.
 43  UDiv_                          unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
 44  UAddc_                         unsigned add of 32-bit operand with the carry
-45  USubb_                         returns the USubb of the input values
+45  USubb_                         unsigned subtract of 32-bit operands with the borrow
 46  FMad_                          floating point multiply & add
 47  Fma_                           fused multiply-add
 48  IMad_                          Signed integer multiply & add
@@ -2039,6 +2039,11 @@ ID  Name                           Description
 134 LegacyDoubleToUInt32_          legacy fuction to convert double to uint32
 135 WaveAllBitCount_               returns the count of bits set to 1 across the wave
 136 WavePrefixBitCount_            returns the count of bits set to 1 on prior lanes
+137 Barycentrics_                  return weights at a current location.
+138 BarycentricsCentroid_          return weights at centroid location.
+139 BarycentricsSampleIndex_       return weights at the location of the sample specified by index
+140 BarycentricsSnapped_           return weights at the location specified in the pixel's 16x16 sample grid
+141 AttributeAtVertex_             returns the values of the attributes at the vertex.
 === ============================== =================================================================================================================
 
 
@@ -2074,6 +2079,82 @@ Atan
 +----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
 
 Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2
+
+AttributeAtVertex
+~~~~~~~~~~~~~~~~~
+
+returns the values of the attributes at the vertex. VertexID ranges from 0 to 2.
+
+Barycentrics
+~~~~~~~~~~~~
+
+weight = Barycentrics(VertexID)
+
+Returns all 3 triangle Barycentrics weights even though two are strictly necessary.
+VertexID ranges from 0 to 2.
+
+The 3 values returned are NOT guaranteed to add up to floating-point 1.0 exactly.
+If it is desired for the pixel shader to receive weights with this property, it can reconstruct the third coordinate by subtracting the sum of the other two from 1.0.
+Also note, that individual barycentric weights may take on arbitrarily large or arbitrarily small values, and are not constrained to be within [0...1] range
+– this may happen for screen-space (non-perspective-correct) barycentric interpolants, screenspace quad primitives, or external triangles.
+For triangle primitives, all 3 weights will typically contain non-zero values, but for line primitives the third barycentric weight (myBaryWeights.z) is guaranteed to be exactly 0.0.
+
+BarycentricsCentroid
+~~~~~~~~~~~~~~~~~~~~
+
+weight = BarycentricsCentroid(VertexID)
+
+Equivalent to Barycentrics but returns barycentric weights at the centroid.
+
+BarycentricsSampleIndex
+~~~~~~~~~~~~~~~~~~~~~~~
+
+weight = BarycentricsSampleIndex(VertexID, sampleIndex)
+
+Equivalent to Barycentrics but returns barycentric weights at the sample.
+
+BarycentricsSnapped
+~~~~~~~~~~~~~~~~~~~
+
+weight = BarycentricsSnapped(VertexID, offsetX, offsetY)
+
+Equivalent to Barycentrics but returns barycentric weights of a position with 2D offset from the pixel center using a 16x16 grid. Only the last 4 bits of the two components of the pixel offsets are used.
+
++----------+----------------+
+|  4 bits  |     offset     |
++----------+----------------+
+|   1000   | -0.5f (-8/16)  |
++----------+----------------+
+|   1001   | -0.4375f(-7/16)|
++----------+----------------+
+|   1010   | -0.375f (-6/16)|
++----------+----------------+
+|   1011   | -0.3125f(-5/16)|
++----------+----------------+
+|   1100   | -0.25f (-4/16) |
++----------+----------------+
+|   1101   | -0.1875f(-3/16)|
++----------+----------------+
+|   1110   | -0.125f (-2/16)|
++----------+----------------+
+|   1111   | -0.0625f(-1/16)|
++----------+----------------+
+|   0000   | 0.0f (-8/16)   |
++----------+----------------+
+|   0001   | 0.0625f(-7/16) |
++----------+----------------+
+|   0010   | 0.125f (-8/16) |
++----------+----------------+
+|   0011   | 0.1875f(-7/16) |
++----------+----------------+
+|   0100   | 0.25f (-8/16)  |
++----------+----------------+
+|   0101   | 0.3125f(-7/16) |
++----------+----------------+
+|   0110   | 0.375f (-8/16) |
++----------+----------------+
+|   0111   | 0.4375f(-7/16) |
++----------+----------------+
 
 Bfi
 ~~~
