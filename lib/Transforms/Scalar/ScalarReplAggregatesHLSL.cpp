@@ -3874,7 +3874,7 @@ static void CopyMatToArrayPtr(Value *Mat, Value *ArrayPtr,
                               {Mat}, *HLM.GetModule());
   Value *zero = Builder.getInt32(0);
 
-  for (unsigned r = 0; r < row; r++)
+  for (unsigned r = 0; r < row; r++) {
     for (unsigned c = 0; c < col; c++) {
       unsigned rowMatIdx = HLMatrixLower::GetColMajorIdx(r, c, row);
       Value *Elt = Builder.CreateExtractElement(Vec, rowMatIdx);
@@ -3884,6 +3884,7 @@ static void CopyMatToArrayPtr(Value *Mat, Value *ArrayPtr,
           ArrayPtr, {zero, Builder.getInt32(arrayBaseIdx + matIdx)});
       Builder.CreateStore(Elt, Ptr);
     }
+  }
 }
 static void CopyMatPtrToArrayPtr(Value *MatPtr, Value *ArrayPtr,
                                  unsigned arrayBaseIdx, HLModule &HLM,
@@ -3914,7 +3915,7 @@ static Value *LoadArrayPtrToMat(Value *ArrayPtr, unsigned arrayBaseIdx,
   // HLInit operands are in row major.
   SmallVector<Value *, 16> Elts;
   Value *zero = Builder.getInt32(0);
-  for (unsigned r = 0; r < row; r++)
+  for (unsigned r = 0; r < row; r++) {
     for (unsigned c = 0; c < col; c++) {
       unsigned matIdx = bRowMajor ? HLMatrixLower::GetRowMajorIdx(r, c, col)
                                   : HLMatrixLower::GetColMajorIdx(r, c, row);
@@ -3923,7 +3924,7 @@ static Value *LoadArrayPtrToMat(Value *ArrayPtr, unsigned arrayBaseIdx,
       Value *Elt = Builder.CreateLoad(Ptr);
       Elts.emplace_back(Elt);
     }
-
+  }
   return HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLInit,
                                  /*opcode*/ 0, Ty, {Elts}, *HLM.GetModule());
 }

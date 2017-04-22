@@ -2554,10 +2554,12 @@ TEST_F(CompilerTest, CodeGenMatIn) {
 }
 
 TEST_F(CompilerTest, CodeGenMatIn1) {
+  if (SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatIn2) {
+  if (SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn2.hlsl");
 }
 
