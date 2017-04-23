@@ -33,17 +33,21 @@ float4 VSmain(float4 position: POSITION, float4 color: COLOR) {
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 8
+// ; Bound: 11
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
-// OpEntryPoint Vertex %4 "VSmain"
+// OpEntryPoint Vertex %6 "VSmain" %4
+// OpDecorate %4 Location 0
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
-// %3 = OpTypeFunction %v4float %v4float %v4float
-// %4 = OpFunction %v4float None %3
-// %5 = OpFunctionParameter %v4float
-// %6 = OpFunctionParameter %v4float
-// %7 = OpLabel
-// OpReturn
+// %_ptr_Input_v4float = OpTypePointer Input %v4float
+// %5 = OpTypeFunction %v4float %v4float
+// %void = OpTypeVoid
+// %4 = OpVariable %_ptr_Input_v4float Input
+// %6 = OpFunction %v4float None %5
+// %7 = OpFunctionParameter %v4float
+// %8 = OpLabel
+// %9 = OpLoad %v4float %4
+// OpReturnValue %9
 // OpFunctionEnd
