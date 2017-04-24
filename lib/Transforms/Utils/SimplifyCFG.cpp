@@ -1054,9 +1054,8 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I);
 static bool HoistThenElseCodeToIf(BranchInst *BI,
                                   const TargetTransformInfo &TTI) {
   // HLSL Change Begins.
-  // Skip block with control flow hint.
-  if (BI->hasMetadata())
-    return false;
+  // Leave CSE to target backend.
+  return false;
   // HLSL Change Ends.
 
   // This does very trivial matching, with limited scanning, to find identical

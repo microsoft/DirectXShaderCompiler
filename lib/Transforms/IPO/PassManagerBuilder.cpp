@@ -182,7 +182,7 @@ void PassManagerBuilder::populateFunctionPassManager(
     FPM.add(createSROAPass());
   else
     FPM.add(createScalarReplAggregatesPass());
-  FPM.add(createEarlyCSEPass());
+  // HLSL Change. FPM.add(createEarlyCSEPass());
   FPM.add(createLowerExpectIntrinsicPass());
 }
 
@@ -328,7 +328,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createSROAPass(/*RequiresDomTree*/ false));
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
-  MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
+  // HLSL Change. MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
