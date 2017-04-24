@@ -379,7 +379,9 @@
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
         <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
+    <!-- TODO: Uncomment this when WARP is fixed
           <Value>NaN</Value>
+    -->
           <Value>-Inf</Value>
           <Value>-denorm</Value>
           <Value>-0</Value>
@@ -390,7 +392,9 @@
           <Value>-1</Value>
         </Parameter>
         <Parameter Name="Validation.Expected">
+    <!-- TODO: Uncomment this when WARP is fixed
           <Value>NaN</Value>
+    -->
           <Value>-1.570796</Value>
           <Value>0.0</Value>
           <Value>0.0</Value>
@@ -1024,7 +1028,9 @@
         <Parameter Name="Validation.Tolerance">0</Parameter>
         <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
+     <!-- TODO: Uncomment this when WARP is fixed
           <Value>NaN</Value>
+     -->
           <Value>-Inf</Value>
           <Value>-denorm</Value>
           <Value>-0</Value>
@@ -1035,7 +1041,9 @@
           <Value>-1.0</Value>
         </Parameter>
         <Parameter Name="Validation.Expected">
+     <!-- TODO: Uncomment this when WARP is fixed
           <Value>0</Value>
+     -->
           <Value>0</Value>
           <Value>1</Value>
           <Value>1</Value>
