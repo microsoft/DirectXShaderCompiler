@@ -335,6 +335,7 @@ public:
   TEST_METHOD(CodeGenCbufferAlloc)
   TEST_METHOD(CodeGenCbufferAllocLegacy)
   TEST_METHOD(CodeGenCbufferInLoop)
+  TEST_METHOD(CodeGenClass)
   TEST_METHOD(CodeGenClip)
   TEST_METHOD(CodeGenClipPlanes)
   TEST_METHOD(CodeGenConstoperand1)
@@ -2179,6 +2180,10 @@ TEST_F(CompilerTest, CodeGenCbufferAllocLegacy) {
 
 TEST_F(CompilerTest, CodeGenCbufferInLoop) {
   CodeGenTest(L"..\\CodeGenHLSL\\cbufferInLoop.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenClass) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\class.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenClip) {

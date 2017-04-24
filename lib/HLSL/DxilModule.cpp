@@ -927,6 +927,7 @@ vector<GlobalVariable* > &DxilModule::GetLLVMUsed() {
 
 // DXIL metadata serialization/deserialization.
 void DxilModule::EmitDxilMetadata() {
+  m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
 
