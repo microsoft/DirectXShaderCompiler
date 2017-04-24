@@ -377,7 +377,7 @@
       <Row Name="atan">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
-        <Parameter Name="Validation.NumInput">9</Parameter>
+        <Parameter Name="Validation.NumInput">8</Parameter>
         <Parameter Name="Validation.Input">
     <!-- TODO: Uncomment this when WARP is fixed
           <Value>NaN</Value>
@@ -1026,7 +1026,7 @@
       <Row Name="IsFinite">
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
-        <Parameter Name="Validation.NumInput">9</Parameter>
+        <Parameter Name="Validation.NumInput">8</Parameter>
         <Parameter Name="Validation.Input">
      <!-- TODO: Uncomment this when WARP is fixed
           <Value>NaN</Value>
