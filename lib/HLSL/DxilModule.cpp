@@ -129,7 +129,6 @@ OP *DxilModule::GetOP() const { return m_pOP.get(); }
 void DxilModule::SetShaderModel(const ShaderModel *pSM) {
   DXASSERT(m_pSM == nullptr || (pSM != nullptr && *m_pSM == *pSM), "shader model must not change for the module");
   m_pSM = pSM;
-  m_pSM->SetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   DXIL::ShaderKind shaderKind = pSM->GetKind();
   m_InputSignature.reset(new DxilSignature(shaderKind, DXIL::SignatureKind::Input));
@@ -928,6 +927,7 @@ vector<GlobalVariable* > &DxilModule::GetLLVMUsed() {
 
 // DXIL metadata serialization/deserialization.
 void DxilModule::EmitDxilMetadata() {
+  m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
 

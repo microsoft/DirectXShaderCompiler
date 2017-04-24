@@ -306,6 +306,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     unsigned DiagID =
         Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid profile %0");
     Diags.Report(DiagID) << CGM.getCodeGenOpts().HLSLProfile;
+    return;
   }
   // TODO: add AllResourceBound.
   if (CGM.getCodeGenOpts().HLSLAvoidControlFlow && !CGM.getCodeGenOpts().HLSLAllResourcesBound) {

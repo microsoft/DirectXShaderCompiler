@@ -101,13 +101,18 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   return Get(Kind, Major, Minor);
 }
 
-void ShaderModel::SetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {
-  if (m_Major == 6) {
-    DxilMajor = 1;
-    DxilMinor = m_Minor;
-  } else {
-    DxilMajor = 1;
+void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {
+  DXASSERT(m_Major == 6, "invalid major");
+  switch (m_Minor) {
+  case 0:
     DxilMinor = 0;
+    break;
+  case 1:
+    DxilMinor = 1;
+    break;
+  default:
+    DXASSERT(0, "invalid minor");
+    break;
   }
 }
 

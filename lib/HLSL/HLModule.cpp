@@ -83,7 +83,7 @@ OP *HLModule::GetOP() const { return m_pOP.get(); }
 void HLModule::SetShaderModel(const ShaderModel *pSM) {
   DXASSERT(m_pSM == nullptr, "shader model must not change for the module");
   m_pSM = pSM;
-  m_pSM->SetDxilVersion(m_DxilMajor, m_DxilMinor);
+  m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   CreateSignatures(m_pSM, m_InputSignature, m_OutputSignature, m_PatchConstantSignature, m_RootSignature);
 }

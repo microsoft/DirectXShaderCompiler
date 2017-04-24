@@ -42,7 +42,7 @@ public:
   Kind GetKind() const      { return m_Kind; }
   unsigned GetMajor() const { return m_Major; }
   unsigned GetMinor() const { return m_Minor; }
-  void SetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
+  void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
   bool IsSM50Plus() const   { return m_Major >= 5; }
   bool IsSM51Plus() const   { return m_Major > 5 || (m_Major == 5 && m_Minor >= 1); }
   bool IsSM61Plus() const   { return m_Major > 6 || (m_Major == 6 && m_Minor >= 1); }
