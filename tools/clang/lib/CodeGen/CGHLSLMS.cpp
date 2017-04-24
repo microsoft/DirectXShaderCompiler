@@ -301,11 +301,12 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   const hlsl::ShaderModel *SM =
       hlsl::ShaderModel::GetByName(CGM.getCodeGenOpts().HLSLProfile.c_str());
   // Only accept valid, 6.0 shader model.
-  if (!SM->IsValid() || SM->GetMajor() != 6 || SM->GetMinor() != 0) {
+  if (!SM->IsValid() || SM->GetMajor() != 6) {
     DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID =
         Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid profile %0");
     Diags.Report(DiagID) << CGM.getCodeGenOpts().HLSLProfile;
+    return;
   }
   // TODO: add AllResourceBound.
   if (CGM.getCodeGenOpts().HLSLAvoidControlFlow && !CGM.getCodeGenOpts().HLSLAllResourcesBound) {
@@ -978,7 +979,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD)) {
       const CXXRecordDecl *RD = MD->getParent();
       // For nested case like sample_slice_type.
-      if (const CXXRecordDecl *PRD = dyn_cast<CXXRecordDecl>(RD->getDeclContext())) {
+      if (const CXXRecordDecl *PRD =
+              dyn_cast<CXXRecordDecl>(RD->getDeclContext())) {
         RD = PRD;
       }
 
@@ -994,7 +996,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         SetUAVSRV(FD->getLocation(), resClass, &UAV, RD);
         // Set global symbol to save type.
         UAV.SetGlobalSymbol(UndefValue::get(Ty));
-        MDNode * MD = m_pHLModule->DxilUAVToMDNode(UAV);
+        MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
         resMetadataMap[Ty] = MD;
       } break;
       case DXIL::ResourceClass::SRV: {
@@ -1002,13 +1004,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         SetUAVSRV(FD->getLocation(), resClass, &SRV, RD);
         // Set global symbol to save type.
         SRV.SetGlobalSymbol(UndefValue::get(Ty));
-        MDNode * Meta = m_pHLModule->DxilSRVToMDNode(SRV);
+        MDNode *Meta = m_pHLModule->DxilSRVToMDNode(SRV);
         resMetadataMap[Ty] = Meta;
         if (FT->getNumParams() > 1) {
           QualType paramTy = MD->getParamDecl(0)->getType();
           // Add sampler type.
           if (TypeToClass(paramTy) == DXIL::ResourceClass::Sampler) {
-            llvm::Type * Ty = FT->getParamType(1)->getPointerElementType();
+            llvm::Type *Ty = FT->getParamType(1)->getPointerElementType();
             DxilSampler S;
             const RecordType *RT = paramTy->getAs<RecordType>();
             DxilSampler::SamplerKind kind =
@@ -1034,14 +1036,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     // Don't need to add FunctionQual for intrinsic function.
     return;
   }
-  
+
   // Set entry function
   const std::string &entryName = m_pHLModule->GetEntryFunctionName();
   bool isEntry = FD->getNameAsString() == entryName;
   if (isEntry)
     EntryFunc = F;
 
-  std::unique_ptr<HLFunctionProps> funcProps = llvm::make_unique<HLFunctionProps>();
+  std::unique_ptr<HLFunctionProps> funcProps =
+      llvm::make_unique<HLFunctionProps>();
 
   // Save patch constant function to patchConstantFunctionMap.
   bool isPatchConstantFunction = false;
@@ -1051,9 +1054,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       patchConstantFunctionMap[FD->getName()] = F;
     else {
       // TODO: This is not the same as how fxc handles patch constant functions.
-      //  This will fail if more than one function with the same name has a SV_TessFactor semantic.
-      //  Fxc just selects the last function defined that has the matching name when referenced
-      //  by the patchconstantfunc attribute from the hull shader currently being compiled.
+      //  This will fail if more than one function with the same name has a
+      //  SV_TessFactor semantic. Fxc just selects the last function defined
+      //  that has the matching name when referenced by the patchconstantfunc
+      //  attribute from the hull shader currently being compiled.
       // Report error
       DiagnosticsEngine &Diags = CGM.getDiags();
       unsigned DiagID =
@@ -1063,8 +1067,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
     }
 
-    for (Argument &arg : F->getArgumentList()) {
-      const ParmVarDecl *parmDecl = FD->getParamDecl(arg.getArgNo());
+    for (ParmVarDecl *parmDecl : FD->parameters()) {
       QualType Ty = parmDecl->getType();
       if (IsHLSLOutputPatchType(Ty)) {
         funcProps->ShaderProps.HS.outputControlPoints =
@@ -1080,7 +1083,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   // TODO: how to know VS/PS?
   funcProps->shaderKind = DXIL::ShaderKind::Invalid;
-  
+
   DiagnosticsEngine &Diags = CGM.getDiags();
   // Geometry shader.
   bool isGS = false;
@@ -1092,8 +1095,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->ShaderProps.GS.inputPrimitive = DXIL::InputPrimitive::Undefined;
 
     if (isEntry && !SM->IsGS()) {
-      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                              "attribute maxvertexcount only valid for GS.");
+      unsigned DiagID =
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                "attribute maxvertexcount only valid for GS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1102,13 +1106,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     unsigned instanceCount = Attr->getCount();
     funcProps->ShaderProps.GS.instanceCount = instanceCount;
     if (isEntry && !SM->IsGS()) {
-      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                              "attribute maxvertexcount only valid for GS.");
+      unsigned DiagID =
+          Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                "attribute maxvertexcount only valid for GS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
-  }
-  else {
+  } else {
     // Set default instance count.
     if (isGS)
       funcProps->ShaderProps.GS.instanceCount = 1;
@@ -1209,7 +1213,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           FD->getAttr<HLSLOutputTopologyAttr>()) {
     if (isHS) {
       DXIL::TessellatorOutputPrimitive primitive =
-            StringToTessOutputPrimitive(Attr->getTopology());
+          StringToTessOutputPrimitive(Attr->getTopology());
       funcProps->ShaderProps.HS.outputPrimitive = primitive;
     } else if (isEntry && !SM->IsHS()) {
       unsigned DiagID =
@@ -1264,26 +1268,26 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   bool isVS = false;
   if (const HLSLClipPlanesAttr *Attr = FD->getAttr<HLSLClipPlanesAttr>()) {
     if (isEntry && !SM->IsVS()) {
-      unsigned DiagID =
-          Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                "attribute clipplane only valid for VS.");
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "attribute clipplane only valid for VS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
 
     isVS = true;
-    // The real job is done at EmitHLSLFunctionProlog where debug info is available.
-    // Only set shader kind here.
+    // The real job is done at EmitHLSLFunctionProlog where debug info is
+    // available. Only set shader kind here.
     funcProps->shaderKind = DXIL::ShaderKind::Vertex;
   }
 
   // Pixel shader.
   bool isPS = false;
-  if (const HLSLEarlyDepthStencilAttr *Attr = FD->getAttr<HLSLEarlyDepthStencilAttr>()) {
+  if (const HLSLEarlyDepthStencilAttr *Attr =
+          FD->getAttr<HLSLEarlyDepthStencilAttr>()) {
     if (isEntry && !SM->IsPS()) {
-      unsigned DiagID =
-          Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                "attribute earlydepthstencil only valid for PS.");
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "attribute earlydepthstencil only valid for PS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1308,7 +1312,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     profileAttributes++;
 
   // TODO: check this in front-end and report error.
-  DXASSERT(profileAttributes<2, "profile attributes are mutual exclusive");
+  DXASSERT(profileAttributes < 2, "profile attributes are mutual exclusive");
 
   if (isEntry) {
     switch (funcProps->shaderKind) {
@@ -1324,11 +1328,37 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
-  DxilFunctionAnnotation *FuncAnnotation = m_pHLModule->AddFunctionAnnotation(F);
+  DxilFunctionAnnotation *FuncAnnotation =
+      m_pHLModule->AddFunctionAnnotation(F);
+  bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
+
+  // Param Info
+  unsigned streamIndex = 0;
+  unsigned inputPatchCount = 0;
+  unsigned outputPatchCount = 0;
+
+  unsigned ArgNo = 0;
+  unsigned ParmIdx = 0;
+
+  if (const CXXMethodDecl *MethodDecl = dyn_cast<CXXMethodDecl>(FD)) {
+    QualType ThisTy = MethodDecl->getThisType(FD->getASTContext());
+    DxilParameterAnnotation &paramAnnotation =
+        FuncAnnotation->GetParameterAnnotation(ArgNo++);
+    // Construct annoation for this pointer.
+    ConstructFieldAttributedAnnotation(paramAnnotation, ThisTy,
+                                       bDefaultRowMajor);
+  }
 
   // Ret Info
-  DxilParameterAnnotation &retTyAnnotation = FuncAnnotation->GetRetTypeAnnotation();
   QualType retTy = FD->getReturnType();
+  DxilParameterAnnotation *pRetTyAnnotation = nullptr;
+  if (F->getReturnType()->isVoidTy() && !retTy->isVoidType()) {
+    // SRet.
+    pRetTyAnnotation = &FuncAnnotation->GetParameterAnnotation(ArgNo++);
+  } else {
+    pRetTyAnnotation = &FuncAnnotation->GetRetTypeAnnotation();
+  }
+  DxilParameterAnnotation &retTyAnnotation = *pRetTyAnnotation;
   // keep Undefined here, we cannot decide for struct
   retTyAnnotation.SetInterpolationMode(
       GetInterpMode(FD, CompType::Kind::Invalid, /*bKeepUndefined*/ true)
@@ -1336,35 +1366,22 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   SourceLocation retTySemanticLoc = SetSemantic(FD, retTyAnnotation);
   retTyAnnotation.SetParamInputQual(DxilParamInputQual::Out);
   if (isEntry) {
-    CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation, /*isPatchConstantFunction*/false);
+    CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
+                             /*isPatchConstantFunction*/ false);
   }
-
-  bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
 
   ConstructFieldAttributedAnnotation(retTyAnnotation, retTy, bDefaultRowMajor);
   if (FD->hasAttr<HLSLPreciseAttr>())
     retTyAnnotation.SetPrecise();
 
-  // Param Info
-  unsigned streamIndex = 0;
-  unsigned inputPatchCount = 0;
-  unsigned outputPatchCount = 0;
+  for (; ArgNo < F->arg_size(); ++ArgNo, ++ParmIdx) {
+    DxilParameterAnnotation &paramAnnotation =
+        FuncAnnotation->GetParameterAnnotation(ArgNo);
 
-  for (unsigned ArgNo = 0; ArgNo < F->arg_size(); ++ArgNo) {
-    unsigned ParmIdx = ArgNo;
-
-    DxilParameterAnnotation &paramAnnotation = FuncAnnotation->GetParameterAnnotation(ArgNo);
-    
-    if (isa<CXXMethodDecl>(FD)) {
-      // skip arg0 for this pointer
-      if (ArgNo == 0)
-        continue;
-      // update idx for rest params
-      ParmIdx--;
-    }
     const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
-    
-    ConstructFieldAttributedAnnotation(paramAnnotation, parmDecl->getType(), bDefaultRowMajor);
+
+    ConstructFieldAttributedAnnotation(paramAnnotation, parmDecl->getType(),
+                                       bDefaultRowMajor);
     if (parmDecl->hasAttr<HLSLPreciseAttr>())
       paramAnnotation.SetPrecise();
 
@@ -1532,7 +1549,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
     paramAnnotation.SetParamInputQual(dxilInputQ);
     if (isEntry) {
-      CheckParameterAnnotation(paramSemanticLoc, paramAnnotation, /*isPatchConstantFunction*/false);
+      CheckParameterAnnotation(paramSemanticLoc, paramAnnotation,
+                               /*isPatchConstantFunction*/ false);
     }
   }
 
@@ -1561,7 +1579,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
   }
 
-  for (const ValueDecl*param : FD->params()) {
+  for (const ValueDecl *param : FD->params()) {
     QualType Ty = param->getType();
     AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
   }
