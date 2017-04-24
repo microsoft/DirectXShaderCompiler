@@ -1994,10 +1994,12 @@ private:
       CComPtr<IDxcBlob> pErrorBlob;
       IFT(pOutputStream->QueryInterface(&pErrorBlob));
       CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
+      outStream.flush();
       IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
                                        &pErrorBlobWithEncoding));
       IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
       finished = true;
+      return;
     }
     DXASSERT(!opts.HLSL2015, "else ReadDxcOpts didn't fail for non-isense");
     finished = false;
