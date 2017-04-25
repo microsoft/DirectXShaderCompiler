@@ -2344,10 +2344,10 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   Value *Dest = MI->getRawDest();
   Value *Src = MI->getRawSource();
   // Only remove one level bitcast generated from inline.
-  if (Operator::getOpcode(Dest) == Instruction::BitCast)
-    Dest = cast<Operator>(Dest)->getOperand(0);
-  if (Operator::getOpcode(Src) == Instruction::BitCast)
-    Src = cast<Operator>(Src)->getOperand(0);
+  if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Dest))
+    Dest = BC->getOperand(0);
+  if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Src))
+    Src = BC->getOperand(0);
 
   IRBuilder<> Builder(MI);
   Type *DestTy = Dest->getType()->getPointerElementType();
