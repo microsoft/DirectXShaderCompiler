@@ -1108,7 +1108,7 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
     case TEK_Scalar:
       // HLSL Change Begins.
       if (hlsl::IsHLSLMatType(RV->getType())) {
-        CGM.getHLSLRuntime().EmitHLSLAggregateStore(*this, EmitScalarExpr(RV), ReturnValue, RV->getType());
+        CGM.getHLSLRuntime().EmitHLSLMatrixStore(*this, EmitScalarExpr(RV), ReturnValue, RV->getType());
       } else
         // HLSL Change Ends.
         Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);

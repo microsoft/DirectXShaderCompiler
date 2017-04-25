@@ -59,6 +59,8 @@ public:
                                          const FunctionDecl *FD,
                                          const CallExpr *E,
                                          ReturnValueSlot ReturnValue) = 0;
+  // Is E is a c++ init list not a hlsl init list which only match size.
+  virtual bool IsTrivalInitListExpr(CodeGenFunction &CGF, InitListExpr *E) = 0;
   virtual llvm::Value *EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E,
       // The destPtr when emiting aggregate init, for normal case, it will be null.
       llvm::Value *DestPtr) = 0;
