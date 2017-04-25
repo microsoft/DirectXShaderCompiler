@@ -82,7 +82,6 @@ public:
                                   IRBuilder<> &Builder, bool bFlatVector,
                                   bool hasPrecise, DxilTypeSystem &typeSys,
                                   SmallVector<Value *, 32> &DeadInsts);
-
   static void MarkEmptyStructUsers(Value *V, SmallVector<Value *, 32> &DeadInsts);
   static bool IsEmptyStructType(Type *Ty, DxilTypeSystem &typeSys);
 private:
@@ -255,6 +254,9 @@ public:
   MemcpySplitter(llvm::LLVMContext &context, DxilTypeSystem &typeSys)
       : m_context(context), m_typeSys(typeSys) {}
   void Split(llvm::Function &F);
+  static void SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
+                          DxilFieldAnnotation *fieldAnnotation,
+                          DxilTypeSystem &typeSys, bool bAllowReplace);
 };
 
 }
@@ -2313,7 +2315,84 @@ static void SplitPtr(Type *Ty, Value *Ptr, SmallVector<Value *, 16> &idxList,
   }
 }
 
+// Support case when bitcast (gep ptr, 0,0) is transformed into bitcast ptr.
+static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsigned size, unsigned level) {
+  unsigned ptrSize = DL.getTypeAllocSize(Ty);
+  // Size match, return current level.
+  if (ptrSize == size)
+    return level;
+  // Add ZeroIdx cannot make ptrSize bigger.
+  if (ptrSize < size)
+    return 0;
+  // ptrSize > size.
+  // Try to use element type to make size match.
+  if (StructType *ST = dyn_cast<StructType>(Ty)) {
+    return MatchSizeByCheckElementType(ST->getElementType(0), DL, size, level+1);
+  } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
+    return MatchSizeByCheckElementType(AT->getElementType(), DL, size, level+1);
+  } else {
+    return 0;
+  }
+}
+
+void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
+                                 DxilFieldAnnotation *fieldAnnotation,
+                                 DxilTypeSystem &typeSys, bool bAllowReplace) {
+  Value *Op0 = MI->getOperand(0);
+  Value *Op1 = MI->getOperand(1);
+
+  Value *Dest = MI->getRawDest();
+  Value *Src = MI->getRawSource();
+  // Only remove one level bitcast generated from inline.
+  if (Operator::getOpcode(Dest) == Instruction::BitCast)
+    Dest = cast<Operator>(Dest)->getOperand(0);
+  if (Operator::getOpcode(Src) == Instruction::BitCast)
+    Src = cast<Operator>(Src)->getOperand(0);
+
+  IRBuilder<> Builder(MI);
+  Type *DestTy = Dest->getType()->getPointerElementType();
+  Type *SrcTy = Src->getType()->getPointerElementType();
+  // Support case when bitcast (gep ptr, 0,0) is transformed into
+  // bitcast ptr.
+  ConstantInt *Length = cast<ConstantInt>(MI->getLength());
+  unsigned size = Length->getLimitedValue();
+  Value *zeroIdx = Builder.getInt32(0);
+  if (unsigned level = MatchSizeByCheckElementType(DestTy, DL, size, 0)) {
+    SmallVector<Value *, 2> IdxList(level + 1, zeroIdx);
+    Dest = Builder.CreateInBoundsGEP(Dest, IdxList);
+    DestTy = Dest->getType()->getPointerElementType();
+  }
+  if (unsigned level = MatchSizeByCheckElementType(SrcTy, DL, size, 0)) {
+    SmallVector<Value *, 2> IdxList(level + 1, zeroIdx);
+    Src = Builder.CreateInBoundsGEP(Src, IdxList);
+    SrcTy = Src->getType()->getPointerElementType();
+  }
+
+  // Allow copy between different address space.
+  if (DestTy != SrcTy) {
+    return;
+  }
+
+  llvm::SmallVector<llvm::Value *, 16> idxList;
+  // split
+  // Matrix is treated as scalar type, will not use memcpy.
+  // So use nullptr for fieldAnnotation should be safe here.
+  SplitCpy(Dest->getType(), Dest, Src, idxList, bAllowReplace, Builder, typeSys,
+           fieldAnnotation);
+  // delete memcpy
+  MI->eraseFromParent();
+  if (Instruction *op0 = dyn_cast<Instruction>(Op0)) {
+    if (op0->user_empty())
+      op0->eraseFromParent();
+  }
+  if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
+    if (op1->user_empty())
+      op1->eraseFromParent();
+  }
+}
+
 void MemcpySplitter::Split(llvm::Function &F) {
+  const DataLayout &DL = F.getParent()->getDataLayout();
   // Walk all instruction in the function.
   for (Function::iterator BB = F.begin(), BBE = F.end(); BB != BBE; ++BB) {
     for (BasicBlock::iterator BI = BB->begin(), BE = BB->end(); BI != BE;) {
@@ -2321,53 +2400,9 @@ void MemcpySplitter::Split(llvm::Function &F) {
       Instruction *I = BI++;
 
       if (MemCpyInst *MI = dyn_cast<MemCpyInst>(I)) {
-        Value *Op0 = MI->getOperand(0);
-        Value *Op1 = MI->getOperand(1);
-
-        Value *Dest = MI->getRawDest();
-        Value *Src = MI->getRawSource();
-        // Only remove one level bitcast generated from inline.
-        if (Operator::getOpcode(Dest) == Instruction::BitCast)
-          Dest = cast<Operator>(Dest)->getOperand(0);
-        if (Operator::getOpcode(Src) == Instruction::BitCast)
-          Src = cast<Operator>(Src)->getOperand(0);
-
-        IRBuilder<> Builder(I);
-        if (Dest->getType() != Src->getType()) {
-          // Support case when bitcast (gep ptr, 0,0) is transformed into
-          // bitcast ptr.
-          if (isa<GlobalVariable>(Src) &&
-              Src->getType()->getPointerElementType()->isStructTy()) {
-            StructType *ST =
-                cast<StructType>(Src->getType()->getPointerElementType());
-
-            if (Dest->getType()->getPointerElementType() ==
-                ST->getElementType(0)) {
-              Type *i32Ty = Type::getInt32Ty(F.getContext());
-              Value *zero = ConstantInt::get(i32Ty, 0);
-              Src = Builder.CreateInBoundsGEP(Src, {zero, zero});
-            }
-          }
-
-          if (Dest->getType() != Src->getType())
-            continue;
-        }
-        llvm::SmallVector<llvm::Value *, 16> idxList;
-        // split
         // Matrix is treated as scalar type, will not use memcpy.
         // So use nullptr for fieldAnnotation should be safe here.
-        SplitCpy(Dest->getType(), Dest, Src, idxList, /*bAllowReplace*/ true,
-                 Builder, m_typeSys, /*fieldAnnotation*/ nullptr);
-        // delete memcpy
-        I->eraseFromParent();
-        if (Instruction *op0 = dyn_cast<Instruction>(Op0)) {
-          if (op0->user_empty())
-            op0->eraseFromParent();
-        }
-        if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
-          if (op1->user_empty())
-            op1->eraseFromParent();
-        }
+        SplitMemCpy(MI, DL, /*fieldAnnotation*/ nullptr, m_typeSys, /*bAllowReplace*/ false);
       }
     }
   }
@@ -3340,6 +3375,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &
 
   return true;
 }
+
 /// MarkEmptyStructUsers - Add instruction related to Empty struct to DeadInsts.
 void SROA_Helper::MarkEmptyStructUsers(Value *V, SmallVector<Value *, 32> &DeadInsts) {
   for (User *U : V->users()) {
@@ -3652,6 +3688,9 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
         isFlattened = true;
     }
   }
+
+  DeleteDeadInstructions();
+
   if (isFlattened) {
     GV->removeDeadConstantUsers();
     GV->eraseFromParent();

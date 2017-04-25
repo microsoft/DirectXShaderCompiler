@@ -1034,8 +1034,11 @@ void HLModule::MergeGepUse(Value *V) {
       if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
         // merge the 2 GEPs
         Value *newGEP = MergeGEP(prevGEP, GEP);
-        GEP->replaceAllUsesWith(newGEP);
-        GEP->eraseFromParent();
+        // Don't need to replace when GEP is updated in place
+        if (newGEP != GEP) {
+          GEP->replaceAllUsesWith(newGEP);
+          GEP->eraseFromParent();
+        }
         MergeGepUse(newGEP);
       } else {
         MergeGepUse(*Use);
@@ -1044,8 +1047,11 @@ void HLModule::MergeGepUse(Value *V) {
       if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
         // merge the 2 GEPs
         Value *newGEP = MergeGEP(prevGEP, GEP);
-        GEP->replaceAllUsesWith(newGEP);
-        GEP->eraseFromParent();
+        // Don't need to replace when GEP is updated in place
+        if (newGEP != GEP) {
+          GEP->replaceAllUsesWith(newGEP);
+          GEP->eraseFromParent();
+        }
         MergeGepUse(newGEP);
       } else {
         MergeGepUse(*Use);

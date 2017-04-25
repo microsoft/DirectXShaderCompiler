@@ -148,12 +148,9 @@ private:
   void EmitHLSLAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
                                    llvm::Value *DestPtr,
                                    SmallVector<Value *, 4> &idxList,
-                                   clang::QualType Type,
+                                   clang::QualType SrcType,
+                                   clang::QualType DestType,
                                    llvm::Type *Ty);
-  void EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *Val,
-                              llvm::Value *DestPtr,
-                              SmallVector<Value *, 4> &idxList,
-                              clang::QualType Type, llvm::Type *Ty);
 
   void EmitHLSLFlatConversionToAggregate(CodeGenFunction &CGF, Value *SrcVal,
                                          llvm::Value *DestPtr,
@@ -199,6 +196,7 @@ public:
   /// Add resouce to the program
   void addResource(Decl *D) override;
   void FinishCodeGen() override;
+  bool IsTrivalInitListExpr(CodeGenFunction &CGF, InitListExpr *E) override;
   Value *EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E, Value *DestPtr) override;
   Constant *EmitHLSLConstInitListExpr(CodeGenModule &CGM, InitListExpr *E) override;
 
@@ -4451,10 +4449,88 @@ void CGMSHLSLRuntime::ScanInitList(CodeGenFunction &CGF, InitListExpr *E,
 
   }
 }
+// Is Type of E match Ty.
+static bool ExpTypeMatch(Expr *E, QualType Ty, ASTContext &Ctx, CodeGenTypes &Types) {
+  if (InitListExpr *initList = dyn_cast<InitListExpr>(E)) {
+    unsigned NumInitElements = initList->getNumInits();
+
+    // Skip vector and matrix type.
+    if (Ty->isVectorType())
+      return false;
+    if (hlsl::IsHLSLVecMatType(Ty))
+      return false;
+
+    if (Ty->isStructureOrClassType()) {
+      RecordDecl *record = Ty->castAs<RecordType>()->getDecl();
+      bool bMatch = true;
+      auto It = record->field_begin();
+      auto ItEnd = record->field_end();
+      unsigned i = 0;
+      for (auto it = record->field_begin(), end = record->field_end();
+           it != end; it++) {
+        if (i == NumInitElements) {
+          bMatch = false;
+          break;
+        }
+        Expr *init = initList->getInit(i++);
+        QualType EltTy = it->getType();
+        bMatch &= ExpTypeMatch(init, EltTy, Ctx, Types);
+        if (!bMatch)
+          break;
+      }
+      bMatch &= i == NumInitElements;
+      return bMatch;
+    } else if (Ty->isArrayType() && !Ty->isIncompleteArrayType()) {
+      const ConstantArrayType *AT = Ctx.getAsConstantArrayType(Ty);
+      QualType EltTy = AT->getElementType();
+      unsigned size = AT->getSize().getZExtValue();
+
+      if (size != NumInitElements)
+        return false;
+
+      bool bMatch = true;
+      for (unsigned i = 0; i != NumInitElements; ++i) {
+        Expr *init = initList->getInit(i);
+        bMatch &= ExpTypeMatch(init, EltTy, Ctx, Types);
+        if (!bMatch)
+          break;
+      }
+      return bMatch;
+    } else {
+      return false;
+    }
+  } else {
+    llvm::Type *ExpTy = Types.ConvertType(E->getType());
+    llvm::Type *TargetTy = Types.ConvertType(Ty);
+    return ExpTy == TargetTy;
+  }
+}
+
+bool CGMSHLSLRuntime::IsTrivalInitListExpr(CodeGenFunction &CGF,
+                                           InitListExpr *E) {
+  QualType Ty = E->getType();
+  return ExpTypeMatch(E, Ty, CGF.getContext(), CGF.getTypes());
+}
 
 Value *CGMSHLSLRuntime::EmitHLSLInitListExpr(CodeGenFunction &CGF, InitListExpr *E,
       // The destPtr when emiting aggregate init, for normal case, it will be null.
       Value *DestPtr) {
+  if (DestPtr && E->getNumInits() == 1) {
+    llvm::Type *ExpTy = CGF.ConvertType(E->getType());
+    llvm::Type *TargetTy = CGF.ConvertType(E->getInit(0)->getType());
+    if (ExpTy == TargetTy) {
+      Expr *Expr = E->getInit(0);
+      LValue LV = CGF.EmitLValue(Expr);
+      if (LV.isSimple()) {
+        Value *SrcPtr = LV.getAddress();
+        SmallVector<Value *, 4> idxList;
+        EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, Expr->getType(),
+                              E->getType(), SrcPtr->getType());
+        return nullptr;
+      }
+    }
+  }
+
   SmallVector<Value *, 4> EltValList;
   SmallVector<QualType, 4> EltTyList;
   
@@ -5258,22 +5334,21 @@ void CGMSHLSLRuntime::StoreFlattenedGepList(CodeGenFunction &CGF, ArrayRef<Value
   }
 }
 
-
-// Copy element data from SrcPtr to DestPtr by generate following IR.
-//     element = Ld SrcGEP
-//     St element, DestGEP
-// idxList stored the index to generate GetElementPtr for current element.
-// Type is QualType of current element.
-// Ty is llvm::Type of current element.
+// Copy data from SrcPtr to DestPtr.
+// For matrix, use MatLoad/MatStore.
+// For matrix array, EmitHLSLAggregateCopy on each element.
+// For struct or array, use memcpy.
+// Other just load/store.
 void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     CodeGenFunction &CGF, llvm::Value *SrcPtr, llvm::Value *DestPtr,
-    SmallVector<Value *, 4> &idxList, clang::QualType Type, llvm::Type *Ty) {
+    SmallVector<Value *, 4> &idxList, clang::QualType SrcType,
+    clang::QualType DestType, llvm::Type *Ty) {
   if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
     idxList.emplace_back(idx);
 
-    EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, Type,
+    EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, SrcType, DestType,
                           PT->getElementType());
 
     idxList.pop_back();
@@ -5281,74 +5356,41 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     // Use matLd/St for matrix.
     Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
     Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
-    Value *ldMat = EmitHLSLMatrixLoad(CGF, srcGEP, Type);
-    EmitHLSLMatrixStore(CGF, ldMat, dstGEP, Type);
+    Value *ldMat = EmitHLSLMatrixLoad(CGF, srcGEP, SrcType);
+    EmitHLSLMatrixStore(CGF, ldMat, dstGEP, DestType);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     if (HLModule::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
       SimpleCopy(DestPtr, SrcPtr, idxList, CGF.Builder);
       return;
     }
-    const clang::RecordType *RT = Type->getAsStructureType();
-    // For classType.
-    if (!RT)
-      RT = Type->getAs<RecordType>();
-    RecordDecl *RD = RT->getDecl();
-    auto fieldIter = RD->field_begin();
-
-    const CGRecordLayout &RL = CGF.getTypes().getCGRecordLayout(RD);
-
-    // Take care base.
-    if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
-      if (CXXRD->getNumBases()) {
-        for (const auto &I : CXXRD->bases()) {
-          const CXXRecordDecl *BaseDecl =
-              cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
-          if (BaseDecl->field_empty())
-            continue;
-          QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
-          unsigned i = RL.getNonVirtualBaseLLVMFieldNo(BaseDecl);
-          llvm::Type *ET = ST->getElementType(i);
-          Constant *idx = llvm::Constant::getIntegerValue(
-              IntegerType::get(Ty->getContext(), 32), APInt(32, i));
-          idxList.emplace_back(idx);
-
-          EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList,
-                                parentTy, ET);
-
-          idxList.pop_back();
-        }
-      }
-    }
-
-    for (auto fieldIter = RD->field_begin(), fieldEnd = RD->field_end();
-         fieldIter != fieldEnd; ++fieldIter) {
-      unsigned i = RL.getLLVMFieldNo(*fieldIter);
-      llvm::Type *ET = ST->getElementType(i);
-
-      Constant *idx = llvm::Constant::getIntegerValue(
-          IntegerType::get(Ty->getContext(), 32), APInt(32, i));
-      idxList.emplace_back(idx);
-
-      EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, fieldIter->getType(),
-                            ET);
-
-      idxList.pop_back();
-    }
-
+    Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
+    Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
+    unsigned size = this->TheModule.getDataLayout().getTypeAllocSize(ST);
+    // Memcpy struct.
+    CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
   } else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
-    llvm::Type *ET = AT->getElementType();
+    if (!HLMatrixLower::IsMatrixArrayPointer(llvm::PointerType::get(Ty,0))) {
+      Value *srcGEP = CGF.Builder.CreateInBoundsGEP(SrcPtr, idxList);
+      Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
+      unsigned size = this->TheModule.getDataLayout().getTypeAllocSize(AT);
+      // Memcpy non-matrix array.
+      CGF.Builder.CreateMemCpy(dstGEP, srcGEP, size, 1);
+    } else {
+      llvm::Type *ET = AT->getElementType();
+      QualType EltDestType = CGF.getContext().getBaseElementType(DestType);
+      QualType EltSrcType = CGF.getContext().getBaseElementType(SrcType);
 
-    QualType EltType = CGF.getContext().getBaseElementType(Type);
+      for (uint32_t i = 0; i < AT->getNumElements(); i++) {
+        Constant *idx = Constant::getIntegerValue(
+            IntegerType::get(Ty->getContext(), 32), APInt(32, i));
+        idxList.emplace_back(idx);
 
-    for (uint32_t i = 0; i < AT->getNumElements(); i++) {
-      Constant *idx = Constant::getIntegerValue(
-          IntegerType::get(Ty->getContext(), 32), APInt(32, i));
-      idxList.emplace_back(idx);
+        EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, EltSrcType,
+                              EltDestType, ET);
 
-      EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, EltType, ET);
-
-      idxList.pop_back();
+        idxList.pop_back();
+      }
     }
   } else {
     SimpleCopy(DestPtr, SrcPtr, idxList, CGF.Builder);
@@ -5359,7 +5401,7 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(CodeGenFunction &CGF, llvm::Value *S
     llvm::Value *DestPtr,
     clang::QualType Ty) {
     SmallVector<Value *, 4> idxList;
-    EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, Ty, SrcPtr->getType());
+    EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, Ty, Ty, SrcPtr->getType());
 }
 
 void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
@@ -5385,108 +5427,10 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     StoreFlattenedGepList(CGF, DestGEPList, DestEltTyList, LdEltList, SrcEltTyList);
 }
 
-// Store element data from Val to DestPtr by generate following IR.
-//     element = ExtractVal SrcVal
-//     St element, DestGEP
-// idxList stored the index to generate GetElementPtr for current element.
-// Type is QualType of current element.
-// Ty is llvm::Type of current element.
-void CGMSHLSLRuntime::EmitHLSLAggregateStore(
-    CodeGenFunction &CGF, llvm::Value *SrcVal, llvm::Value *DestPtr,
-    SmallVector<Value *, 4> &idxList, clang::QualType Type, llvm::Type *Ty) {
-    if (llvm::PointerType *PT = dyn_cast<llvm::PointerType>(Ty)) {
-        Constant *idx = Constant::getIntegerValue(
-            IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
-        idxList.emplace_back(idx);
-
-        EmitHLSLAggregateStore(CGF, SrcVal, DestPtr, idxList, Type, PT->getElementType());
-
-        idxList.pop_back();
-    }
-    else if (HLMatrixLower::IsMatrixType(Ty)) {
-        // Use matLd/St for matrix.
-        Value *dstGEP = CGF.Builder.CreateInBoundsGEP(DestPtr, idxList);
-        Value *ldMat = GetEltVal(SrcVal, idxList, CGF.Builder);
-        EmitHLSLMatrixStore(CGF, ldMat, dstGEP, Type);
-    }
-    else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-        if (HLModule::IsHLSLObjectType(ST)) {
-            // Avoid split HLSL object.
-            SimpleCopy(DestPtr, SrcVal, idxList, CGF.Builder);
-            return;
-        }
-        const clang::RecordType *RT = Type->getAsStructureType();
-        RecordDecl *RD = RT->getDecl();
-        auto fieldIter = RD->field_begin();
-
-        const CGRecordLayout& RL = CGF.getTypes().getCGRecordLayout(RD);
-
-        // Take care base.
-        if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
-          if (CXXRD->getNumBases()) {
-            for (const auto &I : CXXRD->bases()) {
-              const CXXRecordDecl *BaseDecl = cast<CXXRecordDecl>(
-                  I.getType()->castAs<RecordType>()->getDecl());
-              if (BaseDecl->field_empty())
-                continue;
-              QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
-              unsigned i = RL.getNonVirtualBaseLLVMFieldNo(BaseDecl);
-              llvm::Type *ET = ST->getElementType(i);
-              Constant *idx = llvm::Constant::getIntegerValue(
-                  IntegerType::get(Ty->getContext(), 32), APInt(32, i));
-              idxList.emplace_back(idx);
-
-              EmitHLSLAggregateStore(CGF, SrcVal, DestPtr, idxList,
-                                     parentTy, ET);
-
-              idxList.pop_back();
-            }
-          }
-        }
-
-        for (auto fieldIter = RD->field_begin(), fieldEnd = RD->field_end();
-            fieldIter != fieldEnd; ++fieldIter) {
-            unsigned i = RL.getLLVMFieldNo(*fieldIter);
-            llvm::Type *ET = ST->getElementType(i);
-
-            Constant *idx = llvm::Constant::getIntegerValue(
-                IntegerType::get(Ty->getContext(), 32), APInt(32, i));
-            idxList.emplace_back(idx);
-
-            EmitHLSLAggregateStore(CGF, SrcVal, DestPtr, idxList, fieldIter->getType(), ET);
-
-            idxList.pop_back();
-        }
-
-    }
-    else if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(Ty)) {
-        llvm::Type *ET = AT->getElementType();
-
-        QualType EltType = CGF.getContext().getBaseElementType(Type);
-
-        for (uint32_t i = 0; i < AT->getNumElements(); i++) {
-            Constant *idx = Constant::getIntegerValue(
-                IntegerType::get(Ty->getContext(), 32), APInt(32, i));
-            idxList.emplace_back(idx);
-
-            EmitHLSLAggregateStore(CGF, SrcVal, DestPtr, idxList, EltType, ET);
-
-            idxList.pop_back();
-        }
-    }
-    else {
-        SimpleValCopy(DestPtr, SrcVal, idxList, CGF.Builder);
-    }
-}
 void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *SrcVal,
     llvm::Value *DestPtr,
     clang::QualType Ty) {
-    SmallVector<Value *, 4> idxList;
-    // Add first 0 for DestPtr.
-    Constant *idx = Constant::getIntegerValue(
-        IntegerType::get(SrcVal->getContext(), 32), APInt(32, 0));
-    idxList.emplace_back(idx);
-    EmitHLSLAggregateStore(CGF, SrcVal, DestPtr, idxList, Ty, SrcVal->getType());
+    DXASSERT(0, "aggregate return type will use SRet, no aggregate store should exist");
 }
 
 static void SimpleFlatValCopy(Value *DestPtr, Value *SrcVal, QualType Ty,
@@ -5670,7 +5614,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
   // Special case: skip first argument of CXXOperatorCall (it is "this").
   unsigned ArgsToSkip = isa<CXXOperatorCallExpr>(E) ? 1 : 0;
-  
+
   for (uint32_t i = 0; i < FD->getNumParams(); i++) {
     const ParmVarDecl *Param = FD->getParamDecl(i);
     const Expr *Arg = E->getArg(i+ArgsToSkip);
@@ -5735,6 +5679,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     if (Param->isModifierIn() &&
         // Don't copy object
         !isObject) {
+      QualType ArgTy = Arg->getType();
       Value *outVal = nullptr;
       bool isAggrageteTy = ParamTy->isAggregateType();
       isAggrageteTy &= !IsHLSLVecMatType(ParamTy);
@@ -5744,7 +5689,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
           outVal = outRVal.getScalarVal();
         } else {
           Value *argAddr = argLV.getAddress();
-          outVal = EmitHLSLMatrixLoad(CGF, argAddr, ParamTy);
+          outVal = EmitHLSLMatrixLoad(CGF, argAddr, ArgTy);
         }
 
         llvm::Type *ToTy = tmpArgAddr->getType()->getPointerElementType();
@@ -5759,8 +5704,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         else
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
       } else {
+        SmallVector<Value *, 4> idxList;
         EmitHLSLAggregateCopy(CGF, argLV.getAddress(), tmpLV.getAddress(),
-                              ParamTy);
+                              idxList, ArgTy, ParamTy,
+                              argLV.getAddress()->getType());
       }
     }
   }
@@ -5772,24 +5719,26 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
     // cast after the call
     LValue tmpLV = castArgList[i];
     LValue argLV = castArgList[i + 1];
-    QualType argTy = argLV.getType().getNonReferenceType();
+    QualType ArgTy = argLV.getType().getNonReferenceType();
+    QualType ParamTy = tmpLV.getType().getNonReferenceType();
+
     Value *tmpArgAddr = tmpLV.getAddress();
     
     Value *outVal = nullptr;
 
-    bool isAggrageteTy = argTy->isAggregateType();
-    isAggrageteTy &= !IsHLSLVecMatType(argTy);
+    bool isAggrageteTy = ArgTy->isAggregateType();
+    isAggrageteTy &= !IsHLSLVecMatType(ArgTy);
 
     bool isObject = HLModule::IsHLSLObjectType(
        tmpArgAddr->getType()->getPointerElementType());
     if (!isObject) {
       if (!isAggrageteTy) {
-        if (!IsHLSLMatType(argTy))
+        if (!IsHLSLMatType(ParamTy))
           outVal = CGF.Builder.CreateLoad(tmpArgAddr);
         else
-          outVal = EmitHLSLMatrixLoad(CGF, tmpArgAddr, argTy);
+          outVal = EmitHLSLMatrixLoad(CGF, tmpArgAddr, ParamTy);
 
-        llvm::Type *ToTy = CGF.ConvertType(argTy);
+        llvm::Type *ToTy = CGF.ConvertType(ArgTy);
         llvm::Type *FromTy = outVal->getType();
         Value *castVal = outVal;
         if (ToTy == FromTy) {
@@ -5820,11 +5769,13 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
           CGF.EmitStoreThroughLValue(RValue::get(castVal), argLV);
         else {
           Value *destPtr = argLV.getAddress();
-          EmitHLSLMatrixStore(CGF, castVal, destPtr, argTy);
+          EmitHLSLMatrixStore(CGF, castVal, destPtr, ArgTy);
         }
       } else {
+        SmallVector<Value *, 4> idxList;
         EmitHLSLAggregateCopy(CGF, tmpLV.getAddress(), argLV.getAddress(),
-                              argTy);
+                              idxList, ParamTy, ArgTy,
+                              argLV.getAddress()->getType());
       }
     } else
       tmpArgAddr->replaceAllUsesWith(argLV.getAddress());
