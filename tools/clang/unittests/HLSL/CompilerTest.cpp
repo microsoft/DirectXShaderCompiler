@@ -586,6 +586,7 @@ public:
   TEST_METHOD(CodeGenVecCmpCond)
   TEST_METHOD(CodeGenVecTrunc)
   TEST_METHOD(CodeGenWave)
+  TEST_METHOD(CodeGenWaveNoOpt)
   TEST_METHOD(CodeGenWriteMaskBuf)
   TEST_METHOD(CodeGenWriteMaskBuf2)
   TEST_METHOD(CodeGenWriteMaskBuf3)
@@ -3236,6 +3237,10 @@ TEST_F(CompilerTest, CodeGenVecTrunc) {
 
 TEST_F(CompilerTest, CodeGenWave) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\wave.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWaveNoOpt) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\wave_no_opt.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenWriteMaskBuf) {
