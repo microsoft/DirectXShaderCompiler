@@ -1055,6 +1055,7 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
                                   const TargetTransformInfo &TTI) {
   // HLSL Change Begins.
   // Leave CSE to target backend.
+  // Also wave operations should not be CSEed.
   return false;
   // HLSL Change Ends.
 
