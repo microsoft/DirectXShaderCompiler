@@ -274,7 +274,7 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveMax> {
   OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
     OutType maximum = std::numeric_limits<OutType>::min();
     for (size_t i = 0; i < inputs.size(); ++i) {
-      if (masks.at(i) != 0 && inputs.at(i) > maximum)
+      if (masks.at(i) == maskValue && inputs.at(i) > maximum)
         maximum = inputs.at(i);
     }
     return maximum;
@@ -2171,26 +2171,6 @@ RunShaderOpTest(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
   return RunShaderOpTestAfterParse(pDevice, support, pStream, pName, pInitCallback, ShaderOpSet);
 }
 
-static bool isdenorm(float f) {
-  return FP_SUBNORMAL == fpclassify(f);
-}
-static bool isdenorm(double d) {
-  return FP_SUBNORMAL == fpclassify(d);
-}
-
-static float ifdenorm_flushf(float a) {
-  return isdenorm(a) ? copysign(0.0f, a) : a;
-}
-
-static bool ifdenorm_flushf_eq(float a, float b) {
-  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
-}
-
-static bool ifdenorm_flushf_eq_or_nans(float a, float b) {
-  if (isnan(a) && isnan(b)) return true;
-  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
-}
-
 TEST_F(ExecutionTest, OutOfBoundsTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
@@ -2943,6 +2923,8 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
             p->input = val;
           }
           // use shader from data table
+          pShaderOp->Shaders.at(0).Target = shader.Target;
+          pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
           pShaderOp->Shaders.at(0).Text = shader.Text;
         });
 
@@ -3025,6 +3007,8 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
         }
 
         // use shader from data table
+        pShaderOp->Shaders.at(0).Target = shader.Target;
+        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
         pShaderOp->Shaders.at(0).Text = shader.Text;
     });
 
@@ -3117,6 +3101,8 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
         }
 
         // use shader from data table
+        pShaderOp->Shaders.at(0).Target = shader.Target;
+        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
         pShaderOp->Shaders.at(0).Text = shader.Text;
     });
 
@@ -3188,6 +3174,8 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
             p->input = val;
           }
           // use shader data table
+          pShaderOp->Shaders.at(0).Target = shader.Target;
+          pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
           pShaderOp->Shaders.at(0).Text = shader.Text;
         });
 
@@ -3255,6 +3243,8 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
             p->input = val;
         }
         // use shader data table
+        pShaderOp->Shaders.at(0).Target = shader.Target;
+        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
         pShaderOp->Shaders.at(0).Text = shader.Text;
     });
 
@@ -3330,6 +3320,8 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
           }
 
           // use shader from data table
+          pShaderOp->Shaders.at(0).Target = shader.Target;
+          pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
           pShaderOp->Shaders.at(0).Text = shader.Text;
         });
 
@@ -3429,6 +3421,8 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
         }
 
         // use shader from data table
+        pShaderOp->Shaders.at(0).Target = shader.Target;
+        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
         pShaderOp->Shaders.at(0).Text = shader.Text;
     });
 
@@ -3507,6 +3501,8 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
         }
 
         // use shader from data table
+        pShaderOp->Shaders.at(0).Target = shader.Target;
+        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
         pShaderOp->Shaders.at(0).Text = shader.Text;
     });
 
@@ -3606,6 +3602,8 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
         }
 
         // use shader from data table
+        pShaderOp->Shaders.at(0).Target = shader.Target;
+        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
         pShaderOp->Shaders.at(0).Text = shader.Text;
     });
 
@@ -3687,6 +3685,8 @@ TEST_F(ExecutionTest, DotTest) {
             p->input2 = val2;
         }
         // use shader from data table
+        pShaderOp->Shaders.at(0).Target = shader.Target;
+        pShaderOp->Shaders.at(0).EntryPoint = shader.EntryPoint;
         pShaderOp->Shaders.at(0).Text = shader.Text;
     });
 

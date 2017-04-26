@@ -182,9 +182,33 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
 
 }
 
+inline bool isdenorm(float f) {
+  return FP_SUBNORMAL == fpclassify(f);
+}
+
+inline bool isdenorm(double d) {
+  return FP_SUBNORMAL == fpclassify(d);
+}
+
+inline float ifdenorm_flushf(float a) {
+  return isdenorm(a) ? copysign(0.0f, a) : a;
+}
+
+inline bool ifdenorm_flushf_eq(float a, float b) {
+  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
+}
+
+inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
+  if (isnan(a) && isnan(b)) return true;
+  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
+}
+
 inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance) {
     if (isnan(fsrc)) {
         return isnan(fref);
+    }
+    if (isdenorm(fref)) { // Arithmetic operations of denorm may flush to sign-preserved zero
+        return (isdenorm(fsrc) || fsrc == 0) && (signbit(fsrc) == signbit(fref));
     }
     if (fsrc == fref) {
         return true;
@@ -197,6 +221,9 @@ inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPToleran
 inline bool CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon) {
     if (isnan(fsrc)) {
         return isnan(fref);
+    }
+    if (isdenorm(fref)) { // Arithmetic operations of denorm may flush to sign-preserved zero
+        return (isdenorm(fsrc) || fsrc == 0) && (signbit(fsrc) == signbit(fref));
     }
     return fsrc == fref || fabsf(fsrc - fref) < epsilon;
 }
