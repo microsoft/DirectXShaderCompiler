@@ -24,7 +24,8 @@ ModuleBuilder::ModuleBuilder(SPIRVContext *C)
   });
 }
 
-uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType) {
+uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
+                                      std::string funcName) {
   if (theFunction) {
     assert(false && "found nested function");
     return 0;
@@ -34,6 +35,11 @@ uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType) {
 
   theFunction = llvm::make_unique<Function>(
       returnType, fId, spv::FunctionControlMask::MaskNone, funcType);
+
+  // Add debug name for the function (OpName ...)
+  if (!funcName.empty()) {
+    theModule.addDebugName(fId, std::move(funcName));
+  }
 
   return fId;
 }
