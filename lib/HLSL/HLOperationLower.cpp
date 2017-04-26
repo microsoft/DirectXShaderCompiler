@@ -742,6 +742,108 @@ Value *TranslateEvalCentroid(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   return result;
 }
 
+// Barycentrics intrinsics
+Value *TranslateBarycentrics(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
+                             HLOperationLowerHelper &helper,
+                             HLObjectOperationLowerHelper *pObjHelper,
+                             bool &Translated) {
+  DXASSERT(op == OP::OpCode::Barycentrics ||
+           op == OP::OpCode::BarycentricsCentroid,
+           "Wrong opcode to translate");
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
+  Value *opArg = hlslOP->GetU32Const((unsigned)op);
+
+  Value *result = UndefValue::get(CI->getType());
+  IRBuilder<> Builder(CI);
+  for (unsigned i = 0; i < 3; ++i) {
+    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i) });
+    result = Builder.CreateInsertElement(result, Elt, i);
+  }
+  return result;
+}
+
+Value *TranslateBarycentricsSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
+  HLOperationLowerHelper &helper,
+  HLObjectOperationLowerHelper *pObjHelper,
+  bool &Translated) {
+  DXASSERT(op == OP::OpCode::BarycentricsSampleIndex, "Wrong opcode to translate");
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
+  Value *opArg = hlslOP->GetU32Const((unsigned)op);
+  Value *sampleIndex = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
+
+  Value *result = UndefValue::get(CI->getType());
+  IRBuilder<> Builder(CI);
+  for (unsigned i = 0; i < 3; ++i) {
+    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i), sampleIndex });
+    result = Builder.CreateInsertElement(result, Elt, i);
+  }
+  return result;
+}
+
+Value *TranslateBarycentricsSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
+  HLOperationLowerHelper &helper,
+  HLObjectOperationLowerHelper *pObjHelper,
+  bool &Translated) {
+  DXASSERT(op == OP::OpCode::BarycentricsSnapped, "Wrong opcode to translate");
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
+  Value *opArg = hlslOP->GetU32Const((unsigned)op);
+  Value *offsets = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
+
+  Value *result = UndefValue::get(CI->getType());
+  IRBuilder<> Builder(CI);
+  Value *offsetX = Builder.CreateExtractElement(offsets, (uint64_t)0);
+  Value *offsetY = Builder.CreateExtractElement(offsets, 1);
+  for (unsigned i = 0; i < 3; ++i) {
+    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i), offsetX, offsetY });
+    result = Builder.CreateInsertElement(result, Elt, i);
+  }
+  return result;
+}
+
+Value *TranslateGetAttributeAtVertex(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
+  HLOperationLowerHelper &helper,
+  HLObjectOperationLowerHelper *pObjHelper,
+  bool &Translated) {
+  DXASSERT(op == OP::OpCode::AttributeAtVertex, "Wrong opcode to translate");
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  IRBuilder<> Builder(CI);
+  Type *Ty = CI->getType();
+  Value *val = CI->getArgOperand(DXIL::OperandIndex::kBinarySrc0OpIdx);
+  Value *vertexIdx = CI->getArgOperand(DXIL::OperandIndex::kBinarySrc1OpIdx);
+  Value *vertexI8Idx = Builder.CreateTrunc(vertexIdx, Type::getInt8Ty(CI->getContext()));
+
+  // Check the range of VertexID
+  Value *vertex0 = Builder.getInt8(0);
+  Value *vertex1 = Builder.getInt8(1);
+  Value *vertex2 = Builder.getInt8(2);
+  if (vertexI8Idx != vertex0 && vertexI8Idx != vertex1 && vertexI8Idx != vertex2) {
+    CI->getContext().emitError(CI, "VertexID at GetAttributeAtVertex can only range from 0 to 2");
+    return UndefValue::get(Ty);
+  }
+
+  std::vector<CallInst*> loadList;
+  Constant *shufMask = GetLoadInputsForEvaluate(val, loadList);
+
+  unsigned size = loadList.size();
+  Value *opArg = hlslOP->GetU32Const((unsigned)op);
+  Function *evalFunc = hlslOP->GetOpFunc(op, Ty->getScalarType());
+  Value *result = UndefValue::get(Ty);
+  for (unsigned i = 0; i < size; ++i) {
+    CallInst *loadInput = loadList[size - 1 - i];
+    Value *inputElemID = loadInput->getArgOperand(DXIL::OperandIndex::kLoadInputIDOpIdx);
+    Value *rowIdx = loadInput->getArgOperand(DXIL::OperandIndex::kLoadInputRowOpIdx);
+    Value *colIdx = loadInput->getArgOperand(DXIL::OperandIndex::kLoadInputColOpIdx);
+    Value *Elt = Builder.CreateCall(evalFunc, { opArg, inputElemID, rowIdx, colIdx,  vertexI8Idx });
+    result = Builder.CreateInsertElement(result, Elt, i);
+  }
+  if (shufMask)
+    result = Builder.CreateShuffleVector(result, UndefValue::get(Ty), shufMask);
+  return result;
+}
+
 Value *TrivialNoArgOperation(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -4022,6 +4124,11 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_EvaluateAttributeAtSample, TranslateEvalSample, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_EvaluateAttributeCentroid, TranslateEvalCentroid, DXIL::OpCode::EvalCentroid},
     {IntrinsicOp::IOP_EvaluateAttributeSnapped, TranslateEvalSnapped, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex, DXIL::OpCode::AttributeAtVertex},
+    {IntrinsicOp::IOP_GetBarycentrics, TranslateBarycentrics, DXIL::OpCode::Barycentrics},
+    {IntrinsicOp::IOP_GetBarycentricsAtSample, TranslateBarycentricsSample, DXIL::OpCode::BarycentricsSampleIndex},
+    {IntrinsicOp::IOP_GetBarycentricsCentroid, TranslateBarycentrics, DXIL::OpCode::BarycentricsCentroid},
+    {IntrinsicOp::IOP_GetBarycentricsSnapped, TranslateBarycentricsSnapped, DXIL::OpCode::BarycentricsSnapped},
     {IntrinsicOp::IOP_GetRenderTargetSampleCount, TrivialNoArgOperation, DXIL::OpCode::RenderTargetGetSampleCount},
     {IntrinsicOp::IOP_GetRenderTargetSamplePosition, TranslateGetRTSamplePos, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},

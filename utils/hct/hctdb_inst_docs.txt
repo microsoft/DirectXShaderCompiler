@@ -584,3 +584,74 @@ Either of destHI or destLO may be specified as NULL instead of specifying a regi
 * Inst: USubb - unsigned subtract of 32-bit operands with the borrow
 
 dest0, dest1 = USubb(src0, src1)
+
+* Inst: Barycentrics - return weights at a current location.
+
+weight = Barycentrics(VertexID)
+
+Returns all 3 triangle Barycentrics weights even though two are strictly necessary.
+VertexID ranges from 0 to 2.
+
+The 3 values returned are NOT guaranteed to add up to floating-point 1.0 exactly.
+If it is desired for the pixel shader to receive weights with this property, it can reconstruct the third coordinate by subtracting the sum of the other two from 1.0.
+Also note, that individual barycentric weights may take on arbitrarily large or arbitrarily small values, and are not constrained to be within [0...1] range
+– this may happen for screen-space (non-perspective-correct) barycentric interpolants, screenspace quad primitives, or external triangles.
+For triangle primitives, all 3 weights will typically contain non-zero values, but for line primitives the third barycentric weight (myBaryWeights.z) is guaranteed to be exactly 0.0.
+
+* Inst: BarycentricsCentroid - return weights at centroid location.
+
+weight = BarycentricsCentroid(VertexID)
+
+Equivalent to Barycentrics but returns barycentric weights at the centroid.
+
+* Inst: BarycentricsSampleIndex - return weights at the location of the sample specified by index
+
+weight = BarycentricsSampleIndex(VertexID, sampleIndex)
+
+Equivalent to Barycentrics but returns barycentric weights at the sample.
+
+* Inst: BarycentricsSnapped - return weights at the location specified in the pixel's 16x16 sample grid
+
+weight = BarycentricsSnapped(VertexID, offsetX, offsetY)
+
+Equivalent to Barycentrics but returns barycentric weights of a position with 2D offset from the pixel center using a 16x16 grid. Only the last 4 bits of the two components of the pixel offsets are used.
+
++----------+----------------+
+|  4 bits  |     offset     |
++----------+----------------+
+|   1000   | -0.5f (-8/16)  |
++----------+----------------+
+|   1001   | -0.4375f(-7/16)|
++----------+----------------+
+|   1010   | -0.375f (-6/16)|
++----------+----------------+
+|   1011   | -0.3125f(-5/16)|
++----------+----------------+
+|   1100   | -0.25f (-4/16) |
++----------+----------------+
+|   1101   | -0.1875f(-3/16)|
++----------+----------------+
+|   1110   | -0.125f (-2/16)|
++----------+----------------+
+|   1111   | -0.0625f(-1/16)|
++----------+----------------+
+|   0000   | 0.0f (0/16)    |
++----------+----------------+
+|   0001   | 0.0625f (1/16) |
++----------+----------------+
+|   0010   | 0.125f (2/16)  |
++----------+----------------+
+|   0011   | 0.1875f (3/16) |
++----------+----------------+
+|   0100   | 0.25f (4/16)   |
++----------+----------------+
+|   0101   | 0.3125f (5/16) |
++----------+----------------+
+|   0110   | 0.375f (6/16)  |
++----------+----------------+
+|   0111   | 0.4375f (7/16) |
++----------+----------------+
+
+* Inst: AttributeAtVertex - returns the values of the attributes at the vertex.
+
+returns the values of the attributes at the vertex. VertexID ranges from 0 to 2.

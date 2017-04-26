@@ -577,8 +577,10 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // RenderTargetGetSamplePosition=76, RenderTargetGetSampleCount=77,
   // CalculateLOD=81, Discard=82, DerivCoarseX=83, DerivCoarseY=84,
   // DerivFineX=85, DerivFineY=86, EvalSnapped=87, EvalSampleIndex=88,
-  // EvalCentroid=89, SampleIndex=90, Coverage=91, InnerCoverage=92
-  if (60 <= op && op <= 61 || op == 64 || 76 <= op && op <= 77 || 81 <= op && op <= 92)
+  // EvalCentroid=89, SampleIndex=90, Coverage=91, InnerCoverage=92,
+  // Barycentrics=137, BarycentricsCentroid=138, BarycentricsSampleIndex=139,
+  // BarycentricsSnapped=140, AttributeAtVertex=141
+  if (60 <= op && op <= 61 || op == 64 || 76 <= op && op <= 77 || 81 <= op && op <= 92 || 137 <= op && op <= 141)
     return pSM->IsPS();
   return true;
   // VALOPCODESM-TEXT:END
