@@ -270,7 +270,7 @@ namespace DXIL {
   
     // Binary uint with carry or borrow
     UAddc = 44, // unsigned add of 32-bit operand with the carry
-    USubb = 45, // returns the USubb of the input values
+    USubb = 45, // unsigned subtract of 32-bit operands with the borrow
   
     // Bitcasts with different sizes
     BitcastF16toI16 = 125, // bitcast between different sizes
@@ -324,6 +324,11 @@ namespace DXIL {
     CycleCounterLegacy = 109, // CycleCounterLegacy
   
     // Pixel shader
+    AttributeAtVertex = 141, // returns the values of the attributes at the vertex.
+    Barycentrics = 137, // return weights at a current location.
+    BarycentricsCentroid = 138, // return weights at centroid location.
+    BarycentricsSampleIndex = 139, // return weights at the location of the sample specified by index
+    BarycentricsSnapped = 140, // return weights at the location specified in the pixel's 16x16 sample grid
     CalculateLOD = 81, // calculates the level of detail
     Coverage = 91, // returns the coverage mask input in a pixel shader
     DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
@@ -444,7 +449,7 @@ namespace DXIL {
     WaveReadLaneAt = 117, // returns the value from the specified lane
     WaveReadLaneFirst = 118, // returns the value from the first lane
   
-    NumOpCodes = 137 // exclusive last value of enumeration
+    NumOpCodes = 142 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -516,6 +521,11 @@ namespace DXIL {
     CycleCounterLegacy,
   
     // Pixel shader
+    AttributeAtVertex,
+    Barycentrics,
+    BarycentricsCentroid,
+    BarycentricsSampleIndex,
+    BarycentricsSnapped,
     CalculateLOD,
     Coverage,
     Discard,
@@ -595,7 +605,7 @@ namespace DXIL {
     WaveReadLaneAt,
     WaveReadLaneFirst,
   
-    NumOpClasses = 93 // exclusive last value of enumeration
+    NumOpClasses = 98 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

@@ -240,7 +240,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
-        for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage".split(","):
+        for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,Barycentrics,BarycentricsCentroid,BarycentricsSampleIndex,BarycentricsSnapped,AttributeAtVertex".split(","):
             self.name_idx[i].category = "Pixel shader"
             self.name_idx[i].shader_models = "p"
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
@@ -1036,8 +1036,34 @@ class db_dxil(object):
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
-
-        assert next_op_idx == 137, "next operation index is %d rather than 143 and thus opcodes are broken" % next_op_idx
+        self.add_dxil_op("Barycentrics", next_op_idx, "Barycentrics", "return weights at a current location.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i8", "VertexID", "Vertex Index")])
+        next_op_idx += 1
+        self.add_dxil_op("BarycentricsCentroid", next_op_idx, "BarycentricsCentroid", "return weights at centroid location.", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i8", "VertexID", "Vertex Index")])
+        next_op_idx += 1
+        self.add_dxil_op("BarycentricsSampleIndex", next_op_idx, "BarycentricsSampleIndex", "return weights at the location of the sample specified by index", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i8", "VertexID", "Vertex Index"),
+            db_dxil_param(3, "i32", "sampleIndex", "sample index")])
+        next_op_idx += 1
+        self.add_dxil_op("BarycentricsSnapped", next_op_idx, "BarycentricsSnapped", "return weights at the location specified in the pixel's 16x16 sample grid", "f", "rn", [
+            db_dxil_param(0, "f", "", "result"),
+            db_dxil_param(2, "i8", "VertexID", "Vertex Index"),
+            db_dxil_param(3, "i32", "offsetX", "2D offset from the pixel center using a 16x16 grid"),
+            db_dxil_param(4, "i32", "offsetY", "2D offset from the pixel center using a 16x16 grid")])
+        next_op_idx += 1
+        self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hf", "rn", [
+            db_dxil_param(0, "$o", "", "result"),
+            db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
+            db_dxil_param(3, "i32", "inputRowIndex", "row index of an input attribute"),
+            db_dxil_param(4, "i8", "inputColIndex", "column index of an input attribute"),
+            db_dxil_param(5, "i8", "VertexID", "Vertex Index")
+        ])
+        next_op_idx += 1
+        assert next_op_idx == 142, "next operation index is %d rather than 142 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

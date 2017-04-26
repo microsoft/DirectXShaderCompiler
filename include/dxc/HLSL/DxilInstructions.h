@@ -1518,7 +1518,7 @@ struct DxilInst_UAddc {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the USubb of the input values
+/// This instruction unsigned subtract of 32-bit operands with the borrow
 struct DxilInst_USubb {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -3346,6 +3346,102 @@ struct DxilInst_WavePrefixBitCount {
   }
   // Accessors
   llvm::Value *get_value() const { return Instr->getOperand(1); }
+};
+
+/// This instruction return weights at a current location.
+struct DxilInst_Barycentrics {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Barycentrics(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Barycentrics);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Accessors
+  llvm::Value *get_VertexID() const { return Instr->getOperand(1); }
+};
+
+/// This instruction return weights at centroid location.
+struct DxilInst_BarycentricsCentroid {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_BarycentricsCentroid(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::BarycentricsCentroid);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Accessors
+  llvm::Value *get_VertexID() const { return Instr->getOperand(1); }
+};
+
+/// This instruction return weights at the location of the sample specified by index
+struct DxilInst_BarycentricsSampleIndex {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_BarycentricsSampleIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::BarycentricsSampleIndex);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Accessors
+  llvm::Value *get_VertexID() const { return Instr->getOperand(1); }
+  llvm::Value *get_sampleIndex() const { return Instr->getOperand(2); }
+};
+
+/// This instruction return weights at the location specified in the pixel's 16x16 sample grid
+struct DxilInst_BarycentricsSnapped {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_BarycentricsSnapped(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::BarycentricsSnapped);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Accessors
+  llvm::Value *get_VertexID() const { return Instr->getOperand(1); }
+  llvm::Value *get_offsetX() const { return Instr->getOperand(2); }
+  llvm::Value *get_offsetY() const { return Instr->getOperand(3); }
+};
+
+/// This instruction returns the values of the attributes at the vertex.
+struct DxilInst_AttributeAtVertex {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_AttributeAtVertex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::AttributeAtVertex);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Accessors
+  llvm::Value *get_inputSigId() const { return Instr->getOperand(1); }
+  llvm::Value *get_inputRowIndex() const { return Instr->getOperand(2); }
+  llvm::Value *get_inputColIndex() const { return Instr->getOperand(3); }
+  llvm::Value *get_VertexID() const { return Instr->getOperand(4); }
 };
 // INSTR-HELPER:END
 } // namespace hlsl
