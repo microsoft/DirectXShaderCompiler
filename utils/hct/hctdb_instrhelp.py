@@ -857,35 +857,40 @@ def get_opsigs():
 def get_valopcode_sm_text():
     db = get_db_dxil()
     instrs = [i for i in db.instr if i.is_dxil_op]
-    instrs = sorted(instrs, key=lambda v : v.shader_models + "." + ("%4d" % v.dxil_opid))
+    instrs = sorted(instrs, key=lambda v : (v.shader_model, v.shader_stages, v.dxil_opid))
     last_model = None
-    model_instrs = []
+    last_stage = None
+    grouped_instrs = []
     code = ""
-    def flush_instrs(model_instrs, model_name):
-        if len(model_instrs) == 0:
+    def flush_instrs(grouped_instrs, last_model, last_stage):
+        if len(grouped_instrs) == 0:
             return ""
-        if model_name == "*": # don't write these out, instead fall through
-            return ""
-        result = format_comment("// ", "Instructions: %s" % ", ".join([i.name + "=" + str(i.dxil_opid) for i in model_instrs]))
-        result += "if (" + build_range_code("op", [i.dxil_opid for i in model_instrs]) + ")\n"
+        result = format_comment("// ", "Instructions: %s" % ", ".join([i.name + "=" + str(i.dxil_opid) for i in grouped_instrs]))
+        result += "if (" + build_range_code("op", [i.dxil_opid for i in grouped_instrs]) + ")\n"
         result += "  return "
-        if last_model == "*":
-            result += "true"
+
+        model_cond = stage_cond = None
+        if last_model != (6,0):
+            model_cond = "pSM->GetMajor() > %d || (pSM->GetMajor() == %d && pSM->GetMinor() >= %d)" % (
+                last_model[0], last_model[0], last_model[1])
+        if last_stage != "*":
+            stage_cond = ' || '.join(["pSM->Is%sS()" % c.upper() for c in last_stage])
+        if model_cond or stage_cond:
+            result += '\n      && '.join(
+                ["(%s)" % expr for expr in (model_cond, stage_cond) if expr] )
+            return result + ";\n"
         else:
-            for code_idx,code in enumerate(last_model):
-                if code_idx > 0:
-                    result += " || "
-                result += "pSM->Is" + code.upper() + "S()"
-        result += ";\n"
-        return result
+            # don't write these out, instead fall through
+            return ""
 
     for i in instrs:
-        if i.shader_models != last_model:
-            code += flush_instrs(model_instrs, last_model)
-            model_instrs = []
-            last_model = i.shader_models
-        model_instrs.append(i)
-    code += flush_instrs(model_instrs, last_model)
+        if (i.shader_model, i.shader_stages) != (last_model, last_stage):
+            code += flush_instrs(grouped_instrs, last_model, last_stage)
+            grouped_instrs = []
+            last_model = i.shader_model
+            last_stage = i.shader_stages
+        grouped_instrs.append(i)
+    code += flush_instrs(grouped_instrs, last_model, last_stage)
     code += "return true;\n"
     return code
 

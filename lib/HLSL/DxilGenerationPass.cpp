@@ -1098,6 +1098,7 @@ static void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *G
   case Semantic::Kind::SampleIndex:           opcode = OP::OpCode::SampleIndex;           break;
   case Semantic::Kind::Coverage:              opcode = OP::OpCode::Coverage;              break;
   case Semantic::Kind::InnerCoverage:         opcode = OP::OpCode::InnerCoverage;         break;
+  case Semantic::Kind::ViewID:                opcode = OP::OpCode::ViewID;                break;
   default:
     DXASSERT(0, "invalid semantic");
     return;

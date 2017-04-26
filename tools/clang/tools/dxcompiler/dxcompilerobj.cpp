@@ -1594,7 +1594,8 @@ static const char *OpCodeSignatures[] = {
   "(VertexID)",  // BarycentricsCentroid
   "(VertexID,sampleIndex)",  // BarycentricsSampleIndex
   "(VertexID,offsetX,offsetY)",  // BarycentricsSnapped
-  "(inputSigId,inputRowIndex,inputColIndex,VertexID)"  // AttributeAtVertex
+  "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
+  "()"  // ViewID
 };
 // OPCODE-SIGS:END
 

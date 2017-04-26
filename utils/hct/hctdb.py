@@ -47,7 +47,8 @@ class db_dxil_inst(object):
         self.is_deriv = False           # whether this is some kind of derivative
         self.is_gradient = False        # whether this requires a gradient calculation
         self.is_wave = False            # whether this requires in-wave, cross-lane functionality
-        self.shader_models = "*"        # shader models to which this applies, * or one or more of cdghpv
+        self.shader_stages = "*"        # shader stages to which this applies, * or one or more of cdghpv
+        self.shader_model = 6,0         # minimum shader model required
         self.inst_helper_prefix = None
         self.fully_qualified_name_prefix = "hlsl::OP::OpCode"
         for k,v in list(kwargs.items()):
@@ -116,7 +117,8 @@ class db_dxil_valrule(object):
         self.err_msg = ""                   # error message associated with rule
         self.category = ""                  # classification for this rule
         self.doc = ""                       # the documentation description of this rule
-        self.shader_models = "*"            # shader models to which this applies, * or one or more of cdghpv
+        self.shader_stages = "*"            # shader stages to which this applies, * or one or more of cdghpv
+        self.shader_model = 6,0             # minimum shader model required
         for k,v in list(kwargs.items()):
             setattr(self, k, v)
 
@@ -205,7 +207,7 @@ class db_dxil(object):
             val = i_val
 
     def populate_categories_and_models(self):
-        "Populate the category and shader_models member of instructions."
+        "Populate the category and shader_stages member of instructions."
         for i in "TempRegLoad,TempRegStore,MinPrecXRegLoad,MinPrecXRegStore,LoadInput,StoreOutput".split(","):
             self.name_idx[i].category = "Temporary, indexable, input, output registers"
         for i in "FAbs,Saturate,IsNaN,IsInf,IsFinite,IsNormal,Cos,Sin,Tan,Acos,Asin,Atan,Hcos,Hsin,Htan,Exp,Frc,Log,Sqrt,Rsqrt".split(","):
@@ -235,29 +237,29 @@ class db_dxil(object):
         for i in "Sample,SampleBias,SampleLevel,SampleGrad,SampleCmp,SampleCmpLevelZero,Texture2DMSGetSamplePosition,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
             self.name_idx[i].category = "Resources - sample"
         for i in "Sample,SampleBias,SampleCmp,RenderTargetGetSamplePosition,RenderTargetGetSampleCount".split(","):
-            self.name_idx[i].shader_models = "p"
+            self.name_idx[i].shader_stages = "p"
         for i in "TextureGather,TextureGatherCmp".split(","):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,Barycentrics,BarycentricsCentroid,BarycentricsSampleIndex,BarycentricsSnapped,AttributeAtVertex".split(","):
             self.name_idx[i].category = "Pixel shader"
-            self.name_idx[i].shader_models = "p"
+            self.name_idx[i].shader_stages = "p"
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
             self.name_idx[i].category = "Compute shader"
-            self.name_idx[i].shader_models = "c"
+            self.name_idx[i].shader_stages = "c"
         for i in "EmitStream,CutStream,EmitThenCutStream,GSInstanceID".split(","):
             self.name_idx[i].category = "Geometry shader"
-            self.name_idx[i].shader_models = "g"
+            self.name_idx[i].shader_stages = "g"
         for i in "LoadOutputControlPoint,LoadPatchConstant".split(","):
             self.name_idx[i].category = "Domain and hull shader"
-            self.name_idx[i].shader_models = "dh"
+            self.name_idx[i].shader_stages = "dh"
         for i in "DomainLocation".split(","):
             self.name_idx[i].category = "Domain shader"
-            self.name_idx[i].shader_models = "d"
+            self.name_idx[i].shader_stages = "d"
         for i in "StorePatchConstant,OutputControlPointID,PrimitiveID".split(","):
             self.name_idx[i].category = "Hull shader"
-            self.name_idx[i].shader_models = "gdhp" if i == "PrimitiveID" else "h"
+            self.name_idx[i].shader_stages = "gdhp" if i == "PrimitiveID" else "h"
         for i in "MakeDouble,SplitDouble,LegacyDoubleToFloat,LegacyDoubleToSInt32,LegacyDoubleToUInt32".split(","):
             self.name_idx[i].category = "Double precision"
         for i in "CycleCounterLegacy".split(","):
@@ -270,6 +272,12 @@ class db_dxil(object):
                 i.is_wave = True
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
+
+        # Ops that require shader model 6.1
+        for i in "ViewID".split(","):
+            self.name_idx[i].category = "Graphics shader"
+            self.name_idx[i].shader_stages = "vhdgp"
+            self.name_idx[i].shader_model = 6,1
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1063,7 +1071,11 @@ class db_dxil(object):
             db_dxil_param(5, "i8", "VertexID", "Vertex Index")
         ])
         next_op_idx += 1
-        assert next_op_idx == 142, "next operation index is %d rather than 142 and thus opcodes are broken" % next_op_idx
+        self.add_dxil_op("ViewID", next_op_idx, "ViewID", "returns the view index", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
+
+        assert next_op_idx == 143, "next operation index is %d rather than 143 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -1368,7 +1380,8 @@ class db_dxil(object):
             (24, "GroupThreadID", ""),
             (25, "TessFactor", ""),
             (26, "InsideTessFactor", ""),
-            (27, "Invalid", ""),
+            (27, "ViewID", ""),
+            (28, "Invalid", ""),
             ])
         self.enums.append(SemanticKind)
         SigPointKind = db_dxil_enum("SigPointKind", "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.", [
@@ -1472,6 +1485,7 @@ class db_dxil(object):
             GroupThreadID,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig
             TessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
             InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
+            ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -1625,7 +1639,8 @@ class db_dxil(object):
         self.add_valrule("Types.I8", "I8 can only used as immediate value for intrinsic")
 
         self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'")
-        self.add_valrule("Sm.Opcode", "Opcode must be defined in target shader model")
+        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0,%1")
+        self.add_valrule_msg("Sm.Opcode", "Opcode must be defined in target shader model", "Opcode %0 not valid in shader model %1")
         self.add_valrule("Sm.Operand", "Operand must be defined in target shader model")
         self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2")
         self.add_valrule_msg("Sm.NoInterpMode", "Interpolation mode must be undefined for VS input/PS output/patch constant.", "Interpolation mode for '%0' is set but should be undefined")

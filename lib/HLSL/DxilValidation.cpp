@@ -176,7 +176,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type";
     case hlsl::ValidationRule::TypesI8: return "I8 can only used as immediate value for intrinsic";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'";
-    case hlsl::ValidationRule::SmOpcode: return "Opcode must be defined in target shader model";
+    case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0,%1";
+    case hlsl::ValidationRule::SmOpcode: return "Opcode %0 not valid in shader model %1";
     case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model";
     case hlsl::ValidationRule::SmSemantic: return "Semantic '%0' is invalid as %1 %2";
     case hlsl::ValidationRule::SmNoInterpMode: return "Interpolation mode for '%0' is set but should be undefined";
@@ -355,6 +356,7 @@ struct ValidationContext {
   const unsigned kDxilPreciseMDKind;
   const unsigned kLLVMLoopMDKind;
   bool m_bCoverageIn, m_bInnerCoverageIn;
+  unsigned m_DxilMajor, m_DxilMinor;
 
   ValidationContext(Module &llvmModule, Module *DebugModule,
                     DxilModule &dxilModule,
@@ -368,6 +370,7 @@ struct ValidationContext {
         kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
         DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1),
         m_bCoverageIn(false), m_bInnerCoverageIn(false) {
+    DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
       OutputPositionMask[i] = 0;
@@ -556,23 +559,23 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: ThreadId=93, GroupId=94, ThreadIdInGroup=95,
   // FlattenedThreadIdInGroup=96
   if (93 <= op && op <= 96)
-    return pSM->IsCS();
+    return (pSM->IsCS());
   // Instructions: DomainLocation=105
   if (op == 105)
-    return pSM->IsDS();
+    return (pSM->IsDS());
   // Instructions: LoadOutputControlPoint=103, LoadPatchConstant=104
   if (103 <= op && op <= 104)
-    return pSM->IsDS() || pSM->IsHS();
+    return (pSM->IsDS() || pSM->IsHS());
   // Instructions: EmitStream=97, CutStream=98, EmitThenCutStream=99,
   // GSInstanceID=100
   if (97 <= op && op <= 100)
-    return pSM->IsGS();
+    return (pSM->IsGS());
   // Instructions: PrimitiveID=108
   if (op == 108)
-    return pSM->IsGS() || pSM->IsDS() || pSM->IsHS() || pSM->IsPS();
+    return (pSM->IsGS() || pSM->IsDS() || pSM->IsHS() || pSM->IsPS());
   // Instructions: StorePatchConstant=106, OutputControlPointID=107
   if (106 <= op && op <= 107)
-    return pSM->IsHS();
+    return (pSM->IsHS());
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64,
   // RenderTargetGetSamplePosition=76, RenderTargetGetSampleCount=77,
   // CalculateLOD=81, Discard=82, DerivCoarseX=83, DerivCoarseY=84,
@@ -581,7 +584,11 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Barycentrics=137, BarycentricsCentroid=138, BarycentricsSampleIndex=139,
   // BarycentricsSnapped=140, AttributeAtVertex=141
   if (60 <= op && op <= 61 || op == 64 || 76 <= op && op <= 77 || 81 <= op && op <= 92 || 137 <= op && op <= 141)
-    return pSM->IsPS();
+    return (pSM->IsPS());
+  // Instructions: ViewID=142
+  if (op == 142)
+    return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
+        && (pSM->IsVS() || pSM->IsHS() || pSM->IsDS() || pSM->IsGS() || pSM->IsPS());
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -1925,7 +1932,9 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
 
     if (!ValidateOpcodeInProfile(dxilOpcode, pSM)) {
       // Opcode not available in profile.
-      ValCtx.EmitInstrError(CI, ValidationRule::SmOpcode);
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcode,
+                                  {hlslOP->GetOpCodeName(dxilOpcode),
+                                   pSM->GetName()});
       continue;
     }
 
@@ -2719,6 +2728,27 @@ static void ValidateValidatorVersion(ValidationContext &ValCtx) {
   ValCtx.EmitError(ValidationRule::MetaWellFormed);
 }
 
+static void ValidateDxilVersion(ValidationContext &ValCtx) {
+  Module *pModule = &ValCtx.M;
+  NamedMDNode *pNode = pModule->getNamedMetadata("dx.version");
+  if (pNode && pNode->getNumOperands() == 1) {
+    MDTuple *pVerValues = dyn_cast<MDTuple>(pNode->getOperand(0));
+    if (pVerValues != nullptr && pVerValues->getNumOperands() == 2) {
+      uint64_t majorVer, minorVer;
+      if (GetNodeOperandAsInt(ValCtx, pVerValues, 0, &majorVer) &&
+          GetNodeOperandAsInt(ValCtx, pVerValues, 1, &minorVer)) {
+        // This will need to be updated as dxil major/minor versions evolve,
+        // depending on the degree of compat across versions.
+        if ((majorVer == 1 && minorVer < 2) &&
+            (majorVer == ValCtx.m_DxilMajor && minorVer == ValCtx.m_DxilMinor)) {
+          return;
+        }
+      }
+    }
+  }
+  ValCtx.EmitError(ValidationRule::MetaWellFormed);
+}
+
 static void ValidateMetadata(ValidationContext &ValCtx) {
   Module *pModule = &ValCtx.M;
   const std::string &target = pModule->getTargetTriple();
@@ -2750,11 +2780,24 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
   }
 
   const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
-  if (!SM->IsValid() || SM->GetMajor() != 6 || SM->GetMinor() != 0) {
+  if (!SM->IsValid() || SM->GetMajor() != 6 || 
+    (SM->GetMinor() != 0 && SM->GetMinor() != 1)) {
     ValCtx.EmitFormatError(ValidationRule::SmName,
                            {ValCtx.DxilMod.GetShaderModel()->GetName()});
   }
 
+  if (SM->GetMajor() == 6) {
+    // Make sure DxilVersion matches the shader model.
+    unsigned SMDxilMajor, SMDxilMinor;
+    SM->GetDxilVersion(SMDxilMajor, SMDxilMinor);
+    if (ValCtx.m_DxilMajor != SMDxilMajor || ValCtx.m_DxilMinor != SMDxilMinor) {
+      ValCtx.EmitFormatError(ValidationRule::SmDxilVersion,
+                             {std::to_string(SMDxilMajor),
+                              std::to_string(SMDxilMinor)});
+    }
+  }
+
+  ValidateDxilVersion(ValCtx);
   ValidateValidatorVersion(ValCtx);
 }
 

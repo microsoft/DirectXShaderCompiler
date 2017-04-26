@@ -3443,5 +3443,21 @@ struct DxilInst_AttributeAtVertex {
   llvm::Value *get_inputColIndex() const { return Instr->getOperand(3); }
   llvm::Value *get_VertexID() const { return Instr->getOperand(4); }
 };
+
+/// This instruction returns the view index
+struct DxilInst_ViewID {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_ViewID(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::ViewID);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

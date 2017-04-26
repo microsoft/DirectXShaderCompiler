@@ -245,6 +245,9 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::BarycentricsSampleIndex, "BarycentricsSampleIndex",  OCC::BarycentricsSampleIndex,  "barycentricsSampleIndex",    false, false,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::BarycentricsSnapped,     "BarycentricsSnapped",      OCC::BarycentricsSnapped,      "barycentricsSnapped",        false, false,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::AttributeAtVertex,       "AttributeAtVertex",        OCC::AttributeAtVertex,        "attributeAtVertex",          false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
+
+  // Graphics shader                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
+  {  OC::ViewID,                  "ViewID",                   OCC::ViewID,                   "viewID",                     false, false, false, false, false, false, false,  true, false, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -701,6 +704,9 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::BarycentricsSampleIndex:A(pF32);     A(pI32); A(pI8);  A(pI32); break;
   case OpCode::BarycentricsSnapped:    A(pF32);     A(pI32); A(pI8);  A(pI32); A(pI32); break;
   case OpCode::AttributeAtVertex:      A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI8);  break;
+
+    // Graphics shader
+  case OpCode::ViewID:                 A(pI32);     A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -831,6 +837,7 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   case OpCode::GSInstanceID:
   case OpCode::OutputControlPointID:
   case OpCode::PrimitiveID:
+  case OpCode::ViewID:
     return IntegerType::get(m_Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:

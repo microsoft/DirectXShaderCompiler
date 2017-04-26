@@ -148,6 +148,7 @@ namespace DXIL {
     GroupThreadID,
     TessFactor,
     InsideTessFactor,
+    ViewID,
     Invalid,
   };
   // SemanticKind-ENUM:END
@@ -311,6 +312,9 @@ namespace DXIL {
     EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
     GSInstanceID = 100, // GSInstanceID
   
+    // Graphics shader
+    ViewID = 142, // returns the view index
+  
     // Hull shader
     OutputControlPointID = 107, // OutputControlPointID
     PrimitiveID = 108, // PrimitiveID
@@ -449,7 +453,7 @@ namespace DXIL {
     WaveReadLaneAt = 117, // returns the value from the specified lane
     WaveReadLaneFirst = 118, // returns the value from the first lane
   
-    NumOpCodes = 142 // exclusive last value of enumeration
+    NumOpCodes = 143 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -504,6 +508,9 @@ namespace DXIL {
     EmitStream,
     EmitThenCutStream,
     GSInstanceID,
+  
+    // Graphics shader
+    ViewID,
   
     // Hull shader
     OutputControlPointID,
@@ -605,7 +612,7 @@ namespace DXIL {
     WaveReadLaneAt,
     WaveReadLaneFirst,
   
-    NumOpClasses = 98 // exclusive last value of enumeration
+    NumOpClasses = 99 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

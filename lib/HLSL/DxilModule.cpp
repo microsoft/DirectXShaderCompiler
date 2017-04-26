@@ -141,6 +141,11 @@ const ShaderModel *DxilModule::GetShaderModel() const {
   return m_pSM;
 }
 
+void DxilModule::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {
+  DxilMajor = m_DxilMajor;
+  DxilMinor = m_DxilMinor;
+}
+
 Function *DxilModule::GetEntryFunction() {
   return m_pEntryFunc;
 }

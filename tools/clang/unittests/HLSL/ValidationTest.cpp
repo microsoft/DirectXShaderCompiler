@@ -290,6 +290,8 @@ public:
   TEST_METHOD(WhenPSVMismatchThenFail);
   TEST_METHOD(WhenFeatureInfoMismatchThenFail);
 
+  TEST_METHOD(ViewIDInCSFail)
+
   dxc::DxcDllSupport m_dllSupport;
   bool m_CompilerPreservesBBNames;
 
@@ -2888,6 +2890,21 @@ TEST_F(ValidationTest, WhenFeatureInfoMismatchThenFail) {
   );
 }
 
+TEST_F(ValidationTest, ViewIDInCSFail) {
+  RewriteAssemblyCheckMsg(" \
+RWStructuredBuffer<uint> Buf; \
+[numthreads(1,1,1)] \
+void main(uint id : SV_GroupIndex) \
+{ Buf[id] = 0; } \
+    ",
+    "cs_6_1",
+    {"dx.op.flattenedThreadIdInGroup.i32(i32 96",
+     "declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32)"},
+    {"dx.op.viewID.i32(i32 142",
+     "declare i32 @dx.op.viewID.i32(i32)"},
+    "Opcode ViewID not valid in shader model cs_6_1",
+    /*bRegex*/false);
+}
 
 
 
