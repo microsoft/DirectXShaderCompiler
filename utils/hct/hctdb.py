@@ -260,6 +260,9 @@ class db_dxil(object):
         for i in "StorePatchConstant,OutputControlPointID,PrimitiveID".split(","):
             self.name_idx[i].category = "Hull shader"
             self.name_idx[i].shader_stages = "gdhp" if i == "PrimitiveID" else "h"
+        for i in "ViewID".split(","):
+            self.name_idx[i].category = "Graphics shader"
+            self.name_idx[i].shader_stages = "vhdgp"
         for i in "MakeDouble,SplitDouble,LegacyDoubleToFloat,LegacyDoubleToSInt32,LegacyDoubleToUInt32".split(","):
             self.name_idx[i].category = "Double precision"
         for i in "CycleCounterLegacy".split(","):
@@ -272,11 +275,7 @@ class db_dxil(object):
                 i.is_wave = True
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
-
-        # Ops that require shader model 6.1
-        for i in "ViewID".split(","):
-            self.name_idx[i].category = "Graphics shader"
-            self.name_idx[i].shader_stages = "vhdgp"
+        for i in "ViewID,Barycentrics,BarycentricsCentroid,BarycentricsSampleIndex,BarycentricsSnapped,AttributeAtVertex".split(","):
             self.name_idx[i].shader_model = 6,1
 
     def populate_llvm_instructions(self):
