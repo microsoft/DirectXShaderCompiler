@@ -731,7 +731,7 @@ TEST_F(ExtensionTest, UnsignedOpcodeIsUnchanged) {
 
   // - opcode is unchanged when it matches an hlsl intrinsic with
   //   an unsigned version.
-  // Note that 113 is the current opcode for IOP_min. If that opcode
+  // Note that 118 is the current opcode for IOP_min. If that opcode
   // changes the test will need to be updated to reflect the new opcode.
   VERIFY_IS_TRUE(
     disassembly.npos !=

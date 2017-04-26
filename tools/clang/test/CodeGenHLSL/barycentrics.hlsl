@@ -1,9 +1,9 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: call float @dx.op.barycentrics.f32{{.*}} Barycentrics
-// CHECK: call float @dx.op.barycentricsSampleIndex.f32{{.*}} BarycentricsSampleIndex
-// CHECK: call float @dx.op.barycentricsCentroid.f32{{.*}} BarycentricsCentroid
-// CHECK: call float @dx.op.barycentricsSnapped.f32{{.*}} BarycentricsSnapped
+// CHECK: call float @dx.op.barycentrics.f32
+// CHECK: call float @dx.op.barycentricsSampleIndex.f32
+// CHECK: call float @dx.op.barycentricsCentroid.f32
+// CHECK: call float @dx.op.barycentricsSnapped.f32
 
 float4 main(float4 a : A) : SV_Target
 {
