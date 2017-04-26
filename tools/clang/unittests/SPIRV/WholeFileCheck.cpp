@@ -139,7 +139,14 @@ bool WholeFileTest::runCompilerWithSpirvGeneration() {
     IFT(pCompiler->Compile(pSource, srcFile.c_str(), entry.c_str(),
                            profile.c_str(), flags.data(), flags.size(), nullptr,
                            0, pIncludeHandler, &pResult));
+    // Get compilation results.
     IFT(pResult->GetStatus(&resultStatus));
+
+    // Get diagnostics string and print warnings and errors to stderr.
+    IFT(pResult->GetErrorBuffer(&pErrorBuffer));
+    const std::string diagnostics((char *)pErrorBuffer->GetBufferPointer(),
+                                  pErrorBuffer->GetBufferSize());
+    fprintf(stderr, "%s\n", diagnostics.c_str());
 
     if (SUCCEEDED(resultStatus)) {
       CComPtr<IDxcBlobEncoding> pStdErr;
@@ -147,8 +154,6 @@ bool WholeFileTest::runCompilerWithSpirvGeneration() {
       convertIDxcBlobToUint32(pCompiledBlob);
       success = true;
     } else {
-      IFT(pResult->GetErrorBuffer(&pErrorBuffer));
-      fprintf(stderr, "%s\n", (char *)pErrorBuffer->GetBufferPointer());
       success = false;
     }
   } catch (...) {

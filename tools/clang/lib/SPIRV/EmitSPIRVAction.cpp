@@ -22,41 +22,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
-namespace {
-
-spv::ExecutionModel getSpirvShaderStageFromHlslProfile(const char *profile) {
-  // DXIL Models are:
-  // Profile (DXIL Model) : HLSL Shader Kind : SPIR-V Shader Stage
-  // vs_<version>         : Vertex Shader    : Vertex Shader
-  // hs_<version>         : Hull Shader      : Tassellation Control Shader
-  // ds_<version>         : Domain Shader    : Tessellation Evaluation Shader
-  // gs_<version>         : Geometry Shader  : Geometry Shader
-  // ps_<version>         : Pixel Shader     : Fragment Shader
-  // cs_<version>         : Compute Shader   : Compute Shader
-
-  assert(profile && "nullptr passed in as profile");
-
-  switch (profile[0]) {
-  case 'v':
-    return spv::ExecutionModel::Vertex;
-  case 'h':
-    return spv::ExecutionModel::TessellationControl;
-  case 'd':
-    return spv::ExecutionModel::TessellationEvaluation;
-  case 'g':
-    return spv::ExecutionModel::Geometry;
-  case 'p':
-    return spv::ExecutionModel::Fragment;
-  case 'c':
-    return spv::ExecutionModel::GLCompute;
-  default:
-    assert(false && "Unknown HLSL Profile");
-    return spv::ExecutionModel::Fragment;
-  }
-}
-
-} // namespace
-
 namespace clang {
 namespace {
 
@@ -317,21 +282,68 @@ private:
 class SPIRVEmitter : public ASTConsumer {
 public:
   explicit SPIRVEmitter(CompilerInstance &ci)
-      : theCompilerInstance(ci), theContext(), theBuilder(&theContext),
-        declIdMapper(&theBuilder),
+      : theCompilerInstance(ci), diags(ci.getDiagnostics()), theContext(),
+        theBuilder(&theContext), declIdMapper(&theBuilder),
         entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
         shaderStage(getSpirvShaderStageFromHlslProfile(
             ci.getCodeGenOpts().HLSLProfile.c_str())),
         entryFunctionId(0), curFunction(nullptr) {}
 
+  /// \brief Wrapper method to create an error message and report it
+  /// in the diagnostic engine associated with this consumer
+  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
+    return diags.Report(diagId);
+  }
+
+  /// \brief Wrapper method to create a warning message and report it
+  /// in the diagnostic engine associated with this consumer
+  template <unsigned N>
+  DiagnosticBuilder emitWarning(const char (&message)[N]) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Warning, message);
+    return diags.Report(diagId);
+  }
+
+  spv::ExecutionModel getSpirvShaderStageFromHlslProfile(const char *profile) {
+    assert(profile && "nullptr passed as HLSL profile.");
+
+    // DXIL Models are:
+    // Profile (DXIL Model) : HLSL Shader Kind : SPIR-V Shader Stage
+    // vs_<version>         : Vertex Shader    : Vertex Shader
+    // hs_<version>         : Hull Shader      : Tassellation Control Shader
+    // ds_<version>         : Domain Shader    : Tessellation Evaluation Shader
+    // gs_<version>         : Geometry Shader  : Geometry Shader
+    // ps_<version>         : Pixel Shader     : Fragment Shader
+    // cs_<version>         : Compute Shader   : Compute Shader
+    switch (profile[0]) {
+    case 'v':
+      return spv::ExecutionModel::Vertex;
+    case 'h':
+      return spv::ExecutionModel::TessellationControl;
+    case 'd':
+      return spv::ExecutionModel::TessellationEvaluation;
+    case 'g':
+      return spv::ExecutionModel::Geometry;
+    case 'p':
+      return spv::ExecutionModel::Fragment;
+    case 'c':
+      return spv::ExecutionModel::GLCompute;
+    default:
+      emitError("Unknown HLSL Profile: %0") << profile;
+      return spv::ExecutionModel::Fragment;
+    }
+  }
+
   void AddRequiredCapabilitiesForExecutionModel(spv::ExecutionModel em) {
     if (em == spv::ExecutionModel::TessellationControl ||
         em == spv::ExecutionModel::TessellationEvaluation) {
       theBuilder.requireCapability(spv::Capability::Tessellation);
-      assert(false && "Tasselation Shaders are currently not supported.");
+      emitError("Tasselation shaders are currently not supported.");
     } else if (em == spv::ExecutionModel::Geometry) {
       theBuilder.requireCapability(spv::Capability::Geometry);
-      assert(false && "Geometry Shaders are currently not supported.");
+      emitError("Geometry shaders are currently not supported.");
     } else {
       theBuilder.requireCapability(spv::Capability::Shader);
     }
@@ -346,9 +358,13 @@ public:
       // fragment shaders. Currently using OriginUpperLeft as default.
       theBuilder.addExecutionMode(entryPointId,
                                   spv::ExecutionMode::OriginUpperLeft, {});
+      emitWarning("Execution mode for fragment shaders is "
+                  "currently set to OriginUpperLeft by default.");
     } else {
-      // TODO: Implement logic for adding proper execution mode for other shader
-      // stages. Silently skipping for now.
+      emitWarning(
+          "Execution mode is currently only defined for fragment shaders.");
+      // TODO: Implement logic for adding proper execution mode for other
+      // shader stages. Silently skipping for now.
     }
   }
 
@@ -385,9 +401,11 @@ public:
   void doDecl(Decl *decl) {
     if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
       doFunctionDecl(funcDecl);
+    } else {
+      emitWarning("Translation is not implemented for this decl type: %0")
+          << std::string(decl->getDeclKindName());
+      // TODO: Implement handling of other Decl types.
     }
-    // TODO: provide diagnostics of unimplemented features instead of silently
-    // ignoring them here.
   }
 
   void doFunctionDecl(FunctionDecl *decl) {
@@ -493,6 +511,7 @@ public:
 
 private:
   CompilerInstance &theCompilerInstance;
+  DiagnosticsEngine &diags;
   spirv::SPIRVContext theContext;
   spirv::ModuleBuilder theBuilder;
   DeclResultIdMapper declIdMapper;
