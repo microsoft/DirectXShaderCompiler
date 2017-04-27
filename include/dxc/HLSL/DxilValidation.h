@@ -173,6 +173,7 @@ enum class ValidationRule : unsigned {
   SmCounterOnlyOnStructBuf, // BufferUpdateCounter valid only on structured buffers
   SmDSInputControlPointCountRange, // DS input control point count must be [0..%0].  %1 specified
   SmDomainLocationIdxOOB, // DomainLocation component index out of bounds for the domain.
+  SmDxilVersion, // Target shader model requires specific Dxil Version
   SmGSInstanceCountRange, // GS instance count must be [1..%0].  %1 specified
   SmGSOutputVertexCountRange, // GS output vertex count must be [0..%0].  %1 specified
   SmGSTotalOutputVertexDataRange, // Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3

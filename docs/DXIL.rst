@@ -595,37 +595,38 @@ Semantic Interpretations for each SemanticKind at each SigPointKind are as follo
 .. <py::lines('SEMINT-TABLE-RST')>hctdb_instrhelp.get_sem_interpretation_table_rst()</py>
 .. SEMINT-TABLE-RST:BEGIN
 
-====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
-Semantic               VSIn VSOut PCIn     HSIn     HSCPIn HSCPOut PCOut      DSIn       DSCPIn DSOut GSVIn GSIn     GSOut PSIn         PSOut         CSIn
-====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
-Arbitrary              Arb  Arb   NA       NA       Arb    Arb     Arb        Arb        Arb    Arb   Arb   NA       Arb   Arb          NA            NA
-VertexID               SV   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NA
-InstanceID             SV   Arb   NA       NA       Arb    Arb     NA         NA         Arb    Arb   Arb   NA       Arb   Arb          NA            NA
-Position               Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-RenderTargetArrayIndex Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-ViewPortArrayIndex     Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-ClipDistance           Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-CullDistance           Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-OutputControlPointID   NA   NA    NA       NotInSig NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NA
-DomainLocation         NA   NA    NA       NA       NA     NA      NA         NotInSig   NA     NA    NA    NA       NA    NA           NA            NA
-PrimitiveID            NA   NA    NotInSig NotInSig NA     NA      NA         NotInSig   NA     NA    NA    Shadow   SGV   SGV          NA            NA
-GSInstanceID           NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NotInSig NA    NA           NA            NA
-SampleIndex            NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    Shadow _41   NA            NA
-IsFrontFace            NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       SGV   SGV          NA            NA
-Coverage               NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NotInSig _50 NotPacked _41 NA
-InnerCoverage          NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NotInSig _50 NA            NA
-Target                 NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           Target        NA
-Depth                  NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked     NA
-DepthLessEqual         NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
-DepthGreaterEqual      NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
-StencilRef             NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
-DispatchThreadID       NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
-GroupID                NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
-GroupIndex             NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
-GroupThreadID          NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
-TessFactor             NA   NA    NA       NA       NA     NA      TessFactor TessFactor NA     NA    NA    NA       NA    NA           NA            NA
-InsideTessFactor       NA   NA    NA       NA       NA     NA      TessFactor TessFactor NA     NA    NA    NA       NA    NA           NA            NA
-====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
+====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============ ============= ========
+Semantic               VSIn         VSOut PCIn         HSIn         HSCPIn HSCPOut PCOut      DSIn         DSCPIn DSOut GSVIn GSIn         GSOut PSIn         PSOut         CSIn
+====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============ ============= ========
+Arbitrary              Arb          Arb   NA           NA           Arb    Arb     Arb        Arb          Arb    Arb   Arb   NA           Arb   Arb          NA            NA
+VertexID               SV           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NA            NA
+InstanceID             SV           Arb   NA           NA           Arb    Arb     NA         NA           Arb    Arb   Arb   NA           Arb   Arb          NA            NA
+Position               Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV           NA            NA
+RenderTargetArrayIndex Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV           NA            NA
+ViewPortArrayIndex     Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV           NA            NA
+ClipDistance           Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV           NA            NA
+CullDistance           Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV           NA            NA
+OutputControlPointID   NA           NA    NA           NotInSig     NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NA            NA
+DomainLocation         NA           NA    NA           NA           NA     NA      NA         NotInSig     NA     NA    NA    NA           NA    NA           NA            NA
+PrimitiveID            NA           NA    NotInSig     NotInSig     NA     NA      NA         NotInSig     NA     NA    NA    Shadow       SGV   SGV          NA            NA
+GSInstanceID           NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NotInSig     NA    NA           NA            NA
+SampleIndex            NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    Shadow _41   NA            NA
+IsFrontFace            NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           SGV   SGV          NA            NA
+Coverage               NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotInSig _50 NotPacked _41 NA
+InnerCoverage          NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotInSig _50 NA            NA
+Target                 NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           Target        NA
+Depth                  NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NotPacked     NA
+DepthLessEqual         NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NotPacked _50 NA
+DepthGreaterEqual      NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NotPacked _50 NA
+StencilRef             NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NotPacked _50 NA
+DispatchThreadID       NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NA            NotInSig
+GroupID                NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NA            NotInSig
+GroupIndex             NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NA            NotInSig
+GroupThreadID          NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA           NA            NotInSig
+TessFactor             NA           NA    NA           NA           NA     NA      TessFactor TessFactor   NA     NA    NA    NA           NA    NA           NA            NA
+InsideTessFactor       NA           NA    NA           NA           NA     NA      TessFactor TessFactor   NA     NA    NA    NA           NA    NA           NA            NA
+ViewID                 NotInSig _61 NA    NotInSig _61 NotInSig _61 NA     NA      NA         NotInSig _61 NA     NA    NA    NotInSig _61 NA    NotInSig _61 NA            NA
+====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============ ============= ========
 
 .. SEMINT-TABLE-RST:END
 
@@ -2044,6 +2045,7 @@ ID  Name                           Description
 139 BarycentricsSampleIndex_       return weights at the location of the sample specified by index
 140 BarycentricsSnapped_           return weights at the location specified in the pixel's 16x16 sample grid
 141 AttributeAtVertex_             returns the values of the attributes at the vertex.
+142 ViewID_                        returns the view index
 === ============================== =================================================================================================================
 
 
@@ -2897,6 +2899,7 @@ SM.COUNTERONLYONSTRUCTBUF             BufferUpdateCounter valid only on structur
 SM.CSNORETURN                         Compute shaders can't return values, outputs must be written in writable resources (UAVs).
 SM.DOMAINLOCATIONIDXOOB               DomainLocation component index out of bounds for the domain.
 SM.DSINPUTCONTROLPOINTCOUNTRANGE      DS input control point count must be [0..%0].  %1 specified
+SM.DXILVERSION                        Target shader model requires specific Dxil Version
 SM.GSINSTANCECOUNTRANGE               GS instance count must be [1..%0].  %1 specified
 SM.GSOUTPUTVERTEXCOUNTRANGE           GS output vertex count must be [0..%0].  %1 specified
 SM.GSTOTALOUTPUTVERTEXDATARANGE       Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3

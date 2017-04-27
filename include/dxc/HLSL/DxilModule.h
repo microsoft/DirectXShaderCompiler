@@ -49,6 +49,7 @@ public:
   OP *GetOP() const;
   void SetShaderModel(const ShaderModel *pSM);
   const ShaderModel *GetShaderModel() const;
+  void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
 
   // Entry functions.
   llvm::Function *GetEntryFunction();

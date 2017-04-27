@@ -36,6 +36,7 @@
 #define Def_DomainLocation DECLARE(float2 domainloc : SV_DomainLocation) USE(float, domainloc.x) USE(float, domainloc.y)
 #define Def_OutputControlPointID DECLARE(uint ocpid : SV_OutputControlPointID) USE(uint, ocpid)
 #define Def_GSInstanceID DECLARE(uint gsiid : SV_GSInstanceID) USE(uint, gsiid)
+#define Def_ViewID DECLARE(uint viewID : SV_ViewID) USE(uint, viewID)
 
 #define Domain_Quad 0
 #define Domain_Tri 1

@@ -290,6 +290,9 @@ public:
   TEST_METHOD(WhenPSVMismatchThenFail);
   TEST_METHOD(WhenFeatureInfoMismatchThenFail);
 
+  TEST_METHOD(ViewIDInCSFail)
+  TEST_METHOD(ViewIDIn60Fail)
+
   dxc::DxcDllSupport m_dllSupport;
   bool m_CompilerPreservesBBNames;
 
@@ -2888,6 +2891,36 @@ TEST_F(ValidationTest, WhenFeatureInfoMismatchThenFail) {
   );
 }
 
+TEST_F(ValidationTest, ViewIDInCSFail) {
+  RewriteAssemblyCheckMsg(" \
+RWStructuredBuffer<uint> Buf; \
+[numthreads(1,1,1)] \
+void main(uint id : SV_GroupIndex) \
+{ Buf[id] = 0; } \
+    ",
+    "cs_6_1",
+    {"dx.op.flattenedThreadIdInGroup.i32(i32 96",
+     "declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32)"},
+    {"dx.op.viewID.i32(i32 142",
+     "declare i32 @dx.op.viewID.i32(i32)"},
+    "Opcode ViewID not valid in shader model cs_6_1",
+    /*bRegex*/false);
+}
+
+TEST_F(ValidationTest, ViewIDIn60Fail) {
+  RewriteAssemblyCheckMsg(" \
+[domain(\"tri\")] \
+float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
+{ return float4(pos, id); } \
+    ",
+    "ds_6_0",
+    {"dx.op.primitiveID.i32(i32 108",
+     "declare i32 @dx.op.primitiveID.i32(i32)"},
+    {"dx.op.viewID.i32(i32 142",
+     "declare i32 @dx.op.viewID.i32(i32)"},
+    "Opcode ViewID not valid in shader model ds_6_0",
+    /*bRegex*/false);
+}
 
 
 

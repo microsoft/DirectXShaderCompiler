@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 %s | FileCheck %s
 
 // CHECK: call float @dx.op.barycentrics.f32
 // CHECK: call float @dx.op.barycentricsSampleIndex.f32
