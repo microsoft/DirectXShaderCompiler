@@ -4479,6 +4479,9 @@ static bool ExpTypeMatch(Expr *E, QualType Ty, ASTContext &Ctx, CodeGenTypes &Ty
           break;
       }
       bMatch &= i == NumInitElements;
+      if (bMatch && initList->getType()->isVoidType()) {
+        initList->setType(Ty);
+      }
       return bMatch;
     } else if (Ty->isArrayType() && !Ty->isIncompleteArrayType()) {
       const ConstantArrayType *AT = Ctx.getAsConstantArrayType(Ty);
@@ -4494,6 +4497,9 @@ static bool ExpTypeMatch(Expr *E, QualType Ty, ASTContext &Ctx, CodeGenTypes &Ty
         bMatch &= ExpTypeMatch(init, EltTy, Ctx, Types);
         if (!bMatch)
           break;
+      }
+      if (bMatch && initList->getType()->isVoidType()) {
+        initList->setType(Ty);
       }
       return bMatch;
     } else {

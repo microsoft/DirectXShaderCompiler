@@ -397,6 +397,7 @@ public:
   TEST_METHOD(CodeGenIndexabletemp1)
   TEST_METHOD(CodeGenIndexabletemp2)
   TEST_METHOD(CodeGenIndexabletemp3)
+  TEST_METHOD(CodeGenInitListType)
   TEST_METHOD(CodeGenInoutSE)
   TEST_METHOD(CodeGenInout1)
   TEST_METHOD(CodeGenInout2)
@@ -2480,6 +2481,10 @@ TEST_F(CompilerTest, CodeGenIndexabletemp2) {
 
 TEST_F(CompilerTest, CodeGenIndexabletemp3) {
   CodeGenTest(L"..\\CodeGenHLSL\\indexabletemp3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInitListType) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\initlist_type.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenInoutSE) {
