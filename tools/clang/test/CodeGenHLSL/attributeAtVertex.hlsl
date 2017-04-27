@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 %s | FileCheck %s
 
 // CHECK: call float @dx.op.attributeAtVertex.f32(i32 141, i32 0, i32 0, i8 0, i8 0)
 // CHECK: call float @dx.op.attributeAtVertex.f32(i32 141, i32 0, i32 0, i8 1, i8 0)
