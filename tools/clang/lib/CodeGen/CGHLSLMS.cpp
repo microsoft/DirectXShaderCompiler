@@ -2973,12 +2973,8 @@ static Function *CreateOpFunction(llvm::Module &M, Function *F,
         Argument *valArg = argIter;
         // Buf[counter] = val;
         if (valTy->isPointerTy()) {
-          Value *valArgCast = Builder.CreateBitCast(valArg, llvm::Type::getInt8PtrTy(F->getContext()));
-          Value *subscriptCast = Builder.CreateBitCast(subscript, llvm::Type::getInt8PtrTy(F->getContext()));
-          // TODO: use real type size and alignment.
-          Value *tySize = ConstantInt::get(idxTy, 8);
-          unsigned Align = 8;
-          Builder.CreateMemCpy(subscriptCast, valArgCast, tySize, Align);
+          unsigned size = M.getDataLayout().getTypeAllocSize(subscript->getType()->getPointerElementType());
+          Builder.CreateMemCpy(subscript, valArg, size, 1);
         } else
           Builder.CreateStore(valArg, subscript);
         Builder.CreateRetVoid();
