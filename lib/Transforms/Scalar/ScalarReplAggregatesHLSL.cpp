@@ -264,7 +264,7 @@ public:
   static void PatchMemCpyWithZeroIdxGEP(MemCpyInst *MI, const DataLayout &DL);
   static void SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
                           DxilFieldAnnotation *fieldAnnotation,
-                          DxilTypeSystem &typeSys, bool bAllowReplace);
+                          DxilTypeSystem &typeSys);
 };
 
 }
@@ -2135,18 +2135,7 @@ bool SROA_HLSL::isSafeAllocaToScalarRepl(AllocaInst *AI) {
 // Copy data from srcPtr to destPtr.
 static void SimplePtrCopy(Value *DestPtr, Value *SrcPtr,
                           llvm::SmallVector<llvm::Value *, 16> &idxList,
-                          bool bAllowReplace, IRBuilder<> &Builder) {
-  // If src only has one use, just replace Dest with Src.
-  if (bAllowReplace && SrcPtr->hasOneUse() &&
-      // Only 2 uses for dest: 1 for memcpy, 1 for other use.
-      !DestPtr->hasNUsesOrMore(3) && !isa<CallInst>(SrcPtr) &&
-      !isa<CallInst>(DestPtr)) {
-    if (idxList.size() <= 1) {
-      DestPtr->replaceAllUsesWith(SrcPtr);
-      return;
-    }
-  }
-
+                          IRBuilder<> &Builder) {
   if (idxList.size() > 1) {
     DestPtr = Builder.CreateInBoundsGEP(DestPtr, idxList);
     SrcPtr = Builder.CreateInBoundsGEP(SrcPtr, idxList);
@@ -2175,25 +2164,24 @@ static void SimpleValCopy(Value *DestPtr, Value *SrcVal,
 
 static void SimpleCopy(Value *Dest, Value *Src,
                        llvm::SmallVector<llvm::Value *, 16> &idxList,
-                       bool bAllowReplace,
                        IRBuilder<> &Builder) {
   if (Src->getType()->isPointerTy())
-    SimplePtrCopy(Dest, Src, idxList, bAllowReplace, Builder);
+    SimplePtrCopy(Dest, Src, idxList, Builder);
   else
     SimpleValCopy(Dest, Src, idxList, Builder);
 }
 // Split copy into ld/st.
 static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
-                     SmallVector<Value *, 16> &idxList, bool bAllowReplace,
-                     IRBuilder<> &Builder, DxilTypeSystem &typeSys,
+                     SmallVector<Value *, 16> &idxList, IRBuilder<> &Builder,
+                     DxilTypeSystem &typeSys,
                      DxilFieldAnnotation *fieldAnnotation) {
   if (PointerType *PT = dyn_cast<PointerType>(Ty)) {
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
     idxList.emplace_back(idx);
 
-    SplitCpy(PT->getElementType(), Dest, Src, idxList, bAllowReplace, Builder,
-             typeSys, fieldAnnotation);
+    SplitCpy(PT->getElementType(), Dest, Src, idxList, Builder, typeSys,
+             fieldAnnotation);
 
     idxList.pop_back();
   } else if (HLMatrixLower::IsMatrixType(Ty)) {
@@ -2235,7 +2223,7 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     if (HLModule::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
-      SimpleCopy(Dest, Src, idxList, bAllowReplace, Builder);
+      SimpleCopy(Dest, Src, idxList, Builder);
       return;
     }
     DxilStructAnnotation *STA = typeSys.GetStructAnnotation(ST);
@@ -2247,8 +2235,7 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
       DxilFieldAnnotation &EltAnnotation = STA->GetFieldAnnotation(i);
-      SplitCpy(ET, Dest, Src, idxList, bAllowReplace, Builder, typeSys,
-               &EltAnnotation);
+      SplitCpy(ET, Dest, Src, idxList, Builder, typeSys, &EltAnnotation);
 
       idxList.pop_back();
     }
@@ -2260,13 +2247,12 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
       Constant *idx = Constant::getIntegerValue(
           IntegerType::get(Ty->getContext(), 32), APInt(32, i));
       idxList.emplace_back(idx);
-      SplitCpy(ET, Dest, Src, idxList, bAllowReplace, Builder, typeSys,
-               fieldAnnotation);
+      SplitCpy(ET, Dest, Src, idxList, Builder, typeSys, fieldAnnotation);
 
       idxList.pop_back();
     }
   } else {
-    SimpleCopy(Dest, Src, idxList, bAllowReplace, Builder);
+    SimpleCopy(Dest, Src, idxList, Builder);
   }
 }
 
@@ -2338,8 +2324,18 @@ static void SplitPtr(Type *Ty, Value *Ptr, SmallVector<Value *, 16> &idxList,
 static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsigned size, unsigned level) {
   unsigned ptrSize = DL.getTypeAllocSize(Ty);
   // Size match, return current level.
-  if (ptrSize == size)
+  if (ptrSize == size) {
+    // For struct, go deeper if size not change.
+    // This will leave memcpy to deeper level when flatten.
+    if (StructType *ST = dyn_cast<StructType>(Ty)) {
+      if (ST->getNumElements() == 1) {
+        return MatchSizeByCheckElementType(ST->getElementType(0), DL, size, level+1);
+      }
+    }
+    // Don't do this for array.
+    // Array will be flattened as struct of array.
     return level;
+  }
   // Add ZeroIdx cannot make ptrSize bigger.
   if (ptrSize < size)
     return 0;
@@ -2415,7 +2411,7 @@ void MemcpySplitter::PatchMemCpyWithZeroIdxGEP(Module &M) {
 
 void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
                                  DxilFieldAnnotation *fieldAnnotation,
-                                 DxilTypeSystem &typeSys, bool bAllowReplace) {
+                                 DxilTypeSystem &typeSys) {
   Value *Op0 = MI->getOperand(0);
   Value *Op1 = MI->getOperand(1);
 
@@ -2440,7 +2436,7 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   // split
   // Matrix is treated as scalar type, will not use memcpy.
   // So use nullptr for fieldAnnotation should be safe here.
-  SplitCpy(Dest->getType(), Dest, Src, idxList, bAllowReplace, Builder, typeSys,
+  SplitCpy(Dest->getType(), Dest, Src, idxList, Builder, typeSys,
            fieldAnnotation);
   // delete memcpy
   MI->eraseFromParent();
@@ -2465,7 +2461,7 @@ void MemcpySplitter::Split(llvm::Function &F) {
       if (MemCpyInst *MI = dyn_cast<MemCpyInst>(I)) {
         // Matrix is treated as scalar type, will not use memcpy.
         // So use nullptr for fieldAnnotation should be safe here.
-        SplitMemCpy(MI, DL, /*fieldAnnotation*/ nullptr, m_typeSys, /*bAllowReplace*/ false);
+        SplitMemCpy(MI, DL, /*fieldAnnotation*/ nullptr, m_typeSys);
       }
     }
   }
@@ -3589,6 +3585,7 @@ static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder)
       ConstantExpr *CE = cast<ConstantExpr>(U);
       Instruction *Inst = CE->getAsInstruction();
       Builder.Insert(Inst);
+      Inst->replaceUsesOfWith(C, V);
       ReplaceConstantWithInst(CE, Inst, Builder);
     }
   }
@@ -3658,8 +3655,7 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   }
 
   for (MemCpyInst *MC : PS.memcpyList) {
-    MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys,
-                                bAllowReplace);
+    MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
   }
   return false;
 }
@@ -5095,9 +5091,8 @@ void SROA_Parameter_HLSL::flattenArgument(
                 IRBuilder<> Builder(CI);
 
                 llvm::SmallVector<llvm::Value *, 16> idxList;
-                SplitCpy(data->getType(), outputVal, data, idxList,
-                         /*bAllowReplace*/ false, Builder, dxilTypeSys,
-                         &flatParamAnnotation);
+                SplitCpy(data->getType(), outputVal, data, idxList, Builder,
+                         dxilTypeSys, &flatParamAnnotation);
 
                 CI->setArgOperand(HLOperandIndex::kStreamAppendDataOpIndex, outputVal);
               }
@@ -5123,8 +5118,7 @@ void SROA_Parameter_HLSL::flattenArgument(
 
                   llvm::SmallVector<llvm::Value *, 16> idxList;
                   SplitCpy(DataPtr->getType(), EltPtr, DataPtr, idxList,
-                           /*bAllowReplace*/ false, Builder, dxilTypeSys,
-                           &flatParamAnnotation);
+                           Builder, dxilTypeSys, &flatParamAnnotation);
                   CI->setArgOperand(i, EltPtr);
                 }
               }
@@ -5196,8 +5190,8 @@ static void SplitArrayCopy(Value *V, DxilTypeSystem &typeSys,
       Value *val = ST->getValueOperand();
       IRBuilder<> Builder(ST);
       SmallVector<Value *, 16> idxList;
-      SplitCpy(ptr->getType(), ptr, val, idxList, /*bAllowReplace*/ true,
-               Builder, typeSys, fieldAnnotation);
+      SplitCpy(ptr->getType(), ptr, val, idxList, Builder, typeSys,
+               fieldAnnotation);
       ST->eraseFromParent();
     }
   }
@@ -5335,8 +5329,8 @@ static void LegalizeDxilInputOutputs(Function *F,
       if (bStoreInputToTemp) {
         llvm::SmallVector<llvm::Value *, 16> idxList;
         // split copy.
-        SplitCpy(temp->getType(), temp, &arg, idxList, /*bAllowReplace*/ false,
-                 Builder, typeSys, &paramAnnotation);
+        SplitCpy(temp->getType(), temp, &arg, idxList, Builder, typeSys,
+                 &paramAnnotation);
       }
 
       // Generate store output, temp later.
@@ -5365,8 +5359,8 @@ static void LegalizeDxilInputOutputs(Function *F,
         else
           onlyRetBlk = true;
         // split copy.
-        SplitCpy(output->getType(), output, temp, idxList,
-                 /*bAllowReplace*/ false, Builder, typeSys, &paramAnnotation);
+        SplitCpy(output->getType(), output, temp, idxList, Builder, typeSys,
+                 &paramAnnotation);
       }
       // Clone the return.
       Builder.CreateRet(RI->getReturnValue());
@@ -5713,8 +5707,8 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
         // Copy in param.
         llvm::SmallVector<llvm::Value *, 16> idxList;
         // split copy to avoid load of struct.
-        SplitCpy(Ty, tempArg, arg, idxList, /*bAllowReplace*/ false, CallBuilder,
-                 typeSys, &paramAnnotation);
+        SplitCpy(Ty, tempArg, arg, idxList, CallBuilder, typeSys,
+                 &paramAnnotation);
       }
 
       if (inputQual == DxilParamInputQual::Out ||
@@ -5722,8 +5716,8 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
         // Copy out param.
         llvm::SmallVector<llvm::Value *, 16> idxList;
         // split copy to avoid load of struct.
-        SplitCpy(Ty, arg, tempArg, idxList, /*bAllowReplace*/ false, RetBuilder,
-                 typeSys, &paramAnnotation);
+        SplitCpy(Ty, arg, tempArg, idxList, RetBuilder, typeSys,
+                 &paramAnnotation);
       }
       arg = tempArg;
       flattenArgument(flatF, arg, paramAnnotation, FlatParamList,
