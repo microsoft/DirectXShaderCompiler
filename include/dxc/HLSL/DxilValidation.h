@@ -215,6 +215,7 @@ enum class ValidationRule : unsigned {
   SmTriOutputPrimitiveMismatch, // Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
   SmUndefinedOutput, // Not all elements of output %0 were written
   SmValidDomain, // Invalid Tessellator Domain specified. Must be isoline, tri or quad
+  SmViewIDNeedsSlot, // ViewID requires compatible space in pixel shader input signature
   SmZeroHSInputControlPointWithInput, // When HS input control point count is 0, no input signature should exist
 
   // Type system
