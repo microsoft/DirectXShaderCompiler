@@ -2512,6 +2512,9 @@
                         if (pts.mask != 0) {
                             pts.output = WaveActiveCountBits(pts.input > 3);
                         }
+                        else {
+                            pts.output = WaveActiveCountBits(pts.input > 3);
+                        }
                         g_sb[GI] = pts;
                     }
                 ]]>
