@@ -2059,6 +2059,9 @@ void HLMatrixLowerPass::DeleteDeadInsts() {
 static bool OnlyUsedByMatrixLdSt(Value *V) {
   bool onlyLdSt = true;
   for (User *user : V->users()) {
+    if (isa<Constant>(user) && user->use_empty())
+      continue;
+
     CallInst *CI = cast<CallInst>(user);
     if (GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
         HLOpcodeGroup::HLMatLoadStore)
@@ -2245,6 +2248,8 @@ void HLMatrixLowerPass::runOnGlobal(GlobalVariable *GV) {
       vecGlobals[i] = EltGV;
     }
     for (User *user : GV->users()) {
+      if (isa<Constant>(user) && user->use_empty())
+        continue;
       CallInst *CI = cast<CallInst>(user);
       TranslateMatLoadStoreOnGlobal(GV, vecGlobals, CI);
       AddToDeadInsts(CI);
