@@ -1559,6 +1559,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
       const bool bAllowReplace = true;
       if (SROA_Helper::LowerMemcpy(AI, /*annotation*/ nullptr, typeSys, DL,
                                    bAllowReplace)) {
+        Changed = true;
         continue;
       }
 
@@ -2355,7 +2356,7 @@ static void PatchZeroIdxGEP(Value *Ptr, Value *RawPtr, MemCpyInst *MI,
   Value *zeroIdx = Builder.getInt32(0);
   SmallVector<Value *, 2> IdxList(level + 1, zeroIdx);
   Value *GEP = Builder.CreateInBoundsGEP(Ptr, IdxList);
-  // Use BitCastInst::Create to avoid idxList been optimized.
+  // Use BitCastInst::Create to prevent idxList from being optimized.
   CastInst *Cast =
       BitCastInst::Create(Instruction::BitCast, GEP, RawPtr->getType());
   Builder.Insert(Cast);
@@ -3513,7 +3514,7 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
     if (const BitCastOperator *BC = dyn_cast<BitCastOperator>(U)) {
       analyzePointer(BC, PS, typeSys, bStructElt);
     } else if (const MemCpyInst *MC = dyn_cast<MemCpyInst>(U)) {
-      // Not collect memcpy on struct GEP use.
+      // Do not collect memcpy on struct GEP use.
       // These memcpy will be flattened in next level.
       if (!bStructElt) {
         PS.memcpyList.emplace_back(const_cast<MemCpyInst *>(MC));
