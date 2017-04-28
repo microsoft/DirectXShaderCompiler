@@ -1,8 +1,13 @@
-// RUN: %dxc -E main -T ps_6_0 -O0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 -O0 %s | FileCheck %s
 
-// CHECK: main
 
-// TODO: check test_inout after disable inline.
+// Not inlined.
+// CHECK: test_inout
+// float2x2 [2]
+// CHECK: [8 x float]*
+// float3x3
+// CHECK: [9 x float]*
+
 
 
 struct X {

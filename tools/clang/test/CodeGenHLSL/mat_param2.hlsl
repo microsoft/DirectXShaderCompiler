@@ -1,7 +1,9 @@
-// RUN: %dxc -E main -T ps_6_0 -O0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 -O0 %s | FileCheck %s
 
-// CHECK: main
-// TODO: check mat_in after disable inline.
+// Not inlined.
+// CHECK: mat_in
+// float3x3
+// [9 x float]*
 
 row_major float3x3 m;
 

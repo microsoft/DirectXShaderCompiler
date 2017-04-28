@@ -1,7 +1,9 @@
-// RUN: %dxc -E main -T ps_6_0 -O0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 -O0 %s | FileCheck %s
 
-// TODO: check pointer of handle later.
-// CHECK: %dx.types.Handle
+// Function not inlined
+// CHECK: getUav
+// Pointer of handle
+// CHECK: %dx.types.Handle*
 
 RWBuffer<float4> uav1[2];
 RWBuffer<float4> uav2[2];

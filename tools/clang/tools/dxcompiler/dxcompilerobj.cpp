@@ -2670,9 +2670,14 @@ public:
     if (Opts.AvoidFlowControl)
       compiler.getCodeGenOpts().UnrollLoops = true;
 
-    // always inline for hlsl
-    compiler.getCodeGenOpts().setInlining(
-        clang::CodeGenOptions::OnlyAlwaysInlining);
+    const hlsl::ShaderModel *SM =
+        hlsl::ShaderModel::GetByName(Opts.TargetProfile.str().c_str());
+    if (SM->IsValid() && !SM->IsSM61Plus()) {
+      // Always inline for hlsl when shader model less than 6.1.
+      compiler.getCodeGenOpts().setInlining(
+          clang::CodeGenOptions::OnlyAlwaysInlining);
+    }
+
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
   }

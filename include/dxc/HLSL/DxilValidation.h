@@ -159,7 +159,7 @@ enum class ValidationRule : unsigned {
 
   // Program flow
   FlowDeadLoop, // Loop must have break
-  FlowFunctionCall, // Function with parameter is not permitted
+  FlowFunctionCall, // Function with parameter is not permitted. This rule only works for DXIL1.0. Later version allow function with parameter except entry function and patch constant function
   FlowNoRecusion, // Recursion is not permitted
   FlowReducible, // Execution flow must be reducible
 
