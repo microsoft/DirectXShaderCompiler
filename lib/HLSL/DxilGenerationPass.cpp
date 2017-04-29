@@ -2832,6 +2832,34 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   return NewFunc;
 }
 
+void CheckInBoundForTGSM(GlobalVariable &GV, const DataLayout &DL) {
+  for (User *U : GV.users()) {
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
+      bool allImmIndex = true;
+      for (auto Idx = GEP->idx_begin(), E = GEP->idx_end(); Idx != E; Idx++) {
+        if (!isa<ConstantInt>(Idx)) {
+          allImmIndex = false;
+          break;
+        }
+      }
+      if (!allImmIndex)
+        GEP->setIsInBounds(false);
+      else {
+        Value *Ptr = GEP->getPointerOperand();
+        unsigned size =
+            DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
+        unsigned valSize =
+            DL.getTypeAllocSize(GEP->getType()->getPointerElementType());
+        SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
+        unsigned offset =
+            DL.getIndexedOffset(GEP->getPointerOperandType(), Indices);
+        if ((offset + valSize) > size)
+          GEP->setIsInBounds(false);
+      }
+    }
+  }
+}
+
 class DxilEmitMetadata : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -2939,6 +2967,14 @@ public:
             }
           }
           GV->eraseFromParent();
+        }
+      }
+
+      const DataLayout &DL = M.getDataLayout();
+      // Clear inbound for GEP which has none-const index.
+      for (GlobalVariable &GV : M.globals()) {
+        if (HLModule::IsSharedMemoryGlobal(&GV)) {
+          CheckInBoundForTGSM(GV, DL);
         }
       }
 
