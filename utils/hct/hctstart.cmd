@@ -25,7 +25,7 @@ if "%1"=="-x86" (
 )
 shift /1
 
-:donearch
+:donearch 
 echo Default architecture - set BUILD_ARCH=%BUILD_ARCH%
 rem Set the following environment variable globally, or start Visual Studio
 rem from this command line in order to use 64-bit tools.
@@ -104,7 +104,7 @@ pushd %HLSL_SRC_DIR%
 
 goto :eof
 
-:showhelp
+:showhelp 
 echo hctstart - Start the HLSL console tools environment.
 echo.
 echo This script sets up the sources and binary environment variables
@@ -115,7 +115,7 @@ echo  hctstart [-x86 or -x64] [path-to-sources] [path-to-build]
 echo.
 goto :eof
 
-:findcmake
+:findcmake 
 call :ifexistaddpath "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
 if "%ERRORLEVEL%"=="0" (
   echo Path adjusted to include cmake from Visual Studio 2017 Community
@@ -131,7 +131,7 @@ if errorlevel 1 (
 echo Path adjusted to include cmake.
 goto :eof
 
-:findte
+:findte 
 if exist "%programfiles%\windows kits\10\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles%\windows kits\10\Testing\Runtimes\TAEF
 if exist "%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles(x86)%\windows kits\10\Testing\Runtimes\TAEF
 if exist "%programfiles%\windows kits\8.1\Testing\Runtimes\TAEF\Te.exe" set path=%path%;%programfiles%\windows kits\8.1\Testing\Runtimes\TAEF
@@ -148,13 +148,13 @@ if errorlevel 1 (
 echo Path adjusted to include TAEF te.exe.
 goto :eof
 
-:ifexistaddpath
+:ifexistaddpath 
 rem If the argument exists, add to PATH and return 0, else 1. Useful to avoid parens in values without setlocal changes.
 if exist %1 set PATH=%PATH%;%~1
 if exist %1 exit /b 0
 exit /b 1
 
-:findgit
+:findgit 
 if exist "C:\Program Files (x86)\Git\cmd\git.exe" set path=%path%;C:\Program Files (x86)\Git\cmd
 if exist "C:\Program Files\Git\cmd\git.exe" set path=%path%;C:\Program Files\Git\cmd
 if exist "%LOCALAPPDATA%\Programs\Git\cmd\git.exe" set path=%path%;%LOCALAPPDATA%\Programs\Git\cmd
@@ -165,7 +165,7 @@ if errorlevel 1 (
 echo Path adjusted to include git.
 goto :eof
 
-:findpython
+:findpython 
 if exist C:\Python27\python.exe set path=%path%;C:\Python27
 where python.exe 1>nul 2>nul
 if errorlevel 1 (
@@ -175,7 +175,7 @@ if errorlevel 1 (
 echo Path adjusted to include python.
 goto :eof
 
-:checksdk
+:checksdk 
 setlocal
 reg query "HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots" /v KitsRoot10 1>nul
 if errorlevel 1 (
@@ -208,7 +208,7 @@ echo Please see the README.md instructions in the project root.
 exit /b 1
 endlocal
 
-:checkcmake
+:checkcmake 
 cmake --version | findstr 3.4.3 1>nul 2>nul
 if "0"=="%ERRORLEVEL%" exit /b 0
 cmake --version | findstr 3.7.2 1>nul 2>nul
@@ -219,6 +219,4 @@ if errorlevel 1 (
   echo See README.md at the root for an explanation of dependencies.
   exit /b 1
 )
-goto :eof
-
 goto :eof
