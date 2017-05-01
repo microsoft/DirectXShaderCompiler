@@ -316,7 +316,7 @@ Store Output CP     StoreOutput
 Load Output CP                           LoadOutputControlPoint LoadOutputControlPoint
 Store PC                                 StorePatchConstant
 Load PC                                  LoadPatchConstant      LoadPatchConstant
-Store Output Vertex StoreOutput
+Store Output Vertex                                             StoreOutput
 =================== ==================== ====================== ======================
 
 LoadPatchConstant function in PC stage is generated only by DXBC-to-DXIL converter, to access DXBC vpc registers. HLSL compiler produces IR that references LLVM IR values directly.
