@@ -226,11 +226,21 @@ public:
   TEST_METHOD(WhenInstrDisallowedThenFail);
   TEST_METHOD(WhenDepthNotFloatThenFail);
   TEST_METHOD(BarrierFail);
+  TEST_METHOD(BarycentricsInVSFail);
+  TEST_METHOD(BarycentricsIn60Fail);
+  TEST_METHOD(BarycentricsCentroidInVSFail);
+  TEST_METHOD(BarycentricsCentroidIn60Fail);
+  TEST_METHOD(BarycentricsSampleIndexInVSFail);
+  TEST_METHOD(BarycentricsSampleIndexIn60Fail);
+  TEST_METHOD(BarycentricsSnappedInVSFail);
+  TEST_METHOD(BarycentricsSnappedIn60Fail);
   TEST_METHOD(CBufferLegacyOutOfBoundFail);
   TEST_METHOD(CsThreadSizeFail);
   TEST_METHOD(DeadLoopFail);
   TEST_METHOD(EvalFail);
   TEST_METHOD(GetDimCalcLODFail);
+  TEST_METHOD(GetAttributeAtVertexInVSFail);
+  TEST_METHOD(GetAttributeAtVertexIn60Fail);
   TEST_METHOD(HsAttributeFail);
   TEST_METHOD(InnerCoverageFail);
   TEST_METHOD(InterpChangeFail);
@@ -2922,6 +2932,125 @@ float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
     /*bRegex*/false);
 }
 
+TEST_F(ValidationTest, BarycentricsInVSFail) {
+  RewriteAssemblyCheckMsg(
+      "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
+      "vs_6_1",
+      {"call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
+       "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)"},
+      {"call float @dx.op.barycentrics.f32(i32 137, i8 0)",
+       "declare float @dx.op.barycentrics.f32(i32, i8)"},
+      "Opcode Barycentrics not valid in shader model vs_6_1", /*bRegex*/ false);
+}
 
+TEST_F(ValidationTest, BarycentricsIn60Fail) {
+  RewriteAssemblyCheckMsg(
+      "float4 main(float4 col : COLOR) : "
+      "SV_Target { return EvaluateAttributeCentroid(col).x; }",
+      "ps_6_0",
+      { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
+        "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
+      },
+      { "call float @dx.op.barycentrics.f32(i32 137, i8 0)",
+        "declare float @dx.op.barycentrics.f32(i32, i8)" },
+      "Opcode Barycentrics not valid in shader model ps_6_0", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, BarycentricsCentroidInVSFail) {
+  RewriteAssemblyCheckMsg(
+      "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
+      "vs_6_1",
+      {"call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
+       "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)"},
+      {"call float @dx.op.barycentricsCentroid.f32(i32 138, i8 0)",
+       "declare float @dx.op.barycentricsCentroid.f32(i32, i8)"},
+      "Opcode BarycentricsCentroid not valid in shader model vs_6_1", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, BarycentricsCentroidIn60Fail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col : COLOR) : "
+    "SV_Target { return EvaluateAttributeCentroid(col).x; }",
+    "ps_6_0",
+    { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
+    "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
+    },
+    { "call float @dx.op.barycentricsCentroid.f32(i32 138, i8 0)",
+    "declare float @dx.op.barycentricsCentroid.f32(i32, i8)" },
+    "Opcode BarycentricsCentroid not valid in shader model ps_6_0", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, BarycentricsSampleIndexInVSFail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
+    "vs_6_1",
+    { "call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
+    "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)" },
+    { "call float @dx.op.barycentricsSampleIndex.f32(i32 139, i8 0, i32 0)",
+    "declare float @dx.op.barycentricsSampleIndex.f32(i32, i8, i32)" },
+    "Opcode BarycentricsSampleIndex not valid in shader model vs_6_1", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, BarycentricsSampleIndexIn60Fail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col : COLOR) : "
+    "SV_Target { return EvaluateAttributeCentroid(col).x; }",
+    "ps_6_0",
+    { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
+    "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
+    },
+    { "call float @dx.op.barycentricsSampleIndex.f32(i32 139, i8 0, i32 0)",
+    "declare float @dx.op.barycentricsSampleIndex.f32(i32, i8, i32)" },
+    "Opcode BarycentricsSampleIndex not valid in shader model ps_6_0", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, BarycentricsSnappedInVSFail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
+    "vs_6_1",
+    { "call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
+    "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)" },
+    { "call float @dx.op.barycentricsSnapped.f32(i32 140, i8 0, i32 0, i32 0)",
+    "declare float @dx.op.barycentricsSnapped.f32(i32, i8, i32, i32)" },
+    "Opcode BarycentricsSnapped not valid in shader model vs_6_1", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, BarycentricsSnappedIn60Fail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col : COLOR) : "
+    "SV_Target { return EvaluateAttributeCentroid(col).x; }",
+    "ps_6_0",
+    { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
+    "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
+    },
+    { "call float @dx.op.barycentricsSnapped.f32(i32 140, i8 0, i32 0, i32 0)",
+    "declare float @dx.op.barycentricsSnapped.f32(i32, i8, i32, i32)" },
+    "Opcode BarycentricsSnapped not valid in shader model ps_6_0", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
+    "vs_6_1",
+    { "call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
+    "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)" },
+    { "call float @dx.op.attributeAtVertex.f32(i32 141, i32 0, i32 0, i8 0, i8 0)",
+    "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)"},
+      "Opcode AttributeAtVertex not valid in shader model vs_6_1",
+      /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col : COLOR) : "
+    "SV_Target { return EvaluateAttributeCentroid(col).x; }",
+    "ps_6_0",
+    { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
+    "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
+    },
+    { "call float @dx.op.attributeAtVertex.f32(i32 141, i32 0, i32 0, i8 0, i8 0)",
+    "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
+    "Opcode AttributeAtVertex not valid in shader model ps_6_0", /*bRegex*/ false);
+}
 
 // TODO: reject non-zero padding
