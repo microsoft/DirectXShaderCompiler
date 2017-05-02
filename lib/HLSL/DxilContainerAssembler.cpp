@@ -588,9 +588,12 @@ static void WriteProgramPart(const ShaderModel *pModel,
                              AbstractMemoryStream *pStream) {
   DXASSERT(pModel != nullptr, "else generation should have failed");
   DxilProgramHeader programHeader;
-  uint32_t ver =
+  uint32_t shaderVersion =
       EncodeVersion(pModel->GetKind(), pModel->GetMajor(), pModel->GetMinor());
-  InitProgramHeader(programHeader, ver, pModuleBitcode->GetPtrSize());
+  unsigned dxilMajor, dxilMinor;
+  pModel->GetDxilVersion(dxilMajor, dxilMinor);
+  uint32_t dxilVersion = DXIL::MakeDxilVersion(dxilMajor, dxilMinor);
+  InitProgramHeader(programHeader, shaderVersion, dxilVersion, pModuleBitcode->GetPtrSize());
 
   uint32_t programInUInt32, programPaddingBytes;
   GetPaddedProgramPartSize(pModuleBitcode, programInUInt32,
