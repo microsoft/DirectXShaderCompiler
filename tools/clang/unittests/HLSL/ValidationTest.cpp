@@ -201,9 +201,13 @@ public:
   //TEST_METHOD(TGSMRaceCond2)
   TEST_METHOD(AddUint64Odd)
 
+  TEST_METHOD(BarycentricNoInterpolationFail)
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
   TEST_METHOD(DuplicateSysValue)
+  TEST_METHOD(GetAttributeAtVertexInVSFail)
+  TEST_METHOD(GetAttributeAtVertexIn60Fail)
+  TEST_METHOD(GetAttributeAtVertexInterpFail)
   TEST_METHOD(SemTargetMax)
   TEST_METHOD(SemTargetIndexMatchesRow)
   TEST_METHOD(SemTargetCol0)
@@ -2937,6 +2941,48 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
     /*bRegex*/true);
 }
 
+TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
+    "vs_6_1",
+    { "call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
+    "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)" },
+    { "call float @dx.op.attributeAtVertex.f32(i32 141, i32 0, i32 0, i8 0, i8 0)",
+    "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
+    "Opcode AttributeAtVertex not valid in shader model vs_6_1",
+    /*bRegex*/ false);
+}
 
+TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col : COLOR) : "
+    "SV_Target { return EvaluateAttributeCentroid(col).x; }",
+    "ps_6_0",
+    { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
+    "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
+    },
+    { "call float @dx.op.attributeAtVertex.f32(i32 141, i32 0, i32 0, i8 0, i8 0)",
+    "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
+    "Opcode AttributeAtVertex not valid in shader model ps_6_0", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
+  RewriteAssemblyCheckMsg("float4 main(nointerpolation float4 col : COLOR) : "
+                          "SV_Target { return GetAttributeAtVertex(col, 0); }",
+                          "ps_6_1", {"!\"COLOR\", i8 9, i8 0, (![0-9]+), i8 1"},
+                          {"!\"COLOR\", i8 9, i8 0, \\1, i8 2"},
+                          "Attribute COLOR must have nointerpolation mode in "
+                          "order to use GetAttributeAtVertex function.",
+                          /*bRegex*/ true);
+}
+
+TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
+  RewriteAssemblyCheckMsg("float4 main(float3 bary : SV_Barycentric) : "
+    "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) + bary.z * float4(0,0,1,0); }",
+    "ps_6_1", {"!\"SV_Barycentric\", i8 9, i8 28, (![0-9]+), i8 2"},
+    {"!\"SV_Barycentric\", i8 9, i8 28, \\1, i8 1"},
+    "Invalid interpolation type 'nointerpolation' for SV_Barycentric.",
+    /*bRegex*/ true);
+}
 
 // TODO: reject non-zero padding

@@ -403,9 +403,10 @@ void CGMSHLSLRuntime::CheckParameterAnnotation(
       Semantic::GetByName(semName, sigPoint, SM->GetMajor(), SM->GetMinor());
   if (pSemantic->IsInvalid()) {
     DiagnosticsEngine &Diags = CGM.getDiags();
+    const ShaderModel *shader = m_pHLModule->GetShaderModel();
     unsigned DiagID =
-        Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1");
-    Diags.Report(SLoc, DiagID) << semName << m_pHLModule->GetShaderModel()->GetKindName();
+        Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1 %2.%3");
+    Diags.Report(SLoc, DiagID) << semName << shader->GetKindName() << shader->GetMajor() << shader->GetMinor();
   }
 }
 

@@ -248,7 +248,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
-        for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,Barycentrics,BarycentricsCentroid,BarycentricsSampleIndex,BarycentricsSnapped,AttributeAtVertex".split(","):
+        for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(","):
             self.name_idx[i].category = "Pixel shader"
             self.name_idx[i].shader_stages = "p"
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
@@ -281,7 +281,7 @@ class db_dxil(object):
                 i.is_wave = True
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
-        for i in "ViewID,Barycentrics,BarycentricsCentroid,BarycentricsSampleIndex,BarycentricsSnapped,AttributeAtVertex".split(","):
+        for i in "ViewID,AttributeAtVertex".split(","):
             self.name_idx[i].shader_model = 6,1
 
     def populate_llvm_instructions(self):
@@ -1053,25 +1053,6 @@ class db_dxil(object):
         # End of DXIL 1.0 opcodes.
         self.set_op_count_for_version(1, 0, next_op_idx)
 
-        self.add_dxil_op("Barycentrics", next_op_idx, "Barycentrics", "return weights at a current location.", "f", "rn", [
-            db_dxil_param(0, "f", "", "result"),
-            db_dxil_param(2, "i8", "VertexID", "Vertex Index")])
-        next_op_idx += 1
-        self.add_dxil_op("BarycentricsCentroid", next_op_idx, "BarycentricsCentroid", "return weights at centroid location.", "f", "rn", [
-            db_dxil_param(0, "f", "", "result"),
-            db_dxil_param(2, "i8", "VertexID", "Vertex Index")])
-        next_op_idx += 1
-        self.add_dxil_op("BarycentricsSampleIndex", next_op_idx, "BarycentricsSampleIndex", "return weights at the location of the sample specified by index", "f", "rn", [
-            db_dxil_param(0, "f", "", "result"),
-            db_dxil_param(2, "i8", "VertexID", "Vertex Index"),
-            db_dxil_param(3, "i32", "sampleIndex", "sample index")])
-        next_op_idx += 1
-        self.add_dxil_op("BarycentricsSnapped", next_op_idx, "BarycentricsSnapped", "return weights at the location specified in the pixel's 16x16 sample grid", "f", "rn", [
-            db_dxil_param(0, "f", "", "result"),
-            db_dxil_param(2, "i8", "VertexID", "Vertex Index"),
-            db_dxil_param(3, "i32", "offsetX", "2D offset from the pixel center using a 16x16 grid"),
-            db_dxil_param(4, "i32", "offsetY", "2D offset from the pixel center using a 16x16 grid")])
-        next_op_idx += 1
         self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hf", "rn", [
             db_dxil_param(0, "$o", "", "result"),
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
@@ -1088,7 +1069,7 @@ class db_dxil(object):
         # Uncomment this when 1.1 is final.
         #self.set_op_count_for_version(1, 1, next_op_idx)
 
-        assert next_op_idx == 143, "next operation index is %d rather than 143 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 139, "next operation index is %d rather than 139 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -1394,7 +1375,8 @@ class db_dxil(object):
             (25, "TessFactor", ""),
             (26, "InsideTessFactor", ""),
             (27, "ViewID", ""),
-            (28, "Invalid", ""),
+            (28, "Barycentric", ""),
+            (29, "Invalid", ""),
             ])
         self.enums.append(SemanticKind)
         SigPointKind = db_dxil_enum("SigPointKind", "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.", [
@@ -1499,6 +1481,7 @@ class db_dxil(object):
             TessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
             InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
             ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA
+            Barycentric,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -1559,6 +1542,7 @@ class db_dxil(object):
         self.add_valrule("Meta.ForceCaseOnSwitch", "Attribute forcecase only works for switch")
         self.add_valrule("Meta.ControlFlowHintNotOnControlFlow", "Control flow hint only works on control flow inst")
         self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities")
+        self.add_valrule("Meta.BarycentricInterpolation", "Invalid interpolation type '%0' for SV_Barycentric. Interpolation type must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")
@@ -1637,6 +1621,7 @@ class db_dxil(object):
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
         self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg")
         self.add_valrule("Instr.TGSMRaceCond", "Race condition writing to shared memory detected, consider making this write conditional")
+        self.add_valrule("Instr.AttributeAtVertexNoInterpolation", "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher

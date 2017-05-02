@@ -48,6 +48,7 @@ enum class ValidationRule : unsigned {
 
   // Instruction
   InstrAllowed, // Instructions must be of an allowed type
+  InstrAttributeAtVertexNoInterpolation, // Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.
   InstrBarrierModeForNonCS, // sync in a non-Compute Shader must only sync UAV (sync_uglobal)
   InstrBarrierModeNoMemory, // sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. 
   InstrBarrierModeUselessUGroup, // sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
@@ -114,6 +115,7 @@ enum class ValidationRule : unsigned {
   InstrWriteMaskMatchValueForUAVStore, // uav store write mask must match store value mask, write mask is %0 and store value mask is %1
 
   // Metadata
+  MetaBarycentricInterpolation, // Invalid interpolation type '%0' for SV_Barycentric. Interpolation type must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
   MetaBranchFlatten, // Can't use branch and flatten attributes together
   MetaClipCullMaxComponents, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
   MetaClipCullMaxRows, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.

@@ -105,6 +105,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch";
     case hlsl::ValidationRule::MetaControlFlowHintNotOnControlFlow: return "Control flow hint only works on control flow inst";
     case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
+    case hlsl::ValidationRule::MetaBarycentricInterpolation: return "Invalid interpolation type '%0' for SV_Barycentric. Interpolation type must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
     case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
@@ -170,6 +171,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrFailToResloveTGSMPointer: return "TGSM pointers must originate from an unambiguous TGSM global variable.";
     case hlsl::ValidationRule::InstrExtractValue: return "ExtractValue should only be used on dxil struct types and cmpxchg";
     case hlsl::ValidationRule::InstrTGSMRaceCond: return "Race condition writing to shared memory detected, consider making this write conditional";
+    case hlsl::ValidationRule::InstrAttributeAtVertexNoInterpolation: return "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.";
     case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed";
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
@@ -586,13 +588,12 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // EvalCentroid=89, SampleIndex=90, Coverage=91, InnerCoverage=92
   if (60 <= op && op <= 61 || op == 64 || 76 <= op && op <= 77 || 81 <= op && op <= 92)
     return (pSM->IsPS());
-  // Instructions: Barycentrics=137, BarycentricsCentroid=138,
-  // BarycentricsSampleIndex=139, BarycentricsSnapped=140, AttributeAtVertex=141
-  if (137 <= op && op <= 141)
+  // Instructions: AttributeAtVertex=137
+  if (op == 137)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
         && (pSM->IsPS());
-  // Instructions: ViewID=142
-  if (op == 142)
+  // Instructions: ViewID=138
+  if (op == 138)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
         && (pSM->IsVS() || pSM->IsHS() || pSM->IsDS() || pSM->IsGS() || pSM->IsPS());
   return true;
@@ -1290,6 +1291,20 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
             CI, ValidationRule::InstrCannotPullPosition,
             {ValCtx.DxilMod.GetShaderModel()->GetName()});
       }
+    }
+  } break;
+  case DXIL::OpCode::AttributeAtVertex: {
+    Value *Attribute = CI->getArgOperand(DXIL::OperandIndex::kBinarySrc0OpIdx);
+    DxilSignature &inputSig = ValCtx.DxilMod.GetInputSignature();
+    Value *row = CI->getArgOperand(DXIL::OperandIndex::kLoadInputRowOpIdx);
+    Value *col = CI->getArgOperand(DXIL::OperandIndex::kLoadInputColOpIdx);
+    DxilSignatureElement *pSE =
+        ValidateSignatureAccess(CI, inputSig, Attribute, row, col, ValCtx);
+    if (pSE && pSE->GetInterpolationMode()->GetKind() !=
+                   hlsl::InterpolationMode::Kind::Constant) {
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrAttributeAtVertexNoInterpolation,
+          {pSE->GetName()});
     }
   } break;
   case DXIL::OpCode::GetDimensions: {
@@ -3258,6 +3273,19 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticKind::DomainLocation:
   case DXIL::SemanticKind::Invalid:
     DXASSERT(!bAllowedInSig, "else internal inconsistency between semantic interpretation table and validation code");
+    break;
+  case DXIL::SemanticKind::Barycentric:
+    if (compKind != DXIL::ComponentType::F32) {
+      ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType, {SE.GetSemantic()->GetName(), "float"});
+    }
+    if (Mode != InterpolationMode::Kind::Linear &&
+        Mode != InterpolationMode::Kind::LinearCentroid &&
+        Mode != InterpolationMode::Kind::LinearNoperspective &&
+        Mode != InterpolationMode::Kind::LinearNoperspectiveCentroid &&
+        Mode != InterpolationMode::Kind::LinearNoperspectiveSample &&
+        Mode != InterpolationMode::Kind::LinearSample) {
+      ValCtx.EmitFormatError(ValidationRule::MetaBarycentricInterpolation, {SE.GetInterpolationMode()->GetName()});
+    }
     break;
   default:
     ValCtx.EmitSignatureError(&SE, ValidationRule::MetaSemaKindValid);
