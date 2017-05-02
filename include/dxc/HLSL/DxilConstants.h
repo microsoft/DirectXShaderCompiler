@@ -27,7 +27,7 @@ import hctdb_instrhelp
 namespace DXIL {
   // DXIL version.
   const unsigned kDxilMajor = 1;
-  const unsigned kDxilMinor = 0;
+  const unsigned kDxilMinor = 1;
 
   inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
     return 0 | (DxilMajor << 8) | (DxilMinor);
@@ -453,6 +453,8 @@ namespace DXIL {
     WaveReadLaneAt = 117, // returns the value from the specified lane
     WaveReadLaneFirst = 118, // returns the value from the first lane
   
+    NumOpCodes_Dxil_1_0 = 137,
+  
     NumOpCodes = 143 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
@@ -611,6 +613,8 @@ namespace DXIL {
     WavePrefixOp,
     WaveReadLaneAt,
     WaveReadLaneFirst,
+  
+    NumOpClasses_Dxil_1_0 = 93,
   
     NumOpClasses = 99 // exclusive last value of enumeration
   };
