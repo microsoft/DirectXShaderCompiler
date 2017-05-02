@@ -38,6 +38,7 @@ public:
   bool IsDS() const     { return m_Kind == Kind::Domain; }
   bool IsCS() const     { return m_Kind == Kind::Compute; }
   bool IsValid() const;
+  bool IsValidForDxil() const;
 
   Kind GetKind() const      { return m_Kind; }
   unsigned GetMajor() const { return m_Major; }

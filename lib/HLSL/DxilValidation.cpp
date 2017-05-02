@@ -2789,8 +2789,7 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
   }
 
   const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
-  if (!SM->IsValid() || SM->GetMajor() != 6 || 
-    (SM->GetMinor() != 0 && SM->GetMinor() != 1)) {
+  if (!SM->IsValidForDxil()) {
     ValCtx.EmitFormatError(ValidationRule::SmName,
                            {ValCtx.DxilMod.GetShaderModel()->GetName()});
   }
