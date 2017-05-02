@@ -149,7 +149,7 @@ const Semantic Semantic::ms_SemanticTable[kNumSemanticRecords] = {
   SP(Kind::TessFactor,            "SV_TessFactor"),
   SP(Kind::InsideTessFactor,      "SV_InsideTessFactor"),
   SP(Kind::ViewID,                "SV_ViewID"),
-  SP(Kind::Barycentric,           "SV_Barycentric"),
+  SP(Kind::Barycentrics,          "SV_Barycentrics"),
   SP(Kind::Invalid,               nullptr),
 };
 

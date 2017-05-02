@@ -86,7 +86,7 @@ const SigPoint SigPoint::ms_SigPoints[kNumSigPointRecords] = {
   DO(TessFactor,             NA,           NA,    NA,           NA,           NA,     NA,      TessFactor, TessFactor,   NA,     NA,    NA,    NA,           NA,    NA,            NA,            NA) \
   DO(InsideTessFactor,       NA,           NA,    NA,           NA,           NA,     NA,      TessFactor, TessFactor,   NA,     NA,    NA,    NA,           NA,    NA,            NA,            NA) \
   DO(ViewID,                 NotInSig _61, NA,    NotInSig _61, NotInSig _61, NA,     NA,      NA,         NotInSig _61, NA,     NA,    NA,    NotInSig _61, NA,    NotInSig _61,  NA,            NA) \
-  DO(Barycentric,            NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NotPacked _61, NA,            NA)
+  DO(Barycentrics,           NA,           NA,    NA,           NA,           NA,     NA,      NA,         NA,           NA,     NA,    NA,    NA,           NA,    NotPacked _61, NA,            NA)
 // INTERPRETATION-TABLE:END
 
 const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(unsigned)DXIL::SemanticKind::Invalid][(unsigned)SigPoint::Kind::Invalid] = {

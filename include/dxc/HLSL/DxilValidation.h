@@ -115,7 +115,8 @@ enum class ValidationRule : unsigned {
   InstrWriteMaskMatchValueForUAVStore, // uav store write mask must match store value mask, write mask is %0 and store value mask is %1
 
   // Metadata
-  MetaBarycentricInterpolation, // Invalid interpolation type '%0' for SV_Barycentric. Interpolation type must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
+  MetaBarycentricsFloat3, // only 'float3' type is allowed for SV_Barycentrics.
+  MetaBarycentricsInterpolation, // Invalid interpolation type '%0' for SV_Barycentrics. Interpolation type must be linear, linear noperspective, linear centroid, linear noperspective centroid, linear sample or linear noperspective sample
   MetaBranchFlatten, // Can't use branch and flatten attributes together
   MetaClipCullMaxComponents, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
   MetaClipCullMaxRows, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.

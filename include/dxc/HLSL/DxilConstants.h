@@ -149,7 +149,7 @@ namespace DXIL {
     TessFactor,
     InsideTessFactor,
     ViewID,
-    Barycentric,
+    Barycentrics,
     Invalid,
   };
   // SemanticKind-ENUM:END

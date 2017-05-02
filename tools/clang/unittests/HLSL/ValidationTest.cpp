@@ -201,6 +201,7 @@ public:
   //TEST_METHOD(TGSMRaceCond2)
   TEST_METHOD(AddUint64Odd)
 
+  TEST_METHOD(BarycentricFloat4Fail)
   TEST_METHOD(BarycentricNoInterpolationFail)
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
@@ -2978,16 +2979,23 @@ TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
 
 TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
   RewriteAssemblyCheckMsg(
-      "float4 main(float3 bary : SV_Barycentric) : "
+      "float4 main(float3 bary : SV_Barycentrics) : "
       "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) "
       "+ bary.z * float4(0,0,1,0); }",
-      "ps_6_1", {"!\"SV_Barycentric\", i8 9, i8 28, (![0-9]+), i8 2"},
-      {"!\"SV_Barycentric\", i8 9, i8 28, \\1, i8 1"},
-      "Invalid interpolation type 'nointerpolation' for SV_Barycentric. "
-      "Interpolation type must be linear, linear_centroid, "
-      "linear_noperspective, linear_noperspective_centroid, linear_sample or "
-      "linear_noperspective_sample",
+      "ps_6_1", {"!\"SV_Barycentrics\", i8 9, i8 28, (![0-9]+), i8 2"},
+      {"!\"SV_Barycentrics\", i8 9, i8 28, \\1, i8 1"},
+      "Invalid interpolation type 'nointerpolation' for SV_Barycentrics. "
+      "Interpolation type must be linear, linear noperspective, linear "
+      "centroid, linear noperspective centroid, linear sample or linear "
+      "noperspective sample",
       /*bRegex*/ true);
+}
+
+TEST_F(ValidationTest, BarycentricFloat4Fail) {
+  RewriteAssemblyCheckMsg(
+      "float4 main(float4 col : COLOR) : SV_Target { return col; }", "ps_6_1",
+      {"!\"COLOR\", i8 9, i8 0"}, {"!\"SV_Barycentrics\", i8 9, i8 28"},
+      "only 'float3' type is allowed for SV_Barycentrics.", false);
 }
 
 // TODO: reject non-zero padding

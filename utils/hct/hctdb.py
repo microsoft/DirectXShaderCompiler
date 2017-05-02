@@ -1375,7 +1375,7 @@ class db_dxil(object):
             (25, "TessFactor", ""),
             (26, "InsideTessFactor", ""),
             (27, "ViewID", ""),
-            (28, "Barycentric", ""),
+            (28, "Barycentrics", ""),
             (29, "Invalid", ""),
             ])
         self.enums.append(SemanticKind)
@@ -1481,7 +1481,7 @@ class db_dxil(object):
             TessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
             InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
             ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA
-            Barycentric,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA
+            Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -1542,7 +1542,8 @@ class db_dxil(object):
         self.add_valrule("Meta.ForceCaseOnSwitch", "Attribute forcecase only works for switch")
         self.add_valrule("Meta.ControlFlowHintNotOnControlFlow", "Control flow hint only works on control flow inst")
         self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities")
-        self.add_valrule("Meta.BarycentricInterpolation", "Invalid interpolation type '%0' for SV_Barycentric. Interpolation type must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample")
+        self.add_valrule("Meta.BarycentricsInterpolation", "Invalid interpolation type '%0' for SV_Barycentrics. Interpolation type must be linear, linear noperspective, linear centroid, linear noperspective centroid, linear sample or linear noperspective sample")
+        self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")

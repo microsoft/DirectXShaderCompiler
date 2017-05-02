@@ -626,7 +626,7 @@ GroupThreadID          NA           NA    NA           NA           NA     NA   
 TessFactor             NA           NA    NA           NA           NA     NA      TessFactor TessFactor   NA     NA    NA    NA           NA    NA            NA            NA
 InsideTessFactor       NA           NA    NA           NA           NA     NA      TessFactor TessFactor   NA     NA    NA    NA           NA    NA            NA            NA
 ViewID                 NotInSig _61 NA    NotInSig _61 NotInSig _61 NA     NA      NA         NotInSig _61 NA     NA    NA    NotInSig _61 NA    NotInSig _61  NA            NA
-Barycentric            NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotPacked _61 NA            NA
+Barycentrics           NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotPacked _61 NA            NA
 ====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============= ============= ========
 
 .. SEMINT-TABLE-RST:END
@@ -2775,7 +2775,8 @@ INSTR.TGSMRACECOND                     Race condition writing to shared memory d
 INSTR.UNDEFRESULTFORGETDIMENSION       GetDimensions used undef dimension %0 on %1
 INSTR.WRITEMASKFORTYPEDUAVSTORE        store on typed uav must write to all four components of the UAV
 INSTR.WRITEMASKMATCHVALUEFORUAVSTORE   uav store write mask must match store value mask, write mask is %0 and store value mask is %1
-META.BARYCENTRICINTERPOLATION          Invalid interpolation type '%0' for SV_Barycentric. Interpolation type must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
+META.BARYCENTRICSFLOAT3                only 'float3' type is allowed for SV_Barycentrics.
+META.BARYCENTRICSINTERPOLATION         Invalid interpolation type '%0' for SV_Barycentrics. Interpolation type must be linear, linear noperspective, linear centroid, linear noperspective centroid, linear sample or linear noperspective sample
 META.BRANCHFLATTEN                     Can't use branch and flatten attributes together
 META.CLIPCULLMAXCOMPONENTS             Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
 META.CLIPCULLMAXROWS                   Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.

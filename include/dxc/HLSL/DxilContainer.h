@@ -167,7 +167,7 @@ enum class DxilProgramSigSemantic : uint32_t {
   DepthLE = 68,
   StencilRef = 69,
   InnerCoverage = 70,
-  Barycentric = 71
+  Barycentrics = 71
 };
 
 enum class DxilProgramSigCompType : uint32_t {
