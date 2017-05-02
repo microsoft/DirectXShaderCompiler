@@ -811,7 +811,10 @@ def get_opcodes_rst():
     rows = []
     rows.append(["ID", "Name", "Description"])
     for i in instrs:
-        rows.append([i.dxil_opid, i.dxil_op + "_", i.doc]) #append _ to enable internal hyperlink on rst files
+        op_name = i.dxil_op
+        if i.remarks:
+            op_name = op_name + "_" # append _ to enable internal hyperlink on rst files
+        rows.append([i.dxil_opid, op_name, i.doc])
     result = "\n\n" + format_rst_table(rows) + "\n\n"
     # Add detailed instruction information where available.
     instrs = sorted(instrs, key=lambda v : v.name)
