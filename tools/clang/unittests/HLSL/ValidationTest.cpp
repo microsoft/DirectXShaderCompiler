@@ -2906,7 +2906,7 @@ void main(uint id : SV_GroupIndex) \
     "cs_6_1",
     {"dx.op.flattenedThreadIdInGroup.i32(i32 96",
      "declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32)"},
-    {"dx.op.viewID.i32(i32 142",
+    {"dx.op.viewID.i32(i32 138",
      "declare i32 @dx.op.viewID.i32(i32)"},
     "Opcode ViewID not valid in shader model cs_6_1",
     /*bRegex*/false);
@@ -2921,7 +2921,7 @@ float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
     "ds_6_0",
     {"dx.op.primitiveID.i32(i32 108",
      "declare i32 @dx.op.primitiveID.i32(i32)"},
-    {"dx.op.viewID.i32(i32 142",
+    {"dx.op.viewID.i32(i32 138",
      "declare i32 @dx.op.viewID.i32(i32)"},
     "Opcode ViewID not valid in shader model ds_6_0",
     /*bRegex*/false);
@@ -2947,7 +2947,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
     "vs_6_1",
     { "call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
     "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)" },
-    { "call float @dx.op.attributeAtVertex.f32(i32 141, i32 0, i32 0, i8 0, i8 0)",
+    { "call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 0, i8 0)",
     "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
     "Opcode AttributeAtVertex not valid in shader model vs_6_1",
     /*bRegex*/ false);
@@ -2961,7 +2961,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
     { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
     "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
     },
-    { "call float @dx.op.attributeAtVertex.f32(i32 141, i32 0, i32 0, i8 0, i8 0)",
+    { "call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 0, i8 0)",
     "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
     "Opcode AttributeAtVertex not valid in shader model ps_6_0", /*bRegex*/ false);
 }
@@ -2977,12 +2977,17 @@ TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
 }
 
 TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
-  RewriteAssemblyCheckMsg("float4 main(float3 bary : SV_Barycentric) : "
-    "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) + bary.z * float4(0,0,1,0); }",
-    "ps_6_1", {"!\"SV_Barycentric\", i8 9, i8 28, (![0-9]+), i8 2"},
-    {"!\"SV_Barycentric\", i8 9, i8 28, \\1, i8 1"},
-    "Invalid interpolation type 'nointerpolation' for SV_Barycentric.",
-    /*bRegex*/ true);
+  RewriteAssemblyCheckMsg(
+      "float4 main(float3 bary : SV_Barycentric) : "
+      "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) "
+      "+ bary.z * float4(0,0,1,0); }",
+      "ps_6_1", {"!\"SV_Barycentric\", i8 9, i8 28, (![0-9]+), i8 2"},
+      {"!\"SV_Barycentric\", i8 9, i8 28, \\1, i8 1"},
+      "Invalid interpolation type 'nointerpolation' for SV_Barycentric. "
+      "Interpolation type must be linear, linear_centroid, "
+      "linear_noperspective, linear_noperspective_centroid, linear_sample or "
+      "linear_noperspective_sample",
+      /*bRegex*/ true);
 }
 
 // TODO: reject non-zero padding
