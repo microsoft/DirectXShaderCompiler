@@ -251,6 +251,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
   opts.DebugInfo = Args.hasFlag(OPT__SLASH_Zi, OPT_INVALID, false);
+  opts.DebugNameForBinary = Args.hasFlag(OPT_Zsb, OPT_INVALID, false);
+  opts.DebugNameForSource = Args.hasFlag(OPT_Zsb, OPT_INVALID, false);
   opts.VariableName = Args.getLastArgValue(OPT_Vn);
   opts.InputFile = Args.getLastArgValue(OPT_INPUT);
   opts.ForceRootSigVer = Args.getLastArgValue(OPT_force_rootsig_ver);
@@ -371,6 +373,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     // Target profile is required in arguments only for drivers when compiling;
     // APIs take this through an argument.
     errors << "Target profile argument is missing";
+    return 1;
+  }
+
+  if (!opts.DebugNameForBinary && !opts.DebugNameForSource) {
+    opts.DebugNameForSource = true;
+  }
+  else if (opts.DebugNameForBinary && opts.DebugNameForSource) {
+    errors << "Cannot specify both /Zss and /Zsb";
     return 1;
   }
 

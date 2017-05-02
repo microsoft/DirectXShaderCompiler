@@ -115,6 +115,21 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ IDxcBlob *pShader, UINT32 Flags,
                              _In_ IDxcOperationResult **ppResult);
 
+static HRESULT GetValidatorVersion(IDxcValidator *pValidator, UINT32 *pMajor,
+                                   UINT32 *pMinor) {
+  CComPtr<IDxcVersionInfo> pVersionInfo;
+  IFR(pValidator->QueryInterface(&pVersionInfo));
+  IFR(pVersionInfo->GetVersion(pMajor, pMinor));
+  return S_OK;
+}
+
+static bool DoesValidatorSupportDebugNamePart(IDxcValidator *pValidator) {
+  UINT32 Major, Minor;
+  if (FAILED((GetValidatorVersion(pValidator, &Major, &Minor))))
+    return false;
+  return Major > 1 || (Major == 1 && Minor >= 1);
+}
+
 enum class HandleKind {
   Special = 0,
   File = 1,
@@ -1948,13 +1963,17 @@ public:
   { }
 
   void CloneForDebugInfo() {
-      m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
+    m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
   }
 
- void WrapModuleInDxilContainer(IMalloc *pMalloc,  AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
+  void WrapModuleInDxilContainer(IMalloc *pMalloc,
+                                 AbstractMemoryStream *pModuleBitcode,
+                                 CComPtr<IDxcBlob> &pDxilContainerBlob,
+                                 SerializeDxilFlags Flags) {
     CComPtr<AbstractMemoryStream> pContainerStream;
     IFT(CreateMemoryStream(pMalloc, &pContainerStream));
-    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(), pModuleBitcode, pContainerStream);
+    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(),
+                                    pModuleBitcode, pContainerStream, Flags);
 
     pDxilContainerBlob.Release();
     IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
@@ -2228,6 +2247,18 @@ public:
         }
         outStream.flush();
 
+        SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+        if (opts.DebugInfo) {
+          if (DoesValidatorSupportDebugNamePart(pValidator))
+            SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
+          if (!opts.StripDebug) {
+            SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+          }
+        }
+        if (opts.DebugNameForSource) {
+          SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+        }
+
         // Don't do work to put in a container if an error has occurred
         if (compileOK) {
           HRESULT valHR = S_OK;
@@ -2244,7 +2275,7 @@ public:
 
           // Do not create a container when there is only a a high-level representation in the module.
           if (!opts.CodeGenHighLevel)
-            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob);
+            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob, SerializeFlags);
 
           if (needsValidation) {
             // Important: in-place edit is required so the blob is reused and thus
@@ -2489,6 +2520,18 @@ public:
         }
 
         it = std::find_if(begin(pContainer), end(pContainer),
+                          DxilPartIsType(DFCC_ShaderDebugName));
+        if (it != end(pContainer)) {
+          const char *pDebugName;
+          if (!GetDxilShaderDebugName(*it, &pDebugName, nullptr)) {
+            Stream << "; shader debug name present; corruption detected\n";
+          }
+          else if (pDebugName && *pDebugName) {
+            Stream << "; shader debug name: " << pDebugName << "\n";
+          }
+        }
+
+        it = std::find_if(begin(pContainer), end(pContainer),
                                            DxilPartIsType(DFCC_DXIL));
         if (it == end(pContainer)) {
           IFC(DXC_E_CONTAINER_MISSING_DXIL);
@@ -2660,9 +2703,12 @@ public:
     else
       compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Default;
 
-    // Constructing vector of wide strings to pass in to codegen. Just passing in pArguments will expose ownership of memory to both CodeGenOptions and this caller, which can lead to unexpected behavior.
+    // Constructing vector of wide strings to pass in to codegen. Just passing
+    // in pArguments will expose ownership of memory to both CodeGenOptions and
+    // this caller, which can lead to unexpected behavior.
     for (UINT32 i = 0; i != argCount; ++i) {
-      compiler.getCodeGenOpts().HLSLArguments.emplace_back(Unicode::UTF16ToUTF8StringOrThrow(pArguments[i]));
+      compiler.getCodeGenOpts().HLSLArguments.emplace_back(
+          Unicode::UTF16ToUTF8StringOrThrow(pArguments[i]));
     }
     // Overrding default set of loop unroll.
     if (Opts.PreferFlowControl)

@@ -13,6 +13,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/MD5.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HLSL/DxilShaderModel.h"
@@ -608,7 +609,8 @@ static void WriteProgramPart(const ShaderModel *pModel,
 
 void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
-                                           AbstractMemoryStream *pFinalStream) {
+                                           AbstractMemoryStream *pFinalStream,
+                                           SerializeDxilFlags Flags) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -676,9 +678,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   if (HasDebugInfo(*pModule->GetModule())) {
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
-    writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-      WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
-    });
+    if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
+      writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
+        WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
+      });
+    }
 
     pProgramStream.Release();
 
@@ -690,6 +694,39 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     IFT(CreateMemoryStream(pMalloc, &pProgramStream));
     raw_stream_ostream outStream(pProgramStream.p);
     WriteBitcodeToFile(pModule->GetModule(), outStream, true);
+
+    if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
+      CComPtr<AbstractMemoryStream> pHashStream;
+      // If the debug name should be specific to the sources, base the name on the debug
+      // bitcode, which will include the source references, line numbers, etc. Otherwise,
+      // do it exclusively on the target shader bitcode.
+      pHashStream = (int)(Flags & SerializeDxilFlags::DebugNameDependOnSource) ? pModuleBitcode : pProgramStream;
+      const uint32_t DebugInfoNameHashLen = 32;   // 32 chars of MD5
+      const uint32_t DebugInfoNameSuffix = 4;     // '.lld'
+      const uint32_t DebugInfoNameNullAndPad = 4; // '\0\0\0\0'
+      const uint32_t DebugInfoContentLen =
+          sizeof(DxilShaderDebugName) + DebugInfoNameHashLen +
+          DebugInfoNameSuffix + DebugInfoNameNullAndPad;
+      writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen, [&](AbstractMemoryStream *pStream) {
+        DxilShaderDebugName NameContent;
+        NameContent.Flags = 0;
+        NameContent.NameLength = DebugInfoNameHashLen + DebugInfoNameSuffix;
+        IFT(WriteStreamValue(pStream, NameContent));
+
+        ArrayRef<uint8_t> Data((uint8_t *)pHashStream->GetPtr(), pHashStream->GetPtrSize());
+        llvm::MD5 md5;
+        llvm::MD5::MD5Result md5Result;
+        SmallString<32> Hash;
+        md5.update(Data);
+        md5.final(md5Result);
+        md5.stringifyResult(md5Result, Hash);
+
+        ULONG cbWritten;
+        IFT(pStream->Write(Hash.data(), Hash.size(), &cbWritten));
+        const char SuffixAndPad[] = ".lld\0\0\0";
+        IFT(pStream->Write(SuffixAndPad, _countof(SuffixAndPad), &cbWritten));
+      });
+    }
   }
 
   // Compute padded bitcode size.
