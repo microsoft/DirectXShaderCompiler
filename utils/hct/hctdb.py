@@ -1714,7 +1714,7 @@ class db_dxil(object):
         self.add_valrule("Flow.Reducible", "Execution flow must be reducible")
         self.add_valrule("Flow.NoRecusion", "Recursion is not permitted")
         self.add_valrule("Flow.DeadLoop", "Loop must have break")
-        self.add_valrule_msg("Flow.FunctionCall", "Function with parameter is not permitted", "Function %0 with parameter is not permitted, it should be inlined")
+        self.add_valrule_msg("Flow.FunctionCall", "Function with parameter is not permitted. This rule only works for DXIL1.0. Later version allow function with parameter except entry function and patch constant function", "Function %0 with parameter is not permitted, it should be inlined")
 
         self.add_valrule_msg("Decl.DxilNsReserved", "The DXIL reserved prefixes must only be used by built-in functions and types", "Declaration '%0' uses a reserved prefix")
         self.add_valrule_msg("Decl.DxilFnExtern", "External function must be a DXIL function", "External function '%0' is not a DXIL function")

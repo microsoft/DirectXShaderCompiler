@@ -2780,7 +2780,7 @@ DECL.NOTUSEDEXTERNAL                  External declaration should not be used
 DECL.USEDEXTERNALFUNCTION             External function must be used
 DECL.USEDINTERNAL                     Internal declaration must be used
 FLOW.DEADLOOP                         Loop must have break
-FLOW.FUNCTIONCALL                     Function with parameter is not permitted
+FLOW.FUNCTIONCALL                     Function with parameter is not permitted. This rule only works for DXIL1.0. Later version allow function with parameter except entry function and patch constant function
 FLOW.NORECUSION                       Recursion is not permitted
 FLOW.REDUCIBLE                        Execution flow must be reducible
 INSTR.ALLOWED                         Instructions must be of an allowed type

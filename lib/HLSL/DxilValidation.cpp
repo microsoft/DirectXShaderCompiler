@@ -340,6 +340,7 @@ struct ValidationContext {
   Module &M;
   Module *pDebugModule;
   DxilModule &DxilMod;
+  Type   *HandleTy;
   const DataLayout &DL;
   DiagnosticPrinterRawOStream &DiagPrinter;
   PSExecutionInfo PSExec;
@@ -374,12 +375,17 @@ struct ValidationContext {
         m_bCoverageIn(false), m_bInnerCoverageIn(false),
         hasViewID(false) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
+    HandleTy = dxilModule.GetOP()->GetHandleType();
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
       OutputPositionMask[i] = 0;
     }
     outputCols.resize(DxilMod.GetOutputSignature().GetElements().size(), 0);
     patchConstCols.resize(DxilMod.GetPatchConstantSignature().GetElements().size(), 0);
+  }
+
+  bool IsDXIL1_1Plus() {
+    return (m_DxilMajor == 1 && m_DxilMinor >= 1) || (m_DxilMajor > 1);
   }
 
   // Provide direct access to the raw_ostream in DiagPrinter.
@@ -660,8 +666,67 @@ static DxilSignatureElement *ValidateSignatureAccess(Instruction *I, DxilSignatu
   return &SE;
 }
 
+static MDNode *GetResourceAttribute(Value *handle, ValidationContext &ValCtx) {
+
+  DxilTypeSystem &typeSys = ValCtx.DxilMod.GetTypeSystem();
+  MDNode *MD = nullptr;
+  if (Argument *Arg = dyn_cast<Argument>(handle)) {
+    Function *F = Arg->getParent();
+    if (DxilFunctionAnnotation *FuncAnnot = typeSys.GetFunctionAnnotation(F)) {
+      DxilParameterAnnotation &ParamAnnot =
+          FuncAnnot->GetParameterAnnotation(Arg->getArgNo());
+      MD = ParamAnnot.GetResourceAttribute();
+    }
+  } else if (LoadInst *LI = dyn_cast<LoadInst>(handle)) {
+    handle = LI->getPointerOperand();
+    for (User *U : handle->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        Function *F = CI->getCalledFunction();
+        unsigned ArgNo = 0;
+        for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
+          if (CI->getArgOperand(i) == handle) {
+            ArgNo = i;
+            break;
+          }
+        }
+        if (DxilFunctionAnnotation *FuncAnnot =
+                typeSys.GetFunctionAnnotation(F)) {
+          DxilParameterAnnotation &ParamAnnot =
+              FuncAnnot->GetParameterAnnotation(ArgNo);
+          MD = ParamAnnot.GetResourceAttribute();
+          break;
+        }
+      }
+    }
+  }
+
+  return MD;
+}
+
+static void GetSamplerKind(Value *handle, DXIL::SamplerKind &Kind,
+                           ValidationContext &ValCtx) {
+  MDNode *MD = GetResourceAttribute(handle, ValCtx);
+
+  if (!MD) {
+    Kind = DXIL::SamplerKind::Invalid;
+    return;
+  }
+
+  DxilSampler S;
+
+  ValCtx.DxilMod.LoadDxilSamplerFromMDNode(MD, S);
+
+  Kind = S.GetSamplerKind();
+}
+
 static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle, ValidationContext &ValCtx) {
   if (!isa<CallInst>(samplerHandle)) {
+    if (ValCtx.IsDXIL1_1Plus()) {
+      DXIL::SamplerKind Kind = DXIL::SamplerKind::Invalid;
+      GetSamplerKind(samplerHandle, Kind, ValCtx);
+      if (Kind != DXIL::SamplerKind::Invalid)
+        return Kind;
+    }
     ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::SamplerKind::Invalid;
   }
@@ -716,6 +781,26 @@ static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle, ValidationContext 
   return sampler->GetSamplerKind();
 }
 
+static DXIL::ResourceKind
+GetResourceKindAndCompTy(Value *handle, DXIL::ComponentType &CompTy,
+                         DXIL::ResourceClass &ResClass,
+                         ValidationContext &ValCtx) {
+  MDNode *MD = GetResourceAttribute(handle, ValCtx);
+
+  if (!MD)
+    return DXIL::ResourceKind::Invalid;
+  DxilResourceBase R(DxilResourceBase::Class::Invalid);
+  ValCtx.DxilMod.LoadDxilResourceBaseFromMDNode(MD, R);
+  ResClass = R.GetClass();
+  if (ResClass == DXIL::ResourceClass::SRV ||
+      ResClass == DXIL::ResourceClass::UAV) {
+    DxilResource R;
+    ValCtx.DxilMod.LoadDxilResourceFromMDNode(MD, R);
+    CompTy = R.GetCompType().GetKind();
+  }
+  return R.GetKind();
+}
+
 static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::ComponentType &CompTy, DXIL::ResourceClass &ResClass,
     unsigned &resIndex,
     ValidationContext &ValCtx) {
@@ -723,6 +808,16 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
   ResClass = DXIL::ResourceClass::Invalid;
 
   if (!isa<CallInst>(handle)) {
+    if (ValCtx.IsDXIL1_1Plus()) {
+      // Allow find resource attribute from parameter.
+      DXIL::ResourceKind Kind =
+          GetResourceKindAndCompTy(handle, CompTy, ResClass, ValCtx);
+      if (Kind != DXIL::ResourceKind::Invalid) {
+        // No index for handle from parameter.
+        resIndex = -1;
+        return Kind;
+      }
+    }
     ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     return DXIL::ResourceKind::Invalid;
   }
@@ -2016,6 +2111,11 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx) {
   }
   if (Ty->isStructTy()) {
     bool result = true;
+    if (ValCtx.IsDXIL1_1Plus()) {
+      // Allow alloca handle for out resource parameter.
+      if (Ty == ValCtx.HandleTy)
+        return true;
+    }
     StructType *ST = cast<StructType>(Ty);
 
     StringRef Name = ST->getName();
@@ -2289,6 +2389,8 @@ static void ValidateInstructionMetadata(Instruction *I,
       ValidateLoopMetadata(MD.second, ValCtx);
     } else if (MD.first == LLVMContext::MD_tbaa) {
       ValidateTBAAMetadata(MD.second, ValCtx);
+    } else if (MD.first == LLVMContext::MD_noalias){
+      // Validated in Verifier.cpp.
     } else if (MD.first == LLVMContext::MD_range) {
       // Validated in Verifier.cpp.
     } else {
@@ -2560,10 +2662,15 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
   if (F.isDeclaration()) {
     ValidateExternalFunction(&F, ValCtx);
   } else {
-    if (!F.arg_empty())
-      ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall,
-                             {F.getName().str()});
-
+    if (!F.arg_empty()) {
+      // For DXIL 1.0, no function is allowed to have parameter.
+      // For later version, only entry function and patch constant function
+      // cannot have parameter.
+      if (!ValCtx.IsDXIL1_1Plus() || &F == ValCtx.DxilMod.GetEntryFunction() ||
+          &F == ValCtx.DxilMod.GetPatchConstantFunction())
+        ValCtx.EmitFormatError(ValidationRule::FlowFunctionCall,
+                               {F.getName().str()});
+    }
     DxilFunctionAnnotation *funcAnnotation =
         ValCtx.DxilMod.GetTypeSystem().GetFunctionAnnotation(&F);
     if (!funcAnnotation) {
@@ -2585,7 +2692,9 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
           funcAnnotation->GetParameterAnnotation(arg.getArgNo());
 
       if (argTy->isStructTy() && !HLModule::IsStreamOutputType(argTy) &&
-          !paramAnnoation.HasMatrixAnnotation()) {
+          !paramAnnoation.HasMatrixAnnotation() &&
+          // Allow handle type for DXIL1.1 plus.
+          (!ValCtx.IsDXIL1_1Plus() || argTy != ValCtx.HandleTy)) {
         if (arg.hasName())
           ValCtx.EmitFormatError(
               ValidationRule::DeclFnFlattenParam,
@@ -4040,7 +4149,7 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // Bump these versions after 1.0 to account for additional validation rules.
   *pMajor = 1;
-  *pMinor = 0;
+  *pMinor = 1;
 }
 
 _Use_decl_annotations_ HRESULT
