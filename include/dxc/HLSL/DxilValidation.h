@@ -116,7 +116,7 @@ enum class ValidationRule : unsigned {
 
   // Metadata
   MetaBarycentricsFloat3, // only 'float3' type is allowed for SV_Barycentrics.
-  MetaBarycentricsInterpolation, // Invalid interpolation type '%0' for SV_Barycentrics. Interpolation type must be linear, linear noperspective, linear centroid, linear noperspective centroid, linear sample or linear noperspective sample
+  MetaBarycentricsInterpolation, // SV_Barycentrics cannot be used with 'nointerpolation' type
   MetaBranchFlatten, // Can't use branch and flatten attributes together
   MetaClipCullMaxComponents, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
   MetaClipCullMaxRows, // Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.

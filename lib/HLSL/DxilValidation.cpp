@@ -105,7 +105,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch";
     case hlsl::ValidationRule::MetaControlFlowHintNotOnControlFlow: return "Control flow hint only works on control flow inst";
     case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
-    case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "Invalid interpolation type '%0' for SV_Barycentrics. Interpolation type must be linear, linear noperspective, linear centroid, linear noperspective centroid, linear sample or linear noperspective sample";
+    case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "SV_Barycentrics cannot be used with 'nointerpolation' type";
     case hlsl::ValidationRule::MetaBarycentricsFloat3: return "only 'float3' type is allowed for SV_Barycentrics.";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
@@ -3285,10 +3285,10 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
         Mode != InterpolationMode::Kind::LinearNoperspectiveCentroid &&
         Mode != InterpolationMode::Kind::LinearNoperspectiveSample &&
         Mode != InterpolationMode::Kind::LinearSample) {
-      ValCtx.EmitFormatError(ValidationRule::MetaBarycentricsInterpolation, {SE.GetInterpolationMode()->GetName()});
+      ValCtx.EmitSignatureError(&SE, ValidationRule::MetaBarycentricsInterpolation);
     }
     if (SE.GetCols() != 3) {
-      ValCtx.EmitFormatError(ValidationRule::MetaBarycentricsFloat3, {});
+      ValCtx.EmitSignatureError(&SE, ValidationRule::MetaBarycentricsFloat3);
     }
     break;
   default:

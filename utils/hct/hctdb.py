@@ -1542,7 +1542,7 @@ class db_dxil(object):
         self.add_valrule("Meta.ForceCaseOnSwitch", "Attribute forcecase only works for switch")
         self.add_valrule("Meta.ControlFlowHintNotOnControlFlow", "Control flow hint only works on control flow inst")
         self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities")
-        self.add_valrule("Meta.BarycentricsInterpolation", "Invalid interpolation type '%0' for SV_Barycentrics. Interpolation type must be linear, linear noperspective, linear centroid, linear noperspective centroid, linear sample or linear noperspective sample")
+        self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type")
         self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")

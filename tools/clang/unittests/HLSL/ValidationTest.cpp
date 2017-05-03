@@ -2984,10 +2984,7 @@ TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
       "+ bary.z * float4(0,0,1,0); }",
       "ps_6_1", {"!\"SV_Barycentrics\", i8 9, i8 28, (![0-9]+), i8 2"},
       {"!\"SV_Barycentrics\", i8 9, i8 28, \\1, i8 1"},
-      "Invalid interpolation type 'nointerpolation' for SV_Barycentrics. "
-      "Interpolation type must be linear, linear noperspective, linear "
-      "centroid, linear noperspective centroid, linear sample or linear "
-      "noperspective sample",
+      "SV_Barycentrics cannot be used with 'nointerpolation' type",
       /*bRegex*/ true);
 }
 
