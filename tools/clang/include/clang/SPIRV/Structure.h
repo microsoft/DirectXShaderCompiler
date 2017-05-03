@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "spirv/1.0/spirv.hpp11"
+#include "clang/SPIRV/Constant.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/Type.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -188,14 +189,6 @@ struct TypeIdPair {
   const uint32_t resultId;
 };
 
-/// \brief The struct representing a constant and its type.
-struct Constant {
-  inline Constant(const Type &ty, Instruction &&value);
-
-  const Type &type;
-  Instruction constant;
-};
-
 /// \brief The class representing a SPIR-V module.
 class SPIRVModule {
 public:
@@ -238,9 +231,22 @@ public:
                            llvm::Optional<uint32_t> memberIndex = llvm::None);
   inline void addDecoration(const Decoration &decoration, uint32_t targetId);
   inline void addType(const Type *type, uint32_t resultId);
-  inline void addConstant(const Type &type, Instruction &&constant);
+  inline void addConstant(const Constant *constant, uint32_t resultId);
   inline void addVariable(Instruction &&);
   inline void addFunction(std::unique_ptr<Function>);
+
+private:
+  /// \brief Collects all the Integer type definitions in this module and
+  /// consumes them using the consumer within the given InstBuilder.
+  /// After this method is called, all integer types are remove from the list of
+  /// types in this object.
+  void takeIntegerTypes(InstBuilder *builder);
+
+  /// \brief Finds the constant on which the given array type depends.
+  /// If found, (a) defines the constant by passing it to the consumer in the
+  /// given InstBuilder. (b) Removes the constant from the list of constants
+  /// in this object.
+  void takeConstantForArrayType(const Type *arrType, InstBuilder *ib);
 
 private:
   Header header; ///< SPIR-V module header.
@@ -262,7 +268,8 @@ private:
   // their corresponding types. We store types and constants separately, but
   // they should be handled together.
   llvm::MapVector<const Type *, uint32_t> types;
-  std::vector<Constant> constants;
+  llvm::MapVector<const Constant *, uint32_t> constants;
+
   std::vector<Instruction> variables;
   std::vector<std::unique_ptr<Function>> functions;
 };
@@ -329,9 +336,6 @@ DecorationIdPair::DecorationIdPair(const Decoration &decor, uint32_t id)
 
 TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 
-Constant::Constant(const Type &ty, Instruction &&value)
-    : type(ty), constant(std::move(value)) {}
-
 SPIRVModule::SPIRVModule()
     : addressingModel(llvm::None), memoryModel(llvm::None) {}
 
@@ -371,8 +375,8 @@ void SPIRVModule::addDecoration(const Decoration &decoration,
 void SPIRVModule::addType(const Type *type, uint32_t resultId) {
   types.insert(std::make_pair(type, resultId));
 }
-void SPIRVModule::addConstant(const Type &type, Instruction &&constant) {
-  constants.emplace_back(type, std::move(constant));
+void SPIRVModule::addConstant(const Constant *constant, uint32_t resultId) {
+  constants.insert(std::make_pair(constant, resultId));
 };
 void SPIRVModule::addVariable(Instruction &&var) {
   variables.push_back(std::move(var));
