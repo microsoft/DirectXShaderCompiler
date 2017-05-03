@@ -44,6 +44,22 @@ bool ShaderModel::IsValid() const {
   return m_Kind != Kind::Invalid;
 }
 
+bool ShaderModel::IsValidForDxil() const {
+  if (!IsValid())
+    return false;
+  switch (m_Major) {
+    case 6: {
+      switch (m_Minor) {
+      case 0:
+      case 1:
+        return true;
+      }
+    }
+    break;
+  }
+  return false;
+}
+
 const ShaderModel *ShaderModel::Get(unsigned Idx) {
   DXASSERT_NOMSG(Idx < kNumShaderModels - 1);
   if (Idx < kNumShaderModels - 1)
@@ -102,7 +118,7 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
 }
 
 void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {
-  DXASSERT(m_Major == 6, "invalid major");
+  DXASSERT(IsValidForDxil(), "invalid shader model");
   DxilMajor = 1;
   switch (m_Minor) {
   case 0:
@@ -112,7 +128,7 @@ void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const
     DxilMinor = 1;
     break;
   default:
-    DXASSERT(0, "invalid minor");
+    DXASSERT(0, "IsValidForDxil() should have caught this.");
     break;
   }
 }

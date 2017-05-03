@@ -301,8 +301,16 @@ class db_enumhelp_gen:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
         if e.name in self.lastEnumNames:
+            lastName = self.lastEnumNames[e.name]
+            versioned = ["%s_Dxil_%d_%d = %d," % (lastName, major, minor, info[lastName])
+                         for (major, minor), info in sorted(self.db.dxil_version_info.items())
+                         if lastName in info]
+            if versioned:
+                print("")
+                for val in versioned:
+                    print("  " + val)
             print("")
-            print("  " + self.lastEnumNames[e.name] + " = " + str(len(sorted_values)) + " // exclusive last value of enumeration")
+            print("  " + lastName + " = " + str(len(sorted_values)) + " // exclusive last value of enumeration")
         print("};")
 
     def print_content(self):

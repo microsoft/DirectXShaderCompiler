@@ -135,6 +135,7 @@ class db_dxil(object):
         self.passes = []        # inventory of available passes (db_dxil_pass)
         self.name_idx = {}      # DXIL instructions by name
         self.enum_idx = {}      # enumerations by name
+        self.dxil_version_info = {}
 
         self.populate_llvm_instructions()
         self.call_instr = self.get_instr_by_llvm_name("CallInst")
@@ -205,6 +206,11 @@ class db_dxil(object):
             if not val is None:
                 assert val + 1 == i_val, "values in predicate are not sequential and dense, %d follows %d for %s" % (i_val, val, name_proj(i))
             val = i_val
+
+    def set_op_count_for_version(self, major, minor, op_count):
+        info = self.dxil_version_info.setdefault((major, minor), dict())
+        info['NumOpCodes'] = op_count
+        info['NumOpClasses'] = len(set([op.dxil_class for op in self.instr]))
 
     def populate_categories_and_models(self):
         "Populate the category and shader_stages member of instructions."
@@ -1043,6 +1049,10 @@ class db_dxil(object):
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
+
+        # End of DXIL 1.0 opcodes.
+        self.set_op_count_for_version(1, 0, next_op_idx)
+
         self.add_dxil_op("Barycentrics", next_op_idx, "Barycentrics", "return weights at a current location.", "f", "rn", [
             db_dxil_param(0, "f", "", "result"),
             db_dxil_param(2, "i8", "VertexID", "Vertex Index")])
@@ -1073,6 +1083,10 @@ class db_dxil(object):
         self.add_dxil_op("ViewID", next_op_idx, "ViewID", "returns the view index", "i", "rn", [
             db_dxil_param(0, "i32", "", "result")])
         next_op_idx += 1
+
+        # End of DXIL 1.1 opcodes.
+        # Uncomment this when 1.1 is final.
+        #self.set_op_count_for_version(1, 1, next_op_idx)
 
         assert next_op_idx == 143, "next operation index is %d rather than 143 and thus opcodes are broken" % next_op_idx
 
@@ -1689,6 +1703,7 @@ class db_dxil(object):
         self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1")
         self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1")
         self.add_valrule_msg("Sm.OpcodeInInvalidFunction", "Invalid DXIL opcode usage like StorePatchConstant in patch constant function", "opcode '%0' should only used in '%1'")
+        self.add_valrule_msg("Sm.ViewIDNeedsSlot", "ViewID requires compatible space in pixel shader input signature", "Pixel shader input signature lacks available space for ViewID")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")
