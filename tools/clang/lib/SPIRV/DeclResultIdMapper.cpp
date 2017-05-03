@@ -15,12 +15,14 @@
 namespace clang {
 namespace spirv {
 
-void DeclResultIdMapper::createStageVarFromFnReturn(FunctionDecl *funcDecl) {
+void DeclResultIdMapper::createStageVarFromFnReturn(
+    const FunctionDecl *funcDecl) {
   // SemanticDecl for the return value is attached to the FunctionDecl.
   createStageVariables(funcDecl, false);
 }
 
-void DeclResultIdMapper::createStageVarFromFnParam(ParmVarDecl *paramDecl) {
+void DeclResultIdMapper::createStageVarFromFnParam(
+    const ParmVarDecl *paramDecl) {
   // TODO: We cannot treat all parameters as stage inputs because of
   // out/input modifiers.
   createStageVariables(paramDecl, true);

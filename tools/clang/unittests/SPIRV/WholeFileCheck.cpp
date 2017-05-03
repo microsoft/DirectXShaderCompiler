@@ -12,6 +12,14 @@
 #include "WholeFileCheck.h"
 #include "gtest/gtest.h"
 
+namespace clang {
+namespace spirv {
+
+namespace {
+const char hlslStartLabel[] = "// Run:";
+const char spirvStartLabel[] = "// CHECK-WHOLE-SPIR-V:";
+}
+
 WholeFileTest::WholeFileTest() : spirvTools(SPV_ENV_UNIVERSAL_1_0) {
   spirvTools.SetMessageConsumer(
       [](spv_message_level_t, const char *, const spv_position_t &,
@@ -185,8 +193,7 @@ void WholeFileTest::convertIDxcBlobToUint32(const CComPtr<IDxcBlob> &blob) {
   memcpy(generatedBinary.data(), binaryStr.data(), binaryStr.size());
 }
 
-std::string
-WholeFileTest::getAbsPathOfInputDataFile(const std::string &filename) {
+std::string WholeFileTest::getAbsPathOfInputDataFile(llvm::StringRef filename) {
   std::string path = clang::spirv::testOptions::inputDataDir;
 
 #ifdef _WIN32
@@ -203,7 +210,8 @@ WholeFileTest::getAbsPathOfInputDataFile(const std::string &filename) {
   return path;
 }
 
-void WholeFileTest::runWholeFileTest(std::string filename, bool generateHeader,
+void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
+                                     bool generateHeader,
                                      bool runSpirvValidation) {
   inputFilePath = getAbsPathOfInputDataFile(filename);
 
@@ -224,3 +232,6 @@ void WholeFileTest::runWholeFileTest(std::string filename, bool generateHeader,
     EXPECT_TRUE(validateSpirvBinary());
   }
 }
+
+} // end namespace spirv
+} // end namespace clang

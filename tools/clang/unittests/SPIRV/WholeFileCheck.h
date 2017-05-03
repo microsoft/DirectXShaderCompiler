@@ -7,6 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef LLVM_CLANG_UNITTESTS_SPIRV_WHOLEFILECHECK_H
+#define LLVM_CLANG_UNITTESTS_SPIRV_WHOLEFILECHECK_H
+
 #include <algorithm>
 #include <fstream>
 
@@ -14,14 +17,13 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "spirv-tools/libspirv.hpp"
+#include "llvm/ADT/StringRef.h"
 #include "gtest/gtest.h"
 
 #include "SpirvTestOptions.h"
 
-namespace {
-const char hlslStartLabel[] = "// Run:";
-const char spirvStartLabel[] = "// CHECK-WHOLE-SPIR-V:";
-}
+namespace clang {
+namespace spirv {
 
 /// \brief The purpose of the this test class is to take in an input file with
 /// the following format:
@@ -55,7 +57,7 @@ public:
   /// It is also important that all generated SPIR-V code is valid. Users of
   /// WholeFileTest may choose not to run the SPIR-V Validator (for cases where
   /// a certain feature has not been added to the Validator yet).
-  void runWholeFileTest(std::string path, bool generateHeader = false,
+  void runWholeFileTest(llvm::StringRef path, bool generateHeader = false,
                         bool runSpirvValidation = true);
 
 private:
@@ -86,7 +88,7 @@ private:
   void convertIDxcBlobToUint32(const CComPtr<IDxcBlob> &blob);
 
   /// \brief Returns the absolute path to the input file of the test.
-  std::string getAbsPathOfInputDataFile(const std::string &filename);
+  std::string getAbsPathOfInputDataFile(llvm::StringRef filename);
 
   std::string targetProfile;             ///< Target profile (argument of -T)
   std::string entryPoint;                ///< Entry point name (argument of -E)
@@ -96,3 +98,8 @@ private:
   std::string generatedSpirvAsm;         ///< Disassembled binary (SPIR-V code)
   spvtools::SpirvTools spirvTools;       ///< SPIR-V Tools used by the test
 };
+
+} // end namespace spirv
+} // end namespace clang
+
+#endif

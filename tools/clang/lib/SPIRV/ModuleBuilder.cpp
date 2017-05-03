@@ -24,6 +24,18 @@ ModuleBuilder::ModuleBuilder(SPIRVContext *C)
   });
 }
 
+std::vector<uint32_t> ModuleBuilder::takeModule() {
+  theModule.setBound(theContext.getNextId());
+
+  std::vector<uint32_t> binary;
+  auto ib = InstBuilder([&binary](std::vector<uint32_t> &&words) {
+    binary.insert(binary.end(), words.begin(), words.end());
+  });
+
+  theModule.take(&ib);
+  return std::move(binary);
+}
+
 uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
                                       std::string funcName) {
   if (theFunction) {
@@ -142,115 +154,15 @@ void ModuleBuilder::createReturnValue(uint32_t value) {
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
-uint32_t
-ModuleBuilder::getConstantComposite(uint32_t typeId,
-                                    llvm::ArrayRef<uint32_t> constituents) {
-  const Constant *constant =
-      Constant::getComposite(theContext, typeId, constituents);
-  const uint32_t constId = theContext.getResultIdForConstant(constant);
-  theModule.addConstant(constant, constId);
-  return constId;
-}
-
-uint32_t ModuleBuilder::getConstantFloat32(float value) {
-  const uint32_t floatTypeId = getFloatType();
-  const Constant *constant =
-      Constant::getFloat32(theContext, floatTypeId, value);
-  const uint32_t constId = theContext.getResultIdForConstant(constant);
-  theModule.addConstant(constant, constId);
-  return constId;
-}
-
-uint32_t ModuleBuilder::getConstantInt32(int32_t value) {
-  const uint32_t intTypeId = getInt32Type();
-  const Constant *constant = Constant::getInt32(theContext, intTypeId, value);
-  const uint32_t constId = theContext.getResultIdForConstant(constant);
-  theModule.addConstant(constant, constId);
-  return constId;
-}
-
-uint32_t ModuleBuilder::getConstantUint32(uint32_t value) {
-  const uint32_t uintTypeId = getUint32Type();
-  const Constant *constant = Constant::getUint32(theContext, uintTypeId, value);
-  const uint32_t constId = theContext.getResultIdForConstant(constant);
-  theModule.addConstant(constant, constId);
-  return constId;
-}
-
-uint32_t ModuleBuilder::getVoidType() {
-  const Type *type = Type::getVoid(theContext);
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-  return typeId;
-}
-
-uint32_t ModuleBuilder::getUint32Type() {
-  const Type *type = Type::getUint32(theContext);
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-  return typeId;
-}
-
-uint32_t ModuleBuilder::getInt32Type() {
-  const Type *type = Type::getInt32(theContext);
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-  return typeId;
-}
-
-uint32_t ModuleBuilder::getFloatType() {
-  const Type *type = Type::getFloat32(theContext);
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-  return typeId;
-}
-
-uint32_t ModuleBuilder::getVecType(uint32_t elemType, uint32_t elemCount) {
-  const Type *type = nullptr;
-  switch (elemCount) {
-  case 2:
-    type = Type::getVec2(theContext, elemType);
-    break;
-  case 3:
-    type = Type::getVec3(theContext, elemType);
-    break;
-  case 4:
-    type = Type::getVec4(theContext, elemType);
-    break;
-  default:
-    assert(false && "unhandled vector size");
-    // Error found. Return 0 as the <result-id> directly.
-    return 0;
+void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
+                                     spv::ExecutionMode em,
+                                     const std::vector<uint32_t> &params) {
+  instBuilder.opExecutionMode(entryPointId, em);
+  for (const auto &param : params) {
+    instBuilder.literalInteger(param);
   }
-
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-
-  return typeId;
-}
-
-uint32_t ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes) {
-  const Type *type = Type::getStruct(theContext, fieldTypes);
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-  return typeId;
-}
-
-uint32_t
-ModuleBuilder::getFunctionType(uint32_t returnType,
-                               const std::vector<uint32_t> &paramTypes) {
-  const Type *type = Type::getFunction(theContext, returnType, paramTypes);
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-  return typeId;
-}
-
-uint32_t ModuleBuilder::getPointerType(uint32_t pointeeType,
-                                       spv::StorageClass storageClass) {
-  const Type *type = Type::getPointer(theContext, storageClass, pointeeType);
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-  return typeId;
+  instBuilder.x();
+  theModule.addExecutionMode(std::move(constructSite));
 }
 
 uint32_t ModuleBuilder::addStageIOVariable(uint32_t type,
@@ -292,16 +204,97 @@ void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   theModule.addDecoration(*d, targetId);
 }
 
-std::vector<uint32_t> ModuleBuilder::takeModule() {
-  theModule.setBound(theContext.getNextId());
+#define IMPL_GET_PRIMITIVE_TYPE(ty)                                            \
+  \
+uint32_t ModuleBuilder::get##ty##Type() {                                      \
+    const Type *type = Type::get##ty(theContext);                              \
+    const uint32_t typeId = theContext.getResultIdForType(type);               \
+    theModule.addType(type, typeId);                                           \
+    return typeId;                                                             \
+  \
+}
 
-  std::vector<uint32_t> binary;
-  auto ib = InstBuilder([&binary](std::vector<uint32_t> &&words) {
-    binary.insert(binary.end(), words.begin(), words.end());
-  });
+IMPL_GET_PRIMITIVE_TYPE(Void)
+IMPL_GET_PRIMITIVE_TYPE(Int32)
+IMPL_GET_PRIMITIVE_TYPE(Uint32)
+IMPL_GET_PRIMITIVE_TYPE(Float32)
 
-  theModule.take(&ib);
-  return std::move(binary);
+#undef IMPL_GET_PRIMITIVE_TYPE
+
+uint32_t ModuleBuilder::getVecType(uint32_t elemType, uint32_t elemCount) {
+  const Type *type = nullptr;
+  switch (elemCount) {
+  case 2:
+    type = Type::getVec2(theContext, elemType);
+    break;
+  case 3:
+    type = Type::getVec3(theContext, elemType);
+    break;
+  case 4:
+    type = Type::getVec4(theContext, elemType);
+    break;
+  default:
+    assert(false && "unhandled vector size");
+    // Error found. Return 0 as the <result-id> directly.
+    return 0;
+  }
+
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getPointerType(uint32_t pointeeType,
+                                       spv::StorageClass storageClass) {
+  const Type *type = Type::getPointer(theContext, storageClass, pointeeType);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes) {
+  const Type *type = Type::getStruct(theContext, fieldTypes);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t
+ModuleBuilder::getFunctionType(uint32_t returnType,
+                               const std::vector<uint32_t> &paramTypes) {
+  const Type *type = Type::getFunction(theContext, returnType, paramTypes);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+#define IMPL_GET_PRIMITIVE_VALUE(builderTy, cppTy)                             \
+  \
+uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                  \
+    const uint32_t typeId = get##builderTy##Type();                            \
+    const Constant *constant =                                                 \
+        Constant::get##builderTy(theContext, typeId, value);                   \
+    const uint32_t constId = theContext.getResultIdForConstant(constant);      \
+    theModule.addConstant(constant, constId);                                  \
+    return constId;                                                            \
+  \
+}
+
+IMPL_GET_PRIMITIVE_VALUE(Int32, int32_t)
+IMPL_GET_PRIMITIVE_VALUE(Uint32, uint32_t)
+IMPL_GET_PRIMITIVE_VALUE(Float32, float)
+
+#undef IMPL_GET_PRIMITIVE_VALUE
+
+uint32_t
+ModuleBuilder::getConstantComposite(uint32_t typeId,
+                                    llvm::ArrayRef<uint32_t> constituents) {
+  const Constant *constant =
+      Constant::getComposite(theContext, typeId, constituents);
+  const uint32_t constId = theContext.getResultIdForConstant(constant);
+  theModule.addConstant(constant, constId);
+  return constId;
 }
 
 } // end namespace spirv

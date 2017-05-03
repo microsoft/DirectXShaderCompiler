@@ -22,7 +22,7 @@ uint32_t TypeTranslator::translateType(QualType type) {
     case BuiltinType::Void:
       return theBuilder.getVoidType();
     case BuiltinType::Float:
-      return theBuilder.getFloatType();
+      return theBuilder.getFloat32Type();
     default:
       emitError("Primitive type '%0' is not supported yet.")
           << builtinType->getTypeClassName();

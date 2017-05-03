@@ -48,18 +48,16 @@ namespace spirv {
 /// * FieldDecl if the field is attached with a semantic.
 class DeclResultIdMapper {
 public:
-  DeclResultIdMapper(spv::ExecutionModel stage, ModuleBuilder &builder,
-                     DiagnosticsEngine &diag)
-      : shaderStage(stage), theBuilder(builder), typeTranslator(builder, diag) {
-  }
+  inline DeclResultIdMapper(spv::ExecutionModel stage, ModuleBuilder &builder,
+                            DiagnosticsEngine &diag);
 
   /// \brief Creates the stage variables by parsing the semantics attached to
   /// the given function's return value.
-  void createStageVarFromFnReturn(FunctionDecl *funcDecl);
+  void createStageVarFromFnReturn(const FunctionDecl *funcDecl);
 
   /// \brief Creates the stage variables by parsing the semantics attached to
   /// the given function's parameter.
-  void createStageVarFromFnParam(ParmVarDecl *paramDecl);
+  void createStageVarFromFnParam(const ParmVarDecl *paramDecl);
 
   /// \brief Registers a Decl's <result-id> without generating any SPIR-V
   /// instruction.
@@ -144,6 +142,11 @@ private:
   llvm::SmallVector<StageVarIdSemanticPair, 8> stageOutputs;
   llvm::SmallVector<StageVarIdSemanticPair, 8> stageBuiltins;
 };
+
+DeclResultIdMapper::DeclResultIdMapper(spv::ExecutionModel stage,
+                                       ModuleBuilder &builder,
+                                       DiagnosticsEngine &diag)
+    : shaderStage(stage), theBuilder(builder), typeTranslator(builder, diag) {}
 
 } // end namespace spirv
 } // end namespace clang
