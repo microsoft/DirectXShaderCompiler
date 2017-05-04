@@ -709,10 +709,10 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
   }
 
   // FIXME: This condition is never false.  Should it be an assert?
-  if (!Metadata.empty()
-      // HLSL Change Begin.
-      // HLSL attrs will be ignored, then LoopID will get {null} which may shared with other metadata.
-      && Metadata.size() > 1
+  if ( // HLSL Change Begin.
+       // We only want to enter this if we found a llvm loop attribute and we
+       // know we found an llvm attribute if the metadata size > 1.
+      Metadata.size() > 1
       // HLSL Change End.
       ) {
     // Add llvm.loop MDNode to CondBr.
