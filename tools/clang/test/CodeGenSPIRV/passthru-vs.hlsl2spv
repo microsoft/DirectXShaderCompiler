@@ -23,6 +23,8 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Vertex %VSmain "VSmain" %gl_Position %7 %8 %5
 // OpName %VSmain "VSmain"
+// OpName %bb_entry "bb.entry"
+// OpName %result "result"
 // OpDecorate %gl_Position BuiltIn Position
 // OpDecorate %7 Location 0
 // OpDecorate %8 Location 1
@@ -44,18 +46,18 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // %7 = OpVariable %_ptr_Input_v4float Input
 // %8 = OpVariable %_ptr_Input_v4float Input
 // %VSmain = OpFunction %void None %10
-// %12 = OpLabel
-// %15 = OpVariable %_ptr_Function__struct_13 Function
-// %19 = OpAccessChain %_ptr_Function_v4float %15 %int_0
+// %bb_entry = OpLabel
+// %result = OpVariable %_ptr_Function__struct_13 Function
+// %19 = OpAccessChain %_ptr_Function_v4float %result %int_0
 // %20 = OpLoad %v4float %7
 // OpStore %19 %20
-// %22 = OpAccessChain %_ptr_Function_v4float %15 %int_1
+// %22 = OpAccessChain %_ptr_Function_v4float %result %int_1
 // %23 = OpLoad %v4float %8
 // OpStore %22 %23
-// %24 = OpAccessChain %_ptr_Function_v4float %15 %int_0
+// %24 = OpAccessChain %_ptr_Function_v4float %result %int_0
 // %25 = OpLoad %v4float %24
 // OpStore %gl_Position %25
-// %26 = OpAccessChain %_ptr_Function_v4float %15 %int_1
+// %26 = OpAccessChain %_ptr_Function_v4float %result %int_1
 // %27 = OpLoad %v4float %26
 // OpStore %5 %27
 // OpReturn

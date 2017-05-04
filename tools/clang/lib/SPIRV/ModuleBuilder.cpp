@@ -37,7 +37,7 @@ std::vector<uint32_t> ModuleBuilder::takeModule() {
 }
 
 uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
-                                      std::string funcName) {
+                                      llvm::StringRef funcName) {
   if (theFunction) {
     assert(false && "found nested function");
     return 0;
@@ -47,31 +47,29 @@ uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
 
   theFunction = llvm::make_unique<Function>(
       returnType, fId, spv::FunctionControlMask::MaskNone, funcType);
-
-  // Add debug name for the function (OpName ...)
-  if (!funcName.empty()) {
-    theModule.addDebugName(fId, std::move(funcName));
-  }
+  theModule.addDebugName(fId, funcName);
 
   return fId;
 }
 
-uint32_t ModuleBuilder::addFnParameter(uint32_t type) {
+uint32_t ModuleBuilder::addFnParameter(uint32_t type, llvm::StringRef name) {
   assert(theFunction && "found detached parameter");
 
   const uint32_t pointerType =
       getPointerType(type, spv::StorageClass::Function);
   const uint32_t paramId = theContext.takeNextId();
   theFunction->addParameter(pointerType, paramId);
+  theModule.addDebugName(paramId, name);
 
   return paramId;
 }
 
-uint32_t ModuleBuilder::addFnVariable(uint32_t type) {
+uint32_t ModuleBuilder::addFnVariable(uint32_t type, llvm::StringRef name) {
   assert(theFunction && "found detached local variable");
 
   const uint32_t varId = theContext.takeNextId();
   theFunction->addVariable(type, varId);
+  theModule.addDebugName(varId, name);
   return varId;
 }
 
@@ -97,7 +95,7 @@ bool ModuleBuilder::endFunction() {
   return true;
 }
 
-uint32_t ModuleBuilder::createBasicBlock() {
+uint32_t ModuleBuilder::createBasicBlock(llvm::StringRef name) {
   if (theFunction == nullptr) {
     assert(false && "found detached basic block");
     return 0;
@@ -105,6 +103,7 @@ uint32_t ModuleBuilder::createBasicBlock() {
 
   const uint32_t labelId = theContext.takeNextId();
   basicBlocks[labelId] = llvm::make_unique<BasicBlock>(labelId);
+  theModule.addDebugName(labelId, name);
 
   return labelId;
 }

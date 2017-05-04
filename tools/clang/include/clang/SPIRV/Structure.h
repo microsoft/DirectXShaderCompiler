@@ -30,6 +30,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 namespace spirv {
@@ -227,7 +228,7 @@ public:
                             llvm::ArrayRef<uint32_t> intefaces);
   inline void addExecutionMode(Instruction &&);
   // TODO: source code debug information
-  inline void addDebugName(uint32_t targetId, std::string name,
+  inline void addDebugName(uint32_t targetId, llvm::StringRef name,
                            llvm::Optional<uint32_t> memberIndex = llvm::None);
   inline void addDecoration(const Decoration &decoration, uint32_t targetId);
   inline void addType(const Type *type, uint32_t resultId);
@@ -364,9 +365,11 @@ void SPIRVModule::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
 void SPIRVModule::addExecutionMode(Instruction &&execMode) {
   executionModes.push_back(std::move(execMode));
 }
-void SPIRVModule::addDebugName(uint32_t targetId, std::string name,
+void SPIRVModule::addDebugName(uint32_t targetId, llvm::StringRef name,
                                llvm::Optional<uint32_t> memberIndex) {
-  debugNames.emplace_back(targetId, std::move(name), memberIndex);
+  if (!name.empty()) {
+    debugNames.emplace_back(targetId, name, memberIndex);
+  }
 }
 void SPIRVModule::addDecoration(const Decoration &decoration,
                                 uint32_t targetId) {

@@ -15,6 +15,7 @@
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/Structure.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 namespace spirv {
@@ -42,18 +43,18 @@ public:
   /// exist at most one function under building. Returns the <result-id> for the
   /// function on success. Returns zero on failure.
   uint32_t beginFunction(uint32_t funcType, uint32_t returnType,
-                         std::string name = "");
+                         llvm::StringRef name = "");
 
   /// \brief Registers a function parameter of the given type onto the current
   /// function and returns its <result-id>.
-  uint32_t addFnParameter(uint32_t type);
+  uint32_t addFnParameter(uint32_t type, llvm::StringRef name = "");
 
   /// \brief Creates a local variable of the given value type in the current
   /// function and returns its <result-id>.
   ///
   /// The corresponding pointer type of the given value type will be constructed
   /// for the variable itself.
-  uint32_t addFnVariable(uint32_t valueType);
+  uint32_t addFnVariable(uint32_t valueType, llvm::StringRef name = "");
 
   /// \brief Ends building of the current function. Returns true of success,
   /// false on failure. All basic blocks constructed from the beginning or
@@ -62,7 +63,7 @@ public:
 
   /// \brief Creates a SPIR-V basic block. On success, returns the <label-id>
   /// for the basic block. On failure, returns zero.
-  uint32_t createBasicBlock();
+  uint32_t createBasicBlock(llvm::StringRef name = "");
 
   /// \brief Returns true if the current basic block inserting into is
   /// terminated.
