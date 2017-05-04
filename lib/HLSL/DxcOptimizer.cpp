@@ -124,6 +124,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeReassociatePass(Registry);
     initializeReducibilityAnalysisPass(Registry);
     initializeRegToMemHlslPass(Registry);
+    initializeResourceToHandlePass(Registry);
     initializeRewriteSymbolsPass(Registry);
     initializeSCCPPass(Registry);
     initializeSROAPass(Registry);
@@ -160,7 +161,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
-  static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVector" };
+  static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
   static const LPCSTR Float2IntArgs[] = { "float2int-max-integer-bw" };
   static const LPCSTR GVNArgs[] = { "noloads", "enable-pre", "enable-load-pre", "max-recurse-depth" };
   static const LPCSTR JumpThreadingArgs[] = { "Threshold", "jump-threading-threshold" };
@@ -296,7 +297,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("MaxHeaderSize")
     ||  S.equals("NotOptimized")
     ||  S.equals("Os")
-    ||  S.equals("ReplaceAllVector")
+    ||  S.equals("ReplaceAllVectors")
     ||  S.equals("RequiresDomTree")
     ||  S.equals("Runtime")
     ||  S.equals("ScalarLoadThreshold")

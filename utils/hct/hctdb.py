@@ -1248,7 +1248,7 @@ class db_dxil(object):
         add_pass('die', 'DeadInstElimination', 'Dead Instruction Elimination', [])
         add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [])
         add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
-            {'n':'ReplaceAllVector','t':'ReplaceAllVector','c':1}])
+            {'n':'ReplaceAllVectors','t':'bool','c':1}])
         add_pass('hlsl-dxil-legalize-resource-use', 'DxilLegalizeResourceUsePass', 'DXIL legalize resource use', [])
         add_pass('hlsl-dxil-legalize-static-resource-use', 'DxilLegalizeStaticResourceUsePass', 'DXIL legalize static resource use', [])
         add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
@@ -1259,6 +1259,7 @@ class db_dxil(object):
         add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
         add_pass('scalarizer', 'Scalarizer', 'Scalarize vector operations', [])
         add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
+        add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
         add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])

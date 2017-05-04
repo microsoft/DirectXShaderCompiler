@@ -198,6 +198,7 @@ public:
   static unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
+  static llvm::Type *GetArrayEltTy(llvm::Type *Ty);
 
   static bool IsStaticGlobal(llvm::GlobalVariable *GV);
   static bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);

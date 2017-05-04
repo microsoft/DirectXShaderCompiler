@@ -3248,6 +3248,9 @@ public:
   }
 
   bool runOnModule(Module &M) override {
+    HLModule &HLM = M.GetOrCreateHLModule();
+    OP *hlslOP = HLM.GetOP();
+    Type *HandleTy = hlslOP->GetHandleType();
     // Promote static global variables.
     PromoteStaticGlobalResources(M);
 
@@ -3266,15 +3269,20 @@ public:
       }
     }
 
-    // Transform PHINode/SelectInst on resource into PHINode/SelectInst on
-    // Handle. This will make sure resource only have ld/st/gep use.
-    TransformResourcePHINodeToHandlePHINode(M);
+    Value *UndefHandle = UndefValue::get(HandleTy);
+    if (!UndefHandle->user_empty()) {
+      for (User *U : UndefHandle->users()) {
+        // Report error if undef handle used for function call.
+        if (isa<CallInst>(U)) {
+          M.getContext().emitError(kResourceMapErrorMsg);
+        }
+      }
+    }
     return true;
   }
 
 private:
   void PromoteStaticGlobalResources(Module &M);
-  void TransformResourcePHINodeToHandlePHINode(Module &M);
   void TransformHandleCast(Function &F);
 };
 
@@ -3318,6 +3326,9 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   AssumptionCache &AC =
       getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  HLModule &HLM = F.getParent()->GetOrCreateHLModule();
+  OP *hlslOP = HLM.GetOP();
+  Type *HandleTy = hlslOP->GetHandleType();
 
   BasicBlock &BB = F.getEntryBlock();
   unsigned allocaSize = 0;
@@ -3328,7 +3339,7 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
     // the entry node
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-        if (IsResourceType(AI->getAllocatedType()))
+        if (HandleTy == HLModule::GetArrayEltTy(AI->getAllocatedType()))
           Allocas.push_back(AI);
       }
     if (Allocas.empty())
@@ -3363,10 +3374,13 @@ INITIALIZE_PASS_END(DxilLegalizeResourceUsePass,
 
 void DxilLegalizeStaticResourceUsePass::PromoteStaticGlobalResources(
     Module &M) {
+  HLModule &HLM = M.GetOrCreateHLModule();
+  Type *HandleTy = HLM.GetOP()->GetHandleType();
+
   std::set<GlobalVariable *> staticResources;
   for (auto &GV : M.globals()) {
     if (GV.getLinkage() == GlobalValue::LinkageTypes::InternalLinkage &&
-        IsResourceType(GV.getType()->getElementType())) {
+        HandleTy == HLModule::GetArrayEltTy(GV.getType())) {
       staticResources.insert(&GV);
     }
   }
@@ -3395,122 +3409,6 @@ void DxilLegalizeStaticResourceUsePass::PromoteStaticGlobalResources(
       M.getContext().emitError(kResourceMapErrorMsg);
       break;
     }
-  }
-}
-
-void DxilLegalizeStaticResourceUsePass::TransformResourcePHINodeToHandlePHINode(
-    Module &M) {
-  HLModule &HLM = M.GetOrCreateHLModule();
-  OP *hlslOP = HLM.GetOP();
-  Type *HandleTy = hlslOP->GetHandleType();
-
-  std::unordered_set<Instruction *> resSet;
-  // Find all hl create handle which use a phi/select.
-  for (Function &TempF : M.functions()) {
-    if (GetHLOpcodeGroupByName(&TempF) == HLOpcodeGroup::HLCreateHandle) {
-      for (User *U : TempF.users()) {
-        CallInst *CI = cast<CallInst>(U);
-        Value *ResOp =
-            CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
-        if (Instruction *Res = dyn_cast<Instruction>(ResOp))
-          AddResourceToSet(Res, resSet);
-        else if (isa<UndefValue>(ResOp)) {
-          CI->getContext().emitError(CI, kResourceMapErrorMsg);
-          continue;
-        }
-      }
-    }
-  }
-
-  Value *UndefHandle = UndefValue::get(HandleTy);
-
-  // Generate Handle inst for Res inst.
-  std::unordered_map<Instruction *, Value *> resHandleMap;
-  for (Instruction *Res : resSet) {
-    unsigned numOperands = Res->getNumOperands();
-    IRBuilder<> Builder(Res);
-
-    unsigned startOpIdx = 0;
-    // Skip Cond for Select.
-    if (SelectInst *Sel = dyn_cast<SelectInst>(Res)) {
-      startOpIdx = 1;
-      Value *Cond = Sel->getCondition();
-      // Use undef handle to create, will be updated in next loop.
-      Value *Handle = Builder.CreateSelect(Cond, UndefHandle, UndefHandle);
-      resHandleMap[Res] = Handle;
-    } else {
-      PHINode *Phi = cast<PHINode>(Res);
-      PHINode *HandlePhi = Builder.CreatePHI(HandleTy, numOperands);
-      // Use undef handle to create, will be updated in next loop.
-      for (unsigned i = 0; i < numOperands; i++) {
-        BasicBlock *BB = Phi->getIncomingBlock(i);
-        HandlePhi->addIncoming(UndefHandle, BB);
-      }
-      resHandleMap[Res] = HandlePhi;
-    }
-
-    // Generate createHandle for LdInst opreands.
-    for (unsigned i = startOpIdx; i < numOperands; i++) {
-      if (LoadInst *LI = dyn_cast<LoadInst>(Res->getOperand(i))) {
-        if (resHandleMap.count(LI))
-          continue;
-        IRBuilder<> LocalBuilder(LI);
-
-        Instruction *Handle =
-            HLM.EmitHLOperationCall(LocalBuilder, HLOpcodeGroup::HLCreateHandle,
-                                    /*opcode*/ 0, HandleTy, {LI}, M);
-        // No new HL createHandle will be created.
-        // So don't need MarkResourceAttribute here.
-        resHandleMap[LI] = Handle;
-      }
-    }
-  }
-
-  // Update operand for Handle phi/select.
-  for (Instruction *Res : resSet) {
-    unsigned numOperands = Res->getNumOperands();
-
-    unsigned startOpIdx = 0;
-    // Skip Cond for Select.
-    if (SelectInst *Sel = dyn_cast<SelectInst>(Res))
-      startOpIdx = 1;
-
-    Instruction *Handle = cast<Instruction>(resHandleMap[Res]);
-
-    for (unsigned i = startOpIdx; i < numOperands; i++) {
-      if (!isa<Instruction>(Res->getOperand(i))) {
-        Res->getContext().emitError(Res, kResourceMapErrorMsg);
-        continue;
-      }
-      Instruction *ResOp = cast<Instruction>(Res->getOperand(i));
-      if (resHandleMap.count(ResOp) == 0) {
-        Res->getContext().emitError(Res, kResourceMapErrorMsg);
-        continue;
-      }
-      Instruction *HandleOp = cast<Instruction>(resHandleMap[ResOp]);
-      Handle->setOperand(i, HandleOp);
-    }
-  }
-
-  // Replace use of handle with new created handle.
-  for (Instruction *Res : resSet) {
-    Value *Handle = resHandleMap[Res];
-    for (auto U = Res->user_begin(); U != Res->user_end();) {
-      User *ResU = *(U++);
-      if (isa<CallInst>(ResU) && ResU->getType() == HandleTy) {
-        ResU->replaceAllUsesWith(Handle);
-        cast<Instruction>(ResU)->eraseFromParent();
-      }
-    }
-  }
-
-  // Remove the unused phi/select on resource.
-  for (Instruction *Res : resSet) {
-    Res->dropAllReferences();
-  }
-
-  for (Instruction *Res : resSet) {
-    Res->eraseFromParent();
   }
 }
 

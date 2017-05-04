@@ -874,6 +874,15 @@ bool HLModule::IsHLSLObjectType(llvm::Type *Ty) {
   return false;
 }
 
+Type *HLModule::GetArrayEltTy(Type *Ty) {
+  if (isa<PointerType>(Ty))
+    Ty = Ty->getPointerElementType();
+  while (isa<ArrayType>(Ty)) {
+    Ty = Ty->getArrayElementType();
+  }
+  return Ty;
+}
+
 unsigned
 HLModule::GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                            llvm::Type *Ty,
