@@ -240,10 +240,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WavePrefixBitCount,      "WavePrefixBitCount",       OCC::WavePrefixOp,             "wavePrefixOp",                true, false, false, false, false, false, false, false, false, Attribute::None,     },
 
   // Pixel shader                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
-  {  OC::Barycentrics,            "Barycentrics",             OCC::Barycentrics,             "barycentrics",               false, false,  true, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::BarycentricsCentroid,    "BarycentricsCentroid",     OCC::BarycentricsCentroid,     "barycentricsCentroid",       false, false,  true, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::BarycentricsSampleIndex, "BarycentricsSampleIndex",  OCC::BarycentricsSampleIndex,  "barycentricsSampleIndex",    false, false,  true, false, false, false, false, false, false, Attribute::ReadNone, },
-  {  OC::BarycentricsSnapped,     "BarycentricsSnapped",      OCC::BarycentricsSnapped,      "barycentricsSnapped",        false, false,  true, false, false, false, false, false, false, Attribute::ReadNone, },
   {  OC::AttributeAtVertex,       "AttributeAtVertex",        OCC::AttributeAtVertex,        "attributeAtVertex",          false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },
 
   // Graphics shader                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
@@ -699,10 +695,6 @@ Function *OP::GetOpFunc(OpCode OpCode, Type *pOverloadType) {
   case OpCode::WavePrefixBitCount:     A(pI32);     A(pI32); A(pI1);  break;
 
     // Pixel shader
-  case OpCode::Barycentrics:           A(pF32);     A(pI32); A(pI8);  break;
-  case OpCode::BarycentricsCentroid:   A(pF32);     A(pI32); A(pI8);  break;
-  case OpCode::BarycentricsSampleIndex:A(pF32);     A(pI32); A(pI8);  A(pI32); break;
-  case OpCode::BarycentricsSnapped:    A(pF32);     A(pI32); A(pI8);  A(pI32); A(pI32); break;
   case OpCode::AttributeAtVertex:      A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI8);  break;
 
     // Graphics shader
@@ -841,10 +833,6 @@ llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
     return IntegerType::get(m_Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
-  case OpCode::Barycentrics:
-  case OpCode::BarycentricsCentroid:
-  case OpCode::BarycentricsSampleIndex:
-  case OpCode::BarycentricsSnapped:
     return Type::getFloatTy(m_Ctx);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:

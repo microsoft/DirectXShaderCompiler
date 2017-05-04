@@ -521,6 +521,7 @@ public:
   TEST_METHOD(CodeGenSelectObj5)
   TEST_METHOD(CodeGenSelMat)
   TEST_METHOD(CodeGenShare_Mem_Dbg)
+  TEST_METHOD(CodeGenShare_Mem_Phi)
   TEST_METHOD(CodeGenShare_Mem1)
   TEST_METHOD(CodeGenShare_Mem2)
   TEST_METHOD(CodeGenShare_Mem2Dim)
@@ -583,11 +584,13 @@ public:
   TEST_METHOD(CodeGenUint64_2)
   TEST_METHOD(CodeGenUintSample)
   TEST_METHOD(CodeGenUmaxObjectAtomic)
+  TEST_METHOD(CodeGenUnrollDbg)
   TEST_METHOD(CodeGenUnsignedShortHandMatrixVector)
   TEST_METHOD(CodeGenUnusedCB)
   TEST_METHOD(CodeGenUpdateCounter)
   TEST_METHOD(CodeGenUpperCaseRegister1);
   TEST_METHOD(CodeGenVcmp)
+  TEST_METHOD(CodeGenVecBitCast)
   TEST_METHOD(CodeGenVec_Comp_Arg)
   TEST_METHOD(CodeGenVecCmpCond)
   TEST_METHOD(CodeGenVecTrunc)
@@ -2985,6 +2988,10 @@ TEST_F(CompilerTest, CodeGenShare_Mem_Dbg) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\share_mem_dbg.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenShare_Mem_Phi) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\share_mem_phi.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenShare_Mem1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\share_mem1.hlsl");
 }
@@ -3233,6 +3240,10 @@ TEST_F(CompilerTest, CodeGenUmaxObjectAtomic) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\umaxObjectAtomic.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenUnrollDbg) {
+  CodeGenTest(L"..\\CodeGenHLSL\\unroll_dbg.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenUnsignedShortHandMatrixVector) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\unsignedShortHandMatrixVector.hlsl");
 }
@@ -3251,6 +3262,10 @@ TEST_F(CompilerTest, CodeGenUpperCaseRegister1) {
 
 TEST_F(CompilerTest, CodeGenVcmp) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\vcmp.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVecBitCast) {
+  CodeGenTest(L"..\\CodeGenHLSL\\vec_bitcast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenVec_Comp_Arg){

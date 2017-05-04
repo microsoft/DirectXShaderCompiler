@@ -45,6 +45,7 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
   case Semantic::Kind::ViewPortArrayIndex: return DxilProgramSigSemantic::ViewPortArrayIndex;
   case Semantic::Kind::ClipDistance: return DxilProgramSigSemantic::ClipDistance;
   case Semantic::Kind::CullDistance: return DxilProgramSigSemantic::CullDistance;
+  case Semantic::Kind::Barycentrics: return DxilProgramSigSemantic::Barycentrics;
   case Semantic::Kind::TessFactor: {
     switch (domain) {
     case DXIL::TessellatorDomain::IsoLine:

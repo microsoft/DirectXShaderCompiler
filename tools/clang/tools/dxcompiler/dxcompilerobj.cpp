@@ -1605,10 +1605,6 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // LegacyDoubleToUInt32
   "(value)",  // WaveAllBitCount
   "(value)",  // WavePrefixBitCount
-  "(VertexID)",  // Barycentrics
-  "(VertexID)",  // BarycentricsCentroid
-  "(VertexID,sampleIndex)",  // BarycentricsSampleIndex
-  "(VertexID,offsetX,offsetY)",  // BarycentricsSnapped
   "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
   "()"  // ViewID
 };
