@@ -14,32 +14,26 @@ namespace {
 using clang::spirv::FileTest;
 using clang::spirv::WholeFileTest;
 
+// === Whole output tests ===
+
 TEST_F(WholeFileTest, EmptyVoidMain) {
-  runWholeFileTest("empty-void-main.hlsl2spv",
-                   /*generateHeader*/ true,
-                   /*runValidation*/ true);
+  runWholeFileTest("empty-void-main.hlsl2spv", /*generateHeader*/ true);
 }
 
 TEST_F(WholeFileTest, PassThruPixelShader) {
-  runWholeFileTest("passthru-ps.hlsl2spv",
-                   /*generateHeader*/ true,
-                   /*runValidation*/ true);
+  runWholeFileTest("passthru-ps.hlsl2spv", /*generateHeader*/ true);
 }
 
 TEST_F(WholeFileTest, PassThruVertexShader) {
-  runWholeFileTest("passthru-vs.hlsl2spv",
-                   /*generateHeader*/ true,
-                   /*runValidation*/ true);
+  runWholeFileTest("passthru-vs.hlsl2spv", /*generateHeader*/ true);
 }
 
 TEST_F(WholeFileTest, ConstantPixelShader) {
-  runWholeFileTest("constant-ps.hlsl2spv",
-                   /*generateHeader*/ true,
-                   /*runValidation*/ true);
+  runWholeFileTest("constant-ps.hlsl2spv", /*generateHeader*/ true);
 }
 
-TEST_F(FileTest, CheckMemoryModelAndEntryPoint) {
-  runFileTest("check-entrypoint.hlsl",
-              /*runValidation*/ true);
-}
+// === Partial output tests ===
+
+TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
+
 } // namespace

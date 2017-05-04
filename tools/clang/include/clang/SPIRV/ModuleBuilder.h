@@ -129,6 +129,7 @@ public:
   // === Type ===
 
   uint32_t getVoidType();
+  uint32_t getBoolType();
   uint32_t getInt32Type();
   uint32_t getUint32Type();
   uint32_t getFloat32Type();

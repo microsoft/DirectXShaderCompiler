@@ -214,6 +214,7 @@ uint32_t ModuleBuilder::get##ty##Type() {                                      \
 }
 
 IMPL_GET_PRIMITIVE_TYPE(Void)
+IMPL_GET_PRIMITIVE_TYPE(Bool)
 IMPL_GET_PRIMITIVE_TYPE(Int32)
 IMPL_GET_PRIMITIVE_TYPE(Uint32)
 IMPL_GET_PRIMITIVE_TYPE(Float32)

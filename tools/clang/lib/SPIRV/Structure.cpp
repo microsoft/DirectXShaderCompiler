@@ -105,10 +105,12 @@ void Function::take(InstBuilder *builder) {
   }
 
   // Preprend all local variables to the entry block.
-  for (auto &var : variables) {
+  // We need to do it in the reverse order to guarantee variables have the
+  // same definition order in SPIR-V as in the source code.
+  for (auto it = variables.rbegin(), ie = variables.rend(); it != ie; ++it) {
     blocks.front()->prependInstruction(
         builder
-            ->opVariable(var.first, var.second, spv::StorageClass::Function,
+            ->opVariable(it->first, it->second, spv::StorageClass::Function,
                          llvm::None)
             .take());
   }
@@ -181,7 +183,7 @@ void SPIRVModule::takeConstantForArrayType(const Type *arrType,
   // If it finds the constant, feeds it into the consumer, and removes it
   // from the constants collection.
   constants.remove_if([&consumer, arrayLengthResultId](
-                          std::pair<const Constant *, uint32_t> &item) {
+      std::pair<const Constant *, uint32_t> &item) {
     const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
     if (isArrayLengthConstant)
       consumer(item.first->withResultId(item.second));
