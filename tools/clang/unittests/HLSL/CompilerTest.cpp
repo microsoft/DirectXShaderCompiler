@@ -588,6 +588,7 @@ public:
   TEST_METHOD(CodeGenUpdateCounter)
   TEST_METHOD(CodeGenUpperCaseRegister1);
   TEST_METHOD(CodeGenVcmp)
+  TEST_METHOD(CodeGenVecBitCast)
   TEST_METHOD(CodeGenVec_Comp_Arg)
   TEST_METHOD(CodeGenVecCmpCond)
   TEST_METHOD(CodeGenVecTrunc)
@@ -3251,6 +3252,10 @@ TEST_F(CompilerTest, CodeGenUpperCaseRegister1) {
 
 TEST_F(CompilerTest, CodeGenVcmp) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\vcmp.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVecBitCast) {
+  CodeGenTest(L"..\\CodeGenHLSL\\vec_bitcast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenVec_Comp_Arg){

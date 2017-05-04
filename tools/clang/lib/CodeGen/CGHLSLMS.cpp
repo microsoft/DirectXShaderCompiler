@@ -3446,15 +3446,21 @@ static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &dea
 
   for (User *U : BC->users()) {
     if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (SimplifyBitCastLoad(LI, FromTy, ToTy, Ptr))
+      if (SimplifyBitCastLoad(LI, FromTy, ToTy, Ptr)) {
+        LI->dropAllReferences();
         deadInsts.emplace_back(LI);
+      }
     } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      if (SimplifyBitCastStore(SI, FromTy, ToTy, Ptr))
+      if (SimplifyBitCastStore(SI, FromTy, ToTy, Ptr)) {
+        SI->dropAllReferences();
         deadInsts.emplace_back(SI);
+      }
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       if (SimplifyBitCastGEP(GEP, FromTy, ToTy, Ptr))
-        if (Instruction *I = dyn_cast<Instruction>(GEP))
+        if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+          I->dropAllReferences();
           deadInsts.emplace_back(I);
+        }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       // Skip function call.
     } else {
@@ -3674,7 +3680,7 @@ static void SimpleTransformForHLDXIR(Instruction *I,
     DXASSERT(!HLMatrixLower::IsMatrixType(ldInst->getType()),
                       "matrix load should use HL LdStMatrix");
     Value *Ptr = ldInst->getPointerOperand();
-    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Ptr)) {
+    if (ConstantExpr *CE = dyn_cast_or_null<ConstantExpr>(Ptr)) {
       if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(CE)) {
         SimplifyBitCast(BCO, deadInsts);
       }
