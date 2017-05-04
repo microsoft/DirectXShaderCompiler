@@ -40,11 +40,11 @@ Using Debug Information
 =======================
 
 The debug information can be used directly by looking up the debug information
-part and loaded into an LLVM module. There is full fidelity with debug
+part and loading into an LLVM module. There is full fidelity with debug
 information via this mechanism, although it requires linking in the LLVM
 supporting libraries.
 
-For compatibility, the dxcompiler.dll binary also exposes a basic
+For compatibility, the dxcompiler.dll binary also exposes a limited
 implementation of the DIA APIs. To do this, a CLSID_DxcDiaDataSource class
 should be created via a call to DxcCreateInstance, and a loadDataFromIStream
 call with the debug part will initialize it.
@@ -56,7 +56,7 @@ information and recreate the compilation options and inputs.
 Using Debug Names
 =================
 
-The only current use case for the debug name is as a relative path to an file
+The only current use case for the debug name is as a relative path to a file
 that provides shader debug information. A debugging tool would typically have
 a list of paths to act as search roots.
 

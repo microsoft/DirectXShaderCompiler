@@ -38,6 +38,33 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd %CD%\ /Fo smoke.hlsl.strip 1>nul
+if %errorlevel% neq 0 (
+  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd %CD%\
+  call :cleanup 2>nul
+  exit /b 1
+)
+rem .lld file should be produced
+dir %CD%\*.lld 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to find some .lld file at %CD%
+  call :cleanup 2>nul
+  exit /b 1
+)
+rem /Fd with trailing backslash implies /Qstrip_debug
+dxc.exe -dumpbin smoke.hlsl.strip | findstr "shader debug name" 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to find shader debug name.
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -dumpbin smoke.hlsl.strip | findstr "DICompileUnit" 1>nul
+if %errorlevel% equ 0 (
+  echo Found DICompileUnit after implied strip.
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 dxc.exe /T ps_6_0 smoke.hlsl /Fe smoke.hlsl.e 1>nul
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Fe %CD%\smoke.hlsl.e
@@ -414,6 +441,9 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+echo Smoke test for debug info extraction.
+dxc.exe smoke.hlsl
+
 call :cleanup
 exit /b 0
 
@@ -423,6 +453,7 @@ del %CD%\smoke.hlsl.c
 del %CD%\smoke.hlsl.d
 del %CD%\smoke.hlsl.e
 del %CD%\smoke.hlsl.h
+del %CD%\smoke.hlsl.strip
 del %CD%\smoke.cso
 del %CD%\NonUniform.cso
 del %CD%\private.cso
@@ -438,6 +469,7 @@ del %CD%\NonUniformNoRootSig.cso
 del %CD%\TextVS.cso
 del %CD%\smoke.cso.plain.ll
 del %CD%\smoke.cso.ll
+del %CD%\*.lld
 
 exit /b 0
 

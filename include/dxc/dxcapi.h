@@ -177,7 +177,7 @@ IDxcCompiler2 : public IDxcCompiler {
     _In_ UINT32 defineCount,                      // Number of defines
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
-    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,       // Suggested file name for debug blob.
+    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob.
     _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
   ) = 0;
 };

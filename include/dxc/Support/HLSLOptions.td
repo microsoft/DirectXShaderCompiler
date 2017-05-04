@@ -270,7 +270,7 @@ def Fc : JoinedOrSeparate<["-", "/"], "Fc">, MetaVarName<"<file>">, HelpText<"Ou
 //def Fx : JoinedOrSeparate<["-", "/"], "Fx">, MetaVarName<"<file>">, HelpText<"Output assembly code and hex listing file">;
 def Fh : JoinedOrSeparate<["-", "/"], "Fh">, MetaVarName<"<file>">, HelpText<"Output header file containing object code">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Fe : JoinedOrSeparate<["-", "/"], "Fe">, MetaVarName<"<file>">, HelpText<"Output warnings and errors to the given file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
-def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">, HelpText<"Write debug information to the given file or directory">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
+def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">, HelpText<"Write debug information to the given file or directory; trail \\ to auto-generate and imply Qstrip_priv">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Vn : JoinedOrSeparate<["-", "/"], "Vn">, MetaVarName<"<name>">, HelpText<"Use <name> as variable name in header file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Cc : Flag<["-", "/"], "Cc">, HelpText<"Output color coded assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
 def Ni : Flag<["-", "/"], "Ni">, HelpText<"Output instruction numbers in assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
@@ -287,7 +287,7 @@ def dumpbin : Flag<["-", "/"], "dumpbin">, Flags<[DriverOption]>, Group<hlslutil
   HelpText<"Load a binary file rather than compiling">;
 def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
-def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Strip debug information from 4_0+ shader bytecode  (must be used with /Fo <file>)">;
 def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
