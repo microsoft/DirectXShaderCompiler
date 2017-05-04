@@ -742,67 +742,6 @@ Value *TranslateEvalCentroid(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   return result;
 }
 
-// Barycentrics intrinsics
-Value *TranslateBarycentrics(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
-                             HLOperationLowerHelper &helper,
-                             HLObjectOperationLowerHelper *pObjHelper,
-                             bool &Translated) {
-  DXASSERT(op == OP::OpCode::Barycentrics ||
-           op == OP::OpCode::BarycentricsCentroid,
-           "Wrong opcode to translate");
-  hlsl::OP *hlslOP = &helper.hlslOP;
-  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
-  Value *opArg = hlslOP->GetU32Const((unsigned)op);
-
-  Value *result = UndefValue::get(CI->getType());
-  IRBuilder<> Builder(CI);
-  for (unsigned i = 0; i < 3; ++i) {
-    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i) });
-    result = Builder.CreateInsertElement(result, Elt, i);
-  }
-  return result;
-}
-
-Value *TranslateBarycentricsSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
-  HLOperationLowerHelper &helper,
-  HLObjectOperationLowerHelper *pObjHelper,
-  bool &Translated) {
-  DXASSERT(op == OP::OpCode::BarycentricsSampleIndex, "Wrong opcode to translate");
-  hlsl::OP *hlslOP = &helper.hlslOP;
-  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
-  Value *opArg = hlslOP->GetU32Const((unsigned)op);
-  Value *sampleIndex = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
-
-  Value *result = UndefValue::get(CI->getType());
-  IRBuilder<> Builder(CI);
-  for (unsigned i = 0; i < 3; ++i) {
-    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i), sampleIndex });
-    result = Builder.CreateInsertElement(result, Elt, i);
-  }
-  return result;
-}
-
-Value *TranslateBarycentricsSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
-  HLOperationLowerHelper &helper,
-  HLObjectOperationLowerHelper *pObjHelper,
-  bool &Translated) {
-  DXASSERT(op == OP::OpCode::BarycentricsSnapped, "Wrong opcode to translate");
-  hlsl::OP *hlslOP = &helper.hlslOP;
-  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
-  Value *opArg = hlslOP->GetU32Const((unsigned)op);
-  Value *offsets = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
-
-  Value *result = UndefValue::get(CI->getType());
-  IRBuilder<> Builder(CI);
-  Value *offsetX = Builder.CreateExtractElement(offsets, (uint64_t)0);
-  Value *offsetY = Builder.CreateExtractElement(offsets, 1);
-  for (unsigned i = 0; i < 3; ++i) {
-    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i), offsetX, offsetY });
-    result = Builder.CreateInsertElement(result, Elt, i);
-  }
-  return result;
-}
-
 Value *TranslateGetAttributeAtVertex(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   HLOperationLowerHelper &helper,
   HLObjectOperationLowerHelper *pObjHelper,
@@ -4125,10 +4064,6 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_EvaluateAttributeCentroid, TranslateEvalCentroid, DXIL::OpCode::EvalCentroid},
     {IntrinsicOp::IOP_EvaluateAttributeSnapped, TranslateEvalSnapped, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex, DXIL::OpCode::AttributeAtVertex},
-    {IntrinsicOp::IOP_GetBarycentrics, TranslateBarycentrics, DXIL::OpCode::Barycentrics},
-    {IntrinsicOp::IOP_GetBarycentricsAtSample, TranslateBarycentricsSample, DXIL::OpCode::BarycentricsSampleIndex},
-    {IntrinsicOp::IOP_GetBarycentricsCentroid, TranslateBarycentrics, DXIL::OpCode::BarycentricsCentroid},
-    {IntrinsicOp::IOP_GetBarycentricsSnapped, TranslateBarycentricsSnapped, DXIL::OpCode::BarycentricsSnapped},
     {IntrinsicOp::IOP_GetRenderTargetSampleCount, TrivialNoArgOperation, DXIL::OpCode::RenderTargetGetSampleCount},
     {IntrinsicOp::IOP_GetRenderTargetSamplePosition, TranslateGetRTSamplePos, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},
