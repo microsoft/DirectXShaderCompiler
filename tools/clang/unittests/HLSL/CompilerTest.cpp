@@ -521,6 +521,7 @@ public:
   TEST_METHOD(CodeGenSelectObj5)
   TEST_METHOD(CodeGenSelMat)
   TEST_METHOD(CodeGenShare_Mem_Dbg)
+  TEST_METHOD(CodeGenShare_Mem_Phi)
   TEST_METHOD(CodeGenShare_Mem1)
   TEST_METHOD(CodeGenShare_Mem2)
   TEST_METHOD(CodeGenShare_Mem2Dim)
@@ -2985,6 +2986,10 @@ TEST_F(CompilerTest, CodeGenSelMat) {
 
 TEST_F(CompilerTest, CodeGenShare_Mem_Dbg) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\share_mem_dbg.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenShare_Mem_Phi) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\share_mem_phi.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenShare_Mem1) {
