@@ -299,7 +299,7 @@ Instruction *InstCombiner::FoldPHIArgLoadIntoPHI(PHINode &PN) {
   unsigned LoadAlignment = FirstLI->getAlignment();
   unsigned LoadAddrSpace = FirstLI->getPointerAddressSpace();
   // HLSL Change Begin.
-  // Do not create phi on none-default address space.
+  // Do not create phi on non-default address space.
   if (LoadAddrSpace != 0)
     return nullptr;
   // HLSL Change End.
