@@ -298,6 +298,11 @@ Instruction *InstCombiner::FoldPHIArgLoadIntoPHI(PHINode &PN) {
   bool isVolatile = FirstLI->isVolatile();
   unsigned LoadAlignment = FirstLI->getAlignment();
   unsigned LoadAddrSpace = FirstLI->getPointerAddressSpace();
+  // HLSL Change Begin.
+  // Do not create phi on non-default address space.
+  if (LoadAddrSpace != 0)
+    return nullptr;
+  // HLSL Change End.
 
   // We can't sink the load if the loaded value could be modified between the
   // load and the PHI.
