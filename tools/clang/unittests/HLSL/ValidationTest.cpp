@@ -2938,6 +2938,7 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
     "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
     "vs_6_1",
@@ -2950,6 +2951,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
     "float4 main(float4 col : COLOR) : "
     "SV_Target { return EvaluateAttributeCentroid(col).x; }",
@@ -2963,6 +2965,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg("float4 main(nointerpolation float4 col : COLOR) : "
                           "SV_Target { return GetAttributeAtVertex(col, 0); }",
                           "ps_6_1", {"!\"COLOR\", i8 9, i8 0, (![0-9]+), i8 1"},
@@ -2973,6 +2976,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
 }
 
 TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
       "float4 main(float3 bary : SV_Barycentrics) : "
       "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) "
@@ -2984,6 +2988,7 @@ TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
 }
 
 TEST_F(ValidationTest, BarycentricFloat4Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
       "float4 main(float4 col : COLOR) : SV_Target { return col; }", "ps_6_1",
       {"!\"COLOR\", i8 9, i8 0"}, {"!\"SV_Barycentrics\", i8 9, i8 28"},
