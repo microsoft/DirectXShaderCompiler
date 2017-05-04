@@ -363,6 +363,8 @@ public:
   TEST_METHOD(CodeGenEarlyDepthStencil)
   TEST_METHOD(CodeGenEval)
   TEST_METHOD(CodeGenEvalPos)
+  TEST_METHOD(CodeGenEvalMat)
+  TEST_METHOD(CodeGenEvalMatMember)
   TEST_METHOD(CodeGenExternRes)
   TEST_METHOD(CodeGenFloatCast)
   TEST_METHOD(CodeGenFloatToBool)
@@ -2367,6 +2369,14 @@ TEST_F(CompilerTest, CodeGenEval) {
 
 TEST_F(CompilerTest, CodeGenEvalPos) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\evalPos.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEvalMat) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\evalMat.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEvalMatMember) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\evalMatMember.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenExternRes) {

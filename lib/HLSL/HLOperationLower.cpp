@@ -617,19 +617,33 @@ CallInst *ValidateLoadInput(Value *V) {
   return CI;
 }
 
+Constant *AccumulateMask(Constant *curMask, Constant *prevMask) {
+  if (curMask == nullptr) {
+    return prevMask;
+  }
+  unsigned size = cast<VectorType>(curMask->getType())->getNumElements();
+  SmallVector<uint32_t, 16> Elts;
+  for (unsigned i = 0; i != size; ++i) {
+    ConstantInt *Index = cast<ConstantInt>(curMask->getAggregateElement(i));
+    ConstantInt *IVal =
+        cast<ConstantInt>(prevMask->getAggregateElement(Index->getSExtValue()));
+    Elts.emplace_back(IVal->getSExtValue());
+  }
+  return ConstantDataVector::get(curMask->getContext(), Elts);
+}
+
 Constant *GetLoadInputsForEvaluate(Value *V, std::vector<CallInst*> &loadList) {
   Constant *shufMask = nullptr;
   if (V->getType()->isVectorTy()) {
-    // Must be insert element inst.
+    // Must be insert element inst. Keeping track of masks for shuffle vector
     Value *Vec = V;
-    if (ShuffleVectorInst *shuf = dyn_cast<ShuffleVectorInst>(Vec)) {
-      Value *src0 = shuf->getOperand(0);
-      Value *src1 = shuf->getOperand(1);
-      DXASSERT_LOCALVAR(src1, isa<UndefValue>(src1), "must be undef value");
-      shufMask = shuf->getMask();
-      Vec = src0;
+    while (ShuffleVectorInst *shuf = dyn_cast<ShuffleVectorInst>(Vec)) {
+      shufMask = AccumulateMask(shufMask, shuf->getMask());
+      Vec = shuf->getOperand(0);
     }
 
+    // TODO: We are assuming that the operand of insertelement is a LoadInput.
+    // This will fail on the case where we pass in matrix member using array subscript.
     while (!isa<UndefValue>(Vec)) {
       InsertElementInst *insertInst = cast<InsertElementInst>(Vec);
       Vec = insertInst->getOperand(0);
@@ -644,10 +658,23 @@ Constant *GetLoadInputsForEvaluate(Value *V, std::vector<CallInst*> &loadList) {
   return shufMask;
 }
 
+// Swizzle could reduce the dimensionality of the Type, but
+// for temporary insertelement instructions should maintain the existing size of the loadinput.
+// So we have to analyze the type of src in order to determine the actual size required.
+Type *GetInsertElementTypeForEvaluate(Value *src) {
+  if (InsertElementInst *IE = dyn_cast<InsertElementInst>(src)) {
+    return src->getType();
+  }
+  else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(src)) {
+    return SV->getOperand(0)->getType();
+  }
+  DXASSERT(false, "Invalid type call for EvalCentroid.");
+  return nullptr;
+}
+
 Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                            HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *sampleIdx = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
@@ -659,7 +686,8 @@ Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   OP::OpCode opcode = OP::OpCode::EvalSampleIndex; 
 
   Value *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  
+  Type *Ty = GetInsertElementTypeForEvaluate(val);
+
   Function *evalFunc = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
     
   Value *result = UndefValue::get(Ty);
@@ -679,7 +707,6 @@ Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 Value *TranslateEvalSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                             HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *offset = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
@@ -693,7 +720,7 @@ Value *TranslateEvalSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   OP::OpCode opcode = OP::OpCode::EvalSnapped; 
 
   Value *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  
+  Type *Ty = GetInsertElementTypeForEvaluate(val);
   Function *evalFunc = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
     
   Value *result = UndefValue::get(Ty);
@@ -710,13 +737,13 @@ Value *TranslateEvalSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   return result;
 }
 
+
 Value *TranslateEvalCentroid(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                             HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *src = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
   std::vector<CallInst*> loadList;
   Constant *shufMask = GetLoadInputsForEvaluate(src, loadList);
-  Type *Ty = src->getType();
 
   unsigned size = loadList.size();
 
@@ -725,7 +752,8 @@ Value *TranslateEvalCentroid(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   OP::OpCode opcode = OP::OpCode::EvalCentroid; 
 
   Value *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  
+
+  Type *Ty = GetInsertElementTypeForEvaluate(src);
   Function *evalFunc = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
     
   Value *result = UndefValue::get(Ty);
