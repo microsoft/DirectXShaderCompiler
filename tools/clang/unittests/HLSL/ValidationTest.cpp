@@ -319,8 +319,10 @@ public:
     UINT32 Flags = DxcValidatorFlags_Default;
     if (!IsDxilContainerLike(pBlob->GetBufferPointer(), pBlob->GetBufferSize())) {
       // Validation of raw bitcode as opposed to DxilContainer is not supported through DXIL.dll
-      if (!m_ver.m_InternalValidator)
+      if (!m_ver.m_InternalValidator) {
+        WEX::Logging::Log::Comment(L"Test skipped due to validation of raw bitcode without container and use of external DXIL.dll validator.");
         return;
+      }
       Flags |= DxcValidatorFlags_ModuleOnly;
     }
 
