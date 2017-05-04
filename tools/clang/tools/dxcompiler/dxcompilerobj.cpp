@@ -1964,7 +1964,7 @@ private:
   std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
 };
 
-class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent {
+class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -2023,7 +2023,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface3<IDxcCompiler, IDxcLangExtensions, IDxcContainerEvent>(this, iid, ppvObject);
+    return DoBasicQueryInterface4<IDxcCompiler, IDxcLangExtensions, IDxcContainerEvent, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // Compile a single entry point to the target shader model
@@ -2672,6 +2672,25 @@ public:
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
   }
+
+  // IDxcVersionInfo
+  __override HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) {
+    if (pMajor == nullptr || pMinor == nullptr)
+      return E_INVALIDARG;
+    *pMajor = DXIL::kDxilMajor;
+    *pMinor = DXIL::kDxilMinor;
+    return S_OK;
+  }
+  __override HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) {
+    if (pFlags == nullptr)
+      return E_INVALIDARG;
+    *pFlags = DxcVersionInfoFlags_None;
+#ifdef _DEBUG
+    *pFlags |= DxcVersionInfoFlags_Debug;
+#endif
+    return S_OK;
+  }
+
 };
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {

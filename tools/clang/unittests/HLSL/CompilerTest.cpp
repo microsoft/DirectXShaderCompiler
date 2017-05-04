@@ -91,6 +91,57 @@ void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outpt
   Utf16ToBlob(dllSupport, val, (IDxcBlobEncoding**)ppBlob);
 }
 
+// VersionSupportInfo Implementation
+VersionSupportInfo::VersionSupportInfo() :
+  m_CompilerPreservesBBNames(false),
+  m_InternalValidator(false),
+  m_DxilMajor(0),
+  m_DxilMinor(0),
+  m_ValMajor(0),
+  m_ValMinor(0)
+{}
+void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
+  VERIFY_IS_TRUE(dllSupport.IsEnabled());
+
+  // This is a very indirect way of testing this. Consider improving support.
+  m_DxilMajor = m_ValMajor = 1;
+  m_DxilMinor = m_ValMinor = 0;
+  m_InternalValidator = true;
+  CComPtr<IDxcVersionInfo> pVersionInfo;
+  UINT32 VersionFlags = 0;
+  if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pVersionInfo))) {
+    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_DxilMajor, &m_DxilMinor));
+    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
+    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+    pVersionInfo.Release();
+  }
+  if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcValidator, &pVersionInfo))) {
+    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_ValMajor, &m_ValMinor));
+    if (m_ValMinor > 0) { // flag only exists on newer validator, assume internal otherwise.
+      VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
+      m_InternalValidator = VersionFlags & DxcVersionInfoFlags_Internal ? true : false;
+    }
+  } else if (m_DxilMajor > 0) {
+    // If create instance of IDxcVersionInfo on validator failed, we have an old validator from dxil.dll
+    m_InternalValidator = false;
+  }
+}
+bool VersionSupportInfo::SkipIRSensitiveTest() {
+  if (!m_CompilerPreservesBBNames) {
+    WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirment.");
+    return true;
+  }
+  return false;
+}
+bool VersionSupportInfo::SkipDxil_1_1_Test() {
+  if (m_DxilMajor < 1 || m_DxilMinor < 1 || m_ValMajor < 1 || m_ValMinor < 1) {
+    WEX::Logging::Log::Comment(L"Test skipped because it requires Dxil 1.1 and Validator 1.1.");
+    return true;
+  }
+  return false;
+}
+
+
 // Aligned to SymTagEnum.
 const char *SymTagEnumText[] =
 {
@@ -870,15 +921,7 @@ public:
   TEST_METHOD(HoistConstantArray)
 
   dxc::DxcDllSupport m_dllSupport;
-  bool m_CompilerPreservesBBNames;
-
-  bool SkipIRSensitiveTest() {
-    if (!m_CompilerPreservesBBNames) {
-      WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirment.");
-      return true;
-    }
-    return false;
-  }
+  VersionSupportInfo m_ver;
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
@@ -1273,15 +1316,7 @@ HRESULT CreateDiaSourceFromDxbcBlob(IDxcLibrary *pLib, IDxcBlob *pDxbcBlob,
 bool CompilerTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-
-    // This is a very indirect way of testing this. Consider improving support.
-    CComPtr<IDxcValidator> pValidator;
-    CComPtr<IDxcVersionInfo> pVersionInfo;
-    UINT32 VersionFlags = 0;
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-    VERIFY_SUCCEEDED(pValidator.QueryInterface(&pVersionInfo));
-    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+    m_ver.Initialize(m_dllSupport);
   }
   return true;
 }
@@ -2176,10 +2211,12 @@ TEST_F(CompilerTest, CodeGenAtomic) {
 }
 
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentrics) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics.hlsl");
 }
 
@@ -2676,12 +2713,12 @@ TEST_F(CompilerTest, CodeGenMatIn) {
 }
 
 TEST_F(CompilerTest, CodeGenMatIn1) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatIn2) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn2.hlsl");
 }
 
@@ -4134,7 +4171,7 @@ TEST_F(CompilerTest, CodeGenDx12MiniEngineFxaapass2Vdebugcs){
 }
 
 TEST_F(CompilerTest, CodeGenDx12MiniEngineFxaaresolveworkqueuecs){
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\Samples\\MiniEngine\\FXAAResolveWorkQueueCS.hlsl");
 }
 
