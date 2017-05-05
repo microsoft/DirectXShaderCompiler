@@ -382,7 +382,7 @@ private:
   std::unordered_map<unsigned, std::unordered_set<unsigned> > m_InputSemanticsUsed,
     m_OutputSemanticsUsed[4], m_PatchConstantSemanticsUsed, m_OtherSemanticsUsed;
 
-  // For removing alloca for operations that does not use loadinputs
+  // For EvaluateAttribute operations.
   void LegalizeEvalOperations(Module &M);
   void FindAllocasForEvalOperations(Value *f, std::unordered_set<AllocaInst*> &allocas);
 };
@@ -2708,7 +2708,7 @@ void DxilGenerationPass::UpdateStructTypeForLegacyLayout() {
   UpdateStructTypeForLegacyLayoutOnHLM(*m_pHLModule);
 }
 
-// Find allocas to remove from call instructions
+// Find allocas for EvaluateAttribute operations
 void DxilGenerationPass::FindAllocasForEvalOperations(
     Value *val, std::unordered_set<AllocaInst *> &allocas) {
   Value *CurVal = val;
@@ -2719,8 +2719,7 @@ void DxilGenerationPass::FindAllocasForEvalOperations(
       Value *arg0 =
           IE->getOperand(0); // Could be another insertelement or undef
       Value *arg1 = IE->getOperand(1);
-      FindAllocasForEvalOperations(arg0, allocas); // recursively call remove alloca for
-                                          // potential insertelements
+      FindAllocasForEvalOperations(arg0, allocas);
       CurVal = arg1;
     } else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(CurVal)) {
       Value *arg0 = SV->getOperand(0);
@@ -2741,7 +2740,7 @@ void DxilGenerationPass::FindAllocasForEvalOperations(
   }
 }
 
-// This is needed in order to translate EvalAttribute operations that traces
+// This is needed in order to translate EvaluateAttribute operations that traces
 // back to LoadInput operations during translation stage. Promoting load/store
 // instructions beforehand will allow us to easily trace back to loadInput from
 // function call.
@@ -2750,7 +2749,7 @@ void DxilGenerationPass::LegalizeEvalOperations(Module &M) {
     hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(&F);
     if (group != HLOpcodeGroup::NotHL) {
       std::unordered_set<CallInst *> EvalFunctionCalls;
-      // Find all function calls we should remove allocas
+      // Find all EvaluateAttribute calls
       for (User *U : F.users()) {
         if (CallInst *CI = dyn_cast<CallInst>(U)) {
           IntrinsicOp evalOp = static_cast<IntrinsicOp>(hlsl::GetHLOpcode(CI));
@@ -2762,8 +2761,7 @@ void DxilGenerationPass::LegalizeEvalOperations(Module &M) {
         }
       }
 
-      // Start from the call instruction that has allocas to be removed, find all
-      // allocas to be removed.
+      // Start from the call instruction, find all allocas that this call uses.
       std::unordered_set<AllocaInst *> allocas;
       for (CallInst *CI : EvalFunctionCalls) {
         FindAllocasForEvalOperations(CI, allocas);
