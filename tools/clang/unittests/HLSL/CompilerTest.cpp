@@ -103,25 +103,28 @@ VersionSupportInfo::VersionSupportInfo() :
 void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
   VERIFY_IS_TRUE(dllSupport.IsEnabled());
 
-  // This is a very indirect way of testing this. Consider improving support.
+  // Default to Dxil 1.0 and internal Val 1.0
   m_DxilMajor = m_ValMajor = 1;
   m_DxilMinor = m_ValMinor = 0;
   m_InternalValidator = true;
   CComPtr<IDxcVersionInfo> pVersionInfo;
   UINT32 VersionFlags = 0;
+
+  // If the following fails, we have Dxil 1.0 compiler
   if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pVersionInfo))) {
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_DxilMajor, &m_DxilMinor));
     VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
     m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
     pVersionInfo.Release();
   }
+
   if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcValidator, &pVersionInfo))) {
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_ValMajor, &m_ValMinor));
     if (m_ValMinor > 0) { // flag only exists on newer validator, assume internal otherwise.
       VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
       m_InternalValidator = VersionFlags & DxcVersionInfoFlags_Internal ? true : false;
     }
-  } else if (m_DxilMajor > 0) {
+  } else {
     // If create instance of IDxcVersionInfo on validator failed, we have an old validator from dxil.dll
     m_InternalValidator = false;
   }
