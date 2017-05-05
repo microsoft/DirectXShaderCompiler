@@ -617,6 +617,9 @@ CallInst *ValidateLoadInput(Value *V) {
   return CI;
 }
 
+// Apply current shuffle vector mask on top of previous shuffle mask.
+// For example, if previous mask is (12,11,10,13) and current mask is (3,1,0,2)
+// new mask would be (13,11,12,10)
 Constant *AccumulateMask(Constant *curMask, Constant *prevMask) {
   if (curMask == nullptr) {
     return prevMask;
@@ -668,7 +671,7 @@ Type *GetInsertElementTypeForEvaluate(Value *src) {
   else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(src)) {
     return SV->getOperand(0)->getType();
   }
-  DXASSERT(false, "Invalid type call for EvalCentroid.");
+  src->getContext().emitError("Invalid type call for EvaluateAttribute function");
   return nullptr;
 }
 

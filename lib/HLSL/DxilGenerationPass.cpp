@@ -256,7 +256,7 @@ public:
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-    ReplaceAlloca(M);
+    LegalizeEvalOperations(M);
     if (!SM->IsCS()) {
       CreateDxilSignatures();
 
@@ -383,8 +383,8 @@ private:
     m_OutputSemanticsUsed[4], m_PatchConstantSemanticsUsed, m_OtherSemanticsUsed;
 
   // For removing alloca for operations that does not use loadinputs
-  void ReplaceAlloca(Module &M);
-  void FindAllocasToReplace(Value *f, std::unordered_set<AllocaInst*> &allocas);
+  void LegalizeEvalOperations(Module &M);
+  void FindAllocasForEvalOperations(Value *f, std::unordered_set<AllocaInst*> &allocas);
 };
 
 class SimplifyInst : public FunctionPass {
@@ -2709,7 +2709,7 @@ void DxilGenerationPass::UpdateStructTypeForLegacyLayout() {
 }
 
 // Find allocas to remove from call instructions
-void DxilGenerationPass::FindAllocasToReplace(
+void DxilGenerationPass::FindAllocasForEvalOperations(
     Value *val, std::unordered_set<AllocaInst *> &allocas) {
   Value *CurVal = val;
   while (!isa<AllocaInst>(CurVal)) {
@@ -2719,13 +2719,13 @@ void DxilGenerationPass::FindAllocasToReplace(
       Value *arg0 =
           IE->getOperand(0); // Could be another insertelement or undef
       Value *arg1 = IE->getOperand(1);
-      FindAllocasToReplace(arg0, allocas); // recursively call remove alloca for
+      FindAllocasForEvalOperations(arg0, allocas); // recursively call remove alloca for
                                           // potential insertelements
       CurVal = arg1;
     } else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(CurVal)) {
       Value *arg0 = SV->getOperand(0);
       Value *arg1 = SV->getOperand(1);
-      FindAllocasToReplace(
+      FindAllocasForEvalOperations(
           arg0, allocas); // Shuffle vector could come from different allocas
       CurVal = arg1;
     } else if (ExtractElementInst *EE = dyn_cast<ExtractElementInst>(CurVal)) {
@@ -2741,34 +2741,32 @@ void DxilGenerationPass::FindAllocasToReplace(
   }
 }
 
-// This is needed in order to translate dxil operations that traces back to
-// LoadInput operations and replace them with other operations.
-// Removing allocas beforehand will allow us to easily trace back to loadInput from function call.
-// Currently these operations are EvalCentroid, EvalSample, and EvalSnapped
-void DxilGenerationPass::ReplaceAlloca(Module &M) {
-  for (auto It = M.begin(); It != M.end();) {
-    Function &F = *(It++);
-    if (!F.isDeclaration()) {
-      BasicBlock &BB = F.getEntryBlock();
+// This is needed in order to translate EvalAttribute operations that traces
+// back to LoadInput operations during translation stage. Promoting load/store
+// instructions beforehand will allow us to easily trace back to loadInput from
+// function call.
+void DxilGenerationPass::LegalizeEvalOperations(Module &M) {
+  for (Function &F : M.getFunctionList()) {
+    hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(&F);
+    if (group != HLOpcodeGroup::NotHL) {
       std::unordered_set<CallInst *> EvalFunctionCalls;
       // Find all function calls we should remove allocas
-      for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I) {
-        if (CallInst *CI = dyn_cast<CallInst>(I)) {
-          hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(CI->getCalledFunction());
-          if (group != HLOpcodeGroup::NotHL) {
-            IntrinsicOp evalOp = static_cast<IntrinsicOp>(hlsl::GetHLOpcode(CI));
-            if (evalOp == IntrinsicOp::IOP_EvaluateAttributeAtSample ||
-              evalOp == IntrinsicOp::IOP_EvaluateAttributeCentroid ||
-              evalOp == IntrinsicOp::IOP_EvaluateAttributeSnapped) {
-              EvalFunctionCalls.insert(CI);
-            }
+      for (User *U : F.users()) {
+        if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          IntrinsicOp evalOp = static_cast<IntrinsicOp>(hlsl::GetHLOpcode(CI));
+          if (evalOp == IntrinsicOp::IOP_EvaluateAttributeAtSample ||
+            evalOp == IntrinsicOp::IOP_EvaluateAttributeCentroid ||
+            evalOp == IntrinsicOp::IOP_EvaluateAttributeSnapped) {
+            EvalFunctionCalls.insert(CI);
           }
         }
       }
-      // Start from the callinstruction that has allocas to be removed, find all allocas to be removed.
+
+      // Start from the call instruction that has allocas to be removed, find all
+      // allocas to be removed.
       std::unordered_set<AllocaInst *> allocas;
       for (CallInst *CI : EvalFunctionCalls) {
-        FindAllocasToReplace(CI, allocas);
+        FindAllocasForEvalOperations(CI, allocas);
       }
       SSAUpdater SSA;
       SmallVector<Instruction *, 4> Insts;
