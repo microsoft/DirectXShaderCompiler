@@ -207,6 +207,12 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   MPM.add(createDeadCodeEliminationPass());
   MPM.add(createGlobalDCEPass());
 
+  if (NoOpt) {
+    // If not run mem2reg, try to promote allocas used by EvalOperations.
+    // Do this before change vector to array.
+    MPM.add(createDxilLegalizeEvalOperationsPass());
+  }
+
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
 

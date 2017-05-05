@@ -1251,6 +1251,7 @@ class db_dxil(object):
             {'n':'ReplaceAllVectors','t':'bool','c':1}])
         add_pass('hlsl-dxil-legalize-resource-use', 'DxilLegalizeResourceUsePass', 'DXIL legalize resource use', [])
         add_pass('hlsl-dxil-legalize-static-resource-use', 'DxilLegalizeStaticResourceUsePass', 'DXIL legalize static resource use', [])
+        add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
         add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
             {'n':'NotOptimized','t':'bool','c':1}])
         add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])

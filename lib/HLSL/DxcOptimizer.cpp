@@ -83,6 +83,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilCondenseResourcesPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilGenerationPassPass(Registry);
+    initializeDxilLegalizeEvalOperationsPass(Registry);
     initializeDxilLegalizeResourceUsePassPass(Registry);
     initializeDxilLegalizeSampleOffsetPassPass(Registry);
     initializeDxilLegalizeStaticResourceUsePassPass(Registry);

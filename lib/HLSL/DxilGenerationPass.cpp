@@ -256,7 +256,6 @@ public:
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-    LegalizeEvalOperations(M);
     if (!SM->IsCS()) {
       CreateDxilSignatures();
 
@@ -381,10 +380,6 @@ private:
   // For validation
   std::unordered_map<unsigned, std::unordered_set<unsigned> > m_InputSemanticsUsed,
     m_OutputSemanticsUsed[4], m_PatchConstantSemanticsUsed, m_OtherSemanticsUsed;
-
-  // For EvaluateAttribute operations.
-  void LegalizeEvalOperations(Module &M);
-  void FindAllocasForEvalOperations(Value *f, std::unordered_set<AllocaInst*> &allocas);
 };
 
 class SimplifyInst : public FunctionPass {
@@ -2708,81 +2703,6 @@ void DxilGenerationPass::UpdateStructTypeForLegacyLayout() {
   UpdateStructTypeForLegacyLayoutOnHLM(*m_pHLModule);
 }
 
-// Find allocas for EvaluateAttribute operations
-void DxilGenerationPass::FindAllocasForEvalOperations(
-    Value *val, std::unordered_set<AllocaInst *> &allocas) {
-  Value *CurVal = val;
-  while (!isa<AllocaInst>(CurVal)) {
-    if (CallInst *CI = dyn_cast<CallInst>(CurVal)) {
-      CurVal = CI->getOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-    } else if (InsertElementInst *IE = dyn_cast<InsertElementInst>(CurVal)) {
-      Value *arg0 =
-          IE->getOperand(0); // Could be another insertelement or undef
-      Value *arg1 = IE->getOperand(1);
-      FindAllocasForEvalOperations(arg0, allocas);
-      CurVal = arg1;
-    } else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(CurVal)) {
-      Value *arg0 = SV->getOperand(0);
-      Value *arg1 = SV->getOperand(1);
-      FindAllocasForEvalOperations(
-          arg0, allocas); // Shuffle vector could come from different allocas
-      CurVal = arg1;
-    } else if (ExtractElementInst *EE = dyn_cast<ExtractElementInst>(CurVal)) {
-      CurVal = EE->getOperand(0);
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(CurVal)) {
-      CurVal = LI->getOperand(0);
-    } else {
-      break;
-    }
-  }
-  if (AllocaInst *AI = dyn_cast<AllocaInst>(CurVal)) {
-    allocas.insert(AI);
-  }
-}
-
-// This is needed in order to translate EvaluateAttribute operations that traces
-// back to LoadInput operations during translation stage. Promoting load/store
-// instructions beforehand will allow us to easily trace back to loadInput from
-// function call.
-void DxilGenerationPass::LegalizeEvalOperations(Module &M) {
-  for (Function &F : M.getFunctionList()) {
-    hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(&F);
-    if (group != HLOpcodeGroup::NotHL) {
-      std::vector<CallInst *> EvalFunctionCalls;
-      // Find all EvaluateAttribute calls
-      for (User *U : F.users()) {
-        if (CallInst *CI = dyn_cast<CallInst>(U)) {
-          IntrinsicOp evalOp = static_cast<IntrinsicOp>(hlsl::GetHLOpcode(CI));
-          if (evalOp == IntrinsicOp::IOP_EvaluateAttributeAtSample ||
-            evalOp == IntrinsicOp::IOP_EvaluateAttributeCentroid ||
-            evalOp == IntrinsicOp::IOP_EvaluateAttributeSnapped) {
-            EvalFunctionCalls.push_back(CI);
-          }
-        }
-      }
-      if (EvalFunctionCalls.empty()) {
-        continue;
-      }
-      // Start from the call instruction, find all allocas that this call uses.
-      std::unordered_set<AllocaInst *> allocas;
-      for (CallInst *CI : EvalFunctionCalls) {
-        FindAllocasForEvalOperations(CI, allocas);
-      }
-      SSAUpdater SSA;
-      SmallVector<Instruction *, 4> Insts;
-      for (AllocaInst *AI : allocas) {
-        for (User *user : AI->users()) {
-          if (isa<LoadInst>(user) || isa<StoreInst>(user)) {
-            Insts.emplace_back(cast<Instruction>(user));
-          }
-        }
-        LoadAndStorePromoter(Insts, SSA).run(Insts);
-        Insts.clear();
-      }
-    }
-  }
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
@@ -3449,3 +3369,111 @@ ModulePass *llvm::createDxilLegalizeStaticResourceUsePass() {
 INITIALIZE_PASS(DxilLegalizeStaticResourceUsePass,
                 "hlsl-dxil-legalize-static-resource-use",
                 "DXIL legalize static resource use", false, false)
+
+///////////////////////////////////////////////////////////////////////////////
+// Legalize EvalOperations.
+// Make sure src of EvalOperations are from function parameter.
+// This is needed in order to translate EvaluateAttribute operations that traces
+// back to LoadInput operations during translation stage. Promoting load/store
+// instructions beforehand will allow us to easily trace back to loadInput from
+// function call.
+namespace {
+
+class DxilLegalizeEvalOperations : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilLegalizeEvalOperations() : ModulePass(ID) {}
+
+  const char *getPassName() const override {
+    return "DXIL Legalize EvalOperations";
+  }
+
+  bool runOnModule(Module &M) override {
+    for (Function &F : M.getFunctionList()) {
+      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(&F);
+      if (group != HLOpcodeGroup::NotHL) {
+        std::vector<CallInst *> EvalFunctionCalls;
+        // Find all EvaluateAttribute calls
+        for (User *U : F.users()) {
+          if (CallInst *CI = dyn_cast<CallInst>(U)) {
+            IntrinsicOp evalOp =
+                static_cast<IntrinsicOp>(hlsl::GetHLOpcode(CI));
+            if (evalOp == IntrinsicOp::IOP_EvaluateAttributeAtSample ||
+                evalOp == IntrinsicOp::IOP_EvaluateAttributeCentroid ||
+                evalOp == IntrinsicOp::IOP_EvaluateAttributeSnapped) {
+              EvalFunctionCalls.push_back(CI);
+            }
+          }
+        }
+        if (EvalFunctionCalls.empty()) {
+          continue;
+        }
+        // Start from the call instruction, find all allocas that this call
+        // uses.
+        std::unordered_set<AllocaInst *> allocas;
+        for (CallInst *CI : EvalFunctionCalls) {
+          FindAllocasForEvalOperations(CI, allocas);
+        }
+        SSAUpdater SSA;
+        SmallVector<Instruction *, 4> Insts;
+        for (AllocaInst *AI : allocas) {
+          for (User *user : AI->users()) {
+            if (isa<LoadInst>(user) || isa<StoreInst>(user)) {
+              Insts.emplace_back(cast<Instruction>(user));
+            }
+          }
+          LoadAndStorePromoter(Insts, SSA).run(Insts);
+          Insts.clear();
+        }
+      }
+    }
+    return true;
+  }
+
+private:
+  void FindAllocasForEvalOperations(Value *val,
+                                    std::unordered_set<AllocaInst *> &allocas);
+};
+
+char DxilLegalizeEvalOperations::ID = 0;
+
+// Find allocas for EvaluateAttribute operations
+void DxilLegalizeEvalOperations::FindAllocasForEvalOperations(
+    Value *val, std::unordered_set<AllocaInst *> &allocas) {
+  Value *CurVal = val;
+  while (!isa<AllocaInst>(CurVal)) {
+    if (CallInst *CI = dyn_cast<CallInst>(CurVal)) {
+      CurVal = CI->getOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+    } else if (InsertElementInst *IE = dyn_cast<InsertElementInst>(CurVal)) {
+      Value *arg0 =
+          IE->getOperand(0); // Could be another insertelement or undef
+      Value *arg1 = IE->getOperand(1);
+      FindAllocasForEvalOperations(arg0, allocas);
+      CurVal = arg1;
+    } else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(CurVal)) {
+      Value *arg0 = SV->getOperand(0);
+      Value *arg1 = SV->getOperand(1);
+      FindAllocasForEvalOperations(
+          arg0, allocas); // Shuffle vector could come from different allocas
+      CurVal = arg1;
+    } else if (ExtractElementInst *EE = dyn_cast<ExtractElementInst>(CurVal)) {
+      CurVal = EE->getOperand(0);
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(CurVal)) {
+      CurVal = LI->getOperand(0);
+    } else {
+      break;
+    }
+  }
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(CurVal)) {
+    allocas.insert(AI);
+  }
+}
+} // namespace
+
+ModulePass *llvm::createDxilLegalizeEvalOperationsPass() {
+  return new DxilLegalizeEvalOperations();
+}
+
+INITIALIZE_PASS(DxilLegalizeEvalOperations,
+                "hlsl-dxil-legalize-eval-operations",
+                "DXIL legalize eval operations", false, false)
