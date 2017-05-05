@@ -142,6 +142,15 @@ uint32_t ModuleBuilder::createAccessChain(uint32_t resultType, uint32_t base,
   return id;
 }
 
+uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
+                                       uint32_t lhs, uint32_t rhs) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.binaryOp(op, resultType, id, lhs, rhs).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 void ModuleBuilder::createReturn() {
   assert(insertPoint && "null insert point");
   instBuilder.opReturn().x();
