@@ -113,6 +113,14 @@ if "%BUILD_VS_VER%"=="2015" (
   )
 )
 
+rem Begin SPIRV change
+if "%1"=="-spirv" (
+  echo SPIR-V codegen is enabled.
+  set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=ON
+  shift /1
+)
+rem End SPIRV change
+
 if "%BUILD_ARCH%"=="x64" (
   set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
 )

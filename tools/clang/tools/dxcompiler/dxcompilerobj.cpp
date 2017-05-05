@@ -40,6 +40,11 @@
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+// SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+#include "clang/SPIRV/EmitSPIRVAction.h"
+#endif
+// SPIRV change ends
 
 #if defined(_MSC_VER)
 #include <io.h>
@@ -2209,6 +2214,18 @@ public:
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
         }
       }
+      // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+      else if (opts.GenSPIRV) {
+          clang::EmitSPIRVAction action;
+          FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+          action.BeginSourceFile(compiler, file);
+          action.Execute();
+          action.EndSourceFile();
+          outStream.flush();
+      }
+#endif
+      // SPIRV change ends
       else {
         llvm::LLVMContext llvmContext;
         EmitBCAction action(&llvmContext);
