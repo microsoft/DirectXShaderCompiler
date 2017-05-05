@@ -122,7 +122,7 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_ValMajor, &m_ValMinor));
     if (m_ValMinor > 0) { // flag only exists on newer validator, assume internal otherwise.
       VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-      m_InternalValidator = VersionFlags & DxcVersionInfoFlags_Internal ? true : false;
+      m_InternalValidator = (VersionFlags & DxcVersionInfoFlags_Internal) ? true : false;
     } else {
       // With old compiler, validator is the only way to get this
       m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
