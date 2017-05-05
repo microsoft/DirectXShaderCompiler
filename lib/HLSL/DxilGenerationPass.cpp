@@ -2748,7 +2748,7 @@ void DxilGenerationPass::LegalizeEvalOperations(Module &M) {
   for (Function &F : M.getFunctionList()) {
     hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(&F);
     if (group != HLOpcodeGroup::NotHL) {
-      std::unordered_set<CallInst *> EvalFunctionCalls;
+      std::vector<CallInst *> EvalFunctionCalls;
       // Find all EvaluateAttribute calls
       for (User *U : F.users()) {
         if (CallInst *CI = dyn_cast<CallInst>(U)) {
@@ -2756,11 +2756,13 @@ void DxilGenerationPass::LegalizeEvalOperations(Module &M) {
           if (evalOp == IntrinsicOp::IOP_EvaluateAttributeAtSample ||
             evalOp == IntrinsicOp::IOP_EvaluateAttributeCentroid ||
             evalOp == IntrinsicOp::IOP_EvaluateAttributeSnapped) {
-            EvalFunctionCalls.insert(CI);
+            EvalFunctionCalls.push_back(CI);
           }
         }
       }
-
+      if (EvalFunctionCalls.empty()) {
+        continue;
+      }
       // Start from the call instruction, find all allocas that this call uses.
       std::unordered_set<AllocaInst *> allocas;
       for (CallInst *CI : EvalFunctionCalls) {

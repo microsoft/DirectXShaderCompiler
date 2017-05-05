@@ -604,17 +604,25 @@ Value *TranslateAddUint64(CallInst *CI, IntrinsicOp IOP,
 }
 
 
-CallInst *ValidateLoadInput(Value *V) {
+bool IsValidLoadInput(Value *V) {
   // Must be load input.
+  // TODO: report this error on front-end
+  if (!isa<CallInst>(V)) {
+    V->getContext().emitError("attribute evaluation can only be done on values "
+                              "taken directly from inputs");
+    return false;
+  }
   CallInst *CI = cast<CallInst>(V);
   // Must be immediate.
   ConstantInt *opArg =
       cast<ConstantInt>(CI->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
   DXIL::OpCode op = static_cast<DXIL::OpCode>(opArg->getLimitedValue());
-  // TODO: report error on front-end.
-  // "attribute evaluation can only be done on values taken directly from inputs"
-  DXASSERT_LOCALVAR(op, op == DXIL::OpCode::LoadInput, "must be load input");
-  return CI;
+  if (op != DXIL::OpCode::LoadInput) {
+    V->getContext().emitError("attribute evaluation can only be done on values "
+                              "taken directly from inputs");
+    return false;
+  }
+  return true;
 }
 
 // Apply current shuffle vector mask on top of previous shuffle mask.
@@ -651,12 +659,14 @@ Constant *GetLoadInputsForEvaluate(Value *V, std::vector<CallInst*> &loadList) {
       InsertElementInst *insertInst = cast<InsertElementInst>(Vec);
       Vec = insertInst->getOperand(0);
       Value *Elt = insertInst->getOperand(1);
-      CallInst *CI = ValidateLoadInput(Elt);
-      loadList.emplace_back(CI);
+      if (IsValidLoadInput(Elt)) {
+        loadList.emplace_back(cast<CallInst>(Elt));
+      }
     }
   } else {
-    CallInst *CI = ValidateLoadInput(V);
-    loadList.emplace_back(CI);
+    if (IsValidLoadInput(V)) {
+      loadList.emplace_back(cast<CallInst>(V));
+    }
   }
   return shufMask;
 }
