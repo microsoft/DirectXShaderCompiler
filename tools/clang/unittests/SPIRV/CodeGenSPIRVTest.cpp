@@ -36,4 +36,6 @@ TEST_F(WholeFileTest, ConstantPixelShader) {
 
 TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 
+TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
+
 } // namespace

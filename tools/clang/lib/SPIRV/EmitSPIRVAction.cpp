@@ -29,7 +29,8 @@ namespace spirv {
 class SPIRVEmitter : public ASTConsumer {
 public:
   explicit SPIRVEmitter(CompilerInstance &ci)
-      : theCompilerInstance(ci), diags(ci.getDiagnostics()),
+      : theCompilerInstance(ci), astContext(ci.getASTContext()),
+        diags(ci.getDiagnostics()),
         entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
         shaderStage(getSpirvShaderStageFromHlslProfile(
             ci.getCodeGenOpts().HLSLProfile.c_str())),
@@ -203,7 +204,25 @@ public:
       const uint32_t ptrType = theBuilder.getPointerType(
           typeTranslator.translateType(decl->getType()),
           spv::StorageClass::Function);
-      const uint32_t varId = theBuilder.addFnVariable(ptrType, decl->getName());
+
+      // Handle initializer. SPIR-V requires that "initializer must be an <id>
+      // from a constant instruction or a global (module scope) OpVariable
+      // instruction."
+      llvm::Optional<uint32_t> init = llvm::None;
+      if (decl->hasInit()) {
+        const Expr *declInit = decl->getInit();
+        if (declInit->isConstantInitializer(astContext, /*ForRef*/ false)) {
+          APValue evalResult;
+          llvm::SmallVector<PartialDiagnosticAt, 0> notes;
+          declInit->EvaluateAsInitializer(evalResult, astContext, decl, notes);
+          init = llvm::Optional<uint32_t>(
+              translateAPValue(evalResult, decl->getType()));
+        }
+      }
+
+      const uint32_t varId =
+          theBuilder.addFnVariable(ptrType, decl->getName(), init);
+
       declIdMapper.registerDeclResultId(decl, varId);
     } else {
       // TODO: handle global variables
@@ -292,24 +311,14 @@ public:
     }
   }
 
-  uint32_t doExpr(Expr *expr) {
+  uint32_t doExpr(const Expr *expr) {
     if (auto *delRefExpr = dyn_cast<DeclRefExpr>(expr)) {
       // Returns the <result-id> of the referenced Decl.
       const NamedDecl *referredDecl = delRefExpr->getFoundDecl();
       assert(referredDecl && "found non-NamedDecl referenced");
       return declIdMapper.getDeclResultId(referredDecl);
     } else if (auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
-      const uint32_t fromValue = doExpr(castExpr->getSubExpr());
-      // Using lvalue as rvalue will result in a ImplicitCast in Clang AST.
-      // This place gives us a place to inject the code for handling stage
-      // variables. Since using the <result-id> of a stage variable as
-      // rvalue means OpLoad it first. For normal values, it is not required.
-      if (declIdMapper.isStageVariable(fromValue)) {
-        const uint32_t resultType =
-            typeTranslator.translateType(castExpr->getType());
-        return theBuilder.createLoad(resultType, fromValue);
-      }
-      return fromValue;
+      return doImplicitCastExpr(castExpr);
     } else if (auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
       const uint32_t base = doExpr(memberExpr->getBase());
       auto *memberDecl = memberExpr->getMemberDecl();
@@ -335,28 +344,132 @@ public:
             << cxxFunctionalCastExpr->getCastKindName();
       }
     } else if (auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
-      const bool isConstantInitializer = expr->isConstantInitializer(
-          theCompilerInstance.getASTContext(), false);
       const uint32_t resultType =
           typeTranslator.translateType(initListExpr->getType());
+
       std::vector<uint32_t> constituents;
       for (size_t i = 0; i < initListExpr->getNumInits(); ++i) {
         constituents.push_back(doExpr(initListExpr->getInit(i)));
       }
-      if (isConstantInitializer) {
+
+      if (expr->isConstantInitializer(astContext, false)) {
         return theBuilder.getConstantComposite(resultType, constituents);
-      } else {
-        // TODO: use OpCompositeConstruct if it is not a constant initializer
-        // list.
-        emitError("Non-const initializer lists are currently not supported.");
       }
-    } else if (auto *floatingLiteral = dyn_cast<FloatingLiteral>(expr)) {
-      // TODO: use floatingLiteral->getType() to also handle float64 cases.
-      const float value = floatingLiteral->getValue().convertToFloat();
-      return theBuilder.getConstantFloat32(value);
+      // TODO: use OpCompositeConstruct for non-constant initializer lists.
+      emitError("Non-const initializer lists are currently not supported.");
+      return 0;
+    } else if (auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
+      const bool value = boolLiteral->getValue();
+      return theBuilder.getConstantBool(value);
+    } else if (auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
+      return translateAPInt(intLiteral->getValue(), expr->getType());
+    } else if (auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
+      return translateAPFloat(floatLiteral->getValue(), expr->getType());
     }
     emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
     // TODO: handle other expressions
+    return 0;
+  }
+
+  uint32_t doImplicitCastExpr(const ImplicitCastExpr *expr) {
+    const Expr *subExpr = expr->getSubExpr();
+    const QualType toType = expr->getType();
+
+    switch (expr->getCastKind()) {
+    // Integer literals in the AST are represented using 64bit APInt
+    // themselves and then implicitly casted into the expected bitwidth.
+    // We need special treatment of integer literals here because generating
+    // a 64bit constant and then explicit casting in SPIR-V requires Int64
+    // capability. We should avoid introducing unnecessary capabilities to
+    // our best.
+    case CastKind::CK_IntegralCast: {
+      llvm::APSInt intValue;
+      if (expr->EvaluateAsInt(intValue, astContext, Expr::SE_NoSideEffects)) {
+        return translateAPInt(intValue, toType);
+      } else {
+        emitError("Integral cast is not supported yet");
+        return 0;
+      }
+    }
+    case CastKind::CK_LValueToRValue: {
+      const uint32_t fromValue = doExpr(subExpr);
+      // Using lvalue as rvalue will result in a ImplicitCast in Clang AST.
+      // This place gives us a place to inject the code for handling stage
+      // variables. Since using the <result-id> of a stage variable as
+      // rvalue means OpLoad it first. For normal values, it is not required.
+      if (declIdMapper.isStageVariable(fromValue)) {
+        const uint32_t resultType = typeTranslator.translateType(toType);
+        return theBuilder.createLoad(resultType, fromValue);
+      }
+      return fromValue;
+    }
+    default:
+      emitError("ImplictCast Kind '%0' is not supported yet.")
+          << expr->getCastKind();
+      return 0;
+    }
+  }
+
+  uint32_t translateAPValue(const APValue &value, const QualType targetType) {
+    if (targetType->isBooleanType()) {
+      const bool boolValue = value.getInt().getBoolValue();
+      return theBuilder.getConstantBool(boolValue);
+    }
+
+    if (targetType->isIntegerType()) {
+      const llvm::APInt &intValue = value.getInt();
+      return translateAPInt(intValue, targetType);
+    }
+
+    if (targetType->isFloatingType()) {
+      const llvm::APFloat &floatValue = value.getFloat();
+      return translateAPFloat(floatValue, targetType);
+    }
+
+    emitError("APValue of type '%0' is not supported yet.") << value.getKind();
+    return 0;
+  }
+
+  uint32_t translateAPInt(const llvm::APInt &intValue, QualType targetType) {
+    const auto bitwidth = astContext.getIntWidth(targetType);
+
+    if (targetType->isSignedIntegerType()) {
+      const int64_t value = intValue.getSExtValue();
+      switch (bitwidth) {
+      case 32:
+        return theBuilder.getConstantInt32(static_cast<int32_t>(value));
+      default:
+        break;
+      }
+    } else {
+      const uint64_t value = intValue.getZExtValue();
+      switch (bitwidth) {
+      case 32:
+        return theBuilder.getConstantUint32(static_cast<uint32_t>(value));
+      default:
+        break;
+      }
+    }
+
+    emitError("APInt for target bitwidth '%0' is not supported yet.")
+        << bitwidth;
+    return 0;
+  }
+
+  uint32_t translateAPFloat(const llvm::APFloat &floatValue,
+                            QualType targetType) {
+    const auto &semantics = astContext.getFloatTypeSemantics(targetType);
+    const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
+
+    switch (bitwidth) {
+    case 32:
+      return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+    default:
+      break;
+    }
+
+    emitError("APFloat for target bitwidth '%0' is not supported yet.")
+        << bitwidth;
     return 0;
   }
 
@@ -380,6 +493,7 @@ private:
 
 private:
   CompilerInstance &theCompilerInstance;
+  ASTContext &astContext;
   DiagnosticsEngine &diags;
 
   /// Entry function name and shader stage. Both of them are derived from the

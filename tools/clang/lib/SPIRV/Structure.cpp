@@ -96,6 +96,14 @@ void Function::clear() {
   blocks.clear();
 }
 
+void Function::addVariable(uint32_t varType, uint32_t varId,
+                           llvm::Optional<uint32_t> init) {
+  variables.emplace_back(
+      InstBuilder(nullptr)
+          .opVariable(varType, varId, spv::StorageClass::Function, init)
+          .take());
+}
+
 void Function::take(InstBuilder *builder) {
   builder->opFunction(resultType, resultId, funcControl, funcType).x();
 
@@ -105,14 +113,12 @@ void Function::take(InstBuilder *builder) {
   }
 
   // Preprend all local variables to the entry block.
+  // This is necessary since SPIR-V requires all local variables to be defined
+  // at the very begining of the entry block.
   // We need to do it in the reverse order to guarantee variables have the
   // same definition order in SPIR-V as in the source code.
   for (auto it = variables.rbegin(), ie = variables.rend(); it != ie; ++it) {
-    blocks.front()->prependInstruction(
-        builder
-            ->opVariable(it->first, it->second, spv::StorageClass::Function,
-                         llvm::None)
-            .take());
+    blocks.front()->prependInstruction(std::move(*it));
   }
 
   // Write out all basic blocks.
