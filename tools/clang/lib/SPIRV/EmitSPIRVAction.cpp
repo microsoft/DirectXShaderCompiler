@@ -237,32 +237,18 @@ public:
       for (auto *decl : declStmt->decls()) {
         doDecl(decl);
       }
-    } else if (auto *binOp = dyn_cast<BinaryOperator>(stmt)) {
-      const auto opcode = binOp->getOpcode();
-      const uint32_t lhs = doExpr(binOp->getLHS());
-      const uint32_t rhs = doExpr(binOp->getRHS());
-
-      doBinaryOperator(opcode, lhs, rhs);
+    } else if (auto *expr = dyn_cast<Expr>(stmt)) {
+      // All cases for expressions used as statements
+      doExpr(expr);
     } else {
       emitError("Stmt '%0' is not supported yet.") << stmt->getStmtClassName();
-    }
-    // TODO: handle other statements
-  }
-
-  void doBinaryOperator(BinaryOperatorKind opcode, uint32_t lhs, uint32_t rhs) {
-    if (opcode == BO_Assign) {
-      theBuilder.createStore(lhs, rhs);
-    } else {
-      emitError("BinaryOperator '%0' is not supported yet.") << opcode;
     }
   }
 
   void doReturnStmt(ReturnStmt *stmt) {
-    // First get the <result-id> of the value we want to return.
-    const uint32_t retValue = doExpr(stmt->getRetValue());
-
+    // For normal functions, just return in the normal way.
     if (curFunction->getName() != entryFunctionName) {
-      theBuilder.createReturnValue(retValue);
+      theBuilder.createReturnValue(doExpr(stmt->getRetValue()));
       return;
     }
 
@@ -273,13 +259,14 @@ public:
     // We need to walk through the return type, and for each subtype attached
     // with semantics, write out the value to the corresponding stage variable
     // mapped to the semantic.
+
     const uint32_t stageVarId =
         declIdMapper.getRemappedDeclResultId(curFunction);
 
     if (stageVarId) {
       // The return value is mapped to a single stage variable. We just need
       // to store the value into the stage variable instead.
-      theBuilder.createStore(stageVarId, retValue);
+      theBuilder.createStore(stageVarId, doExpr(stmt->getRetValue()));
       theBuilder.createReturn();
       return;
     }
@@ -287,7 +274,16 @@ public:
     QualType retType = stmt->getRetValue()->getType();
 
     if (const auto *structType = retType->getAsStructureType()) {
-      // We are trying to return a value of struct type. Go through all fields.
+      // We are trying to return a value of struct type.
+
+      // First get the return value. Clang AST will use an LValueToRValue cast
+      // for returning a struct variable. We need to ignore the cast to avoid
+      // creating OpLoad instruction since we need the pointer to the variable
+      // for creating access chain later.
+      const uint32_t retValue =
+          doExpr(stmt->getRetValue()->IgnoreParenLValueCasts());
+
+      // Then go through all fields.
       uint32_t fieldIndex = 0;
       for (const auto *field : structType->getDecl()->fields()) {
         // Load the value from the current field.
@@ -317,8 +313,6 @@ public:
       const NamedDecl *referredDecl = delRefExpr->getFoundDecl();
       assert(referredDecl && "found non-NamedDecl referenced");
       return declIdMapper.getDeclResultId(referredDecl);
-    } else if (auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
-      return doImplicitCastExpr(castExpr);
     } else if (auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
       const uint32_t base = doExpr(memberExpr->getBase());
       auto *memberDecl = memberExpr->getMemberDecl();
@@ -334,15 +328,17 @@ public:
         emitError("Decl '%0' in MemberExpr is not supported yet.")
             << memberDecl->getDeclKindName();
       }
+    } else if (auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
+      return doImplicitCastExpr(castExpr);
     } else if (auto *cxxFunctionalCastExpr =
                    dyn_cast<CXXFunctionalCastExpr>(expr)) {
       // Explicit cast is a NO-OP (e.g. vector<float, 4> -> float4)
       if (cxxFunctionalCastExpr->getCastKind() == CK_NoOp) {
         return doExpr(cxxFunctionalCastExpr->getSubExpr());
-      } else {
-        emitError("Found unhandled CXXFunctionalCastExpr cast type: %0")
-            << cxxFunctionalCastExpr->getCastKindName();
       }
+      emitError("Found unhandled CXXFunctionalCastExpr cast type: %0")
+          << cxxFunctionalCastExpr->getCastKindName();
+      return 0;
     } else if (auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
       const uint32_t resultType =
           typeTranslator.translateType(initListExpr->getType());
@@ -365,9 +361,30 @@ public:
       return translateAPInt(intLiteral->getValue(), expr->getType());
     } else if (auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
       return translateAPFloat(floatLiteral->getValue(), expr->getType());
+    } else if (auto *binOp = dyn_cast<BinaryOperator>(expr)) {
+      return doBinaryOperator(binOp);
     }
+
     emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
     // TODO: handle other expressions
+    return 0;
+  }
+
+  uint32_t doBinaryOperator(const BinaryOperator *expr) {
+    const auto opcode = expr->getOpcode();
+    const uint32_t rhs = doExpr(expr->getRHS());
+    const uint32_t lhs = doExpr(expr->getLHS());
+
+    switch (opcode) {
+    case BO_Assign:
+      theBuilder.createStore(lhs, rhs);
+      // Assignment returns a rvalue.
+      return rhs;
+    default:
+      break;
+    }
+
+    emitError("BinaryOperator '%0' is not supported yet.") << opcode;
     return 0;
   }
 
@@ -393,15 +410,10 @@ public:
     }
     case CastKind::CK_LValueToRValue: {
       const uint32_t fromValue = doExpr(subExpr);
-      // Using lvalue as rvalue will result in a ImplicitCast in Clang AST.
-      // This place gives us a place to inject the code for handling stage
-      // variables. Since using the <result-id> of a stage variable as
-      // rvalue means OpLoad it first. For normal values, it is not required.
-      if (declIdMapper.isStageVariable(fromValue)) {
-        const uint32_t resultType = typeTranslator.translateType(toType);
-        return theBuilder.createLoad(resultType, fromValue);
-      }
-      return fromValue;
+      // Using lvalue as rvalue means we need to OpLoad the contents from
+      // the parameter/variable first.
+      const uint32_t resultType = typeTranslator.translateType(toType);
+      return theBuilder.createLoad(resultType, fromValue);
     }
     default:
       emitError("ImplictCast Kind '%0' is not supported yet.")
