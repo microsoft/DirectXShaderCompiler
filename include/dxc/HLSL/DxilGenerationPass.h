@@ -42,7 +42,12 @@ ModulePass *createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCode
 ModulePass *createHLEmitMetadataPass();
 ModulePass *createHLEnsureMetadataPass();
 ModulePass *createDxilEmitMetadataPass();
+ModulePass *createDxilLoadMetadataPass();
 ModulePass *createDxilPrecisePropagatePass();
+FunctionPass *createDxilLegalizeResourceUsePass();
+ModulePass *createDxilLegalizeStaticResourceUsePass();
+ModulePass *createDxilLegalizeEvalOperationsPass();
+FunctionPass *createDxilLegalizeSampleOffsetPass();
 FunctionPass *createSimplifyInstPass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
@@ -50,7 +55,12 @@ void initializeDxilGenerationPassPass(llvm::PassRegistry&);
 void initializeHLEnsureMetadataPass(llvm::PassRegistry&);
 void initializeHLEmitMetadataPass(llvm::PassRegistry&);
 void initializeDxilEmitMetadataPass(llvm::PassRegistry&);
+void initializeDxilLoadMetadataPass(llvm::PassRegistry&);
 void initializeDxilPrecisePropagatePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeResourceUsePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeStaticResourceUsePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeEvalOperationsPass(llvm::PassRegistry&);
+void initializeDxilLegalizeSampleOffsetPassPass(llvm::PassRegistry&);
 void initializeSimplifyInstPass(llvm::PassRegistry&);
 
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);

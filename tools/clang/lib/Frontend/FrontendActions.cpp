@@ -17,6 +17,7 @@
 #include "clang/Frontend/MultiplexConsumer.h"
 #include "clang/Frontend/Utils.h"
 #include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Lex/Pragma.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/Parser.h"
@@ -27,7 +28,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <system_error>
-
+// HLSL Change Begin.
+#include "dxc/HLSL/DxilRootSignature.h"
+#include "clang/Parse/ParseHLSL.h"
+// HLSL Change End.
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -696,6 +700,71 @@ void PrintPreprocessedAction::ExecuteAction() {
   DoPrintPreprocessedInput(CI.getPreprocessor(), OS,
                            CI.getPreprocessorOutputOpts());
 }
+
+// HLSL Change Begin.
+HLSLRootSignatureAction::HLSLRootSignatureAction(StringRef rootSigMacro,
+                                                 unsigned major, unsigned minor)
+    : HLSLRootSignatureMacro(rootSigMacro), rootSigMajor(major),
+      rootSigMinor(minor) {
+  rootSigHandle = std::make_unique<hlsl::RootSignatureHandle>();
+}
+
+void HLSLRootSignatureAction::ExecuteAction() {
+  CompilerInstance &CI = getCompilerInstance();
+  Preprocessor &PP = CI.getPreprocessor();
+  // Ignore unknown pragmas.
+  PP.IgnorePragmas();
+
+  // Scans and ignores all tokens in the files.
+  PP.EnterMainSourceFile();
+
+  Token Tok;
+  do PP.Lex(Tok);
+  while (Tok.isNot(tok::eof));
+
+  hlsl::DxilRootSignatureVersion  rootSigVer;
+  if (rootSigMinor == 0) {
+    rootSigVer = hlsl::DxilRootSignatureVersion::Version_1_0;
+  }
+  else {
+    assert(rootSigMinor == 1 &&
+      "else CGMSHLSLRuntime Constructor needs to be updated");
+    rootSigVer = hlsl::DxilRootSignatureVersion::Version_1_1;
+  }
+
+  assert(rootSigMajor == 1 &&
+           "else CGMSHLSLRuntime Constructor needs to be updated");
+
+  // Try to find HLSLRootSignatureMacro in macros.
+  MacroInfo *rootSigMacro = hlsl::MacroExpander::FindMacroInfo(PP, HLSLRootSignatureMacro);
+  DiagnosticsEngine &Diags = CI.getDiagnostics();
+  if (!rootSigMacro)  {
+    std::string cannotFindMacro =
+        "undeclared identifier " + HLSLRootSignatureMacro;
+    SourceLocation SLoc = Tok.getLocation();
+    ReportHLSLRootSigError(Diags, SLoc, cannotFindMacro.c_str(),
+                           cannotFindMacro.size());
+    return;
+  }
+
+  // Expand HLSLRootSignatureMacro.
+  SourceLocation SLoc = rootSigMacro->getDefinitionLoc();
+  std::string rootSigString;
+  hlsl::MacroExpander expander(PP, hlsl::MacroExpander::STRIP_QUOTES);
+  if (!expander.ExpandMacro(rootSigMacro, &rootSigString)) {
+    StringRef error("error expanding root signature macro");
+    ReportHLSLRootSigError(Diags, SLoc, error.data(), error.size());
+    return;
+  }
+
+  // Compile the expanded root signature.
+  clang::CompileRootSignature(rootSigString, Diags, SLoc, rootSigVer, rootSigHandle.get());
+}
+
+std::unique_ptr<hlsl::RootSignatureHandle> HLSLRootSignatureAction::takeRootSigHandle() {
+  return std::move(rootSigHandle);
+}
+// HLSL Change End.
 
 void PrintPreambleAction::ExecuteAction() {
   switch (getCurrentFileKind()) {

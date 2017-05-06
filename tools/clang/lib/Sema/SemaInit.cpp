@@ -711,7 +711,7 @@ InitListChecker::InitListChecker(Sema &S, const InitializedEntity &Entity,
                                  const InitializationKind &K,    // HLSL Change - add K
                                  InitListExpr *IL, QualType &T,
                                  bool VerifyOnly)
-  : SemaRef(S), VerifyOnly(VerifyOnly), Kind(K) { // HLSL Change - add Kind
+  : SemaRef(S), Kind(K), VerifyOnly(VerifyOnly) { // HLSL Change - add Kind
   // FIXME: Check that IL isn't already the semantic form of some other
   // InitListExpr. If it is, we'd create a broken AST.
 
@@ -6530,6 +6530,26 @@ InitializationSequence::Perform(Sema &S,
         CurInit = shouldBindAsTemporary(InitEntity)
           ? S.MaybeBindToTemporary(InitList)
           : InitList;
+        // Hack: We must update *ResultType if available in order to set the
+        // bounds of arrays, e.g. in 'int ar[] = {1, 2, 3};'.
+        // Worst case: 'const int (&arref)[] = {1, 2, 3};'.
+        if (ResultType &&
+            ResultType->getNonReferenceType()->isIncompleteArrayType()) {
+          const IncompleteArrayType *IncompleteAT =
+              S.getASTContext().getAsIncompleteArrayType(
+                  ResultType->getNonReferenceType());
+          QualType EltTy = IncompleteAT->getElementType();
+          unsigned arraySize = hlsl::CaculateInitListArraySizeForHLSL(&S, InitList, EltTy);
+          if (arraySize) {
+            llvm::APInt Size(
+                /*numBits=*/32, arraySize);
+            QualType AT = S.getASTContext().getConstantArrayType(
+                EltTy, Size, ArrayType::ArraySizeModifier::Normal,
+                /*IndexTypeQuals=*/0);
+            *ResultType = AT;
+            InitList->setType(AT);
+          }
+        }
       } else { // HLSL Change Ends code below is conditional
         InitListChecker PerformInitList(S, InitEntity, Kind, // HLSL Change - added Kind
           InitList, Ty, /*VerifyOnly=*/false);

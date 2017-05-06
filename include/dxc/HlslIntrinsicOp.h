@@ -31,6 +31,7 @@ import hctdb_instrhelp
   IOP_EvaluateAttributeAtSample,
   IOP_EvaluateAttributeCentroid,
   IOP_EvaluateAttributeSnapped,
+  IOP_GetAttributeAtVertex,
   IOP_GetRenderTargetSampleCount,
   IOP_GetRenderTargetSamplePosition,
   IOP_GroupMemoryBarrier,
@@ -237,6 +238,7 @@ import hctdb_instrhelp
   IOP_umad,
   IOP_umax,
   IOP_umin,
+  IOP_umul,
   MOP_InterlockedUMax,
   MOP_InterlockedUMin,
   Num_Intrinsics,
@@ -264,6 +266,7 @@ import hctdb_instrhelp
   case IntrinsicOp::IOP_mad:
   case IntrinsicOp::IOP_max:
   case IntrinsicOp::IOP_min:
+  case IntrinsicOp::IOP_mul:
   case IntrinsicOp::MOP_InterlockedMax:
   case IntrinsicOp::MOP_InterlockedMin:
 // HLSL-HAS-UNSIGNED-INTRINSICS:END
@@ -307,6 +310,8 @@ import hctdb_instrhelp
     return static_cast<unsigned>(IntrinsicOp::IOP_umax);
   case IntrinsicOp::IOP_min:
     return static_cast<unsigned>(IntrinsicOp::IOP_umin);
+  case IntrinsicOp::IOP_mul:
+    return static_cast<unsigned>(IntrinsicOp::IOP_umul);
   case IntrinsicOp::MOP_InterlockedMax:
     return static_cast<unsigned>(IntrinsicOp::MOP_InterlockedUMax);
   case IntrinsicOp::MOP_InterlockedMin:

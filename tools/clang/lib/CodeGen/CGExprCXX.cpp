@@ -221,7 +221,32 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
 
       llvm::Value *This = nullptr;
       if (Base->getValueKind() != ExprValueKind::VK_RValue) {
-        This = EmitLValue(Base).getAddress();
+        LValue LV = EmitLValue(Base);
+        if (LV.isSimple()) {
+          This = EmitLValue(Base).getAddress();
+          if (isa<ExtMatrixElementExpr>(Base)) {
+            llvm::Value *Val = Builder.CreateLoad(This);
+            This = Builder.CreateAlloca(Val->getType());
+            Builder.CreateStore(Val, This);
+          }
+        } else {
+          assert(LV.isExtVectorElt() && "must be ext vector here");
+          This = LV.getExtVectorAddr();
+          llvm::Constant *Elts = LV.getExtVectorElts();
+          llvm::Type *Ty = ConvertType(LV.getType());
+
+          llvm::Constant *zero = Builder.getInt32(0);
+          llvm::Value *TmpThis = CreateTempAlloca(Ty);
+          for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+            llvm::Value *EltIdx = Elts->getAggregateElement(i);
+            llvm::Value *EltGEP = Builder.CreateGEP(This, {zero, EltIdx});
+            llvm::Value *TmpEltGEP =
+                Builder.CreateGEP(TmpThis, {zero, Builder.getInt32(i)});
+            llvm::Value *Elt = Builder.CreateLoad(EltGEP);
+            Builder.CreateStore(Elt, TmpEltGEP);
+          }
+          This = TmpThis;
+        }
       } else {
         llvm::Value *Val = EmitScalarExpr(Base);
         This = Builder.CreateAlloca(Val->getType());

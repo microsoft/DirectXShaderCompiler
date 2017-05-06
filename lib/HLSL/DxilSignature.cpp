@@ -92,7 +92,7 @@ bool DxilSignature::IsFullyAllocated() {
   return true;
 }
 
-unsigned DxilSignature::PackElements() {
+unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
   unsigned rowsUsed = 0;
 
   if (m_sigPointKind == DXIL::SigPointKind::GSOut) {
@@ -106,7 +106,17 @@ unsigned DxilSignature::PackElements() {
     }
     for (unsigned i = 0; i < 4; ++i) {
       if (!elements[i].empty()) {
-        unsigned streamRowsUsed = alloc[i].PackMain(elements[i], 0, 32);
+        unsigned streamRowsUsed = 0;
+        switch (packing) {
+        case DXIL::PackingStrategy::PrefixStable:
+          streamRowsUsed = alloc[i].PackPrefixStable(elements[i], 0, 32);
+          break;
+        case DXIL::PackingStrategy::Optimized:
+          streamRowsUsed = alloc[i].PackOptimized(elements[i], 0, 32);
+          break;
+        default:
+          DXASSERT(false, "otherwise, invalid packing strategy supplied");
+        }
         if (streamRowsUsed > rowsUsed)
           rowsUsed = streamRowsUsed;
       }
@@ -144,7 +154,16 @@ unsigned DxilSignature::PackElements() {
           continue;
         elements.push_back(SE.get());
       }
-      rowsUsed = alloc.PackMain(elements, 0, 32);
+      switch (packing) {
+      case DXIL::PackingStrategy::PrefixStable:
+        rowsUsed = alloc.PackPrefixStable(elements, 0, 32);
+        break;
+      case DXIL::PackingStrategy::Optimized:
+        rowsUsed = alloc.PackOptimized(elements, 0, 32);
+        break;
+      default:
+        DXASSERT(false, "otherwise, invalid packing strategy supplied");
+      }
     }
     break;
 

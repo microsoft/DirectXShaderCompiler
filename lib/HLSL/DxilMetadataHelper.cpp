@@ -17,7 +17,6 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilRootSignature.h"
-#include "dxc/HLSL/DxilValidation.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -26,6 +25,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include <array>
+
+#include "dxc/Support/WinIncludes.h"
 
 using namespace llvm;
 using std::string;
@@ -43,7 +44,11 @@ const char DxilMDHelper::kDxilTypeSystemMDName[]                      = "dx.type
 const char DxilMDHelper::kDxilTypeSystemHelperVariablePrefix[]        = "dx.typevar.";
 const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.controlflow.hints";
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
+const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
+
+// This named metadata is not valid in final module (should be moved to DxilContainer)
+const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
 
 static std::array<const char *, 6> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
@@ -130,11 +135,11 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
   string ShaderModelName = pShaderTypeMD->getString();
   ShaderModelName += "_" + std::to_string(Major) + "_" + std::to_string(Minor);
   pSM = ShaderModel::GetByName(ShaderModelName.c_str());
-  if (!pSM->IsValid()) {
-    string ErrorMsg = hlsl::GetValidationRuleText(hlsl::ValidationRule::SmName);
-    size_t offset = ErrorMsg.find("%0");
-    if (offset != string::npos)
-      ErrorMsg.replace(offset, 2, ShaderModelName);
+  if (!pSM->IsValidForDxil()) {
+    char ErrorMsgTxt[40];
+    StringCchPrintfA(ErrorMsgTxt, _countof(ErrorMsgTxt),
+                     "Unknown shader model '%s'", ShaderModelName.c_str());
+    string ErrorMsg(ErrorMsgTxt);
     throw hlsl::Exception(DXC_E_INCORRECT_DXIL_METADATA, ErrorMsg);
   }
 }
@@ -223,16 +228,21 @@ MDTuple *DxilMDHelper::EmitDxilSignatures(const DxilSignature &InputSig,
   return pSignatureTupleMD;
 }
 
-llvm::Metadata *DxilMDHelper::EmitRootSignature(RootSignatureHandle &RootSig) {
+void DxilMDHelper::EmitRootSignature(RootSignatureHandle &RootSig) {
   if (RootSig.IsEmpty()) {
-    return nullptr;
+    return;
   }
 
   RootSig.EnsureSerializedAvailable();
   Constant *V = llvm::ConstantDataArray::get(
       m_Ctx, llvm::ArrayRef<uint8_t>(RootSig.GetSerializedBytes(),
                                      RootSig.GetSerializedSize()));
-  return ConstantAsMetadata::get(V);
+
+  NamedMDNode *pRootSignatureNamedMD = m_pModule->getNamedMetadata(kDxilRootSignatureMDName);
+  IFTBOOL(pRootSignatureNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  pRootSignatureNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilRootSignatureMDName);
+  pRootSignatureNamedMD->addOperand(MDNode::get(m_Ctx, {ConstantAsMetadata::get(V)}));
+  return ;
 }
 
 void DxilMDHelper::LoadDxilSignatures(const MDOperand &MDO, 
@@ -278,9 +288,16 @@ void DxilMDHelper::LoadSignatureMetadata(const MDOperand &MDO, DxilSignature &Si
   }
 }
 
-void DxilMDHelper::LoadRootSignature(const MDOperand &MDO, RootSignatureHandle &Sig) {
-  if (MDO.get() == nullptr)
+void DxilMDHelper::LoadRootSignature(RootSignatureHandle &Sig) {
+  NamedMDNode *pRootSignatureNamedMD = m_pModule->getNamedMetadata(kDxilRootSignatureMDName);
+  if(!pRootSignatureNamedMD)
     return;
+
+  IFTBOOL(pRootSignatureNamedMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+  MDNode *pNode = pRootSignatureNamedMD->getOperand(0);
+  IFTBOOL(pNode->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDOperand &MDO = pNode->getOperand(0);
 
   const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MDO.get());
   IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
@@ -547,15 +564,7 @@ void DxilMDHelper::EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, vector<GlobalV
     // Emit struct type field annotations.
     Metadata *pMD = EmitDxilStructAnnotation(*pA);
 
-    // Declare a global dummy variable.
-    string GVName = string(kDxilTypeSystemHelperVariablePrefix) + std::to_string(GVIdx);
-    GlobalVariable *pGV = new GlobalVariable(*m_pModule, pStructType, true, GlobalValue::ExternalLinkage, 
-                                             nullptr, GVName, nullptr,
-                                             GlobalVariable::NotThreadLocal, DXIL::kDeviceMemoryAddrSpace);
-    // Mark GV as being used for LLVM.
-    LLVMUsed.emplace_back(pGV);
-
-    MDVals.push_back(ValueAsMetadata::get(pGV));
+    MDVals.push_back(ValueAsMetadata::get(UndefValue::get(pStructType)));
     MDVals.push_back(pMD);
   }
 
@@ -596,11 +605,11 @@ void DxilMDHelper::LoadDxilTypeSystemNode(const llvm::MDTuple &MDT,
     IFTBOOL((MDT.getNumOperands() & 0x1) == 1, DXC_E_INCORRECT_DXIL_METADATA);
 
     for (unsigned i = 1; i < MDT.getNumOperands(); i += 2) {
-      GlobalVariable *pGV =
-          dyn_cast<GlobalVariable>(ValueMDToValue(MDT.getOperand(i)));
+      Constant *pGV =
+          dyn_cast<Constant>(ValueMDToValue(MDT.getOperand(i)));
       IFTBOOL(pGV != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
       StructType *pGVType =
-          dyn_cast<StructType>(pGV->getType()->getPointerElementType());
+          dyn_cast<StructType>(pGV->getType());
       IFTBOOL(pGVType != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
 
       DxilStructAnnotation *pSA = TypeSystem.AddStructAnnotation(pGVType);
@@ -854,6 +863,76 @@ void DxilMDHelper::LoadDxilSampler(const MDOperand &MDO, DxilSampler &S) {
   m_ExtraPropertyHelper->LoadSamplerProperties(pTupleMD->getOperand(kDxilSamplerNameValueList), S);
 }
 
+const MDOperand &DxilMDHelper::GetResourceClass(llvm::MDNode *MD,
+                                                DXIL::ResourceClass &RC) {
+  IFTBOOL(MD->getNumOperands() >=
+              DxilMDHelper::kHLDxilResourceAttributeNumFields,
+          DXC_E_INCORRECT_DXIL_METADATA);
+  RC = static_cast<DxilResource::Class>(ConstMDToUint32(
+      MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeClass)));
+  return MD->getOperand(DxilMDHelper::kHLDxilResourceAttributeMeta);
+}
+
+void DxilMDHelper::LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD,
+                                                  DxilResourceBase &R) {
+  DxilResource::Class RC = DxilResource::Class::Invalid;
+  const MDOperand &Meta = GetResourceClass(MD, RC);
+
+  switch (RC) {
+  case DxilResource::Class::CBuffer: {
+    DxilCBuffer CB;
+    LoadDxilCBuffer(Meta, CB);
+    R = CB;
+  } break;
+  case DxilResource::Class::Sampler: {
+    DxilSampler S;
+    LoadDxilSampler(Meta, S);
+    R = S;
+  } break;
+  case DxilResource::Class::SRV: {
+    DxilResource Res;
+    LoadDxilSRV(Meta, Res);
+    R = Res;
+  } break;
+  case DxilResource::Class::UAV: {
+    DxilResource Res;
+    LoadDxilUAV(Meta, Res);
+    R = Res;
+  } break;
+  default:
+    DXASSERT(0, "Invalid metadata");
+  }
+}
+
+void DxilMDHelper::LoadDxilResourceFromMDNode(llvm::MDNode *MD,
+                                              DxilResource &R) {
+  DxilResource::Class RC = DxilResource::Class::Invalid;
+  const MDOperand &Meta = GetResourceClass(MD, RC);
+
+  switch (RC) {
+  case DxilResource::Class::SRV: {
+    LoadDxilSRV(Meta, R);
+  } break;
+  case DxilResource::Class::UAV: {
+    LoadDxilUAV(Meta, R);
+  } break;
+  default:
+    DXASSERT(0, "Invalid metadata");
+  }
+}
+
+void DxilMDHelper::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
+  DxilResource::Class RC = DxilResource::Class::Invalid;
+  const MDOperand &Meta = GetResourceClass(MD, RC);
+
+  switch (RC) {
+  case DxilResource::Class::Sampler: {
+    LoadDxilSampler(Meta, S);
+  } break;
+  default:
+    DXASSERT(0, "Invalid metadata");
+  }
+}
 
 //
 // DxilExtraPropertyHelper shader-specific methods.

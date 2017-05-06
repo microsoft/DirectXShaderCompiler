@@ -19,6 +19,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Sema/SemaConsumer.h"
@@ -38,8 +39,13 @@
 #include "dxc/Support/WinIncludes.h"  // For DxilPipelineStateValidation.h
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/HLSL/DxilRootSignature.h"
+// SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+#include "clang/SPIRV/EmitSPIRVAction.h"
+#endif
+// SPIRV change ends
 
-#ifdef _DEBUG
 #if defined(_MSC_VER)
 #include <io.h>
 #ifndef STDOUT_FILENO
@@ -47,7 +53,6 @@
 #endif
 #ifndef STDERR_FILENO
 # define STDERR_FILENO 2
-#endif
 #endif
 #endif
 
@@ -73,9 +78,30 @@
 #include "dxc/Support/DxcLangExtensionsHelper.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxcetw.h"
+#include "dxillib.h"
 #include <algorithm>
 
 #define CP_UTF16 1200
+
+#ifdef DBG
+
+// This should be improved with global enabled mask rather than a compile-time mask.
+#define DXTRACE_MASK_ENABLED  0
+#define DXTRACE_MASK_APIFS    1
+#define DXTRACE_ENABLED(subsystem) (DXTRACE_MASK_ENABLED & subsystem)
+
+// DXTRACE_FMT formats a debugger trace message if DXTRACE_MASK allows it.
+#define DXTRACE_FMT(subsystem, fmt, ...) do { \
+  if (DXTRACE_ENABLED(subsystem)) OutputDebugFormatA(fmt, __VA_ARGS__); \
+} while (0)
+/// DXTRACE_FMT_APIFS is used by the API-based virtual filesystem.
+#define DXTRACE_FMT_APIFS(fmt, ...) DXTRACE_FMT(DXTRACE_MASK_APIFS, fmt, __VA_ARGS__)
+
+#else
+
+#define DXTRACE_FMT_APIFS(...)
+
+#endif // DBG
 
 using namespace llvm;
 using namespace clang;
@@ -94,22 +120,108 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ IDxcBlob *pShader, UINT32 Flags,
                              _In_ IDxcOperationResult **ppResult);
 
-static const HANDLE StdOutHandle = (HANDLE)0x1;
-static const HANDLE StdErrHandle = (HANDLE)0x2;
-static const HANDLE SourceParentDirHandle = (HANDLE)0x11;
-static const HANDLE SourceHandle = (HANDLE)0x12;
-static const HANDLE OutputHandle = (HANDLE)0x13;
-static const size_t IncludedHandleOffset = 0x100;
+enum class HandleKind {
+  Special = 0,
+  File = 1,
+  FileDir = 2,
+  SearchDir = 3
+};
+enum class SpecialValue {
+  Unknown = 0,
+  StdOut = 1,
+  StdErr = 2,
+  Source = 3,
+  Output = 4
+};
+struct HandleBits {
+  unsigned Offset : 8;
+  unsigned Length : 8;
+  unsigned Kind : 4;
+};
+struct DxcArgsHandle {
+  DxcArgsHandle(HANDLE h) : Handle(h) {}
+  DxcArgsHandle(unsigned fileIndex)
+    : Bits{ fileIndex, 0, (unsigned)HandleKind::File } {}
+  DxcArgsHandle(HandleKind HK, unsigned fileIndex, unsigned dirLength)
+    : Bits{ fileIndex, dirLength, (unsigned)HK} {}
+  DxcArgsHandle(SpecialValue V)
+      : Bits{(unsigned)V, 0, (unsigned)HandleKind::Special} {}
+  union {
+    HANDLE Handle;
+    HandleBits Bits;
+  };
+  bool operator==(const DxcArgsHandle &Other) { return Handle == Other.Handle; }
+  HandleKind GetKind() const { return (HandleKind)Bits.Kind; }
+  bool IsFileKind() const { return GetKind() == HandleKind::File; }
+  bool IsSpecialUnknown() const { return Handle == 0; }
+  bool IsDirHandle() const {
+    return GetKind() == HandleKind::FileDir || GetKind() == HandleKind::SearchDir;
+  }
+  bool IsStdHandle() const {
+    return GetKind() == HandleKind::Special &&
+           (GetSpecialValue() == SpecialValue::StdErr ||
+            GetSpecialValue() == SpecialValue::StdOut);
+  }
+  unsigned GetFileIndex() const {
+    DXASSERT_NOMSG(IsFileKind());
+    return Bits.Offset;
+  }
+  SpecialValue GetSpecialValue() const {
+    DXASSERT_NOMSG(GetKind() == HandleKind::Special);
+    return (SpecialValue)Bits.Offset;
+  }
+  unsigned Length() const { return Bits.Length; }
+};
+
+static_assert(sizeof(DxcArgsHandle) == sizeof(HANDLE), "else can't transparently typecast");
+
+static const DxcArgsHandle UnknownHandle(SpecialValue::Unknown);
+static const DxcArgsHandle StdOutHandle(SpecialValue::StdOut);
+static const DxcArgsHandle StdErrHandle(SpecialValue::StdErr);
+static const DxcArgsHandle OutputHandle(SpecialValue::Output);
 
 /// Max number of included files (1:1 to their directories) or search directories.
 /// If programs include more than a handful, DxcArgsFileSystem will need to do better than linear scans.
 /// If this is fired, ERROR_OUT_OF_STRUCTURES will be returned by an attempt to open a file.
 static const size_t MaxIncludedFiles = 200;
-static const size_t IncludedDirHandleOffset = 0x1000;
-static const size_t SearchDirHandleOffset = 0x2000;
 
-static_assert(IncludedDirHandleOffset > IncludedHandleOffset + MaxIncludedFiles, "else files and dirs may overlap");
-static_assert(SearchDirHandleOffset > IncludedDirHandleOffset + MaxIncludedFiles, "else file dirs and search option dirs overlap");
+static bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
+  if (!Path || !Path[0]) return FALSE;
+  // Current dir-relative path.
+  if (Path[0] == L'.') {
+    return Path[1] == L'\0' || Path[1] == L'/' || Path[1] == L'\\';
+  }
+  // Disk designator, then absolute path.
+  if (Path[1] == L':' && Path[2] == L'\\') {
+    return TRUE;
+  }
+  // UNC name
+  if (Path[0] == L'\\') {
+    return Path[1] == L'\\';
+  }
+
+  //
+  // NOTE: there are a number of cases we don't handle, as they don't play well with the simple
+  // file system abstraction we use:
+  // - current directory on disk designator (eg, D:file.ext), requires per-disk current dir
+  // - parent paths relative to current directory (eg, ..\\file.ext)
+  //
+  // The current-directory support is available to help in-memory handlers. On-disk handlers
+  // will typically have absolute paths to begin with.
+  //
+  return FALSE;
+}
+
+static void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
+  if (IsAbsoluteOrCurDirRelativeW(Path)) {
+    return;
+  }
+  else {
+    PathStorage = L"./";
+    PathStorage += Path;
+    Path = PathStorage.c_str();
+  }
+}
 
 static bool IsAbsoluteOrCurDirRelative(const Twine &T) {
   if (llvm::sys::path::is_absolute(T)) {
@@ -150,22 +262,24 @@ class DxcArgsFileSystem : public ::llvm::sys::fs::MSFileSystem {
 private:
   CComPtr<IDxcBlob> m_pSource;
   LPCWSTR m_pSourceName;
+  std::wstring m_pAbsSourceName; // absolute (or '.'-relative) source name
   CComPtr<IStream> m_pSourceStream;
   CComPtr<IStream> m_pOutputStream;
   CComPtr<AbstractMemoryStream> m_pStdOutStream;
   CComPtr<AbstractMemoryStream> m_pStdErrStream;
   LPCWSTR m_pOutputStreamName;
+  std::wstring m_pAbsOutputStreamName;
   CComPtr<IDxcIncludeHandler> m_includeLoader;
   std::vector<std::wstring> m_searchEntries;
-  bool    m_bDisplayIncludeProcess;
+  bool m_bDisplayIncludeProcess;
 
   // Some constraints of the current design: opening the same file twice
   // will return the same handle/structure, and thus the same file pointer.
   struct IncludedFile {
-    CComPtr<IDxcBlobEncoding> Blob;
+    CComPtr<IDxcBlob> Blob;
     CComPtr<IStream> BlobStream;
     std::wstring Name;
-    IncludedFile(std::wstring &&name, IDxcBlobEncoding *pBlob, IStream *pStream)
+    IncludedFile(std::wstring &&name, IDxcBlob *pBlob, IStream *pStream)
       : Name(name), Blob(pBlob), BlobStream(pStream) { }
   };
   llvm::SmallVector<IncludedFile, 4> m_includedFiles;
@@ -194,25 +308,25 @@ private:
     for (size_t i = 0; i < m_includedFiles.size(); ++i) {
       const std::wstring &fileName = m_includedFiles[i].Name;
       if (IsDirOf(lpDir, dirLen, fileName)) {
-        return IncludedDirIndexToHandle(i);
+        return DxcArgsHandle(HandleKind::FileDir, i, dirLen).Handle;
       }
     }
     for (size_t i = 0; i < m_searchEntries.size(); ++i) {
       if (IsDirPrefixOrSame(lpDir, dirLen, m_searchEntries[i])) {
-        return SearchDirIndexToHandle(i);
+        return DxcArgsHandle(HandleKind::SearchDir, i, dirLen).Handle;
       }
     }
     return INVALID_HANDLE_VALUE;
   }
   DWORD TryFindOrOpen(LPCWSTR lpFileName, size_t &index) {
-    if (m_includeLoader.p != nullptr) {
-      for (size_t i = 0; i < m_includedFiles.size(); ++i) {
-        if (0 == wcscmp(lpFileName, m_includedFiles[i].Name.data())) {
-          index = i;
-          return ERROR_SUCCESS;
-        }
+    for (size_t i = 0; i < m_includedFiles.size(); ++i) {
+      if (0 == wcscmp(lpFileName, m_includedFiles[i].Name.data())) {
+        index = i;
+        return ERROR_SUCCESS;
       }
+    }
 
+    if (m_includeLoader.p != nullptr) {
       if (m_includedFiles.size() == MaxIncludedFiles) {
         return ERROR_OUT_OF_STRUCTURES;
       }
@@ -238,7 +352,7 @@ private:
           std::string openFileStr;
           raw_string_ostream s(openFileStr);
           std::string fileName = Unicode::UTF16ToUTF8StringOrThrow(lpFileName);
-          s << "Opening file [" << fileName << "], stack top [" << index
+          s << "Opening file [" << fileName << "], stack top [" << (index-1)
             << "]\n";
           s.flush();
           ULONG cbWritten;
@@ -251,57 +365,24 @@ private:
     return ERROR_NOT_FOUND;
   }
   static HANDLE IncludedFileIndexToHandle(size_t index) {
-    return (HANDLE)(uintptr_t)(IncludedHandleOffset + index);
-  }
-  static HANDLE IncludedDirIndexToHandle(size_t index) {
-    return (HANDLE)(uintptr_t)(IncludedDirHandleOffset + index);
-  }
-  static HANDLE SearchDirIndexToHandle(size_t index) {
-    return (HANDLE)(uintptr_t)(SearchDirHandleOffset + index);
-  }
-  bool IsHandleIncludedFile(HANDLE handle) const {
-    size_t val = (size_t)handle;
-    if (val < IncludedHandleOffset) return false;
-    val -= IncludedHandleOffset;
-    if (val >= m_includedFiles.size()) return false;
-    return true;
-  }
-  bool IsHandleIncludedDir(HANDLE handle) const {
-    size_t val = (size_t)handle;
-    if (val < IncludedDirHandleOffset) return false;
-    val -= IncludedDirHandleOffset;
-    if (val >= m_includedFiles.size()) return false;
-    return true;
-  }
-  bool IsHandleSearch(HANDLE handle) const {
-    size_t val = (size_t)handle;
-    if (val < SearchDirHandleOffset) return false;
-    val -= SearchDirHandleOffset;
-    if (val >= m_searchEntries.size()) return false;
-    return true;
-  }
-  bool IsStdHandle(HANDLE handle) const {
-    return handle == StdOutHandle || handle == StdErrHandle;
-  }
-  bool IsDirHandle(HANDLE handle) const {
-    return handle == SourceParentDirHandle || IsHandleIncludedDir(handle) || IsHandleSearch(handle);
+    return DxcArgsHandle(index).Handle;
   }
   bool IsKnownHandle(HANDLE h) const {
-    return IsStdHandle(h) ||
-      h == SourceHandle || h == SourceParentDirHandle || h == OutputHandle ||
-      IsDirHandle(h) || IsHandleIncludedFile(h);
+    return !DxcArgsHandle(h).IsSpecialUnknown();
   }
   IncludedFile &HandleToIncludedFile(HANDLE handle) {
-    DXASSERT_NOMSG((size_t)handle >= IncludedHandleOffset);
-    size_t index = (size_t)handle - IncludedHandleOffset;
-    DXASSERT_NOMSG(index < m_includedFiles.size());
-    return m_includedFiles[index];
+    DxcArgsHandle argsHandle(handle);
+    DXASSERT_NOMSG(argsHandle.GetFileIndex() < m_includedFiles.size());
+    return m_includedFiles[argsHandle.GetFileIndex()];
   }
 
 public:
   DxcArgsFileSystem(_In_ IDxcBlob *pSource, LPCWSTR pSourceName, _In_opt_ IDxcIncludeHandler* pHandler)
       : m_pSource(pSource), m_pSourceName(pSourceName), m_includeLoader(pHandler), m_bDisplayIncludeProcess(false),
         m_pOutputStreamName(nullptr) {
+    MakeAbsoluteOrCurDirRelativeW(m_pSourceName, m_pAbsSourceName);
+    IFT(CreateReadOnlyBlobStream(m_pSource, &m_pSourceStream));
+    m_includedFiles.push_back(IncludedFile(std::wstring(m_pSourceName), m_pSource, m_pSourceStream));
   }
   void EnableDisplayIncludeProcess() {
     m_bDisplayIncludeProcess = true;
@@ -320,24 +401,22 @@ public:
     return S_OK;
   }
 
+  void GetStreamForFD(int fd, IStream** ppResult) {
+    return GetStreamForHandle(HandleFromFD(fd), ppResult);
+  }
   void GetStreamForHandle(HANDLE handle, IStream** ppResult) {
     CComPtr<IStream> stream;
-    if (handle == SourceHandle) {
-      if (m_pSourceStream == nullptr) {
-        CreateReadOnlyBlobStream(m_pSource, &m_pSourceStream);
-      }
-      stream = m_pSourceStream;
-    }
-    else if (handle == OutputHandle) {
+    DxcArgsHandle argsHandle(handle);
+    if (argsHandle == OutputHandle) {
       stream = m_pOutputStream;
     }
-    else if (handle == StdOutHandle) {
+    else if (argsHandle == StdOutHandle) {
       stream = m_pStdOutStream;
     }
-    else if (handle == StdErrHandle) {
+    else if (argsHandle == StdErrHandle) {
       stream = m_pStdErrStream;
     }
-    else if (IsHandleIncludedFile(handle)) {
+    else if (argsHandle.GetKind() == HandleKind::File) {
       stream = HandleToIncludedFile(handle).BlobStream;
     }
     *ppResult = stream.Detach();
@@ -346,7 +425,7 @@ public:
   void SetupForCompilerInstance(CompilerInstance &compiler) {
     DXASSERT(m_searchEntries.size() == 0, "else compiler instance being set twice");
     // Turn these into UTF-16 to avoid converting later, and ensure they
-    // are fully-qualified or reltive to the current directory.
+    // are fully-qualified or relative to the current directory.
     const std::vector<HeaderSearchOptions::Entry> &entries =
       compiler.getHeaderSearchOpts().UserEntries;
     if (entries.size() > MaxIncludedFiles) {
@@ -369,6 +448,7 @@ public:
     DXASSERT(m_pOutputStream.p == nullptr, "else multiple outputs registered");
     m_pOutputStream = pStream;
     m_pOutputStreamName = pName;
+    MakeAbsoluteOrCurDirRelativeW(m_pOutputStreamName, m_pAbsOutputStreamName);
     return S_OK;
   }
 
@@ -399,27 +479,14 @@ public:
     _In_      DWORD dwFlagsAndAttributes) throw() {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::CreateFileW %S\n", lpFileName);
     size_t sourceNameLen = wcslen(m_pSourceName);
+    std::wstring FileNameStore;
+    MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
     size_t fileNameLen = wcslen(lpFileName);
-
-    // Check for a substring match to source, implying a parent directory.
-    if (fileNameLen < sourceNameLen) {
-      if (0 == wcsncmp(m_pSourceName, lpFileName, fileNameLen) ||
-          0 == wcscmp(L".", lpFileName)) {
-        return SourceParentDirHandle;
-      }
-    }
-
-    // Check for a match to the source.
-    if (fileNameLen == sourceNameLen) {
-      if (0 == wcsncmp(m_pSourceName, lpFileName, fileNameLen)) {
-        return SourceHandle;
-      }
-    }
 
     // Check for a match to the output file.
     if (m_pOutputStreamName != nullptr &&
         0 == wcscmp(lpFileName, m_pOutputStreamName)) {
-      return OutputHandle;
+      return OutputHandle.Handle;
     }
 
     HANDLE dirHandle = TryFindDirHandle(lpFileName);
@@ -446,14 +513,16 @@ public:
   }
 
   __override BOOL GetFileInformationByHandle(_In_ HANDLE hFile, _Out_ LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() {
+    DxcArgsHandle argsHandle(hFile);
     ZeroMemory(lpFileInformation, sizeof(*lpFileInformation));
     lpFileInformation->nFileIndexLow = (DWORD)(uintptr_t)hFile;
-    if (hFile == SourceHandle) {
+    if (argsHandle.IsFileKind()) {
+      IncludedFile &file = HandleToIncludedFile(hFile);
       lpFileInformation->dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
-      lpFileInformation->nFileSizeLow = m_pSource->GetBufferSize();
+      lpFileInformation->nFileSizeLow = file.Blob->GetBufferSize();
       return TRUE;
     }
-    else if (hFile == OutputHandle) {
+    if (argsHandle == OutputHandle) {
       lpFileInformation->dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
       STATSTG stat;
       HRESULT hr = m_pOutputStream->Stat(&stat, STATFLAG_NONAME);
@@ -464,16 +533,9 @@ public:
       lpFileInformation->nFileSizeLow = stat.cbSize.LowPart;
       return TRUE;
     }
-    else if (IsDirHandle(hFile)) {
+    else if (argsHandle.IsDirHandle()) {
       lpFileInformation->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
       lpFileInformation->nFileIndexHigh = 1;
-      return TRUE;
-    }
-
-    if (IsHandleIncludedFile(hFile)) {
-      IncludedFile &file = HandleToIncludedFile(hFile);
-      lpFileInformation->dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
-      lpFileInformation->nFileSizeLow = file.Blob->GetBufferSize();
       return TRUE;
     }
 
@@ -482,11 +544,12 @@ public:
   }
 
   __override DWORD GetFileType(_In_ HANDLE hFile) throw() {
-    if (IsStdHandle(hFile)) {
+    DxcArgsHandle argsHandle(hFile);
+    if (argsHandle.IsStdHandle()) {
       return FILE_TYPE_CHAR;
     }
     // Every other known handle is of type disk.
-    if (IsKnownHandle(hFile)) {
+    if (!argsHandle.IsSpecialUnknown()) {
       return FILE_TYPE_DISK;
     }
 
@@ -504,16 +567,10 @@ public:
   }
   __override DWORD GetFileAttributesW(_In_ LPCWSTR lpFileName) throw() {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::GetFileAttributesW %S\n", lpFileName);
+    std::wstring FileNameStore;
+    MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
     size_t sourceNameLen = wcslen(m_pSourceName);
     size_t fileNameLen = wcslen(lpFileName);
-
-    // Check for a substring match to the source, implying a parent directory.
-    if (fileNameLen < sourceNameLen) {
-      if (0 == wcsncmp(m_pSourceName, lpFileName, fileNameLen) ||
-          0 == wcscmp(L".", lpFileName)) {
-        return FILE_ATTRIBUTE_DIRECTORY;
-      }
-    }
 
     // Check for a match to the source.
     if (fileNameLen == sourceNameLen) {
@@ -628,19 +685,27 @@ public:
     __debugbreak();
   }
 
-  // CRT APIs - handles and file numbers are equivalent.
+  // CRT APIs - handles and file numbers can be mapped directly.
+  HANDLE HandleFromFD(int fd) const {
+    if (fd == STDOUT_FILENO) return StdOutHandle.Handle;
+    if (fd == STDERR_FILENO) return StdErrHandle.Handle;
+    return (HANDLE)(uintptr_t)(fd);
+  }
   __override int open_osfhandle(intptr_t osfhandle, int flags) throw() {
-    return osfhandle;
+    DxcArgsHandle H((HANDLE)osfhandle);
+    if (H == StdOutHandle.Handle) return STDOUT_FILENO;
+    if (H == StdErrHandle.Handle) return STDERR_FILENO;
+    return (int)(intptr_t)H.Handle;
   }
   __override intptr_t get_osfhandle(int fd) throw() {
-    return fd;
+    return (intptr_t)HandleFromFD(fd);
   }
   __override int close(int fd) throw() {
     return 0;
   }
   __override long lseek(int fd, long offset, int origin) throw() {
     CComPtr<IStream> stream;
-    GetStreamForHandle((HANDLE)(uintptr_t)fd, &stream);
+    GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
       errno = EBADF;
       return -1;
@@ -666,7 +731,7 @@ public:
   }
   __override int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() {
     CComPtr<IStream> stream;
-    GetStreamForHandle((HANDLE)(uintptr_t)fd, &stream);
+    GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
       errno = EBADF;
       return -1;
@@ -683,7 +748,7 @@ public:
   }
   __override int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() {
     CComPtr<IStream> stream;
-    GetStreamForHandle((HANDLE)(uintptr_t)fd, &stream);
+    GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
       errno = EBADF;
       return -1;
@@ -727,7 +792,7 @@ static void CreateOperationResultFromOutputs(
     _COM_Outptr_ IDxcOperationResult **ppResult) {
   CComPtr<IStream> pErrorStream;
   CComPtr<IDxcBlobEncoding> pErrorBlob;
-  msfPtr->GetStreamForHandle(StdOutHandle, &pErrorStream);
+  msfPtr->GetStreamForHandle(StdOutHandle.Handle, &pErrorStream);
   if (pErrorStream != nullptr) {
     CComPtr<IDxcBlob> pErrorStreamBlob;
     IFT(pErrorStream.QueryInterface(&pErrorStreamBlob));
@@ -1413,6 +1478,7 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // Atan
   "(value)",  // Hcos
   "(value)",  // Hsin
+  "(value)",  // Htan
   "(value)",  // Exp
   "(value)",  // Frc
   "(value)",  // Log
@@ -1436,10 +1502,8 @@ static const char *OpCodeSignatures[] = {
   "(a,b)",  // IMul
   "(a,b)",  // UMul
   "(a,b)",  // UDiv
-  "(a,b)",  // IAddc
   "(a,b)",  // UAddc
-  "(a,b)",  // ISubc
-  "(a,b)",  // USubc
+  "(a,b)",  // USubb
   "(a,b,c)",  // FMad
   "(a,b,c)",  // Fma
   "(a,b,c)",  // IMad
@@ -1469,8 +1533,6 @@ static const char *OpCodeSignatures[] = {
   "(handle,mipLevel)",  // GetDimensions
   "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel)",  // TextureGather
   "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel,compareVale)",  // TextureGatherCmp
-  "()",  // ToDelete5
-  "()",  // ToDelete6
   "(srv,index)",  // Texture2DMSGetSamplePosition
   "(index)",  // RenderTargetGetSamplePosition
   "()",  // RenderTargetGetSampleCount
@@ -1486,6 +1548,9 @@ static const char *OpCodeSignatures[] = {
   "(inputSigId,inputRowIndex,inputColIndex,offsetX,offsetY)",  // EvalSnapped
   "(inputSigId,inputRowIndex,inputColIndex,sampleIndex)",  // EvalSampleIndex
   "(inputSigId,inputRowIndex,inputColIndex)",  // EvalCentroid
+  "()",  // SampleIndex
+  "()",  // Coverage
+  "()",  // InnerCoverage
   "(component)",  // ThreadId
   "(component)",  // GroupId
   "(component)",  // ThreadIdInGroup
@@ -1493,12 +1558,9 @@ static const char *OpCodeSignatures[] = {
   "(streamId)",  // EmitStream
   "(streamId)",  // CutStream
   "(streamId)",  // EmitThenCutStream
+  "()",  // GSInstanceID
   "(lo,hi)",  // MakeDouble
-  "()",  // ToDelete1
-  "()",  // ToDelete2
   "(value)",  // SplitDouble
-  "()",  // ToDelete3
-  "()",  // ToDelete4
   "(inputSigId,row,col,index)",  // LoadOutputControlPoint
   "(inputSigId,row,col)",  // LoadPatchConstant
   "(component)",  // DomainLocation
@@ -1506,12 +1568,9 @@ static const char *OpCodeSignatures[] = {
   "()",  // OutputControlPointID
   "()",  // PrimitiveID
   "()",  // CycleCounterLegacy
-  "(value)",  // Htan
-  "()",  // WaveCaptureReserved
   "()",  // WaveIsFirstLane
   "()",  // WaveGetLaneIndex
   "()",  // WaveGetLaneCount
-  "()",  // WaveIsHelperLaneReserved
   "(cond)",  // WaveAnyTrue
   "(cond)",  // WaveAllTrue
   "(value)",  // WaveActiveAllEqual
@@ -1521,8 +1580,6 @@ static const char *OpCodeSignatures[] = {
   "(value,op,sop)",  // WaveActiveOp
   "(value,op)",  // WaveActiveBit
   "(value,op,sop)",  // WavePrefixOp
-  "()",  // WaveGetOrderedIndex
-  "()",  // GlobalOrderedCountIncReserved
   "(value,quadLane)",  // QuadReadLaneAt
   "(value,op)",  // QuadOp
   "(value)",  // BitcastI16toF16
@@ -1531,7 +1588,6 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // BitcastF32toI32
   "(value)",  // BitcastI64toF64
   "(value)",  // BitcastF64toI64
-  "()",  // GSInstanceID
   "(value)",  // LegacyF32ToF16
   "(value)",  // LegacyF16ToF32
   "(value)",  // LegacyDoubleToFloat
@@ -1539,9 +1595,8 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // LegacyDoubleToUInt32
   "(value)",  // WaveAllBitCount
   "(value)",  // WavePrefixBitCount
-  "()",  // SampleIndex
-  "()",  // Coverage
-  "()"  // InnerCoverage
+  "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
+  "()"  // ViewID
 };
 // OPCODE-SIGS:END
 
@@ -1789,6 +1844,7 @@ class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
 private:
   CompilerInstance &m_CI;
   DxcLangExtensionsHelper &m_langExtensionsHelper;
+  std::string m_rootSigDefine;
 
   // The metadata format is a root node that has pointers to metadata
   // nodes for each define. The metatdata node for a define is a pair
@@ -1828,8 +1884,9 @@ private:
   }
 
 public:
-  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper)
+  HLSLExtensionsCodegenHelperImpl(CompilerInstance &CI, DxcLangExtensionsHelper &langExtensionsHelper, StringRef rootSigDefine)
   : m_CI(CI), m_langExtensionsHelper(langExtensionsHelper)
+  , m_rootSigDefine(rootSigDefine)
   {}
 
   // Write semantic defines as metadata in the module.
@@ -1852,6 +1909,35 @@ public:
   virtual std::string GetIntrinsicName(UINT opcode) override {
     return m_langExtensionsHelper.GetIntrinsicName(opcode);
   }
+  
+  virtual bool GetDxilOpcode(UINT opcode, OP::OpCode &dxilOpcode) override {
+    UINT dop = static_cast<UINT>(OP::OpCode::NumOpCodes);
+    if (m_langExtensionsHelper.GetDxilOpCode(opcode, dop)) {
+      if (dop < static_cast<UINT>(OP::OpCode::NumOpCodes)) {
+        dxilOpcode = static_cast<OP::OpCode>(dop);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  virtual HLSLExtensionsCodegenHelper::CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) {
+    // Find macro definition in preprocessor.
+    Preprocessor &pp = m_CI.getPreprocessor();
+    MacroInfo *macro = MacroExpander::FindMacroInfo(pp, m_rootSigDefine);
+    if (!macro)
+      return CustomRootSignature::NOT_FOUND;
+
+    // Combine tokens into single string
+    MacroExpander expander(pp, MacroExpander::STRIP_QUOTES);
+    if (!expander.ExpandMacro(macro, &out->RootSignature))
+      return CustomRootSignature::NOT_FOUND;
+
+    // Record source location of root signature macro.
+    out->EncodedSourceLocation = macro->getDefinitionLoc().getRawEncoding();
+
+    return CustomRootSignature::FOUND;
+  }
 };
 
 // Class to manage lifetime of llvm module and provide some utility
@@ -1869,7 +1955,7 @@ public:
  void WrapModuleInDxilContainer(IMalloc *pMalloc,  AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
     CComPtr<AbstractMemoryStream> pContainerStream;
     IFT(CreateMemoryStream(pMalloc, &pContainerStream));
-    SerializeDxilContainerForModule(m_llvmModule.get(), pModuleBitcode, pContainerStream);
+    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(), pModuleBitcode, pContainerStream);
 
     pDxilContainerBlob.Release();
     IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
@@ -1883,7 +1969,7 @@ private:
   std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
 };
 
-class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent {
+class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -1915,10 +2001,12 @@ private:
       CComPtr<IDxcBlob> pErrorBlob;
       IFT(pOutputStream->QueryInterface(&pErrorBlob));
       CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
+      outStream.flush();
       IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
                                        &pErrorBlobWithEncoding));
       IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
       finished = true;
+      return;
     }
     DXASSERT(!opts.HLSL2015, "else ReadDxcOpts didn't fail for non-isense");
     finished = false;
@@ -1940,7 +2028,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface3<IDxcCompiler, IDxcLangExtensions, IDxcContainerEvent>(this, iid, ppvObject);
+    return DoBasicQueryInterface4<IDxcCompiler, IDxcLangExtensions, IDxcContainerEvent, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // Compile a single entry point to the target shader model
@@ -2045,20 +2133,29 @@ public:
       compiler.WriteDefaultOutputDirectly = true;
       compiler.setOutStream(&outStream);
 
+      compiler.getLangOpts().HLSLEntryFunction =
       compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint.m_psz;
       compiler.getCodeGenOpts().HLSLProfile = pUtf8TargetProfile.m_psz;
+
+      unsigned rootSigMajor = 0;
+      unsigned rootSigMinor = 0;
+      if (compiler.getCodeGenOpts().HLSLProfile == "rootsig_1_1") {
+        rootSigMajor = 1;
+        rootSigMinor = 1;
+      } else if (compiler.getCodeGenOpts().HLSLProfile == "rootsig_1_0") {
+        rootSigMajor = 1;
+        rootSigMinor = 0;
+      }
 
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool needsValidation = !opts.CodeGenHighLevel && !opts.DisableValidation;
       bool internalValidator = false;
-      dxc::DxcDllSupport lib;
       CComPtr<IDxcValidator> pValidator;
       CComPtr<IDxcOperationResult> pValResult;
       if (needsValidation) {
-        if (SUCCEEDED(lib.InitializeForDll(L"dxil.dll", "DxcCreateInstance"))) {
-          // If the DLL is found but doesn't work, warn.
-          if (FAILED(lib.CreateInstance(CLSID_DxcValidator, &pValidator))) {
+        if (DxilLibIsEnabled()) {
+          if (FAILED(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator))) {
             w << "Unable to create validator from dxil.dll, fallback to built-in.";
           }
         }
@@ -2094,17 +2191,57 @@ public:
         action.EndSourceFile();
         outStream.flush();
       }
-      else {
-        llvm::LLVMContext llvmContext;
-        EmitBCAction action(&llvmContext);
+      else if (rootSigMajor) {
+        HLSLRootSignatureAction action(
+            compiler.getCodeGenOpts().HLSLEntryFunction, rootSigMajor,
+            rootSigMinor);
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();
         outStream.flush();
-
         // Don't do work to put in a container if an error has occurred
         bool compileOK = !compiler.getDiagnostics().hasErrorOccurred();
+        if (compileOK) {
+          auto rootSigHandle = action.takeRootSigHandle();
+
+          CComPtr<AbstractMemoryStream> pContainerStream;
+          IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+          SerializeDxilContainerForRootSignature(rootSigHandle.get(),
+                                                 pContainerStream);
+
+          pOutputBlob.Release();
+          IFT(pContainerStream.QueryInterface(&pOutputBlob));
+        }
+      }
+      // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+      else if (opts.GenSPIRV) {
+          clang::EmitSPIRVAction action;
+          FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+          action.BeginSourceFile(compiler, file);
+          action.Execute();
+          action.EndSourceFile();
+          outStream.flush();
+      }
+#endif
+      // SPIRV change ends
+      else {
+        llvm::LLVMContext llvmContext;
+        EmitBCAction action(&llvmContext);
+        FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+        bool compileOK;
+        if (action.BeginSourceFile(compiler, file)) {
+          action.Execute();
+          action.EndSourceFile();
+          compileOK = !compiler.getDiagnostics().hasErrorOccurred();
+        }
+        else {
+          compileOK = false;
+        }
+        outStream.flush();
+
+        // Don't do work to put in a container if an error has occurred
         if (compileOK) {
           HRESULT valHR = S_OK;
 
@@ -2281,9 +2418,10 @@ public:
 
       FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
       clang::PrintPreprocessedAction action;
-      action.BeginSourceFile(compiler, file);
-      action.Execute();
-      action.EndSourceFile();
+      if (action.BeginSourceFile(compiler, file)) {
+        action.Execute();
+        action.EndSourceFile();
+      }
       outStream.flush();
 
       // Add std err to warnings.
@@ -2526,6 +2664,15 @@ public:
     compiler.getCodeGenOpts().HLSLNotUseLegacyCBufLoad = Opts.NotUseLegacyCBufLoad;
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
+
+    // Translate signature packing options
+    if (Opts.PackPrefixStable)
+      compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::PrefixStable;
+    else if (Opts.PackOptimized)
+      compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Optimized;
+    else
+      compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Default;
+
     // Constructing vector of wide strings to pass in to codegen. Just passing in pArguments will expose ownership of memory to both CodeGenOptions and this caller, which can lead to unexpected behavior.
     for (UINT32 i = 0; i != argCount; ++i) {
       compiler.getCodeGenOpts().HLSLArguments.emplace_back(Unicode::UTF16ToUTF8StringOrThrow(pArguments[i]));
@@ -2540,8 +2687,27 @@ public:
     compiler.getCodeGenOpts().setInlining(
         clang::CodeGenOptions::OnlyAlwaysInlining);
 
-    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper);
+    compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
   }
+
+  // IDxcVersionInfo
+  __override HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) {
+    if (pMajor == nullptr || pMinor == nullptr)
+      return E_INVALIDARG;
+    *pMajor = DXIL::kDxilMajor;
+    *pMinor = DXIL::kDxilMinor;
+    return S_OK;
+  }
+  __override HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) {
+    if (pFlags == nullptr)
+      return E_INVALIDARG;
+    *pFlags = DxcVersionInfoFlags_None;
+#ifdef _DEBUG
+    *pFlags |= DxcVersionInfoFlags_Debug;
+#endif
+    return S_OK;
+  }
+
 };
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {

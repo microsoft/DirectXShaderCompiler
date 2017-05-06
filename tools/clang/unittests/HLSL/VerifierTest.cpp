@@ -13,6 +13,7 @@
 #include <string>
 #include "CompilationResult.h"
 #include "HLSLTestData.h"
+#include "llvm/Support/ManagedStatic.h"
 
 #include <fstream>
 
@@ -20,6 +21,9 @@
 #include "HlslTestUtils.h"
 
 using namespace std;
+
+MODULE_SETUP(TestModuleSetup);
+MODULE_CLEANUP(TestModuleCleanup);
 
 // The test fixture.
 class VerifierTest
@@ -32,6 +36,8 @@ public:
 
   TEST_METHOD(RunAttributes);
   TEST_METHOD(RunConstExpr);
+  TEST_METHOD(RunConstAssign);
+  TEST_METHOD(RunConstDefault);
   TEST_METHOD(RunCppErrors);
   TEST_METHOD(RunFunctions);
   TEST_METHOD(RunIndexingOperator);
@@ -114,12 +120,33 @@ public:
   }
 };
 
+bool TestModuleSetup() {
+  // Use this module-level function to set up LLVM dependencies.
+  return true;
+}
+
+bool TestModuleCleanup() {
+  // Use this module-level function to set up LLVM dependencies.
+  // In particular, clean up managed static allocations used by
+  // parsing options with the LLVM library.
+  ::llvm::llvm_shutdown();
+  return true;
+}
+
 TEST_F(VerifierTest, RunAttributes) {
   CheckVerifiesHLSL(L"attributes.hlsl");
 }
 
 TEST_F(VerifierTest, RunConstExpr) {
   CheckVerifiesHLSL(L"const-expr.hlsl");
+}
+
+TEST_F(VerifierTest, RunConstAssign) {
+  CheckVerifiesHLSL(L"const-assign.hlsl");
+}
+
+TEST_F(VerifierTest, RunConstDefault) {
+  CheckVerifiesHLSL(L"const-default.hlsl");
 }
 
 TEST_F(VerifierTest, RunCppErrors) {

@@ -49,6 +49,7 @@ public:
   OP *GetOP() const;
   void SetShaderModel(const ShaderModel *pSM);
   const ShaderModel *GetShaderModel() const;
+  void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
 
   // Entry functions.
   llvm::Function *GetEntryFunction();
@@ -86,7 +87,12 @@ public:
   const DxilResource &GetUAV(unsigned idx) const;
   const std::vector<std::unique_ptr<DxilResource> > &GetUAVs() const;
 
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
+  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
+  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
+
   void RemoveUnusedResources();
+  void RemoveFunction(llvm::Function *F);
 
   // Signatures.
   DxilSignature &GetInputSignature();
@@ -96,6 +102,9 @@ public:
   DxilSignature &GetPatchConstantSignature();
   const DxilSignature &GetPatchConstantSignature() const;
   const RootSignatureHandle &GetRootSignature() const;
+
+  // Remove Root Signature from module metadata
+  void StripRootSignatureFromMetadata();
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
@@ -118,9 +127,13 @@ public:
   void ResetPatchConstantSignature(DxilSignature *pValue);
   void ResetRootSignature(RootSignatureHandle *pValue);
   void ResetTypeSystem(DxilTypeSystem *pValue);
+  void ResetOP(hlsl::OP *hlslOP);
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
+
+  static DxilModule *TryGetDxilModule(llvm::Module *pModule);
+
 public:
   // Shader properties.
   class ShaderFlags {

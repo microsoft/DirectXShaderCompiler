@@ -1,24 +1,24 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: ; PS_INII                  0   xyzw        0     NONE   float
-// CHECK: ; PS_INII                  1   xyzw        1     NONE   float
-// CHECK: ; PS_INII                  4   xyzw        2     NONE   float
-// CHECK: ; PS_INII                  5   xyzw        3     NONE   float
-// CHECK: ; PS_INII                  2   xyzw        4     NONE   float
-// CHECK: ; PS_INII                  3   xyzw        5     NONE   float
-// CHECK: ; PS_INII                  6   xyzw        6     NONE   float
-// CHECK: ; PS_INII                  7   xyzw        7     NONE   float
-// CHECK: ; PS_IN                    0   xyzw        8     NONE   float
-// CHECK: ; PS_IN                    2   xyzw        9     NONE   float
-// CHECK: ; PS_IN                    1   xyzw       10     NONE   float
-// CHECK: ; PS_IN                    3   xyzw       11     NONE   float
-// CHECK: ; PS_INI                   0   xyzw       12     NONE   float
-// CHECK: ; PS_INI                   1   xyzw       13     NONE   float
-// CHECK: ; PS_INI                   2   xyzw       14     NONE   float
-// CHECK: ; PS_INI                   3   xyzw       15     NONE   float
-// CHECK: ; TEXCOORD                 0   xy         16     NONE   float
-// CHECK: ; NORMAL                   0   xyz        17     NONE   float
-// CHECK: ; NORMAL                   1   xyz        18     NONE   float
+// CHECK: ; PS_IN                    0   xyzw        0     NONE   float
+// CHECK: ; PS_IN                    2   xyzw        1     NONE   float
+// CHECK: ; PS_IN                    1   xyzw        2     NONE   float
+// CHECK: ; PS_IN                    3   xyzw        3     NONE   float
+// CHECK: ; PS_INI                   0   xyzw        4     NONE   float
+// CHECK: ; PS_INI                   1   xyzw        5     NONE   float
+// CHECK: ; PS_INI                   2   xyzw        6     NONE   float
+// CHECK: ; PS_INI                   3   xyzw        7     NONE   float
+// CHECK: ; PS_INII                  0   xyzw        8     NONE   float
+// CHECK: ; PS_INII                  1   xyzw        9     NONE   float
+// CHECK: ; PS_INII                  4   xyzw       10     NONE   float
+// CHECK: ; PS_INII                  5   xyzw       11     NONE   float
+// CHECK: ; PS_INII                  2   xyzw       12     NONE   float
+// CHECK: ; PS_INII                  3   xyzw       13     NONE   float
+// CHECK: ; PS_INII                  6   xyzw       14     NONE   float
+// CHECK: ; PS_INII                  7   xyzw       15     NONE   float
+// CHECK: ; NORMAL                   0   xyz        16     NONE   float
+// CHECK: ; NORMAL                   1   xyz        17     NONE   float
+// CHECK: ; TEXCOORD                 0   xy         18     NONE   float
 
 // CHECK: DepthOutput=0
 // CHECK: SampleFrequency=1

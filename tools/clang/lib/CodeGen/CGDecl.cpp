@@ -343,12 +343,6 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
   llvm::Value *&DMEntry = LocalDeclMap[&D];
   assert(!DMEntry && "Decl already exists in localdeclmap!");
 
-  // HLSL Change Begins.
-  if (D.getType()->isIncompleteArrayType() && getLangOpts().HLSL) {
-    CGM.getHLSLRuntime().UpdateHLSLIncompleteArrayType(const_cast<VarDecl&>(D));
-  }
-  // HLSL Change Ends.
-
   // Check to see if we already have a global variable for this
   // declaration.  This can happen when double-emitting function
   // bodies, e.g. with complete and base constructors.
@@ -910,12 +904,6 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   // If the type is variably-modified, emit all the VLA sizes for it.
   if (Ty->isVariablyModifiedType())
     EmitVariablyModifiedType(Ty);
-
-  // HLSL Change Begins.
-  if (Ty->isIncompleteArrayType() && getLangOpts().HLSL) {
-    Ty = CGM.getHLSLRuntime().UpdateHLSLIncompleteArrayType(const_cast<VarDecl&>(D));
-  }
-  // HLSL Change Ends.
 
   llvm::Value *DeclPtr;
   if (Ty->isConstantSizeType()) {

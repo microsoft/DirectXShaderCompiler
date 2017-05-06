@@ -62,9 +62,13 @@ public:
 
   template <typename TInterface>
   HRESULT CreateInstance(REFCLSID clsid, _Outptr_ TInterface** pResult) {
+    return CreateInstance(clsid, __uuidof(TInterface), (IUnknown**)pResult);
+  }
+
+  HRESULT CreateInstance(REFCLSID clsid, REFIID riid, _Outptr_ IUnknown **pResult) {
     if (pResult == nullptr) return E_POINTER;
     if (m_dll == nullptr) return E_FAIL;
-    HRESULT hr = m_createFn(clsid, __uuidof(TInterface), (LPVOID*)pResult);
+    HRESULT hr = m_createFn(clsid, riid, (LPVOID*)pResult);
     return hr;
   }
 
@@ -78,6 +82,12 @@ public:
       FreeLibrary(m_dll);
       m_dll = nullptr;
     }
+  }
+
+  HMODULE Detach() {
+    HMODULE module = m_dll;
+    m_dll = nullptr;
+    return module;
   }
 };
 
@@ -94,13 +104,13 @@ void IFT_Data(HRESULT hr, _In_opt_ LPCWSTR data);
 void EnsureEnabled(DxcDllSupport &dxcSupport);
 void ReadFileIntoBlob(DxcDllSupport &dxcSupport, _In_ LPCWSTR pFileName,
                       _Outptr_ IDxcBlobEncoding **ppBlobEncoding);
-void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob);
+void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob, DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName);
 void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, HANDLE hFile, _In_opt_ LPCWSTR pFileName);
 void WriteUtf8ToConsole(_In_opt_count_(charCount) const char *pText,
-                        int charCount);
+                        int charCount, DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteUtf8ToConsoleSizeT(_In_opt_count_(charCount) const char *pText,
-                             size_t charCount);
+                             size_t charCount, DWORD streamType = STD_OUTPUT_HANDLE);
 void WriteOperationErrorsToConsole(_In_ IDxcOperationResult *pResult,
                                    bool outputWarnings);
 void WriteOperationResultToConsole(_In_ IDxcOperationResult *pRewriteResult,

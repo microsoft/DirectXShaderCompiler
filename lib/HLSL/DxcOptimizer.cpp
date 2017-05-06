@@ -31,6 +31,7 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include <algorithm>
@@ -45,6 +46,13 @@ using namespace hlsl;
 
 inline static bool wcseq(LPCWSTR a, LPCWSTR b) {
   return 0 == wcscmp(a, b);
+}
+inline static bool wcsstartswith(LPCWSTR value, LPCWSTR prefix) {
+  while (*value && *prefix && *value == *prefix) {
+    ++value;
+    ++prefix;
+  }
+  return *prefix == L'\0';
 }
 
 namespace hlsl {
@@ -75,6 +83,11 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilCondenseResourcesPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilGenerationPassPass(Registry);
+    initializeDxilLegalizeEvalOperationsPass(Registry);
+    initializeDxilLegalizeResourceUsePassPass(Registry);
+    initializeDxilLegalizeSampleOffsetPassPass(Registry);
+    initializeDxilLegalizeStaticResourceUsePassPass(Registry);
+    initializeDxilLoadMetadataPass(Registry);
     initializeDxilPrecisePropagatePassPass(Registry);
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
@@ -87,6 +100,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeHLEmitMetadataPass(Registry);
     initializeHLEnsureMetadataPass(Registry);
     initializeHLMatrixLowerPassPass(Registry);
+    initializeHoistConstantArrayPass(Registry);
     initializeIPSCCPPass(Registry);
     initializeIndVarSimplifyPass(Registry);
     initializeInstructionCombiningPassPass(Registry);
@@ -109,7 +123,9 @@ HRESULT SetupRegistryPassForHLSL() {
     initializePromotePassPass(Registry);
     initializePruneEHPass(Registry);
     initializeReassociatePass(Registry);
+    initializeReducibilityAnalysisPass(Registry);
     initializeRegToMemHlslPass(Registry);
+    initializeResourceToHandlePass(Registry);
     initializeRewriteSymbolsPass(Registry);
     initializeSCCPPass(Registry);
     initializeSROAPass(Registry);
@@ -129,6 +145,8 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeTypeBasedAliasAnalysisPass(Registry);
     initializeVerifierLegacyPassPass(Registry);
     // INIT-PASSES:END
+    // Not schematized - exclusively for compiler authors.
+    initializeCFGPrinterPasses(Registry);
   }
   CATCH_CPP_RETURN_HRESULT();
   return S_OK;
@@ -144,7 +162,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
-  static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVector" };
+  static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
   static const LPCSTR Float2IntArgs[] = { "float2int-max-integer-bw" };
   static const LPCSTR GVNArgs[] = { "noloads", "enable-pre", "enable-load-pre", "max-recurse-depth" };
   static const LPCSTR JumpThreadingArgs[] = { "Threshold", "jump-threading-threshold" };
@@ -269,63 +287,63 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
 static bool IsPassOptionName(StringRef S) {
   /* <py::lines('ISPASSOPTIONNAME')>hctdb_instrhelp.get_is_pass_option_name()</py>*/
   // ISPASSOPTIONNAME:BEGIN
-  return S.equals("DL")
-    ||  S.equals("loop-distribute-verify")
-    ||  S.equals("lowerbitsets-avoid-reuse")
-    ||  S.equals("RequiresDomTree")
-    ||  S.equals("loop-distribute-non-if-convertible")
-    ||  S.equals("unroll-dynamic-cost-savings-discount")
-    ||  S.equals("ScalarLoadThreshold")
-    ||  S.equals("bonus-inst-threshold")
-    ||  S.equals("max-reroll-increment")
-    ||  S.equals("MaxHeaderSize")
-    ||  S.equals("TIRA")
-    ||  S.equals("Runtime")
-    ||  S.equals("InsertLifetime")
-    ||  S.equals("mergefunc-sanity")
-    ||  S.equals("enable-scoped-noalias")
-    ||  S.equals("sroa-random-shuffle-slices")
-    ||  S.equals("StructMemberThreshold")
-    ||  S.equals("force-ssa-updater")
-    ||  S.equals("unroll-runtime")
-    ||  S.equals("noloads")
-    ||  S.equals("sroa-strict-inbounds")
-    ||  S.equals("reroll-num-tolerated-failed-matches")
-    ||  S.equals("Count")
-    ||  S.equals("float2int-max-integer-bw")
-    ||  S.equals("ReplaceAllVector")
-    ||  S.equals("likely-branch-weight")
+  return S.equals("AllowPartial")
     ||  S.equals("ArrayElementThreshold")
-    ||  S.equals("no-discriminators")
-    ||  S.equals("sample-profile-file")
-    ||  S.equals("unroll-max-iteration-count-to-analyze")
-    ||  S.equals("TLIImpl")
-    ||  S.equals("rotation-max-header-size")
-    ||  S.equals("enable-load-pre")
-    ||  S.equals("rewrite-map-file")
-    ||  S.equals("jump-threading-threshold")
-    ||  S.equals("unroll-count")
-    ||  S.equals("loop-unswitch-threshold")
-    ||  S.equals("Os")
-    ||  S.equals("maxElements")
-    ||  S.equals("InlineThreshold")
+    ||  S.equals("Count")
+    ||  S.equals("DL")
+    ||  S.equals("FatalErrors")
     ||  S.equals("Ftor")
+    ||  S.equals("InlineThreshold")
+    ||  S.equals("InsertLifetime")
+    ||  S.equals("MaxHeaderSize")
+    ||  S.equals("NotOptimized")
+    ||  S.equals("Os")
+    ||  S.equals("ReplaceAllVectors")
+    ||  S.equals("RequiresDomTree")
+    ||  S.equals("Runtime")
+    ||  S.equals("ScalarLoadThreshold")
+    ||  S.equals("StructMemberThreshold")
+    ||  S.equals("TIRA")
+    ||  S.equals("TLIImpl")
+    ||  S.equals("Threshold")
+    ||  S.equals("bonus-inst-threshold")
     ||  S.equals("disable-licm-promotion")
+    ||  S.equals("enable-load-pre")
+    ||  S.equals("enable-pre")
+    ||  S.equals("enable-scoped-noalias")
+    ||  S.equals("enable-tbaa")
+    ||  S.equals("float2int-max-integer-bw")
+    ||  S.equals("force-ssa-updater")
+    ||  S.equals("jump-threading-threshold")
+    ||  S.equals("likely-branch-weight")
+    ||  S.equals("loop-distribute-non-if-convertible")
+    ||  S.equals("loop-distribute-verify")
+    ||  S.equals("loop-unswitch-threshold")
+    ||  S.equals("lowerbitsets-avoid-reuse")
+    ||  S.equals("max-recurse-depth")
+    ||  S.equals("max-reroll-increment")
+    ||  S.equals("maxElements")
+    ||  S.equals("mergefunc-sanity")
+    ||  S.equals("no-discriminators")
+    ||  S.equals("noloads")
+    ||  S.equals("pragma-unroll-threshold")
+    ||  S.equals("reroll-num-tolerated-failed-matches")
+    ||  S.equals("rewrite-map-file")
+    ||  S.equals("rotation-max-header-size")
+    ||  S.equals("sample-profile-file")
+    ||  S.equals("sample-profile-max-propagate-iterations")
+    ||  S.equals("sroa-random-shuffle-slices")
+    ||  S.equals("sroa-strict-inbounds")
+    ||  S.equals("unlikely-branch-weight")
+    ||  S.equals("unroll-allow-partial")
+    ||  S.equals("unroll-count")
+    ||  S.equals("unroll-dynamic-cost-savings-discount")
+    ||  S.equals("unroll-max-iteration-count-to-analyze")
     ||  S.equals("unroll-percent-dynamic-cost-saved-threshold")
+    ||  S.equals("unroll-runtime")
     ||  S.equals("unroll-threshold")
     ||  S.equals("vector-library")
-    ||  S.equals("AllowPartial")
-    ||  S.equals("pragma-unroll-threshold")
-    ||  S.equals("sample-profile-max-propagate-iterations")
-    ||  S.equals("max-recurse-depth")
-    ||  S.equals("FatalErrors")
-    ||  S.equals("Threshold")
-    ||  S.equals("unlikely-branch-weight")
-    ||  S.equals("NotOptimized")
-    ||  S.equals("verify-debug-info")
-    ||  S.equals("unroll-allow-partial")
-    ||  S.equals("enable-tbaa")
-    ||  S.equals("enable-pre");
+    ||  S.equals("verify-debug-info");
   // ISPASSOPTIONNAME:END
 }
 
@@ -519,7 +537,6 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     return E_INVALIDARG;
   }
 
-
   legacy::PassManager ModulePasses;
   legacy::FunctionPassManager FunctionPasses(M.get());
   legacy::PassManagerBase *pPassManager = &ModulePasses;
@@ -576,8 +593,19 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       }
 
       // Handle some special cases where we can inject a redirected output stream.
-      if (wcseq(ppOptions[i], L"-print-module")) {
-        pPassManager->add(llvm::createPrintModulePass(outStream));
+      if (wcsstartswith(ppOptions[i], L"-print-module")) {
+        LPCWSTR pName = ppOptions[i] + _countof(L"-print-module") - 1;
+        std::string Banner;
+        if (*pName) {
+          IFTARG(*pName != L':' || *pName != L'=');
+          ++pName;
+          CW2A name8(pName);
+          Banner = "MODULE-PRINT ";
+          Banner += name8.m_psz;
+          Banner += "\n";
+        }
+        if (pPassManager == &ModulePasses)
+          pPassManager->add(llvm::createPrintModulePass(outStream, Banner));
         continue;
       }
 

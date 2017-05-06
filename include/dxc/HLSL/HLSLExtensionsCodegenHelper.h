@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include "dxc/HLSL/DxilOperations.h"
 #include <vector>
 #include <string>
 
@@ -27,9 +28,10 @@ namespace hlsl {
 //  1. You can mark certain defines as "semantic" defines which
 //     will be preserved as metadata in the final DXIL.
 //  2. You can add new HLSL intrinsic functions.
+//  3. You can read a root signature from a custom define.
 //
 // This class provides an interface for generating the DXIL bitcode
-// needed for the two types of extensions above.
+// needed for the types of extensions above.
 //  
 class HLSLExtensionsCodegenHelper {
 public:
@@ -63,6 +65,22 @@ public:
 
   // Get the name to use for the dxil intrinsic function.
   virtual std::string GetIntrinsicName(unsigned opcode) = 0;
+
+  // Get the dxil opcode the extension should use when lowering with
+  // dxil lowering strategy.
+  //
+  // Returns true if the opcode was successfully mapped to a dxil opcode.
+  virtual bool GetDxilOpcode(unsigned opcode, OP::OpCode &dxilOpcode) = 0;
+
+  // Struct to hold a root signature that is read from a define.
+  struct CustomRootSignature {
+    std::string RootSignature;
+    unsigned  EncodedSourceLocation;
+    enum Status { NOT_FOUND = 0, FOUND };
+  };
+
+  // Get custom defined root signature.
+  virtual CustomRootSignature::Status GetCustomRootSignature(CustomRootSignature *out) = 0;
 
   // Virtual destructor.
   virtual ~HLSLExtensionsCodegenHelper() {};

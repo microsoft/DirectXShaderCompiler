@@ -47,6 +47,8 @@ set(SOURCES
   DXCompiler.cpp
   DXCompiler.rc
   DXCompiler.def
+  dxillib.cpp
+  dxcontainerbuilder.cpp
   )
 
 set(LIBRARIES
@@ -81,7 +83,11 @@ set(GENERATED_HEADERS
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
 target_link_libraries(dxcompiler PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})
-add_dependencies(dxcompiler ${GENERATED_HEADERS} clang-headers)
+# SPIRV change starts
+if (ENABLE_SPIRV_CODEGEN)
+  target_link_libraries(dxcompiler PRIVATE clangSPIRV)
+endif (ENABLE_SPIRV_CODEGEN)
+# SPIRV change ends
 add_dependencies(dxcompiler DxcEtw)
 include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
 

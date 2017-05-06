@@ -686,7 +686,7 @@ struct LlvmInst_LandingPad {
   bool isAllowed() const { return false; }
 };
 
-/// This instruction helper load operation
+/// This instruction Helper load operation
 struct DxilInst_TempRegLoad {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -704,7 +704,7 @@ struct DxilInst_TempRegLoad {
   llvm::Value *get_index() const { return Instr->getOperand(1); }
 };
 
-/// This instruction helper store operation
+/// This instruction Helper store operation
 struct DxilInst_TempRegStore {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -723,7 +723,7 @@ struct DxilInst_TempRegStore {
   llvm::Value *get_value() const { return Instr->getOperand(2); }
 };
 
-/// This instruction helper load operation for minprecision
+/// This instruction Helper load operation for minprecision
 struct DxilInst_MinPrecXRegLoad {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -743,7 +743,7 @@ struct DxilInst_MinPrecXRegLoad {
   llvm::Value *get_component() const { return Instr->getOperand(3); }
 };
 
-/// This instruction helper store operation for minprecision
+/// This instruction Helper store operation for minprecision
 struct DxilInst_MinPrecXRegStore {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -764,7 +764,7 @@ struct DxilInst_MinPrecXRegStore {
   llvm::Value *get_value() const { return Instr->getOperand(4); }
 };
 
-/// This instruction loads the value from shader input
+/// This instruction Loads the value from shader input
 struct DxilInst_LoadInput {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -785,7 +785,7 @@ struct DxilInst_LoadInput {
   llvm::Value *get_gsVertexAxis() const { return Instr->getOperand(4); }
 };
 
-/// This instruction stores the value to shader output
+/// This instruction Stores the value to shader output
 struct DxilInst_StoreOutput {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -842,7 +842,7 @@ struct DxilInst_Saturate {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the IsNaN
+/// This instruction Returns true if x is NAN or QNAN, false otherwise.
 struct DxilInst_IsNaN {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -860,7 +860,7 @@ struct DxilInst_IsNaN {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the IsInf
+/// This instruction Returns true if x is +INF or -INF, false otherwise.
 struct DxilInst_IsInf {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -878,7 +878,7 @@ struct DxilInst_IsInf {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the IsFinite
+/// This instruction Returns true if x is finite, false otherwise.
 struct DxilInst_IsFinite {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -896,7 +896,7 @@ struct DxilInst_IsFinite {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the IsNormal
+/// This instruction returns IsNormal
 struct DxilInst_IsNormal {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -932,7 +932,7 @@ struct DxilInst_Cos {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Sin
+/// This instruction returns sine(theta) for theta in radians.
 struct DxilInst_Sin {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -950,7 +950,7 @@ struct DxilInst_Sin {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Tan
+/// This instruction returns tan(theta) for theta in radians.
 struct DxilInst_Tan {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -968,7 +968,7 @@ struct DxilInst_Tan {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Acos
+/// This instruction Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1.
 struct DxilInst_Acos {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -986,7 +986,7 @@ struct DxilInst_Acos {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Asin
+/// This instruction Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1
 struct DxilInst_Asin {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1004,7 +1004,7 @@ struct DxilInst_Asin {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Atan
+/// This instruction Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
 struct DxilInst_Atan {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1022,7 +1022,7 @@ struct DxilInst_Atan {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Hcos
+/// This instruction returns the hyperbolic cosine of the specified value.
 struct DxilInst_Hcos {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1040,7 +1040,7 @@ struct DxilInst_Hcos {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Hsin
+/// This instruction returns the hyperbolic sine of the specified value.
 struct DxilInst_Hsin {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1058,7 +1058,25 @@ struct DxilInst_Hsin {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Exp
+/// This instruction returns the hyperbolic tangent of the specified value.
+struct DxilInst_Htan {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Htan(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Htan);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Accessors
+  llvm::Value *get_value() const { return Instr->getOperand(1); }
+};
+
+/// This instruction returns 2^exponent
 struct DxilInst_Exp {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1076,7 +1094,7 @@ struct DxilInst_Exp {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Frc
+/// This instruction extract fracitonal component.
 struct DxilInst_Frc {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1094,7 +1112,7 @@ struct DxilInst_Frc {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Log
+/// This instruction returns log base 2.
 struct DxilInst_Log {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1112,7 +1130,7 @@ struct DxilInst_Log {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Sqrt
+/// This instruction returns square root
 struct DxilInst_Sqrt {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1130,7 +1148,7 @@ struct DxilInst_Sqrt {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Rsqrt
+/// This instruction returns reciprocal square root (1 / sqrt(src)
 struct DxilInst_Rsqrt {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1148,7 +1166,7 @@ struct DxilInst_Rsqrt {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Round_ne
+/// This instruction floating-point round to integral float.
 struct DxilInst_Round_ne {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1166,7 +1184,7 @@ struct DxilInst_Round_ne {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Round_ni
+/// This instruction floating-point round to integral float.
 struct DxilInst_Round_ni {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1184,7 +1202,7 @@ struct DxilInst_Round_ni {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Round_pi
+/// This instruction floating-point round to integral float.
 struct DxilInst_Round_pi {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1202,7 +1220,7 @@ struct DxilInst_Round_pi {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Round_z
+/// This instruction floating-point round to integral float.
 struct DxilInst_Round_z {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1220,7 +1238,7 @@ struct DxilInst_Round_z {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the reverse bit pattern of the input value
+/// This instruction Reverses the order of the bits.
 struct DxilInst_Bfrev {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1238,7 +1256,7 @@ struct DxilInst_Bfrev {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the Countbits
+/// This instruction Counts the number of bits in the input integer.
 struct DxilInst_Countbits {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1256,7 +1274,7 @@ struct DxilInst_Countbits {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the FirstbitLo
+/// This instruction Returns the location of the first set bit starting from the lowest order bit and working upward.
 struct DxilInst_FirstbitLo {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1274,7 +1292,7 @@ struct DxilInst_FirstbitLo {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns src != 0? (BitWidth-1 - FirstbitHi) : -1
+/// This instruction Returns the location of the first set bit starting from the highest order bit and working downward.
 struct DxilInst_FirstbitHi {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1292,7 +1310,7 @@ struct DxilInst_FirstbitHi {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns src != 0? (BitWidth-1 - FirstbitSHi) : -1
+/// This instruction Returns the location of the first set bit from the highest order bit based on the sign.
 struct DxilInst_FirstbitSHi {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1310,7 +1328,7 @@ struct DxilInst_FirstbitSHi {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the FMax of the input values
+/// This instruction returns a if a >= b, else b
 struct DxilInst_FMax {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1329,7 +1347,7 @@ struct DxilInst_FMax {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the FMin of the input values
+/// This instruction returns a if a < b, else b
 struct DxilInst_FMin {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1348,7 +1366,7 @@ struct DxilInst_FMin {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the IMax of the input values
+/// This instruction IMax(a,b) returns a if a > b, else b
 struct DxilInst_IMax {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1367,7 +1385,7 @@ struct DxilInst_IMax {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the IMin of the input values
+/// This instruction IMin(a,b) returns a if a < b, else b
 struct DxilInst_IMin {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1386,7 +1404,7 @@ struct DxilInst_IMin {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the UMax of the input values
+/// This instruction unsigned integer maximum. UMax(a,b) = a > b ? a : b
 struct DxilInst_UMax {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1405,7 +1423,7 @@ struct DxilInst_UMax {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the UMin of the input values
+/// This instruction unsigned integer minimum. UMin(a,b) = a < b ? a : b
 struct DxilInst_UMin {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1424,7 +1442,7 @@ struct DxilInst_UMin {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the IMul of the input values
+/// This instruction multiply of 32-bit operands to produce the correct full 64-bit result.
 struct DxilInst_IMul {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1443,7 +1461,7 @@ struct DxilInst_IMul {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the UMul of the input values
+/// This instruction multiply of 32-bit operands to produce the correct full 64-bit result.
 struct DxilInst_UMul {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1462,7 +1480,7 @@ struct DxilInst_UMul {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the UDiv of the input values
+/// This instruction unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
 struct DxilInst_UDiv {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1481,26 +1499,7 @@ struct DxilInst_UDiv {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the IAddc of the input values
-struct DxilInst_IAddc {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_IAddc(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::IAddc);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Accessors
-  llvm::Value *get_a() const { return Instr->getOperand(1); }
-  llvm::Value *get_b() const { return Instr->getOperand(2); }
-};
-
-/// This instruction returns the UAddc of the input values
+/// This instruction unsigned add of 32-bit operand with the carry
 struct DxilInst_UAddc {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1519,13 +1518,13 @@ struct DxilInst_UAddc {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the ISubc of the input values
-struct DxilInst_ISubc {
+/// This instruction unsigned subtract of 32-bit operands with the borrow
+struct DxilInst_USubb {
   const llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_ISubc(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_USubb(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::ISubc);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::USubb);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -1538,26 +1537,7 @@ struct DxilInst_ISubc {
   llvm::Value *get_b() const { return Instr->getOperand(2); }
 };
 
-/// This instruction returns the USubc of the input values
-struct DxilInst_USubc {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_USubc(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::USubc);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Accessors
-  llvm::Value *get_a() const { return Instr->getOperand(1); }
-  llvm::Value *get_b() const { return Instr->getOperand(2); }
-};
-
-/// This instruction performs a fused multiply add (FMA) of the form a * b + c
+/// This instruction floating point multiply & add
 struct DxilInst_FMad {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1577,7 +1557,7 @@ struct DxilInst_FMad {
   llvm::Value *get_c() const { return Instr->getOperand(3); }
 };
 
-/// This instruction performs a fused multiply add (FMA) of the form a * b + c
+/// This instruction fused multiply-add
 struct DxilInst_Fma {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1597,7 +1577,7 @@ struct DxilInst_Fma {
   llvm::Value *get_c() const { return Instr->getOperand(3); }
 };
 
-/// This instruction performs an integral IMad
+/// This instruction Signed integer multiply & add
 struct DxilInst_IMad {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1617,7 +1597,7 @@ struct DxilInst_IMad {
   llvm::Value *get_c() const { return Instr->getOperand(3); }
 };
 
-/// This instruction performs an integral UMad
+/// This instruction Unsigned integer multiply & add
 struct DxilInst_UMad {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1637,7 +1617,7 @@ struct DxilInst_UMad {
   llvm::Value *get_c() const { return Instr->getOperand(3); }
 };
 
-/// This instruction performs an integral Msad
+/// This instruction masked Sum of Absolute Differences.
 struct DxilInst_Msad {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1657,7 +1637,7 @@ struct DxilInst_Msad {
   llvm::Value *get_c() const { return Instr->getOperand(3); }
 };
 
-/// This instruction performs an integral Ibfe
+/// This instruction Integer bitfield extract
 struct DxilInst_Ibfe {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1677,7 +1657,7 @@ struct DxilInst_Ibfe {
   llvm::Value *get_c() const { return Instr->getOperand(3); }
 };
 
-/// This instruction performs an integral Ubfe
+/// This instruction Unsigned integer bitfield extract
 struct DxilInst_Ubfe {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1697,7 +1677,7 @@ struct DxilInst_Ubfe {
   llvm::Value *get_c() const { return Instr->getOperand(3); }
 };
 
-/// This instruction given a bit range from the LSB of a number, places that number of bits in another number at any offset
+/// This instruction Given a bit range from the LSB of a number, places that number of bits in another number at any offset
 struct DxilInst_Bfi {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1718,7 +1698,7 @@ struct DxilInst_Bfi {
   llvm::Value *get_replaceCount() const { return Instr->getOperand(4); }
 };
 
-/// This instruction two-dimensional vector dot-product
+/// This instruction Two-dimensional vector dot-product
 struct DxilInst_Dot2 {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1739,7 +1719,7 @@ struct DxilInst_Dot2 {
   llvm::Value *get_by() const { return Instr->getOperand(4); }
 };
 
-/// This instruction three-dimensional vector dot-product
+/// This instruction Three-dimensional vector dot-product
 struct DxilInst_Dot3 {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -1762,7 +1742,7 @@ struct DxilInst_Dot3 {
   llvm::Value *get_bz() const { return Instr->getOperand(6); }
 };
 
-/// This instruction four-dimensional vector dot-product
+/// This instruction Four-dimensional vector dot-product
 struct DxilInst_Dot4 {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -2384,7 +2364,7 @@ struct DxilInst_Discard {
   llvm::Value *get_condition() const { return Instr->getOperand(1); }
 };
 
-/// This instruction computes the rate of change of components per stamp
+/// This instruction computes the rate of change per stamp in x direction.
 struct DxilInst_DerivCoarseX {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -2402,7 +2382,7 @@ struct DxilInst_DerivCoarseX {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction computes the rate of change of components per stamp
+/// This instruction computes the rate of change per stamp in y direction.
 struct DxilInst_DerivCoarseY {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -2420,7 +2400,7 @@ struct DxilInst_DerivCoarseY {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction computes the rate of change of components per pixel
+/// This instruction computes the rate of change per pixel in x direction.
 struct DxilInst_DerivFineX {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -2438,7 +2418,7 @@ struct DxilInst_DerivFineX {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction computes the rate of change of components per pixel
+/// This instruction computes the rate of change per pixel in y direction.
 struct DxilInst_DerivFineY {
   const llvm::Instruction *Instr;
   // Construction and identification
@@ -2517,6 +2497,54 @@ struct DxilInst_EvalCentroid {
   llvm::Value *get_inputSigId() const { return Instr->getOperand(1); }
   llvm::Value *get_inputRowIndex() const { return Instr->getOperand(2); }
   llvm::Value *get_inputColIndex() const { return Instr->getOperand(3); }
+};
+
+/// This instruction returns the sample index in a sample-frequency pixel shader
+struct DxilInst_SampleIndex {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_SampleIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::SampleIndex);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+};
+
+/// This instruction returns the coverage mask input in a pixel shader
+struct DxilInst_Coverage {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Coverage(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Coverage);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+};
+
+/// This instruction returns underestimated coverage input from conservative rasterization in a pixel shader
+struct DxilInst_InnerCoverage {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_InnerCoverage(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::InnerCoverage);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
 };
 
 /// This instruction reads the thread ID
@@ -2641,6 +2669,22 @@ struct DxilInst_EmitThenCutStream {
   }
   // Accessors
   llvm::Value *get_streamId() const { return Instr->getOperand(1); }
+};
+
+/// This instruction GSInstanceID
+struct DxilInst_GSInstanceID {
+  const llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_GSInstanceID(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::GSInstanceID);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
 };
 
 /// This instruction creates a double value
@@ -2807,24 +2851,6 @@ struct DxilInst_CycleCounterLegacy {
     if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
-};
-
-/// This instruction returns the hyperbolic tangent of the specified value
-struct DxilInst_Htan {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_Htan(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Htan);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Accessors
-  llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
 /// This instruction returns 1 for the first lane in the wave
@@ -3196,22 +3222,6 @@ struct DxilInst_BitcastF64toI64 {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction GSInstanceID
-struct DxilInst_GSInstanceID {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_GSInstanceID(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::GSInstanceID);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-};
-
 /// This instruction legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
 struct DxilInst_LegacyF32ToF16 {
   const llvm::Instruction *Instr;
@@ -3338,45 +3348,34 @@ struct DxilInst_WavePrefixBitCount {
   llvm::Value *get_value() const { return Instr->getOperand(1); }
 };
 
-/// This instruction returns the sample index in a sample-frequency pixel shader
-struct DxilInst_SampleIndex {
+/// This instruction returns the values of the attributes at the vertex.
+struct DxilInst_AttributeAtVertex {
   const llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_SampleIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_AttributeAtVertex(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::SampleIndex);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::AttributeAtVertex);
   }
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
+  // Accessors
+  llvm::Value *get_inputSigId() const { return Instr->getOperand(1); }
+  llvm::Value *get_inputRowIndex() const { return Instr->getOperand(2); }
+  llvm::Value *get_inputColIndex() const { return Instr->getOperand(3); }
+  llvm::Value *get_VertexID() const { return Instr->getOperand(4); }
 };
 
-/// This instruction returns the coverage mask input in a pixel shader
-struct DxilInst_Coverage {
+/// This instruction returns the view index
+struct DxilInst_ViewID {
   const llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_Coverage(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_ViewID(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Coverage);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-};
-
-/// This instruction returns underestimated coverage input from conservative rasterization in a pixel shader
-struct DxilInst_InnerCoverage {
-  const llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_InnerCoverage(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::InnerCoverage);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::ViewID);
   }
   // Validation support
   bool isAllowed() const { return true; }

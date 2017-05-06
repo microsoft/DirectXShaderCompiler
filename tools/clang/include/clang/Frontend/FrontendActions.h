@@ -13,6 +13,12 @@
 #include <string>
 #include <vector>
 
+// HLSL Change Begin.
+namespace hlsl {
+class RootSignatureHandle;
+}
+// HLSL Change End.
+
 namespace clang {
 
 class Module;
@@ -235,6 +241,26 @@ protected:
 
   bool hasPCHSupport() const override { return true; }
 };
+
+// HLSL Change Begin.
+class HLSLRootSignatureAction : public PreprocessorFrontendAction {
+private:
+  std::string HLSLRootSignatureMacro;
+  unsigned rootSigMajor;
+  unsigned rootSigMinor;
+  std::unique_ptr<hlsl::RootSignatureHandle> rootSigHandle;
+
+protected:
+  void ExecuteAction() override;
+
+public:
+  HLSLRootSignatureAction(StringRef rootSigMacro, unsigned major,
+                          unsigned minor);
+  /// Take the generated LLVM module, for use after the action has been run.
+  /// The result may be null on failure.
+  std::unique_ptr<hlsl::RootSignatureHandle> takeRootSigHandle();
+};
+// HLSL Change End.
   
 }  // end namespace clang
 

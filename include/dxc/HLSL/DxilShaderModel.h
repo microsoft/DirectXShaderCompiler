@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "dxc/HLSL/DXILConstants.h"
+#include "dxc/HLSL/DxilConstants.h"
 #include <string>
 
 
@@ -29,7 +29,7 @@ public:
 
   // Major/Minor version of highest shader model
   static const unsigned kHighestMajor = 6;
-  static const unsigned kHighestMinor = 0;
+  static const unsigned kHighestMinor = 1;
 
   bool IsPS() const     { return m_Kind == Kind::Pixel; }
   bool IsVS() const     { return m_Kind == Kind::Vertex; }
@@ -38,12 +38,15 @@ public:
   bool IsDS() const     { return m_Kind == Kind::Domain; }
   bool IsCS() const     { return m_Kind == Kind::Compute; }
   bool IsValid() const;
+  bool IsValidForDxil() const;
 
   Kind GetKind() const      { return m_Kind; }
   unsigned GetMajor() const { return m_Major; }
   unsigned GetMinor() const { return m_Minor; }
+  void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
   bool IsSM50Plus() const   { return m_Major >= 5; }
   bool IsSM51Plus() const   { return m_Major > 5 || (m_Major == 5 && m_Minor >= 1); }
+  bool IsSM61Plus() const   { return m_Major > 6 || (m_Major == 6 && m_Minor >= 1); }
   const char *GetName() const { return m_pszName; }
   std::string GetKindName() const;
   unsigned GetNumTempRegs() const { return DXIL::kMaxTempRegCount; }
@@ -53,11 +56,15 @@ public:
   unsigned SupportsUAV() const { return m_bUAVs; }
   unsigned SupportsTypedUAVs() const { return m_bTypedUavs; }
   unsigned GetUAVRegLimit() const { return m_NumUAVRegs; }
+  DXIL::PackingStrategy GetDefaultPackingStrategy() const { return DXIL::PackingStrategy::PrefixStable; }
 
   static unsigned Count() { return kNumShaderModels - 1; }
   static const ShaderModel *Get(unsigned Idx);
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
+
+  bool operator==(const ShaderModel &other) const;
+  bool operator!=(const ShaderModel &other) const { return !(*this == other); }
 
 private:
   Kind m_Kind;
@@ -75,7 +82,7 @@ private:
               unsigned m_NumInputRegs, unsigned m_NumOutputRegs,
               bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
 
-  static const unsigned kNumShaderModels = 27;
+  static const unsigned kNumShaderModels = 33;
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 
   static const ShaderModel *GetInvalid();

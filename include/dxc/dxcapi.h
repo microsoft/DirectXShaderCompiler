@@ -1,3 +1,4 @@
+
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
 // dxcapi.h                                                                  //
@@ -163,7 +164,9 @@ IDxcCompiler : public IUnknown {
 
 static const UINT32 DxcValidatorFlags_Default = 0;
 static const UINT32 DxcValidatorFlags_InPlaceEdit = 1;  // Validator is allowed to update shader blob in-place.
-static const UINT32 DxcValidatorFlags_ValidMask = 0x1;
+static const UINT32 DxcValidatorFlags_RootSignatureOnly = 2;
+static const UINT32 DxcValidatorFlags_ModuleOnly = 4;
+static const UINT32 DxcValidatorFlags_ValidMask = 0x7;
 
 struct __declspec(uuid("A6E82BD2-1FD7-4826-9811-2857E797F49A"))
 IDxcValidator : public IUnknown {
@@ -173,6 +176,14 @@ IDxcValidator : public IUnknown {
     _In_ UINT32 Flags,                            // Validation flags.
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
     ) = 0;
+};
+
+struct __declspec(uuid("334b1f50-2292-4b35-99a1-25588d8c17fe"))
+IDxcContainerBuilder : public IUnknown {
+  virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader) = 0;                // Loads DxilContainer to the builder
+  virtual HRESULT STDMETHODCALLTYPE AddPart(_In_ UINT32 fourCC, _In_ IDxcBlob *pSource) = 0;      // Part to add to the container
+  virtual HRESULT STDMETHODCALLTYPE RemovePart(_In_ UINT32 fourCC) = 0;                           // Remove the part with fourCC
+  virtual HRESULT STDMETHODCALLTYPE SerializeContainer(_Out_ IDxcOperationResult **ppResult) = 0; // Builds a container of the given container builder state
 };
 
 struct __declspec(uuid("091f7a26-1c1f-4948-904b-e6e3a8a771d5"))
@@ -215,6 +226,7 @@ IDxcOptimizer : public IUnknown {
 
 static const UINT32 DxcVersionInfoFlags_None = 0;
 static const UINT32 DxcVersionInfoFlags_Debug = 1; // Matches VS_FF_DEBUG
+static const UINT32 DxcVersionInfoFlags_Internal = 2; // Internal Validator (non-signing)
 
 struct __declspec(uuid("b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e"))
 IDxcVersionInfo : public IUnknown {
@@ -278,4 +290,11 @@ __declspec(selectany) extern const GUID CLSID_DxcOptimizer = {
     {0x9b, 0x6b, 0xb1, 0x24, 0xe7, 0xa5, 0x20, 0x4c}
 };
 
+// {94134294-411f-4574-b4d0-8741e25240d2}
+__declspec(selectany) extern const GUID CLSID_DxcContainerBuilder = {
+  0x94134294,
+  0x411f,
+  0x4574,  
+  { 0xb4, 0xd0, 0x87, 0x41, 0xe2, 0x52, 0x40, 0xd2 }
+};
 #endif

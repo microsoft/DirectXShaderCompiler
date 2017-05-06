@@ -313,7 +313,7 @@ float4 f4;
 [clipplanes(float4(1, 2, f, 4))] // expected-error {{invalid expression for clipplanes argument: must be global reference, member access or array subscript}} fxc-pass {{}}
 void clipplanes_literals();
 
-[clipplanes(b)]           // expected-error {{clipplanes argument must be a float4 type but is 'bool'}} fxc-pass {{}}
+[clipplanes(b)]           // expected-error {{clipplanes argument must be a float4 type but is 'const bool'}} fxc-pass {{}}
 void clipplanes_const();
 
 // fxc error X3084: Clip plane attribute parameters must be non-literal constants

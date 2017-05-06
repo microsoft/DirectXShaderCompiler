@@ -1,5 +1,73 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <ShaderOpSet xmlns="http://schemas.microsoft.com/test/ShaderOp">
+  <ShaderOp Name="DerivFine" PS="PS" VS="VS" TopologyType="TRIANGLE">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(SRV(t0,numDescriptors=1))</RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
+    <Resource Name="T0" Dimension="Texture2D" Width="4" Height="4" InitialResourceState="COPY_DEST" Init="FromBytes" Format="R32_FLOAT">
+      {.125f, .25f, .5f, 1.0f},
+      {2.0f, 4.0f, 16.0f, 32.0f},
+      {32.0f, 64.0f, 128.0f, 256.0f},
+      {256.0f, 512.0f, 1024.0f, 2048.0f}
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='T0' Kind='SRV' ResName='T0' />
+    </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
+    <Shader Name="VS" Target="vs_6_0">
+      <![CDATA[
+        struct PSInput {
+          float4 position : SV_POSITION;
+          float2 uv : TEXCOORD;
+        };
+        PSInput main(float3 position : POSITION, float2 uv : TEXCOORD) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          return result;
+        }
+      ]]>
+    </Shader>
+    <Shader Name="PS" Target="ps_6_0">
+      <![CDATA[
+      struct PSInput {
+        float4 position : SV_POSITION;
+        float2 uv : TEXCOORD;
+      };
+
+      Texture2D<float> g_tex : register(t0);
+
+      float4 main(PSInput input) : SV_TARGET {
+        int3 offset = int3((input.uv * 64.0) % 4, 0);
+        float val = g_tex.Load(offset);
+        return float4(ddx_fine(val), ddy_fine(val), ddx_coarse(val), ddy_coarse(val));
+      }
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="WriteFloat4" CS="CS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
 
@@ -15,31 +83,6 @@
     [numthreads(8,8,1)]
     void main(uint GI : SV_GroupIndex) {
       g_buf[GI] = GI;
-    };
-    ]]>
-    </Shader>
-  </ShaderOp>
-  <ShaderOp Name="MinMax" CS="CS" DispatchX="10" DispatchY="10">
-    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
-    <Resource Name="SPrimitives" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
-    <RootValues>
-      <RootValue Index="0" ResName="SPrimitives" />
-    </RootValues>
-    <Shader Name="CS" Target="cs_6_0">
-      <![CDATA[
-      struct SMinMaxElem {
-        float f_fa;
-        float f_fb;
-        float f_fmin_o;
-        float f_fmax_o;
-      };
-    RWStructuredBuffer<SMinMaxElem> g_buf : register(u0);
-    [numthreads(10,10,1)]
-    void main(uint GI : SV_GroupIndex) {
-      SMinMaxElem l = g_buf[GI];
-      l.f_fmin_o = min(l.f_fa, l.f_fb);
-      l.f_fmax_o = max(l.f_fa, l.f_fb);
-      g_buf[GI] = l;
     };
     ]]>
     </Shader>
@@ -194,31 +237,156 @@
       }]]>
     </Shader>
   </ShaderOp>
-  <ShaderOp Name="SinCos" CS="CS" DispatchX="8" DispatchY="8">
+  <ShaderOp Name="UnaryFPOp" CS="CS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
-    <Resource Name="SPrimitives" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="SUnaryFPOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
     <RootValues>
-      <RootValue Index="0" ResName="SPrimitives" />
+      <RootValue Index="0" ResName="SUnaryFPOp" />
     </RootValues>
     <Shader Name="CS" Target="cs_6_0">
       <![CDATA[
-      struct SPrimitives {
-        float f_float;
-        float f_float2;
-        float f_float_o;
-        float f_float2_o;
-      };
-    RWStructuredBuffer<SPrimitives> g_buf : register(u0);
-    [numthreads(8,8,1)]
-    void main(uint GI : SV_GroupIndex) {
-      SPrimitives l = g_buf[GI];
-      l.f_float_o = sin(l.f_float);
-      l.f_float2_o = cos(l.f_float2);
-      g_buf[GI] = l;
-    };
+    void main(uint GI : SV_GroupIndex) {};
     ]]>
     </Shader>
   </ShaderOp>
+  <ShaderOp Name="BinaryFPOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SBinaryFPOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SBinaryFPOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+    void main(uint GI : SV_GroupIndex) {};
+    ]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="UnaryIntOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SUnaryIntOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SUnaryIntOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+    void main(uint GI : SV_GroupIndex) {};
+    ]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="UnaryUintOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SUnaryUintOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SUnaryUintOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+    void main(uint GI : SV_GroupIndex) {};
+    ]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="BinaryIntOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SBinaryIntOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SBinaryIntOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+    void main(uint GI : SV_GroupIndex) {};
+    ]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="BinaryUintOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SBinaryUintOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SBinaryUintOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+    void main(uint GI : SV_GroupIndex) {};
+    ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="TertiaryFPOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="STertiaryFPOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="STertiaryFPOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+    void main(uint GI : SV_GroupIndex) {};
+    ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="TertiaryIntOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="STertiaryIntOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="STertiaryIntOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+    void main(uint GI : SV_GroupIndex) {};
+    ]]>
+    </Shader>
+  </ShaderOp>
+  <ShaderOp Name="TertiaryUintOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="STertiaryUintOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="STertiaryUintOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+    void main(uint GI : SV_GroupIndex) {};
+    ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="DotOp" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SDotOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SDotOp" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+      void main(uint GI : SV_GroupIndex) {};
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="Msad4" CS="CS" DispatchX="8" DispatchY="8">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SMsad4" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SMsad4"/>
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+      void main(uint GI : SV_GroupIndex) {};
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="WaveIntrinsicsOp" CS="CS" DispatchX="1" DispatchY="1">
+    <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+    <Resource Name="SWaveIntrinsicsOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="SWaveIntrinsicsOp"/>
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_0">
+      <![CDATA[
+      void main(uint GI : SV_GroupIndex) {};
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="Triangle" PS="PS" VS="VS">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
 

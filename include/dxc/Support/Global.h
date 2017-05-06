@@ -23,7 +23,7 @@ typedef _Return_type_success_(return >= 0) long HRESULT;
 #endif // !_HRESULT_DEFINED
 
 #include <stdarg.h>
-#include "dxc/Support/Exception.h"
+#include "dxc/Support/exception.h"
 
 namespace std { class error_code; }
 void CheckLLVMErrorCode(const std::error_code &ec);
@@ -43,6 +43,7 @@ void CheckLLVMErrorCode(const std::error_code &ec);
 #define IFC(x)      { hr = (x); if (DXC_FAILED(hr)) goto Cleanup; }
 #define IFR(x)      { HRESULT __hr = (x); if (DXC_FAILED(__hr)) return __hr; }
 #define IFRBOOL(x,y){ if (!(x)) return (y); }
+#define IFCBOOL(x,y){ if (!(x)) { hr = (y); goto Cleanup; } }
 #define IFCOOM(x)   { if (nullptr == (x)) { hr = E_OUTOFMEMORY; goto Cleanup; } }
 #define IFROOM(x)   { if (nullptr == (x)) { return E_OUTOFMEMORY; } }
 #define IFCPTR(x)   { if (nullptr == (x)) { hr = E_POINTER; goto Cleanup; }}
@@ -53,13 +54,14 @@ void CheckLLVMErrorCode(const std::error_code &ec);
 #define IFTARG(x)   { if (!(x)) { throw ::hlsl::Exception(E_INVALIDARG); }}
 #define IFTLLVM(x)  { CheckLLVMErrorCode(x); }
 #define IFTMSG(x, msg) { HRESULT __hr = (x); if (DXC_FAILED(__hr)) throw ::hlsl::Exception(__hr, msg); }
+#define IFTBOOLMSG(x, y, msg) { if (!(x)) throw ::hlsl::Exception(y, msg); }
 
 // Propagate an C++ exception into an HRESULT.
 #define CATCH_CPP_ASSIGN_HRESULT() \
   catch (std::bad_alloc&)                   { hr = E_OUTOFMEMORY; } \
   catch (hlsl::Exception& _hlsl_exception_) {                       \
     _Analysis_assume_(DXC_FAILED(_hlsl_exception_.hr));             \
-    return hr = _hlsl_exception_.hr;                                \
+    hr = _hlsl_exception_.hr;                                       \
   }                                                                 \
   catch (...)                               { hr = E_FAIL; }
 #define CATCH_CPP_RETURN_HRESULT() \
@@ -148,18 +150,6 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 #define DXVERIFY_NOMSG(exp) DXASSERT(exp, "")
 
-// This should be improved with global enabled mask rather than a compile-time mask.
-#define DXTRACE_MASK_ENABLED  0
-#define DXTRACE_MASK_APIFS    1
-#define DXTRACE_ENABLED(subsystem) (DXTRACE_MASK_ENABLED & subsystem)
-
-// DXTRACE_FMT formats a debugger trace message if DXTRACE_MASK allows it.
-#define DXTRACE_FMT(subsystem, fmt, ...) do { \
-  if (DXTRACE_ENABLED(subsystem)) OutputDebugFormatA(fmt, __VA_ARGS__); \
-} while (0)
-/// DXTRACE_FMT_APIFS is used by the API-based virtual filesystem.
-#define DXTRACE_FMT_APIFS(fmt, ...) DXTRACE_FMT(DXTRACE_MASK_APIFS, fmt, __VA_ARGS__)
-
 #else
 
 // DXASSERT is disabled in free builds.
@@ -173,9 +163,5 @@ inline void OutputDebugFormatA(_In_ _Printf_format_string_ _Null_terminated_ con
 
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
 #define DXVERIFY_NOMSG(exp) do { (exp); _Analysis_assume_(exp); } while (0)
-
-// DXTRACE_FMT and the subsystem versions are disabled in free builds.
-#define DXTRACE_FMT(...) (void)(0)
-#define DXTRACE_FMT_APIFS(...) (void)(0)
 
 #endif // DBG

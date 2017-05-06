@@ -215,7 +215,8 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
   DXASSERT_NOMSG(diagId != nullptr);
 
   if (*name != 'b' && *name != 'c' && *name != 'i' && *name != 's' &&
-      *name != 't' && *name != 'u') {
+      *name != 't' && *name != 'u' && *name != 'B' && *name != 'C' &&
+	  *name != 'I' && *name != 'S' && *name != 'T' && *name != 'U') {
     *diagId = diag::err_hlsl_unsupported_register_type;
     *registerType = 0;
     *registerNumber = 0;
@@ -250,7 +251,7 @@ void ParsePackSubcomponent(_In_z_ const char* name, _Out_ unsigned* subcomponent
 
   char registerType;
   ParseRegisterNumberForHLSL(name, &registerType, subcomponent, diagId);
-  if (registerType != 'c')
+  if (registerType != 'c' && registerType != 'C')
   {
     *diagId = diag::err_hlsl_unsupported_register_type;
         return;
@@ -1889,7 +1890,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   Decl *OwnedType = nullptr;
   switch (Tok.getKind()) {
   case tok::kw_template:
-  case tok::kw_export:
     // HLSL Change Starts
     if (getLangOpts().HLSL) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
@@ -1900,6 +1900,14 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
     ProhibitAttributes(attrs);
     SingleDecl = ParseDeclarationStartingWithTemplate(Context, DeclEnd);
     break;
+    // HLSL Change Begin.
+  case tok::kw_export:
+    // Ignore export for now.
+    ConsumeToken();
+    return ParseSimpleDeclaration(Context, DeclEnd, attrs,
+                                  true);
+    break;
+    // HLSL Change End.
   case tok::kw_inline:
     // Could be the start of an inline namespace. Allowed as an ext in C++03.
     if (getLangOpts().CPlusPlus && NextToken().is(tok::kw_namespace) && !getLangOpts().HLSL) { // HLSL Change - disallowed in HLSL
@@ -2166,6 +2174,51 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     SkipMalformedDecl();
     return DeclGroupPtrTy();
   }
+
+  // HLSL Change Starts: change global variables that will be in constant buffer to be constant by default 
+  // Global variables that are groupshared, static, or typedef 
+  // will not be part of constant buffer and therefore should not be const by default.
+  if (getLangOpts().HLSL && !D.isFunctionDeclarator() &&
+      D.getContext() == Declarator::TheContext::FileContext &&
+      DS.getStorageClassSpec() != DeclSpec::SCS::SCS_static &&
+      DS.getStorageClassSpec() != DeclSpec::SCS::SCS_typedef
+      ) {
+
+    // Check whether or not there is a 'groupshared' attribute
+    AttributeList *attrList = DS.getAttributes().getList();
+    bool isGroupShared = false;
+    while (attrList) {
+        if (attrList->getName()->getName().compare(
+            StringRef(tok::getTokenName(tok::kw_groupshared))) == 0) {
+            isGroupShared = true;
+            break;
+        }
+      attrList = attrList->getNext();
+    }
+    if (!isGroupShared) {
+      // check whether or not the given data is the typename or primitive types
+      if (DS.isTypeRep()) {
+        QualType type = DS.getRepAsType().get();
+        // canonical types of HLSL Object types are not canonical for some
+        // reason. other HLSL Object types of vector/matrix/array should be
+        // treated as const.
+        if (type.getCanonicalType().isCanonical() &&
+            IsTypeNumeric(&Actions, type)) {
+          unsigned int diagID;
+          const char *prevSpec;
+          DS.SetTypeQual(DeclSpec::TQ_const, D.getDeclSpec().getLocStart(),
+                         prevSpec, diagID, getLangOpts());
+        }
+      } else {
+        // If not a typename, it is a basic type and should be treated as const.
+        unsigned int diagID;
+        const char *prevSpec;
+        DS.SetTypeQual(DeclSpec::TQ_const, D.getDeclSpec().getLocStart(),
+                       prevSpec, diagID, getLangOpts());
+      }
+    }
+  }
+  // HLSL Change Ends
 
   // Save late-parsed attributes for now; they need to be parsed in the
   // appropriate function scope after the function Decl has been constructed.
@@ -2492,6 +2545,16 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         cutOffParsing();
         return nullptr;
       }
+
+
+      // HLSL Change Begin.
+      // Skip the initializer of effect object.
+      if (D.isInvalidType()) {
+        SkipUntil(tok::semi, StopBeforeMatch); // skip until ';'
+        Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
+        return nullptr;
+      }
+      // HLSL Change End.
 
       ExprResult Init(ParseInitializer());
 
@@ -3466,9 +3529,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           Actions.isCurrentClassName(*Tok.getIdentifierInfo(), getCurScope()) &&
           isConstructorDeclarator(/*Unqualified*/true))
         goto DoneWithDeclSpec;
-
+      // HLSL Change start - modify TypeRep for unsigned vectors/matrix
+      QualType qt = TypeRep.get();
+      QualType newType = ApplyTypeSpecSignToParsedType(&Actions, qt, DS.getTypeSpecSign(), Loc);
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec,
-                                     DiagID, TypeRep, Policy);
+                                     DiagID, ParsedType::make(newType), Policy);
+      // HLSL Change end
       if (isInvalid)
         break;
 
@@ -3621,6 +3687,7 @@ HLSLReservedKeyword:
     case tok::kw_precise:
     case tok::kw_shared:
     case tok::kw_groupshared:
+    case tok::kw_globallycoherent:
     case tok::kw_uniform:
     case tok::kw_in:
     case tok::kw_out:
@@ -5086,6 +5153,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_precise:
   case tok::kw_shared:
   case tok::kw_groupshared:
+  case tok::kw_globallycoherent:
   case tok::kw_uniform:
   case tok::kw_in:
   case tok::kw_out:

@@ -21,9 +21,9 @@
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/Overload.h"
-#include <map>
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/DxilSemantic.h"
 
 using namespace clang;
 using namespace hlsl;
@@ -190,15 +190,15 @@ void hlsl::AddHLSLMatrixTemplate(ASTContext& context, ClassTemplateDecl* vectorT
   QualType elementType = context.getTemplateTypeParmType(
       /*templateDepth*/ 0, 0, ParameterPackFalse, elementTemplateParamDecl);
   Expr *sizeExpr = DeclRefExpr::Create(
-      context, NestedNameSpecifierLoc(), NoLoc, colCountTemplateParamDecl,
-      false,
-      DeclarationNameInfo(colCountTemplateParamDecl->getDeclName(), NoLoc),
-      intType, ExprValueKind::VK_RValue);
-
-  Expr *rowSizeExpr = DeclRefExpr::Create(
       context, NestedNameSpecifierLoc(), NoLoc, rowCountTemplateParamDecl,
       false,
       DeclarationNameInfo(rowCountTemplateParamDecl->getDeclName(), NoLoc),
+      intType, ExprValueKind::VK_RValue);
+
+  Expr *rowSizeExpr = DeclRefExpr::Create(
+      context, NestedNameSpecifierLoc(), NoLoc, colCountTemplateParamDecl,
+      false,
+      DeclarationNameInfo(colCountTemplateParamDecl->getDeclName(), NoLoc),
       intType, ExprValueKind::VK_RValue);
 
   QualType vectorType = context.getDependentSizedExtVectorType(
@@ -927,4 +927,57 @@ UnusualAnnotation* hlsl::UnusualAnnotation::CopyToASTContext(ASTContext& Context
   void* result = Context.Allocate(instanceSize);
   memcpy(result, this, instanceSize);
   return (UnusualAnnotation*)result;
+}
+
+static bool HasTessFactorSemantic(const ValueDecl *decl) {
+  for (const UnusualAnnotation *it : decl->getUnusualAnnotations()) {
+    switch (it->getKind()) {
+    case UnusualAnnotation::UA_SemanticDecl: {
+      const SemanticDecl *sd = cast<SemanticDecl>(it);
+      const Semantic *pSemantic = Semantic::GetByName(sd->SemanticName);
+      if (pSemantic && pSemantic->GetKind() == Semantic::Kind::TessFactor)
+        return true;
+    }
+    }
+  }
+  return false;
+}
+
+static bool HasTessFactorSemanticRecurse(const ValueDecl *decl, QualType Ty) {
+  if (Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty))
+    return false;
+
+  if (const RecordType *RT = Ty->getAsStructureType()) {
+    RecordDecl *RD = RT->getDecl();
+    for (FieldDecl *fieldDecl : RD->fields()) {
+      if (HasTessFactorSemanticRecurse(fieldDecl, fieldDecl->getType()))
+        return true;
+    }
+    return false;
+  }
+
+  if (const clang::ArrayType *arrayTy = Ty->getAsArrayTypeUnsafe())
+    return HasTessFactorSemantic(decl);
+
+  return false;
+}
+
+bool ASTContext::IsPatchConstantFunctionDecl(const FunctionDecl *FD) const {
+  // This checks whether the function is structurally capable of being a patch
+  // constant function, not whether it is in fact the patch constant function
+  // for the entry point of a compiled hull shader (which may not have been
+  // seen yet). So the answer is conservative.
+  if (!FD->getReturnType()->isVoidType()) {
+    // Try to find TessFactor in return type.
+    if (HasTessFactorSemanticRecurse(FD, FD->getReturnType()))
+      return true;
+  }
+  // Try to find TessFactor in out param.
+  for (const ParmVarDecl *param : FD->params()) {
+    if (param->hasAttr<HLSLOutAttr>()) {
+      if (HasTessFactorSemanticRecurse(param, param->getType()))
+        return true;
+    }
+  }
+  return false;
 }

@@ -709,7 +709,12 @@ void CodeGenFunction::EmitCondBrHints(llvm::LLVMContext &Context,
   }
 
   // FIXME: This condition is never false.  Should it be an assert?
-  if (!Metadata.empty()) {
+  if ( // HLSL Change Begin.
+       // We only want to enter this if we found a llvm loop attribute and we
+       // know we found an llvm attribute if the metadata size > 1.
+      Metadata.size() > 1
+      // HLSL Change End.
+      ) {
     // Add llvm.loop MDNode to CondBr.
     llvm::MDNode *LoopID = llvm::MDNode::get(Context, Metadata);
     LoopID->replaceOperandWith(0, LoopID); // First op points to itself.
@@ -1108,7 +1113,7 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
     case TEK_Scalar:
       // HLSL Change Begins.
       if (hlsl::IsHLSLMatType(RV->getType())) {
-        CGM.getHLSLRuntime().EmitHLSLAggregateStore(*this, EmitScalarExpr(RV), ReturnValue, RV->getType());
+        CGM.getHLSLRuntime().EmitHLSLMatrixStore(*this, EmitScalarExpr(RV), ReturnValue, RV->getType());
       } else
         // HLSL Change Ends.
         Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);

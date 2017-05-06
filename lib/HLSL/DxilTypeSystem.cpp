@@ -40,6 +40,7 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 //
 DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
+, m_ResourceAttribute(nullptr)
 , m_CBufferOffset(UINT_MAX) {
 }
 
@@ -48,6 +49,15 @@ void DxilFieldAnnotation::SetPrecise(bool b) { m_bPrecise = b; }
 bool DxilFieldAnnotation::HasMatrixAnnotation() const { return m_Matrix.Cols != 0; }
 const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const { return m_Matrix; }
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) { m_Matrix = MA; }
+bool DxilFieldAnnotation::HasResourceAttribute() const {
+  return m_ResourceAttribute;
+}
+llvm::MDNode *DxilFieldAnnotation::GetResourceAttribute() const {
+  return m_ResourceAttribute;
+}
+void DxilFieldAnnotation::SetResourceAttribute(llvm::MDNode *MD) {
+  m_ResourceAttribute = MD;
+}
 bool DxilFieldAnnotation::HasCBufferOffset() const { return m_CBufferOffset != UINT_MAX; }
 unsigned DxilFieldAnnotation::GetCBufferOffset() const { return m_CBufferOffset; }
 void DxilFieldAnnotation::SetCBufferOffset(unsigned Offset) { m_CBufferOffset = Offset; }
@@ -99,7 +109,7 @@ DxilParameterAnnotation::DxilParameterAnnotation()
 : m_inputQual(DxilParamInputQual::In), DxilFieldAnnotation() {
 }
 
-const DxilParamInputQual DxilParameterAnnotation::GetParamInputQual() const {
+DxilParamInputQual DxilParameterAnnotation::GetParamInputQual() const {
   return m_inputQual;
 }
 void DxilParameterAnnotation::SetParamInputQual(DxilParamInputQual qual) {
@@ -173,9 +183,10 @@ DxilStructAnnotation *DxilTypeSystem::GetStructAnnotation(const StructType *pStr
 }
 
 void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
-  auto it = m_StructAnnotations.find(pStructType);
-  DXASSERT_NOMSG(it != m_StructAnnotations.end());
-  m_StructAnnotations.erase(it);
+  DXASSERT_NOMSG(m_StructAnnotations.count(pStructType));
+  m_StructAnnotations.remove_if([pStructType](
+      const std::pair<const StructType *, std::unique_ptr<DxilStructAnnotation>>
+          &I) { return pStructType == I.first; });
 }
 
 DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
@@ -201,9 +212,10 @@ DxilFunctionAnnotation *DxilTypeSystem::GetFunctionAnnotation(const Function *pF
 }
 
 void DxilTypeSystem::EraseFunctionAnnotation(const Function *pFunction) {
-  auto it = m_FunctionAnnotations.find(pFunction);
-  DXASSERT_NOMSG(it != m_FunctionAnnotations.end());
-  m_FunctionAnnotations.erase(it);
+  DXASSERT_NOMSG(m_FunctionAnnotations.count(pFunction));
+  m_FunctionAnnotations.remove_if([pFunction](
+      const std::pair<const Function *, std::unique_ptr<DxilFunctionAnnotation>>
+          &I) { return pFunction == I.first; });
 }
 
 DxilTypeSystem::FunctionAnnotationMap &DxilTypeSystem::GetFunctionAnnotationMap() {

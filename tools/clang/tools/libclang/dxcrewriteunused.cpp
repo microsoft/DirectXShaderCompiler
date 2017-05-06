@@ -19,6 +19,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Sema/SemaConsumer.h"
@@ -180,14 +181,14 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(CompilerIn
   // This is very inefficient in general, but in practice we either have
   // no semantic defines, or we have a star define for a some reserved prefix. These will be
   // sorted so rewrites are stable.
-  std::vector<std::pair<const IdentifierInfo*, const MacroInfo*> > macros;
+  std::vector<std::pair<const IdentifierInfo*, MacroInfo*> > macros;
   Preprocessor& pp = compiler.getPreprocessor();
   Preprocessor::macro_iterator end = pp.macro_end();
   for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
     if (!i->second.getLatest()->isDefined()) {
       continue;
     }
-    const MacroInfo* mi = i->second.getLatest()->getMacroInfo();
+    MacroInfo* mi = i->second.getLatest()->getMacroInfo();
     if (mi->isFunctionLike()) {
       continue;
     }
@@ -211,37 +212,17 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(CompilerIn
         continue;
       }
 
-      macros.push_back(std::pair<const IdentifierInfo*, const MacroInfo*>(ii, mi));
+      macros.push_back(std::pair<const IdentifierInfo*, MacroInfo*>(ii, mi));
     }
   }
 
   if (!macros.empty()) {
     std::sort(macros.begin(), macros.end(), MacroPairCompareIsLessThan);
-    SmallVector<std::string, 8> tokens;
-    for (auto&& m : macros) {
-      std::string name = m.first->getName();
-      // Collect all macro token values into a vector.
-      // Put them in a vector to avoid repeated copying of data when appending strings.
-      tokens.clear();
-      tokens.reserve(m.second->getNumTokens());
-      for (MacroInfo::tokens_iterator ti = m.second->tokens_begin(), tiEnd = m.second->tokens_end(); ti != tiEnd; ++ti) {
-        if (ti->hasLeadingSpace())
-          tokens.push_back(" ");
-        tokens.push_back(pp.getSpelling(*ti));
-      }
-
-      // Compute total size of defined string value.
-      size_t size = 0;
-      for (const std::string &s : tokens)
-        size += s.size();
-
-      // Concatenate all values into a single string.
-      std::string value;
-      value.reserve(size);
-      for (const std::string &s : tokens)
-        value.append(s);
-
-      parsedDefines.emplace_back(ParsedSemanticDefine{ name, value, m.second->getDefinitionLoc().getRawEncoding() });
+    MacroExpander expander(pp);
+    for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
+      std::string expandedValue;
+      expander.ExpandMacro(m.second, &expandedValue);
+      parsedDefines.emplace_back(ParsedSemanticDefine{ m.first->getName(), expandedValue, m.second->getDefinitionLoc().getRawEncoding() });
     }
   }
 

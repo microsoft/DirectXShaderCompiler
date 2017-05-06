@@ -7,7 +7,7 @@ void test_out(out float4 m, float4 a)
     m = abs(a*a.yxxx);
 }
 
-void test_inout(inout float4 m, float4 a) 
+export void test_inout(inout float4 m, float4 a)
 {
     m = abs(m+a*a.yxxx);
 }

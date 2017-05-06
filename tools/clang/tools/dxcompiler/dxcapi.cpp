@@ -16,6 +16,7 @@
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
 #include "dxcetw.h"
+#include "dxillib.h"
 #include <memory>
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -26,6 +27,7 @@ HRESULT CreateDxcRewriter(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcOptimizer(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 namespace hlsl {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
@@ -75,7 +77,11 @@ DxcCreateInstance(_In_ REFCLSID   rclsid,
     hr = CreateDxcLibrary(riid, ppv);
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcValidator)) {
-    hr = CreateDxcValidator(riid, ppv);
+    if (DxilLibIsEnabled()) {
+      hr = DxilLibCreateInstance(rclsid, riid, (IUnknown**)ppv);
+    } else {
+      hr = CreateDxcValidator(riid, ppv);
+    }
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcAssembler)) {
     hr = CreateDxcAssembler(riid, ppv);
@@ -88,6 +94,9 @@ DxcCreateInstance(_In_ REFCLSID   rclsid,
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcContainerReflection)) {
     hr = CreateDxcContainerReflection(riid, ppv);
+  }
+  else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
+    hr = CreateDxcContainerBuilder(riid, ppv);
   }
   else {
     hr = REGDB_E_CLASSNOTREG;

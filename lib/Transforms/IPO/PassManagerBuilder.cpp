@@ -182,7 +182,7 @@ void PassManagerBuilder::populateFunctionPassManager(
     FPM.add(createSROAPass());
   else
     FPM.add(createScalarReplAggregatesPass());
-  FPM.add(createEarlyCSEPass());
+  // HLSL Change. FPM.add(createEarlyCSEPass());
   FPM.add(createLowerExpectIntrinsicPass());
 }
 
@@ -202,21 +202,34 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
                                              /*Promote*/ !NoOpt));
 
   MPM.add(createHLMatrixLowerPass());
+  MPM.add(createResourceToHandlePass());
   // DCE should after SROA to remove unused element.
   MPM.add(createDeadCodeEliminationPass());
   MPM.add(createGlobalDCEPass());
 
+  if (NoOpt) {
+    // If not run mem2reg, try to promote allocas used by EvalOperations.
+    // Do this before change vector to array.
+    MPM.add(createDxilLegalizeEvalOperationsPass());
+  }
+
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
-
-  MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
-
-  MPM.add(createSimplifyInstPass());
 
   if (!NoOpt) {
     // mem2reg
     MPM.add(createPromoteMemoryToRegisterPass());
   }
+
+  MPM.add(createSimplifyInstPass());
+  MPM.add(createCFGSimplificationPass());
+
+  MPM.add(createDxilLegalizeResourceUsePass());
+  MPM.add(createDxilLegalizeStaticResourceUsePass());
+  MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
+  MPM.add(createDxilLoadMetadataPass()); // Ensure DxilModule is loaded for optimizations.
+
+  MPM.add(createSimplifyInstPass());
 
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());
@@ -262,6 +275,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (!HLSLHighLevel) {
       MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
       MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
+      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
     // HLSL Change Ends.
@@ -321,7 +335,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createSROAPass(/*RequiresDomTree*/ false));
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
-  MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
+  // HLSL Change. MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
@@ -401,6 +415,8 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (LoadCombine)
     MPM.add(createLoadCombinePass());
+
+  MPM.add(createHoistConstantArrayPass()); // HLSL change
 
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
   MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
@@ -527,6 +543,8 @@ void PassManagerBuilder::populateModulePassManager(
   if (!HLSLHighLevel) {
     MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
     MPM.add(createDxilCondenseResourcesPass());
+    if (DisableUnrollLoops)
+      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.

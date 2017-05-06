@@ -1,4 +1,6 @@
-// RUN: %dxc -E main -T ps_6_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+
+// CHECK: sdiv
 
 float1x1 f1x1;
 float1x2 f1x2;
@@ -44,6 +46,7 @@ float4 main(float4 a : A) : SV_TARGET
   int4x4 im = i;
   im[2] = 1;
   im |= ~(i4x4<<2) + i4x4>>2 % (im & 2 | im ^ i);
+  im /= 3;
   bool4x4 b = (im++) < i;
   b = !b;
   float4 f4b = mul(f4, x+mt-x*f4x4b/im);

@@ -103,80 +103,6 @@ bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName) {
                                    desc.Description, wcslen(desc.Description));
 }
 
-UINT GetByteSizeForFormat(DXGI_FORMAT value) {
-  switch (value) {
-  case DXGI_FORMAT_R32G32B32A32_TYPELESS: return 16;
-  case DXGI_FORMAT_R32G32B32A32_FLOAT: return 16;
-  case DXGI_FORMAT_R32G32B32A32_UINT: return 16;
-  case DXGI_FORMAT_R32G32B32A32_SINT: return 16;
-  case DXGI_FORMAT_R32G32B32_TYPELESS: return 12;
-  case DXGI_FORMAT_R32G32B32_FLOAT: return 12;
-  case DXGI_FORMAT_R32G32B32_UINT: return 12;
-  case DXGI_FORMAT_R32G32B32_SINT: return 12;
-  case DXGI_FORMAT_R16G16B16A16_TYPELESS: return 8;
-  case DXGI_FORMAT_R16G16B16A16_FLOAT: return 8;
-  case DXGI_FORMAT_R16G16B16A16_UNORM: return 8;
-  case DXGI_FORMAT_R16G16B16A16_UINT: return 8;
-  case DXGI_FORMAT_R16G16B16A16_SNORM: return 8;
-  case DXGI_FORMAT_R16G16B16A16_SINT: return 8;
-  case DXGI_FORMAT_R32G32_TYPELESS: return 8;
-  case DXGI_FORMAT_R32G32_FLOAT: return 8;
-  case DXGI_FORMAT_R32G32_UINT: return 8;
-  case DXGI_FORMAT_R32G32_SINT: return 8;
-  case DXGI_FORMAT_R32G8X24_TYPELESS: return 8;
-  case DXGI_FORMAT_D32_FLOAT_S8X24_UINT: return 4;
-  case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS: return 4;
-  case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT: return 4;
-  case DXGI_FORMAT_R10G10B10A2_TYPELESS: return 4;
-  case DXGI_FORMAT_R10G10B10A2_UNORM: return 4;
-  case DXGI_FORMAT_R10G10B10A2_UINT: return 4;
-  case DXGI_FORMAT_R11G11B10_FLOAT: return 4;
-  case DXGI_FORMAT_R8G8B8A8_TYPELESS: return 4;
-  case DXGI_FORMAT_R8G8B8A8_UNORM: return 4;
-  case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB: return 4;
-  case DXGI_FORMAT_R8G8B8A8_UINT: return 4;
-  case DXGI_FORMAT_R8G8B8A8_SNORM: return 4;
-  case DXGI_FORMAT_R8G8B8A8_SINT: return 4;
-  case DXGI_FORMAT_R16G16_TYPELESS: return 4;
-  case DXGI_FORMAT_R16G16_FLOAT: return 4;
-  case DXGI_FORMAT_R16G16_UNORM: return 4;
-  case DXGI_FORMAT_R16G16_UINT: return 4;
-  case DXGI_FORMAT_R16G16_SNORM: return 4;
-  case DXGI_FORMAT_R16G16_SINT: return 4;
-  case DXGI_FORMAT_R32_TYPELESS: return 4;
-  case DXGI_FORMAT_D32_FLOAT: return 4;
-  case DXGI_FORMAT_R32_FLOAT: return 4;
-  case DXGI_FORMAT_R32_UINT: return 4;
-  case DXGI_FORMAT_R32_SINT: return 4;
-  case DXGI_FORMAT_R24G8_TYPELESS: return 4;
-  case DXGI_FORMAT_D24_UNORM_S8_UINT: return 4;
-  case DXGI_FORMAT_R24_UNORM_X8_TYPELESS: return 4;
-  case DXGI_FORMAT_X24_TYPELESS_G8_UINT: return 4;
-  case DXGI_FORMAT_R8G8_TYPELESS: return 2;
-  case DXGI_FORMAT_R8G8_UNORM: return 2;
-  case DXGI_FORMAT_R8G8_UINT: return 2;
-  case DXGI_FORMAT_R8G8_SNORM: return 2;
-  case DXGI_FORMAT_R8G8_SINT: return 2;
-  case DXGI_FORMAT_R16_TYPELESS: return 2;
-  case DXGI_FORMAT_R16_FLOAT: return 2;
-  case DXGI_FORMAT_D16_UNORM: return 2;
-  case DXGI_FORMAT_R16_UNORM: return 2;
-  case DXGI_FORMAT_R16_UINT: return 2;
-  case DXGI_FORMAT_R16_SNORM: return 2;
-  case DXGI_FORMAT_R16_SINT: return 2;
-  case DXGI_FORMAT_R8_TYPELESS: return 1;
-  case DXGI_FORMAT_R8_UNORM: return 1;
-  case DXGI_FORMAT_R8_UINT: return 1;
-  case DXGI_FORMAT_R8_SNORM: return 1;
-  case DXGI_FORMAT_R8_SINT: return 1;
-  case DXGI_FORMAT_A8_UNORM: return 1;
-  case DXGI_FORMAT_R1_UNORM: return 1;
-  default:
-    CHECK_HR(E_INVALIDARG);
-    return 0;
-  }
-}
-
 void GetHardwareAdapter(IDXGIFactory2 *pFactory, LPCWSTR AdapterName,
                                IDXGIAdapter1 **ppAdapter) {
   CComPtr<IDXGIAdapter1> adapter;
@@ -331,12 +257,12 @@ void ShaderOpTest::CopyBackResources() {
       pList->CopyResource(D.ReadBack, D.Resource);
     }
     else {
-      UINT rowPitch = Desc.Width * 4;
+      UINT rowPitch = Desc.Width * GetByteSizeForFormat(Desc.Format);
       if (rowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
         rowPitch += D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - (rowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
       D3D12_PLACED_SUBRESOURCE_FOOTPRINT Footprint;
       Footprint.Offset = 0;
-      Footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(DXGI_FORMAT_R8G8B8A8_UNORM, Desc.Width, Desc.Height, 1, rowPitch);
+      Footprint.Footprint = CD3DX12_SUBRESOURCE_FOOTPRINT(Desc.Format, Desc.Width, Desc.Height, 1, rowPitch);
       CD3DX12_TEXTURE_COPY_LOCATION DstLoc(D.ReadBack, Footprint);
       CD3DX12_TEXTURE_COPY_LOCATION SrcLoc(D.Resource, 0);
       pList->CopyTextureRegion(&DstLoc, 0, 0, 0, &SrcLoc, nullptr);
@@ -491,16 +417,16 @@ void ShaderOpTest::CreatePipelineState() {
     InitByteCode(&GDesc.PS, pPS);
     GDesc.InputLayout.NumElements = m_pShaderOp->InputElements.size();
     GDesc.InputLayout.pInputElementDescs = m_pShaderOp->InputElements.data();
-    GDesc.PrimitiveTopologyType = m_pShaderOp->PrimitiveTopology;
+    GDesc.PrimitiveTopologyType = m_pShaderOp->PrimitiveTopologyType;
     GDesc.NumRenderTargets = m_pShaderOp->RenderTargets.size();
     GDesc.SampleMask = m_pShaderOp->SampleMask;
     for (size_t i = 0; i < m_pShaderOp->RenderTargets.size(); ++i) {
       ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i]);
       GDesc.RTVFormats[i] = R->Desc.Format;
     }
-    GDesc.SampleDesc.Count = 1; // TODO: read from file, set form shader operation; also apply to count
+    GDesc.SampleDesc.Count = 1; // TODO: read from file, set from shader operation; also apply to count
     GDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT); // TODO: read from file, set from op
-    GDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT); // TODO: read frm file, set from op
+    GDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT); // TODO: read from file, set from op
 
     // TODO: pending values to set
 #if 0
@@ -549,7 +475,7 @@ void ShaderOpTest::CreateResources() {
         memset(values.data(), 0, values.size());
       }
       else if (initByName) {
-        m_InitCallbackFn(R.Name, values);
+        m_InitCallbackFn(R.Name, values, m_pShaderOp);
         if (isBuffer) {
           R.Desc.Width = values.size();
         }
@@ -581,11 +507,15 @@ void ShaderOpTest::CreateResources() {
       CComPtr<ID3D12Resource> pIntermediate;
       CD3DX12_HEAP_PROPERTIES upload(D3D12_HEAP_TYPE_UPLOAD);
       D3D12_RESOURCE_DESC uploadDesc = R.Desc;
+
+      // Calculate size required for intermediate buffer
+      UINT64 totalBytes;
+      m_pDevice->GetCopyableFootprints(&uploadDesc, 0, 1, 0, nullptr, nullptr, nullptr, &totalBytes);
+
       if (!isBuffer) {
         // Assuming a simple linear layout here.
         uploadDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        uploadDesc.Width *= uploadDesc.Height;
-        uploadDesc.Width *= GetByteSizeForFormat(uploadDesc.Format);
+        uploadDesc.Width = totalBytes;
         uploadDesc.Height = 1;
         uploadDesc.MipLevels = 1;
         uploadDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -607,8 +537,8 @@ void ShaderOpTest::CreateResources() {
 
       D3D12_SUBRESOURCE_DATA transferData;
       transferData.pData = values.data();
-      transferData.RowPitch = values.size();
-      transferData.SlicePitch = transferData.RowPitch;
+      transferData.RowPitch = values.size() / R.Desc.Height;
+      transferData.SlicePitch = values.size();
       UpdateSubresources<1>(pList, pResource.p, pIntermediate.p, 0, 0, 1,
                             &transferData);
     }
@@ -822,10 +752,18 @@ void ShaderOpTest::RunCommandList() {
 
     const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
     pList->ClearRenderTargetView(rtvHandles[0], ClearColor, 0, nullptr);
-    pList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);// TODO: set from m_pShaderOp
 
     // TODO: set all of this from m_pShaderOp.
     ShaderOpResourceData &VBufferData = this->m_ResourceData[m_pShaderOp->Strings.insert("VBuffer")];
+
+    D3D_PRIMITIVE_TOPOLOGY topology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+    for (ShaderOpResource &resource : m_pShaderOp->Resources) {
+        if (_strcmpi(resource.Name, "VBuffer") == 0) {
+            topology = resource.PrimitiveTopology;
+            break;
+        }
+    }
+    pList->IASetPrimitiveTopology(topology);
 
     // Calculate the stride in bytes from the inputs, assuming linear & contiguous.
     UINT strideInBytes = 0;
@@ -1068,7 +1006,9 @@ enum class ParserEnumKind {
   RESOURCE_STATE,
   DESCRIPTOR_HEAP_TYPE,
   DESCRIPTOR_HEAP_FLAG,
-  UAV_DIMENSION
+  UAV_DIMENSION,
+  PRIMITIVE_TOPOLOGY,
+  PRIMITIVE_TOPOLOGY_TYPE
 };
 
 struct ParserEnumValue {
@@ -1311,6 +1251,58 @@ static const ParserEnumValue UAV_DIMENSION_TABLE[] = {
   { L"TEXTURE3D", D3D12_UAV_DIMENSION_TEXTURE3D }
 };
 
+static const ParserEnumValue PRIMITIVE_TOPOLOGY_TABLE[] = {
+    { L"UNDEFINED",D3D_PRIMITIVE_TOPOLOGY_UNDEFINED },
+    { L"POINTLIST",D3D_PRIMITIVE_TOPOLOGY_POINTLIST },
+    { L"LINELIST",D3D_PRIMITIVE_TOPOLOGY_LINELIST },
+    { L"LINESTRIP",D3D_PRIMITIVE_TOPOLOGY_LINESTRIP },
+    { L"TRIANGLELIST",D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST },
+    { L"TRIANGLESTRIP",D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP },
+    { L"LINELIST_ADJ",D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ },
+    { L"LINESTRIP_ADJ",D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ },
+    { L"TRIANGLELIST_ADJ",D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ },
+    { L"TRIANGLESTRIP_ADJ",D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ },
+    { L"1_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST },
+    { L"2_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST },
+    { L"3_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST },
+    { L"4_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST },
+    { L"5_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_5_CONTROL_POINT_PATCHLIST },
+    { L"6_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_6_CONTROL_POINT_PATCHLIST },
+    { L"7_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_7_CONTROL_POINT_PATCHLIST },
+    { L"8_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_8_CONTROL_POINT_PATCHLIST },
+    { L"9_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_9_CONTROL_POINT_PATCHLIST },
+    { L"10_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_10_CONTROL_POINT_PATCHLIST },
+    { L"11_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_11_CONTROL_POINT_PATCHLIST },
+    { L"12_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_12_CONTROL_POINT_PATCHLIST },
+    { L"13_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_13_CONTROL_POINT_PATCHLIST },
+    { L"14_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_14_CONTROL_POINT_PATCHLIST },
+    { L"15_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_15_CONTROL_POINT_PATCHLIST },
+    { L"16_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST },
+    { L"17_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_17_CONTROL_POINT_PATCHLIST },
+    { L"18_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_18_CONTROL_POINT_PATCHLIST },
+    { L"19_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_19_CONTROL_POINT_PATCHLIST },
+    { L"20_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_20_CONTROL_POINT_PATCHLIST },
+    { L"21_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_21_CONTROL_POINT_PATCHLIST },
+    { L"22_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_22_CONTROL_POINT_PATCHLIST },
+    { L"23_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_23_CONTROL_POINT_PATCHLIST },
+    { L"24_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_24_CONTROL_POINT_PATCHLIST },
+    { L"25_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_25_CONTROL_POINT_PATCHLIST },
+    { L"26_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_26_CONTROL_POINT_PATCHLIST },
+    { L"27_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_27_CONTROL_POINT_PATCHLIST },
+    { L"28_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_28_CONTROL_POINT_PATCHLIST },
+    { L"29_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_29_CONTROL_POINT_PATCHLIST },
+    { L"30_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_30_CONTROL_POINT_PATCHLIST },
+    { L"31_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_31_CONTROL_POINT_PATCHLIST },
+    { L"32_CONTROL_POINT_PATCHLIST",D3D_PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST }
+};
+
+static const ParserEnumValue PRIMITIVE_TOPOLOGY_TYPE_TABLE[] = {
+    { L"UNDEFINED", D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED },
+    { L"POINT", D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT },
+    { L"LINE", D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE },
+    { L"TRIANGLE", D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE },
+    { L"PATCH", D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH }
+};
 
 static const ParserEnumTable g_ParserEnumTables[] = {
   { _countof(INPUT_CLASSIFICATION_TABLE), INPUT_CLASSIFICATION_TABLE, ParserEnumKind::INPUT_CLASSIFICATION },
@@ -1325,7 +1317,9 @@ static const ParserEnumTable g_ParserEnumTables[] = {
   { _countof(RESOURCE_STATE_TABLE), RESOURCE_STATE_TABLE, ParserEnumKind::RESOURCE_STATE },
   { _countof(DESCRIPTOR_HEAP_TYPE_TABLE), DESCRIPTOR_HEAP_TYPE_TABLE, ParserEnumKind::DESCRIPTOR_HEAP_TYPE },
   { _countof(DESCRIPTOR_HEAP_FLAG_TABLE), DESCRIPTOR_HEAP_FLAG_TABLE, ParserEnumKind::DESCRIPTOR_HEAP_FLAG },
-  { _countof(UAV_DIMENSION_TABLE), UAV_DIMENSION_TABLE, ParserEnumKind::UAV_DIMENSION }
+  { _countof(UAV_DIMENSION_TABLE), UAV_DIMENSION_TABLE, ParserEnumKind::UAV_DIMENSION },
+  { _countof(PRIMITIVE_TOPOLOGY_TABLE), PRIMITIVE_TOPOLOGY_TABLE, ParserEnumKind::PRIMITIVE_TOPOLOGY },
+  { _countof(PRIMITIVE_TOPOLOGY_TYPE_TABLE), PRIMITIVE_TOPOLOGY_TYPE_TABLE, ParserEnumKind::PRIMITIVE_TOPOLOGY_TYPE },
 };
 
 static HRESULT GetEnumValue(LPCWSTR name, ParserEnumKind K, UINT *pValue) {
@@ -1417,6 +1411,14 @@ static HRESULT ReadAttrRESOURCE_STATES(IXmlReader *pReader, LPCWSTR pAttrName, D
 
 static HRESULT ReadAttrUAV_DIMENSION(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_UAV_DIMENSION *pValue) {
   return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::UAV_DIMENSION, pValue, D3D12_UAV_DIMENSION_BUFFER);
+}
+
+static HRESULT ReadAttrPRIMITIVE_TOPOLOGY(IXmlReader *pReader, LPCWSTR pAttrName, D3D_PRIMITIVE_TOPOLOGY *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::PRIMITIVE_TOPOLOGY, pValue, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+static HRESULT ReadAttrPRIMITIVE_TOPOLOGY_TYPE(IXmlReader *pReader, LPCWSTR pAttrName, D3D12_PRIMITIVE_TOPOLOGY_TYPE *pValue) {
+  return ReadAttrEnumT(pReader, pAttrName, ParserEnumKind::PRIMITIVE_TOPOLOGY_TYPE, pValue, D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
 }
 
 HRESULT ShaderOpParser::ReadAttrStr(IXmlReader *pReader, LPCWSTR pAttrName, LPCSTR *ppValue) {
@@ -1749,6 +1751,7 @@ void ShaderOpParser::ParseShaderOp(IXmlReader *pReader, ShaderOp *pShaderOp) {
   CHECK_HR(ReadAttrUINT(pReader, L"DispatchX", &pShaderOp->DispatchX, 1));
   CHECK_HR(ReadAttrUINT(pReader, L"DispatchY", &pShaderOp->DispatchY, 1));
   CHECK_HR(ReadAttrUINT(pReader, L"DispatchZ", &pShaderOp->DispatchZ, 1));
+  CHECK_HR(ReadAttrPRIMITIVE_TOPOLOGY_TYPE(pReader, L"TopologyType", &pShaderOp->PrimitiveTopologyType));
   UINT startDepth;
   CHECK_HR(pReader->GetDepth(&startDepth));
   XmlNodeType nt = XmlNodeType_Element;
@@ -1841,6 +1844,8 @@ void ShaderOpParser::ParseResource(IXmlReader *pReader, ShaderOpResource *pResou
   CHECK_HR(ReadAttrRESOURCE_STATES(pReader, L"InitialResourceState", &pResource->InitialResourceState));
   CHECK_HR(ReadAttrRESOURCE_STATES(pReader, L"TransitionTo", &pResource->TransitionTo));
 
+  CHECK_HR(ReadAttrPRIMITIVE_TOPOLOGY(pReader, L"Topology", &pResource->PrimitiveTopology));
+
   // Set some fixed values.
   if (pResource->Desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
     pResource->Desc.Height = 1;
@@ -1888,10 +1893,10 @@ void ShaderOpParser::ParseResource(IXmlReader *pReader, ShaderOpResource *pResou
           fVal = NAN;
         }
         else if (0 == _wcsicmp(pText, L"-inf")) {
-          fVal = INFINITY;
+          fVal = -(INFINITY);
         }
         else if (0 == _wcsicmp(pText, L"inf") || 0 == _wcsicmp(pText, L"+inf")) {
-          fVal = -(INFINITY);
+          fVal = INFINITY;
         }
         else if (0 == _wcsicmp(pText, L"-denorm")) {
           fVal = -(FLT_MIN / 2);

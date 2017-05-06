@@ -24,6 +24,8 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/microcom.h"
 #include <comdef.h>
+#include <iostream>
+#include <limits>
 
 inline bool wcseq(LPCWSTR a, LPCWSTR b) {
   return (a == nullptr && b == nullptr) || (a != nullptr && b != nullptr && wcscmp(a, b) == 0);
@@ -40,11 +42,56 @@ enum class ProgramAction {
   RunOptimizer,
 };
 
+const wchar_t *STDIN_FILE_NAME = L"-";
+bool isStdIn(LPCWSTR fName) {
+  return wcscmp(STDIN_FILE_NAME, fName) == 0;
+}
+
+// Arg does not start with '-' or '/' and so assume it is a filename,
+// or next arg equals '-' which is the name of stdin.
+bool isFileInputArg(LPCWSTR arg) {
+  const bool isNonOptionArg = !wcsistarts(arg, L"-") && !wcsistarts(arg, L"/");
+  return isNonOptionArg || isStdIn(arg);
+}
+
+static HRESULT ReadStdin(std::string &input) {
+  HANDLE hStdIn = GetStdHandle(STD_INPUT_HANDLE);
+  std::vector<unsigned char> buffer(1024);
+  DWORD numBytesRead = -1;
+  BOOL ok = FALSE;
+
+  // Read all data from stdin.
+  while (ok = ReadFile(hStdIn, buffer.data(), buffer.size(), &numBytesRead, NULL)) {
+    if (numBytesRead == 0)
+      break;
+    std::copy(buffer.begin(), buffer.begin() + numBytesRead, std::back_inserter(input));
+  }
+
+  DWORD lastError = GetLastError();
+
+  // Make sure we reached finished successfully.
+  if (ok)
+    return S_OK;
+  // Or reached the end of a pipe.
+  else if (!ok && numBytesRead == 0 && lastError == ERROR_BROKEN_PIPE)
+    return S_OK;
+  else
+    return HRESULT_FROM_WIN32(lastError);
+}
+
 static void BlobFromFile(LPCWSTR pFileName, IDxcBlob **ppBlob) {
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcBlobEncoding> pFileBlob;
   IFT(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&pLibrary)));
-  IFT(pLibrary->CreateBlobFromFile(pFileName, nullptr, &pFileBlob));
+  if (isStdIn(pFileName)) {
+    std::string input;
+    IFT(ReadStdin(input));
+    IFTBOOL(input.size() < std::numeric_limits<UINT32>::max(), E_FAIL);
+    IFT(pLibrary->CreateBlobWithEncodingOnHeapCopy(input.data(), (UINT32)input.size(), CP_UTF8, &pFileBlob))
+  }
+  else {
+    IFT(pLibrary->CreateBlobFromFile(pFileName, nullptr, &pFileBlob));
+  }
   *ppBlob = pFileBlob.Detach();
 }
 
@@ -132,7 +179,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     UINT32 optArgCount = 0;
 
     if (argc > 1) {
-      UINT32 argIdx = 1;
+      int argIdx = 1;
       LPCWSTR arg = argv_[1];
       if (wcsieq(arg, L"-?") || wcsieq(arg, L"/?")) {
         action = ProgramAction::PrintHelp;
@@ -144,14 +191,22 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
         action = ProgramAction::PrintPassesWithDetails;
       }
       else {
-        // Assume we get a file name followed by possibly -o= then optimizer options.
         action = ProgramAction::RunOptimizer;
-        inFileName = arg;
-        argIdx++;
-        if (argc > 2 && wcsistarts(argv_[argIdx], L"-o=")) {
+        // See if arg is file input specifier.
+        if (isFileInputArg(arg)) {
+          inFileName = arg;
+          argIdx++;
+        }
+        // No filename argument give so read from stdin.
+        else {
+          inFileName = STDIN_FILE_NAME;
+        }
+        // Look for a file output argument.
+        if (argc > argIdx && wcsistarts(argv_[argIdx], L"-o=")) {
           outFileName = argv_[argIdx] + 3;
           argIdx++;
         }
+        // The remaining arguments are optimizer args.
         optArgs = argv_ + argIdx;
         optArgCount = argc - argIdx;
       }

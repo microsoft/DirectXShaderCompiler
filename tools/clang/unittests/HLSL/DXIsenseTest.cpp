@@ -21,6 +21,7 @@ class DXIntellisenseTest
 {
 public:
   BEGIN_TEST_CLASS(DXIntellisenseTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -757,5 +758,5 @@ void DXIntellisenseTest::TypeWhenICEThenEval()
   VERIFY_SUCCEEDED(cCursor->GetCursorType(&typeCursor));
   CComHeapPtr<char> name;
   VERIFY_SUCCEEDED(typeCursor->GetSpelling(&name));
-  VERIFY_ARE_EQUAL_STR("float [2]", name);
+  VERIFY_ARE_EQUAL_STR("const float [2]", name); // global variables converted to const by default
 }

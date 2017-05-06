@@ -28,9 +28,36 @@ ShaderModel::ShaderModel(Kind Kind, unsigned Major, unsigned Minor, const char *
 , m_NumUAVRegs(NumUAVRegs) {
 }
 
+bool ShaderModel::operator==(const ShaderModel &other) const {
+    return m_Kind          == other.m_Kind
+        && m_Major         == other.m_Major
+        && m_Minor         == other.m_Minor
+        && strcmp(m_pszName,  other.m_pszName) == 0
+        && m_NumInputRegs  == other.m_NumInputRegs
+        && m_NumOutputRegs == other.m_NumOutputRegs
+        && m_bTypedUavs    == other.m_bTypedUavs
+        && m_NumUAVRegs    == other.m_NumUAVRegs;
+}
+
 bool ShaderModel::IsValid() const {
   DXASSERT(IsPS() || IsVS() || IsGS() || IsHS() || IsDS() || IsCS() || m_Kind == Kind::Invalid, "invalid shader model");
   return m_Kind != Kind::Invalid;
+}
+
+bool ShaderModel::IsValidForDxil() const {
+  if (!IsValid())
+    return false;
+  switch (m_Major) {
+    case 6: {
+      switch (m_Minor) {
+      case 0:
+      case 1:
+        return true;
+      }
+    }
+    break;
+  }
+  return false;
 }
 
 const ShaderModel *ShaderModel::Get(unsigned Idx) {
@@ -90,6 +117,22 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   return Get(Kind, Major, Minor);
 }
 
+void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {
+  DXASSERT(IsValidForDxil(), "invalid shader model");
+  DxilMajor = 1;
+  switch (m_Minor) {
+  case 0:
+    DxilMinor = 0;
+    break;
+  case 1:
+    DxilMinor = 1;
+    break;
+  default:
+    DXASSERT(0, "IsValidForDxil() should have caught this.");
+    break;
+  }
+}
+
 std::string ShaderModel::GetKindName() const {
   return std::string(m_pszName).substr(0, 2);
 }
@@ -107,32 +150,38 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Compute,  5, 0, "cs_5_0",  0,  0,   true,  true,  64),
   SM(Kind::Compute,  5, 1, "cs_5_1",  0,  0,   true,  true,  UINT_MAX),
   SM(Kind::Compute,  6, 0, "cs_6_0",  0,  0,   true,  true,  UINT_MAX),
+  SM(Kind::Compute,  6, 1, "cs_6_1",  0,  0,   true,  true,  UINT_MAX),
 
   SM(Kind::Domain,   5, 0, "ds_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Domain,   5, 1, "ds_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Domain,   6, 0, "ds_6_0",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Domain,   6, 1, "ds_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Geometry, 4, 0, "gs_4_0",  16, 32,  false, false, 0),
   SM(Kind::Geometry, 4, 1, "gs_4_1",  32, 32,  false, false, 0),
   SM(Kind::Geometry, 5, 0, "gs_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Geometry, 5, 1, "gs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Geometry, 6, 0, "gs_6_0",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Geometry, 6, 1, "gs_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Hull,     5, 0, "hs_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Hull,     5, 1, "hs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Hull,     6, 0, "hs_6_0",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Hull,     6, 1, "hs_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Pixel,    4, 0, "ps_4_0",  32, 8,   false, false, 0),
   SM(Kind::Pixel,    4, 1, "ps_4_1",  32, 8,   false, false, 0),
   SM(Kind::Pixel,    5, 0, "ps_5_0",  32, 8,   true,  true,  64),
   SM(Kind::Pixel,    5, 1, "ps_5_1",  32, 8,   true,  true,  UINT_MAX),
   SM(Kind::Pixel,    6, 0, "ps_6_0",  32, 8,   true,  true,  UINT_MAX),
+  SM(Kind::Pixel,    6, 1, "ps_6_1",  32, 8,   true,  true,  UINT_MAX),
 
   SM(Kind::Vertex,   4, 0, "vs_4_0",  16, 16,  false, false, 0),
   SM(Kind::Vertex,   4, 1, "vs_4_1",  32, 32,  false, false, 0),
   SM(Kind::Vertex,   5, 0, "vs_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Vertex,   5, 1, "vs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Vertex,   6, 0, "vs_6_0",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Vertex,   6, 1, "vs_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Invalid,  0, 0, "invalid", 0,  0,   false, false, 0),
 };

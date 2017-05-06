@@ -44,6 +44,7 @@ static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::Tesse
   case Semantic::Kind::ViewPortArrayIndex: return DxilProgramSigSemantic::ViewPortArrayIndex;
   case Semantic::Kind::ClipDistance: return DxilProgramSigSemantic::ClipDistance;
   case Semantic::Kind::CullDistance: return DxilProgramSigSemantic::CullDistance;
+  case Semantic::Kind::Barycentrics: return DxilProgramSigSemantic::Barycentrics;
   case Semantic::Kind::TessFactor: {
     switch (domain) {
     case DXIL::TessellatorDomain::IsoLine:
@@ -132,7 +133,7 @@ struct sort_sig {
   }
 };
 
-class DxilProgramSignatureWriter {
+class DxilProgramSignatureWriter : public DxilPartWriter {
 private:
   const DxilSignature &m_signature;
   DXIL::TessellatorDomain m_domain;
@@ -174,6 +175,7 @@ private:
       eltRows = pElement->GetRows() / eltCount;
 
     DxilProgramSignatureElement sig;
+    memset(&sig, 0, sizeof(DxilProgramSignatureElement));
     sig.Stream = pElement->GetOutputStream();
     sig.SemanticName = GetSemanticOffset(pElement);
     sig.SystemValue = KindToSystemValue(pElement->GetKind(), m_domain);
@@ -229,11 +231,11 @@ public:
     calcSizes();
   }
 
-  uint32_t size() const {
+  __override uint32_t size() const {
     return m_lastOffset;
   }
 
-  void write(AbstractMemoryStream *pStream) {
+  __override void write(AbstractMemoryStream *pStream) {
     UINT64 startPos = pStream->GetPosition();
     const std::vector<std::unique_ptr<hlsl::DxilSignatureElement>> &elements = m_signature.GetElements();
 
@@ -274,7 +276,22 @@ public:
   }
 };
 
-class DxilProgramRootSignatureWriter {
+DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind) {
+  switch (Kind) {
+  case DXIL::SignatureKind::Input:
+    return new DxilProgramSignatureWriter(M.GetInputSignature(),
+      M.GetTessellatorDomain(), true);
+  case DXIL::SignatureKind::Output:
+    return new DxilProgramSignatureWriter(M.GetOutputSignature(),
+      M.GetTessellatorDomain(), false);
+  case DXIL::SignatureKind::PatchConstant:
+    return new DxilProgramSignatureWriter(M.GetPatchConstantSignature(),
+      M.GetTessellatorDomain(), /*IsInput*/ M.GetShaderModel()->IsDS());
+  }
+  return nullptr;
+}
+
+class DxilProgramRootSignatureWriter : public DxilPartWriter {
 private:
   const RootSignatureHandle &m_Sig;
 public:
@@ -288,7 +305,11 @@ public:
   }
 };
 
-class DxilFeatureInfoWriter {
+DxilPartWriter *hlsl::NewRootSignatureWriter(const RootSignatureHandle &S) {
+  return new DxilProgramRootSignatureWriter(S);
+}
+
+class DxilFeatureInfoWriter : public DxilPartWriter  {
 private:
   // Only save the shader properties after create class for it.
   DxilShaderFeatureInfo featureInfo;
@@ -296,24 +317,28 @@ public:
   DxilFeatureInfoWriter(const DxilModule &M) {
     featureInfo.FeatureFlags = M.m_ShaderFlags.GetFeatureInfo();
   }
-  uint32_t size() const {
+  __override uint32_t size() const {
     return sizeof(DxilShaderFeatureInfo);
   }
-  void write(AbstractMemoryStream *pStream) {
+  __override void write(AbstractMemoryStream *pStream) {
     IFT(WriteStreamValue(pStream, featureInfo.FeatureFlags));
   }
 };
 
-class DxilPSVWriter {
+DxilPartWriter *hlsl::NewFeatureInfoWriter(const DxilModule &M) {
+  return new DxilFeatureInfoWriter(M);
+}
+
+class DxilPSVWriter : public DxilPartWriter  {
 private:
-  DxilModule &m_Module;
+  const DxilModule &m_Module;
   UINT m_uTotalResources;
   DxilPipelineStateValidation m_PSV;
   uint32_t m_PSVBufferSize;
   SmallVector<char, 512> m_PSVBuffer;
 
 public:
-  DxilPSVWriter(DxilModule &module) : m_Module(module) {
+  DxilPSVWriter(const DxilModule &module) : m_Module(module) {
     UINT uCBuffers = m_Module.GetCBuffers().size();
     UINT uSamplers = m_Module.GetSamplers().size();
     UINT uSRVs = m_Module.GetSRVs().size();
@@ -321,11 +346,11 @@ public:
     m_uTotalResources = uCBuffers + uSamplers + uSRVs + uUAVs;
     m_PSV.InitNew(m_uTotalResources, nullptr, &m_PSVBufferSize);
   }
-  size_t size() {
+  __override uint32_t size() const {
     return m_PSVBufferSize;
   }
 
-  void write(AbstractMemoryStream *pStream) {
+  __override void write(AbstractMemoryStream *pStream) {
     m_PSVBuffer.resize(m_PSVBufferSize);
     m_PSV.InitNew(m_uTotalResources, m_PSVBuffer.data(), &m_PSVBufferSize);
     DXASSERT_NOMSG(m_PSVBuffer.size() == m_PSVBufferSize);
@@ -339,7 +364,7 @@ public:
     switch (SM->GetKind()) {
       case ShaderModel::Kind::Vertex: {
         pInfo->VS.OutputPositionPresent = 0;
-        DxilSignature &S = m_Module.GetOutputSignature();
+        const DxilSignature &S = m_Module.GetOutputSignature();
         for (auto &&E : S.GetElements()) {
           if (E->GetKind() == Semantic::Kind::Position) {
             // Ideally, we might check never writes mask here,
@@ -360,7 +385,7 @@ public:
       case ShaderModel::Kind::Domain: {
         pInfo->DS.InputControlPointCount = (UINT)m_Module.GetInputControlPointCount();
         pInfo->DS.OutputPositionPresent = 0;
-        DxilSignature &S = m_Module.GetOutputSignature();
+        const DxilSignature &S = m_Module.GetOutputSignature();
         for (auto &&E : S.GetElements()) {
           if (E->GetKind() == Semantic::Kind::Position) {
             // Ideally, we might check never writes mask here,
@@ -382,7 +407,7 @@ public:
           pInfo->GS.OutputStreamMask = 1; // This is what runtime expects.
         }
         pInfo->GS.OutputPositionPresent = 0;
-        DxilSignature &S = m_Module.GetOutputSignature();
+        const DxilSignature &S = m_Module.GetOutputSignature();
         for (auto &&E : S.GetElements()) {
           if (E->GetKind() == Semantic::Kind::Position) {
             // Ideally, we might check never writes mask here,
@@ -397,7 +422,7 @@ public:
         pInfo->PS.DepthOutput = 0;
         pInfo->PS.SampleFrequency = 0;
         {
-          DxilSignature &S = m_Module.GetInputSignature();
+          const DxilSignature &S = m_Module.GetInputSignature();
           for (auto &&E : S.GetElements()) {
             if (E->GetInterpolationMode()->IsAnySample() ||
                 E->GetKind() == Semantic::Kind::SampleIndex) {
@@ -406,7 +431,7 @@ public:
           }
         }
         {
-          DxilSignature &S = m_Module.GetOutputSignature();
+          const DxilSignature &S = m_Module.GetOutputSignature();
           for (auto &&E : S.GetElements()) {
             if (E->IsAnyDepth()) {
               pInfo->PS.DepthOutput = 1;
@@ -483,10 +508,11 @@ public:
   }
 };
 
-class DxilContainerWriter {
-public:
-  typedef std::function<void(AbstractMemoryStream*)> WriteFn;
+DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M) {
+  return new DxilPSVWriter(M);
+}
 
+class DxilContainerWriter_impl : public DxilContainerWriter  {
 private:
   class DxilPart {
   public:
@@ -501,24 +527,26 @@ private:
   llvm::SmallVector<DxilPart, 8> m_Parts;
 
 public:
-  void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) {
+  __override void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) {
     m_Parts.emplace_back(FourCC, Size, Write);
   }
 
-  void write(AbstractMemoryStream *pStream) {
+  __override uint32_t size() const {
+    uint32_t partSize = 0;
+    for (auto &part : m_Parts) {
+      partSize += part.Header.PartSize;
+    }
+    return (uint32_t)GetDxilContainerSizeFromParts((uint32_t)m_Parts.size(), partSize);
+  }
+
+  __override void write(AbstractMemoryStream *pStream) {
     DxilContainerHeader header;
     const uint32_t PartCount = (uint32_t)m_Parts.size();
-    const uint32_t OffsetTableSize = sizeof(uint32_t) * PartCount;
-    uint32_t containerSizeInBytes =
-      (uint32_t)sizeof(DxilContainerHeader) + OffsetTableSize +
-      (uint32_t)sizeof(DxilPartHeader) * PartCount;
-    for (auto &&part : m_Parts) {
-      containerSizeInBytes += part.Header.PartSize;
-    }
+    uint32_t containerSizeInBytes = size();
     InitDxilContainer(&header, PartCount, containerSizeInBytes);
     IFT(pStream->Reserve(header.ContainerSizeInBytes));
     IFT(WriteStreamValue(pStream, header));
-    uint32_t offset = sizeof(header) + OffsetTableSize;
+    uint32_t offset = sizeof(header) + (uint32_t)GetOffsetTableSize(PartCount);
     for (auto &&part : m_Parts) {
       IFT(WriteStreamValue(pStream, offset));
       offset += sizeof(DxilPartHeader) + part.Header.PartSize;
@@ -532,6 +560,10 @@ public:
     DXASSERT(containerSizeInBytes == (uint32_t)pStream->GetPosition(), "else stream size is incorrect");
   }
 };
+
+DxilContainerWriter *hlsl::NewDxilContainerWriter() {
+  return new DxilContainerWriter_impl();
+}
 
 static bool HasDebugInfo(const Module &M) {
   for (Module::const_named_metadata_iterator NMI = M.named_metadata_begin(),
@@ -557,9 +589,12 @@ static void WriteProgramPart(const ShaderModel *pModel,
                              AbstractMemoryStream *pStream) {
   DXASSERT(pModel != nullptr, "else generation should have failed");
   DxilProgramHeader programHeader;
-  uint32_t ver =
+  uint32_t shaderVersion =
       EncodeVersion(pModel->GetKind(), pModel->GetMajor(), pModel->GetMinor());
-  InitProgramHeader(programHeader, ver, pModuleBitcode->GetPtrSize());
+  unsigned dxilMajor, dxilMinor;
+  pModel->GetDxilVersion(dxilMajor, dxilMinor);
+  uint32_t dxilVersion = DXIL::MakeDxilVersion(dxilMajor, dxilMinor);
+  InitProgramHeader(programHeader, shaderVersion, dxilVersion, pModuleBitcode->GetPtrSize());
 
   uint32_t programInUInt32, programPaddingBytes;
   GetPaddedProgramPartSize(pModuleBitcode, programInUInt32,
@@ -575,7 +610,7 @@ static void WriteProgramPart(const ShaderModel *pModel,
   }
 }
 
-void hlsl::SerializeDxilContainerForModule(Module *pModule,
+void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream) {
   // TODO: add a flag to update the module and remove information that is not part
@@ -585,21 +620,17 @@ void hlsl::SerializeDxilContainerForModule(Module *pModule,
   DXASSERT_NOMSG(pModuleBitcode != nullptr);
   DXASSERT_NOMSG(pFinalStream != nullptr);
 
-  CComPtr<AbstractMemoryStream> pProgramStream;
-  DxilModule dxilModule(pModule);
-  dxilModule.LoadDxilMetadata();
-
-  DxilProgramSignatureWriter inputSigWriter(dxilModule.GetInputSignature(),
-                                            dxilModule.GetTessellatorDomain(),
+  DxilProgramSignatureWriter inputSigWriter(pModule->GetInputSignature(),
+                                            pModule->GetTessellatorDomain(),
                                             /*IsInput*/ true);
-  DxilProgramSignatureWriter outputSigWriter(dxilModule.GetOutputSignature(),
-                                             dxilModule.GetTessellatorDomain(),
+  DxilProgramSignatureWriter outputSigWriter(pModule->GetOutputSignature(),
+                                             pModule->GetTessellatorDomain(),
                                              /*IsInput*/ false);
-  DxilPSVWriter PSVWriter(dxilModule);
-  DxilContainerWriter writer;
+  DxilPSVWriter PSVWriter(*pModule);
+  DxilContainerWriter_impl writer;
 
   // Write the feature part.
-  DxilFeatureInfoWriter featureInfoWriter(dxilModule);
+  DxilFeatureInfoWriter featureInfoWriter(*pModule);
   writer.AddPart(DFCC_FeatureInfo, featureInfoWriter.size(), [&](AbstractMemoryStream *pStream) {
     featureInfoWriter.write(pStream);
   });
@@ -613,10 +644,10 @@ void hlsl::SerializeDxilContainerForModule(Module *pModule,
   });
 
   DxilProgramSignatureWriter patchConstantSigWriter(
-      dxilModule.GetPatchConstantSignature(), dxilModule.GetTessellatorDomain(),
-      /*IsInput*/ dxilModule.GetShaderModel()->IsDS());
+      pModule->GetPatchConstantSignature(), pModule->GetTessellatorDomain(),
+      /*IsInput*/ pModule->GetShaderModel()->IsDS());
 
-  if (dxilModule.GetPatchConstantSignature().GetElements().size()) {
+  if (pModule->GetPatchConstantSignature().GetElements().size()) {
     writer.AddPart(DFCC_PatchConstantSignature, patchConstantSigWriter.size(),
                    [&](AbstractMemoryStream *pStream) {
                      patchConstantSigWriter.write(pStream);
@@ -629,32 +660,40 @@ void hlsl::SerializeDxilContainerForModule(Module *pModule,
   });
 
   // Write the root signature (RTS0) part.
-  DxilProgramRootSignatureWriter rootSigWriter(dxilModule.GetRootSignature());
-  if (!dxilModule.GetRootSignature().IsEmpty()) {
+  DxilProgramRootSignatureWriter rootSigWriter(pModule->GetRootSignature());
+  CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
+  if (!pModule->GetRootSignature().IsEmpty()) {
     writer.AddPart(
         DFCC_RootSignature, rootSigWriter.size(),
         [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+    pModule->StripRootSignatureFromMetadata();
+    pInputProgramStream.Release();
+    CComPtr<IMalloc> pMalloc;
+    IFT(CoGetMalloc(1, &pMalloc));
+    IFT(CreateMemoryStream(pMalloc, &pInputProgramStream));
+    raw_stream_ostream outStream(pInputProgramStream.p);
+    WriteBitcodeToFile(pModule->GetModule(), outStream, true);
   }
 
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
-  pProgramStream = pModuleBitcode;
-  if (HasDebugInfo(*pModule)) {
+  CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
+  if (HasDebugInfo(*pModule->GetModule())) {
     uint32_t debugInUInt32, debugPaddingBytes;
-    GetPaddedProgramPartSize(pModuleBitcode, debugInUInt32, debugPaddingBytes);
+    GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-      WriteProgramPart(dxilModule.GetShaderModel(), pModuleBitcode, pStream);
+      WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
     });
 
     pProgramStream.Release();
 
-    llvm::StripDebugInfo(*pModule);
-    dxilModule.StripDebugRelatedCode();
+    llvm::StripDebugInfo(*pModule->GetModule());
+    pModule->StripDebugRelatedCode();
 
     CComPtr<IMalloc> pMalloc;
     IFT(CoGetMalloc(1, &pMalloc));
     IFT(CreateMemoryStream(pMalloc, &pProgramStream));
     raw_stream_ostream outStream(pProgramStream.p);
-    WriteBitcodeToFile(pModule, outStream, true);
+    WriteBitcodeToFile(pModule->GetModule(), outStream, true);
   }
 
   // Compute padded bitcode size.
@@ -663,8 +702,23 @@ void hlsl::SerializeDxilContainerForModule(Module *pModule,
 
   // Write the program part.
   writer.AddPart(DFCC_DXIL, programInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-    WriteProgramPart(dxilModule.GetShaderModel(), pProgramStream, pStream);
+    WriteProgramPart(pModule->GetShaderModel(), pProgramStream, pStream);
   });
 
+  writer.write(pFinalStream);
+}
+
+void hlsl::SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
+                                     AbstractMemoryStream *pFinalStream) {
+  DXASSERT_NOMSG(pRootSigHandle != nullptr);
+  DXASSERT_NOMSG(pFinalStream != nullptr);
+  DxilContainerWriter_impl writer;
+  // Write the root signature (RTS0) part.
+  DxilProgramRootSignatureWriter rootSigWriter(*pRootSigHandle);
+  if (!pRootSigHandle->IsEmpty()) {
+    writer.AddPart(
+        DFCC_RootSignature, rootSigWriter.size(),
+        [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+  }
   writer.write(pFinalStream);
 }

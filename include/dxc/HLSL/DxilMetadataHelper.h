@@ -72,6 +72,9 @@ public:
   // Entry points.
   static const char kDxilEntryPointsMDName[];
 
+  // Root Signature, for intermediate use, not valid in final DXIL module.
+  static const char kDxilRootSignatureMDName[];
+
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
   static const unsigned kDxilEntryPointName       = 1;  // Entry point unmangled name.
@@ -169,6 +172,12 @@ public:
   // Control flow hint.
   static const char kDxilControlFlowHintMDName[];
 
+  // Resource attribute.
+  static const char kHLDxilResourceAttributeMDName[];
+  static const unsigned kHLDxilResourceAttributeNumFields = 2;
+  static const unsigned kHLDxilResourceAttributeClass = 0;
+  static const unsigned kHLDxilResourceAttributeMeta = 1;
+
   // Precise attribute.
   static const char kDxilPreciseAttributeMDName[];
 
@@ -181,7 +190,6 @@ public:
   static const unsigned kDxilDSStateTag         = 2;
   static const unsigned kDxilHSStateTag         = 3;
   static const unsigned kDxilNumThreadsTag      = 4;
-  static const unsigned kDxilRootSignatureTag   = 5;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;
@@ -211,6 +219,7 @@ public:
   class ExtraPropertyHelper {
   public:
     ExtraPropertyHelper(llvm::Module *pModule);
+    virtual ~ExtraPropertyHelper() {}
 
     virtual void EmitSRVProperties(const DxilResource &SRV, std::vector<llvm::Metadata *> &MDVals) = 0;
     virtual void LoadSRVProperties(const llvm::MDOperand &MDO, DxilResource &SRV) = 0;
@@ -261,11 +270,11 @@ public:
   void LoadDxilSignatures(const llvm::MDOperand &MDO, DxilSignature &InputSig, 
                           DxilSignature &OutputSig, DxilSignature &PCSig);
   llvm::MDTuple *EmitSignatureMetadata(const DxilSignature &Sig);
-  llvm::Metadata *EmitRootSignature(RootSignatureHandle &RootSig);
+  void EmitRootSignature(RootSignatureHandle &RootSig);
   void LoadSignatureMetadata(const llvm::MDOperand &MDO, DxilSignature &Sig);
   llvm::MDTuple *EmitSignatureElement(const DxilSignatureElement &SE);
   void LoadSignatureElement(const llvm::MDOperand &MDO, DxilSignatureElement &SE);
-  void LoadRootSignature(const llvm::MDOperand &MDO, RootSignatureHandle &RootSig);
+  void LoadRootSignature(RootSignatureHandle &RootSig);
 
   // Resources.
   llvm::MDTuple *EmitDxilResourceTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs, 
@@ -282,6 +291,10 @@ public:
   void LoadDxilCBuffer(const llvm::MDOperand &MDO, DxilCBuffer &CB);
   llvm::MDTuple *EmitDxilSampler(const DxilSampler &S);
   void LoadDxilSampler(const llvm::MDOperand &MDO, DxilSampler &S);
+  const llvm::MDOperand &GetResourceClass(llvm::MDNode *MD, DXIL::ResourceClass &RC);
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
+  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
+  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 
   // Type system.
   void EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, std::vector<llvm::GlobalVariable *> &LLVMUsed);
@@ -364,6 +377,7 @@ private:
 class DxilExtraPropertyHelper : public DxilMDHelper::ExtraPropertyHelper {
 public:
   DxilExtraPropertyHelper(llvm::Module *pModule);
+  virtual ~DxilExtraPropertyHelper() {}
 
   virtual void EmitSRVProperties(const DxilResource &SRV, std::vector<llvm::Metadata *> &MDVals);
   virtual void LoadSRVProperties(const llvm::MDOperand &MDO, DxilResource &SRV);

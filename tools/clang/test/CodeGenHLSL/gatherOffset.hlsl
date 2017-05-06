@@ -1,17 +1,17 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
-// CHECK: dx.op.textureGather.f32(i32 74
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
+// CHECK: dx.op.textureGather.f32(i32 73
 
 
 SamplerState samp1;

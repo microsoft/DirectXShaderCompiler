@@ -166,9 +166,10 @@ namespace {
 
   public:
     TypeProcessingState(Sema &sema, Declarator &declarator, Scope* S = nullptr) // HLSL Change: add Scope
-      : sema(sema), declarator(declarator), scope(S), // HLSL Change: add Scope
+      : sema(sema), declarator(declarator),
         chunkIndex(declarator.getNumTypeObjects()),
-        trivial(true), hasSavedAttrs(false) {}
+        trivial(true), hasSavedAttrs(false),
+        scope(S) {} // HLSL Change: add Scope
 
     // HLSL Change: add getScope
     Scope* getScope() const {
@@ -1388,7 +1389,6 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   }
   case DeclSpec::TST_typename: {
     assert(DS.getTypeSpecWidth() == 0 && DS.getTypeSpecComplex() == 0 &&
-           DS.getTypeSpecSign() == 0 &&
            "Can't handle qualifiers on typedef names yet!");
     Result = S.GetTypeFromParser(DS.getRepAsType());
     if (Result.isNull()) {

@@ -316,7 +316,7 @@ Store Output CP     StoreOutput
 Load Output CP                           LoadOutputControlPoint LoadOutputControlPoint
 Store PC                                 StorePatchConstant
 Load PC                                  LoadPatchConstant      LoadPatchConstant
-Store Output Vertex StoreOutput
+Store Output Vertex                                             StoreOutput
 =================== ==================== ====================== ======================
 
 LoadPatchConstant function in PC stage is generated only by DXBC-to-DXIL converter, to access DXBC vpc registers. HLSL compiler produces IR that references LLVM IR values directly.
@@ -536,7 +536,7 @@ The classification of behavior for various system values in various signature lo
 
 Each SigPointKind also has a corresponding element allocation (or packing) behavior called PackingKind.  Some SigPointKinds do not result in a signature at all, which corresponds to the packing kind of PackingKind::None.
 
-Signature Points are enumerated as follows in the SigPointKind enum::
+Signature Points are enumerated as follows in the SigPointKind
 
 .. <py>import hctdb_instrhelp</py>
 .. <py::lines('SIGPOINT-RST')>hctdb_instrhelp.get_sigpoint_rst()</py>
@@ -565,7 +565,8 @@ ID SigPoint Related ShaderKind PackingKind    SignatureKind Description
 
 .. SIGPOINT-RST:END
 
-Semantic Interpretations are as follows (SemanticInterpretationKind)::
+Semantic Interpretations are as follows (SemanticInterpretationKind)
+
 
 .. <py>import hctdb_instrhelp</py>
 .. <py::lines('SEMINT-RST')>hctdb_instrhelp.get_sem_interpretation_enum_rst()</py>
@@ -587,43 +588,46 @@ ID Name       Description
 
 .. SEMINT-RST:END
 
-Semantic Interpretations for each SemanticKind at each SigPointKind are as follows::
+Semantic Interpretations for each SemanticKind at each SigPointKind are as follows
+
 
 .. <py>import hctdb_instrhelp</py>
 .. <py::lines('SEMINT-TABLE-RST')>hctdb_instrhelp.get_sem_interpretation_table_rst()</py>
 .. SEMINT-TABLE-RST:BEGIN
 
-====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
-Semantic               VSIn VSOut PCIn     HSIn     HSCPIn HSCPOut PCOut      DSIn       DSCPIn DSOut GSVIn GSIn     GSOut PSIn         PSOut         CSIn
-====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
-Arbitrary              Arb  Arb   NA       NA       Arb    Arb     Arb        Arb        Arb    Arb   Arb   NA       Arb   Arb          NA            NA
-VertexID               SV   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NA
-InstanceID             SV   Arb   NA       NA       Arb    Arb     NA         NA         Arb    Arb   Arb   NA       Arb   Arb          NA            NA
-Position               Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-RenderTargetArrayIndex Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-ViewPortArrayIndex     Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-ClipDistance           Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-CullDistance           Arb  SV    NA       NA       SV     SV      Arb        Arb        SV     SV    SV    NA       SV    SV           NA            NA
-OutputControlPointID   NA   NA    NA       NotInSig NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NA
-DomainLocation         NA   NA    NA       NA       NA     NA      NA         NotInSig   NA     NA    NA    NA       NA    NA           NA            NA
-PrimitiveID            NA   NA    NotInSig NotInSig NA     NA      NA         NotInSig   NA     NA    NA    Shadow   SGV   SGV          NA            NA
-GSInstanceID           NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NotInSig NA    NA           NA            NA
-SampleIndex            NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    Shadow _41   NA            NA
-IsFrontFace            NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       SGV   SGV          NA            NA
-Coverage               NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NotInSig _50 NotPacked _41 NA
-InnerCoverage          NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NotInSig _50 NA            NA
-Target                 NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           Target        NA
-Depth                  NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked     NA
-DepthLessEqual         NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
-DepthGreaterEqual      NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
-StencilRef             NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NotPacked _50 NA
-DispatchThreadID       NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
-GroupID                NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
-GroupIndex             NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
-GroupThreadID          NA   NA    NA       NA       NA     NA      NA         NA         NA     NA    NA    NA       NA    NA           NA            NotInSig
-TessFactor             NA   NA    NA       NA       NA     NA      TessFactor TessFactor NA     NA    NA    NA       NA    NA           NA            NA
-InsideTessFactor       NA   NA    NA       NA       NA     NA      TessFactor TessFactor NA     NA    NA    NA       NA    NA           NA            NA
-====================== ==== ===== ======== ======== ====== ======= ========== ========== ====== ===== ===== ======== ===== ============ ============= ========
+====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============= ============= ========
+Semantic               VSIn         VSOut PCIn         HSIn         HSCPIn HSCPOut PCOut      DSIn         DSCPIn DSOut GSVIn GSIn         GSOut PSIn          PSOut         CSIn
+====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============= ============= ========
+Arbitrary              Arb          Arb   NA           NA           Arb    Arb     Arb        Arb          Arb    Arb   Arb   NA           Arb   Arb           NA            NA
+VertexID               SV           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NA
+InstanceID             SV           Arb   NA           NA           Arb    Arb     NA         NA           Arb    Arb   Arb   NA           Arb   Arb           NA            NA
+Position               Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
+RenderTargetArrayIndex Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
+ViewPortArrayIndex     Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
+ClipDistance           Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
+CullDistance           Arb          SV    NA           NA           SV     SV      Arb        Arb          SV     SV    SV    NA           SV    SV            NA            NA
+OutputControlPointID   NA           NA    NA           NotInSig     NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NA
+DomainLocation         NA           NA    NA           NA           NA     NA      NA         NotInSig     NA     NA    NA    NA           NA    NA            NA            NA
+PrimitiveID            NA           NA    NotInSig     NotInSig     NA     NA      NA         NotInSig     NA     NA    NA    Shadow       SGV   SGV           NA            NA
+GSInstanceID           NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NotInSig     NA    NA            NA            NA
+SampleIndex            NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    Shadow _41    NA            NA
+IsFrontFace            NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           SGV   SGV           NA            NA
+Coverage               NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotInSig _50  NotPacked _41 NA
+InnerCoverage          NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotInSig _50  NA            NA
+Target                 NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            Target        NA
+Depth                  NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NotPacked     NA
+DepthLessEqual         NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NotPacked _50 NA
+DepthGreaterEqual      NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NotPacked _50 NA
+StencilRef             NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NotPacked _50 NA
+DispatchThreadID       NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NotInSig
+GroupID                NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NotInSig
+GroupIndex             NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NotInSig
+GroupThreadID          NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NA            NA            NotInSig
+TessFactor             NA           NA    NA           NA           NA     NA      TessFactor TessFactor   NA     NA    NA    NA           NA    NA            NA            NA
+InsideTessFactor       NA           NA    NA           NA           NA     NA      TessFactor TessFactor   NA     NA    NA    NA           NA    NA            NA            NA
+ViewID                 NotInSig _61 NA    NotInSig _61 NotInSig _61 NA     NA      NA         NotInSig _61 NA     NA    NA    NotInSig _61 NA    NotInSig _61  NA            NA
+Barycentrics           NA           NA    NA           NA           NA     NA      NA         NA           NA     NA    NA    NA           NA    NotPacked _61 NA            NA
+====================== ============ ===== ============ ============ ====== ======= ========== ============ ====== ===== ===== ============ ===== ============= ============= ========
 
 .. SEMINT-TABLE-RST:END
 
@@ -1829,6 +1833,7 @@ DXIL uses a subset of core LLVM IR instructions that make sense for HLSL, where 
 
 The following LLVM instructions are valid in a DXIL program, with the specified operand types where applicable. The legend for overload types (v)oid, (h)alf, (f)loat, (d)ouble, (1)-bit, (8)-bit, (w)ord, (i)nt, (l)ong.
 
+
 .. <py>import hctdb_instrhelp</py>
 .. <py::lines('INSTR-RST')>hctdb_instrhelp.get_instrs_rst()</py>
 .. INSTR-RST:BEGIN
@@ -1896,160 +1901,204 @@ Opcodes are defined on a dense range and will be provided as enum in a header fi
 .. <py::lines('OPCODES-RST')>hctdb_instrhelp.get_opcodes_rst()</py>
 .. OPCODES-RST:BEGIN
 
-=== ============================= ================================================================================================================
-ID  Name                          Description
-=== ============================= ================================================================================================================
-0   TempRegLoad                   helper load operation
-1   TempRegStore                  helper store operation
-2   MinPrecXRegLoad               helper load operation for minprecision
-3   MinPrecXRegStore              helper store operation for minprecision
-4   LoadInput                     loads the value from shader input
-5   StoreOutput                   stores the value to shader output
-6   FAbs                          returns the absolute value of the input value.
-7   Saturate                      clamps the result of a single or double precision floating point value to [0.0f...1.0f]
-8   IsNaN                         returns the IsNaN
-9   IsInf                         returns the IsInf
-10  IsFinite                      returns the IsFinite
-11  IsNormal                      returns the IsNormal
-12  Cos                           returns cosine(theta) for theta in radians.
-13  Sin                           returns the Sin
-14  Tan                           returns the Tan
-15  Acos                          returns the Acos
-16  Asin                          returns the Asin
-17  Atan                          returns the Atan
-18  Hcos                          returns the Hcos
-19  Hsin                          returns the Hsin
-20  Exp                           returns the Exp
-21  Frc                           returns the Frc
-22  Log                           returns the Log
-23  Sqrt                          returns the Sqrt
-24  Rsqrt                         returns the Rsqrt
-25  Round_ne                      returns the Round_ne
-26  Round_ni                      returns the Round_ni
-27  Round_pi                      returns the Round_pi
-28  Round_z                       returns the Round_z
-29  Bfrev                         returns the reverse bit pattern of the input value
-30  Countbits                     returns the Countbits
-31  FirstbitLo                    returns the FirstbitLo
-32  FirstbitHi                    returns src != 0? (BitWidth-1 - FirstbitHi) : -1
-33  FirstbitSHi                   returns src != 0? (BitWidth-1 - FirstbitSHi) : -1
-34  FMax                          returns the FMax of the input values
-35  FMin                          returns the FMin of the input values
-36  IMax                          returns the IMax of the input values
-37  IMin                          returns the IMin of the input values
-38  UMax                          returns the UMax of the input values
-39  UMin                          returns the UMin of the input values
-40  IMul                          returns the IMul of the input values
-41  UMul                          returns the UMul of the input values
-42  UDiv                          returns the UDiv of the input values
-43  IAddc                         returns the IAddc of the input values
-44  UAddc                         returns the UAddc of the input values
-45  ISubc                         returns the ISubc of the input values
-46  USubc                         returns the USubc of the input values
-47  FMad                          performs a fused multiply add (FMA) of the form a * b + c
-48  Fma                           performs a fused multiply add (FMA) of the form a * b + c
-49  IMad                          performs an integral IMad
-50  UMad                          performs an integral UMad
-51  Msad                          performs an integral Msad
-52  Ibfe                          performs an integral Ibfe
-53  Ubfe                          performs an integral Ubfe
-54  Bfi                           given a bit range from the LSB of a number, places that number of bits in another number at any offset
-55  Dot2                          two-dimensional vector dot-product
-56  Dot3                          three-dimensional vector dot-product
-57  Dot4                          four-dimensional vector dot-product
-58  CreateHandle                  creates the handle to a resource
-59  CBufferLoad                   loads a value from a constant buffer resource
-60  CBufferLoadLegacy             loads a value from a constant buffer resource
-61  Sample                        samples a texture
-62  SampleBias                    samples a texture after applying the input bias to the mipmap level
-63  SampleLevel                   samples a texture using a mipmap-level offset
-64  SampleGrad                    samples a texture using a gradient to influence the way the sample location is calculated
-65  SampleCmp                     samples a texture and compares a single component against the specified comparison value
-66  SampleCmpLevelZero            samples a texture and compares a single component against the specified comparison value
-67  TextureLoad                   reads texel data without any filtering or sampling
-68  TextureStore                  reads texel data without any filtering or sampling
-69  BufferLoad                    reads from a TypedBuffer
-70  BufferStore                   writes to a RWTypedBuffer
-71  BufferUpdateCounter           atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
-72  CheckAccessFullyMapped        determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
-73  GetDimensions                 gets texture size information
-74  TextureGather                 gathers the four texels that would be used in a bi-linear filtering operation
-75  TextureGatherCmp              same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
-76  ToDelete5                     reserved
-77  ToDelete6                     reserved
-78  Texture2DMSGetSamplePosition  gets the position of the specified sample
-79  RenderTargetGetSamplePosition gets the position of the specified sample
-80  RenderTargetGetSampleCount    gets the number of samples for a render target
-81  AtomicBinOp                   performs an atomic operation on two operands
-82  AtomicCompareExchange         atomic compare and exchange to memory
-83  Barrier                       inserts a memory barrier in the shader
-84  CalculateLOD                  calculates the level of detail
-85  Discard                       discard the current pixel
-86  DerivCoarseX                  computes the rate of change of components per stamp
-87  DerivCoarseY                  computes the rate of change of components per stamp
-88  DerivFineX                    computes the rate of change of components per pixel
-89  DerivFineY                    computes the rate of change of components per pixel
-90  EvalSnapped                   evaluates an input attribute at pixel center with an offset
-91  EvalSampleIndex               evaluates an input attribute at a sample location
-92  EvalCentroid                  evaluates an input attribute at pixel center
-93  ThreadId                      reads the thread ID
-94  GroupId                       reads the group ID (SV_GroupID)
-95  ThreadIdInGroup               reads the thread ID within the group (SV_GroupThreadID)
-96  FlattenedThreadIdInGroup      provides a flattened index for a given thread within a given group (SV_GroupIndex)
-97  EmitStream                    emits a vertex to a given stream
-98  CutStream                     completes the current primitive topology at the specified stream
-99  EmitThenCutStream             equivalent to an EmitStream followed by a CutStream
-100 MakeDouble                    creates a double value
-101 ToDelete1                     reserved
-102 ToDelete2                     reserved
-103 SplitDouble                   splits a double into low and high parts
-104 ToDelete3                     reserved
-105 ToDelete4                     reserved
-106 LoadOutputControlPoint        LoadOutputControlPoint
-107 LoadPatchConstant             LoadPatchConstant
-108 DomainLocation                DomainLocation
-109 StorePatchConstant            StorePatchConstant
-110 OutputControlPointID          OutputControlPointID
-111 PrimitiveID                   PrimitiveID
-112 CycleCounterLegacy            CycleCounterLegacy
-113 Htan                          returns the hyperbolic tangent of the specified value
-114 WaveCaptureReserved           reserved
-115 WaveIsFirstLane               returns 1 for the first lane in the wave
-116 WaveGetLaneIndex              returns the index of the current lane in the wave
-117 WaveGetLaneCount              returns the number of lanes in the wave
-118 WaveIsHelperLaneReserved      reserved
-119 WaveAnyTrue                   returns 1 if any of the lane evaluates the value to true
-120 WaveAllTrue                   returns 1 if all the lanes evaluate the value to true
-121 WaveActiveAllEqual            returns 1 if all the lanes have the same value
-122 WaveActiveBallot              returns a struct with a bit set for each lane where the condition is true
-123 WaveReadLaneAt                returns the value from the specified lane
-124 WaveReadLaneFirst             returns the value from the first lane
-125 WaveActiveOp                  returns the result the operation across waves
-126 WaveActiveBit                 returns the result of the operation across all lanes
-127 WavePrefixOp                  returns the result of the operation on prior lanes
-128 WaveGetOrderedIndex           reserved
-129 GlobalOrderedCountIncReserved reserved
-130 QuadReadLaneAt                reads from a lane in the quad
-131 QuadOp                        returns the result of a quad-level operation
-132 BitcastI16toF16               bitcast between different sizes
-133 BitcastF16toI16               bitcast between different sizes
-134 BitcastI32toF32               bitcast between different sizes
-135 BitcastF32toI32               bitcast between different sizes
-136 BitcastI64toF64               bitcast between different sizes
-137 BitcastF64toI64               bitcast between different sizes
-138 GSInstanceID                  GSInstanceID
-139 LegacyF32ToF16                legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
-140 LegacyF16ToF32                legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
-141 LegacyDoubleToFloat           legacy fuction to convert double to float
-142 LegacyDoubleToSInt32          legacy fuction to convert double to int32
-143 LegacyDoubleToUInt32          legacy fuction to convert double to uint32
-144 WaveAllBitCount               returns the count of bits set to 1 across the wave
-145 WavePrefixBitCount            returns the count of bits set to 1 on prior lanes
-146 SampleIndex                   returns the sample index in a sample-frequency pixel shader
-147 Coverage                      returns the coverage mask input in a pixel shader
-148 InnerCoverage                 returns underestimated coverage input from conservative rasterization in a pixel shader
-=== ============================= ================================================================================================================
+=== ============================== =================================================================================================================
+ID  Name                           Description
+=== ============================== =================================================================================================================
+0   TempRegLoad_                   Helper load operation
+1   TempRegStore_                  Helper store operation
+2   MinPrecXRegLoad_               Helper load operation for minprecision
+3   MinPrecXRegStore_              Helper store operation for minprecision
+4   LoadInput_                     Loads the value from shader input
+5   StoreOutput_                   Stores the value to shader output
+6   FAbs_                          returns the absolute value of the input value.
+7   Saturate_                      clamps the result of a single or double precision floating point value to [0.0f...1.0f]
+8   IsNaN_                         Returns true if x is NAN or QNAN, false otherwise.
+9   IsInf_                         Returns true if x is +INF or -INF, false otherwise.
+10  IsFinite_                      Returns true if x is finite, false otherwise.
+11  IsNormal_                      returns IsNormal
+12  Cos_                           returns cosine(theta) for theta in radians.
+13  Sin_                           returns sine(theta) for theta in radians.
+14  Tan_                           returns tan(theta) for theta in radians.
+15  Acos_                          Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1.
+16  Asin_                          Returns the arccosine of the specified value. Input should be a floating-point value within the range of -1 to 1
+17  Atan_                          Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2.
+18  Hcos_                          returns the hyperbolic cosine of the specified value.
+19  Hsin_                          returns the hyperbolic sine of the specified value.
+20  Htan_                          returns the hyperbolic tangent of the specified value.
+21  Exp_                           returns 2^exponent
+22  Frc_                           extract fracitonal component.
+23  Log_                           returns log base 2.
+24  Sqrt_                          returns square root
+25  Rsqrt_                         returns reciprocal square root (1 / sqrt(src)
+26  Round_ne_                      floating-point round to integral float.
+27  Round_ni_                      floating-point round to integral float.
+28  Round_pi_                      floating-point round to integral float.
+29  Round_z_                       floating-point round to integral float.
+30  Bfrev_                         Reverses the order of the bits.
+31  Countbits_                     Counts the number of bits in the input integer.
+32  FirstbitLo_                    Returns the location of the first set bit starting from the lowest order bit and working upward.
+33  FirstbitHi_                    Returns the location of the first set bit starting from the highest order bit and working downward.
+34  FirstbitSHi_                   Returns the location of the first set bit from the highest order bit based on the sign.
+35  FMax_                          returns a if a >= b, else b
+36  FMin_                          returns a if a < b, else b
+37  IMax_                          IMax(a,b) returns a if a > b, else b
+38  IMin_                          IMin(a,b) returns a if a < b, else b
+39  UMax_                          unsigned integer maximum. UMax(a,b) = a > b ? a : b
+40  UMin_                          unsigned integer minimum. UMin(a,b) = a < b ? a : b
+41  IMul_                          multiply of 32-bit operands to produce the correct full 64-bit result.
+42  UMul_                          multiply of 32-bit operands to produce the correct full 64-bit result.
+43  UDiv_                          unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+44  UAddc_                         unsigned add of 32-bit operand with the carry
+45  USubb_                         unsigned subtract of 32-bit operands with the borrow
+46  FMad_                          floating point multiply & add
+47  Fma_                           fused multiply-add
+48  IMad_                          Signed integer multiply & add
+49  UMad_                          Unsigned integer multiply & add
+50  Msad_                          masked Sum of Absolute Differences.
+51  Ibfe_                          Integer bitfield extract
+52  Ubfe_                          Unsigned integer bitfield extract
+53  Bfi_                           Given a bit range from the LSB of a number, places that number of bits in another number at any offset
+54  Dot2_                          Two-dimensional vector dot-product
+55  Dot3_                          Three-dimensional vector dot-product
+56  Dot4_                          Four-dimensional vector dot-product
+57  CreateHandle_                  creates the handle to a resource
+58  CBufferLoad_                   loads a value from a constant buffer resource
+59  CBufferLoadLegacy_             loads a value from a constant buffer resource
+60  Sample_                        samples a texture
+61  SampleBias_                    samples a texture after applying the input bias to the mipmap level
+62  SampleLevel_                   samples a texture using a mipmap-level offset
+63  SampleGrad_                    samples a texture using a gradient to influence the way the sample location is calculated
+64  SampleCmp_                     samples a texture and compares a single component against the specified comparison value
+65  SampleCmpLevelZero_            samples a texture and compares a single component against the specified comparison value
+66  TextureLoad_                   reads texel data without any filtering or sampling
+67  TextureStore_                  reads texel data without any filtering or sampling
+68  BufferLoad_                    reads from a TypedBuffer
+69  BufferStore_                   writes to a RWTypedBuffer
+70  BufferUpdateCounter_           atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV
+71  CheckAccessFullyMapped_        determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource
+72  GetDimensions_                 gets texture size information
+73  TextureGather_                 gathers the four texels that would be used in a bi-linear filtering operation
+74  TextureGatherCmp_              same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+75  Texture2DMSGetSamplePosition_  gets the position of the specified sample
+76  RenderTargetGetSamplePosition_ gets the position of the specified sample
+77  RenderTargetGetSampleCount_    gets the number of samples for a render target
+78  AtomicBinOp_                   performs an atomic operation on two operands
+79  AtomicCompareExchange_         atomic compare and exchange to memory
+80  Barrier_                       inserts a memory barrier in the shader
+81  CalculateLOD_                  calculates the level of detail
+82  Discard_                       discard the current pixel
+83  DerivCoarseX_                  computes the rate of change per stamp in x direction.
+84  DerivCoarseY_                  computes the rate of change per stamp in y direction.
+85  DerivFineX_                    computes the rate of change per pixel in x direction.
+86  DerivFineY_                    computes the rate of change per pixel in y direction.
+87  EvalSnapped_                   evaluates an input attribute at pixel center with an offset
+88  EvalSampleIndex_               evaluates an input attribute at a sample location
+89  EvalCentroid_                  evaluates an input attribute at pixel center
+90  SampleIndex_                   returns the sample index in a sample-frequency pixel shader
+91  Coverage_                      returns the coverage mask input in a pixel shader
+92  InnerCoverage_                 returns underestimated coverage input from conservative rasterization in a pixel shader
+93  ThreadId_                      reads the thread ID
+94  GroupId_                       reads the group ID (SV_GroupID)
+95  ThreadIdInGroup_               reads the thread ID within the group (SV_GroupThreadID)
+96  FlattenedThreadIdInGroup_      provides a flattened index for a given thread within a given group (SV_GroupIndex)
+97  EmitStream_                    emits a vertex to a given stream
+98  CutStream_                     completes the current primitive topology at the specified stream
+99  EmitThenCutStream_             equivalent to an EmitStream followed by a CutStream
+100 GSInstanceID_                  GSInstanceID
+101 MakeDouble_                    creates a double value
+102 SplitDouble_                   splits a double into low and high parts
+103 LoadOutputControlPoint_        LoadOutputControlPoint
+104 LoadPatchConstant_             LoadPatchConstant
+105 DomainLocation_                DomainLocation
+106 StorePatchConstant_            StorePatchConstant
+107 OutputControlPointID_          OutputControlPointID
+108 PrimitiveID_                   PrimitiveID
+109 CycleCounterLegacy_            CycleCounterLegacy
+110 WaveIsFirstLane_               returns 1 for the first lane in the wave
+111 WaveGetLaneIndex_              returns the index of the current lane in the wave
+112 WaveGetLaneCount_              returns the number of lanes in the wave
+113 WaveAnyTrue_                   returns 1 if any of the lane evaluates the value to true
+114 WaveAllTrue_                   returns 1 if all the lanes evaluate the value to true
+115 WaveActiveAllEqual_            returns 1 if all the lanes have the same value
+116 WaveActiveBallot_              returns a struct with a bit set for each lane where the condition is true
+117 WaveReadLaneAt_                returns the value from the specified lane
+118 WaveReadLaneFirst_             returns the value from the first lane
+119 WaveActiveOp_                  returns the result the operation across waves
+120 WaveActiveBit_                 returns the result of the operation across all lanes
+121 WavePrefixOp_                  returns the result of the operation on prior lanes
+122 QuadReadLaneAt_                reads from a lane in the quad
+123 QuadOp_                        returns the result of a quad-level operation
+124 BitcastI16toF16_               bitcast between different sizes
+125 BitcastF16toI16_               bitcast between different sizes
+126 BitcastI32toF32_               bitcast between different sizes
+127 BitcastF32toI32_               bitcast between different sizes
+128 BitcastI64toF64_               bitcast between different sizes
+129 BitcastF64toI64_               bitcast between different sizes
+130 LegacyF32ToF16_                legacy fuction to convert float (f32) to half (f16) (this is not related to min-precision)
+131 LegacyF16ToF32_                legacy fuction to convert half (f16) to float (f32) (this is not related to min-precision)
+132 LegacyDoubleToFloat_           legacy fuction to convert double to float
+133 LegacyDoubleToSInt32_          legacy fuction to convert double to int32
+134 LegacyDoubleToUInt32_          legacy fuction to convert double to uint32
+135 WaveAllBitCount_               returns the count of bits set to 1 across the wave
+136 WavePrefixBitCount_            returns the count of bits set to 1 on prior lanes
+137 AttributeAtVertex_             returns the values of the attributes at the vertex.
+138 ViewID_                        returns the view index
+=== ============================== =================================================================================================================
 
+
+Acos
+~~~~
+
+The return value is within the range of -PI/2 to PI/2.
+
++----------+------+--------------+---------+------+------+---------+------+-----+
+| src      | -inf | [-1,1]       | -denorm | -0   | +0   | +denorm | +inf | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+| acos(src)|  NaN | (-PI/2,+PI/2)|    PI/2 | PI/2 | PI/2 |    PI/2 |  NaN | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+
+Asin
+~~~~
+
+The return value is within the range of -PI/2 to PI/2.
+
++----------+------+--------------+---------+------+------+---------+------+-----+
+| src      | -inf | [-1,1]       | -denorm | -0   | +0   | +denorm | +inf | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+| asin(src)|  NaN | (-PI/2,+PI/2)|    0    |  0   |  0   |    0    |  NaN | NaN |
++----------+------+--------------+---------+------+------+---------+------+-----+
+
+Atan
+~~~~
+
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
+| src      | -inf | -F           | -denorm | -0   | +0   | +denorm | +F            |+inf | NaN |
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
+| atan(src)| -PI/2| (-PI/2,+PI/2)|    0    |  0   |  0   |    0    | (-PI/2,+PI/2) |PI/2 | NaN |
++----------+------+--------------+---------+------+------+---------+---------------+-----+-----+
+
+Returns the arctangent of the specified value. The return value is within the range of -PI/2 to PI/2
+
+AttributeAtVertex
+~~~~~~~~~~~~~~~~~
+
+returns the values of the attributes at the vertex. VertexID ranges from 0 to 2.
+
+Bfi
+~~~
+
+Given a bit range from the LSB of a number, place that number of bits in another number at any offset.
+
+dst = Bfi(src0, src1, src2, src3);
+
+The LSB 5 bits of src0 provide the bitfield width (0-31) to take from src2.
+The LSB 5 bits of src1 provide the bitfield offset (0-31) to start replacing bits in the  number read from src3.
+Given width, offset: bitmask = (((1 << width)-1) << offset) & 0xffffffff, dest = ((src2 << offset) & bitmask) | (src3 & ~bitmask)
+
+Bfrev
+~~~~~
+
+Reverses the order of the bits. For example given 0x12345678 the result would be 0x1e6a2c48.
 
 Cos
 ~~~
@@ -2058,18 +2107,427 @@ Theta values can be any IEEE 32-bit floating point values.
 
 The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
 
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| cos(src) |  NaN | [-1 to +1] |      +1 | +1 | +1 |      +1 | [-1 to +1] |  NaN | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Countbits
+~~~~~~~~~
+
+Counts the number of bits in the input integer.
+
+DerivCoarseX
+~~~~~~~~~~~~
+
+dst = DerivCoarseX(src);
+
+Computes the rate of change per stamp in x direction. Only a single x derivative pair is computed for each 2x2 stamp of pixels.
+The data in the current Pixel Shader invocation may or may not participate in the calculation of the requested derivative, given the derivative will be calculated only once per 2x2 quad:
+As an example, the x derivative could be a delta from the top row of pixels.
+The exact calculation is up to the hardware vendor. There is also no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+DerivCoarseY
+~~~~~~~~~~~~
+
+dst = DerivCoarseY(src);
+
+Computes the rate of change per stamp in y direction. Only a single y derivative pair is computed for each 2x2 stamp of pixels.
+The data in the current Pixel Shader invocation may or may not participate in the calculation of the requested derivative, given the derivative will be calculated only once per 2x2 quad:
+As an example, the y derivative could be a delta from the left column of pixels.
+The exact calculation is up to the hardware vendor. There is also no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+DerivFineX
+~~~~~~~~~~
+
+dst = DerivFineX(src);
+
+Computes the rate of change per pixel in x direction. Each pixel in the 2x2 stamp gets a unique pair of x derivative calculations
+The data in the current Pixel Shader invocation always participates in the calculation of the requested derivative.
+There is no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+DerivFineY
+~~~~~~~~~~
+
+dst = DerivFineY(src);
+
+Computes the rate of change per pixel in y direction. Each pixel in the 2x2 stamp gets a unique pair of y derivative calculations
+The data in the current Pixel Shader invocation always participates in the calculation of the requested derivative.
+There is no specification dictating how the 2x2 quads will be aligned/tiled over a primitive.
+
+Dot2
+~~~~
+
+Two-dimensional vector dot-product
+
+Dot3
+~~~~
+
+Three-dimensional vector dot-product
+
+Dot4
+~~~~
+
+Four-dimensional vector dot-product
+
+Exp
+~~~
+
+Returns 2^exponent. Note that hlsl log intrinsic returns the base-e exponent. Maximum relative error is e^-21.
 
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
-| cos(src) |  NaN | [-1 to +1] |      -0 | -0 | +0 |      +0 | [-1 to +1] |  NaN | NaN |
+| exp(src) |  0   | +F         |    1    |  1 |  1 |       1 | +F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 
 FAbs
 ~~~~
 
-The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF values.
+The FAbs instruction takes simply forces the sign of the number(s) on the source operand positive, including on INF and denorm values.
 Applying FAbs on NaN preserves NaN, although the particular NaN bit pattern that results is not defined.
+
+FMad
+~~~~
+
+Floating point multiply & add. This operation is not fused for "precise" operations.
+FMad(a,b,c) = a * b + c
+
+FMax
+~~~~
+
+>= is used instead of > so that if min(x,y) = x then max(x,y) = y.
+
+NaN has special handling: If one source operand is NaN, then the other source operand is returned.
+If both are NaN, any NaN representation is returned.
+This conforms to new IEEE 754R rules.
+
+Denorms are flushed (sign preserved) before comparison, however the result written to dest may or may not be denorm flushed.
+
++------+-----------------------------+
+| a    | b                           |
+|      +------+--------+------+------+
+|      | -inf | F      | +inf | NaN  |
++------+------+--------+------+------+
+| -inf | -inf | b      | +inf | -inf |
++------+------+--------+------+------+
+| F    | a    | a or b | +inf | a    |
++------+------+--------+------+------+
+| +inf | +inf | +inf   | +inf | +inf |
++------+------+--------+------+------+
+| NaN  | -inf | b      | +inf | NaN  |
++------+------+--------+------+------+
+
+FMin
+~~~~
+
+NaN has special handling: If one source operand is NaN, then the other source operand is returned.
+If both are NaN, any NaN representation is returned.
+This conforms to new IEEE 754R rules.
+
+Denorms are flushed (sign preserved) before comparison, however the result written to dest may or may not be denorm flushed.
+
++------+-----------------------------+
+| a    | b                           |
+|      +------+--------+------+------+
+|      | -inf | F      | +inf | NaN  |
++------+------+--------+------+------+
+| -inf | -inf | -inf   | -inf | -inf |
++------+------+--------+------+------+
+| F    | -inf | a or b |    a |    a |
++------+------+--------+------+------+
+| +inf | -inf | b      | +inf | +inf |
++------+------+--------+------+------+
+| NaN  | -inf | b      | +inf | NaN  |
++------+------+--------+------+------+
+
+FirstbitHi
+~~~~~~~~~~
+
+Returns the integer position of the first bit set in the 32-bit input starting from the MSB. For example, 0x10000000 would return 3. Returns 0xffffffff if no match was found.
+
+FirstbitLo
+~~~~~~~~~~
+
+Returns the integer position of the first bit set in the 32-bit input starting from the LSB. For example, 0x00000000 would return 1. Returns 0xffffffff if no match was found.
+
+FirstbitSHi
+~~~~~~~~~~~
+
+Returns the first 0 from the MSB if the number is negative, else the first 1 from the MSB. Returns 0xffffffff if no match was found.
+
+Fma
+~~~
+
+Fused multiply-add. This operation is only defined in double precision.
+Fma(a,b,c) = a * b + c
+
+Frc
+~~~
+
++--------------+------+------+---------+----+----+---------+--------+------+-----+
+| src          | -inf | -F   | -denorm | -0 | +0 | +denorm | +F     | +inf | NaN |
++--------------+------+------+---------+----+----+---------+--------+------+-----+
+| log(src)     | NaN  |[+0,1)| +0      | +0 | +0 | +0      | [+0,1) | NaN  | NaN |
++--------------+------+------+---------+----+----+---------+--------+------+-----+
+
+Hcos
+~~~~
+
+Returns the hyperbolic cosine of the specified value.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| hcos(src)| +inf | (1, +inf)  |      +1 | +1 | +1 |      +1 | (1, +inf)  | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Hsin
+~~~~
+
+Returns the hyperbolic sine of the specified value.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| hsin(src)| -inf | -F         |       0 |  0 |  0 |       0 | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Htan
+~~~~
+
+Returns the hyperbolic tangent of the specified value.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| htan(src)| -1   | -F         |       0 |  0 |  0 |       0 | +F         | +1   | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+IMad
+~~~~
+
+Signed integer multiply & add
+
+IMad(a,b,c) = a * b + c
+
+IMax
+~~~~
+
+IMax(a,b) returns a if a > b, else b. Optional negate modifier on source operands takes 2's complement before performing operation.
+
+IMin
+~~~~
+
+IMin(a,b) returns a if a < b, else b. Optional negate modifier on source operands takes 2's complement before performing operation.
+
+IMul
+~~~~
+
+IMul(src0, src1) = destHi, destLo
+multiply of 32-bit operands src0 and src1 (note they are signed), producing the correct full 64-bit result.
+The low 32 bits are placed in destLO. The high 32 bits are placed in destHI.
+
+Either of destHI or destLO may be specified as NULL instead of specifying a register, in the case high or low 32 bits of the 64-bit result are not needed.
+
+Optional negate modifier on source operands takes 2's complement before performing arithmetic operation.
+
+Ibfe
+~~~~
+
+dest = Ibfe(src0, src1, src2)
+
+Given a range of bits in a number, shift those bits to the LSB and sign extend the MSB of the range.
+
+width : The LSB 5 bits of src0 (0-31).
+
+offset: The LSB 5 bits of src1 (0-31)
+
+.. code:: c
+
+    if( width == 0 )
+    {
+        dest = 0
+    }
+    else if( width + offset < 32 )
+    {
+        shl dest, src2, 32-(width+offset)
+        ishr dest, dest, 32-width
+    }
+    else
+    {
+        ishr dest, src2, offset
+    }
+
+IsFinite
+~~~~~~~~
+
+Returns true if x is finite, false otherwise.
+
+IsInf
+~~~~~
+
+Returns true if x is +INF or -INF, false otherwise.
+
+IsNaN
+~~~~~
+
+Returns true if x is NAN or QNAN, false otherwise.
+
+IsNormal
+~~~~~~~~
+
+Returns IsNormal.
+
+LoadInput
+~~~~~~~~~
+
+Loads the value from shader input
+
+Log
+~~~
+
+Returns log base 2. Note that hlsl log intrinsic returns natural log.
+
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+| log(src) |  NaN | NaN        |    -inf |-inf|-inf|    -inf |  F         | +inf | NaN |
++----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+MinPrecXRegLoad
+~~~~~~~~~~~~~~~
+
+Helper load operation for minprecision
+
+MinPrecXRegStore
+~~~~~~~~~~~~~~~~
+
+Helper store operation for minprecision
+
+Msad
+~~~~
+
+Returns the masked Sum of Absolute Differences.
+
+dest = msad(ref, src, accum)
+
+ref: contains 4 packed 8-bit unsigned integers in 32 bits.
+
+src: contains 4 packed 8-bit unsigned integers in 32 bits.
+
+accum: a 32-bit unsigned integer, providing an existing accumulation.
+
+dest receives the result of the masked SAD operation added to the accumulation value.
+
+.. code:: c
+
+    UINT msad( UINT ref, UINT src, UINT accum )
+    {
+        for (UINT i = 0; i < 4; i++)
+        {
+            BYTE refByte, srcByte, absDiff;
+
+            refByte = (BYTE)(ref >> (i * 8));
+            if (!refByte)
+            {
+                continue;
+            }
+
+            srcByte = (BYTE)(src >> (i * 8));
+            if (refByte >= srcByte)
+            {
+                absDiff = refByte - srcByte;
+            }
+            else
+            {
+                absDiff = srcByte - refByte;
+            }
+
+            // The recommended overflow behavior for MSAD is
+            // to do a 32-bit saturate. This is not
+            // required, however, and wrapping is allowed.
+            // So from an application point of view,
+            // overflow behavior is undefined.
+            if (UINT_MAX - accum < absDiff)
+            {
+                accum = UINT_MAX;
+                break;
+            }
+
+            accum += absDiff;
+        }
+
+        return accum;
+    }
+
+Round_ne
+~~~~~~~~
+
+Floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_ne rounds towards nearest even. For halfway, it rounds away from zero.
+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| round_ne(src)| -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+
+Round_ni
+~~~~~~~~
+
+Floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_ni rounds towards -INF, commonly known as floor().
+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| round_ni(src)| -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+
+Round_pi
+~~~~~~~~
+
+Floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_pi rounds towards +INF, commonly known as ceil().
+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| round_pi(src)| -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+
+Round_z
+~~~~~~~
+
+Floating-point round of the values in src,
+writing integral floating-point values to dest.
+
+round_z rounds towards zero.
+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| round_z(src) | -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+
+Rsqrt
+~~~~~
+
+Maximum relative error is 2^21.
+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| rsqrt(src)   | -inf | -F | -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
 
 Saturate
 ~~~~~~~~
@@ -2092,8 +2550,127 @@ The maximum absolute error is 0.0008 in the interval from -100*Pi to +100*Pi.
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
-| sin(src) |  NaN | [-1 to +1] |      +1 | +1 | +1 |      +1 | [-1 to +1] |  NaN | NaN |
+| sin(src) |  NaN | [-1 to +1] |      -0 | -0 | +0 |      +0 | [-1 to +1] |  NaN | NaN |
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
+
+Sqrt
+~~~~
+
+Precision is 1 ulp.
+
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| src          | -inf | -F | -denorm | -0 | +0 | +denorm | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+| sqrt(src)    | NaN  | NaN| -0      | -0 | +0 | +0      | +F | +inf | NaN |
++--------------+------+----+---------+----+----+---------+----+------+-----+
+
+StoreOutput
+~~~~~~~~~~~
+
+Stores the value to shader output
+
+Tan
+~~~
+
+Theta values can be any IEEE 32-bit floating point values.
+
++----------+----------+----------------+---------+----+----+---------+----------------+------+-----+
+| src      | -inf     | -F             | -denorm | -0 | +0 | +denorm | +F             | +inf | NaN |
++----------+----------+----------------+---------+----+----+---------+----------------+------+-----+
+| tan(src) | NaN      | [-inf to +inf] | -0      | -0 | +0 | +0      | [-inf to +inf] | NaN  | NaN |
++----------+----------+----------------+---------+----+----+---------+----------------+------+-----+
+
+TempRegLoad
+~~~~~~~~~~~
+
+Helper load operation
+
+TempRegStore
+~~~~~~~~~~~~
+
+Helper store operation
+
+UAddc
+~~~~~
+
+dest0, dest1 = UAddc(src0, src1)
+
+unsigned add of 32-bit operands src0 and src1, placing the LSB part of the 32-bit result in dest0.
+dest1 is written with: 1 if a carry is produced, 0 otherwise. Dest1 can be NULL if the carry is not needed
+
+UDiv
+~~~~
+
+destQUOT, destREM = UDiv(src0, src1);
+
+unsigned divide of the 32-bit operand src0 by the 32-bit operand src1.
+
+The results of the divides are the 32-bit quotients (placed in destQUOT) and 32-bit remainders (placed in destREM).
+
+Divide by zero returns 0xffffffff for both quotient and remainder.
+
+Either destQUOT or destREM may be specified as NULL instead of specifying a register, in the case the quotient or remainder are not needed.
+
+Unsigned subtract of 32-bit operands src1 from src0, placing the LSB part of the 32-bit result in dest0.
+dest1 is written with: 1 if a borrow is produced, 0 otherwise. Dest1 can be NULL if the borrow is not needed
+
+UMad
+~~~~
+
+Unsigned integer multiply & add.
+
+Umad(a,b,c) = a * b + c
+
+UMax
+~~~~
+
+unsigned integer maximum. UMax(a,b) = a > b ? a : b
+
+UMin
+~~~~
+
+unsigned integer minimum. UMin(a,b) = a < b ? a : b
+
+UMul
+~~~~
+
+multiply of 32-bit operands src0 and src1 (note they are unsigned), producing the correct full 64-bit result.
+The low 32 bits are placed in destLO. The high 32 bits are placed in destHI.
+Either of destHI or destLO may be specified as NULL instead of specifying a register, in the case high or low 32 bits of the 64-bit result are not needed
+
+USubb
+~~~~~
+
+dest0, dest1 = USubb(src0, src1)
+
+Ubfe
+~~~~
+
+dest = ubfe(src0, src1, src2)
+
+Given a range of bits in a number, shift those bits to the LSB and set remaining bits to 0.
+
+width : The LSB 5 bits of src0 (0-31).
+
+offset: The LSB 5 bits of src1 (0-31).
+
+Given width, offset:
+
+.. code:: c
+
+    if( width == 0 )
+    {
+        dest = 0
+    }
+    else if( width + offset < 32 )
+    {
+        shl dest, src2, 32-(width+offset)
+        ushr dest, dest, 32-width
+    }
+    else
+    {
+        ushr dest, src2, offset
+    }
 
 .. OPCODES-RST:END
 
@@ -2112,183 +2689,196 @@ The set of validation rules that are known to hold for a DXIL program is identif
 .. <py::lines('VALRULES-RST')>hctdb_instrhelp.get_valrules_rst()</py>
 .. VALRULES-RST:BEGIN
 
-===================================== =======================================================================================================================================================================================================================================================================================================
-Rule Code                             Description
-===================================== =======================================================================================================================================================================================================================================================================================================
-BITCODE.VALID                         TODO - Module must be bitcode-valid
-DECL.DXILFNEXTERN                     External function must be a DXIL function
-DECL.DXILNSRESERVED                   The DXIL reserved prefixes must only be used by built-in functions and types
-DECL.FNFLATTENPARAM                   Function parameters must not use struct types
-DECL.FNISCALLED                       Functions can only be used by call instructions
-DECL.NOTUSEDEXTERNAL                  External declaration should not be used
-DECL.USEDEXTERNALFUNCTION             External function must be used
-DECL.USEDINTERNAL                     Internal declaration must be used
-FLOW.DEADLOOP                         Loop must have break
-FLOW.FUNCTIONCALL                     Function with parameter is not permitted
-FLOW.NORECUSION                       Recursion is not permitted
-FLOW.REDUCIBLE                        Execution flow must be reducible
-INSTR.ALLOWED                         Instructions must be of an allowed type
-INSTR.BARRIERMODEFORNONCS             sync in a non-Compute Shader must only sync UAV (sync_uglobal)
-INSTR.BARRIERMODENOMEMORY             sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
-INSTR.BARRIERMODEUSELESSUGROUP        sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
-INSTR.BUFFERUPDATECOUNTERONUAV        BufferUpdateCounter valid only on UAV
-INSTR.CALLOLOAD                       Call to DXIL intrinsic must match overload signature
-INSTR.CANNOTPULLPOSITION              pull-model evaluation of position disallowed
-INSTR.CBUFFERCLASSFORCBUFFERHANDLE    Expect Cbuffer for CBufferLoad handle
-INSTR.CBUFFEROUTOFBOUND               Cbuffer access out of bound
-INSTR.COORDINATECOUNTFORRAWTYPEDBUF   raw/typed buffer don't need 2 coordinates
-INSTR.COORDINATECOUNTFORSTRUCTBUF     structured buffer require 2 coordinates
-INSTR.DXILSTRUCTUSER                  Dxil struct types should only used by ExtractValue
-INSTR.DXILSTRUCTUSEROUTOFBOUND        Index out of bound when extract value from dxil struct types
-INSTR.EVALINTERPOLATIONMODE           Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
-INSTR.EXTRACTVALUE                    ExtractValue should only be used on dxil struct types and cmpxchg
-INSTR.FAILTORESLOVETGSMPOINTER        TGSM pointers must originate from an unambiguous TGSM global variable.
-INSTR.HANDLENOTFROMCREATEHANDLE       Resource handle should returned by createHandle
-INSTR.IMMBIASFORSAMPLEB               bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
-INSTR.INBOUNDSACCESS                  Access to out-of-bounds memory is disallowed
-INSTR.MINPRECISIONNOTPRECISE          Instructions marked precise may not refer to minprecision values
-INSTR.MINPRECISONBITCAST              Bitcast on minprecison types is not allowed
-INSTR.MIPLEVELFORGETDIMENSION         Use mip level on buffer when GetDimensions
-INSTR.MIPONUAVLOAD                    uav load don't support mipLevel/sampleIndex
-INSTR.NOGENERICPTRADDRSPACECAST       Address space cast between pointer types must have one part to be generic address space
-INSTR.NOIDIVBYZERO                    No signed integer division by zero
-INSTR.NOINDEFINITEACOS                No indefinite arccosine
-INSTR.NOINDEFINITEASIN                No indefinite arcsine
-INSTR.NOINDEFINITEDSXY                No indefinite derivative calculation
-INSTR.NOINDEFINITELOG                 No indefinite logarithm
-INSTR.NOREADINGUNINITIALIZED          Instructions should not read uninitialized value
-INSTR.NOUDIVBYZERO                    No unsigned integer division by zero
-INSTR.OFFSETONUAVLOAD                 uav load don't support offset
-INSTR.OLOAD                           DXIL intrinsic overload must be valid
-INSTR.ONLYONEALLOCCONSUME             RWStructuredBuffers may increment or decrement their counters, but not both.
-INSTR.OPCODERESERVED                  Instructions must not reference reserved opcodes
-INSTR.OPCONST                         DXIL intrinsic requires an immediate constant operand
-INSTR.OPCONSTRANGE                    Constant values must be in-range for operation
-INSTR.OPERANDRANGE                    DXIL intrinsic operand must be within defined range
-INSTR.PTRBITCAST                      Pointer type bitcast must be have same size
-INSTR.RESOURCECLASSFORLOAD            load can only run on UAV/SRV resource
-INSTR.RESOURCECLASSFORSAMPLERGATHER   sample, lod and gather should on srv resource.
-INSTR.RESOURCECLASSFORUAVSTORE        store should on uav resource.
-INSTR.RESOURCECOORDINATEMISS          coord uninitialized
-INSTR.RESOURCECOORDINATETOOMANY       out of bound coord must be undef
-INSTR.RESOURCEKINDFORBUFFERLOADSTORE  buffer load/store only works on Raw/Typed/StructuredBuffer
-INSTR.RESOURCEKINDFORCALCLOD          lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray
-INSTR.RESOURCEKINDFORGATHER           gather requires resource declared as texture/2D/Cube/2DArray/CubeArray
-INSTR.RESOURCEKINDFORGETDIM           Invalid resource kind on GetDimensions
-INSTR.RESOURCEKINDFORSAMPLE           sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray
-INSTR.RESOURCEKINDFORSAMPLEC          samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
-INSTR.RESOURCEKINDFORTEXTURELOAD      texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray
-INSTR.RESOURCEKINDFORTEXTURESTORE     texture store only works on Texture1D/1DArray/2D/2DArray/3D
-INSTR.RESOURCEOFFSETMISS              offset uninitialized
-INSTR.RESOURCEOFFSETTOOMANY           out of bound offset must be undef
-INSTR.SAMPLECOMPTYPE                  sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.
-INSTR.SAMPLEINDEXFORLOAD2DMS          load on Texture2DMS/2DMSArray require sampleIndex
-INSTR.SAMPLERMODEFORLOD               lod instruction requires sampler declared in default mode
-INSTR.SAMPLERMODEFORSAMPLE            sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
-INSTR.SAMPLERMODEFORSAMPLEC           sample_c_*/gather_c instructions require sampler declared in comparison mode
-INSTR.STRUCTBITCAST                   Bitcast on struct types is not allowed
-INSTR.TEXTUREOFFSET                   offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
-INSTR.UNDEFRESULTFORGETDIMENSION      GetDimensions used undef dimension %0 on %1
-INSTR.WRITEMASKFORTYPEDUAVSTORE       store on typed uav must write to all four components of the UAV
-INSTR.WRITEMASKMATCHVALUEFORUAVSTORE  uav store write mask must match store value mask, write mask is %0 and store value mask is %1
-META.BRANCHFLATTEN                    Can't use branch and flatten attributes together
-META.CLIPCULLMAXCOMPONENTS            Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
-META.CLIPCULLMAXROWS                  Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
-META.CONTROLFLOWHINTNOTONCONTROLFLOW  Control flow hint only works on control flow inst
-META.DENSERESIDS                      Resource identifiers must be zero-based and dense
-META.DUPLICATESYSVALUE                System value may only appear once in signature
-META.ENTRYFUNCTION                    entrypoint not found
-META.FLAGSUSAGE                       Flags must match usage
-META.FORCECASEONSWITCH                Attribute forcecase only works for switch
-META.FUNCTIONANNOTATION               Cannot find function annotation for %0
-META.GLCNOTONAPPENDCONSUME            globallycoherent cannot be used with append/consume buffers
-META.INTEGERINTERPMODE                Interpolation mode on integer must be Constant
-META.INTERPMODEINONEROW               Interpolation mode must be identical for all elements packed into the same row.
-META.INTERPMODEVALID                  Interpolation mode must be valid
-META.INVALIDCONTROLFLOWHINT           Invalid control flow hint
-META.KNOWN                            Named metadata should be known
-META.MAXTESSFACTOR                    Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
-META.NOSEMANTICOVERLAP                Semantics must not overlap
-META.REQUIRED                         TODO - Required metadata missing
-META.SEMAKINDMATCHESNAME              Semantic name must match system value, when defined.
-META.SEMAKINDVALID                    Semantic kind must be valid
-META.SEMANTICCOMPTYPE                 %0 must be %1
-META.SEMANTICINDEXMAX                 System value semantics have a maximum valid semantic index
-META.SEMANTICLEN                      Semantic length must be at least 1 and at most 64
-META.SEMANTICSHOULDBEALLOCATED        Semantic should have a valid packing location
-META.SEMANTICSHOULDNOTBEALLOCATED     Semantic should have a packing location of -1
-META.SIGNATURECOMPTYPE                signature %0 specifies unrecognized or invalid component type
-META.SIGNATUREILLEGALCOMPONENTORDER   Component ordering for packed elements must be: arbitrary < system value < system generated value
-META.SIGNATUREINDEXCONFLICT           Only elements with compatible indexing rules may be packed together
-META.SIGNATUREOUTOFRANGE              Signature elements must fit within maximum signature size
-META.SIGNATUREOVERLAP                 Signature elements may not overlap in packing location.
-META.STRUCTBUFALIGNMENT               StructuredBuffer stride not aligned
-META.STRUCTBUFALIGNMENTOUTOFBOUND     StructuredBuffer stride out of bounds
-META.SYSTEMVALUEROWS                  System value may only have 1 row
-META.TARGET                           Target triple must be 'dxil-ms-dx'
-META.TESSELLATOROUTPUTPRIMITIVE       Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
-META.TESSELLATORPARTITION             Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
-META.TEXTURETYPE                      elements of typed buffers and textures must fit in four 32-bit quantities
-META.USED                             All metadata must be used by dxil
-META.VALIDSAMPLERMODE                 Invalid sampler mode on sampler
-META.VALUERANGE                       Metadata value must be within range
-META.WELLFORMED                       TODO - Metadata must be well-formed in operand count and types
-SM.APPENDANDCONSUMEONSAMEUAV          BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
-SM.CBUFFERELEMENTOVERFLOW             CBuffer elements must not overflow
-SM.CBUFFEROFFSETOVERLAP               CBuffer offsets must not overlap
-SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT    D3D12 constant/texture buffer template element can only be a struct
-SM.COMPLETEPOSITION                   Not all elements of SV_Position were written
-SM.COUNTERONLYONSTRUCTBUF             BufferUpdateCounter valid only on structured buffers
-SM.CSNORETURN                         Compute shaders can't return values, outputs must be written in writable resources (UAVs).
-SM.DOMAINLOCATIONIDXOOB               DomainLocation component index out of bounds for the domain.
-SM.DSINPUTCONTROLPOINTCOUNTRANGE      DS input control point count must be [0..%0].  %1 specified
-SM.GSINSTANCECOUNTRANGE               GS instance count must be [1..%0].  %1 specified
-SM.GSOUTPUTVERTEXCOUNTRANGE           GS output vertex count must be [0..%0].  %1 specified
-SM.GSTOTALOUTPUTVERTEXDATARANGE       Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
-SM.GSVALIDINPUTPRIMITIVE              GS input primitive unrecognized
-SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY     GS output primitive topology unrecognized
-SM.HSINPUTCONTROLPOINTCOUNTRANGE      HS input control point count must be [1..%0].  %1 specified
-SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH For pass thru hull shader, input control point count must match output control point count
-SM.INSIDETESSFACTORSIZEMATCHDOMAIN    InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
-SM.INVALIDRESOURCECOMPTYPE            Invalid resource return type
-SM.INVALIDRESOURCEKIND                Invalid resources kind
-SM.INVALIDTEXTUREKINDONUAV            Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
-SM.ISOLINEOUTPUTPRIMITIVEMISMATCH     Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
-SM.MAXTGSMSIZE                        Total Thread Group Shared Memory storage is %0, exceeded %1
-SM.MAXTHEADGROUP                      Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
-SM.MULTISTREAMMUSTBEPOINT             When multiple GS output streams are used they must be pointlists
-SM.NAME                               Target shader model name must be known
-SM.NOINTERPMODE                       Interpolation mode must be undefined for VS input/PS output/patch constant.
-SM.NOPSOUTPUTIDX                      Pixel shader output registers are not indexable.
-SM.OPCODE                             Opcode must be defined in target shader model
-SM.OPCODEININVALIDFUNCTION            Invalid DXIL opcode usage like StorePatchConstant in patch constant function
-SM.OPERAND                            Operand must be defined in target shader model
-SM.OUTPUTCONTROLPOINTCOUNTRANGE       output control point count must be [0..%0].  %1 specified
-SM.OUTPUTCONTROLPOINTSTOTALSCALARS    Total number of scalars across all HS output control points must not exceed
-SM.PATCHCONSTANTONLYFORHSDS           patch constant signature only valid in HS and DS
-SM.PSCONSISTENTINTERP                 Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
-SM.PSCOVERAGEANDINNERCOVERAGE         InnerCoverage and Coverage are mutually exclusive.
-SM.PSMULTIPLEDEPTHSEMANTIC            Pixel Shader only allows one type of depth semantic to be declared
-SM.PSOUTPUTSEMANTIC                   Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
-SM.PSTARGETCOL0                       SV_Target packed location must start at column 0
-SM.PSTARGETINDEXMATCHESROW            SV_Target semantic index must match packed row location
-SM.RESOURCERANGEOVERLAP               Resource ranges must not overlap
-SM.ROVONLYINPS                        RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
-SM.SAMPLECOUNTONLYON2DMS              Only Texture2DMS/2DMSArray could has sample count
-SM.SEMANTIC                           Semantic must be defined in target shader model
-SM.STREAMINDEXRANGE                   Stream index (%0) must between 0 and %1
-SM.TESSFACTORFORDOMAIN                Required TessFactor for domain not found declared anywhere in Patch Constant data
-SM.TESSFACTORSIZEMATCHDOMAIN          TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
-SM.THREADGROUPCHANNELRANGE            Declared Thread Group %0 size %1 outside valid range [%2..%3]
-SM.TRIOUTPUTPRIMITIVEMISMATCH         Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
-SM.UNDEFINEDOUTPUT                    Not all elements of output %0 were written
-SM.VALIDDOMAIN                        Invalid Tessellator Domain specified. Must be isoline, tri or quad
-TYPES.DEFINED                         Type must be defined based on DXIL primitives
-TYPES.INTWIDTH                        Int type must be of valid width
-TYPES.NOMULTIDIM                      Only one dimension allowed for array type
-TYPES.NOVECTOR                        Vector types must not be present
-UNI.NOWAVESENSITIVEGRADIENT           Gradient operations are not affected by wave-sensitive data or control flow.
-===================================== =======================================================================================================================================================================================================================================================================================================
+====================================== =======================================================================================================================================================================================================================================================================================================
+Rule Code                              Description
+====================================== =======================================================================================================================================================================================================================================================================================================
+BITCODE.VALID                          TODO - Module must be bitcode-valid
+CONTAINER.PARTINVALID                  DXIL Container must not contain unknown parts
+CONTAINER.PARTMATCHES                  DXIL Container Parts must match Module
+CONTAINER.PARTMISSING                  DXIL Container requires certain parts, corresponding to module
+CONTAINER.PARTREPEATED                 DXIL Container must have only one of each part type
+CONTAINER.ROOTSIGNATUREINCOMPATIBLE    Root Signature in DXIL Container must be compatible with shader
+DECL.DXILFNEXTERN                      External function must be a DXIL function
+DECL.DXILNSRESERVED                    The DXIL reserved prefixes must only be used by built-in functions and types
+DECL.FNFLATTENPARAM                    Function parameters must not use struct types
+DECL.FNISCALLED                        Functions can only be used by call instructions
+DECL.NOTUSEDEXTERNAL                   External declaration should not be used
+DECL.USEDEXTERNALFUNCTION              External function must be used
+DECL.USEDINTERNAL                      Internal declaration must be used
+FLOW.DEADLOOP                          Loop must have break
+FLOW.FUNCTIONCALL                      Function with parameter is not permitted
+FLOW.NORECUSION                        Recursion is not permitted
+FLOW.REDUCIBLE                         Execution flow must be reducible
+INSTR.ALLOWED                          Instructions must be of an allowed type
+INSTR.ATTRIBUTEATVERTEXNOINTERPOLATION Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.
+INSTR.BARRIERMODEFORNONCS              sync in a non-Compute Shader must only sync UAV (sync_uglobal)
+INSTR.BARRIERMODENOMEMORY              sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
+INSTR.BARRIERMODEUSELESSUGROUP         sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
+INSTR.BUFFERUPDATECOUNTERONUAV         BufferUpdateCounter valid only on UAV
+INSTR.CALLOLOAD                        Call to DXIL intrinsic must match overload signature
+INSTR.CANNOTPULLPOSITION               pull-model evaluation of position disallowed
+INSTR.CBUFFERCLASSFORCBUFFERHANDLE     Expect Cbuffer for CBufferLoad handle
+INSTR.CBUFFEROUTOFBOUND                Cbuffer access out of bound
+INSTR.COORDINATECOUNTFORRAWTYPEDBUF    raw/typed buffer don't need 2 coordinates
+INSTR.COORDINATECOUNTFORSTRUCTBUF      structured buffer require 2 coordinates
+INSTR.DXILSTRUCTUSER                   Dxil struct types should only used by ExtractValue
+INSTR.DXILSTRUCTUSEROUTOFBOUND         Index out of bound when extract value from dxil struct types
+INSTR.EVALINTERPOLATIONMODE            Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample
+INSTR.EXTRACTVALUE                     ExtractValue should only be used on dxil struct types and cmpxchg
+INSTR.FAILTORESLOVETGSMPOINTER         TGSM pointers must originate from an unambiguous TGSM global variable.
+INSTR.HANDLENOTFROMCREATEHANDLE        Resource handle should returned by createHandle
+INSTR.IMMBIASFORSAMPLEB                bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate
+INSTR.INBOUNDSACCESS                   Access to out-of-bounds memory is disallowed
+INSTR.MINPRECISIONNOTPRECISE           Instructions marked precise may not refer to minprecision values
+INSTR.MINPRECISONBITCAST               Bitcast on minprecison types is not allowed
+INSTR.MIPLEVELFORGETDIMENSION          Use mip level on buffer when GetDimensions
+INSTR.MIPONUAVLOAD                     uav load don't support mipLevel/sampleIndex
+INSTR.NOGENERICPTRADDRSPACECAST        Address space cast between pointer types must have one part to be generic address space
+INSTR.NOIDIVBYZERO                     No signed integer division by zero
+INSTR.NOINDEFINITEACOS                 No indefinite arccosine
+INSTR.NOINDEFINITEASIN                 No indefinite arcsine
+INSTR.NOINDEFINITEDSXY                 No indefinite derivative calculation
+INSTR.NOINDEFINITELOG                  No indefinite logarithm
+INSTR.NOREADINGUNINITIALIZED           Instructions should not read uninitialized value
+INSTR.NOUDIVBYZERO                     No unsigned integer division by zero
+INSTR.OFFSETONUAVLOAD                  uav load don't support offset
+INSTR.OLOAD                            DXIL intrinsic overload must be valid
+INSTR.ONLYONEALLOCCONSUME              RWStructuredBuffers may increment or decrement their counters, but not both.
+INSTR.OPCODERESERVED                   Instructions must not reference reserved opcodes
+INSTR.OPCONST                          DXIL intrinsic requires an immediate constant operand
+INSTR.OPCONSTRANGE                     Constant values must be in-range for operation
+INSTR.OPERANDRANGE                     DXIL intrinsic operand must be within defined range
+INSTR.PTRBITCAST                       Pointer type bitcast must be have same size
+INSTR.RESOURCECLASSFORLOAD             load can only run on UAV/SRV resource
+INSTR.RESOURCECLASSFORSAMPLERGATHER    sample, lod and gather should on srv resource.
+INSTR.RESOURCECLASSFORUAVSTORE         store should on uav resource.
+INSTR.RESOURCECOORDINATEMISS           coord uninitialized
+INSTR.RESOURCECOORDINATETOOMANY        out of bound coord must be undef
+INSTR.RESOURCEKINDFORBUFFERLOADSTORE   buffer load/store only works on Raw/Typed/StructuredBuffer
+INSTR.RESOURCEKINDFORCALCLOD           lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray
+INSTR.RESOURCEKINDFORGATHER            gather requires resource declared as texture/2D/Cube/2DArray/CubeArray
+INSTR.RESOURCEKINDFORGETDIM            Invalid resource kind on GetDimensions
+INSTR.RESOURCEKINDFORSAMPLE            sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray
+INSTR.RESOURCEKINDFORSAMPLEC           samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
+INSTR.RESOURCEKINDFORTEXTURELOAD       texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray
+INSTR.RESOURCEKINDFORTEXTURESTORE      texture store only works on Texture1D/1DArray/2D/2DArray/3D
+INSTR.RESOURCEOFFSETMISS               offset uninitialized
+INSTR.RESOURCEOFFSETTOOMANY            out of bound offset must be undef
+INSTR.SAMPLECOMPTYPE                   sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.
+INSTR.SAMPLEINDEXFORLOAD2DMS           load on Texture2DMS/2DMSArray require sampleIndex
+INSTR.SAMPLERMODEFORLOD                lod instruction requires sampler declared in default mode
+INSTR.SAMPLERMODEFORSAMPLE             sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode
+INSTR.SAMPLERMODEFORSAMPLEC            sample_c_*/gather_c instructions require sampler declared in comparison mode
+INSTR.STRUCTBITCAST                    Bitcast on struct types is not allowed
+INSTR.TEXTUREOFFSET                    offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7
+INSTR.TGSMRACECOND                     Race condition writing to shared memory detected, consider making this write conditional
+INSTR.UNDEFRESULTFORGETDIMENSION       GetDimensions used undef dimension %0 on %1
+INSTR.WRITEMASKFORTYPEDUAVSTORE        store on typed uav must write to all four components of the UAV
+INSTR.WRITEMASKMATCHVALUEFORUAVSTORE   uav store write mask must match store value mask, write mask is %0 and store value mask is %1
+META.BARYCENTRICSFLOAT3                only 'float3' type is allowed for SV_Barycentrics.
+META.BARYCENTRICSINTERPOLATION         SV_Barycentrics cannot be used with 'nointerpolation' type
+META.BRANCHFLATTEN                     Can't use branch and flatten attributes together
+META.CLIPCULLMAXCOMPONENTS             Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
+META.CLIPCULLMAXROWS                   Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
+META.CONTROLFLOWHINTNOTONCONTROLFLOW   Control flow hint only works on control flow inst
+META.DENSERESIDS                       Resource identifiers must be zero-based and dense
+META.DUPLICATESYSVALUE                 System value may only appear once in signature
+META.ENTRYFUNCTION                     entrypoint not found
+META.FLAGSUSAGE                        Flags must match usage
+META.FORCECASEONSWITCH                 Attribute forcecase only works for switch
+META.FUNCTIONANNOTATION                Cannot find function annotation for %0
+META.GLCNOTONAPPENDCONSUME             globallycoherent cannot be used with append/consume buffers
+META.INTEGERINTERPMODE                 Interpolation mode on integer must be Constant
+META.INTERPMODEINONEROW                Interpolation mode must be identical for all elements packed into the same row.
+META.INTERPMODEVALID                   Interpolation mode must be valid
+META.INVALIDCONTROLFLOWHINT            Invalid control flow hint
+META.KNOWN                             Named metadata should be known
+META.MAXTESSFACTOR                     Hull Shader MaxTessFactor must be [%0..%1].  %2 specified
+META.NOSEMANTICOVERLAP                 Semantics must not overlap
+META.REQUIRED                          TODO - Required metadata missing
+META.SEMAKINDMATCHESNAME               Semantic name must match system value, when defined.
+META.SEMAKINDVALID                     Semantic kind must be valid
+META.SEMANTICCOMPTYPE                  %0 must be %1
+META.SEMANTICINDEXMAX                  System value semantics have a maximum valid semantic index
+META.SEMANTICLEN                       Semantic length must be at least 1 and at most 64
+META.SEMANTICSHOULDBEALLOCATED         Semantic should have a valid packing location
+META.SEMANTICSHOULDNOTBEALLOCATED      Semantic should have a packing location of -1
+META.SIGNATURECOMPTYPE                 signature %0 specifies unrecognized or invalid component type
+META.SIGNATUREILLEGALCOMPONENTORDER    Component ordering for packed elements must be: arbitrary < system value < system generated value
+META.SIGNATUREINDEXCONFLICT            Only elements with compatible indexing rules may be packed together
+META.SIGNATUREOUTOFRANGE               Signature elements must fit within maximum signature size
+META.SIGNATUREOVERLAP                  Signature elements may not overlap in packing location.
+META.STRUCTBUFALIGNMENT                StructuredBuffer stride not aligned
+META.STRUCTBUFALIGNMENTOUTOFBOUND      StructuredBuffer stride out of bounds
+META.SYSTEMVALUEROWS                   System value may only have 1 row
+META.TARGET                            Target triple must be 'dxil-ms-dx'
+META.TESSELLATOROUTPUTPRIMITIVE        Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
+META.TESSELLATORPARTITION              Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
+META.TEXTURETYPE                       elements of typed buffers and textures must fit in four 32-bit quantities
+META.USED                              All metadata must be used by dxil
+META.VALIDSAMPLERMODE                  Invalid sampler mode on sampler
+META.VALUERANGE                        Metadata value must be within range
+META.WELLFORMED                        TODO - Metadata must be well-formed in operand count and types
+SM.APPENDANDCONSUMEONSAMEUAV           BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.
+SM.CBUFFERELEMENTOVERFLOW              CBuffer elements must not overflow
+SM.CBUFFEROFFSETOVERLAP                CBuffer offsets must not overlap
+SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT     D3D12 constant/texture buffer template element can only be a struct
+SM.COMPLETEPOSITION                    Not all elements of SV_Position were written
+SM.COUNTERONLYONSTRUCTBUF              BufferUpdateCounter valid only on structured buffers
+SM.CSNORETURN                          Compute shaders can't return values, outputs must be written in writable resources (UAVs).
+SM.DOMAINLOCATIONIDXOOB                DomainLocation component index out of bounds for the domain.
+SM.DSINPUTCONTROLPOINTCOUNTRANGE       DS input control point count must be [0..%0].  %1 specified
+SM.DXILVERSION                         Target shader model requires specific Dxil Version
+SM.GSINSTANCECOUNTRANGE                GS instance count must be [1..%0].  %1 specified
+SM.GSOUTPUTVERTEXCOUNTRANGE            GS output vertex count must be [0..%0].  %1 specified
+SM.GSTOTALOUTPUTVERTEXDATARANGE        Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3
+SM.GSVALIDINPUTPRIMITIVE               GS input primitive unrecognized
+SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY      GS output primitive topology unrecognized
+SM.HSINPUTCONTROLPOINTCOUNTRANGE       HS input control point count must be [0..%0].  %1 specified
+SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH  For pass thru hull shader, input control point count must match output control point count
+SM.INSIDETESSFACTORSIZEMATCHDOMAIN     InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
+SM.INVALIDRESOURCECOMPTYPE             Invalid resource return type
+SM.INVALIDRESOURCEKIND                 Invalid resources kind
+SM.INVALIDTEXTUREKINDONUAV             Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs
+SM.ISOLINEOUTPUTPRIMITIVEMISMATCH      Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.
+SM.MAXTGSMSIZE                         Total Thread Group Shared Memory storage is %0, exceeded %1
+SM.MAXTHEADGROUP                       Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1
+SM.MULTISTREAMMUSTBEPOINT              When multiple GS output streams are used they must be pointlists
+SM.NAME                                Target shader model name must be known
+SM.NOINTERPMODE                        Interpolation mode must be undefined for VS input/PS output/patch constant.
+SM.NOPSOUTPUTIDX                       Pixel shader output registers are not indexable.
+SM.OPCODE                              Opcode must be defined in target shader model
+SM.OPCODEININVALIDFUNCTION             Invalid DXIL opcode usage like StorePatchConstant in patch constant function
+SM.OPERAND                             Operand must be defined in target shader model
+SM.OUTPUTCONTROLPOINTCOUNTRANGE        output control point count must be [0..%0].  %1 specified
+SM.OUTPUTCONTROLPOINTSTOTALSCALARS     Total number of scalars across all HS output control points must not exceed
+SM.PATCHCONSTANTONLYFORHSDS            patch constant signature only valid in HS and DS
+SM.PSCONSISTENTINTERP                  Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)
+SM.PSCOVERAGEANDINNERCOVERAGE          InnerCoverage and Coverage are mutually exclusive.
+SM.PSMULTIPLEDEPTHSEMANTIC             Pixel Shader only allows one type of depth semantic to be declared
+SM.PSOUTPUTSEMANTIC                    Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found
+SM.PSTARGETCOL0                        SV_Target packed location must start at column 0
+SM.PSTARGETINDEXMATCHESROW             SV_Target semantic index must match packed row location
+SM.RESOURCERANGEOVERLAP                Resource ranges must not overlap
+SM.ROVONLYINPS                         RasterizerOrdered objects are only allowed in 5.0+ pixel shaders
+SM.SAMPLECOUNTONLYON2DMS               Only Texture2DMS/2DMSArray could has sample count
+SM.SEMANTIC                            Semantic must be defined in target shader model
+SM.STREAMINDEXRANGE                    Stream index (%0) must between 0 and %1
+SM.TESSFACTORFORDOMAIN                 Required TessFactor for domain not found declared anywhere in Patch Constant data
+SM.TESSFACTORSIZEMATCHDOMAIN           TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
+SM.THREADGROUPCHANNELRANGE             Declared Thread Group %0 size %1 outside valid range [%2..%3]
+SM.TRIOUTPUTPRIMITIVEMISMATCH          Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain
+SM.UNDEFINEDOUTPUT                     Not all elements of output %0 were written
+SM.VALIDDOMAIN                         Invalid Tessellator Domain specified. Must be isoline, tri or quad
+SM.VIEWIDNEEDSSLOT                     ViewID requires compatible space in pixel shader input signature
+SM.ZEROHSINPUTCONTROLPOINTWITHINPUT    When HS input control point count is 0, no input signature should exist
+TYPES.DEFINED                          Type must be defined based on DXIL primitives
+TYPES.I8                               I8 can only used as immediate value for intrinsic
+TYPES.INTWIDTH                         Int type must be of valid width
+TYPES.NOMULTIDIM                       Only one dimension allowed for array type
+TYPES.NOVECTOR                         Vector types must not be present
+UNI.NOWAVESENSITIVEGRADIENT            Gradient operations are not affected by wave-sensitive data or control flow.
+====================================== =======================================================================================================================================================================================================================================================================================================
 
 .. VALRULES-RST:END
 

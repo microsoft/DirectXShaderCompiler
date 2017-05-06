@@ -151,6 +151,8 @@ public:
   // MS Change Starts
   bool HLSL2015;  // Only supported for IntelliSense scenarios.
   bool HLSL2016;
+  bool HLSL2017;
+  std::string HLSLEntryFunction;
   unsigned RootSigMajor;
   unsigned RootSigMinor;
   // MS Change Ends

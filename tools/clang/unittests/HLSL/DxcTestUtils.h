@@ -100,9 +100,28 @@ inline std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
 
 std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob);
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
+bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
+                              LPCSTR *pErrorMsgs, size_t errorMsgCount,
+                              bool maySucceedAnyway, bool bRegex);
 std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
+
+class VersionSupportInfo {
+public:
+  bool m_CompilerPreservesBBNames;
+  bool m_InternalValidator;
+  unsigned m_DxilMajor, m_DxilMinor;
+  unsigned m_ValMajor, m_ValMinor;
+
+  VersionSupportInfo();
+  // Initialize version info structure.  TODO: add device shader model support
+  void Initialize(dxc::DxcDllSupport &dllSupport);
+  // Return true if IR sensitive test should be skipped, and log comment
+  bool SkipIRSensitiveTest();
+  // Return true if DXIL 1.1 test should be skipped, and log comment
+  bool SkipDxil_1_1_Test();
+};

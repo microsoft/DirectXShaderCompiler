@@ -2429,6 +2429,18 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
   case ABIArgInfo::Direct:
     if (RetAI.getCoerceToType() == ConvertType(RetTy) &&
         RetAI.getDirectOffset() == 0) {
+      // HLSL Change Begin.
+      // If optimization is disabled, just load return value.
+      if (CGM.getCodeGenOpts().DisableLLVMOpts) {
+        // HLSL Change Begins
+        if (hlsl::IsHLSLMatType(RetTy))
+          RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
+                                                       RetTy);
+        else
+          // HLSL Change Ends
+          RV = Builder.CreateLoad(ReturnValue);
+      } else {
+      // HLSL Change End.
       // The internal return value temp always will have pointer-to-return-type
       // type, just do a load.
 
@@ -2461,6 +2473,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
           // HLSL Change Ends
           RV = Builder.CreateLoad(ReturnValue);
       }
+      } // HLSL Change
     } else {
       llvm::Value *V = ReturnValue;
       CharUnits Align = getContext().getTypeAlignInChars(RetTy);

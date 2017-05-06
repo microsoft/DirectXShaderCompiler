@@ -34,6 +34,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <memory>
 #include <unordered_set>
 
@@ -44,41 +46,23 @@ using namespace hlsl;
 
 namespace {
 
-class ResourcePromoter : public LoadAndStorePromoter {
+// Collect unused phi of resources and remove them.
+class ResourceRemover : public LoadAndStorePromoter {
   AllocaInst *AI;
-  AllocaInst *NewAI;
-  bool        HasUnmappedLd;
-  std::unordered_map<Instruction *, Value *> &handleMap;
-public:
-  ResourcePromoter(ArrayRef<Instruction *> Insts, SSAUpdater &S,
-                   std::unordered_map<Instruction *, Value *> &handleMap)
-      : LoadAndStorePromoter(Insts, S), AI(nullptr), handleMap(handleMap),
-        HasUnmappedLd(false) {}
+  mutable std::unordered_set<PHINode *> unusedPhis;
 
-  AllocaInst *run(AllocaInst *AI, const SmallVectorImpl<Instruction *> &Insts) {
+public:
+  ResourceRemover(ArrayRef<Instruction *> Insts, SSAUpdater &S)
+      : LoadAndStorePromoter(Insts, S), AI(nullptr) {}
+
+  void run(AllocaInst *AI, const SmallVectorImpl<Instruction *> &Insts) {
     // Remember which alloca we're promoting (for isInstInList).
     this->AI = AI;
-    // Only want to add load of resource allocas to handleMap.
-    // But LoadAndStorePromoter::run will remove all load/store and alloca.
-    // So need to clone.
-    // Clone to keep the debug info.
-    NewAI = cast<AllocaInst>(AI->clone());
-    IRBuilder<> Builder(AI);
-    Builder.Insert(NewAI);
     LoadAndStorePromoter::run(Insts);
-    AI->eraseFromParent();
-    bool allLoadMapped = true;
-    for (User *U : NewAI->users()) {
-      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-        if (handleMap.count(LI) == 0) {
-          allLoadMapped = false;
-          break;
-        }
-      }
+    for (PHINode *P : unusedPhis) {
+      P->eraseFromParent();
     }
-    return allLoadMapped? nullptr : NewAI;
   }
-
   bool
   isInstInList(Instruction *I,
                const SmallVectorImpl<Instruction *> &Insts) const override {
@@ -87,28 +71,12 @@ public:
     return cast<StoreInst>(I)->getPointerOperand() == AI;
   }
 
-  void updateDebugInfo(Instruction *Inst) const override {
-    // Store use go this path.
-    // Clone to keep the debug info.
-    Instruction *NewInst = Inst->clone();
-    NewInst->replaceUsesOfWith(AI, NewAI);
-    IRBuilder<> Builder(Inst);
-    Builder.Insert(NewInst);
-  }
   void replaceLoadWithValue(LoadInst *LI, Value *V) const override {
-    // Load use go here.
-    // Clone to keep the debug info.
-    Instruction *NewInst = LI->clone();
-    NewInst->replaceUsesOfWith(AI, NewAI);
-    IRBuilder<> Builder(LI);
-    Builder.Insert(NewInst);
-    LI->replaceAllUsesWith(NewInst);
-    // Mark handle map.
-    // If cannot find, will return false in run();
-    if (Instruction *I = dyn_cast<Instruction>(V)) {
-      if (handleMap.count(I))
-        handleMap[NewInst] = handleMap[I];
+    if (PHINode *PHI = dyn_cast<PHINode>(V)) {
+      if (PHI->user_empty())
+        unusedPhis.insert(PHI);
     }
+    LI->replaceAllUsesWith(UndefValue::get(LI->getType()));
   }
 };
 
@@ -154,8 +122,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     b->SetSize(C->GetSize());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-    else
-      b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
+
+    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddCBuffer(std::move(b));
   }
   for (auto && C : H.GetUAVs()) {
@@ -163,8 +131,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     InitResource(C.get(), b.get());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-    else
-      b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
+
+    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddUAV(std::move(b));
   }
   for (auto && C : H.GetSRVs()) {
@@ -172,8 +140,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     InitResource(C.get(), b.get());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-    else
-      b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
+
+    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddSRV(std::move(b));
   }
   for (auto && C : H.GetSamplers()) {
@@ -182,8 +150,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     b->SetSamplerKind(C->GetSamplerKind());
     if (HasDebugInfo)
       LLVMUsed.emplace_back(cast<GlobalVariable>(b->GetGlobalSymbol()));
-    else
-      b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
+
+    b->SetGlobalSymbol(UndefValue::get(b->GetGlobalSymbol()->getType()));
     M.AddSampler(std::move(b));
   }
 
@@ -259,6 +227,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
 
   // DXIL type system.
   M.ResetTypeSystem(H.ReleaseTypeSystem());
+  // Dxil OP.
+  M.ResetOP(H.ReleaseOP());
   // Keep llvm used.
   M.EmitLLVMUsed();
 }
@@ -286,7 +256,6 @@ public:
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-
     if (!SM->IsCS()) {
       CreateDxilSignatures();
 
@@ -302,18 +271,32 @@ public:
       GenerateDxilPatchConstantLdSt();
     if (SM->IsHS())
       GenerateDxilPatchConstantFunctionInputs();
+    std::unordered_set<LoadInst *> UpdateCounterSet;
+    std::unordered_set<Value *> NonUniformSet;
+
+    GenerateDxilOperations(M, UpdateCounterSet, NonUniformSet);
 
     std::unordered_map<Instruction *, Value *> handleMap;
-    GenerateDxilResourceHandles(handleMap);
-    GenerateDxilCBufferHandles(handleMap);
-    if (NotOptimized || m_HasDbgInfo) {
-      // For module which not promote mem2reg.
-      // Add local resource load to handle map.
-      MapLocalDxilResourceHandles(handleMap);
-    }
+    GenerateDxilCBufferHandles(NonUniformSet);
     GenerateParamDxilResourceHandles(handleMap);
+    GenerateDxilResourceHandles(UpdateCounterSet, NonUniformSet);
+    AddCreateHandleForPhiNodeAndSelect(m_pHLModule->GetOP());
 
-    GenerateDxilOperations(M, handleMap);
+    // For module which not promote mem2reg.
+    // Remove local resource alloca/load/store/phi.
+    for (auto It = M.begin(); It != M.end();) {
+      Function &F = *(It++);
+      if (!F.isDeclaration()) {
+        RemoveLocalDxilResourceAllocas(&F);
+        if (hlsl::GetHLOpcodeGroupByName(&F) == HLOpcodeGroup::HLCreateHandle) {
+          if (F.user_empty()) {
+            F.eraseFromParent();
+          } else {
+            M.getContext().emitError("Fail to lower createHandle.");
+          }
+        }
+      }
+    }
 
     // Translate precise on allocas into function call to keep the information after mem2reg.
     // The function calls will be removed after propagate precise attribute.
@@ -350,20 +333,21 @@ private:
   void GenerateClipPlanesForVS(Value *outPosition);
   bool HasClipPlanes();
 
-  void TranslateLocalDxilResourceUses(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
-  void MapLocalDxilResourceHandles(
-      std::unordered_map<Instruction *, Value *> &handleMap);
-  void TranslateDxilResourceUses(
-      DxilResourceBase &res,
-      std::unordered_map<Instruction *, Value *> &handleMap);
-  void GenerateDxilResourceHandles(
-      std::unordered_map<Instruction *, Value *> &handleMap);
+  void RemoveLocalDxilResourceAllocas(Function *F);
+  void
+  TranslateDxilResourceUses(DxilResourceBase &res,
+                            std::unordered_set<LoadInst *> &UpdateCounterSet,
+                            std::unordered_set<Value *> &NonUniformSet);
+  void
+  GenerateDxilResourceHandles(std::unordered_set<LoadInst *> &UpdateCounterSet,
+                              std::unordered_set<Value *> &NonUniformSet);
+  void AddCreateHandleForPhiNodeAndSelect(OP *hlslOP);
   void TranslateParamDxilResourceHandles(Function *F, std::unordered_map<Instruction *, Value *> &handleMap);
   void GenerateParamDxilResourceHandles(
       std::unordered_map<Instruction *, Value *> &handleMap);
   // Generate DXIL cbuffer handles.
-  void GenerateDxilCBufferHandles(
-      std::unordered_map<Instruction *, Value *> &handleMap);
+  void
+  GenerateDxilCBufferHandles(std::unordered_set<Value *> &NonUniformSet);
 
   // Generate DXIL stream output operation.
   void GenerateStreamOutputOperation(Value *streamVal, unsigned streamID);
@@ -371,8 +355,9 @@ private:
   void GenerateStreamOutputOperations();
 
   // change built-in funtion into DXIL operations
-  void GenerateDxilOperations(
-      Module &M, std::unordered_map<Instruction *, Value *> &handleMap);
+  void GenerateDxilOperations(Module &M,
+                              std::unordered_set<LoadInst *> &UpdateCounterSet,
+                              std::unordered_set<Value *> &NonUniformSet);
 
   // Change struct type to legacy layout for cbuf and struct buf.
   void UpdateStructTypeForLegacyLayout();
@@ -474,7 +459,6 @@ static DxilSignatureElement *FindArgInSignature(Argument &arg, llvm::StringRef s
       return &SE;
     }
   }
-  DXASSERT(0, "must find a match");
   return nullptr;
 }
 
@@ -515,6 +499,9 @@ void DxilGenerationPass::ProcessArgument(Function *func,
     break;
   case DxilParamInputQual::OutStream3:
     streamIdx = 3;
+    break;
+  default:
+    // Use streamIdx = 0 by default.
     break;
   }
 
@@ -650,6 +637,13 @@ void DxilGenerationPass::ProcessArgument(Function *func,
         sigKind != DXIL::SignatureKind::PatchConstant) {
       pSE = FindArgInSignature(arg, paramAnnotation.GetSemanticString(),
                                interpMode, sigPoint->GetKind(), *pSig);
+      if (!pSE) {
+        m_pHLModule->GetModule()->getContext().emitError(
+          Twine("Signature element ") + semanticStr +
+          Twine(", referred to by patch constant function, is not found in corresponding hull shader ") + 
+          (sigKind == DXIL::SignatureKind::Input ? "input." : "output."));
+        return;
+      }
       m_patchConstantInputsSigMap[arg.getArgNo()] = pSE;
     } else {
       std::unique_ptr<DxilSignatureElement> SE = pSig->CreateElement();
@@ -706,6 +700,9 @@ void DxilGenerationPass::CreateDxilSignatures() {
   if (SM->IsHS()) {
     HLFunctionProps &EntryProps = m_pHLModule->GetHLFunctionProps(EntryFunc);
     Function *patchConstantFunc = EntryProps.ShaderProps.HS.patchConstantFunc;
+    if (patchConstantFunc == nullptr) {
+      EntryFunc->getContext().emitError("Patch constant function is not specified.");
+    }
 
     DxilFunctionAnnotation *patchFuncAnnotation = m_pHLModule->GetFunctionAnnotation(patchConstantFunc);
     DXASSERT(patchFuncAnnotation, "must have function annotation for patch constant function");
@@ -718,19 +715,25 @@ void DxilGenerationPass::CreateDxilSignatures() {
 
 // Allocate input/output slots
 void DxilGenerationPass::AllocateDxilInputOutputs() {
-  m_pHLModule->GetInputSignature().PackElements();
+  const HLOptions &opts = m_pHLModule->GetHLOptions();
+  DXASSERT_NOMSG(opts.PackingStrategy < (unsigned)DXIL::PackingStrategy::Invalid);
+  DXIL::PackingStrategy packing = (DXIL::PackingStrategy)opts.PackingStrategy;
+  if (packing == DXIL::PackingStrategy::Default)
+    packing = m_pHLModule->GetShaderModel()->GetDefaultPackingStrategy();
+
+  m_pHLModule->GetInputSignature().PackElements(packing);
   if (!m_pHLModule->GetInputSignature().IsFullyAllocated()) {
     m_pHLModule->GetCtx().emitError("Failed to allocate all input signature elements in available space.");
   }
 
-  m_pHLModule->GetOutputSignature().PackElements();
+  m_pHLModule->GetOutputSignature().PackElements(packing);
   if (!m_pHLModule->GetOutputSignature().IsFullyAllocated()) {
     m_pHLModule->GetCtx().emitError("Failed to allocate all output signature elements in available space.");
   }
 
   if (m_pHLModule->GetShaderModel()->IsHS() ||
       m_pHLModule->GetShaderModel()->IsDS()) {
-    m_pHLModule->GetPatchConstantSignature().PackElements();
+    m_pHLModule->GetPatchConstantSignature().PackElements(packing);
     if (!m_pHLModule->GetPatchConstantSignature().IsFullyAllocated()) {
       m_pHLModule->GetCtx().emitError("Failed to allocate all patch constant signature elements in available space.");
     }
@@ -757,18 +760,16 @@ static void GenerateStOutput(Function *stOutput, MutableArrayRef<Value *> args,
 }
 
 static void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
-                                  OP::OpCode opcode, Constant *outputID,
-                                  Value *idx, unsigned cols, bool bI1Cast, OP *hlslOP) {
+                                  Constant *OpArg, Constant *outputID,
+                                  Value *idx, unsigned cols, bool bI1Cast) {
   IRBuilder<> Builder(stInst);
   Value *val = stInst->getValueOperand();
-
-  Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
 
   if (VectorType *VT = dyn_cast<VectorType>(val->getType())) {
     DXASSERT(cols == VT->getNumElements(), "vec size must match");
     for (unsigned col = 0; col < cols; col++) {
       Value *subVal = Builder.CreateExtractElement(val, col);
-      Value *colIdx = hlslOP->GetU8Const(col);
+      Value *colIdx = Builder.getInt8(col);
       Value *args[] = {OpArg, outputID, idx, colIdx, subVal};
       GenerateStOutput(stOutput, args, Builder, bI1Cast);
     }
@@ -777,7 +778,7 @@ static void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
   } else if (!val->getType()->isArrayTy()) {
     // TODO: support case cols not 1
     DXASSERT(cols == 1, "only support scalar here");
-    Value *colIdx = hlslOP->GetU8Const(0);
+    Value *colIdx = Builder.getInt8(0);
     Value *args[] = {OpArg, outputID, idx, colIdx, val};
     GenerateStOutput(stOutput, args, Builder, bI1Cast);
     // remove stInst
@@ -785,7 +786,7 @@ static void replaceStWithStOutput(Function *stOutput, StoreInst *stInst,
   } else {
     DXASSERT(0, "not support array yet");
     // TODO: support array.
-    Value *colIdx = hlslOP->GetU8Const(0);
+    Value *colIdx = Builder.getInt8(0);
     ArrayType *AT = cast<ArrayType>(val->getType());
     Value *args[] = {OpArg, outputID, idx, colIdx, /*val*/nullptr};
     args;
@@ -812,19 +813,18 @@ static Value *replaceLdWithLdInput(Function *loadInput,
                                  LoadInst *ldInst,
                                  unsigned cols, 
                                  MutableArrayRef<Value *>args,
-                                 bool bCast,
-                                 OP *hlslOP) {
+                                 bool bCast) {
   IRBuilder<> Builder(ldInst);
   Type *Ty = ldInst->getType();
   Type *EltTy = Ty->getScalarType();
   // Change i1 to i32 for load input.
-  Value *zero = hlslOP->GetU32Const(0);
+  Value *zero = Builder.getInt32(0);
 
   if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
     Value *newVec = llvm::UndefValue::get(VT);
     DXASSERT(cols == VT->getNumElements(), "vec size must match");
     for (unsigned col = 0; col < cols; col++) {
-      Value *colIdx = hlslOP->GetU8Const(col);
+      Value *colIdx = Builder.getInt8(col);
       args[DXIL::OperandIndex::kLoadInputColOpIdx] = colIdx;
       Value *input = GenerateLdInput(loadInput, args, Builder, zero, bCast, EltTy);
       newVec = Builder.CreateInsertElement(newVec, input, col);
@@ -836,7 +836,11 @@ static Value *replaceLdWithLdInput(Function *loadInput,
     Value *colIdx = args[DXIL::OperandIndex::kLoadInputColOpIdx];
     if (colIdx == nullptr) {
       DXASSERT(cols == 1, "only support scalar here");
-      colIdx = hlslOP->GetU8Const(0);
+      colIdx = Builder.getInt8(0);
+    } else {
+      if (colIdx->getType() == Builder.getInt32Ty()) {
+        colIdx = Builder.CreateTrunc(colIdx, Builder.getInt8Ty());
+      }
     }
 
     if (isa<ConstantInt>(colIdx)) {
@@ -851,10 +855,10 @@ static Value *replaceLdWithLdInput(Function *loadInput,
       // Load to array.
       ArrayType *AT = ArrayType::get(ldInst->getType(), cols);
       Value *arrayVec = Builder.CreateAlloca(AT);
-      Value *zeroIdx = hlslOP->GetU32Const(0);
+      Value *zeroIdx = Builder.getInt32(0);
 
       for (unsigned col = 0; col < cols; col++) {
-        Value *colIdx = hlslOP->GetU8Const(col);
+        Value *colIdx = Builder.getInt8(col);
         args[DXIL::OperandIndex::kLoadInputColOpIdx] = colIdx;
         Value *input = GenerateLdInput(loadInput, args, Builder, zero, bCast, EltTy);
         Value *GEP = Builder.CreateInBoundsGEP(arrayVec, {zeroIdx, colIdx});
@@ -921,8 +925,8 @@ static void replaceDirectInputParameter(Value *param, Function *loadInput,
           matElts[matIdx] = input;
         }
       }
-      Value *newVec = HLMatrixLower::BuildMatrix(EltTy, col, row, false,
-                                                 matElts, LocalBuilder);
+      Value *newVec =
+          HLMatrixLower::BuildVector(EltTy, col * row, matElts, LocalBuilder);
       CI->replaceAllUsesWith(newVec);
       CI->eraseFromParent();
     } break;
@@ -944,8 +948,8 @@ static void replaceDirectInputParameter(Value *param, Function *loadInput,
           matElts[matIdx] = input;
         }
       }
-      Value *newVec = HLMatrixLower::BuildMatrix(EltTy, col, row, false,
-                                                 matElts, LocalBuilder);
+      Value *newVec =
+          HLMatrixLower::BuildVector(EltTy, col * row, matElts, LocalBuilder);
       CI->replaceAllUsesWith(newVec);
       CI->eraseFromParent();
     } break;
@@ -1093,6 +1097,7 @@ static void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *G
   case Semantic::Kind::SampleIndex:           opcode = OP::OpCode::SampleIndex;           break;
   case Semantic::Kind::Coverage:              opcode = OP::OpCode::Coverage;              break;
   case Semantic::Kind::InnerCoverage:         opcode = OP::OpCode::InnerCoverage;         break;
+  case Semantic::Kind::ViewID:                opcode = OP::OpCode::ViewID;                break;
   default:
     DXASSERT(0, "invalid semantic");
     return;
@@ -1135,6 +1140,180 @@ static void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *G
   }
 }
 
+void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertexIdx,
+    Function *ldStFunc, Constant *OpArg, Constant *ID, unsigned cols, bool bI1Cast,
+    Constant *columnConsts[],
+    bool bNeedVertexID, bool isArrayTy, bool bInput, bool bIsInout) {
+  Value *idxVal = info.idx;
+  Value *vertexID = undefVertexIdx;
+  if (bNeedVertexID && isArrayTy) {
+    vertexID = info.vertexID;
+  }
+
+  if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
+    SmallVector<Value *, 4> args = {OpArg, ID, idxVal, info.vectorIdx};
+    if (vertexID)
+      args.emplace_back(vertexID);
+
+    replaceLdWithLdInput(ldStFunc, ldInst, cols, args, bI1Cast);
+  } else if (StoreInst *stInst = dyn_cast<StoreInst>(info.user)) {
+    if (bInput) {
+      DXASSERT_LOCALVAR(bIsInout, bIsInout, "input should not have store use.");
+    } else {
+      if (!info.vectorIdx) {
+        replaceStWithStOutput(ldStFunc, stInst, OpArg, ID, idxVal, cols,
+                              bI1Cast);
+      } else {
+        Value *V = stInst->getValueOperand();
+        Type *Ty = V->getType();
+        DXASSERT(Ty == Ty->getScalarType() && !Ty->isAggregateType(),
+                 "only support scalar here");
+
+        if (ConstantInt *ColIdx = dyn_cast<ConstantInt>(info.vectorIdx)) {
+          IRBuilder<> Builder(stInst);
+          if (ColIdx->getType()->getBitWidth() != 8) {
+            ColIdx = Builder.getInt8(ColIdx->getValue().getLimitedValue());
+          }
+          Value *args[] = {OpArg, ID, idxVal, ColIdx, V};
+          GenerateStOutput(ldStFunc, args, Builder, bI1Cast);
+        } else {
+          BasicBlock *BB = stInst->getParent();
+          BasicBlock *EndBB = BB->splitBasicBlock(stInst);
+
+          TerminatorInst *TI = BB->getTerminator();
+          IRBuilder<> SwitchBuilder(TI);
+          LLVMContext &Ctx = stInst->getContext();
+          SwitchInst *Switch =
+              SwitchBuilder.CreateSwitch(info.vectorIdx, EndBB, cols);
+          TI->eraseFromParent();
+
+          Function *F = EndBB->getParent();
+          for (unsigned i = 0; i < cols; i++) {
+            BasicBlock *CaseBB = BasicBlock::Create(Ctx, "case", F, EndBB);
+            Switch->addCase(SwitchBuilder.getInt32(i), CaseBB);
+            IRBuilder<> CaseBuilder(CaseBB);
+
+            ConstantInt *CaseIdx = SwitchBuilder.getInt8(i);
+
+            Value *args[] = {OpArg, ID, idxVal, CaseIdx, V};
+            GenerateStOutput(ldStFunc, args, CaseBuilder, bI1Cast);
+
+            CaseBuilder.CreateBr(EndBB);
+          }
+        }
+        // remove stInst
+        stInst->eraseFromParent();
+      }
+    }
+  } else if (CallInst *CI = dyn_cast<CallInst>(info.user)) {
+    HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+    // Intrinsic will be translated later.
+    if (group == HLOpcodeGroup::HLIntrinsic)
+      return;
+    unsigned opcode = GetHLOpcode(CI);
+    DXASSERT(group == HLOpcodeGroup::HLMatLoadStore, "");
+    HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
+    switch (matOp) {
+    case HLMatLoadStoreOpcode::ColMatLoad: {
+      IRBuilder<> LocalBuilder(CI);
+      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
+                        ->getType()
+                        ->getPointerElementType();
+      unsigned col, row;
+      Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
+      std::vector<Value *> matElts(col * row);
+      for (unsigned c = 0; c < col; c++) {
+        Constant *constRowIdx = LocalBuilder.getInt32(c);
+        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+        for (unsigned r = 0; r < row; r++) {
+          SmallVector<Value *, 4> args = {OpArg, ID, rowIdx, columnConsts[r]};
+          if (vertexID)
+            args.emplace_back(vertexID);
+
+          Value *input = LocalBuilder.CreateCall(ldStFunc, args);
+          unsigned matIdx = c * row + r;
+          matElts[matIdx] = input;
+        }
+      }
+      Value *newVec =
+          HLMatrixLower::BuildVector(EltTy, col * row, matElts, LocalBuilder);
+      CI->replaceAllUsesWith(newVec);
+      CI->eraseFromParent();
+    } break;
+    case HLMatLoadStoreOpcode::RowMatLoad: {
+      IRBuilder<> LocalBuilder(CI);
+      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
+                        ->getType()
+                        ->getPointerElementType();
+      unsigned col, row;
+      Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
+      std::vector<Value *> matElts(col * row);
+      for (unsigned r = 0; r < row; r++) {
+        Constant *constRowIdx = LocalBuilder.getInt32(r);
+        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+        for (unsigned c = 0; c < col; c++) {
+          SmallVector<Value *, 4> args = {OpArg, ID, rowIdx, columnConsts[c]};
+          if (vertexID)
+            args.emplace_back(vertexID);
+
+          Value *input = LocalBuilder.CreateCall(ldStFunc, args);
+          unsigned matIdx = r * col + c;
+          matElts[matIdx] = input;
+        }
+      }
+      Value *newVec =
+          HLMatrixLower::BuildVector(EltTy, col * row, matElts, LocalBuilder);
+      CI->replaceAllUsesWith(newVec);
+      CI->eraseFromParent();
+    } break;
+    case HLMatLoadStoreOpcode::ColMatStore: {
+      IRBuilder<> LocalBuilder(CI);
+      Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
+      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
+                        ->getType()
+                        ->getPointerElementType();
+      unsigned col, row;
+      HLMatrixLower::GetMatrixInfo(matTy, col, row);
+
+      for (unsigned c = 0; c < col; c++) {
+        Constant *constColIdx = LocalBuilder.getInt32(c);
+        Value *colIdx = LocalBuilder.CreateAdd(idxVal, constColIdx);
+
+        for (unsigned r = 0; r < row; r++) {
+          unsigned matIdx = HLMatrixLower::GetColMajorIdx(r, c, row);
+          Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
+          LocalBuilder.CreateCall(ldStFunc,
+                                  {OpArg, ID, colIdx, columnConsts[r], Elt});
+        }
+      }
+      CI->eraseFromParent();
+    } break;
+    case HLMatLoadStoreOpcode::RowMatStore: {
+      IRBuilder<> LocalBuilder(CI);
+      Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
+      Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
+                        ->getType()
+                        ->getPointerElementType();
+      unsigned col, row;
+      HLMatrixLower::GetMatrixInfo(matTy, col, row);
+
+      for (unsigned r = 0; r < row; r++) {
+        Constant *constRowIdx = LocalBuilder.getInt32(r);
+        Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
+        for (unsigned c = 0; c < col; c++) {
+          unsigned matIdx = HLMatrixLower::GetRowMajorIdx(r, c, col);
+          Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
+          LocalBuilder.CreateCall(ldStFunc,
+                                  {OpArg, ID, rowIdx, columnConsts[c], Elt});
+        }
+      }
+      CI->eraseFromParent();
+    } break;
+    }
+  } else
+    DXASSERT(0, "invalid operation on input output");
+}
+
 void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
   OP *hlslOP = m_pHLModule->GetOP();
   const ShaderModel *pSM = m_pHLModule->GetShaderModel();
@@ -1175,7 +1354,16 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
       bI1Cast = true;
       Ty = i32Ty;
     }
-
+    if (!hlslOP->IsOverloadLegal(opcode, Ty)) {
+      std::string O;
+      raw_string_ostream OSS(O);
+      Ty->print(OSS);
+      OSS << "(type for " << SE->GetName() << ")";
+      OSS << " cannot be used as shader inputs or outputs.";
+      OSS.flush();
+      M.getContext().emitError(O);
+      continue;
+    }
     Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
     Constant *ID = hlslOP->GetU32Const(i);
     unsigned cols = SE->GetCols();
@@ -1199,143 +1387,23 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
     if (!GV->getType()->isPointerTy()) {
       DXASSERT(bInput, "direct parameter must be input");
       Value *vertexID = undefVertexIdx;
-      Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
       Value *args[] = {OpArg, ID, /*rowIdx*/constZero, /*colIdx*/nullptr, vertexID};
       replaceDirectInputParameter(GV, dxilFunc, cols, args, bI1Cast, hlslOP, EntryBuilder);
       continue;
     }
 
-    bool isArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
-    bool isPrecise = m_preciseSigSet.count(SE);
-    if (isPrecise)
+    bool bIsArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
+    bool bIsPrecise = m_preciseSigSet.count(SE);
+    if (bIsPrecise)
       HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(GV, M);
 
     std::vector<InputOutputAccessInfo> accessInfoList;
-    collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID && isArrayTy, bInput);
+    collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID && bIsArrayTy, bInput);
 
     for (InputOutputAccessInfo &info : accessInfoList) {
-      Value *idxVal = info.idx;
-      Value *vertexID = undefVertexIdx;
-      if (bNeedVertexID && isArrayTy) {
-        vertexID = info.vertexID;
-        idxVal = constZero;
-      }
-
-      if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
-        Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
-        Value *args[] = {OpArg, ID, idxVal, info.vectorIdx, vertexID};
-        replaceLdWithLdInput(dxilFunc, ldInst, cols, args, bI1Cast, hlslOP);
-      }
-      else if (StoreInst *stInst = dyn_cast<StoreInst>(info.user)) {
-        if (bInput) {
-          DXASSERT_LOCALVAR(bIsInout, bIsInout, "input should not have store use.");
-        } else {
-          DXASSERT(!info.vectorIdx,
-                   "not implement vector indexing on output yet.");
-          replaceStWithStOutput(dxilFunc, stInst, opcode, ID, idxVal, cols,
-                                bI1Cast, hlslOP);
-        }
-      } else if (CallInst *CI = dyn_cast<CallInst>(info.user)) {
-        HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-        // Intrinsic will be translated later.
-        if (group == HLOpcodeGroup::HLIntrinsic)
-          continue;
-        unsigned opcode = GetHLOpcode(CI);
-        DXASSERT(group == HLOpcodeGroup::HLMatLoadStore, "");
-        HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
-        switch (matOp) {
-        case HLMatLoadStoreOpcode::ColMatLoad: {
-          IRBuilder<> LocalBuilder(CI);
-          Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
-                            ->getType()
-                            ->getPointerElementType();
-          unsigned col, row;
-          Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
-          std::vector<Value *> matElts(col * row);
-          for (unsigned c = 0; c < col; c++) {
-            Constant *constRowIdx = hlslOP->GetI32Const(c);
-            Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
-            for (unsigned r = 0; r < row; r++) {
-              Value *input = LocalBuilder.CreateCall(
-                  dxilFunc, {OpArg, ID, rowIdx, columnConsts[r], vertexID});
-              unsigned matIdx = c * row + r;
-              matElts[matIdx] = input;
-            }
-          }
-          Value *newVec = HLMatrixLower::BuildMatrix(EltTy, col, row, true,
-                                                     matElts, LocalBuilder);
-          CI->replaceAllUsesWith(newVec);
-          CI->eraseFromParent();
-        } break;
-        case HLMatLoadStoreOpcode::RowMatLoad: {
-          IRBuilder<> LocalBuilder(CI);
-          Type *matTy = CI->getArgOperand(HLOperandIndex::kMatLoadPtrOpIdx)
-                            ->getType()
-                            ->getPointerElementType();
-          unsigned col, row;
-          Type *EltTy = HLMatrixLower::GetMatrixInfo(matTy, col, row);
-          std::vector<Value *> matElts(col * row);
-          for (unsigned r = 0; r < row; r++) {
-            Constant *constRowIdx = hlslOP->GetI32Const(r);
-            Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
-            for (unsigned c = 0; c < col; c++) {
-              Value *input = LocalBuilder.CreateCall(
-                  dxilFunc, {OpArg, ID, rowIdx, columnConsts[c], vertexID});
-              unsigned matIdx = r * col + c;
-              matElts[matIdx] = input;
-            }
-          }
-          Value *newVec = HLMatrixLower::BuildMatrix(EltTy, col, row, false,
-                                                     matElts, LocalBuilder);
-          CI->replaceAllUsesWith(newVec);
-          CI->eraseFromParent();
-        } break;
-        case HLMatLoadStoreOpcode::ColMatStore: {
-          IRBuilder<> LocalBuilder(CI);
-          Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-          Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
-                            ->getType()
-                            ->getPointerElementType();
-          unsigned col, row;
-          HLMatrixLower::GetMatrixInfo(matTy, col, row);
-
-          for (unsigned c = 0; c < col; c++) {
-            Constant *constColIdx = hlslOP->GetI32Const(c);
-            Value *colIdx = LocalBuilder.CreateAdd(idxVal, constColIdx);
-
-            for (unsigned r = 0; r < row; r++) {
-              unsigned matIdx = c * row + r;
-              Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-              LocalBuilder.CreateCall(
-                  dxilFunc, {OpArg, ID, colIdx, columnConsts[r], Elt});
-            }
-          }
-          CI->eraseFromParent();
-        } break;
-        case HLMatLoadStoreOpcode::RowMatStore: {
-          IRBuilder<> LocalBuilder(CI);
-          Value *Val = CI->getArgOperand(HLOperandIndex::kMatStoreValOpIdx);
-          Type *matTy = CI->getArgOperand(HLOperandIndex::kMatStoreDstPtrOpIdx)
-                            ->getType()
-                            ->getPointerElementType();
-          unsigned col, row;
-          HLMatrixLower::GetMatrixInfo(matTy, col, row);
-
-          for (unsigned r = 0; r < row; r++) {
-            Constant *constRowIdx = hlslOP->GetI32Const(r);
-            Value *rowIdx = LocalBuilder.CreateAdd(idxVal, constRowIdx);
-            for (unsigned c = 0; c < col; c++) {
-              unsigned matIdx = r * col + c;
-              Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-              LocalBuilder.CreateCall(
-                  dxilFunc, {OpArg, ID, rowIdx, columnConsts[c], Elt});
-            }
-          }
-          CI->eraseFromParent();
-        } break;
-        }
-      } else
-        DXASSERT(0, "invalid operation on input output");
+      GenerateInputOutputUserCall(info, undefVertexIdx, dxilFunc, OpArg, ID,
+                                  cols, bI1Cast, columnConsts, bNeedVertexID,
+                                  bIsArrayTy, bInput, bIsInout);
     }
   }
 }
@@ -1425,14 +1493,32 @@ void DxilGenerationPass::GenerateDxilPatchConstantLdSt() {
   DxilSignature &Sig = m_pHLModule->GetPatchConstantSignature();
   Function *EntryFunc = m_pHLModule->GetEntryFunction();
   auto InsertPt = EntryFunc->getEntryBlock().getFirstInsertionPt();
-  if (m_pHLModule->GetShaderModel()->IsHS()) {
+  const bool bIsHs = m_pHLModule->GetShaderModel()->IsHS();
+  const bool bIsInput = !bIsHs;
+  const bool bIsInout = false;
+  const bool bNeedVertexID = false;
+  if (bIsHs) {
     HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFunc);
     Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
     InsertPt = patchConstantFunc->getEntryBlock().getFirstInsertionPt();
   }
   IRBuilder<> Builder(InsertPt);
-  Type *i1Ty = Type::getInt1Ty(constZero->getContext());
-  Type *i32Ty = constZero->getType();
+  Type *i1Ty = Builder.getInt1Ty();
+  Type *i32Ty = Builder.getInt32Ty();
+  // LoadPatchConst don't have vertexIdx operand.
+  Value *undefVertexIdx = nullptr;
+
+  Constant *columnConsts[] = {
+      hlslOP->GetU8Const(0),  hlslOP->GetU8Const(1),  hlslOP->GetU8Const(2),
+      hlslOP->GetU8Const(3),  hlslOP->GetU8Const(4),  hlslOP->GetU8Const(5),
+      hlslOP->GetU8Const(6),  hlslOP->GetU8Const(7),  hlslOP->GetU8Const(8),
+      hlslOP->GetU8Const(9),  hlslOP->GetU8Const(10), hlslOP->GetU8Const(11),
+      hlslOP->GetU8Const(12), hlslOP->GetU8Const(13), hlslOP->GetU8Const(14),
+      hlslOP->GetU8Const(15)};
+
+  OP::OpCode opcode =
+      bIsInput ? OP::OpCode::LoadPatchConstant : OP::OpCode::StorePatchConstant;
+  Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
 
   for (unsigned i = 0; i < Sig.GetElements().size(); i++) {
     DxilSignatureElement *SE = &Sig.GetElement(i);
@@ -1454,39 +1540,32 @@ void DxilGenerationPass::GenerateDxilPatchConstantLdSt() {
       bI1Cast = true;
       Ty = i32Ty;
     }
-    Function *dxilLdFunc = hlslOP->GetOpFunc(OP::OpCode::LoadPatchConstant, Ty);
-    Function *dxilStFunc = hlslOP->GetOpFunc(OP::OpCode::StorePatchConstant, Ty);
 
     unsigned cols = SE->GetCols();
 
+    Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
+
     if (!GV->getType()->isPointerTy()) {
-      // Must be DS input.
+      DXASSERT(bIsInput, "Must be DS input.");
       Constant *OpArg = hlslOP->GetU32Const(static_cast<unsigned>(OP::OpCode::LoadPatchConstant));
       Value *args[] = {OpArg, ID, /*rowIdx*/constZero, /*colIdx*/nullptr};
-      replaceDirectInputParameter(GV, dxilLdFunc, cols, args, bI1Cast, hlslOP, Builder);
+      replaceDirectInputParameter(GV, dxilFunc, cols, args, bI1Cast, hlslOP, Builder);
       continue;
     }
     
     std::vector<InputOutputAccessInfo> accessInfoList;
-    collectInputOutputAccessInfo(GV, constZero, accessInfoList, /*hasVertexID*/ false,
-      !m_pHLModule->GetShaderModel()->IsHS());
+    collectInputOutputAccessInfo(GV, constZero, accessInfoList, bNeedVertexID,
+      bIsInput);
+
+    bool bIsArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
     bool isPrecise = m_preciseSigSet.count(SE);
     if (isPrecise)
       HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(GV, M);
 
     for (InputOutputAccessInfo &info : accessInfoList) {
-      Value *idxVal = info.idx;
-      if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
-        OP::OpCode opcode = OP::OpCode::LoadPatchConstant;
-        Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
-        Value *args[] = {OpArg, ID, idxVal, /*colIdx*/nullptr};
-        replaceLdWithLdInput(dxilLdFunc, ldInst, cols, args, bI1Cast, hlslOP);
-      } else if (StoreInst *stInst = dyn_cast<StoreInst>(info.user))
-        replaceStWithStOutput(dxilStFunc, stInst,
-                              OP::OpCode::StorePatchConstant, ID, idxVal, cols,
-                              bI1Cast, hlslOP);
-      else
-        DXASSERT(0, "invalid instruction on patch constant");
+      GenerateInputOutputUserCall(info, undefVertexIdx, dxilFunc, OpArg, ID,
+                                  cols, bI1Cast, columnConsts, bNeedVertexID,
+                                  bIsArrayTy, bIsInput, bIsInout);
     }
   }
 }
@@ -1534,7 +1613,7 @@ void DxilGenerationPass::GenerateDxilPatchConstantFunctionInputs() {
         if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
           Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
           Value *args[] = {OpArg, inputID, info.idx, info.vectorIdx, info.vertexID};
-          replaceLdWithLdInput(dxilLdFunc, ldInst, cols, args, bI1Cast, hlslOP);
+          replaceLdWithLdInput(dxilLdFunc, ldInst, cols, args, bI1Cast);
         } else
           DXASSERT(0, "input should only be ld");
       }
@@ -1633,164 +1712,67 @@ static Value *MergeImmResClass(Value *resClass) {
   }
 }
 
-static void AddCreateHandleForPhiNode(std::unordered_map<Instruction *, Value *> &handleMap, OP *hlslOP) {
-  Function *createHandle = hlslOP->GetOpFunc(
-      OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
+static const StringRef kResourceMapErrorMsg = "local resource not guaranteed to map to unique global resource.";
 
-  std::unordered_set<PHINode *> objPhiList;
-  for (auto It : handleMap) {
-    Instruction *I = It.first;
-    for (User *U : I->users()) {
-      if (PHINode *phi = dyn_cast<PHINode>(U)) {
-        if (objPhiList.count(phi) == 0)
-          objPhiList.insert(phi);
-      }
-    }
+static Value *SelectOnOperand(Value *Cond, CallInst *CIT, CallInst *CIF,
+                              unsigned idx, IRBuilder<> &Builder) {
+  Value *OpT = CIT->getArgOperand(idx);
+  Value *OpF = CIF->getArgOperand(idx);
+  Value *OpSel = OpT;
+  if (OpT != OpF) {
+    OpSel = Builder.CreateSelect(Cond, OpT, OpF);
   }
-
-  // Scan phi list to add resource phi node which all operands are phi nodes.
-  std::vector<PHINode *> objPhiVec(objPhiList.begin(), objPhiList.end());
-  while (!objPhiVec.empty()) {
-    PHINode *phi = objPhiVec.back();
-    objPhiVec.pop_back();
-    unsigned numOperands = phi->getNumOperands();
-    for (unsigned i = 0; i < numOperands; i++) {
-      if (PHINode *nestPhi = dyn_cast<PHINode>(phi->getIncomingValue(i))) {
-        if (objPhiList.count(nestPhi) == 0) {
-          objPhiList.insert(nestPhi);
-          objPhiVec.emplace_back(nestPhi);
-        }
-      }
-    }
-  }
-
-  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandle);
-  Type *resClassTy = Type::getInt8Ty(opArg->getContext());
-  Type *resIDTy = opArg->getType();
-  Type *resAddressTy = opArg->getType();
-  // Phi node object is not uniform
-  Value *isUniformRes = hlslOP->GetI1Const(0);
-
-  // Generate phi for each operands of the createHandle
-  // Then generate createHandle with phi operands.
-  for (PHINode *phi : objPhiList) {
-    IRBuilder<> Builder(phi);
-    unsigned numOperands = phi->getNumOperands();
-    // res class must be same.
-    Value *resClassPhi = Builder.CreatePHI(resClassTy, numOperands);
-    Value *resIDPhi = Builder.CreatePHI(resIDTy, numOperands);
-    Value *resAddressPhi = Builder.CreatePHI(resAddressTy, numOperands);
-
-    IRBuilder<> HandleBuilder(phi->getParent()->getFirstNonPHI());
-    Value *handlePhi = HandleBuilder.CreateCall(createHandle, { opArg, resClassPhi, resIDPhi, resAddressPhi, isUniformRes});
-    handleMap[phi] = handlePhi;
-  }
-
-  // Setup operands for phi operands.
-  for (PHINode *phi : objPhiList) {
-    IRBuilder<> Builder(phi);
-    unsigned numOperands = phi->getNumOperands();
-
-    CallInst *handlePhi = cast<CallInst>(handleMap[phi]);
-
-    PHINode *resClassPhi = cast<PHINode>(handlePhi->getArgOperand(
-        DXIL::OperandIndex::kCreateHandleResClassOpIdx));
-    PHINode *resIDPhi = cast<PHINode>(
-        handlePhi->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx));
-    PHINode *resAddressPhi = cast<PHINode>(handlePhi->getArgOperand(
-        DXIL::OperandIndex::kCreateHandleResIndexOpIdx));
-
-    for (unsigned i = 0; i < numOperands; i++) {
-
-      BasicBlock *BB = phi->getIncomingBlock(i);
-
-      Instruction *phiOperand = cast<Instruction>(phi->getOperand(i));
-      DXASSERT(handleMap.count(phiOperand), "must map to handle");
-      CallInst *handleI = cast<CallInst>(handleMap[phiOperand]);
-
-      Value *resClassI = handleI->getArgOperand(
-          DXIL::OperandIndex::kCreateHandleResClassOpIdx);
-      resClassPhi->addIncoming(resClassI, BB);
-
-      Value *resIDI =
-          handleI->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
-      resIDPhi->addIncoming(resIDI, BB);
-
-      Value *resAddressI = handleI->getArgOperand(
-          DXIL::OperandIndex::kCreateHandleResIndexOpIdx);
-      resAddressPhi->addIncoming(resAddressI, BB);
-    }
-  }
-
-  // Merge res class into imm.
-  for (PHINode *phi : objPhiList) {
-    Instruction *phiOperand = cast<Instruction>(phi->getOperand(0));
-    CallInst *handle0 = cast<CallInst>(handleMap[phiOperand]);
-    Value *resClass =
-        handle0->getArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx);
-    Value *immResClass = MergeImmResClass(resClass);
-    handle0->setArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx,
-                           immResClass);
-  }
-
-  // Drop all ref of the phi to help remove the useless createHandles.
-  for (PHINode *phi : objPhiList) {
-    Value *undefObj = UndefValue::get(phi->getType());
-    unsigned numOperands = phi->getNumOperands();
-    for (unsigned i = 0; i < numOperands; i++) {
-      phi->setIncomingValue(i, undefObj);
-    }
-  }
+  return OpSel;
 }
 
-void DxilGenerationPass::TranslateLocalDxilResourceUses(Function *F, std::unordered_map<Instruction *, Value *> &handleMap) {
+static void ReplaceResourceUserWithHandle(LoadInst *Res, Value *handle) {
+  for (auto resUser = Res->user_begin(); resUser != Res->user_end();) {
+    CallInst *CI = dyn_cast<CallInst>(*(resUser++));
+    DXASSERT(GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
+                 HLOpcodeGroup::HLCreateHandle,
+             "must be createHandle");
+    CI->replaceAllUsesWith(handle);
+    CI->eraseFromParent();
+  }
+  Res->eraseFromParent();
+}
+
+static bool IsResourceType(Type *Ty) {
+  bool isResource = HLModule::IsHLSLObjectType(Ty);
+
+  if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
+    Type *EltTy = AT->getElementType();
+    while (isa<ArrayType>(EltTy)) {
+      EltTy = EltTy->getArrayElementType();
+    }
+    isResource = HLModule::IsHLSLObjectType(EltTy);
+    // TODO: support local resource array.
+    DXASSERT(!isResource, "local resource array");
+  }
+  return isResource;
+}
+
+void DxilGenerationPass::RemoveLocalDxilResourceAllocas(Function *F) {
   BasicBlock &BB = F->getEntryBlock(); // Get the entry node for the function
   std::unordered_set<AllocaInst *> localResources;
   for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
     if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-
-      bool isResource = HLModule::IsHLSLObjectType(AI->getAllocatedType());
-
-      if (ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType())) {
-        Type *EltTy = AT->getElementType();
-        while (isa<ArrayType>(EltTy)) {
-          EltTy = EltTy->getArrayElementType();
-        }
-        isResource = HLModule::IsHLSLObjectType(EltTy);
-        // TODO: support local resource array.
-        DXASSERT(!isResource, "local resource array");
-      }
-      if (isResource) {
+      if (IsResourceType(AI->getAllocatedType())) {
         localResources.insert(AI);
       }
     }
 
   SSAUpdater SSA;
   SmallVector<Instruction *, 4> Insts;
-  // Make sure every resource load has mapped to handle.
-  while (!localResources.empty()) {
-    for (auto it = localResources.begin(); it != localResources.end();) {
-      AllocaInst *AI = *(it++);
-      // Build list of instructions to promote.
-      for (User *U : AI->users())
-        Insts.emplace_back(cast<Instruction>(U));
 
-      AllocaInst *NewAI = ResourcePromoter(Insts, SSA, handleMap).run(AI, Insts);
-      localResources.erase(AI);
-      if (NewAI)
-        localResources.insert(NewAI);
+  for (AllocaInst *AI : localResources) {
+    // Build list of instructions to promote.
+    for (User *U : AI->users())
+      Insts.emplace_back(cast<Instruction>(U));
 
-      Insts.clear();
-    }
-  }
-}
+    ResourceRemover(Insts, SSA).run(AI, Insts);
 
-void DxilGenerationPass::MapLocalDxilResourceHandles(
-    std::unordered_map<Instruction *, Value *> &handleMap) {
-  Module &M = *m_pHLModule->GetModule();
-  for (Function &F : M.functions()) {
-    if (!F.isDeclaration())
-      TranslateLocalDxilResourceUses(&F, handleMap);
+    Insts.clear();
   }
 }
 
@@ -1823,7 +1805,6 @@ void DxilGenerationPass::TranslateParamDxilResourceHandles(Function *F, std::uno
 
       for (User *U : arg.users()) {
         Instruction *I = cast<Instruction>(U);
-
         IRBuilder<> userBuilder(I);
         if (LoadInst *ldInst = dyn_cast<LoadInst>(U)) {
           Value *handleLd = userBuilder.CreateLoad(castToHandle);
@@ -1876,7 +1857,9 @@ void DxilGenerationPass::GenerateParamDxilResourceHandles(
   }
 }
 
-void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::unordered_map<Instruction *, Value *> &handleMap) {
+void DxilGenerationPass::TranslateDxilResourceUses(
+    DxilResourceBase &res, std::unordered_set<LoadInst *> &UpdateCounterSet,
+    std::unordered_set<Value *> &NonUniformSet) {
   OP *hlslOP = m_pHLModule->GetOP();
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(m_pHLModule->GetCtx()));
@@ -1897,7 +1880,6 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
   Value *resLowerBound = hlslOP->GetU32Const(0);
   // TODO: Set Non-uniform resource bit based on whether index comes from IOP_NonUniformResourceIndex.
   Value *isUniformRes = hlslOP->GetI1Const(0);
-  Value *createHandleArgs[] = {opArg, resClassArg, resIDArg, resLowerBound, isUniformRes};
 
   Value *GV = res.GetGlobalSymbol();
   Module *pM = m_pHLModule->GetModule();
@@ -1915,7 +1897,10 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
   }
 
   bool isResArray = res.GetRangeSize() > 1;
-  std::unordered_map<Function *, Value *> handleMapOnFunction;
+  std::unordered_map<Function *, Instruction *> handleMapOnFunction;
+
+  Value *createHandleArgs[] = {opArg, resClassArg, resIDArg, resLowerBound,
+                               isUniformRes};
 
   for (iplist<Function>::iterator F : pM->getFunctionList()) {
     if (!F->isDeclaration()) {
@@ -1937,10 +1922,16 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
       continue;
 
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
+      if (UpdateCounterSet.count(ldInst)) {
+        DxilResource *resource = llvm::dyn_cast<DxilResource>(&res);
+        DXASSERT_NOMSG(resource);
+        DXASSERT_NOMSG(resource->GetClass() == DXIL::ResourceClass::UAV);
+        resource->SetHasCounter(true);
+      }
       Function *userF = ldInst->getParent()->getParent();
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
       Value *handle = handleMapOnFunction[userF];
-      handleMap[ldInst] = handle;
+      ReplaceResourceUserWithHandle(ldInst, handle);
     } else {
       DXASSERT(dyn_cast<GEPOperator>(user) != nullptr,
                "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
@@ -1974,6 +1965,13 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
       }
 
       createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] = idx;
+      if (!NonUniformSet.count(idx))
+        createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+            isUniformRes;
+      else
+        createHandleArgs[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+            hlslOP->GetI1Const(1);
+
       Value *handle = nullptr;
       if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
         IRBuilder<> Builder = IRBuilder<>(GEPInst);
@@ -1983,39 +1981,280 @@ void DxilGenerationPass::TranslateDxilResourceUses(DxilResourceBase &res, std::u
       for (auto GEPU = GEP->user_begin(), GEPE = GEP->user_end(); GEPU != GEPE; ) {
         // Must be load inst.
         LoadInst *ldInst = cast<LoadInst>(*(GEPU++));
-        if (handle)
-          handleMap[ldInst] = handle;
+        if (UpdateCounterSet.count(ldInst)) {
+          DxilResource *resource = dyn_cast<DxilResource>(&res);
+          DXASSERT_NOMSG(resource);
+          DXASSERT_NOMSG(resource->GetClass() == DXIL::ResourceClass::UAV);
+          resource->SetHasCounter(true);
+        }
+        if (handle) {
+          ReplaceResourceUserWithHandle(ldInst, handle);
+        }
         else {
           IRBuilder<> Builder = IRBuilder<>(ldInst);
-          handleMap[ldInst] = Builder.CreateCall(createHandle, createHandleArgs, handleName);
+          Value *localHandle = Builder.CreateCall(createHandle, createHandleArgs, handleName);
+          ReplaceResourceUserWithHandle(ldInst, localHandle);
         }
       }
     }
   }
+  // Erase unused handle.
+  for (auto It : handleMapOnFunction) {
+    Instruction *I = It.second;
+    if (I->user_empty())
+      I->eraseFromParent();
+  }
 }
 
-void DxilGenerationPass::GenerateDxilResourceHandles(std::unordered_map<Instruction *, Value *> &handleMap) {
+void DxilGenerationPass::GenerateDxilResourceHandles(
+    std::unordered_set<LoadInst *> &UpdateCounterSet,
+    std::unordered_set<Value *> &NonUniformSet) {
   // Create sampler handle first, may be used by SRV operations.
   for (size_t i = 0; i < m_pHLModule->GetSamplers().size(); i++) {
     DxilSampler &S = m_pHLModule->GetSampler(i);
-    TranslateDxilResourceUses(S, handleMap);
+    TranslateDxilResourceUses(S, UpdateCounterSet, NonUniformSet);
   }
 
   for (size_t i = 0; i < m_pHLModule->GetSRVs().size(); i++) {
     HLResource &SRV = m_pHLModule->GetSRV(i);
-    TranslateDxilResourceUses(SRV, handleMap);
+    TranslateDxilResourceUses(SRV, UpdateCounterSet, NonUniformSet);
   }
 
   for (size_t i = 0; i < m_pHLModule->GetUAVs().size(); i++) {
     HLResource &UAV = m_pHLModule->GetUAV(i);
-    TranslateDxilResourceUses(UAV, handleMap);
+    TranslateDxilResourceUses(UAV, UpdateCounterSet, NonUniformSet);
   }
-
-  AddCreateHandleForPhiNode(handleMap, m_pHLModule->GetOP());
 }
 
-void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instruction *, Value *> &handleMap) {
-  // For CBuffer, handle are mapped to CBufferSubscript.
+static void
+AddResourceToSet(Instruction *Res, std::unordered_set<Instruction *> &resSet) {
+  unsigned startOpIdx = 0;
+  // Skip Cond for Select.
+  if (isa<SelectInst>(Res))
+    startOpIdx = 1;
+  else if (!isa<PHINode>(Res))
+    // Only check phi and select here.
+    return;
+
+  // Already add.
+  if (resSet.count(Res))
+    return;
+
+  resSet.insert(Res);
+
+  // Scan operand to add resource node which only used by phi/select.
+  unsigned numOperands = Res->getNumOperands();
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    Value *V = Res->getOperand(i);
+    if (Instruction *I = dyn_cast<Instruction>(V)) {
+      AddResourceToSet(I, resSet);
+    }
+  }
+}
+
+// Transform
+//
+//  %g_texture_texture_2d1 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
+//  %g_texture_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 2, i1 false)
+//  %13 = select i1 %cmp, %dx.types.Handle %g_texture_texture_2d1, %dx.types.Handle %g_texture_texture_2d
+// Into
+//  %11 = select i1 %cmp, i32 0, i32 2
+//  %12 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 %11, i1 false)
+//
+
+static bool MergeHandleOpWithSameValue(Instruction *HandleOp,
+                                       unsigned startOpIdx,
+                                       unsigned numOperands) {
+  Value *op0 = nullptr;
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    Value *op = HandleOp->getOperand(i);
+    if (i == startOpIdx) {
+      op0 = op;
+    } else {
+      if (op0 != op)
+        op0 = nullptr;
+    }
+  }
+  if (op0) {
+    HandleOp->replaceAllUsesWith(op0);
+    return true;
+  }
+  return false;
+}
+
+static void
+UpdateHandleOperands(Instruction *Res,
+                     std::unordered_map<Instruction *, CallInst *> &handleMap,
+                     std::unordered_set<Instruction *> &nonUniformOps) {
+  unsigned numOperands = Res->getNumOperands();
+
+  unsigned startOpIdx = 0;
+  // Skip Cond for Select.
+  if (SelectInst *Sel = dyn_cast<SelectInst>(Res))
+    startOpIdx = 1;
+
+  CallInst *Handle = handleMap[Res];
+
+  Instruction *resClass = cast<Instruction>(
+      Handle->getArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx));
+  Instruction *resID = cast<Instruction>(
+      Handle->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx));
+  Instruction *resAddr = cast<Instruction>(
+      Handle->getArgOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx));
+
+  for (unsigned i = startOpIdx; i < numOperands; i++) {
+    if (!isa<Instruction>(Res->getOperand(i))) {
+      Res->getContext().emitError(Res, kResourceMapErrorMsg);
+      continue;
+    }
+    Instruction *ResOp = cast<Instruction>(Res->getOperand(i));
+    CallInst *HandleOp = dyn_cast<CallInst>(ResOp);
+
+    if (!HandleOp) {
+      if (handleMap.count(ResOp)) {
+        Res->getContext().emitError(Res, kResourceMapErrorMsg);
+        continue;
+      }
+      HandleOp = handleMap[ResOp];
+    }
+
+    Value *resClassOp =
+        HandleOp->getArgOperand(DXIL::OperandIndex::kCreateHandleResClassOpIdx);
+    Value *resIDOp =
+        HandleOp->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
+    Value *resAddrOp =
+        HandleOp->getArgOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx);
+
+    resClass->setOperand(i, resClassOp);
+    resID->setOperand(i, resIDOp);
+    resAddr->setOperand(i, resAddrOp);
+  }
+
+  if (!MergeHandleOpWithSameValue(resClass, startOpIdx, numOperands))
+    nonUniformOps.insert(resClass);
+  if (!MergeHandleOpWithSameValue(resID, startOpIdx, numOperands))
+    nonUniformOps.insert(resID);
+  MergeHandleOpWithSameValue(resAddr, startOpIdx, numOperands);
+}
+
+void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
+  Function *createHandle = hlslOP->GetOpFunc(
+      OP::OpCode::CreateHandle, llvm::Type::getVoidTy(hlslOP->GetCtx()));
+
+  std::unordered_set<PHINode *> objPhiList;
+  std::unordered_set<SelectInst *> objSelectList;
+  std::unordered_set<Instruction *> resSelectSet;
+  for (User *U : createHandle->users()) {
+    for (User *HandleU : U->users()) {
+      Instruction *I = cast<Instruction>(HandleU);
+      if (!isa<CallInst>(I))
+        AddResourceToSet(I, resSelectSet);
+    }
+  }
+
+  // Generate Handle inst for Res inst.
+  FunctionType *FT = createHandle->getFunctionType();
+  Value *opArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CreateHandle);
+  Type *resClassTy =
+      FT->getParamType(DXIL::OperandIndex::kCreateHandleResClassOpIdx);
+  Type *resIDTy = FT->getParamType(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
+  Type *resAddrTy =
+      FT->getParamType(DXIL::OperandIndex::kCreateHandleResIndexOpIdx);
+  Value *UndefResClass = UndefValue::get(resClassTy);
+  Value *UndefResID = UndefValue::get(resIDTy);
+  Value *UndefResAddr = UndefValue::get(resAddrTy);
+
+  // phi/select node resource is not uniform
+  Value *nonUniformRes = hlslOP->GetI1Const(1);
+  std::unordered_map<Instruction *, CallInst *> handleMap;
+  for (Instruction *Res : resSelectSet) {
+    unsigned numOperands = Res->getNumOperands();
+    IRBuilder<> Builder(Res);
+
+    unsigned startOpIdx = 0;
+    // Skip Cond for Select.
+    if (SelectInst *Sel = dyn_cast<SelectInst>(Res)) {
+      startOpIdx = 1;
+      Value *Cond = Sel->getCondition();
+
+      Value *resClassSel =
+          Builder.CreateSelect(Cond, UndefResClass, UndefResClass);
+      Value *resIDSel = Builder.CreateSelect(Cond, UndefResID, UndefResID);
+      Value *resAddrSel =
+          Builder.CreateSelect(Cond, UndefResAddr, UndefResAddr);
+
+      CallInst *HandleSel =
+          Builder.CreateCall(createHandle, {opArg, resClassSel, resIDSel,
+                                            resAddrSel, nonUniformRes});
+      handleMap[Res] = HandleSel;
+      Res->replaceAllUsesWith(HandleSel);
+    } else {
+      PHINode *Phi = cast<PHINode>(Res); // res class must be same.
+      PHINode *resClassPhi = Builder.CreatePHI(resClassTy, numOperands);
+      PHINode *resIDPhi = Builder.CreatePHI(resIDTy, numOperands);
+      PHINode *resAddrPhi = Builder.CreatePHI(resAddrTy, numOperands);
+      for (unsigned i = 0; i < numOperands; i++) {
+        BasicBlock *BB = Phi->getIncomingBlock(i);
+        resClassPhi->addIncoming(UndefResClass, BB);
+        resIDPhi->addIncoming(UndefResID, BB);
+        resAddrPhi->addIncoming(UndefResAddr, BB);
+      }
+      IRBuilder<> HandleBuilder(Phi->getParent()->getFirstNonPHI());
+      CallInst *HandlePhi =
+          HandleBuilder.CreateCall(createHandle, {opArg, resClassPhi, resIDPhi,
+                                                  resAddrPhi, nonUniformRes});
+      handleMap[Res] = HandlePhi;
+      Res->replaceAllUsesWith(HandlePhi);
+    }
+  }
+
+  // Update operand for Handle phi/select.
+  // If ResClass or ResID is phi/select, save to nonUniformOps.
+  std::unordered_set<Instruction *> nonUniformOps;
+  for (Instruction *Res : resSelectSet) {
+    UpdateHandleOperands(Res, handleMap, nonUniformOps);
+  }
+
+  // ResClass and ResID must be uniform.
+  // Try to merge res class, res id into imm.
+  while (1) {
+    bool bUpdated = false;
+
+    for (auto It = nonUniformOps.begin(); It != nonUniformOps.end();) {
+      Instruction *I = *(It++);
+      unsigned numOperands = I->getNumOperands();
+
+      unsigned startOpIdx = 0;
+      // Skip Cond for Select.
+      if (SelectInst *Sel = dyn_cast<SelectInst>(I))
+        startOpIdx = 1;
+      if (MergeHandleOpWithSameValue(I, startOpIdx, numOperands)) {
+        nonUniformOps.erase(I);
+        bUpdated = true;
+      }
+    }
+
+    if (!bUpdated) {
+      if (!nonUniformOps.empty()) {
+        for (Instruction *I : nonUniformOps) {
+          // Non uniform res class or res id.
+          FT->getContext().emitError(I, kResourceMapErrorMsg);
+        }
+        return;
+      }
+      break;
+    }
+  }
+
+  // Remove useless select/phi.
+  for (Instruction *Res : resSelectSet) {
+    Res->eraseFromParent();
+  }
+}
+
+void DxilGenerationPass::GenerateDxilCBufferHandles(
+    std::unordered_set<Value *> &NonUniformSet) {
+  // For CBuffer, handle are mapped to HLCreateHandle.
   OP *hlslOP = m_pHLModule->GetOP();
   Function *createHandle = hlslOP->GetOpFunc(
       OP::OpCode::CreateHandle, llvm::Type::getVoidTy(m_pHLModule->GetCtx()));
@@ -2025,13 +2264,16 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
       static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
           DXIL::ResourceClass::CBuffer));
 
-  Value *args[] = { opArg, resClassArg, nullptr, nullptr, hlslOP->GetI1Const(0)};
 
   for (size_t i = 0; i < m_pHLModule->GetCBuffers().size(); i++) {
     DxilCBuffer &CB = m_pHLModule->GetCBuffer(i);
     GlobalVariable *GV = cast<GlobalVariable>(CB.GetGlobalSymbol());
+    // Remove GEP created in HLObjectOperationLowerHelper::UniformCbPtr.
+    GV->removeDeadConstantUsers();
     std::string handleName = std::string(GV->getName()) + "_buffer";
 
+    Value *args[] = {opArg, resClassArg, nullptr, nullptr,
+                     hlslOP->GetI1Const(0)};
     DIVariable *DIV = nullptr;
     DILocation *DL = nullptr;
     if (m_HasDbgInfo) {
@@ -2051,27 +2293,48 @@ void DxilGenerationPass::GenerateDxilCBufferHandles(std::unordered_map<Instructi
 
     if (CB.GetRangeSize() == 1) {
       args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] = resLowerBound;
-      for (auto U : GV->users()) {
-        // Must CBufferSubscript.
-        CallInst *CI = cast<CallInst>((U));
-        IRBuilder<> Builder(CI);
+      for (auto U = GV->user_begin(); U != GV->user_end(); ) {
+        // Must HLCreateHandle.
+        CallInst *CI = cast<CallInst>(*(U++));
+        // Put createHandle to entry block.
+        auto InsertPt =
+            CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt();
+        IRBuilder<> Builder(InsertPt);
 
         CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
         if (m_HasDbgInfo) {
           // TODO: add debug info.
           //handle->setDebugLoc(DL);
         }
-        handleMap[CI] = handle;
+        CI->replaceAllUsesWith(handle);
+        CI->eraseFromParent();
       }
     } else {
-      for (auto U : GV->users()) {
-        // Must CBufferSubscript.
-        CallInst *CI = cast<CallInst>(U);
+      for (auto U = GV->user_begin(); U != GV->user_end(); ) {
+        // Must HLCreateHandle.
+        CallInst *CI = cast<CallInst>(*(U++));
         IRBuilder<> Builder(CI);
+        Value *CBIndex = CI->getArgOperand(HLOperandIndex::kCreateHandleIndexOpIdx);
         args[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
-            CI->getArgOperand(HLOperandIndex::kSubscriptIndexOpIdx);
+            CBIndex;
+        if (isa<ConstantInt>(CBIndex)) {
+          // Put createHandle to entry block for const index.
+          auto InsertPt = CI->getParent()
+                              ->getParent()
+                              ->getEntryBlock()
+                              .getFirstInsertionPt();
+          Builder.SetInsertPoint(InsertPt);
+        }
+        if (!NonUniformSet.count(CBIndex))
+          args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+              hlslOP->GetI1Const(0);
+        else
+          args[DXIL::OperandIndex::kCreateHandleIsUniformOpIdx] =
+              hlslOP->GetI1Const(1);
+
         CallInst *handle = Builder.CreateCall(createHandle, args, handleName);
-        handleMap[CI] = handle;
+        CI->replaceAllUsesWith(handle);
+        CI->eraseFromParent();
       }
     }
   } 
@@ -2166,7 +2429,8 @@ void DxilGenerationPass::GenerateStreamOutputOperations() {
 }
 
 void DxilGenerationPass::GenerateDxilOperations(
-    Module &M, std::unordered_map<Instruction *, Value *> &handleMap) {
+    Module &M, std::unordered_set<LoadInst *> &UpdateCounterSet,
+    std::unordered_set<Value *> &NonUniformSet) {
   // remove all functions except entry function
   Function *entry = m_pHLModule->GetEntryFunction();
   const ShaderModel *pSM = m_pHLModule->GetShaderModel();
@@ -2189,7 +2453,8 @@ void DxilGenerationPass::GenerateDxilOperations(
       func->eraseFromParent();
   }
 
-  TranslateBuiltinOperations(*m_pHLModule, handleMap, m_extensionsCodegenHelper);
+  TranslateBuiltinOperations(*m_pHLModule, m_extensionsCodegenHelper,
+                             UpdateCounterSet, NonUniformSet);
 
   if (pSM->IsGS())
     GenerateStreamOutputOperations();
@@ -2199,7 +2464,7 @@ void DxilGenerationPass::GenerateDxilOperations(
   for (iplist<Function>::iterator F : M.getFunctionList()) {
     if (F->isDeclaration()) {
       hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
-      if (group != HLOpcodeGroup::NotHL || F->isIntrinsic()) 
+      if (group != HLOpcodeGroup::NotHL || F->isIntrinsic())
         if (F->user_empty())
           deadList.emplace_back(F);
     }
@@ -2398,15 +2663,18 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res, DxilTypeSystem &Type
     // Delete old GV.
     for (auto UserIt = GV->user_begin(); UserIt != GV->user_end(); ) {
       Value *User = *(UserIt++);
-      DXASSERT(User->user_empty(),
-               "GV user should not have use after HLOperationLower.");
       if (Instruction *I = dyn_cast<Instruction>(User)) {
+        if (!User->user_empty())
+          I->replaceAllUsesWith(UndefValue::get(I->getType()));
+
         I->eraseFromParent();
       } else {
         ConstantExpr *CE = cast<ConstantExpr>(User);
-        CE->dropAllReferences();
+        if (!CE->user_empty())
+          CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
       }
     }
+    GV->removeDeadConstantUsers();
     GV->eraseFromParent();
   }
 }
@@ -2496,6 +2764,36 @@ INITIALIZE_PASS(HLEnsureMetadata, "hlsl-hlensure", "HLSL High-Level Metadata Ens
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
+class DxilLoadMetadata : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilLoadMetadata () : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "HLSL load DxilModule from metadata"; }
+
+  bool runOnModule(Module &M) override {
+    if (!M.HasDxilModule()) {
+      (void)M.GetOrCreateDxilModule();
+      return true;
+    }
+
+    return false;
+  }
+};
+}
+
+char DxilLoadMetadata::ID = 0;
+
+ModulePass *llvm::createDxilLoadMetadataPass() {
+  return new DxilLoadMetadata();
+}
+
+INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+namespace {
 
 Function *StripFunctionParameter(Function *F, DxilModule &DM,
     DenseMap<const Function *, DISubprogram *> &FunctionDIs) {
@@ -2505,6 +2803,10 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   for (auto &arg : F->args()) {
     if (!arg.user_empty())
       return nullptr;
+    DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&arg);
+    if (DDI) {
+      DDI->eraseFromParent();
+    }
   }
 
   Function *NewFunc = Function::Create(FT, F->getLinkage(), F->getName());
@@ -2529,6 +2831,34 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
   return NewFunc;
 }
 
+void CheckInBoundForTGSM(GlobalVariable &GV, const DataLayout &DL) {
+  for (User *U : GV.users()) {
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
+      bool allImmIndex = true;
+      for (auto Idx = GEP->idx_begin(), E = GEP->idx_end(); Idx != E; Idx++) {
+        if (!isa<ConstantInt>(Idx)) {
+          allImmIndex = false;
+          break;
+        }
+      }
+      if (!allImmIndex)
+        GEP->setIsInBounds(false);
+      else {
+        Value *Ptr = GEP->getPointerOperand();
+        unsigned size =
+            DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
+        unsigned valSize =
+            DL.getTypeAllocSize(GEP->getType()->getPointerElementType());
+        SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
+        unsigned offset =
+            DL.getIndexedOffset(GEP->getPointerOperandType(), Indices);
+        if ((offset + valSize) > size)
+          GEP->setIsInBounds(false);
+      }
+    }
+  }
+}
+
 class DxilEmitMetadata : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -2536,10 +2866,30 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
 
+  void patchSM60(Module &M) {
+    for (iplist<Function>::iterator F : M.getFunctionList()) {
+      for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
+           ++BBI) {
+        BasicBlock *BB = BBI;
+        for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;
+             ++II) {
+          Instruction *I = II;
+          if (I->getMetadata(LLVMContext::MD_noalias)) {
+            I->setMetadata(LLVMContext::MD_noalias, nullptr);
+          }
+        }
+      }
+    }
+  }
+
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+      bool bIsSM61Plus = M.GetDxilModule().GetShaderModel()->IsSM61Plus();
+      if (!bIsSM61Plus) {
+        patchSM60(M);
+      }
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (!hlslOP->IsDxilOpFunc(F))
           continue;
@@ -2616,6 +2966,14 @@ public:
             }
           }
           GV->eraseFromParent();
+        }
+      }
+
+      const DataLayout &DL = M.getDataLayout();
+      // Clear inbound for GEP which has none-const index.
+      for (GlobalVariable &GV : M.globals()) {
+        if (HLModule::IsSharedMemoryGlobal(&GV)) {
+          CheckInBoundForTGSM(GV, DL);
         }
       }
 
@@ -2712,6 +3070,9 @@ static void PropagatePreciseAttributeOnOperand(Value *V, DxilTypeSystem &typeSys
 
   // Clear fast math.
   I->copyFastMathFlags(FastMathFlags());
+  // Fast math not work on call, use metadata.
+  if (CallInst *CI = dyn_cast<CallInst>(I))
+    HLModule::MarkPreciseAttributeWithMetadata(CI);
   PropagatePreciseAttribute(I, typeSys);
 }
 
@@ -2788,3 +3149,331 @@ ModulePass *llvm::createDxilPrecisePropagatePass() {
 }
 
 INITIALIZE_PASS(DxilPrecisePropagatePass, "hlsl-dxil-precise", "DXIL precise attribute propagate", false, false)
+
+///////////////////////////////////////////////////////////////////////////////
+// Legalize resource use.
+// Map local or static global resource to global resource.
+// Require inline for static global resource.
+
+namespace {
+
+class DxilLegalizeStaticResourceUsePass : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilLegalizeStaticResourceUsePass()
+      : ModulePass(ID) {}
+
+  const char *getPassName() const override {
+    return "DXIL Legalize Static Resource Use";
+  }
+
+  bool runOnModule(Module &M) override {
+    HLModule &HLM = M.GetOrCreateHLModule();
+    OP *hlslOP = HLM.GetOP();
+    Type *HandleTy = hlslOP->GetHandleType();
+    // Promote static global variables.
+    PromoteStaticGlobalResources(M);
+
+    // Lower handle cast.
+    for (Function &F : M.functions()) {
+      if (!F.isDeclaration())
+        continue;
+      HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(&F);
+      if (group != HLOpcodeGroup::HLCast)
+        continue;
+      Type *Ty = F.getFunctionType()->getReturnType();
+      if (Ty->isPointerTy())
+        Ty = Ty->getPointerElementType();
+      if (HLModule::IsHLSLObjectType(Ty)) {
+        TransformHandleCast(F);
+      }
+    }
+
+    Value *UndefHandle = UndefValue::get(HandleTy);
+    if (!UndefHandle->user_empty()) {
+      for (User *U : UndefHandle->users()) {
+        // Report error if undef handle used for function call.
+        if (isa<CallInst>(U)) {
+          M.getContext().emitError(kResourceMapErrorMsg);
+        }
+      }
+    }
+    return true;
+  }
+
+private:
+  void PromoteStaticGlobalResources(Module &M);
+  void TransformHandleCast(Function &F);
+};
+
+char DxilLegalizeStaticResourceUsePass::ID = 0;
+
+class DxilLegalizeResourceUsePass : public FunctionPass {
+  HLModule *m_pHLModule;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilLegalizeResourceUsePass()
+      : FunctionPass(ID), m_pHLModule(nullptr) {}
+
+  const char *getPassName() const override {
+    return "DXIL Legalize Resource Use";
+  }
+
+  bool runOnFunction(Function &F) override {
+    // Promote local resource first.
+    PromoteLocalResource(F);
+    return true;
+  }
+
+private:
+  void PromoteLocalResource(Function &F);
+};
+
+char DxilLegalizeResourceUsePass::ID = 0;
+
+}
+
+void DxilLegalizeResourceUsePass::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.setPreservesAll();
+}
+
+void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
+  std::vector<AllocaInst *> Allocas;
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  AssumptionCache &AC =
+      getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+  HLModule &HLM = F.getParent()->GetOrCreateHLModule();
+  OP *hlslOP = HLM.GetOP();
+  Type *HandleTy = hlslOP->GetHandleType();
+
+  BasicBlock &BB = F.getEntryBlock();
+  unsigned allocaSize = 0;
+  while (1) {
+    Allocas.clear();
+
+    // Find allocas that are safe to promote, by looking at all instructions in
+    // the entry node
+    for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
+        if (HandleTy == HLModule::GetArrayEltTy(AI->getAllocatedType()))
+          Allocas.push_back(AI);
+      }
+    if (Allocas.empty())
+      break;
+
+    // No update.
+    // Report error and break.
+    if (allocaSize == Allocas.size()) {
+      F.getContext().emitError(kResourceMapErrorMsg);
+      break;
+    }
+    allocaSize = Allocas.size();
+
+    PromoteMemToReg(Allocas, *DT, nullptr, &AC);
+  }
+
+  return;
+}
+
+FunctionPass *llvm::createDxilLegalizeResourceUsePass() {
+  return new DxilLegalizeResourceUsePass();
+}
+
+INITIALIZE_PASS_BEGIN(DxilLegalizeResourceUsePass,
+                      "hlsl-dxil-legalize-resource-use",
+                      "DXIL legalize resource use", false, true)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_END(DxilLegalizeResourceUsePass,
+                    "hlsl-dxil-legalize-resource-use",
+                    "DXIL legalize resource use", false, true)
+
+void DxilLegalizeStaticResourceUsePass::PromoteStaticGlobalResources(
+    Module &M) {
+  HLModule &HLM = M.GetOrCreateHLModule();
+  Type *HandleTy = HLM.GetOP()->GetHandleType();
+
+  std::set<GlobalVariable *> staticResources;
+  for (auto &GV : M.globals()) {
+    if (GV.getLinkage() == GlobalValue::LinkageTypes::InternalLinkage &&
+        HandleTy == HLModule::GetArrayEltTy(GV.getType())) {
+      staticResources.insert(&GV);
+    }
+  }
+  SSAUpdater SSA;
+  SmallVector<Instruction *, 4> Insts;
+  // Make sure every resource load has mapped to global variable.
+  while (!staticResources.empty()) {
+    bool bUpdated = false;
+    for (auto it = staticResources.begin(); it != staticResources.end();) {
+      GlobalVariable *GV = *(it++);
+      // Build list of instructions to promote.
+      for (User *U : GV->users()) {
+        Instruction *I = cast<Instruction>(U);
+        Insts.emplace_back(I);
+      }
+
+      LoadAndStorePromoter(Insts, SSA).run(Insts);
+      if (GV->user_empty()) {
+        bUpdated = true;
+        staticResources.erase(GV);
+      }
+
+      Insts.clear();
+    }
+    if (!bUpdated) {
+      M.getContext().emitError(kResourceMapErrorMsg);
+      break;
+    }
+  }
+}
+
+static void ReplaceResUseWithHandle(Instruction *Res, Value *Handle) {
+  Type *HandleTy = Handle->getType();
+  for (auto ResU = Res->user_begin(); ResU != Res->user_end();) {
+    Instruction *I = cast<Instruction>(*(ResU++));
+    if (isa<LoadInst>(I)) {
+      ReplaceResUseWithHandle(I, Handle);
+    } else if (isa<CallInst>(I)) {
+      if (I->getType() == HandleTy)
+        I->replaceAllUsesWith(Handle);
+      else
+        DXASSERT(0, "must createHandle here");
+    } else {
+      DXASSERT(0, "should only used by load and createHandle");
+    }
+    if (I->user_empty()) {
+      I->eraseFromParent();
+    }
+  }
+}
+
+void DxilLegalizeStaticResourceUsePass::TransformHandleCast(Function &F) {
+  for (auto U = F.user_begin(); U != F.user_end(); ) {
+    CallInst *CI = cast<CallInst>(*(U++));
+    Value *Handle = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+    ReplaceResUseWithHandle(CI, Handle);
+    if (CI->user_empty())
+      CI->eraseFromParent();
+  }
+}
+
+ModulePass *llvm::createDxilLegalizeStaticResourceUsePass() {
+  return new DxilLegalizeStaticResourceUsePass();
+}
+
+INITIALIZE_PASS(DxilLegalizeStaticResourceUsePass,
+                "hlsl-dxil-legalize-static-resource-use",
+                "DXIL legalize static resource use", false, false)
+
+///////////////////////////////////////////////////////////////////////////////
+// Legalize EvalOperations.
+// Make sure src of EvalOperations are from function parameter.
+// This is needed in order to translate EvaluateAttribute operations that traces
+// back to LoadInput operations during translation stage. Promoting load/store
+// instructions beforehand will allow us to easily trace back to loadInput from
+// function call.
+namespace {
+
+class DxilLegalizeEvalOperations : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilLegalizeEvalOperations() : ModulePass(ID) {}
+
+  const char *getPassName() const override {
+    return "DXIL Legalize EvalOperations";
+  }
+
+  bool runOnModule(Module &M) override {
+    for (Function &F : M.getFunctionList()) {
+      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(&F);
+      if (group != HLOpcodeGroup::NotHL) {
+        std::vector<CallInst *> EvalFunctionCalls;
+        // Find all EvaluateAttribute calls
+        for (User *U : F.users()) {
+          if (CallInst *CI = dyn_cast<CallInst>(U)) {
+            IntrinsicOp evalOp =
+                static_cast<IntrinsicOp>(hlsl::GetHLOpcode(CI));
+            if (evalOp == IntrinsicOp::IOP_EvaluateAttributeAtSample ||
+                evalOp == IntrinsicOp::IOP_EvaluateAttributeCentroid ||
+                evalOp == IntrinsicOp::IOP_EvaluateAttributeSnapped) {
+              EvalFunctionCalls.push_back(CI);
+            }
+          }
+        }
+        if (EvalFunctionCalls.empty()) {
+          continue;
+        }
+        // Start from the call instruction, find all allocas that this call
+        // uses.
+        std::unordered_set<AllocaInst *> allocas;
+        for (CallInst *CI : EvalFunctionCalls) {
+          FindAllocasForEvalOperations(CI, allocas);
+        }
+        SSAUpdater SSA;
+        SmallVector<Instruction *, 4> Insts;
+        for (AllocaInst *AI : allocas) {
+          for (User *user : AI->users()) {
+            if (isa<LoadInst>(user) || isa<StoreInst>(user)) {
+              Insts.emplace_back(cast<Instruction>(user));
+            }
+          }
+          LoadAndStorePromoter(Insts, SSA).run(Insts);
+          Insts.clear();
+        }
+      }
+    }
+    return true;
+  }
+
+private:
+  void FindAllocasForEvalOperations(Value *val,
+                                    std::unordered_set<AllocaInst *> &allocas);
+};
+
+char DxilLegalizeEvalOperations::ID = 0;
+
+// Find allocas for EvaluateAttribute operations
+void DxilLegalizeEvalOperations::FindAllocasForEvalOperations(
+    Value *val, std::unordered_set<AllocaInst *> &allocas) {
+  Value *CurVal = val;
+  while (!isa<AllocaInst>(CurVal)) {
+    if (CallInst *CI = dyn_cast<CallInst>(CurVal)) {
+      CurVal = CI->getOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+    } else if (InsertElementInst *IE = dyn_cast<InsertElementInst>(CurVal)) {
+      Value *arg0 =
+          IE->getOperand(0); // Could be another insertelement or undef
+      Value *arg1 = IE->getOperand(1);
+      FindAllocasForEvalOperations(arg0, allocas);
+      CurVal = arg1;
+    } else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(CurVal)) {
+      Value *arg0 = SV->getOperand(0);
+      Value *arg1 = SV->getOperand(1);
+      FindAllocasForEvalOperations(
+          arg0, allocas); // Shuffle vector could come from different allocas
+      CurVal = arg1;
+    } else if (ExtractElementInst *EE = dyn_cast<ExtractElementInst>(CurVal)) {
+      CurVal = EE->getOperand(0);
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(CurVal)) {
+      CurVal = LI->getOperand(0);
+    } else {
+      break;
+    }
+  }
+  if (AllocaInst *AI = dyn_cast<AllocaInst>(CurVal)) {
+    allocas.insert(AI);
+  }
+}
+} // namespace
+
+ModulePass *llvm::createDxilLegalizeEvalOperationsPass() {
+  return new DxilLegalizeEvalOperations();
+}
+
+INITIALIZE_PASS(DxilLegalizeEvalOperations,
+                "hlsl-dxil-legalize-eval-operations",
+                "DXIL legalize eval operations", false, false)

@@ -1447,6 +1447,11 @@ Instruction *InstCombiner::commonPointerCastTransforms(CastInst &CI) {
     // If casting the result of a getelementptr instruction with no offset, turn
     // this into a cast of the original pointer!
     if (GEP->hasAllZeroIndices() &&
+        // HLSL Change Begin.
+        // Ignore this optimization for pointer bitcast to pass validation.
+        // TODO: enable this optimization when validation is updated.
+        0 &&
+        // HLSL Change End.
         // If CI is an addrspacecast and GEP changes the poiner type, merging
         // GEP into CI would undo canonicalizing addrspacecast with different
         // pointer types, causing infinite loops.

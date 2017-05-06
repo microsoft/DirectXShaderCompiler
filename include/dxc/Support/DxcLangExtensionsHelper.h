@@ -122,6 +122,17 @@ public:
       return "";
   }
 
+  // Get the dxil opcode for the extension opcode if one exists.
+  // Return true if the opcode was mapped successfully.
+  bool GetDxilOpCode(UINT opcode, UINT &dxilOpcode) {
+    for (IDxcIntrinsicTable *table : m_intrinsicTables) {
+      if (SUCCEEDED(table->GetDxilOpCode(opcode, &dxilOpcode))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Result of validating a semantic define.
   // Stores any warning or error messages produced by the validator.
   // Successful validation means that there are no warning or error messages.

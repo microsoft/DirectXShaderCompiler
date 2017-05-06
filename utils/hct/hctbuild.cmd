@@ -39,6 +39,9 @@ if errorlevel 1 (
 if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
+
+set BUILD_GENERATOR=Visual Studio 14 2015
+set BUILD_VS_VER=2015
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
@@ -86,11 +89,45 @@ if "%1"=="-arm" (
   set BUILD_ARCH=ARM
   shift /1
 )
+if "%1"=="-Debug" (
+  set BUILD_CONFIG=Debug
+  shift /1
+)
+if "%1"=="-Release" (
+  set BUILD_CONFIG=Release
+  shift /1
+)
+if "%1"=="-vs2017" (
+  set BUILD_GENERATOR=Visual Studio 15 2017
+  set BUILD_VS_VER=2017
+  shift /1
+)
 
-if "%BUILD_ARCH%"=="Win32" (
-  set BUILD_GENERATOR=Visual Studio 14 2015
-) else (
-  set BUILD_GENERATOR=Visual Studio 14 2015 %BUILD_ARCH:x64=Win64%
+rem If only VS 2017 is available, pick that by default.
+if "%BUILD_VS_VER%"=="2015" (
+  reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DevDiv\vs\Servicing\14.0\devenv /v Install /reg:32 1>nul 2>nul
+  if errorlevel 1 (
+    echo Visual Studio 2015 not available, setting up build for Visual Studio 2017.
+    set BUILD_GENERATOR=Visual Studio 15 2017
+    set BUILD_VS_VER=2017
+  )
+)
+
+rem Begin SPIRV change
+if "%1"=="-spirv" (
+  echo SPIR-V codegen is enabled.
+  set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=ON
+  shift /1
+)
+rem End SPIRV change
+
+if "%BUILD_ARCH%"=="x64" (
+  set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
+)
+
+if "%1"=="-ninja" (
+  set BUILD_GENERATOR=Ninja
+  shift /1
 )
 
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_ARCMT:BOOL=OFF
@@ -115,6 +152,8 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_DEFAULT_TARGET_TRIPLE:STRING=dxil-ms-dx
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_RTTI:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
+set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.14393.0
+set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_BUILD_ARCH=%BUILD_ARCH%
 
 rem This parameter is used with vcvarsall to force use of 64-bit build tools
 rem instead of 32-bit tools that run out of memory.
@@ -129,7 +168,11 @@ if "%BUILD_ARCH%"=="Win32" (
 call :configandbuild %BUILD_CONFIG% %BUILD_ARCH% %HLSL_BLD_DIR% "%BUILD_GENERATOR%"
 if errorlevel 1 exit /b 1
 
-echo Success - files are available at %HLSL_BLD_DIR%\%BUILD_CONFIG%\bin
+if "%BUILD_GENERATOR%"=="Ninja" (
+  echo Success - files are available at %HLSL_BLD_DIR%\bin
+) else (
+  echo Success - files are available at %HLSL_BLD_DIR%\%BUILD_CONFIG%\bin
+)
 call :handlesuccess
 exit /b 0
 
@@ -137,7 +180,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -x86 or -x64]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-fv] [-rel] [-arm or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-ninja]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -152,6 +195,14 @@ echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
 echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
+echo.
+echo Generator:
+echo   -ninja   use Ninja as the generator
+echo.
+echo AppVeyor Support
+echo   -Release builds release
+echo   -Debug builds debug
+echo   -vs2017 uses Visual Studio 2017 to build
 echo.
 if not "%HLSL_BLD_DIR%"=="" (
   echo The solution file is at %HLSL_BLD_DIR%\LLVM.sln
@@ -176,12 +227,20 @@ if not exist %3 (
 )
 cd /d %3
 if "%DO_SETUP%"=="1" (
-  rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
   echo Creating solution files for %2, logging to %3\cmake-log.txt
-  echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-  cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  if "%BUILD_GENERATOR%"=="Ninja" (
+    echo Running cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  ) else (
+    rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
+    echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  )
   if errorlevel 1 (
     echo Failed to configure cmake projects.
+    echo ===== begin cmake-log.txt =====
+    type %3\cmake-log.txt
+    echo ===== end cmake-log.txt =====
     echo Run 'cmake %HLSL_SRC_DIR%' in %3 will continue project generation after fixing the issue.
     cmake --version | findstr 3.4
     if errorlevel 1 (
@@ -204,11 +263,19 @@ if "%DO_SETUP%"=="1" (
 if "%DO_BUILD%"=="1" (
   rem Should add support for the non-x86-qualified programfiles.
   echo Building solution files for %2 with %1 configuration.
-  if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
-    call :buildvs_x86dir %1 %2 %3
-  ) else (
-    cmake --build . --config %1
+  if "%BUILD_GENERATOR%" NEQ "Ninja" (
+    if "%BUILD_VS_VER%"=="2015" (
+      if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
+        call :buildvs_x86dir %1 %2 %3
+        goto :donebuild
+      )
+    )
   )
+
+  rem Just defer to cmake for now.
+  cmake --build . --config %1
+
+:donebuild
   if errorlevel 1 (
     echo Failed to build projects.
     echo After fixing, run 'cmake --build --config %1 .' in %2
@@ -228,7 +295,7 @@ setlocal
 call "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %BUILD_TOOLS%
 rem Add /ds for a detailed summary at the end.
 echo Logging to %3\msbuild-log.txt
-MSBuild.exe /nologo /property:Configuration=%1 /property:Platform=%2 /maxcpucount %3\LLVM.sln /consoleloggerparameters:Summary;Verbosity=minimal /fileloggerparameters:LogFile=%3\msbuild-log.txt
+MSBuild.exe /nologo /property:Configuration=%1 /property:Platform=%2 /maxcpucount:2 %3\LLVM.sln /consoleloggerparameters:Summary;Verbosity=minimal /fileloggerparameters:LogFile=%3\msbuild-log.txt
 if NOT "%ERRORLEVEL%"=="0" (
   exit /b 1
 )

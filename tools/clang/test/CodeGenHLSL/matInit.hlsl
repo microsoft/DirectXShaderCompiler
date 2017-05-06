@@ -7,6 +7,9 @@ float4 main(int4 b:B) : SV_TARGET
   float2x2 d[2] = {c[b.z]};
   c[b.w] = d;
   float2x2 e[2] = c[b.z];
+
+  float2x2 f[2] = {c[0][1], d[1]};
+
   return a[b.x][b.y] + c[b.x][b.x][b.y][b.y];
 }
 

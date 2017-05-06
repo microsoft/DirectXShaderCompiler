@@ -77,3 +77,24 @@
 
 // 0x80AA0010 - Error parsing DDI signature.
 #define DXC_E_INCORRECT_DDI_SIGNATURE                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0010))
+
+// 0x80AA0011 - Duplicate part exists in dxil container.
+#define DXC_E_DUPLICATE_PART                          DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0011))
+
+// 0x80AA0012 - Error finding part in dxil container.
+#define DXC_E_MISSING_PART                            DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0012))
+
+// 0x80AA0013 - Malformed DXIL Container.
+#define DXC_E_MALFORMED_CONTAINER                     DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0013))
+
+// 0x80AA0014 - Incorrect Root Signature for shader.
+#define DXC_E_INCORRECT_ROOT_SIGNATURE                DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0014))
+
+// 0X80AA0015 - DXIL container is missing DebugInfo part.
+#define DXC_E_CONTAINER_MISSING_DEBUG                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0015))
+
+// 0X80AA0016 - Unexpected failure in macro expansion.
+#define DXC_E_MACRO_EXPANSION_FAILURE                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0016))
+
+// 0X80AA0017 - DXIL optimization pass failed.
+#define DXC_E_OPTIMIZATION_FAILED                     DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0017))

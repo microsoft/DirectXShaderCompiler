@@ -29,6 +29,7 @@ class LLVMContext;
 class Module;
 class Function;
 class Instruction;
+class CallInst;
 class MDTuple;
 class MDNode;
 class GlobalVariable;
@@ -87,7 +88,7 @@ struct HLFunctionProps {
 struct HLOptions {
   HLOptions()
       : bDefaultRowMajor(false), bIEEEStrict(false), bDisableOptimizations(false),
-        bLegacyCBufferLoad(false), unused(0) {
+        bLegacyCBufferLoad(false), PackingStrategy(0), unused(0) {
   }
   uint32_t GetHLOptionsRaw() const;
   void SetHLOptionsRaw(uint32_t data);
@@ -96,7 +97,9 @@ struct HLOptions {
   unsigned bAllResourcesBound      : 1;
   unsigned bDisableOptimizations   : 1;
   unsigned bLegacyCBufferLoad      : 1;
-  unsigned unused                  : 27;
+  unsigned PackingStrategy         : 2;
+  static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4, "otherwise 2 bits is not enough to store PackingStrategy");
+  unsigned unused                  : 25;
 };
 
 /// Use this class to manipulate HLDXIR of a shader.
@@ -179,6 +182,14 @@ public:
   void LoadHLMetadata();
   /// Delete any HLDXIR from the specified module.
   static void ClearHLMetadata(llvm::Module &M);
+  /// Create Metadata from a resource.
+  llvm::MDNode *DxilSamplerToMDNode(const DxilSampler &S);
+  llvm::MDNode *DxilSRVToMDNode(const DxilResource &SRV);
+  llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
+  llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
+  void AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
+                                              llvm::MDNode *MD);
 
   // Type related methods.
   static bool IsStreamOutputPtrType(llvm::Type *Ty);
@@ -187,6 +198,7 @@ public:
   static unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
+  static llvm::Type *GetArrayEltTy(llvm::Type *Ty);
 
   static bool IsStaticGlobal(llvm::GlobalVariable *GV);
   static bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);
@@ -194,9 +206,11 @@ public:
                                       DxilParameterAnnotation &paramAnnotation);
   static const char *GetLegacyDataLayoutDesc();
 
+  static void MergeGepUse(llvm::Value *V);
+
   // HL code gen.
   template<class BuilderTy>
-  static llvm::Value *EmitHLOperationCall(BuilderTy &Builder,
+  static llvm::CallInst *EmitHLOperationCall(BuilderTy &Builder,
                                           HLOpcodeGroup group, unsigned opcode,
                                           llvm::Type *RetType,
                                           llvm::ArrayRef<llvm::Value *> paramList,
@@ -215,6 +229,12 @@ public:
   static void MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
                                                         llvm::Module &M);
   static bool HasPreciseAttribute(llvm::Function *F);
+  // Resource attribute.
+  static void  MarkDxilResourceAttrib(llvm::Function *F, llvm::MDNode *MD);
+  static llvm::MDNode *GetDxilResourceAttrib(llvm::Function *F);
+  void MarkDxilResourceAttrib(llvm::Argument *Arg, llvm::MDNode *MD);
+  llvm::MDNode *GetDxilResourceAttrib(llvm::Argument *Arg);
+  static llvm::MDNode *GetDxilResourceAttrib(llvm::Type *Ty, llvm::Module &M);
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
@@ -228,6 +248,7 @@ public:
   DxilSignature *ReleaseOutputSignature();
   DxilSignature *ReleasePatchConstantSignature();
   DxilTypeSystem *ReleaseTypeSystem();
+  OP *ReleaseOP();
   RootSignatureHandle *ReleaseRootSignature();
 
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -305,6 +326,7 @@ private:
 class HLExtraPropertyHelper : public DxilExtraPropertyHelper {
 public:
   HLExtraPropertyHelper(llvm::Module *pModule);
+  virtual ~HLExtraPropertyHelper() {}
 
   virtual void EmitSignatureElementProperties(const DxilSignatureElement &SE, std::vector<llvm::Metadata *> &MDVals);
   virtual void LoadSignatureElementProperties(const llvm::MDOperand &MDO, DxilSignatureElement &SE);

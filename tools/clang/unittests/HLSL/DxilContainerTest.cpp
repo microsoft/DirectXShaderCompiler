@@ -61,6 +61,7 @@ static uint8_t MaskCount(uint8_t V) {
 class DxilContainerTest {
 public:
   BEGIN_TEST_CLASS(DxilContainerTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -140,6 +141,42 @@ public:
     VERIFY_ARE_EQUAL(pTestDesc->SystemValueType, pBaseDesc->SystemValueType);
   }
 
+  void CompareType(ID3D12ShaderReflectionType *pTest,
+                   ID3D12ShaderReflectionType *pBase,
+                   bool shouldSuppressOffsetChecks = false)
+  {
+    D3D12_SHADER_TYPE_DESC testDesc, baseDesc;
+    VERIFY_SUCCEEDED(pTest->GetDesc(&testDesc));
+    VERIFY_SUCCEEDED(pBase->GetDesc(&baseDesc));
+
+    VERIFY_ARE_EQUAL(testDesc.Class,    baseDesc.Class);
+    VERIFY_ARE_EQUAL(testDesc.Type,     baseDesc.Type);
+    VERIFY_ARE_EQUAL(testDesc.Rows,     baseDesc.Rows);
+    VERIFY_ARE_EQUAL(testDesc.Columns,  baseDesc.Columns);
+    VERIFY_ARE_EQUAL(testDesc.Elements, baseDesc.Elements);
+    VERIFY_ARE_EQUAL(testDesc.Members,  baseDesc.Members);
+
+    if(!shouldSuppressOffsetChecks)
+    {
+      VERIFY_ARE_EQUAL(testDesc.Offset,   baseDesc.Offset);
+    }
+
+    VERIFY_ARE_EQUAL(0, strcmp(testDesc.Name, baseDesc.Name));
+
+    for (UINT i = 0; i < baseDesc.Members; ++i) {
+      ID3D12ShaderReflectionType* testMemberType = pTest->GetMemberTypeByIndex(i);
+      ID3D12ShaderReflectionType* baseMemberType = pBase->GetMemberTypeByIndex(i);
+      VERIFY_IS_NOT_NULL(testMemberType);
+      VERIFY_IS_NOT_NULL(baseMemberType);
+
+      CompareType(testMemberType, baseMemberType, shouldSuppressOffsetChecks);
+
+      LPCSTR testMemberName = pTest->GetMemberTypeName(i);
+      LPCSTR baseMemberName = pBase->GetMemberTypeName(i);
+      VERIFY_ARE_EQUAL(0, strcmp(testMemberName, baseMemberName));
+    }
+  }
+
   typedef HRESULT (__stdcall ID3D12ShaderReflection::*GetParameterDescFn)(UINT, D3D12_SIGNATURE_PARAMETER_DESC*);
 
   void SortNameIdxVector(std::vector<std::tuple<LPCSTR, UINT, UINT>> &value) {
@@ -204,12 +241,17 @@ public:
         VERIFY_ARE_EQUAL(testCB.uFlags, baseCB.uFlags);
 
         llvm::StringMap<D3D12_SHADER_VARIABLE_DESC> variableMap;
+        llvm::StringMap<ID3D12ShaderReflectionType*> variableTypeMap;
         for (UINT vi = 0; vi < testCB.Variables; ++vi) {
           ID3D12ShaderReflectionVariable *pBaseConst;
           D3D12_SHADER_VARIABLE_DESC baseConst;
           pBaseConst = pBaseCB->GetVariableByIndex(vi);
           VERIFY_SUCCEEDED(pBaseConst->GetDesc(&baseConst));
           variableMap[baseConst.Name] = baseConst;
+
+          ID3D12ShaderReflectionType* pBaseType = pBaseConst->GetType();
+          VERIFY_IS_NOT_NULL(pBaseType);
+          variableTypeMap[baseConst.Name] = pBaseType;
         }
         for (UINT vi = 0; vi < testCB.Variables; ++vi) {
           ID3D12ShaderReflectionVariable *pTestConst;
@@ -222,6 +264,30 @@ public:
           VERIFY_ARE_EQUAL(testConst.StartOffset, baseConst.StartOffset);
           // TODO: enalbe size cmp.
           //VERIFY_ARE_EQUAL(testConst.Size, baseConst.Size);
+
+          ID3D12ShaderReflectionType* pTestType = pTestConst->GetType();
+          VERIFY_IS_NOT_NULL(pTestType);
+          VERIFY_ARE_EQUAL(variableTypeMap.count(testConst.Name), 1);
+          ID3D12ShaderReflectionType* pBaseType = variableTypeMap[testConst.Name];
+
+          // Note: we suppress comparing offsets for structured buffers, because dxc and fxc don't
+          // seem to agree in that case.
+          //
+          // The information in the `D3D12_SHADER_BUFFER_DESC` doesn't give us enough to
+          // be able to isolate structured buffers, so we do the test negatively: suppress
+          // offset checks *unless* we are looking at a `cbuffer` or `tbuffer`.
+          bool shouldSuppressOffsetChecks = true;
+          switch( baseCB.Type )
+          {
+          default:
+            break;
+
+          case D3D_CT_CBUFFER:
+          case D3D_CT_TBUFFER:
+            shouldSuppressOffsetChecks = false;
+            break;
+          }
+          CompareType(pTestType, pBaseType, shouldSuppressOffsetChecks);
         }
       }
     }
@@ -448,8 +514,8 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       ";\n"
       "; Name                 Index   Mask Register SysValue  Format   Used\n"
       "; -------------------- ----- ------ -------- -------- ------- ------\n"
-      "; COLOR                    0   xyzw        0     NONE   float   xyzw\n"  // should read '1' in register
-      "; SV_Position              0   xyzw        1      POS   float   xyzw\n"; // could read SV_POSITION
+      "; SV_Position              0   xyzw        0      POS   float   xyzw\n"  // could read SV_POSITION
+      "; COLOR                    0   xyzw        1     NONE   float   xyzw\n"; // should read '1' in register
     std::string start(s.c_str(), strlen(expected));
     VERIFY_ARE_EQUAL_STR(expected, start.c_str());
   }
@@ -463,8 +529,8 @@ TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
       ";\n"
       "; Name                 Index   Mask Register SysValue  Format   Used\n"
       "; -------------------- ----- ------ -------- -------- ------- ------\n"
-      "; COLOR                    0   xyzw        0     NONE   float       \n" // should read '1' in register, xyzw in Used
-      "; SV_Position              0   xyzw        1      POS   float       \n" // could read SV_POSITION
+      "; SV_Position              0   xyzw        0      POS   float       \n" // could read SV_POSITION
+      "; COLOR                    0   xyzw        1     NONE   float       \n" // should read '1' in register, xyzw in Used
       ";\n"
       ";\n"
       "; Output signature:\n"

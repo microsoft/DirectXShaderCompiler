@@ -44,7 +44,8 @@ void abs_in_argument() {
 void matrix_on_demand() {
     float4x4 thematrix;
     float4x4 anotherMatrix;
-    bool2x1 boolMatrix;   
+    bool2x1 boolMatrix;
+    unsigned int4x2 unsignedMatrix;
 }
 
 void abs_on_demand() {
@@ -58,11 +59,30 @@ void matrix_out_of_bounds() {
   matrix<float, -1, 1> matrix_oob_2; // expected-error {{invalid value, valid range is between 1 and 4 inclusive}} fxc-error {{X3053: matrix dimensions must be between 1 and 4}}
 }
 
+void matrix_unsigned() {
+   unsigned int4x2 intMatrix;
+   unsigned min16int4x3 min16Matrix;
+   unsigned int64_t3x3 int64Matrix;
+   unsigned uint3x4 uintMatrix;
+   unsigned min16uint4x1 min16uintMatrix;
+   unsigned uint64_t2x2 int64uintMatrix;
+   unsigned dword3x2 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3x1'}} */
+   
+   unsigned float2x3 floatMatrix; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned bool3x4 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned half4x1 halfvector;   /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned double1x2 doublevector;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2x3 min12intvector;                       /* expected-error {{'min12int' cannot be signed or unsigned}} expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min16float3x4 min16floatvector;                   /* expected-error {{'min16float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
+
+}
+
 void main() {
     // Multiple assignments in a chain.
     matrix<float, 4, 4> mymatrix;
     matrix<float, 4, 4> absMatrix = abs(mymatrix);
     matrix<float, 4, 4> absMatrix2 = abs(absMatrix);
+    const matrix<float, 4, 4> myConstMatrix = mymatrix;                /* expected-note {{variable 'myConstMatrix' declared const here}} expected-note {{variable 'myConstMatrix' declared const here}} fxc-pass {{}} */
 
     matrix<float, 2, 4> f24;
     float f;
@@ -118,4 +138,23 @@ void main() {
       `-ExtMatrixElementExpr <col:10, col:19> 'vector<float, 4>':'vector<float, 4>' _11_11_44_44
         `-DeclRefExpr <col:10> 'matrix<float, 4, 4>':'matrix<float, 4, 4>' lvalue Var 'mymatrix' 'matrix<float, 4, 4>':'matrix<float, 4, 4>'
     */
+    // member assignment using subscript syntax
+    f = mymatrix[0][0];
+    f = mymatrix[1][1];
+    f2 = mymatrix[1].xx;
+    f4 = mymatrix[2];
+
+    f = mymatrix[0][4];                                     /* expected-error {{vector element index '4' is out of bounds}} fxc-pass {{}} */
+    f = mymatrix[-1][3];                                    /* expected-error {{matrix row index '-1' is out of bounds}} fxc-pass {{}} */
+    f4 = mymatrix[10];                                      /* expected-error {{matrix row index '10' is out of bounds}} fxc-pass {{}} */
+
+    // accessing const member
+    f = myConstMatrix[0][0];
+    f = myConstMatrix[1][1];
+    f2 = myConstMatrix[1].xx;
+    f4 = myConstMatrix[2];
+
+    myConstMatrix[0][0] = 3;                                /* expected-error {{cannot assign to variable 'myConstMatrix' with const-qualified type 'const matrix<float, 4, 4>'}} fxc-error {{X3025: l-value specifies const object}} */
+    myConstMatrix[3] = float4(1,2,3,4);                     /* expected-error {{cannot assign to variable 'myConstMatrix' with const-qualified type 'const matrix<float, 4, 4>'}} fxc-error {{X3025: l-value specifies const object}} */
+
 }

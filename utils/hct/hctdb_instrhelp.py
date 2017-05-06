@@ -1,6 +1,8 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 import argparse
+import functools
+import collections
 from hctdb import *
 
 # get db singletons
@@ -183,6 +185,7 @@ class db_instrhelp_gen:
             "i32": "int32_t",
             "u32": "uint32_t"
             }
+        self.IsDxilOpFuncCallInst = "hlsl::OP::IsDxilOpFuncCallInst"
 
     def print_content(self):
         self.print_header()
@@ -238,7 +241,7 @@ class db_instrhelp_gen:
             print("  operator bool() const {")
             if i.is_dxil_op:
                 op_name = i.fully_qualified_name()
-                print("    return hlsl::OP::IsDxilOpFuncCallInst(Instr, %s);" % op_name)
+                print("    return %s(Instr, %s);" % (self.IsDxilOpFuncCallInst, op_name))
             else:
                 print("    return Instr->getOpcode() == llvm::Instruction::%s;" % i.name)
             print("  }")
@@ -274,7 +277,7 @@ class db_enumhelp_gen:
             "OpCode": "NumOpCodes",
             "OpCodeClass": "NumOpClasses"
         }
-    
+
     def print_enum(self, e, **kwargs):
         print("// %s" % e.doc)
         print("enum class %s : unsigned {" % e.name)
@@ -298,8 +301,16 @@ class db_enumhelp_gen:
                 line_format += " // {doc}"
             print(line_format.format(name=v.name, value=v.value, doc=v.doc))
         if e.name in self.lastEnumNames:
+            lastName = self.lastEnumNames[e.name]
+            versioned = ["%s_Dxil_%d_%d = %d," % (lastName, major, minor, info[lastName])
+                         for (major, minor), info in sorted(self.db.dxil_version_info.items())
+                         if lastName in info]
+            if versioned:
+                print("")
+                for val in versioned:
+                    print("  " + val)
             print("")
-            print("  " + self.lastEnumNames[e.name] + " = " + str(len(sorted_values)) + " // exclusive last value of enumeration")
+            print("  " + lastName + " = " + str(len(sorted_values)) + " // exclusive last value of enumeration")
         print("};")
 
     def print_content(self):
@@ -343,7 +354,7 @@ class db_oload_gen:
                 name=i.name+",", quotName='"'+i.name+'",', className=i.dxil_class+",", classNameQuot='"'+lower_fn(i.dxil_class)+'",',
                 v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), attr=attr_fn(i)))
         print("};")
-    
+
     def print_opfunc_table(self):
         # Print the table for OP::GetOpFunc
         op_type_texts = {
@@ -392,7 +403,104 @@ class db_oload_gen:
                     line = line + "{val:9}".format(val=op_type_text)
             line = line + "break;"
             print(line)
-    
+
+    def print_opfunc_oload_type(self):
+        # Print the function for OP::GetOverloadType
+        elt_ty = "$o"
+        res_ret_ty = "$r"
+        cb_ret_ty = "$cb"
+
+        last_category = None
+
+        index_dict = collections.OrderedDict()
+        single_dict = collections.OrderedDict()
+        struct_list = []
+
+        for instr in self.instrs:
+            ret_ty = instr.ops[0].llvm_type
+            # Skip case return type is overload type
+            if (ret_ty == elt_ty):
+                continue
+
+            if ret_ty == res_ret_ty:
+                struct_list.append(instr.name)
+                continue
+
+            if ret_ty == cb_ret_ty:
+                struct_list.append(instr.name)
+                continue
+
+            in_param_ty = False
+            # Try to find elt_ty in parameter types.
+            for index, op in enumerate(instr.ops):
+                # Skip return type.
+                if (op.pos == 0):
+                    continue
+                # Skip dxil opcode.
+                if (op.pos == 1):
+                    continue
+
+                op_type = op.llvm_type
+                if (op_type == elt_ty):
+                    # Skip return op
+                    index = index - 1
+                    if index not in index_dict:
+                        index_dict[index] = [instr.name]
+                    else:
+                        index_dict[index].append(instr.name)
+                    in_param_ty = True
+                    break
+
+            if in_param_ty:
+                continue
+
+            # No overload, just return the single oload_type.
+            assert len(instr.oload_types)==1, "overload no elt_ty %s" % (instr.name)
+            ty = instr.oload_types[0]
+            type_code_texts = {
+            "d": "Type::getDoubleTy(m_Ctx)",
+            "f": "Type::getFloatTy(m_Ctx)",
+            "h": "Type::getHalfTy",
+            "1": "IntegerType::get(m_Ctx, 1)",
+			"8": "IntegerType::get(m_Ctx, 8)",
+            "w": "IntegerType::get(m_Ctx, 16)",
+            "i": "IntegerType::get(m_Ctx, 32)",
+            "l": "IntegerType::get(m_Ctx, 64)",
+            "v": "Type::getVoidTy(m_Ctx)",
+            }
+            assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
+            ty_code = type_code_texts[ty]
+
+            if ty_code not in single_dict:
+                single_dict[ty_code] = [instr.name]
+            else:
+                single_dict[ty_code].append(instr.name)
+
+        for index, opcodes in index_dict.items():
+            line = ""
+            for opcode in opcodes:
+                line = line + "case OpCode::{name}".format(name = opcode + ":\n")
+
+            line = line + "  DXASSERT_NOMSG(FT->getNumParams() > " + str(index) + ");\n"
+            line = line + "  return FT->getParamType(" + str(index) + ");"
+            print(line)
+
+        for code, opcodes in single_dict.items():
+            line = ""
+            for opcode in opcodes:
+                line = line + "case OpCode::{name}".format(name = opcode + ":\n")
+            line = line + "  return " + code + ";"
+            print(line)
+
+        line = ""
+        for opcode in struct_list:
+            line = line + "case OpCode::{name}".format(name = opcode + ":\n")
+        line = line + "{\n"
+        line = line + "  StructType *ST = cast<StructType>(Ty);\n"
+        line = line + "  return ST->getElementType(0);\n"
+        line = line + "}"
+        print(line)
+
 
 class db_valfns_gen:
     "A generator of validation functions."
@@ -439,11 +547,11 @@ class macro_table_gen:
 
     def format_row(self, row, widths, sep=', '):
         frow = [str(item) + sep + (' ' * (width - len(item)))
-                for item, width in zip(row, widths)[:-1]] + [str(row[-1])]
+                for item, width in list(zip(row, widths))[:-1]] + [str(row[-1])]
         return ''.join(frow)
 
     def format_table(self, table, *args, **kwargs):
-        widths = [  reduce(max, [   len(row[i])
+        widths = [  functools.reduce(max, [   len(row[i])
                                     for row in table], 1)
                     for i in range(len(table[0]))]
         formatted = []
@@ -533,10 +641,10 @@ def get_hlsl_intrinsics():
             # This used to be qualified as __declspec(selectany), but that's no longer necessary.
             ns_table = "static const HLSL_INTRINSIC g_%s[] =\n{\n" % (last_ns)
             arg_idx = 0
-        ns_table += "    (UINT)%s::%s_%s, %s, %s, %d, %d, g_%s_Args%s,\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
+        ns_table += "    {(UINT)%s::%s_%s, %s, %s, %d, %d, g_%s_Args%s},\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
         result += "static const HLSL_INTRINSIC_ARGUMENT g_%s_Args%s[] =\n{\n" % (last_ns, arg_idx)
         for p in i.params:
-            result += "    \"%s\", %s, %s, %s, %s, %s, %s, %s,\n" % (
+            result += "    {\"%s\", %s, %s, %s, %s, %s, %s, %s},\n" % (
                 p.name, p.param_qual, p.template_id, p.template_list,
                 p.component_id, p.component_list, p.rows, p.cols)
         result += "};\n\n"
@@ -593,11 +701,16 @@ def get_oloads_props():
     db = get_db_dxil()
     gen = db_oload_gen(db)
     return run_with_stdout(lambda: gen.print_opfunc_props())
-        
+
 def get_oloads_funcs():
     db = get_db_dxil()
     gen = db_oload_gen(db)
     return run_with_stdout(lambda: gen.print_opfunc_table())
+
+def get_funcs_oload_type():
+    db = get_db_dxil()
+    gen = db_oload_gen(db)
+    return run_with_stdout(lambda: gen.print_opfunc_oload_type())
 
 def get_enum_decl(name, **kwargs):
     db = get_db_dxil()
@@ -693,7 +806,7 @@ def get_is_pass_option_name():
     db = db_dxil()
     prefix = ""
     result = "return "
-    for k in db.pass_idx_args:
+    for k in sorted(db.pass_idx_args):
         result += prefix + "S.equals(\"%s\")" % k
         prefix = "\n  ||  "
     return result + ";"
@@ -706,7 +819,7 @@ def get_opcodes_rst():
     rows = []
     rows.append(["ID", "Name", "Description"])
     for i in instrs:
-        rows.append([i.dxil_opid, i.dxil_op, i.doc])
+        rows.append([i.dxil_opid, i.dxil_op + "_", i.doc]) #append _ to enable internal hyperlink on rst files
     result = "\n\n" + format_rst_table(rows) + "\n\n"
     # Add detailed instruction information where available.
     instrs = sorted(instrs, key=lambda v : v.name)
@@ -752,35 +865,40 @@ def get_opsigs():
 def get_valopcode_sm_text():
     db = get_db_dxil()
     instrs = [i for i in db.instr if i.is_dxil_op]
-    instrs = sorted(instrs, key=lambda v : v.shader_models + "." + ("%4d" % v.dxil_opid))
+    instrs = sorted(instrs, key=lambda v : (v.shader_model, v.shader_stages, v.dxil_opid))
     last_model = None
-    model_instrs = []
+    last_stage = None
+    grouped_instrs = []
     code = ""
-    def flush_instrs(model_instrs, model_name):
-        if len(model_instrs) == 0:
+    def flush_instrs(grouped_instrs, last_model, last_stage):
+        if len(grouped_instrs) == 0:
             return ""
-        if model_name == "*": # don't write these out, instead fall through
-            return ""
-        result = format_comment("// ", "Instructions: %s" % ", ".join([i.name + "=" + str(i.dxil_opid) for i in model_instrs]))
-        result += "if (" + build_range_code("op", [i.dxil_opid for i in model_instrs]) + ")\n"
+        result = format_comment("// ", "Instructions: %s" % ", ".join([i.name + "=" + str(i.dxil_opid) for i in grouped_instrs]))
+        result += "if (" + build_range_code("op", [i.dxil_opid for i in grouped_instrs]) + ")\n"
         result += "  return "
-        if last_model == "*":
-            result += "true"
+
+        model_cond = stage_cond = None
+        if last_model != (6,0):
+            model_cond = "pSM->GetMajor() > %d || (pSM->GetMajor() == %d && pSM->GetMinor() >= %d)" % (
+                last_model[0], last_model[0], last_model[1])
+        if last_stage != "*":
+            stage_cond = ' || '.join(["pSM->Is%sS()" % c.upper() for c in last_stage])
+        if model_cond or stage_cond:
+            result += '\n      && '.join(
+                ["(%s)" % expr for expr in (model_cond, stage_cond) if expr] )
+            return result + ";\n"
         else:
-            for code_idx,code in enumerate(last_model):
-                if code_idx > 0:
-                    result += " || "
-                result += "pSM->Is" + code.upper() + "S()"
-        result += ";\n"
-        return result
+            # don't write these out, instead fall through
+            return ""
 
     for i in instrs:
-        if i.shader_models != last_model:
-            code += flush_instrs(model_instrs, last_model)
-            model_instrs = []
-            last_model = i.shader_models
-        model_instrs.append(i)
-    code += flush_instrs(model_instrs, last_model)
+        if (i.shader_model, i.shader_stages) != (last_model, last_stage):
+            code += flush_instrs(grouped_instrs, last_model, last_stage)
+            grouped_instrs = []
+            last_model = i.shader_model
+            last_stage = i.shader_stages
+        grouped_instrs.append(i)
+    code += flush_instrs(grouped_instrs, last_model, last_stage)
     code += "return true;\n"
     return code
 
@@ -844,7 +962,7 @@ if __name__ == "__main__":
     parser.add_argument("-gen", choices=["docs-ref", "docs-spec", "inst-header", "enums", "oloads", "valfns"], help="Output type to generate.")
     parser.add_argument("-update-files", action="store_const", const=True)
     args = parser.parse_args()
-    
+
     db = get_db_dxil() # used by all generators, also handy to have it run validation
 
     if args.gen == "docs-ref":
@@ -879,7 +997,7 @@ if __name__ == "__main__":
         print("Updating files ...")
         import CodeTags
         import os
-        
+
         assert "HLSL_SRC_DIR" in os.environ, "Environment variable HLSL_SRC_DIR is not defined"
         hlsl_src_dir = os.environ["HLSL_SRC_DIR"]
         pj = lambda *parts: os.path.abspath(os.path.join(*parts))

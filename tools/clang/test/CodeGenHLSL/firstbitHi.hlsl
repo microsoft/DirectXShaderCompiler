@@ -1,23 +1,23 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: FirstbitHi
+// CHECK: call {{.*}} FirstbitHi
 // CHECK: sub i32 31
-// CHECK: icmp ne i32
+// CHECK: icmp eq i32 {{.*}}, -1
 // CHECK: select
 // CHECK: i32 -1
 
-// CHECK: FirstbitSHi
+// CHECK: call {{.*}} FirstbitSHi
 // CHECK: sub i32 31
-// CHECK: icmp ne i32
+// CHECK: icmp eq i32 {{.*}}, -1
 // CHECK: select
 // CHECK: i32 -1
 
-// CHECK: op.bufferStore.i32(i32 70, %dx.types.Handle %outputUAV_UAV_rawbuf, i32 2, i32 undef, i32 26
-// CHECK: op.bufferStore.i32(i32 70, %dx.types.Handle %outputUAV_UAV_rawbuf, i32 3, i32 undef, i32 23
+// CHECK: call void @dx.op.bufferStore.i32{{.*}}, i32 5 
+// CHECK: call void @dx.op.bufferStore.i32{{.*}}, i32 8
 
-// CHECK: dx.op.unaryBits.i64(i32 32, i64
+// CHECK: dx.op.unaryBits.i64(i32 33, i64
 // CHECK: sub i32 63
-// CHECK: icmp ne i32
+// CHECK: icmp eq i32 {{.*}}, -1
 // CHECK: select
 // CHECK: i32 -1
 

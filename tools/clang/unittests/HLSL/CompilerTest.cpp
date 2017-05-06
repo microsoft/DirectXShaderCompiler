@@ -91,6 +91,64 @@ void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outpt
   Utf16ToBlob(dllSupport, val, (IDxcBlobEncoding**)ppBlob);
 }
 
+// VersionSupportInfo Implementation
+VersionSupportInfo::VersionSupportInfo() :
+  m_CompilerPreservesBBNames(false),
+  m_InternalValidator(false),
+  m_DxilMajor(0),
+  m_DxilMinor(0),
+  m_ValMajor(0),
+  m_ValMinor(0)
+{}
+void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
+  VERIFY_IS_TRUE(dllSupport.IsEnabled());
+
+  // Default to Dxil 1.0 and internal Val 1.0
+  m_DxilMajor = m_ValMajor = 1;
+  m_DxilMinor = m_ValMinor = 0;
+  m_InternalValidator = true;
+  CComPtr<IDxcVersionInfo> pVersionInfo;
+  UINT32 VersionFlags = 0;
+
+  // If the following fails, we have Dxil 1.0 compiler
+  if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pVersionInfo))) {
+    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_DxilMajor, &m_DxilMinor));
+    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
+    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+    pVersionInfo.Release();
+  }
+
+  if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcValidator, &pVersionInfo))) {
+    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_ValMajor, &m_ValMinor));
+    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
+    if (m_ValMinor > 0) {
+      // flag only exists on newer validator, assume internal otherwise.
+      m_InternalValidator = (VersionFlags & DxcVersionInfoFlags_Internal) ? true : false;
+    } else {
+      // With old compiler, validator is the only way to get this
+      m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+    }
+  } else {
+    // If create instance of IDxcVersionInfo on validator failed, we have an old validator from dxil.dll
+    m_InternalValidator = false;
+  }
+}
+bool VersionSupportInfo::SkipIRSensitiveTest() {
+  if (!m_CompilerPreservesBBNames) {
+    WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirment.");
+    return true;
+  }
+  return false;
+}
+bool VersionSupportInfo::SkipDxil_1_1_Test() {
+  if (m_DxilMajor < 1 || m_DxilMinor < 1 || m_ValMajor < 1 || m_ValMinor < 1) {
+    WEX::Logging::Log::Comment(L"Test skipped because it requires Dxil 1.1 and Validator 1.1.");
+    return true;
+  }
+  return false;
+}
+
+
 // Aligned to SymTagEnum.
 const char *SymTagEnumText[] =
 {
@@ -274,6 +332,9 @@ public:
   TEST_METHOD(CompileWhenEmptyThenFails)
   TEST_METHOD(CompileWhenIncorrectThenFails)
   TEST_METHOD(CompileWhenWorksThenDisassembleWorks)
+  TEST_METHOD(CompileWhenDebugWorksThenStripDebug)
+  TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
+  TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
 
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
   TEST_METHOD(CompileWhenIncludeThenLoadUsed)
@@ -283,6 +344,7 @@ public:
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileWhenIncludeMissingThenFail)
+  TEST_METHOD(CompileWhenIncludeHasPathThenOK)
 
   TEST_METHOD(CompileWhenODumpThenPassConfig)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
@@ -291,14 +353,28 @@ public:
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
   TEST_METHOD(CompileLegacyShaderModelThenFail)
+  TEST_METHOD(CompileWhenRecursiveAlbeitStaticTermThenFail)
+  TEST_METHOD(CompileWhenRecursiveThenFail)
+
+  TEST_METHOD(CompileHlsl2015ThenFail)
+  TEST_METHOD(CompileHlsl2016ThenOK)
+  TEST_METHOD(CompileHlsl2017ThenOK)
+  TEST_METHOD(CompileHlsl2018ThenFail)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
+  TEST_METHOD(CodeGenAllLit)
+  TEST_METHOD(CodeGenAllocaAtEntryBlk)
+  TEST_METHOD(CodeGenAddUint64)
   TEST_METHOD(CodeGenArrayArg)
+  TEST_METHOD(CodeGenArrayArg2)
+  TEST_METHOD(CodeGenArrayArg3)
   TEST_METHOD(CodeGenArrayOfStruct)
   TEST_METHOD(CodeGenAsUint)
   TEST_METHOD(CodeGenAsUint2)
   TEST_METHOD(CodeGenAtomic)
+  TEST_METHOD(CodeGenAttributeAtVertex)
+  TEST_METHOD(CodeGenBarycentrics)
   TEST_METHOD(CodeGenBinary1)
   TEST_METHOD(CodeGenBoolComb)
   TEST_METHOD(CodeGenBoolSvTarget)
@@ -311,6 +387,10 @@ public:
   TEST_METHOD(CodeGenCast4)
   TEST_METHOD(CodeGenCast5)
   TEST_METHOD(CodeGenCast6)
+  TEST_METHOD(CodeGenCbuf_init_static)
+  TEST_METHOD(CodeGenCbufferCopy)
+  TEST_METHOD(CodeGenCbufferCopy2)
+  TEST_METHOD(CodeGenCbufferCopy3)
   TEST_METHOD(CodeGenCbuffer_unused)
   TEST_METHOD(CodeGenCbuffer1_50)
   TEST_METHOD(CodeGenCbuffer1_51)
@@ -322,25 +402,44 @@ public:
   TEST_METHOD(CodeGenCbuffer6_51)
   TEST_METHOD(CodeGenCbufferAlloc)
   TEST_METHOD(CodeGenCbufferAllocLegacy)
+  TEST_METHOD(CodeGenCbufferInLoop)
+  TEST_METHOD(CodeGenClass)
+  TEST_METHOD(CodeGenClip)
   TEST_METHOD(CodeGenClipPlanes)
   TEST_METHOD(CodeGenConstoperand1)
+  TEST_METHOD(CodeGenConstMat)
+  TEST_METHOD(CodeGenConstMat2)
+  TEST_METHOD(CodeGenConstMat3)
+  TEST_METHOD(CodeGenConstMat4)
   TEST_METHOD(CodeGenDiscard)
   TEST_METHOD(CodeGenDivZero)
   TEST_METHOD(CodeGenDot1)
   TEST_METHOD(CodeGenDynamic_Resources)
+  TEST_METHOD(CodeGenEffectSkip)
   TEST_METHOD(CodeGenEmpty)
   TEST_METHOD(CodeGenEmptyStruct)
   TEST_METHOD(CodeGenEarlyDepthStencil)
   TEST_METHOD(CodeGenEval)
+  TEST_METHOD(CodeGenEvalInvalid)
+  TEST_METHOD(CodeGenEvalMat)
+  TEST_METHOD(CodeGenEvalMatMember)
   TEST_METHOD(CodeGenEvalPos)
+  TEST_METHOD(CodeGenExternRes)
+  TEST_METHOD(CodeGenFloatCast)
+  TEST_METHOD(CodeGenFloatToBool)
   TEST_METHOD(CodeGenFirstbitHi)
   TEST_METHOD(CodeGenFirstbitLo)
   TEST_METHOD(CodeGenFloatMaxtessfactor)
   TEST_METHOD(CodeGenFModPS)
+  TEST_METHOD(CodeGenFuncCast)
+  TEST_METHOD(CodeGenFunctionalCast)
   TEST_METHOD(CodeGenGather)
   TEST_METHOD(CodeGenGatherCmp)
   TEST_METHOD(CodeGenGatherCubeOffset)
   TEST_METHOD(CodeGenGatherOffset)
+  TEST_METHOD(CodeGenGepZeroIdx)
+  TEST_METHOD(CodeGenGloballyCoherent)
+  TEST_METHOD(CodeGenI32ColIdx)
   TEST_METHOD(CodeGenIcb1)
   TEST_METHOD(CodeGenIf1)
   TEST_METHOD(CodeGenIf2)
@@ -362,10 +461,13 @@ public:
   TEST_METHOD(CodeGenIndexabletemp1)
   TEST_METHOD(CodeGenIndexabletemp2)
   TEST_METHOD(CodeGenIndexabletemp3)
+  TEST_METHOD(CodeGenInitListType)
   TEST_METHOD(CodeGenInoutSE)
   TEST_METHOD(CodeGenInout1)
   TEST_METHOD(CodeGenInout2)
   TEST_METHOD(CodeGenInout3)
+  TEST_METHOD(CodeGenInout4)
+  TEST_METHOD(CodeGenInout5)
   TEST_METHOD(CodeGenInput1)
   TEST_METHOD(CodeGenInput2)
   TEST_METHOD(CodeGenInput3)
@@ -378,27 +480,43 @@ public:
   TEST_METHOD(CodeGenIntrinsic4)
   TEST_METHOD(CodeGenIntrinsic4_dbg)
   TEST_METHOD(CodeGenIntrinsic5)
+  TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
+  TEST_METHOD(CodeGenLitInParen)
   TEST_METHOD(CodeGenLiteralShift)
   TEST_METHOD(CodeGenLiveness1)
+  TEST_METHOD(CodeGenLocalRes1)
+  TEST_METHOD(CodeGenLocalRes4)
+  TEST_METHOD(CodeGenLocalRes7)
+  TEST_METHOD(CodeGenLocalRes7Dbg)
   TEST_METHOD(CodeGenLoop1)
   TEST_METHOD(CodeGenLoop2)
   TEST_METHOD(CodeGenLoop3)
   TEST_METHOD(CodeGenLoop4)
   TEST_METHOD(CodeGenLoop5)
+  TEST_METHOD(CodeGenLoop6)
+  TEST_METHOD(CodeGenMatParam)
+  TEST_METHOD(CodeGenMatParam2)
+ // TEST_METHOD(CodeGenMatParam3)
+  TEST_METHOD(CodeGenMatElt)
   TEST_METHOD(CodeGenMatInit)
   TEST_METHOD(CodeGenMatMulMat)
   TEST_METHOD(CodeGenMatOps)
   TEST_METHOD(CodeGenMatInStruct)
   TEST_METHOD(CodeGenMatInStructRet)
   TEST_METHOD(CodeGenMatIn)
+  TEST_METHOD(CodeGenMatIn1)
+  TEST_METHOD(CodeGenMatIn2)
   TEST_METHOD(CodeGenMatOut)
+  TEST_METHOD(CodeGenMatOut1)
+  TEST_METHOD(CodeGenMatOut2)
   TEST_METHOD(CodeGenMatSubscript)
   TEST_METHOD(CodeGenMatSubscript2)
   TEST_METHOD(CodeGenMatSubscript3)
   TEST_METHOD(CodeGenMatSubscript4)
   TEST_METHOD(CodeGenMatSubscript5)
   TEST_METHOD(CodeGenMatSubscript6)
+  TEST_METHOD(CodeGenMatSubscript7)
   TEST_METHOD(CodeGenMaxMin)
   TEST_METHOD(CodeGenMinprec1)
   TEST_METHOD(CodeGenMinprec2)
@@ -407,12 +525,15 @@ public:
   TEST_METHOD(CodeGenMinprec5)
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
+  TEST_METHOD(CodeGenMinprecCast)
   TEST_METHOD(CodeGenMultiStream)
   TEST_METHOD(CodeGenMultiStream2)
   TEST_METHOD(CodeGenNeg1)
   TEST_METHOD(CodeGenNeg2)
   TEST_METHOD(CodeGenNegabs1)
   TEST_METHOD(CodeGenNonUniform)
+  TEST_METHOD(CodeGenOptForNoOpt)
+  TEST_METHOD(CodeGenOptForNoOpt2)
   TEST_METHOD(CodeGenOptionGis)
   TEST_METHOD(CodeGenOptionWX)
   TEST_METHOD(CodeGenOutput1)
@@ -421,18 +542,23 @@ public:
   TEST_METHOD(CodeGenOutput4)
   TEST_METHOD(CodeGenOutput5)
   TEST_METHOD(CodeGenOutput6)
+  TEST_METHOD(CodeGenOutputArray)
   TEST_METHOD(CodeGenPassthrough1)
   TEST_METHOD(CodeGenPassthrough2)
   TEST_METHOD(CodeGenPrecise1)
   TEST_METHOD(CodeGenPrecise2)
   TEST_METHOD(CodeGenPrecise3)
   TEST_METHOD(CodeGenPrecise4)
+  TEST_METHOD(CodeGenPreciseOnCall)
+  TEST_METHOD(CodeGenPreciseOnCallNot)
+  TEST_METHOD(CodeGenRaceCond2)
   TEST_METHOD(CodeGenRaw_Buf1)
   TEST_METHOD(CodeGenRcp1)
   TEST_METHOD(CodeGenReadFromOutput)
   TEST_METHOD(CodeGenReadFromOutput2)
   TEST_METHOD(CodeGenReadFromOutput3)
   TEST_METHOD(CodeGenRedundantinput1)
+  TEST_METHOD(CodeGenRes64bit)
   TEST_METHOD(CodeGenRovs)
   TEST_METHOD(CodeGenRValSubscript)
   TEST_METHOD(CodeGenSample1)
@@ -443,15 +569,20 @@ public:
   TEST_METHOD(CodeGenSampleBias)
   TEST_METHOD(CodeGenSampleCmp)
   TEST_METHOD(CodeGenSampleCmpLZ)
+  TEST_METHOD(CodeGenSampleCmpLZ2)
   TEST_METHOD(CodeGenSampleGrad)
   TEST_METHOD(CodeGenSampleL)
   TEST_METHOD(CodeGenSaturate1)
   TEST_METHOD(CodeGenScalarOnVecIntrinsic)
+  TEST_METHOD(CodeGenScalarToVec)
   TEST_METHOD(CodeGenSelectObj)
   TEST_METHOD(CodeGenSelectObj2)
   TEST_METHOD(CodeGenSelectObj3)
+  TEST_METHOD(CodeGenSelectObj4)
+  TEST_METHOD(CodeGenSelectObj5)
   TEST_METHOD(CodeGenSelMat)
   TEST_METHOD(CodeGenShare_Mem_Dbg)
+  TEST_METHOD(CodeGenShare_Mem_Phi)
   TEST_METHOD(CodeGenShare_Mem1)
   TEST_METHOD(CodeGenShare_Mem2)
   TEST_METHOD(CodeGenShare_Mem2Dim)
@@ -461,6 +592,11 @@ public:
   TEST_METHOD(CodeGenSimpleGS2)
   TEST_METHOD(CodeGenSimpleGS3)
   TEST_METHOD(CodeGenSimpleGS4)
+  TEST_METHOD(CodeGenSimpleGS5)
+  TEST_METHOD(CodeGenSimpleGS6)
+  TEST_METHOD(CodeGenSimpleGS7)
+  TEST_METHOD(CodeGenSimpleGS11)
+  TEST_METHOD(CodeGenSimpleGS12)
   TEST_METHOD(CodeGenSimpleHS1)
   TEST_METHOD(CodeGenSimpleHS2)
   TEST_METHOD(CodeGenSimpleHS3)
@@ -476,11 +612,19 @@ public:
   TEST_METHOD(CodeGenSrv_Typed_Load2)
   TEST_METHOD(CodeGenStaticGlobals)
   TEST_METHOD(CodeGenStaticGlobals2)
+  TEST_METHOD(CodeGenStaticGlobals3)
+  TEST_METHOD(CodeGenStaticGlobals4)
+  TEST_METHOD(CodeGenStaticResource)
+  TEST_METHOD(CodeGenStaticResource2)
   TEST_METHOD(CodeGenStruct_Buf1)
   TEST_METHOD(CodeGenStruct_BufHasCounter)
   TEST_METHOD(CodeGenStruct_BufHasCounter2)
+  TEST_METHOD(CodeGenStructArray)
   TEST_METHOD(CodeGenStructCast)
   TEST_METHOD(CodeGenStructCast2)
+  TEST_METHOD(CodeGenStructInBuffer)
+  TEST_METHOD(CodeGenStructInBuffer2)
+  TEST_METHOD(CodeGenStructInBuffer3)
   TEST_METHOD(CodeGenSwitchFloat)
   TEST_METHOD(CodeGenSwitch1)
   TEST_METHOD(CodeGenSwitch2)
@@ -489,6 +633,8 @@ public:
   TEST_METHOD(CodeGenSwizzle2)
   TEST_METHOD(CodeGenSwizzleAtomic)
   TEST_METHOD(CodeGenSwizzleAtomic2)
+  TEST_METHOD(CodeGenSwizzleIndexing)
+  TEST_METHOD(CodeGenTempDbgInfo)
   TEST_METHOD(CodeGenTemp1)
   TEST_METHOD(CodeGenTemp2)
   TEST_METHOD(CodeGenTexSubscript)
@@ -499,10 +645,22 @@ public:
   TEST_METHOD(CodeGenUint64_2)
   TEST_METHOD(CodeGenUintSample)
   TEST_METHOD(CodeGenUmaxObjectAtomic)
+  TEST_METHOD(CodeGenUnrollDbg)
+  TEST_METHOD(CodeGenUnsignedShortHandMatrixVector)
+  TEST_METHOD(CodeGenUnusedCB)
   TEST_METHOD(CodeGenUpdateCounter)
+  TEST_METHOD(CodeGenUpperCaseRegister1);
   TEST_METHOD(CodeGenVcmp)
+  TEST_METHOD(CodeGenVecBitCast)
   TEST_METHOD(CodeGenVec_Comp_Arg)
+  TEST_METHOD(CodeGenVecCmpCond)
+  TEST_METHOD(CodeGenVecTrunc)
   TEST_METHOD(CodeGenWave)
+  TEST_METHOD(CodeGenWaveNoOpt)
+  TEST_METHOD(CodeGenWriteMaskBuf)
+  TEST_METHOD(CodeGenWriteMaskBuf2)
+  TEST_METHOD(CodeGenWriteMaskBuf3)
+  TEST_METHOD(CodeGenWriteMaskBuf4)
   TEST_METHOD(CodeGenWriteToInput)
   TEST_METHOD(CodeGenWriteToInput2)
   TEST_METHOD(CodeGenWriteToInput3)
@@ -543,21 +701,47 @@ public:
   TEST_METHOD(CodeGenBasicHLSL11_VS2)
   TEST_METHOD(CodeGenVecIndexingInput)
   TEST_METHOD(CodeGenVecMulMat)
+  TEST_METHOD(CodeGenVecArrayParam)
   TEST_METHOD(CodeGenBindings1)
   TEST_METHOD(CodeGenBindings2)
   TEST_METHOD(CodeGenBindings3)
-  TEST_METHOD(CodeGenResourceInStruct)
+  TEST_METHOD(CodeGenResCopy)
+  TEST_METHOD(CodeGenResourceParam)
   TEST_METHOD(CodeGenResourceInCB)
-  TEST_METHOD(CodeGenResourceInCBV)
-  TEST_METHOD(CodeGenResourceInTB)
-  TEST_METHOD(CodeGenResourceInTBV)
-  TEST_METHOD(CodeGenResourceInStruct2)
   TEST_METHOD(CodeGenResourceInCB2)
+  TEST_METHOD(CodeGenResourceInCB3)
+  TEST_METHOD(CodeGenResourceInCB4)
+  TEST_METHOD(CodeGenResourceInCBV)
   TEST_METHOD(CodeGenResourceInCBV2)
+  TEST_METHOD(CodeGenResourceInStruct)
+  TEST_METHOD(CodeGenResourceInStruct2)
+  TEST_METHOD(CodeGenResourceInStruct3)
+  TEST_METHOD(CodeGenResourceInTB)
   TEST_METHOD(CodeGenResourceInTB2)
+  TEST_METHOD(CodeGenResourceInTBV)
   TEST_METHOD(CodeGenResourceInTBV2)
+  TEST_METHOD(CodeGenResPhi)
+  TEST_METHOD(CodeGenResPhi2)
+  TEST_METHOD(CodeGenRootSigEntry)
+  TEST_METHOD(CodeGenRootSigProfile)
+  TEST_METHOD(CodeGenRootSigProfile2)
+  TEST_METHOD(CodeGenRootSigProfile3)
+  TEST_METHOD(CodeGenRootSigProfile4)
+  TEST_METHOD(CodeGenRootSigProfile5)
+  TEST_METHOD(CodeGenRootSigDefine1)
+  TEST_METHOD(CodeGenRootSigDefine2)
+  TEST_METHOD(CodeGenRootSigDefine3)
+  TEST_METHOD(CodeGenRootSigDefine4)
+  TEST_METHOD(CodeGenRootSigDefine5)
+  TEST_METHOD(CodeGenRootSigDefine6)
+  TEST_METHOD(CodeGenRootSigDefine7)
+  TEST_METHOD(CodeGenRootSigDefine8)
+  TEST_METHOD(CodeGenRootSigDefine9)
+  TEST_METHOD(CodeGenRootSigDefine10)
+  TEST_METHOD(CodeGenRootSigDefine11)
   TEST_METHOD(CodeGenCBufferStructArray)
   TEST_METHOD(PreprocessWhenValidThenOK)
+  TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
   // Dx11 Sample
   TEST_METHOD(CodeGenDX11Sample_2Dquadshaders_Blurx_Ps)
@@ -746,9 +930,11 @@ public:
   TEST_METHOD(CodeGenDx12MiniEngineTonemapcs)
   TEST_METHOD(CodeGenDx12MiniEngineUpsampleandblurcs)
   TEST_METHOD(DxilGen_StoreOutput)
+  TEST_METHOD(ConstantFolding)
+  TEST_METHOD(HoistConstantArray)
 
   dxc::DxcDllSupport m_dllSupport;
-  bool m_CompilerPreservesBBNames;
+  VersionSupportInfo m_ver;
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
@@ -772,6 +958,10 @@ public:
 
   HRESULT CreateCompiler(IDxcCompiler **ppResult) {
     return m_dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
+  }
+
+  HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {
+    return m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, ppResult);
   }
 
   template <typename T, typename TDefault, typename TIface>
@@ -998,9 +1188,9 @@ public:
     std::wstring profile =
         Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
 
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, name, entry.c_str(),
-                                        profile.c_str(), nullptr, 0, nullptr, 0,
-                                        nullptr, &pResult));
+    VERIFY_SUCCEEDED(pCompiler->Compile(
+        pSource, name, entry.c_str(), profile.c_str(), nullptr, 0,
+        opts.Defines.data(), opts.Defines.size(), nullptr, &pResult));
     HRESULT result;
     VERIFY_SUCCEEDED(pResult->GetStatus(&result));
     if (FAILED(result)) {
@@ -1015,6 +1205,8 @@ public:
 
     CComPtr<IDxcBlob> pProgram;
     VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+    if (opts.IsRootSignatureProfile())
+      return;
 
     CComPtr<IDxcBlobEncoding> pDisassembleBlob;
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembleBlob));
@@ -1031,6 +1223,32 @@ public:
       WEX::Logging::Log::Comment(commentWide);
       WEX::Logging::Log::Error(L"Run result is not zero");
     }
+  }
+
+  std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg) {
+    return VerifyCompileFailed(pText, pTargetProfile, pErrorMsg, L"main");
+  }
+
+  std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg, LPCWSTR pEntryPoint) {
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    CComPtr<IDxcBlobEncoding> pErrors;
+
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    CreateBlobFromText(pText, &pSource);
+
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", pEntryPoint,
+      pTargetProfile, nullptr, 0, nullptr, 0, nullptr, &pResult));
+
+    HRESULT status;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+    VERIFY_FAILED(status);
+    VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+    if (pErrorMsg && *pErrorMsg) {
+      CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+    }
+    return BlobToUtf8(pErrors);
   }
 
   void VerifyOperationSucceeded(IDxcOperationResult *pResult) {
@@ -1111,15 +1329,7 @@ HRESULT CreateDiaSourceFromDxbcBlob(IDxcLibrary *pLib, IDxcBlob *pDxbcBlob,
 bool CompilerTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-
-    // This is a very indirect way of testing this. Consider improving support.
-    CComPtr<IDxcValidator> pValidator;
-    CComPtr<IDxcVersionInfo> pVersionInfo;
-    UINT32 VersionFlags = 0;
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-    VERIFY_SUCCEEDED(pValidator.QueryInterface(&pVersionInfo));
-    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerPreservesBBNames = VersionFlags & DxcVersionInfoFlags_Debug;
+    m_ver.Initialize(m_dllSupport);
   }
   return true;
 }
@@ -1336,6 +1546,142 @@ TEST_F(CompilerTest, CompileWhenWorksThenDisassembleWorks) {
   // WEX::Logging::Log::Comment(disassembleStringW.m_psz);
 }
 
+TEST_F(CompilerTest, CompileWhenDebugWorksThenStripDebug) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target {\r\n"
+                     "  float4 local = abs(pos);\r\n"
+                     "  return local;\r\n"
+                     "}",
+                     &pSource);
+  LPCWSTR args[] = {L"/Zi"};
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  // Check if it contains debug blob
+  hlsl::DxilContainerHeader *pHeader =
+      (hlsl::DxilContainerHeader *)(pProgram->GetBufferPointer());
+  hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+      pHeader, hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL);
+  VERIFY_IS_NOT_NULL(pPartHeader);
+  // Check debug info part does not exist after strip debug info
+
+  CComPtr<IDxcBlob> pNewProgram;
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL));
+  pResult.Release();
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
+  pHeader = (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  pPartHeader = hlsl::GetDxilPartByType(
+      pHeader, hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL);
+  VERIFY_IS_NULL(pPartHeader);
+}
+
+TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target {\r\n"
+                     "  return 0;\r\n"
+                     "}",
+                     &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  // Append private data blob
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+
+  std::string privateTxt("private data");
+  CComPtr<IDxcBlobEncoding> pPrivate;
+  CreateBlobFromText(privateTxt.c_str(), &pPrivate);
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DxilFourCC::DFCC_PrivateData, pPrivate));
+  pResult.Release();
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+
+  CComPtr<IDxcBlob> pNewProgram;
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
+  hlsl::DxilContainerHeader *pContainerHeader =
+      (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+      pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
+  VERIFY_IS_NOT_NULL(pPartHeader);
+  // compare data
+  std::string privatePart((const char *)(pPartHeader + 1), privateTxt.size());
+  VERIFY_IS_TRUE(strcmp(privatePart.c_str(), privateTxt.c_str()) == 0);
+
+  // Remove private data blob
+  pBuilder.Release();
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pNewProgram));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_PrivateData));
+  pResult.Release();
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+
+  pNewProgram.Release();
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
+  pContainerHeader =
+    (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  pPartHeader = hlsl::GetDxilPartByType(
+    pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
+  VERIFY_IS_NULL(pPartHeader);
+}
+
+TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("[RootSignature(\"\")] \r\n"
+                     "float4 main(float a : A) : SV_Target {\r\n"
+                     "  return a;\r\n"
+                     "}",
+                     &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", nullptr, 0, nullptr,
+                                      0, nullptr, &pResult));
+  VERIFY_IS_NOT_NULL(pResult);
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+  VERIFY_IS_NOT_NULL(pProgram);
+  hlsl::DxilContainerHeader *pContainerHeader =
+      (hlsl::DxilContainerHeader *)(pProgram->GetBufferPointer());
+  hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+      pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
+  VERIFY_IS_NOT_NULL(pPartHeader);
+  
+  // Remove root signature
+  CComPtr<IDxcBlob> pNewProgram;
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  VERIFY_SUCCEEDED(CreateContainerBuilder(&pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DxilFourCC::DFCC_RootSignature));
+  pResult.Release();
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewProgram));
+  pContainerHeader = (hlsl::DxilContainerHeader *)(pNewProgram->GetBufferPointer());
+  pPartHeader = hlsl::GetDxilPartByType(pContainerHeader,
+                                        hlsl::DxilFourCC::DFCC_RootSignature);
+  VERIFY_IS_NULL(pPartHeader);
+}
+
 TEST_F(CompilerTest, CompileWhenIncludeThenLoadInvoked) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -1505,6 +1851,38 @@ TEST_F(CompilerTest, CompileWhenIncludeMissingThenFail) {
   VERIFY_FAILED(hr);
 }
 
+TEST_F(CompilerTest, CompileWhenIncludeHasPathThenOK) {
+  CComPtr<IDxcCompiler> pCompiler;
+  LPCWSTR Source = L"c:\\temp\\OddIncludes\\main.hlsl";
+  LPCWSTR Args[] = { L"/I", L"c:\\temp" };
+  LPCWSTR ArgsUp[] = { L"/I", L"c:\\Temp" };
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  bool useUpValues[] = { false, true };
+  for (bool useUp : useUpValues) {
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+#if TEST_ON_DISK
+    CComPtr<IDxcLibrary> pLibrary;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(pLibrary->CreateIncludeHandler(&pInclude));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(Source, nullptr, &pSource));
+#else
+    CComPtr<TestIncludeHandler> pInclude;
+    pInclude = new TestIncludeHandler(m_dllSupport);
+    pInclude->CallResults.emplace_back("// Empty");
+    CreateBlobFromText("#include \"include.hlsl\"\r\n"
+                       "float4 main() : SV_Target { return 0; }",
+                       &pSource);
+#endif
+
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, Source, L"main",
+      L"ps_6_0", useUp ? ArgsUp : Args, _countof(Args), nullptr, 0, pInclude, &pResult));
+    HRESULT hr;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+    VERIFY_SUCCEEDED(hr);
+ }
+}
+
 static const char EmptyCompute[] = "[numthreads(8,8,1)] void main() { }";
 
 TEST_F(CompilerTest, CompileWhenODumpThenPassConfig) {
@@ -1664,22 +2042,138 @@ TEST_F(CompilerTest, CompileBadHlslThenFail) {
 }
 
 TEST_F(CompilerTest, CompileLegacyShaderModelThenFail) {
+  VerifyCompileFailed(
+    "float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", L"ps_5_1", nullptr);
+}
+
+TEST_F(CompilerTest, CompileWhenRecursiveAlbeitStaticTermThenFail) {
+  // This shader will compile under fxc because if execution is
+  // simulated statically, it does terminate. dxc changes this behavior
+  // to avoid imposing the requirement on the compiler.
+  const char ShaderText[] =
+    "static int i = 10;\r\n"
+    "float4 f(); // Forward declaration\r\n"
+    "float4 g() { if (i > 10) { i--; return f(); } else return 0; } // Recursive call to 'f'\r\n"
+    "float4 f() { return g(); } // First call to 'g'\r\n"
+    "float4 VS() : SV_Position{\r\n"
+    "  return f(); // First call to 'f'\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderText, L"vs_6_0", "recursive functions not allowed", L"VS");
+}
+
+TEST_F(CompilerTest, CompileWhenRecursiveThenFail) {
+  const char ShaderTextSimple[] =
+    "float4 f(); // Forward declaration\r\n"
+    "float4 g() { return f(); } // Recursive call to 'f'\r\n"
+    "float4 f() { return g(); } // First call to 'g'\r\n"
+    "float4 main() : SV_Position{\r\n"
+    "  return f(); // First call to 'f'\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderTextSimple, L"vs_6_0", "recursive functions not allowed");
+
+  const char ShaderTextIndirect[] =
+    "float4 f(); // Forward declaration\r\n"
+    "float4 g() { return f(); } // Recursive call to 'f'\r\n"
+    "float4 f() { return g(); } // First call to 'g'\r\n"
+    "float4 main() : SV_Position{\r\n"
+    "  return f(); // First call to 'f'\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderTextIndirect, L"vs_6_0", "recursive functions not allowed");
+
+  const char ShaderTextSelf[] =
+    "float4 main() : SV_Position{\r\n"
+    "  return main();\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderTextSelf, L"vs_6_0", "recursive functions not allowed");
+
+  const char ShaderTextMissing[] =
+    "float4 mainz() : SV_Position{\r\n"
+    "  return 1;\r\n"
+    "}\r\n";
+  VerifyCompileFailed(ShaderTextMissing, L"vs_6_0", "missing entry point definition");
+}
+
+TEST_F(CompilerTest, CompileHlsl2015ThenFail) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlobEncoding> pErrors;
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  CreateBlobFromText(
-    "float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
+  CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
+
+  LPCWSTR args[2] = { L"-HV", L"2015" };
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_5_1", nullptr, 0, nullptr, 0, nullptr, &pResult));
+    L"ps_6_0", args, 2, nullptr, 0, nullptr, &pResult));
 
   HRESULT status;
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-  VERIFY_FAILED(status);
+  VERIFY_ARE_EQUAL(status, E_INVALIDARG);
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+  LPCSTR pErrorMsg = "HLSL Version 2015 is only supported for language services";
+  CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
+TEST_F(CompilerTest, CompileHlsl2016ThenOK) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlobEncoding> pErrors;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
+
+  LPCWSTR args[2] = { L"-HV", L"2016" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, 2, nullptr, 0, nullptr, &pResult));
+
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+}
+
+TEST_F(CompilerTest, CompileHlsl2017ThenOK) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlobEncoding> pErrors;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
+
+  LPCWSTR args[2] = { L"-HV", L"2017" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, 2, nullptr, 0, nullptr, &pResult));
+
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+}
+
+TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlobEncoding> pErrors;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
+
+  LPCWSTR args[2] = { L"-HV", L"2018" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, 2, nullptr, 0, nullptr, &pResult));
+
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_ARE_EQUAL(status, E_INVALIDARG);
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+  LPCSTR pErrorMsg = "Unknown HLSL version";
+  CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
 
 TEST_F(CompilerTest, CodeGenAbs1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\abs1.hlsl");
@@ -1689,8 +2183,28 @@ TEST_F(CompilerTest, CodeGenAbs2) {
   CodeGenTest(L"..\\CodeGenHLSL\\abs2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenAllLit) {
+  CodeGenTest(L"..\\CodeGenHLSL\\all_lit.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAllocaAtEntryBlk) {
+  CodeGenTest(L"..\\CodeGenHLSL\\alloca_at_entry_blk.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAddUint64) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\AddUint64.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenArrayArg){
   CodeGenTest(L"..\\CodeGenHLSL\\arrayArg.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenArrayArg2){
+  CodeGenTest(L"..\\CodeGenHLSL\\arrayArg2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenArrayArg3){
+  CodeGenTest(L"..\\CodeGenHLSL\\arrayArg3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenArrayOfStruct){
@@ -1707,6 +2221,16 @@ TEST_F(CompilerTest, CodeGenAsUint2) {
 
 TEST_F(CompilerTest, CodeGenAtomic) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\atomic.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenBarycentrics) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBinary1) {
@@ -1757,6 +2281,22 @@ TEST_F(CompilerTest, CodeGenCast6) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cast6.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCbuf_init_static) {
+  CodeGenTest(L"..\\CodeGenHLSL\\cbuf_init_static.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferCopy) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_copy.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferCopy2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_copy2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferCopy3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_copy3.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenCbuffer_unused) {
   CodeGenTest(L"..\\CodeGenHLSL\\cbuffer_unused.hlsl");
 }
@@ -1801,12 +2341,40 @@ TEST_F(CompilerTest, CodeGenCbufferAllocLegacy) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferAlloc_legacy.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCbufferInLoop) {
+  CodeGenTest(L"..\\CodeGenHLSL\\cbufferInLoop.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenClass) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\class.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenClip) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\clip.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenClipPlanes) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\clip_planes.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenConstoperand1) {
   CodeGenTest(L"..\\CodeGenHLSL\\constoperand1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstMat) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstMat2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstMat3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenConstMat4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\constMat4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenDiscard) {
@@ -1825,6 +2393,10 @@ TEST_F(CompilerTest, CodeGenDynamic_Resources) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\dynamic-resources.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenEffectSkip) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\effect_skip.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenEmpty) {
   CodeGenTest(L"..\\CodeGenHLSL\\empty.hlsl");
 }
@@ -1841,12 +2413,37 @@ TEST_F(CompilerTest, CodeGenEval) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\eval.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenEvalInvalid) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\evalInvalid.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEvalMat) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\evalMat.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEvalMatMember) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\evalMatMember.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenEvalPos) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\evalPos.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenExternRes) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\extern_res.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFloatCast) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\float_cast.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFloatToBool) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\float_to_bool.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenFirstbitHi) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitHi.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\firstbitshi_const.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFirstbitLo) {
@@ -1859,6 +2456,14 @@ TEST_F(CompilerTest, CodeGenFloatMaxtessfactor) {
 
 TEST_F(CompilerTest, CodeGenFModPS) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\fmodPS.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFuncCast) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\func_cast.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenFunctionalCast) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\functionalCast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenGather) {
@@ -1875,6 +2480,18 @@ TEST_F(CompilerTest, CodeGenGatherCubeOffset) {
 
 TEST_F(CompilerTest, CodeGenGatherOffset) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\gatherOffset.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenGepZeroIdx) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\gep_zero_idx.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenGloballyCoherent) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\globallycoherent.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenI32ColIdx) {
+  CodeGenTest(L"..\\CodeGenHLSL\\i32colIdx.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenIcb1) {
@@ -1943,6 +2560,10 @@ TEST_F(CompilerTest, CodeGenIndexabletemp3) {
   CodeGenTest(L"..\\CodeGenHLSL\\indexabletemp3.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenInitListType) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\initlist_type.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenInoutSE) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\inout_se.hlsl");
 }
@@ -1957,6 +2578,14 @@ TEST_F(CompilerTest, CodeGenInout2) {
 
 TEST_F(CompilerTest, CodeGenInout3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\inout3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInout4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\inout4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenInout5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\inout5.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenInput1) {
@@ -2007,8 +2636,16 @@ TEST_F(CompilerTest, CodeGenIntrinsic5) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\intrinsic5.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenInvalidInputOutputTypes) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\invalid_input_output_types.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenLegacyStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\legacy_struct.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLitInParen) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lit_in_paren.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLiteralShift) {
@@ -2021,6 +2658,22 @@ TEST_F(CompilerTest, CodeGenLiveness1) {
 
 TEST_F(CompilerTest, CodeGenLoop1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\loop1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLocalRes7Dbg) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\local_resource7_dbg.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLoop2) {
@@ -2037,6 +2690,26 @@ TEST_F(CompilerTest, CodeGenLoop4) {
 
 TEST_F(CompilerTest, CodeGenLoop5) {
   CodeGenTest(L"..\\CodeGenHLSL\\loop5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLoop6) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\loop6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatParam) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\mat_param.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatParam2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\mat_param2.hlsl");
+}
+
+//TEST_F(CompilerTest, CodeGenMatParam3) {
+//  CodeGenTestCheck(L"..\\CodeGenHLSL\\mat_param3.hlsl");
+//}
+
+TEST_F(CompilerTest, CodeGenMatElt) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matElt.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatInit) {
@@ -2064,8 +2737,26 @@ TEST_F(CompilerTest, CodeGenMatIn) {
   CodeGenTest(L"..\\CodeGenHLSL\\matrixIn.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenMatIn1) {
+  if (m_ver.SkipIRSensitiveTest()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatIn2) {
+  if (m_ver.SkipIRSensitiveTest()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixIn2.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenMatOut) {
   CodeGenTest(L"..\\CodeGenHLSL\\matrixOut.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatOut1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixOut1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatOut2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matrixOut2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatSubscript) {
@@ -2090,6 +2781,10 @@ TEST_F(CompilerTest, CodeGenMatSubscript5) {
 
 TEST_F(CompilerTest, CodeGenMatSubscript6) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\matSubscript6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMatSubscript7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\matSubscript7.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMaxMin) {
@@ -2124,6 +2819,10 @@ TEST_F(CompilerTest, CodeGenMinprec7) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\minprec7.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenMinprecCast) {
+  CodeGenTest(L"..\\CodeGenHLSL\\minprec_cast.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenMultiStream) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiStreamGS.hlsl");
 }
@@ -2146,6 +2845,14 @@ TEST_F(CompilerTest, CodeGenNegabs1) {
 
 TEST_F(CompilerTest, CodeGenNonUniform) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\NonUniform.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenOptForNoOpt) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\optForNoOpt.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenOptForNoOpt2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\optForNoOpt2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenOptionGis) {
@@ -2180,6 +2887,10 @@ TEST_F(CompilerTest, CodeGenOutput6) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\output6.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenOutputArray) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\outputArray.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenPassthrough1) {
   CodeGenTest(L"..\\CodeGenHLSL\\passthrough1.hlsl");
 }
@@ -2204,6 +2915,18 @@ TEST_F(CompilerTest, CodeGenPrecise4) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\precise4.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenPreciseOnCall) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\precise_call.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenPreciseOnCallNot) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\precise_call_not.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRaceCond2) {
+  CodeGenTest(L"..\\CodeGenHLSL\\RaceCond2.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenRaw_Buf1) {
   CodeGenTest(L"..\\CodeGenHLSL\\raw_buf1.hlsl");
 }
@@ -2226,6 +2949,10 @@ TEST_F(CompilerTest, CodeGenReadFromOutput3) {
 
 TEST_F(CompilerTest, CodeGenRedundantinput1) {
   CodeGenTest(L"..\\CodeGenHLSL\\redundantinput1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRes64bit) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\res64bit.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRovs) {
@@ -2268,6 +2995,10 @@ TEST_F(CompilerTest, CodeGenSampleCmpLZ) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\sampleCmpLZ.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenSampleCmpLZ2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\sampleCmpLZ2.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenSampleGrad) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\sampleGrad.hlsl");
 }
@@ -2284,6 +3015,10 @@ TEST_F(CompilerTest, CodeGenScalarOnVecIntrinsic) {
   CodeGenTest(L"..\\CodeGenHLSL\\scalarOnVecIntrisic.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenScalarToVec) {
+  CodeGenTest(L"..\\CodeGenHLSL\\scalarToVec.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenSelectObj) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj.hlsl");
 }
@@ -2296,12 +3031,24 @@ TEST_F(CompilerTest, CodeGenSelectObj3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj3.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenSelectObj4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSelectObj5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj5.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenSelMat) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selMat.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenShare_Mem_Dbg) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\share_mem_dbg.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenShare_Mem_Phi) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\share_mem_phi.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenShare_Mem1) {
@@ -2338,6 +3085,26 @@ TEST_F(CompilerTest, CodeGenSimpleGS3) {
 
 TEST_F(CompilerTest, CodeGenSimpleGS4) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleGS4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleGS5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleGS5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleGS6) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleGS6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleGS7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleGS7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleGS11) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleGS11.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSimpleGS12) {
+	CodeGenTestCheck(L"..\\CodeGenHLSL\\SimpleGS12.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleHS1) {
@@ -2393,11 +3160,27 @@ TEST_F(CompilerTest, CodeGenSrv_Typed_Load2) {
 }
 
 TEST_F(CompilerTest, CodeGenStaticGlobals) {
-  CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\staticGlobals.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStaticGlobals2) {
   CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticGlobals3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\staticGlobals3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticGlobals4) {
+  CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticResource) {
+  CodeGenTest(L"..\\CodeGenHLSL\\static_resource.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticResource2) {
+  CodeGenTest(L"..\\CodeGenHLSL\\static_resource2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStruct_Buf1) {
@@ -2412,12 +3195,28 @@ TEST_F(CompilerTest, CodeGenStruct_BufHasCounter2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\struct_bufHasCounter2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenStructArray) {
+  CodeGenTest(L"..\\CodeGenHLSL\\structArray.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenStructCast) {
   CodeGenTest(L"..\\CodeGenHLSL\\StructCast.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStructCast2) {
   CodeGenTest(L"..\\CodeGenHLSL\\StructCast2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructInBuffer) {
+  CodeGenTest(L"..\\CodeGenHLSL\\structInBuffer.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructInBuffer2) {
+  CodeGenTest(L"..\\CodeGenHLSL\\structInBuffer2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStructInBuffer3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\structInBuffer3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSwitchFloat) {
@@ -2452,12 +3251,20 @@ TEST_F(CompilerTest, CodeGenSwizzleAtomic2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\swizzleAtomic2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenSwizzleIndexing) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\swizzleIndexing.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenTemp1) {
   CodeGenTest(L"..\\CodeGenHLSL\\temp1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenTemp2) {
   CodeGenTest(L"..\\CodeGenHLSL\\temp2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenTempDbgInfo) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\temp_dbg_info.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenTexSubscript) {
@@ -2492,20 +3299,68 @@ TEST_F(CompilerTest, CodeGenUmaxObjectAtomic) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\umaxObjectAtomic.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenUnrollDbg) {
+  CodeGenTest(L"..\\CodeGenHLSL\\unroll_dbg.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenUnsignedShortHandMatrixVector) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\unsignedShortHandMatrixVector.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenUnusedCB) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\unusedCB.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenUpdateCounter) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\updateCounter.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenUpperCaseRegister1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\uppercase-register1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenVcmp) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\vcmp.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenVecBitCast) {
+  CodeGenTest(L"..\\CodeGenHLSL\\vec_bitcast.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenVec_Comp_Arg){
   CodeGenTest(L"..\\CodeGenHLSL\\vec_comp_arg.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenVecCmpCond) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vecCmpCond.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVecTrunc) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vecTrunc.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenWave) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\wave.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWaveNoOpt) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\wave_no_opt.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWriteMaskBuf4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\writeMaskBuf4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenWriteToInput) {
@@ -2665,6 +3520,10 @@ TEST_F(CompilerTest, CodeGenVecMulMat) {
   CodeGenTest(L"..\\CodeGenHLSL\\vecMulMat.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenVecArrayParam) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\vector_array_param.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenBindings1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\bindings1.hlsl");
 }
@@ -2677,8 +3536,16 @@ TEST_F(CompilerTest, CodeGenBindings3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\bindings2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenResCopy) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resCopy.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenResourceInStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-struct.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceParam) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource_param.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenResourceInCB) {
@@ -2701,8 +3568,20 @@ TEST_F(CompilerTest, CodeGenResourceInStruct2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-struct2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenResourceInStruct3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-struct3.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenResourceInCB2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceInCB3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceInCB4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-cb4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenResourceInCBV2) {
@@ -2715,6 +3594,83 @@ TEST_F(CompilerTest, CodeGenResourceInTB2) {
 
 TEST_F(CompilerTest, CodeGenResourceInTBV2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-tbv2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResPhi) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resPhi.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResPhi2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\resPhi2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigEntry) {
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigEntry.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile) {
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigProfile.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile2) {
+  // TODO: Verify the result when reflect the structures.
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigProfile2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigProfile3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigProfile4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigProfile5) {
+  CodeGenTest(L"..\\CodeGenHLSL\\rootSigProfile5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine6) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine7) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine8) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine8.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine9) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine9.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine10) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine10.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRootSigDefine11) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rootSigDefine11.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCBufferStructArray) {
@@ -3252,7 +4208,7 @@ TEST_F(CompilerTest, CodeGenDx12MiniEngineFxaapass2Vdebugcs){
 }
 
 TEST_F(CompilerTest, CodeGenDx12MiniEngineFxaaresolveworkqueuecs){
-  if (!m_CompilerPreservesBBNames) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\Samples\\MiniEngine\\FXAAResolveWorkQueueCS.hlsl");
 }
 
@@ -3456,6 +4412,73 @@ TEST_F(CompilerTest, DxilGen_StoreOutput) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\dxilgen_storeoutput.hlsl");
 }
 
+TEST_F(CompilerTest, ConstantFolding) {
+  CodeGenTestCheck(L"constprop\\FAbs.hlsl");
+  CodeGenTestCheck(L"constprop\\Saturate_half.hlsl");
+  CodeGenTestCheck(L"constprop\\Saturate_float.hlsl");
+  CodeGenTestCheck(L"constprop\\Saturate_double.hlsl");
+  CodeGenTestCheck(L"constprop\\Cos.hlsl");
+  CodeGenTestCheck(L"constprop\\Sin.hlsl");
+  CodeGenTestCheck(L"constprop\\Tan.hlsl");
+  CodeGenTestCheck(L"constprop\\Acos.hlsl");
+  CodeGenTestCheck(L"constprop\\Asin.hlsl");
+  CodeGenTestCheck(L"constprop\\Atan.hlsl");
+  CodeGenTestCheck(L"constprop\\Hcos.hlsl");
+  CodeGenTestCheck(L"constprop\\Hsin.hlsl");
+  CodeGenTestCheck(L"constprop\\Htan.hlsl");
+  CodeGenTestCheck(L"constprop\\Exp.hlsl");
+  CodeGenTestCheck(L"constprop\\Frc.hlsl");
+  CodeGenTestCheck(L"constprop\\Log.hlsl");
+  CodeGenTestCheck(L"constprop\\Sqrt.hlsl");
+  CodeGenTestCheck(L"constprop\\Rsqrt.hlsl");
+  CodeGenTestCheck(L"constprop\\Round_ne.hlsl");
+  CodeGenTestCheck(L"constprop\\Round_ni.hlsl");
+  CodeGenTestCheck(L"constprop\\Round_pi.hlsl");
+  CodeGenTestCheck(L"constprop\\Round_z.hlsl");
+  
+  CodeGenTestCheck(L"constprop\\Bfrev.hlsl");
+  CodeGenTestCheck(L"constprop\\Countbits.hlsl");
+  CodeGenTestCheck(L"constprop\\Firstbitlo.hlsl");
+  CodeGenTestCheck(L"constprop\\Firstbithi.hlsl");
+
+  CodeGenTestCheck(L"constprop\\FMin.hlsl");
+  CodeGenTestCheck(L"constprop\\FMax.hlsl");
+  CodeGenTestCheck(L"constprop\\IMin.hlsl");
+  CodeGenTestCheck(L"constprop\\IMax.hlsl");
+  CodeGenTestCheck(L"constprop\\UMin.hlsl");
+  CodeGenTestCheck(L"constprop\\UMax.hlsl");
+  
+  CodeGenTestCheck(L"constprop\\FMad.hlsl");
+  CodeGenTestCheck(L"constprop\\Fma.hlsl");
+  CodeGenTestCheck(L"constprop\\IMad.hlsl");
+  CodeGenTestCheck(L"constprop\\UMad.hlsl");
+  
+  CodeGenTestCheck(L"constprop\\Dot2.hlsl");
+  CodeGenTestCheck(L"constprop\\Dot3.hlsl");
+  CodeGenTestCheck(L"constprop\\Dot4.hlsl");
+
+  CodeGenTestCheck(L"constprop\\ibfe.ll");
+  CodeGenTestCheck(L"constprop\\ubfe.ll");
+  CodeGenTestCheck(L"constprop\\bfi.ll");
+}
+
+TEST_F(CompilerTest, HoistConstantArray) {
+  CodeGenTestCheck(L"hca\\01.hlsl");
+  CodeGenTestCheck(L"hca\\02.hlsl");
+  CodeGenTestCheck(L"hca\\03.hlsl");
+  CodeGenTestCheck(L"hca\\04.hlsl");
+  CodeGenTestCheck(L"hca\\05.hlsl");
+  CodeGenTestCheck(L"hca\\06.hlsl");
+  CodeGenTestCheck(L"hca\\07.hlsl");
+  CodeGenTestCheck(L"hca\\08.hlsl");
+  CodeGenTestCheck(L"hca\\09.hlsl");
+  CodeGenTestCheck(L"hca\\10.hlsl");
+  CodeGenTestCheck(L"hca\\11.hlsl");
+  CodeGenTestCheck(L"hca\\12.hlsl");
+  CodeGenTestCheck(L"hca\\13.hlsl");
+  CodeGenTestCheck(L"hca\\14.hlsl");
+}
+
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -3487,4 +4510,48 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
     "int g_int = 123;\n"
     "\n"
     "int BAR;\n", text.c_str());
+}
+
+TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(
+    "struct PSSceneIn \n\
+    { \n\
+      float4 pos  : SV_Position; \n\
+      float2 tex  : TEXCOORD0; \n\
+      float3 norm : NORMAL; \n\
+    }; \n"
+    "struct HSPerPatchData {  \n\
+      float edges[ 3 ] : SV_TessFactor; \n\
+      float inside : SV_InsideTessFactor; \n\
+      float foo : FOO; \n\
+    }; \n"
+    "HSPerPatchData HSPerPatchFunc( InputPatch< PSSceneIn, 3 > points, \n\
+      OutputPatch<PSSceneIn, 3> outpoints) { \n\
+      HSPerPatchData d = (HSPerPatchData)0; \n\
+      d.edges[ 0 ] = points[0].tex.x + outpoints[0].tex.x; \n\
+      d.edges[ 1 ] = 1; \n\
+      d.edges[ 2 ] = 1; \n\
+      d.inside = 1; \n\
+      return d; \n\
+    } \n"
+    "[domain(\"tri\")] \n\
+    [partitioning(\"fractional_odd\")] \n\
+    [outputtopology(\"triangle_cw\")] \n\
+    [patchconstantfunc(\"HSPerPatchFunc\")] \n\
+    [outputcontrolpoints(3)] \n"
+    "void main(const uint id : SV_OutputControlPointID, \n\
+               const InputPatch< PSSceneIn, 3 > points ) { \n\
+    } \n"
+    , &pSource);
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"hs_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
+  std::string failLog(VerifyOperationFailed(pResult));
+  VERIFY_ARE_NOT_EQUAL(string::npos, failLog.find(
+    "Signature element SV_Position, referred to by patch constant function, is not found in corresponding hull shader output."));
 }

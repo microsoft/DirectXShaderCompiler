@@ -16,20 +16,74 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "dxc/HLSL/DxilContainer.h"
 
 #include <atlbase.h>
+#include "dxc/Support/FileIOHelper.h"
 
 #include "WexTestClass.h"
 #include "DxcTestUtils.h"
 #include "HlslTestUtils.h"
 
 using namespace std;
+using namespace hlsl;
 
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
   HRESULT status;
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
   VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
+}
+
+static
+bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
+                              llvm::ArrayRef<LPCSTR> pErrorMsgs,
+                              bool maySucceedAnyway, bool bRegex) {
+  HRESULT status;
+  CComPtr<IDxcBlobEncoding> text;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&text));
+  const char *pStart = text ? (const char *)text->GetBufferPointer() : nullptr;
+  const char *pEnd = text ? pStart + text->GetBufferSize() : nullptr;
+  if (pErrorMsgs.empty() || (pErrorMsgs.size() == 1 && !pErrorMsgs[0])) {
+    if (FAILED(status) && pStart) {
+      WEX::Logging::Log::Comment(WEX::Common::String().Format(
+          L"Expected success but found errors\r\n%.*S", (pEnd - pStart),
+          pStart));
+    }
+    VERIFY_SUCCEEDED(status);
+  }
+  else {
+    if (SUCCEEDED(status) && maySucceedAnyway) {
+      return false;
+    }
+    for (auto pErrorMsg : pErrorMsgs) {
+      if (bRegex) {
+        llvm::Regex RE(pErrorMsg);
+        std::string reErrors;
+        VERIFY_IS_TRUE(RE.isValid(reErrors));
+        VERIFY_IS_TRUE(RE.match(llvm::StringRef((const char *)text->GetBufferPointer(), text->GetBufferSize())));
+      }
+      else {
+        const char *pMatch = std::search(pStart, pEnd, pErrorMsg, pErrorMsg + strlen(pErrorMsg));
+        if (pEnd == pMatch) {
+          WEX::Logging::Log::Comment(WEX::Common::String().Format(
+            L"Unable to find '%S' in text:\r\n%.*S", pErrorMsg, (pEnd - pStart),
+            pStart));
+        }
+        VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
+      }
+    }
+  }
+  return true;
+}
+
+bool CheckOperationResultMsgs(IDxcOperationResult *pResult, LPCSTR *pErrorMsgs,
+                              size_t errorMsgCount, bool maySucceedAnyway,
+                              bool bRegex) {
+  return CheckOperationResultMsgs(
+      pResult, llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount),
+      maySucceedAnyway, bRegex);
 }
 
 std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
@@ -50,8 +104,11 @@ class ValidationTest
 {
 public:
   BEGIN_TEST_CLASS(ValidationTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
+
+  TEST_CLASS_SETUP(InitSupport);
 
   TEST_METHOD(WhenCorrectThenOK);
   TEST_METHOD(WhenMisalignedThenFail);
@@ -66,6 +123,7 @@ public:
   TEST_METHOD(WhenMultipleModulesThenFail);
   TEST_METHOD(WhenUnexpectedEOFThenFail);
   TEST_METHOD(WhenUnknownBlocksThenFail);
+  TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail);
 
   TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction);
   TEST_METHOD(StorePatchControlNotInPatchConstantFunction);
@@ -77,7 +135,7 @@ public:
   TEST_METHOD(TypedUAVStoreFullMask1)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
-  TEST_METHOD(UserDefineFunction)
+  TEST_METHOD(Recursive3)
   TEST_METHOD(ResourceRangeOverlap0)
   TEST_METHOD(ResourceRangeOverlap1)
   TEST_METHOD(ResourceRangeOverlap2)
@@ -116,16 +174,41 @@ public:
   TEST_METHOD(UDivByZero)
   TEST_METHOD(UnusedMetadata)
   TEST_METHOD(MemoryOutOfBound)
+  TEST_METHOD(LocalRes2)
+  TEST_METHOD(LocalRes3)
+  TEST_METHOD(LocalRes5)
+  TEST_METHOD(LocalRes5Dbg)
+  TEST_METHOD(LocalRes6)
+  TEST_METHOD(LocalRes6Dbg)
   TEST_METHOD(AddrSpaceCast)
   TEST_METHOD(PtrBitCast)
   TEST_METHOD(MinPrecisionBitCast)
   TEST_METHOD(StructBitCast)
   TEST_METHOD(MultiDimArray)
+  TEST_METHOD(SimpleGs8)
+  TEST_METHOD(SimpleGs9)
+  TEST_METHOD(SimpleGs10)
+  TEST_METHOD(IllegalSampleOffset3)
+  TEST_METHOD(IllegalSampleOffset4)
   TEST_METHOD(NoFunctionParam)
+  TEST_METHOD(I8Type)
+  TEST_METHOD(EmptyStructInBuffer)
+  TEST_METHOD(BigStructInBuffer)
+  TEST_METHOD(GloballyCoherent2)
+  TEST_METHOD(GloballyCoherent3)
+  // TODO: enable this.
+  //TEST_METHOD(TGSMRaceCond)
+  //TEST_METHOD(TGSMRaceCond2)
+  TEST_METHOD(AddUint64Odd)
 
+  TEST_METHOD(BarycentricFloat4Fail)
+  TEST_METHOD(BarycentricNoInterpolationFail)
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
   TEST_METHOD(DuplicateSysValue)
+  TEST_METHOD(GetAttributeAtVertexInVSFail)
+  TEST_METHOD(GetAttributeAtVertexIn60Fail)
+  TEST_METHOD(GetAttributeAtVertexInterpFail)
   TEST_METHOD(SemTargetMax)
   TEST_METHOD(SemTargetIndexMatchesRow)
   TEST_METHOD(SemTargetCol0)
@@ -149,7 +232,6 @@ public:
   TEST_METHOD(WhenDepthNotFloatThenFail);
   TEST_METHOD(BarrierFail);
   TEST_METHOD(CBufferLegacyOutOfBoundFail);
-  TEST_METHOD(CBufferOutOfBoundFail);
   TEST_METHOD(CsThreadSizeFail);
   TEST_METHOD(DeadLoopFail);
   TEST_METHOD(EvalFail);
@@ -175,6 +257,7 @@ public:
   TEST_METHOD(UavBarrierFail);
   TEST_METHOD(UndefValueFail);
   TEST_METHOD(UpdateCounterFail);
+  TEST_METHOD(LocalResCopy);
 
   TEST_METHOD(WhenSmUnknownThenFail);
   TEST_METHOD(WhenSmLegacyThenFail);
@@ -182,7 +265,42 @@ public:
   TEST_METHOD(WhenMetaFlagsUsageDeclThenOK);
   TEST_METHOD(WhenMetaFlagsUsageThenFail);
 
+  TEST_METHOD(WhenRootSigMismatchThenFail);
+  TEST_METHOD(WhenRootSigCompatThenSucceed);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootConstVis);
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootConstVis);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootCBV);
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Range);
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootCBV_Space);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootSRV);
+  TEST_METHOD(WhenRootSigMatchShaderFail_RootSRV_ResType);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_RootUAV);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_GoodRange);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_DescTable_Unbounded);
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range1);
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range2);
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Range3);
+  TEST_METHOD(WhenRootSigMatchShaderFail_DescTable_Space);
+  TEST_METHOD(WhenRootSigMatchShaderSucceed_Unbounded);
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded1);
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded2);
+  TEST_METHOD(WhenRootSigMatchShaderFail_Unbounded3);
+  TEST_METHOD(WhenProgramOutSigMissingThenFail);
+  TEST_METHOD(WhenProgramOutSigUnexpectedThenFail);
+  TEST_METHOD(WhenProgramSigMismatchThenFail);
+  TEST_METHOD(WhenProgramInSigMissingThenFail);
+  TEST_METHOD(WhenProgramSigMismatchThenFail2);
+  TEST_METHOD(WhenProgramPCSigMissingThenFail);
+  TEST_METHOD(WhenPSVMismatchThenFail);
+  TEST_METHOD(WhenFeatureInfoMismatchThenFail);
+
+  TEST_METHOD(ViewIDInCSFail)
+  TEST_METHOD(ViewIDIn60Fail)
+  TEST_METHOD(ViewIDNoSpaceFail)
+
   dxc::DxcDllSupport m_dllSupport;
+  VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
@@ -194,59 +312,32 @@ public:
     }
   }
 
-  bool CheckOperationResultMsg(IDxcOperationResult *pResult,
-                               const char *pErrorMsg, bool maySucceedAnyway,
-                               bool bRegex) {
-    HRESULT status;
-    VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-    if (pErrorMsg == nullptr) {
-      VERIFY_SUCCEEDED(status);
-    }
-    else {
-      if (SUCCEEDED(status) && maySucceedAnyway) {
-        return false;
-      }
-      //VERIFY_FAILED(status);
-      CComPtr<IDxcBlobEncoding> text;
-      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&text));
-      if (bRegex) {
-        llvm::Regex RE(pErrorMsg);
-        std::string reErrors;
-        VERIFY_IS_TRUE(RE.isValid(reErrors));
-        VERIFY_IS_TRUE(RE.match(llvm::StringRef((const char *)text->GetBufferPointer(), text->GetBufferSize())));
-      } else {
-        const char *pStart = (const char *)text->GetBufferPointer();
-        const char *pEnd = pStart + text->GetBufferSize();
-        const char *pMatch = std::search(pStart, pEnd, pErrorMsg, pErrorMsg + strlen(pErrorMsg));
-        VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
-      }
-    }
-    return true;
-  }
-
-  void CheckValidationMsg(IDxcBlob *pBlob, const char *pErrorMsg, bool bRegex = false) {
+  void CheckValidationMsgs(IDxcBlob *pBlob, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     CComPtr<IDxcValidator> pValidator;
     CComPtr<IDxcOperationResult> pResult;
 
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    UINT32 Flags = DxcValidatorFlags_Default;
+    if (!IsDxilContainerLike(pBlob->GetBufferPointer(), pBlob->GetBufferSize())) {
+      // Validation of raw bitcode as opposed to DxilContainer is not supported through DXIL.dll
+      if (!m_ver.m_InternalValidator) {
+        WEX::Logging::Log::Comment(L"Test skipped due to validation of raw bitcode without container and use of external DXIL.dll validator.");
+        return;
+      }
+      Flags |= DxcValidatorFlags_ModuleOnly;
     }
 
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-    VERIFY_SUCCEEDED(pValidator->Validate(pBlob, DxcValidatorFlags_Default, &pResult));
+    VERIFY_SUCCEEDED(pValidator->Validate(pBlob, Flags, &pResult));
 
-    CheckOperationResultMsg(pResult, pErrorMsg, false, bRegex);
+    CheckOperationResultMsgs(pResult, pErrorMsgs, false, bRegex);
   }
 
-  void CheckValidationMsg(const char *pBlob, size_t blobSize, const char *pErrorMsg, bool bRegex = false) {
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    }
+  void CheckValidationMsgs(const char *pBlob, size_t blobSize, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlobEncoding; // Encoding doesn't actually matter, it's binary.
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned((LPBYTE)pBlob, blobSize, CP_UTF8, &pBlobEncoding));
-    CheckValidationMsg(pBlobEncoding, pErrorMsg, bRegex);
+    CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex);
   }
 
   void CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
@@ -255,24 +346,18 @@ public:
     CComPtr<IDxcOperationResult> pResult;
     CComPtr<IDxcBlob> pProgram;
 
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    }
-
     CA2W shWide(pShaderModel, CP_UTF8);
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
                                         shWide, nullptr, 0, nullptr, 0, nullptr,
                                         &pResult));
+    CheckOperationResultMsgs(pResult, nullptr, false, false);
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
   }
 
   void CompileSource(LPCSTR pSource, LPCSTR pShaderModel,
                      IDxcBlob **pResultBlob) {
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    }
     CComPtr<IDxcBlobEncoding> pSourceBlob;
     Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
     CompileSource(pSourceBlob, pShaderModel, pResultBlob);
@@ -284,14 +369,10 @@ public:
 
   void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
                                llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
-                               LPCSTR pErrorMsg, bool bRegex = false) {
+                               llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     CComPtr<IDxcBlob> pText;
     CComPtr<IDxcBlobEncoding> pSourceBlob;
     
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    }
-
     Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
 
     RewriteAssemblyToText(pSourceBlob, pShaderModel, pLookFors, pReplacements, &pText, bRegex);
@@ -302,11 +383,11 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pText, &pAssembleResult));
 
-    if (!CheckOperationResultMsg(pAssembleResult, pErrorMsg, true, bRegex)) {
+    if (!CheckOperationResultMsgs(pAssembleResult, pErrorMsgs, true, bRegex)) {
       // Assembly succeeded, try validation.
       CComPtr<IDxcBlob> pBlob;
       VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
-      CheckValidationMsg(pBlob, pErrorMsg, bRegex);
+      CheckValidationMsgs(pBlob, pErrorMsgs, bRegex);
     }
   }
 
@@ -351,40 +432,106 @@ public:
   
   void RewriteAssemblyCheckMsg(LPCWSTR name, LPCSTR pShaderModel,
                                llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
-                               LPCSTR pErrorMsg, bool bRegex = false) {
+                               llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pSource;
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    }
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(
         pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
 
     CComPtr<IDxcBlob> pText;
 
-    RewriteAssemblyToText(pSource, pShaderModel, pLookFors, pReplacements, &pText);
+    RewriteAssemblyToText(pSource, pShaderModel, pLookFors, pReplacements, &pText, bRegex);
 
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
     VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pText, &pAssembleResult));
-
-    if (!CheckOperationResultMsg(pAssembleResult, pErrorMsg, true, bRegex)) {
+    if (!CheckOperationResultMsgs(pAssembleResult, pErrorMsgs, true, bRegex)) {
       // Assembly succeeded, try validation.
       CComPtr<IDxcBlob> pBlob;
       VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
-      CheckValidationMsg(pBlob, pErrorMsg, bRegex);
+      CheckValidationMsgs(pBlob, pErrorMsgs, bRegex);
     }
   }
+
+  // compile one or two sources, validate module from 1 with container parts from 2, check messages
+  void ReplaceContainerPartsCheckMsgs(LPCSTR pSource1, LPCSTR pSource2, LPCSTR pShaderModel,
+                                     llvm::ArrayRef<DxilFourCC> PartsToReplace,
+                                     llvm::ArrayRef<LPCSTR> pErrorMsgs) {
+    CComPtr<IDxcBlob> pProgram1, pProgram2;
+    CompileSource(pSource1, pShaderModel, &pProgram1);
+    VERIFY_IS_NOT_NULL(pProgram1);
+    if (pSource2) {
+      CompileSource(pSource2, pShaderModel, &pProgram2);
+      VERIFY_IS_NOT_NULL(pProgram2);
+    } else {
+      pProgram2 = pProgram1;
+    }
+
+    // construct container with moudle from pProgram1 with other parts from pProgram2:
+    const DxilContainerHeader *pHeader1 = IsDxilContainerLike(pProgram1->GetBufferPointer(), pProgram1->GetBufferSize());
+    VERIFY_IS_NOT_NULL(pHeader1);
+    const DxilContainerHeader *pHeader2 = IsDxilContainerLike(pProgram2->GetBufferPointer(), pProgram2->GetBufferSize());
+    VERIFY_IS_NOT_NULL(pHeader2);
+
+    unique_ptr<DxilContainerWriter> pContainerWriter(NewDxilContainerWriter());
+
+    // Add desired parts from first container
+    for (auto pPart : pHeader1) {
+      for (auto dfcc : PartsToReplace) {
+        if (dfcc == pPart->PartFourCC) {
+          pPart = nullptr;
+          break;
+        }
+      }
+      if (!pPart)
+        continue;
+      pContainerWriter->AddPart(pPart->PartFourCC, pPart->PartSize, [=](AbstractMemoryStream *pStream) {
+        ULONG cbWritten = 0;
+        pStream->Write(GetDxilPartData(pPart), pPart->PartSize, &cbWritten);
+      });
+    }
+
+    // Add desired parts from second container
+    for (auto pPart : pHeader2) {
+      for (auto dfcc : PartsToReplace) {
+        if (dfcc == pPart->PartFourCC) {
+          pContainerWriter->AddPart(pPart->PartFourCC, pPart->PartSize, [=](AbstractMemoryStream *pStream) {
+            ULONG cbWritten = 0;
+            pStream->Write(GetDxilPartData(pPart), pPart->PartSize, &cbWritten);
+          });
+          break;
+        }
+      }
+    }
+
+    // Write the container
+    CComPtr<IMalloc> pMalloc;
+    VERIFY_SUCCEEDED(CoGetMalloc(1, &pMalloc));
+    CComPtr<AbstractMemoryStream> pOutputStream;
+    VERIFY_SUCCEEDED(CreateMemoryStream(pMalloc, &pOutputStream));
+    pOutputStream->Reserve(pContainerWriter->size());
+    pContainerWriter->write(pOutputStream);
+
+    CheckValidationMsgs((const char *)pOutputStream->GetPtr(), pOutputStream->GetPtrSize(), pErrorMsgs, /*bRegex*/false);
+  }
 };
+
+bool ValidationTest::InitSupport() {
+  if (!m_dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_ver.Initialize(m_dllSupport);
+  }
+  return true;
+}
 
 TEST_F(ValidationTest, WhenCorrectThenOK) {
   CComPtr<IDxcBlob> pProgram;
   CompileSource("float4 main() : SV_Target { return 1; }", "ps_6_0", &pProgram);
-  CheckValidationMsg(pProgram, nullptr);
+  CheckValidationMsgs(pProgram, nullptr);
 }
 
 // Lots of these going on below for simplicity in setting up payloads.
@@ -399,7 +546,7 @@ TEST_F(ValidationTest, WhenMisalignedThenFail) {
   const char blob[] = {
     'B', 'C',
   };
-  CheckValidationMsg(blob, _countof(blob), "Invalid bitcode size");
+  CheckValidationMsgs(blob, _countof(blob), "Invalid bitcode size");
 }
 
 TEST_F(ValidationTest, WhenEmptyFileThenFail) {
@@ -407,7 +554,7 @@ TEST_F(ValidationTest, WhenEmptyFileThenFail) {
   const char blob[] = {
     'B', 'C', 0xc0, 0xde
   };
-  CheckValidationMsg(blob, _countof(blob), "Malformed IR file");
+  CheckValidationMsgs(blob, _countof(blob), "Malformed IR file");
 }
 
 TEST_F(ValidationTest, WhenIncorrectMagicThenFail) {
@@ -415,14 +562,14 @@ TEST_F(ValidationTest, WhenIncorrectMagicThenFail) {
   const char blob[] = {
     'B', 'C', 0xc0, 0xdd
   };
-  CheckValidationMsg(blob, _countof(blob), "Invalid bitcode signature");
+  CheckValidationMsgs(blob, _countof(blob), "Invalid bitcode signature");
 }
 
 TEST_F(ValidationTest, WhenIncorrectTargetTripleThenFail) {
   const char blob[] = {
     'B', 'C', 0xc0, 0xde
   };
-  CheckValidationMsg(blob, _countof(blob), "Malformed IR file");
+  CheckValidationMsgs(blob, _countof(blob), "Malformed IR file");
 }
 
 TEST_F(ValidationTest, WhenMultipleModulesThenFail) {
@@ -435,7 +582,7 @@ TEST_F(ValidationTest, WhenMultipleModulesThenFail) {
     // Trigger the case we're looking for now
     0x21, 0x0c, 0x00, 0x00, // Enter sub-block, BlockID = 8, Code Size=3, padding x2
   };
-  CheckValidationMsg(blob, _countof(blob), "Unused bits in buffer");
+  CheckValidationMsgs(blob, _countof(blob), "Unused bits in buffer");
 }
 
 TEST_F(ValidationTest, WhenUnexpectedEOFThenFail) {
@@ -445,7 +592,7 @@ TEST_F(ValidationTest, WhenUnexpectedEOFThenFail) {
     0x21, 0x0c, 0x00, 0x00, // Enter sub-block, BlockID = 8, Code Size=3, padding x2
     0x00, 0x00, 0x00, 0x00, // NumWords = 0
   };
-  CheckValidationMsg(blob, _countof(blob), "Invalid record");
+  CheckValidationMsgs(blob, _countof(blob), "Invalid record");
 }
 
 TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
@@ -453,100 +600,398 @@ TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
     'B', 'C', 0xc0, 0xde,   // Signature
     0x31, 0x00, 0x00, 0x00  // Enter sub-block, BlockID != 8
   };
-  CheckValidationMsg(blob, _countof(blob), "Unrecognized block found");
+  CheckValidationMsgs(blob, _countof(blob), "Unrecognized block found");
+}
+
+TEST_F(ValidationTest, WhenZeroInputPatchCountWithInputThenFail) {
+	RewriteAssemblyCheckMsg(
+		L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
+		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z.flat\", i32 3, i32 3",
+		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z.flat\", i32 0, i32 3",
+		"When HS input control point count is 0, no input signature should exist");
 }
 
 TEST_F(ValidationTest, WhenInstrDisallowedThenFail) {
-  TestCheck(L"val-inst-disallowed.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+      {
+          "target triple = \"dxil-ms-dx\"",
+          "ret void",
+          "dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 3, i32 undef)",
+          "!\"ps\", i32 6, i32 0",
+      },
+      {
+          "target triple = \"dxil-ms-dx\"\n%dx.types.wave_t = type { i8* }",
+          "unreachable",
+          "dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 3, i32 undef)\n%wave_local = alloca %dx.types.wave_t",
+          "!\"vs\", i32 6, i32 0",
+      },
+      {"Semantic 'SV_Target' is invalid as vs Output",
+       "Declaration '%dx.types.wave_t = type { i8* }' uses a reserved prefix",
+       "Instructions must be of an allowed type",
+      }
+  );
 }
 
 TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
-  TestCheck(L"dxil_validation\\IntegerDepth.ll");
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\IntegerDepth2.hlsl", "ps_6_0",
+                          {
+                              "!\"SV_Depth\", i8 9",
+                          },
+                          {
+                              "!\"SV_Depth\", i8 4",
+                          },
+                          {
+                              "SV_Depth must be float",
+                          });
 }
 
 TEST_F(ValidationTest, BarrierFail) {
-  TestCheck(L"dxil_validation\\barrier.ll");
+  if (m_ver.SkipIRSensitiveTest()) return;
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\barrier.hlsl", "cs_6_0",
+      {"dx.op.barrier(i32 80, i32 8)",
+        "dx.op.barrier(i32 80, i32 9)",
+        "dx.op.barrier(i32 80, i32 11)",
+        "%class.RWStructuredBuffer = type { %class.matrix.float.2.2 }\n",
+        "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)",
+      },
+      {"dx.op.barrier(i32 80, i32 15)",
+        "dx.op.barrier(i32 80, i32 0)",
+        "dx.op.barrier(i32 80, i32 %rem)",
+        "%class.RWStructuredBuffer = type { %class.matrix.float.2.2 }\n"
+        "@dx.typevar.8 = external addrspace(1) constant %class.RWStructuredBuffer\n"
+        "@\"internalGV\" = internal global [64 x <4 x float>] undef\n",
+        "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
+        "%load = load %class.RWStructuredBuffer, %class.RWStructuredBuffer addrspace(1)* @dx.typevar.8",
+      },
+      {"Internal declaration 'internalGV' is unused",
+       "External declaration 'dx.typevar.8' is unused",
+       "Vector type '<4 x float>' is not allowed",
+       "Mode of Barrier must be an immediate constant",
+       "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory)",
+       "sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal"
+      });
 }
 TEST_F(ValidationTest, CBufferLegacyOutOfBoundFail) {
-  TestCheck(L"dxil_validation\\cbuffer1.50_legacy.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\cbuffer1.50.hlsl", "ps_6_0",
+      "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_buffer, i32 0)",
+      "cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo2_buffer, i32 6)",
+      "Cbuffer access out of bound");
 }
-TEST_F(ValidationTest, CBufferOutOfBoundFail) {
-  TestCheck(L"dxil_validation\\cbuffer1.50.ll");
-}
+
 TEST_F(ValidationTest, CsThreadSizeFail) {
-  TestCheck(L"dxil_validation\\csThreadSize.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\share_mem1.hlsl", "cs_6_0",
+      {"!{i32 8, i32 8, i32 1",
+       "[256 x float]"},
+      {"!{i32 1025, i32 1025, i32 1025",
+       "[64000000 x float]"},
+      {"Declared Thread Group X size 1025 outside valid range",
+       "Declared Thread Group Y size 1025 outside valid range",
+       "Declared Thread Group Z size 1025 outside valid range",
+       "Declared Thread Group Count 1076890625 (X*Y*Z) is beyond the valid maximum",
+       "Total Thread Group Shared Memory storage is 256000000, exceeded 32768",
+      });
 }
 TEST_F(ValidationTest, DeadLoopFail) {
-  TestCheck(L"dxil_validation\\deadloop.ll");
+  if (m_ver.SkipIRSensitiveTest()) return;
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\loop1.hlsl", "ps_6_0",
+      {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
+       "%add.lcssa = phi float \\[ %add, %for.body \\]",
+       "!dx.entryPoints = !\\{!([0-9]+)\\}",
+       "\\[ %add.lcssa, %for.end.loopexit \\]"
+      },
+      {"br label %for.body",
+       "",
+       "!dx.entryPoints = !\\{!\\1\\}\n!dx.unused = !\\{!\\1\\}",
+       "[ 0.000000e+00, %for.end.loopexit ]"
+      },
+      {"Loop must have break",
+       "Named metadata 'dx.unused' is unknown",
+      },
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, EvalFail) {
-  TestCheck(L"dxil_validation\\Eval.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\Eval.hlsl", "ps_6_0",
+      "!\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4",
+      "!\"A\", i8 9, i8 0, !\\1, i8 0, i32 1, i8 4",
+      "Interpolation mode on A used with eval_\\* instruction must be ",
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, GetDimCalcLODFail) {
-  TestCheck(L"dxil_validation\\GetDimCalcLOD.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\GetDimCalcLOD.hlsl", "ps_6_0",
+      {"extractvalue %dx.types.Dimensions %([0-9]+), 1",
+       "float 1.000000e\\+00, i1 true"
+      },
+      {"extractvalue %dx.types.Dimensions %\\1, 2",
+       "float undef, i1 true"
+      },
+      {"GetDimensions used undef dimension z on TextureCube",
+       "coord uninitialized"},
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, HsAttributeFail) {
-  TestCheck(L"dxil_validation\\hsAttribute.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\hsAttribute.hlsl", "hs_6_0",
+      {"i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01"
+      },
+      {"i32 36, i32 36, i32 0, i32 0, i32 0, float 6.500000e+01"
+      },
+      {"HS input control point count must be [0..32].  36 specified",
+       "Invalid Tessellator Domain specified. Must be isoline, tri or quad",
+       "Invalid Tessellator Partitioning specified",
+       "Invalid Tessellator Output Primitive specified",
+       "Hull Shader MaxTessFactor must be [1.000000..64.000000].  65.000000 specified",
+       "output control point count must be [0..32].  36 specified"});
 }
 TEST_F(ValidationTest, InnerCoverageFail) {
-  TestCheck(L"dxil_validation\\InnerCoverage.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\InnerCoverage2.hlsl", "ps_6_0",
+      {"dx.op.coverage.i32(i32 91)",
+       "declare i32 @dx.op.coverage.i32(i32)"
+      },
+      {"dx.op.coverage.i32(i32 91)\n  %inner = call i32 @dx.op.innerCoverage.i32(i32 92)",
+       "declare i32 @dx.op.coverage.i32(i32)\n"
+       "declare i32 @dx.op.innerCoverage.i32(i32)"
+      },
+      "InnerCoverage and Coverage are mutually exclusive.");
 }
 TEST_F(ValidationTest, InterpChangeFail) {
-  TestCheck(L"dxil_validation\\interpChange.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\interpChange.hlsl", "ps_6_0",
+      "i32 1, i8 0, null}",
+      "i32 0, i8 2, null}",
+      "interpolation mode that differs from another element packed",
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, InterpOnIntFail) {
-  TestCheck(L"dxil_validation\\interpOnInt.ll");
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\interpOnInt2.hlsl", "ps_6_0",
+      "!\"A\", i8 5, i8 0, !([0-9]+), i8 1",
+      "!\"A\", i8 5, i8 0, !\\1, i8 2",
+      "signature element A specifies invalid interpolation mode for integer component type",
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, InvalidSigCompTyFail) {
-  TestCheck(L"dxil_validation\\invalidSigCompTy.ll");
+    RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
+      "!\"A\", i8 4",
+      "!\"A\", i8 0",
+      "A specifies unrecognized or invalid component type");
 }
 TEST_F(ValidationTest, MultiStream2Fail) {
-  TestCheck(L"dxil_validation\\multiStream2.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\multiStreamGS.hlsl", "gs_6_0",
+      "i32 1, i32 12, i32 7, i32 1, i32 1",
+      "i32 1, i32 12, i32 7, i32 2, i32 1",
+      "Multiple GS output streams are used but 'XXX' is not pointlist");
 }
 TEST_F(ValidationTest, PhiTGSMFail) {
-  TestCheck(L"dxil_validation\\phiTGSM.ll");
+  if (m_ver.SkipIRSensitiveTest()) return;
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\phiTGSM.hlsl", "cs_6_0",
+      "ret void",
+      "%arrayPhi = phi i32 addrspace(3)* [ %arrayidx, %if.then ], [ %arrayidx2, %if.else ]\n"
+      "%phiAtom = atomicrmw add i32 addrspace(3)* %arrayPhi, i32 1 seq_cst\n"
+      "ret void",
+      "TGSM pointers must originate from an unambiguous TGSM global variable");
 }
 TEST_F(ValidationTest, ReducibleFail) {
-  TestCheck(L"dxil_validation\\reducible.ll");
+  if (m_ver.SkipIRSensitiveTest()) return;
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\reducible.hlsl", "ps_6_0",
+      {"%conv\n"
+       "  br label %if.end",
+       "to float\n"
+       "  br label %if.end"
+      },
+      {"%conv\n"
+      "  br i1 %cmp, label %if.else, label %if.end",
+       "to float\n"
+       "  br i1 %cmp, label %if.then, label %if.end"
+      },
+      "Execution flow must be reducible");
 }
 TEST_F(ValidationTest, SampleBiasFail) {
-  TestCheck(L"dxil_validation\\sampleBias.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\sampleBias.hlsl", "ps_6_0",
+      {"float -1.600000e+01"
+      },
+      {"float 1.800000e+01"
+      },
+      "bias amount for sample_b must be in the range [-16.000000,15.990000]");
 }
 TEST_F(ValidationTest, SamplerKindFail) {
-  TestCheck(L"dxil_validation\\samplerKind.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\samplerKind.hlsl", "ps_6_0",
+      {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1",
+       "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0",
+       "\"g_samLinear\", i32 0, i32 0, i32 1, i32 0",
+       "\"g_samLinearC\", i32 0, i32 1, i32 1, i32 1",
+      },
+      {"uav1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0",
+       "g_txDiffuse_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1",
+       "\"g_samLinear\", i32 0, i32 0, i32 1, i32 3",
+       "\"g_samLinearC\", i32 0, i32 1, i32 1, i32 3",
+      },
+      {"Invalid sampler mode",
+       "require sampler declared in comparison mode",
+       "requires sampler declared in default mode",
+       "should on srv resource"});
 }
 TEST_F(ValidationTest, SemaOverlapFail) {
-  TestCheck(L"dxil_validation\\semaOverlap.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      {"!([0-9]+) = !\\{i32 0, !\"A\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 4, i32 0, i8 0, null\\}\n"
+      "!([0-9]+) = !\\{i32 0\\}\n"
+      "!([0-9]+) = !\\{i32 1, !\"A\", i8 9, i8 0, !([0-9]+)",
+      },
+      {"!\\1 = !\\{i32 0, !\"A\", i8 9, i8 0, !\\2, i8 2, i32 1, i8 4, i32 0, i8 0, null\\}\n"
+      "!\\3 = !\\{i32 0\\}\n"
+      "!\\4 = !\\{i32 1, !\"A\", i8 9, i8 0, !\\2",
+      },
+      {"Semantic 'A' overlap at 0"},
+      /*bRegex*/true);
 }
 TEST_F(ValidationTest, SigOutOfRangeFail) {
-  TestCheck(L"dxil_validation\\sigOutOfRange.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      {"i32 1, i8 0, null}",
+      },
+      {"i32 8000, i8 0, null}",
+      },
+      {"signature element A at location (8000,0) size (1,4) is out of range"});
 }
 TEST_F(ValidationTest, SigOverlapFail) {
-  TestCheck(L"dxil_validation\\sigOverlap.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
+      {"i32 1, i8 0, null}",
+      },
+      {"i32 0, i8 0, null}",
+      },
+      {"signature element A at location (0,0) size (1,4) overlaps another signature element"});
 }
 TEST_F(ValidationTest, SimpleHs1Fail) {
-  TestCheck(L"dxil_validation\\SimpleHs1.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
+      {"i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01}",
+       "\"SV_TessFactor\", i8 9, i8 25",
+       "\"SV_InsideTessFactor\", i8 9, i8 26",
+      },
+      {"i32 3, i32 3000, i32 2, i32 3, i32 3, float 6.400000e+01}",
+       "\"TessFactor\", i8 9, i8 0",
+       "\"InsideTessFactor\", i8 9, i8 0",
+      },
+      {"output control point count must be [0..32].  3000 specified",
+       "Required TessFactor for domain not found declared anywhere in Patch Constant data",
+       // TODO: enable this after support pass thru hull shader.
+       //"For pass thru hull shader, input control point count must match output control point count",
+       //"Total number of scalars across all HS output control points must not exceed",
+      });
 }
 TEST_F(ValidationTest, SimpleHs3Fail) {
-  TestCheck(L"dxil_validation\\SimpleHs3.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs3.hlsl", "hs_6_0",
+      {
+          "i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01}",
+      },
+      {
+          "i32 3, i32 3, i32 2, i32 3, i32 2, float 6.400000e+01}",
+      },
+      {"Hull Shader declared with Tri Domain must specify output primitive "
+       "point, triangle_cw or triangle_ccw. Line output is not compatible with "
+       "the Tri domain"});
 }
 TEST_F(ValidationTest, SimpleHs4Fail) {
-  TestCheck(L"dxil_validation\\SimpleHs4.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleHs4.hlsl", "hs_6_0",
+      {
+          "i32 2, i32 2, i32 1, i32 3, i32 2, float 6.400000e+01}",
+      },
+      {
+          "i32 2, i32 2, i32 1, i32 3, i32 3, float 6.400000e+01}",
+      },
+      {"Hull Shader declared with IsoLine Domain must specify output primitive "
+       "point or line. Triangle_cw or triangle_ccw output are not compatible "
+       "with the IsoLine Domain"});
 }
 TEST_F(ValidationTest, SimpleDs1Fail) {
-  TestCheck(L"dxil_validation\\SimpleDs1.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleDs1.hlsl", "ds_6_0",
+      {"!{i32 2, i32 3}"
+      },
+      {"!{i32 4, i32 36}"
+      },
+      {"DS input control point count must be [0..32].  36 specified",
+       "Invalid Tessellator Domain specified. Must be isoline, tri or quad",
+       "DomainLocation component index out of bounds for the domain"});
 }
 TEST_F(ValidationTest, SimpleGs1Fail) {
-  TestCheck(L"dxil_validation\\SimpleGs1.ll");
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\SimpleGs1.hlsl", "gs_6_0",
+      {"!{i32 1, i32 3, i32 1, i32 5, i32 1}",
+       "i8 4, i32 1, i8 4, i32 2, i8 0, null}"
+      },
+      {"!{i32 5, i32 1025, i32 1, i32 0, i32 33}",
+      "i8 4, i32 1, i8 4, i32 2, i8 0, !100}\n"
+      "!100 = !{i32 0, i32 5}"
+      },
+      {"GS output vertex count must be [0..1024].  1025 specified",
+       "GS instance count must be [1..32].  33 specified",
+       "GS output primitive topology unrecognized",
+       "GS input primitive unrecognized",
+       "Stream index (5) must between 0 and 3"});
 }
 TEST_F(ValidationTest, UavBarrierFail) {
-  TestCheck(L"dxil_validation\\uavBarrier.ll");
+  if (m_ver.SkipIRSensitiveTest()) return;
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\uavBarrier.hlsl", "ps_6_0",
+      {"dx.op.barrier(i32 80, i32 2)",
+       "textureLoad.f32(i32 66, %dx.types.Handle %uav1_UAV_2d, i32 undef",
+       "i32 undef, i32 undef, i32 undef, i32 undef)",
+       "float %add9.i3, i8 15)",
+      },
+      {"dx.op.barrier(i32 80, i32 9)",
+       "textureLoad.f32(i32 66, %dx.types.Handle %uav1_UAV_2d, i32 1",
+       "i32 1, i32 2, i32 undef, i32 undef)",
+       "float undef, i8 7)",
+      },
+      {"uav load don't support offset",
+       "uav load don't support mipLevel/sampleIndex",
+       "store on typed uav must write to all four components of the UAV",
+       "sync in a non-Compute Shader must only sync UAV (sync_uglobal)"});
 }
 TEST_F(ValidationTest, UndefValueFail) {
-  TestCheck(L"dxil_validation\\UndefValue.ll");
+  TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
-  TestCheck(L"dxil_validation\\UpdateCounter.ll");
+  if (m_ver.SkipIRSensitiveTest()) return;
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\UpdateCounter2.hlsl", "ps_6_0",
+      {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
+       "%3 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)"
+      },
+      {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 -1)",
+       "%3 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)\n"
+       "%srvUpdate = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf1_texture_buf, i8 undef)"
+      },
+      {"BufferUpdateCounter valid only on UAV",
+       "BufferUpdateCounter valid only on structured buffers",
+       "inc of BufferUpdateCounter must be an immediate constant",
+       "RWStructuredBuffers may increment or decrement their counters, but not both"});
+}
+
+TEST_F(ValidationTest, LocalResCopy) {
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\resCopy.hlsl", "cs_6_0", {"ret void"},
+      {"%H = alloca %dx.types.ResRet.i32\n"
+       "ret void"},
+      {"Dxil struct types should only used by ExtractValue"});
 }
 
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {
@@ -618,15 +1063,16 @@ TEST_F(ValidationTest, TypedUAVStoreFullMask1) {
 }
 
 TEST_F(ValidationTest, Recursive) {
-    TestCheck(L"..\\CodeGenHLSL\\recursive.hlsl");
+  // Includes coverage for user-defined functions.
+  TestCheck(L"..\\CodeGenHLSL\\recursive.ll");
 }
 
 TEST_F(ValidationTest, Recursive2) {
     TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
 }
 
-TEST_F(ValidationTest, UserDefineFunction) {
-    TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
+TEST_F(ValidationTest, Recursive3) {
+    TestCheck(L"..\\CodeGenHLSL\\recursive3.hlsl");
 }
 
 TEST_F(ValidationTest, ResourceRangeOverlap0) {
@@ -736,32 +1182,32 @@ TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
 TEST_F(ValidationTest, StructBufStrideAlign) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "!7 = !{i32 1, i32 52}",
-      "!7 = !{i32 1, i32 50}",
+      "= !{i32 1, i32 52}",
+      "= !{i32 1, i32 50}",
       "structured buffer element size must be a multiple of 4 bytes (actual size 50 bytes)");
 }
 
 TEST_F(ValidationTest, StructBufStrideOutOfBound) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "!7 = !{i32 1, i32 52}",
-      "!7 = !{i32 1, i32 2052}",
+      "= !{i32 1, i32 52}",
+      "= !{i32 1, i32 2052}",
       "structured buffer elements cannot be larger than 2048 bytes (actual size 2052 bytes)");
 }
 
 TEST_F(ValidationTest, StructBufLoadCoordinates) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
-      "bufferLoad.f32(i32 69, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
+      "bufferLoad.f32(i32 68, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 8)",
+      "bufferLoad.f32(i32 68, %dx.types.Handle %buf1_texture_structbuf, i32 1, i32 undef)",
       "structured buffer require 2 coordinates");
 }
 
 TEST_F(ValidationTest, StructBufStoreCoordinates) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\struct_buf1.hlsl", "ps_6_0",
-      "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
-      "bufferStore.f32(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
+      "bufferStore.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 0",
+      "bufferStore.f32(i32 69, %dx.types.Handle %buf2_UAV_structbuf, i32 0, i32 undef",
       "structured buffer require 2 coordinates");
 }
 
@@ -864,57 +1310,64 @@ TEST_F(ValidationTest, PsOutputSemantic) {
 TEST_F(ValidationTest, ArrayOfSVTarget) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\targetArray.hlsl", "ps_6_0",
-      "i32 6, !\"SV_Target\", i8 9, i8 16, !32, i8 0, i32 1",
-      "i32 6, !\"SV_Target\", i8 9, i8 16, !32, i8 0, i32 2",
-      "Pixel shader output registers are not indexable.");
+      "i32 6, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1",
+      "i32 6, !\"SV_Target\", i8 9, i8 16, !\\1, i8 0, i32 2",
+      "Pixel shader output registers are not indexable.",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, InfiniteLog) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 22, float %1)",
-      "op.unary.f32(i32 22, float 0x7FF0000000000000)",
-      "No indefinite logarithm");
+      "op.unary.f32\\(i32 23, float %[0-9+]\\)",
+      "op.unary.f32(i32 23, float 0x7FF0000000000000)",
+      "No indefinite logarithm",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, InfiniteAsin) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 16, float %1)",
+      "op.unary.f32\\(i32 16, float %[0-9]+\\)",
       "op.unary.f32(i32 16, float 0x7FF0000000000000)",
-      "No indefinite arcsine");
+      "No indefinite arcsine",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, InfiniteAcos) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 15, float %1)",
+      "op.unary.f32\\(i32 15, float %[0-9]+\\)",
       "op.unary.f32(i32 15, float 0x7FF0000000000000)",
-      "No indefinite arccosine");
+      "No indefinite arccosine",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, InfiniteDdxDdy) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "op.unary.f32(i32 86, float %1)",
-      "op.unary.f32(i32 86, float 0x7FF0000000000000)",
-      "No indefinite derivative calculation");
+      "op.unary.f32\\(i32 85, float %[0-9]+\\)",
+      "op.unary.f32(i32 85, float 0x7FF0000000000000)",
+      "No indefinite derivative calculation",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, IDivByZero) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "sdiv i32 %6, %7",
-      "sdiv i32 %6, 0",
-      "No signed integer division by zero");
+      "sdiv i32 %([0-9]+), %[0-9]+",
+      "sdiv i32 %\\1, 0",
+      "No signed integer division by zero",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, UDivByZero) {
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\intrinsic_val_imm.hlsl", "ps_6_0",
-      "udiv i32 %3, %4",
-      "udiv i32 %3, 0",
-      "No unsigned integer division by zero");
+      "udiv i32 %([0-9]+), %[0-9]+",
+      "udiv i32 %\\1, 0",
+      "No unsigned integer division by zero",
+      /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, UnusedMetadata) {
@@ -931,59 +1384,151 @@ TEST_F(ValidationTest, MemoryOutOfBound) {
                           "Access to out-of-bounds memory is disallowed");
 }
 
+TEST_F(ValidationTest, LocalRes2) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource2.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes3) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource3.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes5) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource5.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes5Dbg) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource5_dbg.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes6) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource6.hlsl");
+}
+
+TEST_F(ValidationTest, LocalRes6Dbg) {
+  TestCheck(L"..\\CodeGenHLSL\\local_resource6_dbg.hlsl");
+}
+
 TEST_F(ValidationTest, AddrSpaceCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  store float %10, float* %11, align 4",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  %X = addrspacecast float* %11 to float addrspace(1)*    \n"
-                          "  store float %10, float addrspace(1)* %X, align 4",
-                          "generic address space");
+                          "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store i32 %([0-9]+), i32\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
+                          "  %X = addrspacecast i32* %\\1 to i32 addrspace(1)*    \n"
+                          "  store i32 %\\3, i32 addrspace(1)* %X, align 4",
+                          "generic address space",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, PtrBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  store float %10, float* %11, align 4",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  %X = bitcast float* %11 to double*    \n"
-                          "  store float %10, float* %11, align 4",
-                          "Pointer type bitcast must be have same size");
+                          "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store i32 %([0-9]+), i32\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast i32* %\\1 to double*    \n"
+                          "  store i32 %\\3, i32* %\\1, align 4",
+                          "Pointer type bitcast must be have same size",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, MinPrecisionBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  store float %10, float* %11, align 4",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  %X = bitcast float* %11 to [2 x half]*    \n"
-                          "  store float %10, float* %11, align 4",
-                          "Bitcast on minprecison types is not allowed");
+                          "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store i32 %([0-9]+), i32\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast i32* %\\1 to [2 x half]*    \n"
+                          "  store i32 %\\3, i32* %\\1, align 4",
+                          "Bitcast on minprecison types is not allowed",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, StructBitCast) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  store float %10, float* %11, align 4",
-                          "%11 = getelementptr [4 x float], [4 x float]* %0, i32 0, i32 0\n"
-                          "  %X = bitcast float* %11 to %dx.types.Handle*    \n"
-                          "  store float %10, float* %11, align 4",
-                          "Bitcast on struct types is not allowed");
+                          "%([0-9]+) = getelementptr \\[4 x i32\\], \\[4 x i32\\]\\* %([0-9]+), i32 0, i32 0\n"
+                          "  store i32 %([0-9]+), i32\\* %\\1, align 4",
+                          "%\\1 = getelementptr [4 x i32], [4 x i32]* %\\2, i32 0, i32 0\n"
+                          "  %X = bitcast i32* %\\1 to %dx.types.Handle*    \n"
+                          "  store i32 %\\3, i32* %\\1, align 4",
+                          "Bitcast on struct types is not allowed",
+                          /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, MultiDimArray) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
-                          "%0 = alloca [4 x float]",
-                          "%0 = alloca [4 x float]\n"
+                          "= alloca [4 x i32]",
+                          "= alloca [4 x i32]\n"
                           "  %md = alloca [2 x [4 x float]]",
                           "Only one dimension allowed for array type");
 }
 
+TEST_F(ValidationTest, SimpleGs8) {
+  TestCheck(L"..\\CodeGenHLSL\\SimpleGS8.hlsl");
+}
+
+TEST_F(ValidationTest, SimpleGs9) {
+  TestCheck(L"..\\CodeGenHLSL\\SimpleGS9.hlsl");
+}
+
+TEST_F(ValidationTest, SimpleGs10) {
+  TestCheck(L"..\\CodeGenHLSL\\SimpleGS10.hlsl");
+}
+
+TEST_F(ValidationTest, IllegalSampleOffset3) {
+  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt3.hlsl");
+}
+
+TEST_F(ValidationTest, IllegalSampleOffset4) {
+  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt4.hlsl");
+}
+
 TEST_F(ValidationTest, NoFunctionParam) {
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\abs2.hlsl", "ps_6_0",
-                          {"define void @main()", "void ()* @main", "!5 = !{!6}"},
-                          {"define void @main(<4 x i32> %mainArg)", "void (<4 x i32>)* @main", "!5 = !{!6, !6}"},
-                          "with parameter is not permitted");
+    {"define void @main\\(\\)",               "void \\(\\)\\* @main, !([0-9]+)\\}(.*)!\\1 = !\\{!([0-9]+)\\}",  "void \\(\\)\\* @main"},
+    {"define void @main(<4 x i32> %mainArg)", "void (<4 x i32>)* @main, !\\1}\\2!\\1 = !{!\\3, !\\3}",          "void (<4 x i32>)* @main"},
+    "with parameter is not permitted",
+    /*bRegex*/true);
+}
+
+TEST_F(ValidationTest, I8Type) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\staticGlobals.hlsl", "ps_6_0",
+                          "%([0-9]+) = alloca \\[4 x i32\\]",
+                          "%\\1 = alloca [4 x i32]\n"
+                          "  %m8 = alloca i8",
+                          "I8 can only used as immediate value for intrinsic",
+    /*bRegex*/true);
+}
+
+TEST_F(ValidationTest, EmptyStructInBuffer) {
+  TestCheck(L"..\\CodeGenHLSL\\EmptyStructInBuffer.hlsl");
+}
+
+TEST_F(ValidationTest, BigStructInBuffer) {
+  TestCheck(L"..\\CodeGenHLSL\\BigStructInBuffer.hlsl");
+}
+
+TEST_F(ValidationTest, GloballyCoherent2) {
+  TestCheck(L"..\\CodeGenHLSL\\globallycoherent2.hlsl");
+}
+
+TEST_F(ValidationTest, GloballyCoherent3) {
+  TestCheck(L"..\\CodeGenHLSL\\globallycoherent3.hlsl");
+}
+
+// TODO: enable this.
+//TEST_F(ValidationTest, TGSMRaceCond) {
+//  TestCheck(L"..\\CodeGenHLSL\\RaceCond.hlsl");
+//}
+//
+//TEST_F(ValidationTest, TGSMRaceCond2) {
+//    RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\structInBuffer.hlsl", "cs_6_0",
+//        "ret void",
+//        "%TID = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
+//        "store i32 %TID, i32 addrspace(3)* @\"\\01?sharedData@@3UFoo@@A.3\", align 4\n"
+//        "ret void",
+//        "Race condition writing to shared memory detected, consider making this write conditional");
+//}
+
+TEST_F(ValidationTest, AddUint64Odd) {
+  TestCheck(L"..\\CodeGenHLSL\\AddUint64Odd.hlsl");
 }
 
 TEST_F(ValidationTest, WhenWaveAffectsGradientThenFail) {
@@ -1044,7 +1589,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0", 
       "dx.op.storeOutput.f32(i32 5",
-      "dx.op.storePatchConstant.f32(i32 109",
+      "dx.op.storePatchConstant.f32(i32 106",
       "opcode 'StorePatchConstant' should only used in 'PatchConstant function'");
 }
 
@@ -1095,7 +1640,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0",
       "dx.op.loadInput.f32(i32 4",
-      "dx.op.loadOutputControlPoint.f32(i32 106",
+      "dx.op.loadOutputControlPoint.f32(i32 103",
       "opcode 'LoadOutputControlPoint' should only used in 'PatchConstant function'");
 }
 
@@ -1146,7 +1691,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,\
     ",
       "hs_6_0",
       "ret void",
-      "call i32 @dx.op.outputControlPointID.i32(i32 110)\n ret void",
+      "call i32 @dx.op.outputControlPointID.i32(i32 107)\n ret void",
       "opcode 'OutputControlPointID' should only used in 'hull function'");
 }
 
@@ -1385,13 +1930,13 @@ void main( \
     ",
     "vs_6_0",
 
-    "= !{i32 1, !\"f2out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 2, i32 2, i8 0, null}\n"
-    "!([0-9]+) = !{i32 2, !\"f3out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 3, i32 1, i8 0, null}\n"
+    "= !{i32 1, !\"f2out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 2, i32 1, i8 0, null}\n"
+    "!([0-9]+) = !{i32 2, !\"f3out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 3, i32 2, i8 0, null}\n"
     "!([0-9]+) = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !([0-9]+), i8 2, i32 1, i8 2, i32 3, i8 0, null}\n"
     "!([0-9]+) = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !([0-9]+), i8 2, i32 1, i8 1, i32 3, i8 2, null}\n",
 
-    "= !{i32 1, !\"f2out\", i8 9, i8 0, !\\1, i8 2, i32 1, i8 2, i32 2, i8 2, null}\n"
-    "!\\2 = !{i32 2, !\"f3out\", i8 9, i8 0, !\\3, i8 2, i32 1, i8 3, i32 1, i8 1, null}\n"
+    "= !{i32 1, !\"f2out\", i8 9, i8 0, !\\1, i8 2, i32 1, i8 2, i32 1, i8 2, null}\n"
+    "!\\2 = !{i32 2, !\"f3out\", i8 9, i8 0, !\\3, i8 2, i32 1, i8 3, i32 2, i8 1, null}\n"
     "!\\4 = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !\\5, i8 2, i32 1, i8 2, i32 2, i8 0, null}\n"
     "!\\6 = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !\\7, i8 2, i32 1, i8 1, i32 1, i8 0, null}\n",
 
@@ -1441,9 +1986,9 @@ float4 main( \
     "ps_6_0",
 
     "= !{i32 1, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
-    "!([0-9]+) = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
-    "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 3, null}\n"
-    "!([0-9]+) = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 1, null}\n",
+    "!([0-9]+) = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
+    "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
+    "!([0-9]+) = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 2, i8 0, null}\n",
 
     "= !{i32 1, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
     "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
@@ -1643,13 +2188,13 @@ void main( \
     ",
     "vs_6_0",
 
-    "!{i32 1, !\"Array\", i8 5, i8 0, !([0-9]+), i8 1, i32 2, i8 1, i32 1, i8 0, null}\n"
-    "!17 = !{i32 0, i32 1}\n"
-    "!([0-9]+) = !{i32 2, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 3, i32 1, i8 1, null}",
+    {"!{i32 1, !\"Array\", i8 5, i8 0, !([0-9]+), i8 1, i32 2, i8 1, i32 1, i8 0, null}(.*)"
+    "!\\1 = !{i32 0, i32 1}\n",
+    "= !{i32 2, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 3, i32 1, i8 1, null}"},
 
-    "!{i32 1, !\"Array\", i8 5, i8 0, !\\1, i8 1, i32 2, i8 1, i32 1, i8 1, null}\n"
-    "!17 = !{i32 0, i32 1}\n"
-    "!\\2 = !{i32 2, !\"Value\", i8 5, i8 0, !\\3, i8 1, i32 1, i8 3, i32 2, i8 0, null}",
+    {"!{i32 1, !\"Array\", i8 5, i8 0, !\\1, i8 1, i32 2, i8 1, i32 1, i8 1, null}\\2"
+    "!\\1 = !{i32 0, i32 1}\n",
+    "= !{i32 2, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 3, i32 2, i8 0, null}"},
 
     "signature element Value at location \\(2,0\\) size \\(1,3\\) overlaps another signature element.",
     /*bRegex*/true);
@@ -1657,23 +2202,799 @@ void main( \
 
 TEST_F(ValidationTest, SemMultiDepth) {
   RewriteAssemblyCheckMsg(" \
-float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target1) : SV_Target \
+float4 main(float4 f4 : Input, out float d0 : SV_Depth, out float d1 : SV_Target) : SV_Target1 \
 { d0 = f4.z; d1 = f4.w; return f4; } \
     ",
     "ps_6_0",
-
-    "!{i32 1, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 1, i32 1, i8 0, null}\n"
-    "!16 = !{i32 1}\n"
-    "!([0-9]+) = !{i32 2, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 0, i8 0, null}",
-
-    "!{i32 1, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\3, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}\n"
-    "!\\2 = !{i32 2, !\"SV_Target\", i8 9, i8 16, !\\3, i8 0, i32 1, i8 4, i32 0, i8 0, null}",
-
+    {"!{i32 1, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 1, i32 0, i8 0, null}"},
+    {"!{i32 1, !\"SV_DepthGreaterEqual\", i8 9, i8 19, !\\1, i8 0, i32 1, i8 1, i32 -1, i8 -1, null}"},
     "Pixel Shader only allows one type of depth semantic to be declared",
     /*bRegex*/true);
 }
 
+TEST_F(ValidationTest, WhenRootSigMismatchThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" )] float4 main() : semantic { return c; }",
+    "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+TEST_F(ValidationTest, WhenRootSigCompatThenSucceed) {
+  ReplaceContainerPartsCheckMsgs(
+    "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
+    "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" )] float4 main() : semantic { return c; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
 
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootConstVis) {
+  ReplaceContainerPartsCheckMsgs(
+    "float c; float4 main() : semantic { return c; }",
+    "[RootSignature ( \"RootConstants(b0, visibility = SHADER_VISIBILITY_VERTEX, num32BitConstants = 1)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootConstVis) {
+  ReplaceContainerPartsCheckMsgs(
+    "float c; float4 main() : semantic { return c; }",
+    "[RootSignature ( \"RootConstants(b0, visibility = SHADER_VISIBILITY_PIXEL, num32BitConstants = 1)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
 
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootCBV) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float a; int4 b; }; "
+    "ConstantBuffer<Foo> cb1 : register(b2, space5); "
+    "float4 main() : semantic { return cb1.b.x; }",
+    "[RootSignature ( \"CBV(b2, space = 5)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootCBV_Range) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float a; int4 b; }; "
+    "ConstantBuffer<Foo> cb1 : register(b0, space5); "
+    "float4 main() : semantic { return cb1.b.x; }",
+    "[RootSignature ( \"CBV(b2, space = 5)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootCBV_Space) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float a; int4 b; }; "
+    "ConstantBuffer<Foo> cb1 : register(b2, space7); "
+    "float4 main() : semantic { return cb1.b.x; }",
+    "[RootSignature ( \"CBV(b2, space = 5)\" )]"
+    "  float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootSRV) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float4 a; }; "
+    "StructuredBuffer<Foo> buf1 : register(t1, space3); "
+    "float4 main(float4 a : AAA) : SV_Target { return buf1[a.x].a; }",
+    "[RootSignature ( \"SRV(t1, space = 3)\" )]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_RootSRV_ResType) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float4 a; }; "
+    "StructuredBuffer<Foo> buf1 : register(t1, space3); "
+    "float4 main(float4 a : AAA) : SV_Target { return buf1[a.x].a; }",
+    "[RootSignature ( \"UAV(u1, space = 3)\" )]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_RootUAV) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { float4 a; }; "
+    "RWStructuredBuffer<Foo> buf1 : register(u1, space3); "
+    "float4 main(float4 a : AAA) : SV_Target { return buf1[a.x].a; }",
+    "[RootSignature ( \"UAV(u1, space = 3)\" )]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( SRV(t1,space=3,numDescriptors=8), "
+                                      "CBV(b2,space=5,numDescriptors=4), "
+                                      "UAV(u33,space=17,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable_GoodRange) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( SRV(t0,space=3,numDescriptors=20), "
+                                      "CBV(b2,space=5,numDescriptors=4), "
+                                      "UAV(u33,space=17,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_DescTable_Unbounded) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=4), "
+                                      "SRV(t1,space=3,numDescriptors=8), "
+                                      "UAV(u10,space=17,numDescriptors=unbounded)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range1) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=4), "
+                                      "SRV(t2,space=3,numDescriptors=8), "
+                                      "UAV(u33,space=17,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Shader SRV descriptor range (RegisterSpace=3, NumDescriptors=8, BaseShaderRegister=1) is not fully bound in root signature.",
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range2) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( SRV(t2,space=3,numDescriptors=8), "
+                                      "CBV(b20,space=5,numDescriptors=4), "
+                                      "UAV(u33,space=17,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Range3) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=4), "
+                                      "SRV(t1,space=3,numDescriptors=8), "
+                                      "UAV(u33,space=17,numDescriptors=5)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_DescTable_Space) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[4] : register(b2, space5);"
+    "Texture2D<float4> tex1[8]  : register(t1, space3);"
+    "RWBuffer<float4> buf1[6]   : register(u33, space17);"
+    "SamplerState sampler1[5]   : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( SRV(t2,space=3,numDescriptors=8), "
+                                      "CBV(b2,space=5,numDescriptors=4), "
+                                      "UAV(u33,space=0,numDescriptors=6)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderSucceed_Unbounded) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[]  : register(b2, space5);"
+    "Texture2D<float4> tex1[]   : register(t1, space3);"
+    "RWBuffer<float4> buf1[]    : register(u33, space17);"
+    "SamplerState sampler1[]    : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=1)), "
+                     "DescriptorTable( SRV(t1,space=3,numDescriptors=unbounded)), "
+                     "DescriptorTable( UAV(u10,space=17,numDescriptors=100)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {}
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded1) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[]  : register(b2, space5);"
+    "Texture2D<float4> tex1[]   : register(t1, space3);"
+    "RWBuffer<float4> buf1[]    : register(u33, space17);"
+    "SamplerState sampler1[]    : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b3,space=5,numDescriptors=1)), "
+                     "DescriptorTable( SRV(t1,space=3,numDescriptors=unbounded)), "
+                     "DescriptorTable( UAV(u10,space=17,numDescriptors=unbounded)), "
+                     "DescriptorTable( Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded2) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[]  : register(b2, space5);"
+    "Texture2D<float4> tex1[]   : register(t1, space3);"
+    "RWBuffer<float4> buf1[]    : register(u33, space17);"
+    "SamplerState sampler1[]    : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=1)), "
+                     "DescriptorTable( SRV(t1,space=3,numDescriptors=unbounded)), "
+                     "DescriptorTable( UAV(u10,space=17,numDescriptors=unbounded)), "
+                     "DescriptorTable( Sampler(s5, numDescriptors=unbounded))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenRootSigMatchShaderFail_Unbounded3) {
+  ReplaceContainerPartsCheckMsgs(
+    "struct Foo { int a; float4 b; };"
+    ""
+    "ConstantBuffer<Foo> cb1[]  : register(b2, space5);"
+    "Texture2D<float4> tex1[]   : register(t1, space3);"
+    "RWBuffer<float4> buf1[]    : register(u33, space17);"
+    "SamplerState sampler1[]    : register(s0, space0);"
+    ""
+    "float4 main(float4 a : AAA) : SV_TARGET"
+    "{"
+    "  return buf1[a.x][a.y] + cb1[a.x].b + tex1[a.x].Sample(sampler1[a.x], a.xy);"
+    "}",
+    "[RootSignature(\"DescriptorTable( CBV(b2,space=5,numDescriptors=1)), "
+                     "DescriptorTable( SRV(t1,space=3,numDescriptors=unbounded)), "
+                     "DescriptorTable( UAV(u10,space=17,numDescriptors=7)), "
+                     "DescriptorTable(Sampler(s0, numDescriptors=5))\")]"
+    "  float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_RootSignature},
+    {
+      "Root Signature in DXIL container is not compatible with shader.",
+      "Validation failed."
+    }
+  );
+}
+
+#define VERTEX_STRUCT1 \
+    "struct PSSceneIn \n\
+    { \n\
+      float4 pos  : SV_Position; \n\
+      float2 tex  : TEXCOORD0; \n\
+      float3 norm : NORMAL; \n\
+    }; \n"
+#define VERTEX_STRUCT2 \
+    "struct PSSceneIn \n\
+    { \n\
+      float4 pos  : SV_Position; \n\
+      float2 tex  : TEXCOORD0; \n\
+    }; \n"
+#define PC_STRUCT1 "struct HSPerPatchData {  \n\
+      float edges[ 3 ] : SV_TessFactor; \n\
+      float inside : SV_InsideTessFactor; \n\
+      float foo : FOO; \n\
+    }; \n"
+#define PC_STRUCT2 "struct HSPerPatchData {  \n\
+      float edges[ 3 ] : SV_TessFactor; \n\
+      float inside : SV_InsideTessFactor; \n\
+    }; \n"
+#define PC_FUNC "HSPerPatchData HSPerPatchFunc( InputPatch< PSSceneIn, 3 > points, \n\
+      OutputPatch<PSSceneIn, 3> outpoints) { \n\
+      HSPerPatchData d = (HSPerPatchData)0; \n\
+      d.edges[ 0 ] = points[0].tex.x + outpoints[0].tex.x; \n\
+      d.edges[ 1 ] = 1; \n\
+      d.edges[ 2 ] = 1; \n\
+      d.inside = 1; \n\
+      return d; \n\
+    } \n"
+#define PC_FUNC_NOOUT "HSPerPatchData HSPerPatchFunc( InputPatch< PSSceneIn, 3 > points ) { \n\
+      HSPerPatchData d = (HSPerPatchData)0; \n\
+      d.edges[ 0 ] = points[0].tex.x; \n\
+      d.edges[ 1 ] = 1; \n\
+      d.edges[ 2 ] = 1; \n\
+      d.inside = 1; \n\
+      return d; \n\
+    } \n"
+#define PC_FUNC_NOIN "HSPerPatchData HSPerPatchFunc( OutputPatch<PSSceneIn, 3> outpoints) { \n\
+      HSPerPatchData d = (HSPerPatchData)0; \n\
+      d.edges[ 0 ] = outpoints[0].tex.x; \n\
+      d.edges[ 1 ] = 1; \n\
+      d.edges[ 2 ] = 1; \n\
+      d.inside = 1; \n\
+      return d; \n\
+    } \n"
+#define HS_ATTR "[domain(\"tri\")] \n\
+    [partitioning(\"fractional_odd\")] \n\
+    [outputtopology(\"triangle_cw\")] \n\
+    [patchconstantfunc(\"HSPerPatchFunc\")] \n\
+    [outputcontrolpoints(3)] \n"
+#define HS_FUNC \
+    "PSSceneIn main(const uint id : SV_OutputControlPointID, \n\
+                    const InputPatch< PSSceneIn, 3 > points ) { \n\
+      return points[ id ]; \n\
+    } \n"
+#define HS_FUNC_NOOUT \
+    "void main(const uint id : SV_OutputControlPointID, \n\
+               const InputPatch< PSSceneIn, 3 > points ) { \n\
+    } \n"
+#define HS_FUNC_NOIN \
+    "PSSceneIn main( const uint id : SV_OutputControlPointID ) { \n\
+      return (PSSceneIn)0; \n\
+    } \n"
+#define DS_FUNC \
+    "[domain(\"tri\")] PSSceneIn main(const float3 bary : SV_DomainLocation, \n\
+                                      const OutputPatch<PSSceneIn, 3> patch, \n\
+                                      const HSPerPatchData perPatchData) { \n\
+      PSSceneIn v = patch[0]; \n\
+      v.pos = patch[0].pos * bary.x; \n\
+      v.pos += patch[1].pos * bary.y; \n\
+      v.pos += patch[2].pos * bary.z; \n\
+      return v; \n\
+    } \n"
+#define DS_FUNC_NOPC \
+    "[domain(\"tri\")] PSSceneIn main(const float3 bary : SV_DomainLocation, \n\
+                                      const OutputPatch<PSSceneIn, 3> patch) { \n\
+      PSSceneIn v = patch[0]; \n\
+      v.pos = patch[0].pos * bary.x; \n\
+      v.pos += patch[1].pos * bary.y; \n\
+      v.pos += patch[2].pos * bary.z; \n\
+      return v; \n\
+    } \n"
+
+TEST_F(ValidationTest, WhenProgramOutSigMissingThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC_NOOUT
+    HS_ATTR
+    HS_FUNC_NOOUT,
+
+    "hs_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramOutSigUnexpectedThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC_NOOUT
+    HS_ATTR
+    HS_FUNC_NOOUT,
+
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    "hs_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramSigMismatchThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    VERTEX_STRUCT2
+    PC_STRUCT2
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    "hs_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Input Signature' does not match expected for module.",
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Container part 'Program Patch Constant Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramInSigMissingThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC
+    HS_ATTR
+    HS_FUNC,
+
+    // Compiling the HS_FUNC_NOIN produces the following error
+    //error: validation errors
+    //HS input control point count must be [1..32].  0 specified
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    PC_FUNC_NOIN
+    HS_ATTR
+    HS_FUNC_NOIN,
+    "hs_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Input Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramSigMismatchThenFail2) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    DS_FUNC,
+
+    VERTEX_STRUCT2
+    PC_STRUCT2
+    DS_FUNC,
+
+    "ds_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Input Signature' does not match expected for module.",
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Container part 'Program Patch Constant Signature' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenProgramPCSigMissingThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    VERTEX_STRUCT1
+    PC_STRUCT1
+    DS_FUNC,
+
+    VERTEX_STRUCT2
+    PC_STRUCT2
+    DS_FUNC_NOPC,
+
+    "ds_6_0",
+    {DFCC_InputSignature, DFCC_OutputSignature, DFCC_PatchConstantSignature},
+    {
+      "Container part 'Program Input Signature' does not match expected for module.",
+      "Container part 'Program Output Signature' does not match expected for module.",
+      "Missing part 'Program Patch Constant Signature' required by module.",
+      "Validation failed."
+    }
+  );
+}
+
+#undef VERTEX_STRUCT1
+#undef VERTEX_STRUCT2
+#undef PC_STRUCT1
+#undef PC_STRUCT2
+#undef PC_FUNC
+#undef PC_FUNC_NOOUT
+#undef PC_FUNC_NOIN
+#undef HS_ATTR
+#undef HS_FUNC
+#undef HS_FUNC_NOOUT
+#undef HS_FUNC_NOIN
+#undef DS_FUNC
+#undef DS_FUNC_NOPC
+
+TEST_F(ValidationTest, WhenPSVMismatchThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    "float c; [RootSignature ( \"RootConstants(b0, num32BitConstants = 1)\" )] float4 main() : semantic { return c; }",
+    "[RootSignature ( \"\" )] float4 main() : semantic { return 0; }",
+    "vs_6_0",
+    {DFCC_PipelineStateValidation},
+    {
+      "Container part 'Pipeline State Validation' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, WhenFeatureInfoMismatchThenFail) {
+  ReplaceContainerPartsCheckMsgs(
+    "float4 main(uint2 foo : FOO) : SV_Target { return asdouble(foo.x, foo.y) * 2.0; }",
+    "float4 main() : SV_Target { return 0; }",
+    "ps_6_0",
+    {DFCC_FeatureInfo},
+    {
+      "Container part 'Feature Info' does not match expected for module.",
+      "Validation failed."
+    }
+  );
+}
+
+TEST_F(ValidationTest, ViewIDInCSFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(" \
+RWStructuredBuffer<uint> Buf; \
+[numthreads(1,1,1)] \
+void main(uint id : SV_GroupIndex) \
+{ Buf[id] = 0; } \
+    ",
+    "cs_6_1",
+    {"dx.op.flattenedThreadIdInGroup.i32(i32 96",
+     "declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32)"},
+    {"dx.op.viewID.i32(i32 138",
+     "declare i32 @dx.op.viewID.i32(i32)"},
+    "Opcode ViewID not valid in shader model cs_6_1",
+    /*bRegex*/false);
+}
+
+TEST_F(ValidationTest, ViewIDIn60Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(" \
+[domain(\"tri\")] \
+float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
+{ return float4(pos, id); } \
+    ",
+    "ds_6_0",
+    {"dx.op.primitiveID.i32(i32 108",
+     "declare i32 @dx.op.primitiveID.i32(i32)"},
+    {"dx.op.viewID.i32(i32 138",
+     "declare i32 @dx.op.viewID.i32(i32)"},
+    "Opcode ViewID not valid in shader model ds_6_0",
+    /*bRegex*/false);
+}
+
+TEST_F(ValidationTest, ViewIDNoSpaceFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(" \
+float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
+{ return float4(In[vid], 1); } \
+    ",
+    "ps_6_1",
+    {"!{i32 0, !\"INPUT\", i8 9, i8 0, !([0-9]+), i8 2, i32 31",
+     "!{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30}"},
+    {"!{i32 0, !\"INPUT\", i8 9, i8 0, !\\1, i8 2, i32 32",
+     "!{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31}"},
+    "Pixel shader input signature lacks available space for ViewID",
+    /*bRegex*/true);
+}
+
+TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
+    "vs_6_1",
+    { "call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
+    "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)" },
+    { "call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 0, i8 0)",
+    "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
+    "Opcode AttributeAtVertex not valid in shader model vs_6_1",
+    /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col : COLOR) : "
+    "SV_Target { return EvaluateAttributeCentroid(col).x; }",
+    "ps_6_0",
+    { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
+    "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
+    },
+    { "call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 0, i8 0)",
+    "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
+    "Opcode AttributeAtVertex not valid in shader model ps_6_0", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg("float4 main(nointerpolation float4 col : COLOR) : "
+                          "SV_Target { return GetAttributeAtVertex(col, 0); }",
+                          "ps_6_1", {"!\"COLOR\", i8 9, i8 0, (![0-9]+), i8 1"},
+                          {"!\"COLOR\", i8 9, i8 0, \\1, i8 2"},
+                          "Attribute COLOR must have nointerpolation mode in "
+                          "order to use GetAttributeAtVertex function.",
+                          /*bRegex*/ true);
+}
+
+TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+      "float4 main(float3 bary : SV_Barycentrics) : "
+      "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) "
+      "+ bary.z * float4(0,0,1,0); }",
+      "ps_6_1", {"!\"SV_Barycentrics\", i8 9, i8 28, (![0-9]+), i8 2"},
+      {"!\"SV_Barycentrics\", i8 9, i8 28, \\1, i8 1"},
+      "SV_Barycentrics cannot be used with 'nointerpolation' type",
+      /*bRegex*/ true);
+}
+
+TEST_F(ValidationTest, BarycentricFloat4Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+      "float4 main(float4 col : COLOR) : SV_Target { return col; }", "ps_6_1",
+      {"!\"COLOR\", i8 9, i8 0"}, {"!\"SV_Barycentrics\", i8 9, i8 28"},
+      "only 'float3' type is allowed for SV_Barycentrics.", false);
+}
 
 // TODO: reject non-zero padding

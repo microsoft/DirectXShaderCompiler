@@ -11,18 +11,19 @@
 
 #pragma once
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/MapVector.h"
 #include "dxc/HLSL/DxilCompType.h"
 #include "dxc/HLSL/DxilInterpolationMode.h"
 
 #include <memory>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace llvm {
 class LLVMContext;
 class Module;
 class Function;
+class MDNode;
 class Type;
 class StructType;
 class StringRef;
@@ -53,6 +54,10 @@ public:
   const DxilMatrixAnnotation &GetMatrixAnnotation() const;
   void SetMatrixAnnotation(const DxilMatrixAnnotation &MA);
 
+  bool HasResourceAttribute() const;
+  llvm::MDNode *GetResourceAttribute() const;
+  void SetResourceAttribute(llvm::MDNode *MD);
+
   bool HasCBufferOffset() const;
   unsigned GetCBufferOffset() const;
   void SetCBufferOffset(unsigned Offset);
@@ -78,6 +83,7 @@ private:
   bool m_bPrecise;
   CompType m_CompType;
   DxilMatrixAnnotation m_Matrix;
+  llvm::MDNode *m_ResourceAttribute;
   unsigned m_CBufferOffset;
   std::string m_Semantic;
   InterpolationMode m_InterpMode;
@@ -122,7 +128,7 @@ enum class DxilParamInputQual {
 class DxilParameterAnnotation : public DxilFieldAnnotation {
 public:
   DxilParameterAnnotation();
-  const DxilParamInputQual GetParamInputQual() const;
+  DxilParamInputQual GetParamInputQual() const;
   void SetParamInputQual(DxilParamInputQual qual);
   const std::vector<unsigned> &GetSemanticIndexVec() const;
   void SetSemanticIndexVec(const std::vector<unsigned> &Vec);
@@ -152,8 +158,8 @@ private:
 /// Use this class to represent structure type annotations in HL and DXIL.
 class DxilTypeSystem {
 public:
-  using StructAnnotationMap = std::map<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
-  using FunctionAnnotationMap = std::map<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
+  using StructAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
+  using FunctionAnnotationMap = llvm::MapVector<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
 
   DxilTypeSystem(llvm::Module *pModule);
 

@@ -74,8 +74,9 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     }
 
     StringRef InputData((char *)pBytes, bytesLen);
+    const bool RequiresNullTerminator = false;
     std::unique_ptr<MemoryBuffer> memBuf =
-        MemoryBuffer::getMemBuffer(InputData);
+        MemoryBuffer::getMemBuffer(InputData, "", RequiresNullTerminator);
 
     // Parse IR
     LLVMContext Context;
@@ -120,7 +121,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     CComPtr<AbstractMemoryStream> pFinalStream;
     IFT(CreateMemoryStream(pMalloc, &pFinalStream));
 
-    SerializeDxilContainerForModule(M.get(), pOutputStream, pFinalStream);
+    SerializeDxilContainerForModule(&M->GetOrCreateDxilModule(), pOutputStream, pFinalStream);
 
     CComPtr<IDxcBlob> pResultBlob;
     IFT(pFinalStream->QueryInterface(&pResultBlob));
