@@ -2339,6 +2339,10 @@ SampleHelper::SampleHelper(
   samplerHandle = CI->getArgOperand(kSamplerArgIndex);
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
+  if (RK == DXIL::ResourceKind::Invalid) {
+    opcode = DXIL::OpCode::NumOpCodes;
+    return;
+  }
   unsigned coordDimensions = DxilResource::GetNumCoords(RK);
   unsigned offsetDimensions = DxilResource::GetNumOffsets(RK);
 
@@ -2676,6 +2680,10 @@ GatherHelper::GatherHelper(
   samplerHandle = CI->getArgOperand(kSamplerArgIndex);
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
+  if (RK == DXIL::ResourceKind::Invalid) {
+    opcode = DXIL::OpCode::NumOpCodes;
+    return;
+  }
   unsigned coordSize = DxilResource::GetNumCoords(RK);
   unsigned offsetSize = DxilResource::GetNumOffsets(RK);
 

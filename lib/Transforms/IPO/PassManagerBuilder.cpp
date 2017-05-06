@@ -202,12 +202,24 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
                                              /*Promote*/ !NoOpt));
 
   MPM.add(createHLMatrixLowerPass());
+  MPM.add(createResourceToHandlePass());
   // DCE should after SROA to remove unused element.
   MPM.add(createDeadCodeEliminationPass());
   MPM.add(createGlobalDCEPass());
 
+  if (NoOpt) {
+    // If not run mem2reg, try to promote allocas used by EvalOperations.
+    // Do this before change vector to array.
+    MPM.add(createDxilLegalizeEvalOperationsPass());
+  }
+
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
+
+  if (!NoOpt) {
+    // mem2reg
+    MPM.add(createPromoteMemoryToRegisterPass());
+  }
 
   MPM.add(createSimplifyInstPass());
   MPM.add(createCFGSimplificationPass());
@@ -218,11 +230,6 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   MPM.add(createDxilLoadMetadataPass()); // Ensure DxilModule is loaded for optimizations.
 
   MPM.add(createSimplifyInstPass());
-
-  if (!NoOpt) {
-    // mem2reg
-    MPM.add(createPromoteMemoryToRegisterPass());
-  }
 
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());

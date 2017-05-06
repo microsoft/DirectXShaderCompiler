@@ -320,7 +320,7 @@ bool llvm::GetPassOption(PassOptions &O, StringRef name, StringRef *pValue) {
 bool llvm::GetPassOptionBool(PassOptions &O, llvm::StringRef name, bool *pValue, bool defaultValue) {
   StringRef val;
   if (GetPassOption(O, name, &val)) {
-    *pValue = (name.startswith_lower("t") || name.equals("1"));
+    *pValue = (val.startswith_lower("t") || val.equals("1"));
     return true;
   }
   *pValue = defaultValue;
@@ -329,7 +329,7 @@ bool llvm::GetPassOptionBool(PassOptions &O, llvm::StringRef name, bool *pValue,
 bool llvm::GetPassOptionUnsigned(PassOptions &O, llvm::StringRef name, unsigned *pValue, unsigned defaultValue) {
   StringRef val;
   if (GetPassOption(O, name, &val)) {
-    name.getAsInteger<unsigned>(0, *pValue);
+    val.getAsInteger<unsigned>(0, *pValue);
     return true;
   }
   *pValue = defaultValue;
@@ -338,7 +338,7 @@ bool llvm::GetPassOptionUnsigned(PassOptions &O, llvm::StringRef name, unsigned 
 bool llvm::GetPassOptionInt(PassOptions &O, llvm::StringRef name, int *pValue, int defaultValue) {
   StringRef val;
   if (GetPassOption(O, name, &val)) {
-    name.getAsInteger<int>(0, *pValue);
+    val.getAsInteger<int>(0, *pValue);
     return true;
   }
   *pValue = defaultValue;
@@ -347,7 +347,7 @@ bool llvm::GetPassOptionInt(PassOptions &O, llvm::StringRef name, int *pValue, i
 bool llvm::GetPassOptionUInt32(PassOptions &O, llvm::StringRef name, uint32_t *pValue, uint32_t defaultValue) {
   StringRef val;
   if (GetPassOption(O, name, &val)) {
-    name.getAsInteger<uint32_t>(0, *pValue);
+    val.getAsInteger<uint32_t>(0, *pValue);
     return true;
   }
   *pValue = defaultValue;
