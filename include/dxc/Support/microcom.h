@@ -198,6 +198,28 @@ HRESULT DoBasicQueryInterface4(TObject* self, REFIID iid, void** ppvObject)
   return DoBasicQueryInterface3<TInterface, TInterface2, TInterface3, TObject>(self, iid, ppvObject);
 }
 
+/// <summary>
+/// Provides a QueryInterface implementation for a class that supports
+/// five interfaces in addition to IUnknown.
+/// </summary>
+/// <remarks>
+/// This implementation will also report the instance as not supporting
+/// marshaling. This will help catch marshaling problems early or avoid
+/// them altogether.
+/// </remarks>
+template <typename TInterface, typename TInterface2, typename TInterface3, typename TInterface4, typename TInterface5, typename TObject>
+HRESULT DoBasicQueryInterface5(TObject* self, REFIID iid, void** ppvObject)
+{
+  if (ppvObject == nullptr) return E_POINTER;
+  if (IsEqualIID(iid, __uuidof(TInterface5))) {
+    *(TInterface5**)ppvObject = self;
+    self->AddRef();
+    return S_OK;
+  }
+
+  return DoBasicQueryInterface4<TInterface, TInterface2, TInterface3, TInterface4, TObject>(self, iid, ppvObject);
+}
+
 template <typename T>
 HRESULT AssignToOut(T value, _Out_ T* pResult) {
   if (pResult == nullptr)
