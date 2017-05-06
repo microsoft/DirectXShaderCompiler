@@ -84,6 +84,7 @@ private:
 
   HRESULT RunValidation(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
+    _In_ UINT32 Flags,                            // Validation flags.
     _In_ llvm::Module *pModule,                   // Module to validate, if available.
     _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
     _In_ AbstractMemoryStream *pDiagStream);
@@ -129,6 +130,8 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
 ) {
   if (pShader == nullptr || ppResult == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
     return E_INVALIDARG;
+  if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
+    return E_INVALIDARG;
   return ValidateWithOptModules(pShader, Flags, nullptr, nullptr, ppResult);
 }
 
@@ -154,7 +157,7 @@ HRESULT DxcValidator::ValidateWithOptModules(
     if (Flags & DxcValidatorFlags_RootSignatureOnly) {
       validationStatus = RunRootSignatureValidation(pShader, pDiagStream);
     } else {
-      validationStatus = RunValidation(pShader, pModule, pDebugModule, pDiagStream);
+      validationStatus = RunValidation(pShader, Flags, pModule, pDebugModule, pDiagStream);
     }
     if (FAILED(validationStatus)) {
       std::string msg("Validation failed.\n");
@@ -189,11 +192,13 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(_Out_ UINT32 *pFlags) {
 #ifdef _DEBUG
   *pFlags |= DxcVersionInfoFlags_Debug;
 #endif
+  *pFlags |= DxcVersionInfoFlags_Internal;
   return S_OK;
 }
 
 HRESULT DxcValidator::RunValidation(
   _In_ IDxcBlob *pShader,
+  _In_ UINT32 Flags,                            // Validation flags.
   _In_ llvm::Module *pModule,                   // Module to validate, if available.
   _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
   _In_ AbstractMemoryStream *pDiagStream) {
@@ -204,12 +209,18 @@ HRESULT DxcValidator::RunValidation(
 
   raw_stream_ostream DiagStream(pDiagStream);
 
+  if (Flags & DxcValidatorFlags_ModuleOnly) {
+    IFRBOOL(!IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()), E_INVALIDARG);
+  } else {
+    IFRBOOL(IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()), DXC_E_CONTAINER_INVALID);
+  }
+
   if (!pModule) {
     DXASSERT_NOMSG(pDebugModule == nullptr);
-    if (IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize())) {
-      return ValidateDxilContainer(pShader->GetBufferPointer(), pShader->GetBufferSize(), DiagStream);
-    } else {
+    if (Flags & DxcValidatorFlags_ModuleOnly) {
       return ValidateDxilBitcode((const char*)pShader->GetBufferPointer(), (uint32_t)pShader->GetBufferSize(), DiagStream);
+    } else {
+      return ValidateDxilContainer(pShader->GetBufferPointer(), pShader->GetBufferSize(), DiagStream);
     }
   }
 
@@ -218,9 +229,11 @@ HRESULT DxcValidator::RunValidation(
   DiagRestore DR(pModule->getContext(), &DiagContext);
 
   IFR(hlsl::ValidateDxilModule(pModule, pDebugModule));
-  IFR(ValidateDxilContainerParts(pModule, pDebugModule,
-                    IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()),
-                    (uint32_t)pShader->GetBufferSize()));
+  if (!(Flags & DxcValidatorFlags_ModuleOnly)) {
+    IFR(ValidateDxilContainerParts(pModule, pDebugModule,
+                      IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()),
+                      (uint32_t)pShader->GetBufferSize()));
+  }
 
   if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
     return DXC_E_IR_VERIFICATION_FAILED;
