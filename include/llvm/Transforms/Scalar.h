@@ -134,6 +134,11 @@ void initializeDynamicIndexingVectorToArrayPass(PassRegistry&);
 //
 ModulePass *createMultiDimArrayToOneDimArrayPass();
 void initializeMultiDimArrayToOneDimArrayPass(PassRegistry&);
+//===----------------------------------------------------------------------===//
+// Flatten resource into handle.
+//
+ModulePass *createResourceToHandlePass();
+void initializeResourceToHandlePass(PassRegistry&);
 
 //===----------------------------------------------------------------------===//
 // Hoist a local array initialized with constant values to a global array with
