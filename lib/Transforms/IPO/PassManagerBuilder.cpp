@@ -28,6 +28,7 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h" // HLSL Change
+#include "dxc/HLSL/ComputeViewIdState.h" // HLSL Change
 
 using namespace llvm;
 
@@ -269,6 +270,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
       MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+      MPM.add(createComputeViewIdStatePass());    // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
     // HLSL Change Ends.
@@ -538,6 +540,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilCondenseResourcesPass());
     if (DisableUnrollLoops)
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+    MPM.add(createComputeViewIdStatePass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.

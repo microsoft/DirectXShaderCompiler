@@ -1,4 +1,4 @@
-# Copyright (C) Microsoft Corporation. All rights reserved.
+﻿# Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 
@@ -68,6 +68,7 @@ set(LIBRARIES
   clangTooling
   clangBasic
   libclang
+  LLVMHLSL
   )
 
 set(GENERATED_HEADERS
