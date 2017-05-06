@@ -4072,7 +4072,7 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // Bump these versions after 1.0 to account for additional validation rules.
   *pMajor = 1;
-  *pMinor = 0;
+  *pMinor = 1;
 }
 
 _Use_decl_annotations_ HRESULT

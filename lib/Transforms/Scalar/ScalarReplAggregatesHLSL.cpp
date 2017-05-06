@@ -1071,7 +1071,6 @@ bool SROA_HLSL::runOnFunction(Function &F) {
   splitter.Split(F);
 
   Changed |= markPrecise(F);
-  Changed |= performPromotion(F);
 
   return Changed;
 }
@@ -2572,21 +2571,12 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
   }
 }
 
-static Type *GetArrayEltTy(Type *Ty) {
-  if (isa<PointerType>(Ty))
-    Ty = Ty->getPointerElementType();
-  while (isa<ArrayType>(Ty)) {
-    Ty = Ty->getArrayElementType();
-  }
-  return Ty;
-}
-
 /// isVectorOrStructArray - Check if T is array of vector or struct.
 static bool isVectorOrStructArray(Type *T) {
   if (!T->isArrayTy())
     return false;
 
-  T = GetArrayEltTy(T);
+  T = HLModule::GetArrayEltTy(T);
 
   return T->isStructTy() || T->isVectorTy();
 }
@@ -4620,8 +4610,8 @@ void SROA_Parameter_HLSL::replaceCastParameter(
       }
     }
 
-    Type *NewEltTy = GetArrayEltTy(NewTy);
-    Type *OldEltTy = GetArrayEltTy(OldTy);
+    Type *NewEltTy = HLModule::GetArrayEltTy(NewTy);
+    Type *OldEltTy = HLModule::GetArrayEltTy(OldTy);
 
     if (NewEltTy == HandlePtrTy) {
       // Save resource attribute.
@@ -4924,7 +4914,7 @@ void SROA_Parameter_HLSL::flattenArgument(
           EltAnnotation.SetSemanticString(semantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
-          Type *EltTy = GetArrayEltTy(Ty);
+          Type *EltTy = HLModule::GetArrayEltTy(Ty);
           DXASSERT(EltTy->isStructTy(), "must be a struct type to has semantic.");
           semanticTypeMap[eltSem] = EltTy->getStructElementType(i);
         }
@@ -5863,6 +5853,7 @@ protected:
   virtual Type *lowerType(Type *Ty) = 0;
   virtual Constant *lowerInitVal(Constant *InitVal, Type *NewTy) = 0;
   virtual StringRef getGlobalPrefix() = 0;
+  virtual void initialize(Module &M) {};
 };
 
 AllocaInst *LowerTypePass::lowerAlloca(AllocaInst *A) {
@@ -5932,6 +5923,7 @@ bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
 }
 
 bool LowerTypePass::runOnModule(Module &M) {
+  initialize(M);
   // Load up debug information, to cross-reference values and the instructions
   // used to load them.
   bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
@@ -5986,6 +5978,8 @@ public:
   explicit DynamicIndexingVectorToArray(bool ReplaceAll = false)
       : LowerTypePass(ID), ReplaceAllVectors(ReplaceAll) {}
   static char ID; // Pass identification, replacement for typeid
+  void applyOptions(PassOptions O) override;
+  void dumpConfig(raw_ostream &OS) override;
 protected:
   bool needToLower(Value *V) override;
   void lowerUseWithNewValue(Value *V, Value *NewV) override;
@@ -6003,6 +5997,15 @@ private:
   void ReplaceVectorArrayWithArray(Value *VecArray, Value *Array);
   void ReplaceStaticIndexingOnVector(Value *V);
 };
+
+void DynamicIndexingVectorToArray::applyOptions(PassOptions O) {
+  GetPassOptionBool(O, "ReplaceAllVectors", &ReplaceAllVectors,
+                    ReplaceAllVectors);
+}
+void DynamicIndexingVectorToArray::dumpConfig(raw_ostream &OS) {
+  ModulePass::dumpConfig(OS);
+  OS << ",ReplaceAllVectors=" << ReplaceAllVectors;
+}
 
 void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
   for (auto U = V->user_begin(), E = V->user_end(); U != E;) {
@@ -6048,6 +6051,14 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
           }
         }
         GEP->eraseFromParent();
+      } else if (GEP->getNumIndices() == 1) {
+        Value *Idx = *GEP->idx_begin();
+        if (ConstantInt *C = dyn_cast<ConstantInt>(Idx)) {
+          if (C->getLimitedValue() == 0) {
+            GEP->replaceAllUsesWith(V);
+            GEP->eraseFromParent();
+          }
+        }
       }
     }
   }
@@ -6071,7 +6082,7 @@ bool DynamicIndexingVectorToArray::needToLower(Value *V) {
     // Array must be replaced even without dynamic indexing to remove vector
     // type in dxil.
     // TODO: optimize static array index in later pass.
-    Type *EltTy = GetArrayEltTy(AT);
+    Type *EltTy = HLModule::GetArrayEltTy(AT);
     return isa<VectorType>(EltTy);
   }
   return false;
@@ -6394,4 +6405,168 @@ INITIALIZE_PASS(MultiDimArrayToOneDimArray, "multi-dim-one-dim",
 // Public interface to the SROA_Parameter_HLSL pass
 ModulePass *llvm::createMultiDimArrayToOneDimArrayPass() {
   return new MultiDimArrayToOneDimArray();
+}
+
+//===----------------------------------------------------------------------===//
+// Lower resource into handle.
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+class ResourceToHandle : public LowerTypePass {
+public:
+  explicit ResourceToHandle() : LowerTypePass(ID) {}
+  static char ID; // Pass identification, replacement for typeid
+protected:
+  bool needToLower(Value *V) override;
+  void lowerUseWithNewValue(Value *V, Value *NewV) override;
+  Type *lowerType(Type *Ty) override;
+  Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
+  StringRef getGlobalPrefix() override { return ".res"; }
+  void initialize(Module &M) override;
+private:
+  void ReplaceResourceWithHandle(Value *ResPtr, Value *HandlePtr);
+  void ReplaceResourceGEPWithHandleGEP(Value *GEP, ArrayRef<Value *> idxList,
+                                       Value *A, IRBuilder<> &Builder);
+  void ReplaceResourceArrayWithHandleArray(Value *VA, Value *A);
+
+  Type *m_HandleTy;
+  HLModule *m_pHLM;
+};
+
+void ResourceToHandle::initialize(Module &M) {
+  DXASSERT(M.HasHLModule(), "require HLModule");
+  m_pHLM = &M.GetHLModule();
+  m_HandleTy = m_pHLM->GetOP()->GetHandleType();
+}
+
+bool ResourceToHandle::needToLower(Value *V) {
+  Type *Ty = V->getType()->getPointerElementType();
+  Ty = HLModule::GetArrayEltTy(Ty);
+  return (HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty));
+}
+
+Type *ResourceToHandle::lowerType(Type *Ty) {
+  if ((HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty))) {
+    return m_HandleTy;
+  }
+
+  ArrayType *AT = cast<ArrayType>(Ty);
+
+  SmallVector<ArrayType *, 4> nestArrayTys;
+  nestArrayTys.emplace_back(AT);
+
+  Type *EltTy = AT->getElementType();
+  // support multi level of array
+  while (EltTy->isArrayTy()) {
+    ArrayType *ElAT = cast<ArrayType>(EltTy);
+    nestArrayTys.emplace_back(ElAT);
+    EltTy = ElAT->getElementType();
+  }
+
+  return CreateNestArrayTy(m_HandleTy, nestArrayTys);
+}
+
+Constant *ResourceToHandle::lowerInitVal(Constant *InitVal, Type *NewTy) {
+  DXASSERT(isa<UndefValue>(InitVal), "resource cannot have real init val");
+  return UndefValue::get(NewTy);
+}
+
+void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
+                                                 Value *HandlePtr) {
+  for (auto it = ResPtr->user_begin(); it != ResPtr->user_end();) {
+    User *U = *(it++);
+    if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+      IRBuilder<> Builder(LI);
+      Value *Handle = Builder.CreateLoad(HandlePtr);
+      Type *ResTy = LI->getType();
+      // Used by createHandle or Store.
+      for (auto ldIt = LI->user_begin(); ldIt != LI->user_end();) {
+        User *ldU = *(ldIt++);
+        if (StoreInst *SI = dyn_cast<StoreInst>(ldU)) {
+          Value *TmpRes = HLModule::EmitHLOperationCall(
+              Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::HandleToResCast, ResTy, {Handle},
+              *m_pHLM->GetModule());
+          SI->replaceUsesOfWith(LI, TmpRes);
+        } else {
+          CallInst *CI = cast<CallInst>(ldU);
+          HLOpcodeGroup group =
+              hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+          DXASSERT(group == HLOpcodeGroup::HLCreateHandle,
+                   "must be createHandle");
+          CI->replaceAllUsesWith(Handle);
+          CI->eraseFromParent();
+        }
+      }
+      LI->eraseFromParent();
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      Value *Res = SI->getValueOperand();
+      IRBuilder<> Builder(SI);
+      // CreateHandle from Res.
+      Value *Handle = HLModule::EmitHLOperationCall(
+          Builder, HLOpcodeGroup::HLCreateHandle,
+          /*opcode*/ 0, m_HandleTy, {Res}, *m_pHLM->GetModule());
+      // Store Handle to HandlePtr.
+      Builder.CreateStore(Handle, HandlePtr);
+      // Remove resource Store.
+      SI->eraseFromParent();
+    } else {
+      DXASSERT(0, "invalid operation on resource");
+    }
+  }
+}
+
+void ResourceToHandle::ReplaceResourceGEPWithHandleGEP(
+    Value *GEP, ArrayRef<Value *> idxList, Value *A, IRBuilder<> &Builder) {
+  Value *newGEP = Builder.CreateGEP(A, idxList);
+  Type *Ty = GEP->getType()->getPointerElementType();
+  if (Ty->isArrayTy()) {
+    ReplaceResourceArrayWithHandleArray(GEP, newGEP);
+  } else {
+    DXASSERT(HLModule::IsHLSLObjectType(Ty), "must be resource type here");
+    ReplaceResourceWithHandle(GEP, newGEP);
+  }
+}
+
+void ResourceToHandle::ReplaceResourceArrayWithHandleArray(Value *VA,
+                                                           Value *A) {
+  for (auto U = VA->user_begin(); U != VA->user_end();) {
+    User *User = *(U++);
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
+      IRBuilder<> Builder(GEP);
+      SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
+      ReplaceResourceGEPWithHandleGEP(GEP, idxList, A, Builder);
+      GEP->eraseFromParent();
+    } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(User)) {
+      IRBuilder<> Builder(GEPOp->getContext());
+      SmallVector<Value *, 4> idxList(GEPOp->idx_begin(), GEPOp->idx_end());
+      ReplaceResourceGEPWithHandleGEP(GEPOp, idxList, A, Builder);
+    } else {
+      DXASSERT(0, "Array pointer should only used by GEP");
+    }
+  }
+}
+
+void ResourceToHandle::lowerUseWithNewValue(Value *V, Value *NewV) {
+  Type *Ty = V->getType()->getPointerElementType();
+  // Replace V with NewV.
+  if (Ty->isArrayTy()) {
+    ReplaceResourceArrayWithHandleArray(V, NewV);
+  } else {
+    ReplaceResourceWithHandle(V, NewV);
+  }
+}
+
+}
+
+char ResourceToHandle::ID = 0;
+
+INITIALIZE_PASS(ResourceToHandle, "resource-handle",
+  "Lower resource into handle", false,
+  false)
+
+// Public interface to the ResourceToHandle pass
+ModulePass *llvm::createResourceToHandlePass() {
+  return new ResourceToHandle();
 }

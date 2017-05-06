@@ -22,3 +22,8 @@ if(CLANG_ENABLE_STATIC_ANALYZER)
   add_subdirectory(StaticAnalyzer)
 endif()
 add_subdirectory(Format)
+# SPIRV change starts
+if (ENABLE_SPIRV_CODEGEN)
+  add_subdirectory(SPIRV)
+endif (ENABLE_SPIRV_CODEGEN)
+# SPIRV change ends

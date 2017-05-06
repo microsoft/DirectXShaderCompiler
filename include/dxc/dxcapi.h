@@ -165,7 +165,8 @@ IDxcCompiler : public IUnknown {
 static const UINT32 DxcValidatorFlags_Default = 0;
 static const UINT32 DxcValidatorFlags_InPlaceEdit = 1;  // Validator is allowed to update shader blob in-place.
 static const UINT32 DxcValidatorFlags_RootSignatureOnly = 2;
-static const UINT32 DxcValidatorFlags_ValidMask = 0x3;
+static const UINT32 DxcValidatorFlags_ModuleOnly = 4;
+static const UINT32 DxcValidatorFlags_ValidMask = 0x7;
 
 struct __declspec(uuid("A6E82BD2-1FD7-4826-9811-2857E797F49A"))
 IDxcValidator : public IUnknown {
@@ -225,6 +226,7 @@ IDxcOptimizer : public IUnknown {
 
 static const UINT32 DxcVersionInfoFlags_None = 0;
 static const UINT32 DxcVersionInfoFlags_Debug = 1; // Matches VS_FF_DEBUG
+static const UINT32 DxcVersionInfoFlags_Internal = 2; // Internal Validator (non-signing)
 
 struct __declspec(uuid("b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e"))
 IDxcVersionInfo : public IUnknown {

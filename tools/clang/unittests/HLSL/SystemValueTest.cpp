@@ -39,9 +39,6 @@ using namespace std;
 using namespace hlsl_test;
 using namespace hlsl;
 
-static const unsigned HighestMajor = 6;
-static const unsigned HighestMinor = 1;
-
 class SystemValueTest {
 public:
   BEGIN_TEST_CLASS(SystemValueTest)
@@ -66,7 +63,7 @@ public:
   TEST_METHOD(VerifyVersionedSemantics)
   TEST_METHOD(VerifyMissingSemanticFailure)
 
-  void CompileHLSLTemplate(CComPtr<IDxcOperationResult> &pResult, DXIL::SigPointKind sigPointKind, DXIL::SemanticKind semKind, bool addArb, unsigned Major = HighestMajor, unsigned Minor = HighestMinor) {
+  void CompileHLSLTemplate(CComPtr<IDxcOperationResult> &pResult, DXIL::SigPointKind sigPointKind, DXIL::SemanticKind semKind, bool addArb, unsigned Major = 0, unsigned Minor = 0) {
     const Semantic *sem = Semantic::Get(semKind);
     const char* pSemName = sem->GetName();
     std::wstring sigDefValue(L"");
@@ -85,7 +82,7 @@ public:
     return CompileHLSLTemplate(pResult, sigPointKind, sigDefValue, Major, Minor);
   }
 
-  void CompileHLSLTemplate(CComPtr<IDxcOperationResult> &pResult, DXIL::SigPointKind sigPointKind, const std::wstring &sigDefValue, unsigned Major = HighestMajor, unsigned Minor = HighestMinor) {
+  void CompileHLSLTemplate(CComPtr<IDxcOperationResult> &pResult, DXIL::SigPointKind sigPointKind, const std::wstring &sigDefValue, unsigned Major = 0, unsigned Minor = 0) {
     const SigPoint * sigPoint = SigPoint::GetSigPoint(sigPointKind);
     DXIL::ShaderKind shaderKind = sigPoint->GetShaderKind();
 
@@ -101,7 +98,6 @@ public:
       IFT(library->CreateBlobFromFile(path.c_str(), nullptr, &m_pSource));
     }
 
-    static_assert(6 == HighestMajor && 1 == HighestMinor, "otherwise, need to update default profiles below");
     LPCWSTR entry, profile;
     wchar_t profile_buf[] = L"vs_6_1";
     switch(shaderKind) {
@@ -112,7 +108,11 @@ public:
       case DXIL::ShaderKind::Domain:    entry = L"DSMain"; profile = L"ds_6_1"; break;
       case DXIL::ShaderKind::Compute:   entry = L"CSMain"; profile = L"cs_6_1"; break;
     }
-    if (Major != HighestMajor || Minor != HighestMinor) {
+    if (Major == 0) {
+      Major = m_HighestMajor;
+      Minor = m_HighestMinor;
+    }
+    if (Major != 6 || Minor != 1) {
       profile_buf[0] = profile[0];
       profile_buf[3] = L'0' + (wchar_t)Major;
       profile_buf[5] = L'0' + (wchar_t)Minor;
@@ -157,12 +157,22 @@ public:
   }
 
   dxc::DxcDllSupport m_dllSupport;
+  VersionSupportInfo m_ver;
+  unsigned m_HighestMajor, m_HighestMinor;  // Shader Model Supported
+
   CComPtr<IDxcBlobEncoding> m_pSource;
 };
 
 bool SystemValueTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_ver.Initialize(m_dllSupport);
+    m_HighestMajor = 6;
+    m_HighestMinor = 0;
+    if ((m_ver.m_DxilMajor > 1 || (m_ver.m_DxilMajor == 1 && m_ver.m_DxilMinor > 1)) &&
+        (m_ver.m_ValMajor > 1 || (m_ver.m_ValMajor == 1 && m_ver.m_ValMinor > 1))) {
+      m_HighestMinor = 1;
+    }
   }
   return true;
 }
@@ -186,6 +196,7 @@ static bool ArbAllowed(DXIL::SigPointKind sp) {
 }
 
 TEST_F(SystemValueTest, VerifyArbitrarySupport) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     CComPtr<IDxcOperationResult> pResult;
     CompileHLSLTemplate(pResult, sp, DXIL::SemanticKind::Invalid, true);
@@ -214,7 +225,7 @@ TEST_F(SystemValueTest, VerifyNotAvailableFail) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, HighestMajor, HighestMinor);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NA) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -241,7 +252,7 @@ TEST_F(SystemValueTest, VerifySVAsArbitrary) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, HighestMajor, HighestMinor);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::Arb) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -259,7 +270,7 @@ TEST_F(SystemValueTest, VerifySVAsSV) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, HighestMajor, HighestMinor);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::SV || interpretation == DXIL::SemanticInterpretationKind::SGV) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -277,7 +288,7 @@ TEST_F(SystemValueTest, VerifySGV) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, HighestMajor, HighestMinor);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::SGV) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, true);
@@ -296,7 +307,7 @@ TEST_F(SystemValueTest, VerifySVNotPacked) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, HighestMajor, HighestMinor);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NotPacked) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -314,7 +325,7 @@ TEST_F(SystemValueTest, VerifySVNotInSig) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, HighestMajor, HighestMinor);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NotInSig) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -374,7 +385,7 @@ TEST_F(SystemValueTest, VerifyShadowEntries) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, HighestMajor, HighestMinor);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::Shadow) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -428,6 +439,10 @@ TEST_F(SystemValueTest, VerifyVersionedSemantics) {
 
     // Don't try compiling to pre-dxil targets:
     if (MajorLower < 6)
+      continue;
+
+    // Don't try targets our compiler/validator combination do not support.
+    if (test.Major > m_HighestMajor || test.Minor > m_HighestMinor)
       continue;
 
     {

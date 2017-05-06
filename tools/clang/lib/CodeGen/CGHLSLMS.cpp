@@ -5118,13 +5118,29 @@ void CGMSHLSLRuntime::EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val,
           : static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatStore);
 
   if (!isRowMajor) {
-    // All matrix Value should be row major.
-    // ColMatStore need a col major value.
-    // Cast it to row major.
-    Val = EmitHLSLMatrixOperationCallImp(
-        Builder, HLOpcodeGroup::HLCast,
-        static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
-        Val->getType(), {Val}, TheModule);
+    Value *ColVal = nullptr;
+    // If Val is casted from col major. Just use the original col major val.
+    if (CallInst *CI = dyn_cast<CallInst>(Val)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLCast) {
+        HLCastOpcode castOp = static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CI));
+        if (castOp == HLCastOpcode::ColMatrixToRowMatrix) {
+          ColVal = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+        }
+      }
+    }
+    if (ColVal) {
+      Val = ColVal;
+    } else {
+      // All matrix Value should be row major.
+      // ColMatStore need a col major value.
+      // Cast it to row major.
+      Val = EmitHLSLMatrixOperationCallImp(
+          Builder, HLOpcodeGroup::HLCast,
+          static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
+          Val->getType(), {Val}, TheModule);
+    }
   }
 
   EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLMatLoadStore, opcode,
