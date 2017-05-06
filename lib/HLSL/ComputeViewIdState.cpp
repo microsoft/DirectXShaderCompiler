@@ -125,6 +125,7 @@ void DxilViewIdState::Clear() {
   m_Entry.Clear();
   m_PCEntry.Clear();
   m_FuncInfo.clear();
+  m_ReachingDeclsCache.clear();
 }
 
 void DxilViewIdState::EntryInfo::Clear() {
@@ -156,7 +157,7 @@ void DxilViewIdState::ComputeReachableFunctionsRec(CallGraph &CG, CallGraphNode 
   Function *F = pNode->getFunction();
   // Accumulate only functions with bodies.
   if (F->empty()) return;
-  auto itIns = FuncSet.insert(F);
+  auto itIns = FuncSet.emplace(F);
   DXASSERT_NOMSG(itIns.second);
   for (auto it = pNode->begin(), itEnd = pNode->end(); it != itEnd; ++it) {
     CallGraphNode *pSuccNode = it->second;
@@ -182,7 +183,7 @@ void DxilViewIdState::AnalyzeFunctions(EntryInfo &Entry) {
 
       for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst; ++itInst) {
         if (ReturnInst *RI = dyn_cast<ReturnInst>(itInst)) {
-          pFuncInfo->Returns.insert(RI);
+          pFuncInfo->Returns.emplace(RI);
           continue;
         }
 
@@ -202,7 +203,7 @@ void DxilViewIdState::AnalyzeFunctions(EntryInfo &Entry) {
           IFTBOOL(GetUnsignedVal(SO.get_outputtSigId(), &id), DXC_E_GENERAL_INTERNAL_ERROR);
           GetUnsignedVal(SO.get_rowIndex(), (uint32_t*)&row);
           IFTBOOL(GetUnsignedVal(SO.get_colIndex(), &col), DXC_E_GENERAL_INTERNAL_ERROR);
-          Entry.Outputs.insert(CI);
+          Entry.Outputs.emplace(CI);
         } else if (DxilInst_LoadPatchConstant LPC = DxilInst_LoadPatchConstant(CI)) {
           if (m_pModule->GetShaderModel()->IsDS()) {
             pDynIdxElems = &m_PCSigDynIdxElems;
@@ -218,7 +219,7 @@ void DxilViewIdState::AnalyzeFunctions(EntryInfo &Entry) {
           IFTBOOL(GetUnsignedVal(SPC.get_outputSigID(), &id), DXC_E_GENERAL_INTERNAL_ERROR);
           GetUnsignedVal(SPC.get_row(), (uint32_t*)&row);
           IFTBOOL(GetUnsignedVal(SPC.get_col(), &col), DXC_E_GENERAL_INTERNAL_ERROR);
-          Entry.Outputs.insert(CI);
+          Entry.Outputs.emplace(CI);
         } else if (DxilInst_LoadOutputControlPoint LOCP = DxilInst_LoadOutputControlPoint(CI)) {
           if (m_pModule->GetShaderModel()->IsDS()) {
             pDynIdxElems = &m_InpSigDynIdxElems;
@@ -306,7 +307,7 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
                        ContributingInstructions.begin(),
                        ContributingInstructions.end(),
                        std::inserter(NewSet, NewSet.end()));
-        std::swap(Entry.ContributingInstructions[index], NewSet);
+        Entry.ContributingInstructions[index].swap(NewSet);
       }
     }
   }
@@ -316,6 +317,7 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
                                                            InstructionSetType &ContributingInstructions) {
   Instruction *pContributingInst = dyn_cast<Instruction>(pContributingValue);
   if (pContributingInst == nullptr) {
+    // Can be literal constant, global decl, branch target.
     DXASSERT_NOMSG(isa<Constant>(pContributingValue) || isa<BasicBlock>(pContributingValue));
     return;
   }
@@ -335,8 +337,19 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
         CollectValuesContributingToOutputRec(pPredBB->getTerminator(), ContributingInstructions);
       }
     }
-  } else if (LlvmInst_Load LI = LlvmInst_Load(pContributingInst)) {
-    DXASSERT_NOMSG(false);
+  } else if (isa<LoadInst>(pContributingInst) || 
+             isa<AtomicCmpXchgInst>(pContributingInst) ||
+             isa<AtomicRMWInst>(pContributingInst)) {
+    Value *pPtrValue = pContributingInst->getOperand(0);
+    DXASSERT_NOMSG(pPtrValue->getType()->isPointerTy());
+    const ValueSetType &ReachingDecls = CollectReachingDecls(pPtrValue);
+    DXASSERT_NOMSG(ReachingDecls.size() > 0);
+    for (Value *pDeclValue : ReachingDecls) {
+      const ValueSetType &Stores = CollectStores(pDeclValue);
+      for (Value *V : Stores) {
+        CollectValuesContributingToOutputRec(V, ContributingInstructions);
+      }
+    }
     // TODO: UAVs
   } else if (LlvmInst_Call CI = LlvmInst_Call(pContributingInst)) {
     if (!hlsl::OP::IsDxilOpFuncCallInst(CI.Instr)) {
@@ -359,6 +372,97 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
   const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
   for (BasicBlock *B : CtrlDepSet) {
     CollectValuesContributingToOutputRec(B->getTerminator(), ContributingInstructions);
+  }
+}
+
+const DxilViewIdState::ValueSetType &DxilViewIdState::CollectReachingDecls(Value *pValue) {
+  auto it = m_ReachingDeclsCache.emplace(pValue, ValueSetType());
+  if (it.second) {
+    // We have not seen this value before.
+    ValueSetType Visited;
+    CollectReachingDeclsRec(pValue, it.first->second, Visited);
+  }
+  return it.first->second;
+}
+
+void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &ReachingDecls, ValueSetType &Visited) {
+  if (Visited.find(pValue) != Visited.end())
+    return;
+
+  bool bInitialValue = Visited.size() == 0;
+  Visited.emplace(pValue);
+
+  if (!bInitialValue) {
+    auto it = m_ReachingDeclsCache.find(pValue);
+    if (it != m_ReachingDeclsCache.end()) {
+      ValueSetType NewSet;
+      std::set_union(ReachingDecls.begin(), ReachingDecls.end(),
+                     it->second.begin(), it->second.end(),
+                     std::inserter(NewSet, NewSet.end()));
+      ReachingDecls.swap(NewSet);
+      return;
+    }
+  }
+
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(pValue)) {
+    ReachingDecls.emplace(pValue);
+    return;
+  }
+
+  if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(pValue)) {
+    Value *pPtrValue = GEP->getPointerOperand();
+    CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
+  } else if (AllocaInst *AI = dyn_cast<AllocaInst>(pValue)) {
+    ReachingDecls.emplace(pValue);
+  } else if (PHINode *phi = dyn_cast<PHINode>(pValue)) {
+    for (Value *pPtrValue : phi->operands()) {
+      CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
+    }
+  } else {
+    IFT(DXC_E_GENERAL_INTERNAL_ERROR);
+  }
+}
+
+const DxilViewIdState::ValueSetType &DxilViewIdState::CollectStores(llvm::Value *pValue) {
+  auto it = m_StoresPerDeclCache.emplace(pValue, ValueSetType());
+  if (it.second) {
+    // We have not seen this value before.
+    ValueSetType Visited;
+    CollectStoresRec(pValue, it.first->second, Visited);
+  }
+  return it.first->second;
+}
+
+void DxilViewIdState::CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores, ValueSetType &Visited) {
+  if (Visited.find(pValue) != Visited.end())
+    return;
+
+  bool bInitialValue = Visited.size() == 0;
+  Visited.emplace(pValue);
+
+  if (!bInitialValue) {
+    auto it = m_StoresPerDeclCache.find(pValue);
+    if (it != m_StoresPerDeclCache.end()) {
+      ValueSetType NewSet;
+      std::set_union(Stores.begin(), Stores.end(),
+                     it->second.begin(), it->second.end(),
+                     std::inserter(NewSet, NewSet.end()));
+      Stores.swap(NewSet);
+      return;
+    }
+  }
+
+  if (isa<LoadInst>(pValue)) {
+    return;
+  } else if (isa<StoreInst>(pValue) ||
+             isa<AtomicCmpXchgInst>(pValue) ||
+             isa<AtomicRMWInst>(pValue)) {
+    Stores.emplace(pValue);
+    return;
+  }
+
+  for (auto *U : pValue->users()) {
+    CollectStoresRec(U, Stores, Visited);
   }
 }
 
@@ -389,7 +493,7 @@ void DxilViewIdState::CreateViewIdSets() {
         auto &ContributingInputs = m_InputsContributingToOutputs[outIdx];
         for (int row = startRow; row <= endRow; row++) {
           unsigned index = GetLinearIndex(SigElem, row, col);
-          ContributingInputs.insert(index);
+          ContributingInputs.emplace(index);
         }
       } else if (DxilInst_ViewID VID = DxilInst_ViewID(pInst)) {
         // Set that output depends on ViewId.

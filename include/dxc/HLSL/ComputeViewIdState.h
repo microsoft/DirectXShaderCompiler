@@ -106,6 +106,12 @@ private:
 
   std::unordered_map<llvm::Function *, std::unique_ptr<FuncInfo>> m_FuncInfo;
 
+  // Cache of decls (global/alloca) reaching a pointer value.
+  using ValueSetType = std::unordered_set<llvm::Value *>;
+  std::unordered_map<llvm::Value *, ValueSetType> m_ReachingDeclsCache;
+  // Cache of stores for each decl.
+  std::unordered_map<llvm::Value *, ValueSetType> m_StoresPerDeclCache;
+
   void Clear();
   void DetermineMaxPackedLocation(DxilSignature &DxilSig, unsigned &MaxSigLoc);
   void ComputeReachableFunctionsRec(llvm::CallGraph &CG, llvm::CallGraphNode *pNode, FunctionSetType &FuncSet);
@@ -113,6 +119,10 @@ private:
   void CollectValuesContributingToOutputs(EntryInfo &Entry);
   void CollectValuesContributingToOutputRec(llvm::Value *pContributingValue,
                                             InstructionSetType &ContributingInstructions);
+  const ValueSetType &CollectReachingDecls(llvm::Value *pValue);
+  void CollectReachingDeclsRec(llvm::Value *pValue, ValueSetType &ReachingDecls, ValueSetType &Visited);
+  const ValueSetType &CollectStores(llvm::Value *pValue);
+  void CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores, ValueSetType &Visited);
   void CreateViewIdSets();
 
   unsigned GetLinearIndex(DxilSignatureElement &SigElem, int row, unsigned col) const;
