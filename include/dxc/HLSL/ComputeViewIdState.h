@@ -125,8 +125,9 @@ private:
   void CollectReachingDeclsRec(llvm::Value *pValue, ValueSetType &ReachingDecls, ValueSetType &Visited);
   const ValueSetType &CollectStores(llvm::Value *pValue);
   void CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores, ValueSetType &Visited);
-  void CreateViewIdSets();
   void UpdateDynamicIndexUsageState() const;
+  void CreateViewIdSets(EntryInfo &Entry, OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+                        InputsContributingToOutputType &InputsContributingToOutputs, bool bPC);
 
   void UpdateDynamicIndexUsageStateForSig(DxilSignature &Sig, const DynamicallyIndexedElemsType &DynIdxElems) const;
   void Serialize1(unsigned NumInputs, unsigned NumOutputs,

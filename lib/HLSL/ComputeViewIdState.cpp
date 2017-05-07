@@ -72,7 +72,13 @@ void DxilViewIdState::Compute() {
   CollectValuesContributingToOutputs(m_PCEntry);
 
   // 5. Construct dependency sets.
-  CreateViewIdSets();
+  const ShaderModel *pSM = m_pModule->GetShaderModel();
+  CreateViewIdSets(m_Entry, m_OutputsDependentOnViewId, m_InputsContributingToOutputs, false);
+  if (pSM->IsHS()) {
+    CreateViewIdSets(m_PCEntry, m_PCOutputsDependentOnViewId, m_InputsContributingToPCOutputs, true);
+  } else if (pSM->IsDS()) {
+    CreateViewIdSets(m_PCEntry, m_OutputsDependentOnViewId, m_PCInputsContributingToOutputs, true);
+  }
 
   // 6. Update dynamically indexed input/output component masks.
   UpdateDynamicIndexUsageState();
@@ -469,43 +475,96 @@ void DxilViewIdState::CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores
   }
 }
 
-void DxilViewIdState::CreateViewIdSets() {
-  // Inputs-to-outputs.
-  for (auto &itOut : m_Entry.ContributingInstructions) {
+void DxilViewIdState::CreateViewIdSets(EntryInfo &Entry, 
+                                       OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+                                       InputsContributingToOutputType &InputsContributingToOutputs,
+                                       bool bPC) {
+  const ShaderModel *pSM = m_pModule->GetShaderModel();
+
+  for (auto &itOut : Entry.ContributingInstructions) {
     unsigned outIdx = itOut.first;
     InstructionSetType &ContributingInstrunction = itOut.second;
     for (Instruction *pInst : ContributingInstrunction) {
+      // Set output dependence on ViewId.
+      if (DxilInst_ViewID VID = DxilInst_ViewID(pInst)) {
+        OutputsDependentOnViewId[outIdx] = true;
+        continue;
+      }
+
+      // Start setting output dependence on inputs.
+      DxilSignatureElement *pSigElem = nullptr;
+      bool bLoadOutputCPInHS = false;
+      unsigned inpId = (unsigned)-1;
+      int startRow = Semantic::kUndefinedRow, endRow = Semantic::kUndefinedRow;
+      unsigned col = (unsigned)-1;
       if (DxilInst_LoadInput LI = DxilInst_LoadInput(pInst)) {
-        // Update set of inputs that contribute to computation of this output.
-        unsigned inpId = (unsigned)-1;
-        int startRow = Semantic::kUndefinedRow, endRow = Semantic::kUndefinedRow;
-        unsigned col = (unsigned)-1;
         GetUnsignedVal(LI.get_inputSigId(), &inpId);
         GetUnsignedVal(LI.get_colIndex(), &col);
         GetUnsignedVal(LI.get_rowIndex(), (uint32_t*)&startRow);
+        pSigElem = &m_pModule->GetInputSignature().GetElement(inpId);
+      } else if (DxilInst_LoadOutputControlPoint LOCP = DxilInst_LoadOutputControlPoint(pInst)) {
+        GetUnsignedVal(LOCP.get_inputSigId(), &inpId);
+        GetUnsignedVal(LOCP.get_col(), &col);
+        GetUnsignedVal(LOCP.get_row(), (uint32_t*)&startRow);
+        if (pSM->IsHS()) {
+          pSigElem = &m_pModule->GetPatchConstantSignature().GetElement(inpId);
+          bLoadOutputCPInHS = true;
+        } else if (pSM->IsDS()) {
+          if (!bPC) {
+            pSigElem = &m_pModule->GetInputSignature().GetElement(inpId);
+          }
+        } else {
+          DXASSERT_NOMSG(false);
+        }
+      } else if (DxilInst_LoadPatchConstant LPC = DxilInst_LoadPatchConstant(pInst)) {
+        if (pSM->IsDS() && bPC) {
+          GetUnsignedVal(LPC.get_inputSigId(), &inpId);
+          GetUnsignedVal(LPC.get_col(), &col);
+          GetUnsignedVal(LPC.get_row(), (uint32_t*)&startRow);
+          pSigElem = &m_pModule->GetPatchConstantSignature().GetElement(inpId);
+        }
+      } else {
+        continue;
+      }
 
-        DxilSignatureElement &SigElem = m_pModule->GetInputSignature().GetElement(inpId);
+      // Finalize setting output dependence on inputs.
+      if (pSigElem) {
         if (startRow != Semantic::kUndefinedRow) {
           endRow = startRow;
         } else {
           // The entire column contributes to output.
           startRow = 0;
-          endRow = SigElem.GetRows() - 1;
+          endRow = pSigElem->GetRows() - 1;
         }
 
-        auto &ContributingInputs = m_InputsContributingToOutputs[outIdx];
+        auto &ContributingInputs = InputsContributingToOutputs[outIdx];
         for (int row = startRow; row <= endRow; row++) {
-          unsigned index = GetLinearIndex(SigElem, row, col);
-          ContributingInputs.emplace(index);
+          unsigned index = GetLinearIndex(*pSigElem, row, col);
+          if (!bLoadOutputCPInHS) {
+            ContributingInputs.emplace(index);
+          } else {
+            // This HS patch-constant output depends on an input value of LoadOutputControlPoint
+            // that is the output value of the HS main (control-point) function.
+            // Transitively update this (patch-constant) output dependence on main (control-point) output.
+            DXASSERT_NOMSG(&OutputsDependentOnViewId == &m_PCOutputsDependentOnViewId);
+            OutputsDependentOnViewId[outIdx] = OutputsDependentOnViewId[outIdx] || m_OutputsDependentOnViewId[index];
+
+            const auto it = m_InputsContributingToOutputs.find(index);
+            if (it != m_InputsContributingToOutputs.end()) {
+              const std::set<unsigned> &LoadOutputCPInputsContributingToOutputs = it->second;
+              std::set<unsigned> NewSet;
+              std::set_union(ContributingInputs.begin(),
+                             ContributingInputs.end(),
+                             LoadOutputCPInputsContributingToOutputs.begin(),
+                             LoadOutputCPInputsContributingToOutputs.end(),
+                             std::inserter(NewSet, NewSet.end()));
+              ContributingInputs.swap(NewSet);
+            }
+          }
         }
-      } else if (DxilInst_ViewID VID = DxilInst_ViewID(pInst)) {
-        // Set that output depends on ViewId.
-        m_OutputsDependentOnViewId[outIdx] = true;
       }
     }
   }
-
-  // TODO: HS, DS, in HS propagate output deps to inputs in PC phase.
 }
 
 unsigned DxilViewIdState::GetLinearIndex(DxilSignatureElement &SigElem, int row, unsigned col) const {
@@ -636,8 +695,6 @@ void DxilViewIdState::Deserialize(const unsigned *pData, unsigned DataSize) {
     ConsumedUINTs += t;
   }
   DXASSERT_NOMSG(ConsumedUINTs == DataSize);
-
-  // TODO: recover dyn ind comp masks
 }
 
 unsigned DxilViewIdState::Deserialize1(const unsigned *pData, unsigned DataSize,
