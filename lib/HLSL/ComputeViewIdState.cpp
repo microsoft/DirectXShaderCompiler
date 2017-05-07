@@ -757,8 +757,13 @@ bool ComputeViewIdState::runOnModule(Module &M) {
   if (pSM->IsSM61Plus()) {
     DxilViewIdState &ViewIdState = DxilModule.GetViewIdState();
     ViewIdState.Compute();
+    return true;
   }
   return false;
+}
+
+void ComputeViewIdState::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
 }
 
 
