@@ -59,6 +59,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_pModule(pModule)
 , m_pOP(std::make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(std::make_unique<DxilTypeSystem>(pModule))
+, m_pViewIdState(std::make_unique<DxilViewIdState>(this))
 , m_pMDHelper(std::make_unique<DxilMDHelper>(pModule, std::make_unique<DxilExtraPropertyHelper>(pModule)))
 , m_pDebugInfoFinder(nullptr)
 , m_pEntryFunc(nullptr)
@@ -883,6 +884,10 @@ DxilTypeSystem &DxilModule::GetTypeSystem() {
   return *m_pTypeSystem;
 }
 
+DxilViewIdState &DxilModule::GetViewIdState() {
+  return *m_pViewIdState;
+}
+
 void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
   m_pTypeSystem.reset(pValue);
 }
@@ -942,6 +947,9 @@ void DxilModule::EmitDxilMetadata() {
   MDTuple *pMDResources = EmitDxilResources();
   MDTuple *pMDProperties = EmitDxilShaderProperties();
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
+  if (m_pSM->IsSM61Plus()) {
+    m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
+  }
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
@@ -982,6 +990,8 @@ void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
 
   m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
+
+  m_pMDHelper->LoadDxilViewIdState(*m_pViewIdState.get());
 }
 
 MDTuple *DxilModule::EmitDxilResources() {

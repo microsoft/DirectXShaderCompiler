@@ -49,11 +49,10 @@ public:
   using OutputsDependentOnViewIdType = std::bitset<kMaxSigScalars>;
   using InputsContributingToOutputType = std::map<unsigned, std::set<unsigned>>;
 
-  DxilViewIdState() : m_pModule(nullptr) {}
-  void Compute(llvm::Module *pModule);
-  //void UpdateDynamicIndexUsageState() const;
-  //void Serialize() const;
-  //void Deserialize();
+  DxilViewIdState(DxilModule *pDxilModule) : m_pModule(pDxilModule) {}
+  void Compute();
+  const std::vector<unsigned> &GetSerialized();
+  void Deserialize(const unsigned *pData, unsigned DataSize);
   void PrintSets(llvm::raw_ostream &OS);
 
 private:
@@ -112,6 +111,9 @@ private:
   // Cache of stores for each decl.
   std::unordered_map<llvm::Value *, ValueSetType> m_StoresPerDeclCache;
 
+  // Serialized form.
+  std::vector<unsigned> m_SerializedState;
+
   void Clear();
   void DetermineMaxPackedLocation(DxilSignature &DxilSig, unsigned &MaxSigLoc);
   void ComputeReachableFunctionsRec(llvm::CallGraph &CG, llvm::CallGraphNode *pNode, FunctionSetType &FuncSet);
@@ -124,7 +126,17 @@ private:
   const ValueSetType &CollectStores(llvm::Value *pValue);
   void CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores, ValueSetType &Visited);
   void CreateViewIdSets();
+  void UpdateDynamicIndexUsageState() const;
 
+  void UpdateDynamicIndexUsageStateForSig(DxilSignature &Sig, const DynamicallyIndexedElemsType &DynIdxElems) const;
+  void Serialize1(unsigned NumInputs, unsigned NumOutputs,
+                  const OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+                  const InputsContributingToOutputType &InputsContributingToOutputs,
+                  unsigned *&pData);
+  unsigned Deserialize1(const unsigned *pData, unsigned DataSize,
+                        unsigned &NumInputs, unsigned &NumOutputs,
+                        OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+                        InputsContributingToOutputType &InputsContributingToOutputs);
   unsigned GetLinearIndex(DxilSignatureElement &SigElem, int row, unsigned col) const;
 };
 

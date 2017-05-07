@@ -86,6 +86,8 @@ public:
   void SetCompType(CompType CT);
   uint8_t GetColsAsMask() const;
   bool IsAllocated() const;
+  unsigned GetDynIdxCompMask() const;
+  void SetDynIdxCompMask(unsigned DynIdxCompMask);
 
 protected:
   DXIL::SigPointKind m_sigPointKind;
@@ -102,6 +104,7 @@ protected:
   int m_StartRow;
   int m_StartCol;
   unsigned m_OutputStream;
+  unsigned m_DynIdxCompMask;
 };
 
 } // namespace hlsl
