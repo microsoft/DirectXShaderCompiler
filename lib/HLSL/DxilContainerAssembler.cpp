@@ -333,6 +333,11 @@ class DxilPSVWriter : public DxilPartWriter  {
 private:
   const DxilModule &m_Module;
   UINT m_uTotalResources;
+  UINT m_InputVectors,
+       m_OutputVectors,
+       m_PCOutputVectors,
+       m_PCInputVectors;
+  bool m_bViewID;
   DxilPipelineStateValidation m_PSV;
   uint32_t m_PSVBufferSize;
   SmallVector<char, 512> m_PSVBuffer;
@@ -344,7 +349,23 @@ public:
     UINT uSRVs = m_Module.GetSRVs().size();
     UINT uUAVs = m_Module.GetUAVs().size();
     m_uTotalResources = uCBuffers + uSamplers + uSRVs + uUAVs;
-    m_PSV.InitNew(m_uTotalResources, nullptr, &m_PSVBufferSize);
+    m_bViewID = (m_Module.m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID) ? true : false;
+    m_InputVectors = m_Module.GetInputSignature().NumVectorsUsed();
+    m_OutputVectors = m_Module.GetOutputSignature().NumVectorsUsed();
+    m_PCOutputVectors = m_PCInputVectors = 0;
+    if (m_Module.GetShaderModel()->IsHS()) {
+      m_PCOutputVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed();
+    }
+    if (m_Module.GetShaderModel()->IsDS()) {
+      m_PCInputVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed();
+    }
+    m_PSV.InitNew(m_uTotalResources,
+                  m_bViewID,
+                  m_InputVectors,
+                  m_OutputVectors,
+                  m_PCOutputVectors,
+                  m_PCInputVectors,
+                  nullptr, &m_PSVBufferSize);
   }
   __override uint32_t size() const {
     return m_PSVBufferSize;
@@ -352,7 +373,13 @@ public:
 
   __override void write(AbstractMemoryStream *pStream) {
     m_PSVBuffer.resize(m_PSVBufferSize);
-    m_PSV.InitNew(m_uTotalResources, m_PSVBuffer.data(), &m_PSVBufferSize);
+    m_PSV.InitNew(m_uTotalResources,
+                  m_bViewID,
+                  m_InputVectors,
+                  m_OutputVectors,
+                  m_PCOutputVectors,
+                  m_PCInputVectors,
+                  m_PSVBuffer.data(), &m_PSVBufferSize);
     DXASSERT_NOMSG(m_PSVBuffer.size() == m_PSVBufferSize);
 
     // Set DxilRuntimInfo
