@@ -107,6 +107,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
     case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "SV_Barycentrics cannot be used with 'nointerpolation' type";
     case hlsl::ValidationRule::MetaBarycentricsFloat3: return "only 'float3' type is allowed for SV_Barycentrics.";
+    case hlsl::ValidationRule::MetaBarycentricsTwoPerspectives: return "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
     case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
@@ -3337,7 +3338,8 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     if (SE.GetStartRow() + SE.GetRows() > 8) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticIndexMax, {"SV_Target", "7"});
     }
-  } else if (bAllowedInSig && semanticKind != DXIL::SemanticKind::Arbitrary) {
+  } else if (bAllowedInSig && semanticKind != DXIL::SemanticKind::Arbitrary &&
+             semanticKind != DXIL::SemanticKind::Barycentrics) {
     if (!bIsClipCull && SE.GetSemanticStartIndex() > 0) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticIndexMax, {SE.GetSemantic()->GetName(), "0"});
     }
@@ -3454,10 +3456,11 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
   unsigned TargetMask = 0;
   DXIL::SemanticKind DepthKind = DXIL::SemanticKind::Invalid;
 
+  vector<const InterpolationMode *> baryInterpolationModes;
+
   for (auto &E : S.GetElements()) {
     DXIL::SemanticKind semanticKind = E->GetSemantic()->GetKind();
     ValidateSignatureElement(*E, ValCtx);
-
     // Avoid OOB indexing on streamId.
     unsigned streamId = E->GetOutputStream();
     if (streamId >= DXIL::kNumOutputStreams ||
@@ -3523,6 +3526,23 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
       }
       DepthKind = semanticKind;
       break;
+    case DXIL::SemanticKind::Barycentrics: {
+      // There can only be up to two SV_Barycentrics
+      // with differeent perspective interpolation modes.
+      if (baryInterpolationModes.size() > 1) {
+        ValCtx.EmitError(ValidationRule::MetaBarycentricsTwoPerspectives);
+      }
+      const InterpolationMode *mode = E->GetInterpolationMode();
+      if (!baryInterpolationModes.empty()) {
+        const InterpolationMode *other = baryInterpolationModes.at(0);
+        if ((mode->IsAnyNoPerspective() && other->IsAnyNoPerspective())
+          || (!mode->IsAnyNoPerspective() && !other->IsAnyNoPerspective())) {
+          ValCtx.EmitError(ValidationRule::MetaBarycentricsTwoPerspectives);
+        }
+      }
+      baryInterpolationModes.push_back(mode);
+      break;
+    }
     default:
       if (semanticUsageSet[streamId].count(semanticKind) > 0) {
         ValCtx.EmitFormatError(ValidationRule::MetaDuplicateSysValue,

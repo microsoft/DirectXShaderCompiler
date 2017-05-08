@@ -970,6 +970,8 @@ static void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
     case DxilProgramSigSemantic::FinalLineDensityTessfactor:
       pSysValue = "LINEDEN";
       break;
+    case DxilProgramSigSemantic::Barycentrics:
+      pSysValue = "BARYCEN";
     }
     OS << right_justify(pSysValue, 9);
 

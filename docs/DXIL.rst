@@ -2777,6 +2777,7 @@ INSTR.WRITEMASKFORTYPEDUAVSTORE        store on typed uav must write to all four
 INSTR.WRITEMASKMATCHVALUEFORUAVSTORE   uav store write mask must match store value mask, write mask is %0 and store value mask is %1
 META.BARYCENTRICSFLOAT3                only 'float3' type is allowed for SV_Barycentrics.
 META.BARYCENTRICSINTERPOLATION         SV_Barycentrics cannot be used with 'nointerpolation' type
+META.BARYCENTRICSTWOPERSPECTIVES       There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.
 META.BRANCHFLATTEN                     Can't use branch and flatten attributes together
 META.CLIPCULLMAXCOMPONENTS             Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
 META.CLIPCULLMAXROWS                   Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.

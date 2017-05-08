@@ -375,6 +375,8 @@ public:
   TEST_METHOD(CodeGenAtomic)
   TEST_METHOD(CodeGenAttributeAtVertex)
   TEST_METHOD(CodeGenBarycentrics)
+  TEST_METHOD(CodeGenBarycentrics1)
+  TEST_METHOD(CodeGenBarycentricsThreeSV)
   TEST_METHOD(CodeGenBinary1)
   TEST_METHOD(CodeGenBoolComb)
   TEST_METHOD(CodeGenBoolSvTarget)
@@ -2231,6 +2233,16 @@ TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
 TEST_F(CompilerTest, CodeGenBarycentrics) {
   if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenBarycentrics1) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenBarycentricsThreeSV) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentricsThreeSV.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBinary1) {

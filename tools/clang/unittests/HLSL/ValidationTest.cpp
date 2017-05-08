@@ -203,6 +203,7 @@ public:
 
   TEST_METHOD(BarycentricFloat4Fail)
   TEST_METHOD(BarycentricNoInterpolationFail)
+  TEST_METHOD(BarycentricSamePerspectiveFail)
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
   TEST_METHOD(DuplicateSysValue)
@@ -2995,6 +2996,18 @@ TEST_F(ValidationTest, BarycentricFloat4Fail) {
       "float4 main(float4 col : COLOR) : SV_Target { return col; }", "ps_6_1",
       {"!\"COLOR\", i8 9, i8 0"}, {"!\"SV_Barycentrics\", i8 9, i8 28"},
       "only 'float3' type is allowed for SV_Barycentrics.", false);
+}
+
+TEST_F(ValidationTest, BarycentricSamePerspectiveFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+      "float4 main(float3 bary : SV_Barycentrics, noperspective float3 bary1 : "
+      "SV_Barycentrics1) : SV_Target { return 1; }",
+      "ps_6_1", {"!\"SV_Barycentrics\", i8 9, i8 28, (![0-9]+), i8 4"},
+      {"!\"SV_Barycentrics\", i8 9, i8 28, \\1, i8 2"},
+      "There can only be up to two input attributes of SV_Barycentrics with "
+      "different perspective interpolation mode.",
+      true);
 }
 
 // TODO: reject non-zero padding
