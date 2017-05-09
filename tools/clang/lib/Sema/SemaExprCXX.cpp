@@ -3433,6 +3433,7 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
       
   // HLSL Change Starts
   case ICK_Flat_Conversion:
+  case ICK_HLSL_Derived_To_Base:
   case ICK_HLSLVector_Splat:
   case ICK_HLSLVector_Scalar:
   case ICK_HLSLVector_Truncation:
