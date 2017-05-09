@@ -344,10 +344,15 @@ private:
 
   void SetPSVSigElement(PSVSignatureElement0 &E, const DxilSignatureElement &SE) {
     memset(&E, 0, sizeof(PSVSignatureElement0));
-    E.SemanticName = (uint32_t)m_StringBuffer.size();
-    StringRef Name(SE.GetName());
-    m_StringBuffer.append('\0', Name.size()+1);
-    memcpy(m_StringBuffer.data(), Name.data(), Name.size());
+    if (SE.GetKind() == DXIL::SemanticKind::Arbitrary && strlen(SE.GetName()) > 0) {
+      E.SemanticName = (uint32_t)m_StringBuffer.size();
+      StringRef Name(SE.GetName());
+      m_StringBuffer.append('\0', Name.size()+1);
+      memcpy(m_StringBuffer.data(), Name.data(), Name.size());
+    } else {
+      // m_StringBuffer always starts with '\0' so offset 0 is empty string:
+      E.SemanticName = 0;
+    }
     // Search index buffer for matching semantic index sequence
     auto SemIdx = SE.GetSemanticIndexVec();
     bool match = false;
@@ -370,38 +375,46 @@ private:
         m_SemanticIndexBuffer.push_back((uint32_t)SemIdx[row]);
       }
     }
-    E.RowsMinus1 = (uint8_t)(SE.GetRows() - 1);
-    E.ColsMinus1 = (uint8_t)(SE.GetCols() - 1);
-    E.Allocated = SE.IsAllocated() ? 1 : 0;
-    if (E.Allocated) {
+    DXASSERT_NOMSG(SE.GetRows() <= 32);
+    E.Rows = (uint8_t)SE.GetRows();
+    DXASSERT_NOMSG(SE.GetCols() <= 4);
+    E.ColsAndStart = (uint8_t)SE.GetCols() & 0xF;
+    if (SE.IsAllocated()) {
+      DXASSERT_NOMSG(SE.GetStartCol() < 4);
+      DXASSERT_NOMSG(SE.GetStartRow() < 32);
+      E.ColsAndStart |= 0x40 | (SE.GetStartCol() << 4);
       E.StartRow = (uint8_t)SE.GetStartRow();
-      E.StartCol = (uint8_t)SE.GetStartCol();
     }
     E.SemanticKind = (uint8_t)KindToSystemValue(SE.GetKind(), m_Module.GetTessellatorDomain());
     E.ComponentType = (uint8_t)CompTypeToSigCompType(SE.GetCompType());
     E.InterpolationMode = (uint8_t)SE.GetInterpolationMode()->GetKind();
-    E.OutputStream = (uint8_t)SE.GetOutputStream();
-    E.DynamicIndexMask = 0;   // TODO: Fill this in!
+    DXASSERT_NOMSG(SE.GetOutputStream() < 4);
+    E.DynamicMaskAndStream = (uint8_t)((SE.GetOutputStream() & 0x3) << 4);
+
+    // TODO: Fill Dynamic Index Mask in!
+    //DXASSERT_NOMSG((SE.GetDynamicIndexMask() & ~0xF) == 0);
+    //E.DynamicMaskAndStream |= (SE.GetDynamicIndexMask()) & 0xF;
   }
 
 public:
   DxilPSVWriter(const DxilModule &module)
   : m_Module(module),
-    m_PSVInitInfo(module.GetShaderModel()->GetPSVVersion())
+    m_PSVInitInfo(1)//module.GetShaderModel()->GetPSVVersion())
   {
     UINT uCBuffers = m_Module.GetCBuffers().size();
     UINT uSamplers = m_Module.GetSamplers().size();
     UINT uSRVs = m_Module.GetSRVs().size();
     UINT uUAVs = m_Module.GetUAVs().size();
     m_PSVInitInfo.ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
-    {
+    if (m_PSVInitInfo.PSVVersion > 0) {
       // Copy Dxil Signatures
+      m_StringBuffer.push_back('\0'); // For empty semantic name (system value)
       m_PSVInitInfo.SigInputElements = m_Module.GetInputSignature().GetElements().size();
       m_SigInputElements.resize(m_PSVInitInfo.SigInputElements);
       m_PSVInitInfo.SigOutputElements = m_Module.GetOutputSignature().GetElements().size();
-      m_SigInputElements.resize(m_PSVInitInfo.SigOutputElements);
+      m_SigOutputElements.resize(m_PSVInitInfo.SigOutputElements);
       m_PSVInitInfo.SigPatchConstantElements = m_Module.GetPatchConstantSignature().GetElements().size();
-      m_SigInputElements.resize(m_PSVInitInfo.SigPatchConstantElements);
+      m_SigPatchConstantElements.resize(m_PSVInitInfo.SigPatchConstantElements);
       uint32_t i = 0;
       for (auto &SE : m_Module.GetInputSignature().GetElements()) {
         SetPSVSigElement(m_SigInputElements[i++], *(SE.get()));
@@ -414,16 +427,22 @@ public:
       for (auto &SE : m_Module.GetPatchConstantSignature().GetElements()) {
         SetPSVSigElement(m_SigPatchConstantElements[i++], *(SE.get()));
       }
-    }
-    m_PSVInitInfo.UsesViewID = (m_Module.m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID) ? true : false;
-    m_PSVInitInfo.SigInputVectors = m_Module.GetInputSignature().NumVectorsUsed();
-    m_PSVInitInfo.SigOutputVectors = m_Module.GetOutputSignature().NumVectorsUsed();
-    m_PSVInitInfo.SigPCOutputVectors = m_PSVInitInfo.SigPCInputVectors = 0;
-    if (m_Module.GetShaderModel()->IsHS()) {
-      m_PSVInitInfo.SigPCOutputVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed();
-    }
-    if (m_Module.GetShaderModel()->IsDS()) {
-      m_PSVInitInfo.SigPCInputVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed();
+      // Set String and SemanticInput Tables
+      m_PSVInitInfo.StringTable.Table = m_StringBuffer.data();
+      m_PSVInitInfo.StringTable.Size = m_StringBuffer.size();
+      m_PSVInitInfo.SemanticIndexTable.Table = m_SemanticIndexBuffer.data();
+      m_PSVInitInfo.SemanticIndexTable.Entries = m_SemanticIndexBuffer.size();
+      // Set up ViewID and signature dependency info
+      m_PSVInitInfo.UsesViewID = (m_Module.m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID) ? true : false;
+      m_PSVInitInfo.SigInputVectors = m_Module.GetInputSignature().NumVectorsUsed();
+      m_PSVInitInfo.SigOutputVectors = m_Module.GetOutputSignature().NumVectorsUsed();
+      m_PSVInitInfo.SigPCOutputVectors = m_PSVInitInfo.SigPCInputVectors = 0;
+      if (m_Module.GetShaderModel()->IsHS()) {
+        m_PSVInitInfo.SigPCOutputVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed();
+      }
+      if (m_Module.GetShaderModel()->IsDS()) {
+        m_PSVInitInfo.SigPCInputVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed();
+      }
     }
     m_PSV.InitNew(m_PSVInitInfo, nullptr, &m_PSVBufferSize);
   }
@@ -582,6 +601,27 @@ public:
       uResIndex++;
     }
     DXASSERT_NOMSG(uResIndex == m_PSVInitInfo.ResourceCount);
+
+    if (m_PSVInitInfo.PSVVersion > 0) {
+      // Write Dxil Signature Elements
+      for (unsigned i = 0; i < m_PSV.GetSigInputElements(); i++) {
+        PSVSignatureElement0 *pInputElement = m_PSV.GetInputElement0(i);
+        DXASSERT_NOMSG(pInputElement);
+        memcpy(pInputElement, &m_SigInputElements[i], sizeof(PSVSignatureElement0));
+      }
+      for (unsigned i = 0; i < m_PSV.GetSigOutputElements(); i++) {
+        PSVSignatureElement0 *pOutputElement = m_PSV.GetOutputElement0(i);
+        DXASSERT_NOMSG(pOutputElement);
+        memcpy(pOutputElement, &m_SigOutputElements[i], sizeof(PSVSignatureElement0));
+      }
+      for (unsigned i = 0; i < m_PSV.GetSigPatchConstantElements(); i++) {
+        PSVSignatureElement0 *pPatchConstantElement = m_PSV.GetPatchConstantElement0(i);
+        DXASSERT_NOMSG(pPatchConstantElement);
+        memcpy(pPatchConstantElement, &m_SigPatchConstantElements[i], sizeof(PSVSignatureElement0));
+      }
+
+      // TODO: Write ViewID Output masks and Input to Output dependency tables
+    }
 
     ULONG cbWritten;
     IFT(pStream->Write(m_PSVBuffer.data(), m_PSVBufferSize, &cbWritten));

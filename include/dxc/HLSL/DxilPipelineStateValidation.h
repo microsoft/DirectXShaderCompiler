@@ -55,7 +55,6 @@ struct PSVRuntimeInfo0
   uint32_t MinimumExpectedWaveLaneCount;  // minimum lane count required, 0 if unused
   uint32_t MaximumExpectedWaveLaneCount;  // maximum lane count required, 0xffffffff if unused
 };
-// PSVRuntimeInfo1 would derive and extend
 struct PSVRuntimeInfo1 : public PSVRuntimeInfo0
 {
   uint8_t UsesViewID;
@@ -159,6 +158,7 @@ struct PSVStringTable {
 };
 struct PSVString {
   uint32_t Offset;
+  PSVString() : Offset(0) {}
   PSVString(uint32_t offset) : Offset(offset) {}
   const char *Get(const PSVStringTable &table) const { return table.Get(Offset); }
 };
@@ -176,24 +176,23 @@ struct PSVSemanticIndexTable {
 
 struct PSVSemanticIndexes {
   uint32_t Offset;
+  PSVSemanticIndexes() : Offset(0) {}
   PSVSemanticIndexes(uint32_t offset) : Offset(offset) {}
   uint32_t *Get(const PSVSemanticIndexTable &table) const { table.Get(Offset); }
 };
 
 struct PSVSignatureElement0
 {
-  PSVString SemanticName;
-  PSVSemanticIndexes SemanticIndexes;
-  uint8_t RowsMinus1 : 5;
-  uint8_t ColsMinus1 : 2;
-  uint8_t StartRow : 5;
-  uint8_t StartCol : 2;
-  uint8_t Allocated : 1;
+  uint32_t SemanticName;          // Offset into PSVStringTable
+  uint32_t SemanticIndexes;       // Offset into PSVSemanticIndexTable, count == Rows
+  uint8_t Rows;                   // Number of rows this element occupies
+  uint8_t StartRow;               // Starting row of packing location if allocated
+  uint8_t ColsAndStart;           // 0:4 = Cols, 4:6 = StartCol, 6:7 == Allocated
   uint8_t SemanticKind;           // DxilProgramSigSemantic or D3D_NAME
-  uint8_t ComponentType : 4;      // DxilProgramSigCompType
-  uint8_t InterpolationMode : 4;  // DXIL::InterpolationMode or D3D10_SB_INTERPOLATION_MODE
-  uint8_t OutputStream : 2;       // output stream index 0-3
-  uint8_t DynamicIndexMask : 4;   // mask for components of element that are dynamically indexed in shader
+  uint8_t ComponentType;          // DxilProgramSigCompType
+  uint8_t InterpolationMode;      // DXIL::InterpolationMode or D3D10_SB_INTERPOLATION_MODE
+  uint8_t DynamicMaskAndStream;   // 0:4 = DynamicIndexMask, 4:6 = OutputStream (0-3)
+  uint8_t Reserved;
 };
 
 // Provides convenient access to packed PSVSignatureElementN structure
@@ -206,17 +205,18 @@ private:
 public:
   PSVSignatureElement(const PSVStringTable &stringTable, const PSVSemanticIndexTable &semanticIndexTable, const PSVSignatureElement0 *pElement0)
   : m_StringTable(stringTable), m_SemanticIndexTable(semanticIndexTable), m_pElement0(pElement0) {}
-  const char *GetSemanticName() const { return m_pElement0 ? m_pElement0->SemanticName.Get(m_StringTable) : ""; }
-  uint32_t *GetSemanticIndexes() const { return m_pElement0 ? m_pElement0->SemanticIndexes.Get(m_SemanticIndexTable) : nullptr; }
-  uint32_t GetRows() const { return m_pElement0 ? ((uint32_t)m_pElement0->RowsMinus1 + 1) : 0; }
-  uint32_t GetCols() const { return m_pElement0 ? ((uint32_t)m_pElement0->ColsMinus1 + 1) : 0; }
-  bool IsAllocated() const { return m_pElement0 ? (bool)m_pElement0->Allocated : false; }
-  int32_t GetStartRow() const { return m_pElement0 ? m_pElement0->StartRow : 0; }
-  int32_t GetStartCol() const { return m_pElement0 ? m_pElement0->StartCol : 0; }
-  uint32_t GetSemanticKind() const { return m_pElement0 ? (uint32_t)m_pElement0->SemanticKind : 0; }
-  uint32_t GetComponentType() const { return m_pElement0 ? (uint32_t)m_pElement0->ComponentType : 0; }
-  uint32_t GetInterpolationMode() const { return m_pElement0 ? (uint32_t)m_pElement0->InterpolationMode : 0; }
-  uint32_t GetOutputStream() const { return m_pElement0 ? (uint32_t)m_pElement0->OutputStream : 0; }
+  const char *GetSemanticName() const { return !m_pElement0 ? "" : m_StringTable.Get(m_pElement0->SemanticName); }
+  const uint32_t *GetSemanticIndexes() const { return !m_pElement0 ? nullptr: m_SemanticIndexTable.Get(m_pElement0->SemanticIndexes); }
+  uint32_t GetRows() const { return !m_pElement0 ? 0 : ((uint32_t)m_pElement0->Rows); }
+  uint32_t GetCols() const { return !m_pElement0 ? 0 : ((uint32_t)m_pElement0->ColsAndStart & 0xF); }
+  bool IsAllocated() const { return !m_pElement0 ? false : !!(m_pElement0->ColsAndStart & 0x40); }
+  int32_t GetStartRow() const { return !m_pElement0 ? 0 : !IsAllocated() ? -1 : (int32_t)m_pElement0->StartRow; }
+  int32_t GetStartCol() const { return !m_pElement0 ? 0 : !IsAllocated() ? -1 : (int32_t)((m_pElement0->ColsAndStart >> 4) & 0x3); }
+  uint32_t GetSemanticKind() const { return !m_pElement0 ? 0 : (uint32_t)m_pElement0->SemanticKind; }
+  uint32_t GetComponentType() const { return !m_pElement0 ? 0 : (uint32_t)m_pElement0->ComponentType; }
+  uint32_t GetInterpolationMode() const { return !m_pElement0 ? 0 : (uint32_t)m_pElement0->InterpolationMode; }
+  uint32_t GetOutputStream() const { return !m_pElement0 ? 0 : (uint32_t)(m_pElement0->DynamicMaskAndStream >> 4) & 0x3; }
+  uint32_t GetDynamicIndexMask() const { return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF; }
 };
 
 struct PSVInitInfo
@@ -438,6 +438,13 @@ public:
 
   // Initialize a new buffer
   // call with null pBuffer to get required size
+
+  bool InitNew(uint32_t ResourceCount, void *pBuffer, uint32_t *pSize) {
+    PSVInitInfo initInfo(0);
+    initInfo.ResourceCount = ResourceCount;
+    return InitNew(initInfo, pBuffer, pSize);
+  }
+
   bool InitNew(const PSVInitInfo &initInfo, void *pBuffer, uint32_t *pSize) {
     if(!(pSize)) return false;
     if (initInfo.PSVVersion > 1) return false;
@@ -523,15 +530,18 @@ public:
       m_pPSVRuntimeInfo1->SigPCOutputVectors = initInfo.SigPCOutputVectors;
       m_pPSVRuntimeInfo1->SigPCInputVectors = initInfo.SigPCInputVectors;
 
+      // Note: if original size was unaligned, padding has already been zero initialized
       m_StringTable.Size = PSVALIGN4(initInfo.StringTable.Size);
       *(uint32_t*)pCurBits = m_StringTable.Size;
       pCurBits += sizeof(uint32_t);
+      memcpy(pCurBits, initInfo.StringTable.Table, initInfo.StringTable.Size);
       m_StringTable.Table = (const char *)pCurBits;
       pCurBits += m_StringTable.Size;
 
       m_SemanticIndexTable.Entries = initInfo.SemanticIndexTable.Entries;
       *(uint32_t*)pCurBits = m_SemanticIndexTable.Entries;
       pCurBits += sizeof(uint32_t);
+      memcpy(pCurBits, initInfo.SemanticIndexTable.Table, sizeof(uint32_t) * initInfo.SemanticIndexTable.Entries);
       m_SemanticIndexTable.Table = (const uint32_t*)pCurBits;
       pCurBits += sizeof(uint32_t) * m_SemanticIndexTable.Entries;
 
@@ -624,25 +634,28 @@ public:
       return m_pPSVRuntimeInfo1->SigPatchConstantElements;
     return 0;
   }
-  PSVSignatureElement0* GetPSVInputElement0(uint32_t index) {
-    if (index < m_uResourceCount && m_pSigInputElements &&
-      sizeof(PSVSignatureElement0) <= m_uPSVSignatureElementSize) {
+  PSVSignatureElement0* GetInputElement0(uint32_t index) {
+    if (m_pPSVRuntimeInfo1 && m_pSigInputElements &&
+        index < m_pPSVRuntimeInfo1->SigInputElements &&
+        sizeof(PSVSignatureElement0) <= m_uPSVSignatureElementSize) {
       return (PSVSignatureElement0*)((uint8_t*)m_pSigInputElements +
         (index * m_uPSVSignatureElementSize));
     }
     return nullptr;
   }
-  PSVSignatureElement0* GetPSVOutputElement0(uint32_t index) {
-    if (index < m_uResourceCount && m_pSigOutputElements &&
-      sizeof(PSVSignatureElement0) <= m_uPSVSignatureElementSize) {
+  PSVSignatureElement0* GetOutputElement0(uint32_t index) {
+    if (m_pPSVRuntimeInfo1 && m_pSigOutputElements &&
+        index < m_pPSVRuntimeInfo1->SigOutputElements &&
+        sizeof(PSVSignatureElement0) <= m_uPSVSignatureElementSize) {
       return (PSVSignatureElement0*)((uint8_t*)m_pSigOutputElements +
         (index * m_uPSVSignatureElementSize));
     }
     return nullptr;
   }
-  PSVSignatureElement0* GetPSVPatchConstantElement0(uint32_t index) {
-    if (index < m_uResourceCount && m_pSigPatchConstantElements &&
-      sizeof(PSVSignatureElement0) <= m_uPSVSignatureElementSize) {
+  PSVSignatureElement0* GetPatchConstantElement0(uint32_t index) {
+    if (m_pPSVRuntimeInfo1 && m_pSigPatchConstantElements &&
+        index < m_pPSVRuntimeInfo1->SigPatchConstantElements &&
+        sizeof(PSVSignatureElement0) <= m_uPSVSignatureElementSize) {
       return (PSVSignatureElement0*)((uint8_t*)m_pSigPatchConstantElements +
         (index * m_uPSVSignatureElementSize));
     }
