@@ -138,7 +138,7 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
   string ShaderModelName = pShaderTypeMD->getString();
   ShaderModelName += "_" + std::to_string(Major) + "_" + std::to_string(Minor);
   pSM = ShaderModel::GetByName(ShaderModelName.c_str());
-  if (!pSM->IsValid()) {
+  if (!pSM->IsValidForDxil()) {
     char ErrorMsgTxt[40];
     StringCchPrintfA(ErrorMsgTxt, _countof(ErrorMsgTxt),
                      "Unknown shader model '%s'", ShaderModelName.c_str());

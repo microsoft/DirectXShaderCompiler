@@ -16,6 +16,7 @@
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
 #include "dxcetw.h"
+#include "dxillib.h"
 #include <memory>
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -76,7 +77,11 @@ DxcCreateInstance(_In_ REFCLSID   rclsid,
     hr = CreateDxcLibrary(riid, ppv);
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcValidator)) {
-    hr = CreateDxcValidator(riid, ppv);
+    if (DxilLibIsEnabled()) {
+      hr = DxilLibCreateInstance(rclsid, riid, (IUnknown**)ppv);
+    } else {
+      hr = CreateDxcValidator(riid, ppv);
+    }
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcAssembler)) {
     hr = CreateDxcAssembler(riid, ppv);

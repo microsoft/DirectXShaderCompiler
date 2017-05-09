@@ -166,7 +166,8 @@ enum class DxilProgramSigSemantic : uint32_t {
   DepthGE = 67,
   DepthLE = 68,
   StencilRef = 69,
-  InnerCoverage = 70
+  InnerCoverage = 70,
+  Barycentrics = 71
 };
 
 enum class DxilProgramSigCompType : uint32_t {
@@ -316,9 +317,10 @@ inline bool IsValidDxilBitcodeHeader(const DxilBitcodeHeader *pHeader,
 }
 
 inline void InitBitcodeHeader(DxilBitcodeHeader &header,
+  uint32_t dxilVersion,
   uint32_t bitcodeSize) {
   header.DxilMagic = DxilMagicValue;
-  header.DxilVersion = DXIL::GetCurrentDxilVersion();
+  header.DxilVersion = dxilVersion;
   header.BitcodeOffset = sizeof(DxilBitcodeHeader);
   header.BitcodeSize = bitcodeSize;
 }
@@ -340,13 +342,14 @@ inline bool IsValidDxilProgramHeader(const DxilProgramHeader *pHeader,
       length - offsetof(DxilProgramHeader, BitcodeHeader));
 }
 
-inline void InitProgramHeader(DxilProgramHeader &header, uint32_t version,
+inline void InitProgramHeader(DxilProgramHeader &header, uint32_t shaderVersion,
+                              uint32_t dxilVersion,
                               uint32_t bitcodeSize) {
-  header.ProgramVersion = version;
+  header.ProgramVersion = shaderVersion;
   header.SizeInUint32 =
     sizeof(DxilProgramHeader) / sizeof(uint32_t) +
     bitcodeSize / sizeof(uint32_t) + ((bitcodeSize % 4) ? 1 : 0);
-  InitBitcodeHeader(header.BitcodeHeader, bitcodeSize);
+  InitBitcodeHeader(header.BitcodeHeader, dxilVersion, bitcodeSize);
 }
 
 inline const char *GetDxilBitcodeData(const DxilProgramHeader *pHeader) {

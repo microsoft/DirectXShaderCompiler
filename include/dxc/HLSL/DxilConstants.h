@@ -27,7 +27,7 @@ import hctdb_instrhelp
 namespace DXIL {
   // DXIL version.
   const unsigned kDxilMajor = 1;
-  const unsigned kDxilMinor = 0;
+  const unsigned kDxilMinor = 1;
 
   inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
     return 0 | (DxilMajor << 8) | (DxilMinor);
@@ -149,6 +149,7 @@ namespace DXIL {
     TessFactor,
     InsideTessFactor,
     ViewID,
+    Barycentrics,
     Invalid,
   };
   // SemanticKind-ENUM:END
@@ -313,7 +314,7 @@ namespace DXIL {
     GSInstanceID = 100, // GSInstanceID
   
     // Graphics shader
-    ViewID = 142, // returns the view index
+    ViewID = 138, // returns the view index
   
     // Hull shader
     OutputControlPointID = 107, // OutputControlPointID
@@ -328,11 +329,7 @@ namespace DXIL {
     CycleCounterLegacy = 109, // CycleCounterLegacy
   
     // Pixel shader
-    AttributeAtVertex = 141, // returns the values of the attributes at the vertex.
-    Barycentrics = 137, // return weights at a current location.
-    BarycentricsCentroid = 138, // return weights at centroid location.
-    BarycentricsSampleIndex = 139, // return weights at the location of the sample specified by index
-    BarycentricsSnapped = 140, // return weights at the location specified in the pixel's 16x16 sample grid
+    AttributeAtVertex = 137, // returns the values of the attributes at the vertex.
     CalculateLOD = 81, // calculates the level of detail
     Coverage = 91, // returns the coverage mask input in a pixel shader
     DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
@@ -453,7 +450,9 @@ namespace DXIL {
     WaveReadLaneAt = 117, // returns the value from the specified lane
     WaveReadLaneFirst = 118, // returns the value from the first lane
   
-    NumOpCodes = 143 // exclusive last value of enumeration
+    NumOpCodes_Dxil_1_0 = 137,
+  
+    NumOpCodes = 139 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -529,10 +528,6 @@ namespace DXIL {
   
     // Pixel shader
     AttributeAtVertex,
-    Barycentrics,
-    BarycentricsCentroid,
-    BarycentricsSampleIndex,
-    BarycentricsSnapped,
     CalculateLOD,
     Coverage,
     Discard,
@@ -612,7 +607,9 @@ namespace DXIL {
     WaveReadLaneAt,
     WaveReadLaneFirst,
   
-    NumOpClasses = 99 // exclusive last value of enumeration
+    NumOpClasses_Dxil_1_0 = 93,
+  
+    NumOpClasses = 95 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

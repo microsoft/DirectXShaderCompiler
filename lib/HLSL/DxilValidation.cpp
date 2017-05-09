@@ -105,6 +105,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch";
     case hlsl::ValidationRule::MetaControlFlowHintNotOnControlFlow: return "Control flow hint only works on control flow inst";
     case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
+    case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "SV_Barycentrics cannot be used with 'nointerpolation' type";
+    case hlsl::ValidationRule::MetaBarycentricsFloat3: return "only 'float3' type is allowed for SV_Barycentrics.";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
     case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
@@ -170,6 +172,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrFailToResloveTGSMPointer: return "TGSM pointers must originate from an unambiguous TGSM global variable.";
     case hlsl::ValidationRule::InstrExtractValue: return "ExtractValue should only be used on dxil struct types and cmpxchg";
     case hlsl::ValidationRule::InstrTGSMRaceCond: return "Race condition writing to shared memory detected, consider making this write conditional";
+    case hlsl::ValidationRule::InstrAttributeAtVertexNoInterpolation: return "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.";
     case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed";
     case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
@@ -227,6 +230,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1";
     case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1";
     case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only used in '%1'";
+    case hlsl::ValidationRule::SmViewIDNeedsSlot: return "Pixel shader input signature lacks available space for ViewID";
     case hlsl::ValidationRule::UniNoWaveSensitiveGradient: return "Gradient operations are not affected by wave-sensitive data or control flow.";
     case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
     case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
@@ -348,6 +352,7 @@ struct ValidationContext {
   std::unordered_set<Function *> patchConstFuncCallSet;
   std::unordered_map<unsigned, bool> UavCounterIncMap;
   bool hasOutputPosition[DXIL::kNumOutputStreams];
+  bool hasViewID;
   unsigned OutputPositionMask[DXIL::kNumOutputStreams];
   std::vector<unsigned> outputCols;
   std::vector<unsigned> patchConstCols;
@@ -369,7 +374,8 @@ struct ValidationContext {
             DxilMDHelper::kDxilPreciseAttributeMDName)),
         kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
         DiagPrinter(DiagPrn), LastRuleEmit((ValidationRule)-1),
-        m_bCoverageIn(false), m_bInnerCoverageIn(false) {
+        m_bCoverageIn(false), m_bInnerCoverageIn(false),
+        hasViewID(false) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
     for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
       hasOutputPosition[i] = false;
@@ -583,13 +589,12 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // EvalCentroid=89, SampleIndex=90, Coverage=91, InnerCoverage=92
   if (60 <= op && op <= 61 || op == 64 || 76 <= op && op <= 77 || 81 <= op && op <= 92)
     return (pSM->IsPS());
-  // Instructions: Barycentrics=137, BarycentricsCentroid=138,
-  // BarycentricsSampleIndex=139, BarycentricsSnapped=140, AttributeAtVertex=141
-  if (137 <= op && op <= 141)
+  // Instructions: AttributeAtVertex=137
+  if (op == 137)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
         && (pSM->IsPS());
-  // Instructions: ViewID=142
-  if (op == 142)
+  // Instructions: ViewID=138
+  if (op == 138)
     return (pSM->GetMajor() > 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() >= 1))
         && (pSM->IsVS() || pSM->IsHS() || pSM->IsDS() || pSM->IsGS() || pSM->IsPS());
   return true;
@@ -1289,6 +1294,20 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       }
     }
   } break;
+  case DXIL::OpCode::AttributeAtVertex: {
+    Value *Attribute = CI->getArgOperand(DXIL::OperandIndex::kBinarySrc0OpIdx);
+    DxilSignature &inputSig = ValCtx.DxilMod.GetInputSignature();
+    Value *row = CI->getArgOperand(DXIL::OperandIndex::kLoadInputRowOpIdx);
+    Value *col = CI->getArgOperand(DXIL::OperandIndex::kLoadInputColOpIdx);
+    DxilSignatureElement *pSE =
+        ValidateSignatureAccess(CI, inputSig, Attribute, row, col, ValCtx);
+    if (pSE && pSE->GetInterpolationMode()->GetKind() !=
+                   hlsl::InterpolationMode::Kind::Constant) {
+      ValCtx.EmitInstrFormatError(
+          CI, ValidationRule::InstrAttributeAtVertexNoInterpolation,
+          {pSE->GetName()});
+    }
+  } break;
   case DXIL::OpCode::GetDimensions: {
     DxilInst_GetDimensions getDim(CI);
     Value *handle = getDim.get_handle();
@@ -1844,6 +1863,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     break;
   case DXIL::OpCode::InnerCoverage:
     ValCtx.m_bInnerCoverageIn = true;
+    break;
+  case DXIL::OpCode::ViewID:
+    ValCtx.hasViewID = true;
     break;
   default:
     // Skip opcodes don't need special check.
@@ -2783,8 +2805,7 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
   }
 
   const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
-  if (!SM->IsValid() || SM->GetMajor() != 6 || 
-    (SM->GetMinor() != 0 && SM->GetMinor() != 1)) {
+  if (!SM->IsValidForDxil()) {
     ValCtx.EmitFormatError(ValidationRule::SmName,
                            {ValCtx.DxilMod.GetShaderModel()->GetName()});
   }
@@ -3254,6 +3275,22 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticKind::Invalid:
     DXASSERT(!bAllowedInSig, "else internal inconsistency between semantic interpretation table and validation code");
     break;
+  case DXIL::SemanticKind::Barycentrics:
+    if (compKind != DXIL::ComponentType::F32) {
+      ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType, {SE.GetSemantic()->GetName(), "float"});
+    }
+    if (Mode != InterpolationMode::Kind::Linear &&
+        Mode != InterpolationMode::Kind::LinearCentroid &&
+        Mode != InterpolationMode::Kind::LinearNoperspective &&
+        Mode != InterpolationMode::Kind::LinearNoperspectiveCentroid &&
+        Mode != InterpolationMode::Kind::LinearNoperspectiveSample &&
+        Mode != InterpolationMode::Kind::LinearSample) {
+      ValCtx.EmitSignatureError(&SE, ValidationRule::MetaBarycentricsInterpolation);
+    }
+    if (SE.GetCols() != 3) {
+      ValCtx.EmitSignatureError(&SE, ValidationRule::MetaBarycentricsFloat3);
+    }
+    break;
   default:
     ValCtx.EmitSignatureError(&SE, ValidationRule::MetaSemaKindValid);
     break;
@@ -3500,6 +3537,18 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
 
     if (isOutput && semanticKind == DXIL::SemanticKind::Position) {
       ValCtx.hasOutputPosition[E->GetOutputStream()] = true;
+    }
+  }
+
+  if (ValCtx.hasViewID && S.IsInput() && ValCtx.DxilMod.GetShaderModel()->GetKind() == DXIL::ShaderKind::Pixel) {
+    // Ensure sufficient space for ViewID:
+    DxilSignatureElement viewID(DXIL::SigPointKind::PSIn);
+    // Don't use SV_ViewID here because it will be rejected by packing (NotInSig).
+    // Instead, use arbitrary with uint32 type and constant interpolation.
+    viewID.Initialize("ViewID", hlsl::CompType::getU32(), DXIL::InterpolationMode::Constant, 1, 1);
+    allocator[0].PackNext(&viewID, 0, 32);
+    if (!viewID.IsAllocated()) {
+      ValCtx.EmitError(ValidationRule::SmViewIDNeedsSlot);
     }
   }
 }
@@ -4023,7 +4072,7 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // Bump these versions after 1.0 to account for additional validation rules.
   *pMajor = 1;
-  *pMinor = 0;
+  *pMinor = 1;
 }
 
 _Use_decl_annotations_ HRESULT
@@ -4046,7 +4095,6 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   ValidateGlobalVariables(ValCtx);
 
   ValidateResources(ValCtx);
-  ValidateSignatures(ValCtx);
 
   // Validate control flow and collect function call info.
   // If has recursive call, call info collection will not finish.
@@ -4060,6 +4108,8 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   ValidateUninitializedOutput(ValCtx);
 
   ValidateShaderFlags(ValCtx);
+
+  ValidateSignatures(ValCtx);
 
   if (!pDxilModule->GetShaderModel()->IsGS()) {
     unsigned posMask = ValCtx.OutputPositionMask[0];

@@ -82,6 +82,7 @@ OP *HLModule::GetOP() const { return m_pOP.get(); }
 
 void HLModule::SetShaderModel(const ShaderModel *pSM) {
   DXASSERT(m_pSM == nullptr, "shader model must not change for the module");
+  DXASSERT(pSM != nullptr && pSM->IsValidForDxil(), "shader model must be valid");
   m_pSM = pSM;
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
@@ -871,6 +872,15 @@ bool HLModule::IsHLSLObjectType(llvm::Type *Ty) {
       return true;
   }
   return false;
+}
+
+Type *HLModule::GetArrayEltTy(Type *Ty) {
+  if (isa<PointerType>(Ty))
+    Ty = Ty->getPointerElementType();
+  while (isa<ArrayType>(Ty)) {
+    Ty = Ty->getArrayElementType();
+  }
+  return Ty;
 }
 
 unsigned

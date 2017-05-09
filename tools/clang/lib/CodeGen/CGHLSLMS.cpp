@@ -403,9 +403,10 @@ void CGMSHLSLRuntime::CheckParameterAnnotation(
       Semantic::GetByName(semName, sigPoint, SM->GetMajor(), SM->GetMinor());
   if (pSemantic->IsInvalid()) {
     DiagnosticsEngine &Diags = CGM.getDiags();
+    const ShaderModel *shader = m_pHLModule->GetShaderModel();
     unsigned DiagID =
-        Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1");
-    Diags.Report(SLoc, DiagID) << semName << m_pHLModule->GetShaderModel()->GetKindName();
+        Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1 %2.%3");
+    Diags.Report(SLoc, DiagID) << semName << shader->GetKindName() << shader->GetMajor() << shader->GetMinor();
   }
 }
 
@@ -3445,15 +3446,21 @@ static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &dea
 
   for (User *U : BC->users()) {
     if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (SimplifyBitCastLoad(LI, FromTy, ToTy, Ptr))
+      if (SimplifyBitCastLoad(LI, FromTy, ToTy, Ptr)) {
+        LI->dropAllReferences();
         deadInsts.emplace_back(LI);
+      }
     } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      if (SimplifyBitCastStore(SI, FromTy, ToTy, Ptr))
+      if (SimplifyBitCastStore(SI, FromTy, ToTy, Ptr)) {
+        SI->dropAllReferences();
         deadInsts.emplace_back(SI);
+      }
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       if (SimplifyBitCastGEP(GEP, FromTy, ToTy, Ptr))
-        if (Instruction *I = dyn_cast<Instruction>(GEP))
+        if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+          I->dropAllReferences();
           deadInsts.emplace_back(I);
+        }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       // Skip function call.
     } else {
@@ -3673,7 +3680,7 @@ static void SimpleTransformForHLDXIR(Instruction *I,
     DXASSERT(!HLMatrixLower::IsMatrixType(ldInst->getType()),
                       "matrix load should use HL LdStMatrix");
     Value *Ptr = ldInst->getPointerOperand();
-    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Ptr)) {
+    if (ConstantExpr *CE = dyn_cast_or_null<ConstantExpr>(Ptr)) {
       if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(CE)) {
         SimplifyBitCast(BCO, deadInsts);
       }
@@ -5111,13 +5118,29 @@ void CGMSHLSLRuntime::EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val,
           : static_cast<unsigned>(HLMatLoadStoreOpcode::ColMatStore);
 
   if (!isRowMajor) {
-    // All matrix Value should be row major.
-    // ColMatStore need a col major value.
-    // Cast it to row major.
-    Val = EmitHLSLMatrixOperationCallImp(
-        Builder, HLOpcodeGroup::HLCast,
-        static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
-        Val->getType(), {Val}, TheModule);
+    Value *ColVal = nullptr;
+    // If Val is casted from col major. Just use the original col major val.
+    if (CallInst *CI = dyn_cast<CallInst>(Val)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLCast) {
+        HLCastOpcode castOp = static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CI));
+        if (castOp == HLCastOpcode::ColMatrixToRowMatrix) {
+          ColVal = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+        }
+      }
+    }
+    if (ColVal) {
+      Val = ColVal;
+    } else {
+      // All matrix Value should be row major.
+      // ColMatStore need a col major value.
+      // Cast it to row major.
+      Val = EmitHLSLMatrixOperationCallImp(
+          Builder, HLOpcodeGroup::HLCast,
+          static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
+          Val->getType(), {Val}, TheModule);
+    }
   }
 
   EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLMatLoadStore, opcode,

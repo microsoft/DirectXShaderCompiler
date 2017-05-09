@@ -46,6 +46,7 @@ ModulePass *createDxilLoadMetadataPass();
 ModulePass *createDxilPrecisePropagatePass();
 FunctionPass *createDxilLegalizeResourceUsePass();
 ModulePass *createDxilLegalizeStaticResourceUsePass();
+ModulePass *createDxilLegalizeEvalOperationsPass();
 FunctionPass *createDxilLegalizeSampleOffsetPass();
 FunctionPass *createSimplifyInstPass();
 
@@ -58,6 +59,7 @@ void initializeDxilLoadMetadataPass(llvm::PassRegistry&);
 void initializeDxilPrecisePropagatePassPass(llvm::PassRegistry&);
 void initializeDxilLegalizeResourceUsePassPass(llvm::PassRegistry&);
 void initializeDxilLegalizeStaticResourceUsePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeEvalOperationsPass(llvm::PassRegistry&);
 void initializeDxilLegalizeSampleOffsetPassPass(llvm::PassRegistry&);
 void initializeSimplifyInstPass(llvm::PassRegistry&);
 

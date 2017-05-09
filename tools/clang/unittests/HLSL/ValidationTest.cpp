@@ -201,9 +201,14 @@ public:
   //TEST_METHOD(TGSMRaceCond2)
   TEST_METHOD(AddUint64Odd)
 
+  TEST_METHOD(BarycentricFloat4Fail)
+  TEST_METHOD(BarycentricNoInterpolationFail)
   TEST_METHOD(ClipCullMaxComponents)
   TEST_METHOD(ClipCullMaxRows)
   TEST_METHOD(DuplicateSysValue)
+  TEST_METHOD(GetAttributeAtVertexInVSFail)
+  TEST_METHOD(GetAttributeAtVertexIn60Fail)
+  TEST_METHOD(GetAttributeAtVertexInterpFail)
   TEST_METHOD(SemTargetMax)
   TEST_METHOD(SemTargetIndexMatchesRow)
   TEST_METHOD(SemTargetCol0)
@@ -292,17 +297,10 @@ public:
 
   TEST_METHOD(ViewIDInCSFail)
   TEST_METHOD(ViewIDIn60Fail)
+  TEST_METHOD(ViewIDNoSpaceFail)
 
   dxc::DxcDllSupport m_dllSupport;
-  bool m_CompilerPreservesBBNames;
-
-  bool SkipIRSensitiveTest() {
-    if (!m_CompilerPreservesBBNames) {
-      WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirment.");
-      return true;
-    }
-    return false;
-  }
+  VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
@@ -318,8 +316,18 @@ public:
     CComPtr<IDxcValidator> pValidator;
     CComPtr<IDxcOperationResult> pResult;
 
+    UINT32 Flags = DxcValidatorFlags_Default;
+    if (!IsDxilContainerLike(pBlob->GetBufferPointer(), pBlob->GetBufferSize())) {
+      // Validation of raw bitcode as opposed to DxilContainer is not supported through DXIL.dll
+      if (!m_ver.m_InternalValidator) {
+        WEX::Logging::Log::Comment(L"Test skipped due to validation of raw bitcode without container and use of external DXIL.dll validator.");
+        return;
+      }
+      Flags |= DxcValidatorFlags_ModuleOnly;
+    }
+
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-    VERIFY_SUCCEEDED(pValidator->Validate(pBlob, DxcValidatorFlags_Default, &pResult));
+    VERIFY_SUCCEEDED(pValidator->Validate(pBlob, Flags, &pResult));
 
     CheckOperationResultMsgs(pResult, pErrorMsgs, false, bRegex);
   }
@@ -515,15 +523,7 @@ public:
 bool ValidationTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-
-    // This is a very indirect way of testing this. Consider improving support.
-    CComPtr<IDxcValidator> pValidator;
-    CComPtr<IDxcVersionInfo> pVersionInfo;
-    UINT32 VersionFlags = 0;
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-    VERIFY_SUCCEEDED(pValidator.QueryInterface(&pVersionInfo));
-    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+    m_ver.Initialize(m_dllSupport);
   }
   return true;
 }
@@ -647,7 +647,7 @@ TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
 }
 
 TEST_F(ValidationTest, BarrierFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\barrier.hlsl", "cs_6_0",
       {"dx.op.barrier(i32 80, i32 8)",
@@ -696,7 +696,7 @@ TEST_F(ValidationTest, CsThreadSizeFail) {
       });
 }
 TEST_F(ValidationTest, DeadLoopFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\loop1.hlsl", "ps_6_0",
       {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
@@ -792,7 +792,7 @@ TEST_F(ValidationTest, MultiStream2Fail) {
       "Multiple GS output streams are used but 'XXX' is not pointlist");
 }
 TEST_F(ValidationTest, PhiTGSMFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\phiTGSM.hlsl", "cs_6_0",
       "ret void",
@@ -802,7 +802,7 @@ TEST_F(ValidationTest, PhiTGSMFail) {
       "TGSM pointers must originate from an unambiguous TGSM global variable");
 }
 TEST_F(ValidationTest, ReducibleFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\reducible.hlsl", "ps_6_0",
       {"%conv\n"
@@ -948,7 +948,7 @@ TEST_F(ValidationTest, SimpleGs1Fail) {
        "Stream index (5) must between 0 and 3"});
 }
 TEST_F(ValidationTest, UavBarrierFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\uavBarrier.hlsl", "ps_6_0",
       {"dx.op.barrier(i32 80, i32 2)",
@@ -970,7 +970,7 @@ TEST_F(ValidationTest, UndefValueFail) {
   TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\UpdateCounter2.hlsl", "ps_6_0",
       {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
@@ -2892,6 +2892,7 @@ TEST_F(ValidationTest, WhenFeatureInfoMismatchThenFail) {
 }
 
 TEST_F(ValidationTest, ViewIDInCSFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(" \
 RWStructuredBuffer<uint> Buf; \
 [numthreads(1,1,1)] \
@@ -2901,13 +2902,14 @@ void main(uint id : SV_GroupIndex) \
     "cs_6_1",
     {"dx.op.flattenedThreadIdInGroup.i32(i32 96",
      "declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32)"},
-    {"dx.op.viewID.i32(i32 142",
+    {"dx.op.viewID.i32(i32 138",
      "declare i32 @dx.op.viewID.i32(i32)"},
     "Opcode ViewID not valid in shader model cs_6_1",
     /*bRegex*/false);
 }
 
 TEST_F(ValidationTest, ViewIDIn60Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(" \
 [domain(\"tri\")] \
 float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
@@ -2916,12 +2918,83 @@ float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
     "ds_6_0",
     {"dx.op.primitiveID.i32(i32 108",
      "declare i32 @dx.op.primitiveID.i32(i32)"},
-    {"dx.op.viewID.i32(i32 142",
+    {"dx.op.viewID.i32(i32 138",
      "declare i32 @dx.op.viewID.i32(i32)"},
     "Opcode ViewID not valid in shader model ds_6_0",
     /*bRegex*/false);
 }
 
+TEST_F(ValidationTest, ViewIDNoSpaceFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(" \
+float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
+{ return float4(In[vid], 1); } \
+    ",
+    "ps_6_1",
+    {"!{i32 0, !\"INPUT\", i8 9, i8 0, !([0-9]+), i8 2, i32 31",
+     "!{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30}"},
+    {"!{i32 0, !\"INPUT\", i8 9, i8 0, !\\1, i8 2, i32 32",
+     "!{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31}"},
+    "Pixel shader input signature lacks available space for ViewID",
+    /*bRegex*/true);
+}
 
+TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
+    "vs_6_1",
+    { "call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)",
+    "declare float @dx.op.loadInput.f32(i32, i32, i32, i8, i32)" },
+    { "call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 0, i8 0)",
+    "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
+    "Opcode AttributeAtVertex not valid in shader model vs_6_1",
+    /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+    "float4 main(float4 col : COLOR) : "
+    "SV_Target { return EvaluateAttributeCentroid(col).x; }",
+    "ps_6_0",
+    { "call float @dx.op.evalCentroid.f32(i32 89, i32 0, i32 0, i8 0)",
+    "declare float @dx.op.evalCentroid.f32(i32, i32, i32, i8)"
+    },
+    { "call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 0, i8 0)",
+    "declare float @dx.op.attributeAtVertex.f32(i32, i32, i32, i8, i8)" },
+    "Opcode AttributeAtVertex not valid in shader model ps_6_0", /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg("float4 main(nointerpolation float4 col : COLOR) : "
+                          "SV_Target { return GetAttributeAtVertex(col, 0); }",
+                          "ps_6_1", {"!\"COLOR\", i8 9, i8 0, (![0-9]+), i8 1"},
+                          {"!\"COLOR\", i8 9, i8 0, \\1, i8 2"},
+                          "Attribute COLOR must have nointerpolation mode in "
+                          "order to use GetAttributeAtVertex function.",
+                          /*bRegex*/ true);
+}
+
+TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+      "float4 main(float3 bary : SV_Barycentrics) : "
+      "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) "
+      "+ bary.z * float4(0,0,1,0); }",
+      "ps_6_1", {"!\"SV_Barycentrics\", i8 9, i8 28, (![0-9]+), i8 2"},
+      {"!\"SV_Barycentrics\", i8 9, i8 28, \\1, i8 1"},
+      "SV_Barycentrics cannot be used with 'nointerpolation' type",
+      /*bRegex*/ true);
+}
+
+TEST_F(ValidationTest, BarycentricFloat4Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+      "float4 main(float4 col : COLOR) : SV_Target { return col; }", "ps_6_1",
+      {"!\"COLOR\", i8 9, i8 0"}, {"!\"SV_Barycentrics\", i8 9, i8 28"},
+      "only 'float3' type is allowed for SV_Barycentrics.", false);
+}
 
 // TODO: reject non-zero padding

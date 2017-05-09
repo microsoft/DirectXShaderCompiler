@@ -140,6 +140,7 @@ ImplicitConversionRank clang::GetConversionRank(ImplicitConversionKind Kind) {
     ICR_Conversion,
     ICR_Conversion,
     ICR_Conversion,
+    ICR_Conversion,
     // HLSL Change Ends
   };
   static_assert(_countof(Rank) == ICK_Num_Conversion_Kinds,
@@ -184,6 +185,7 @@ static const char* GetImplicitConversionName(ImplicitConversionKind Kind) {
     "Flat assignment conversion",
     "HLSLVector/Matrix splat",
     "HLSLVector/Matrix truncation",
+    "HLSL derived to base",
     // HLSL Change Ends
   };
   static_assert(_countof(Name) == ICK_Num_Conversion_Kinds,

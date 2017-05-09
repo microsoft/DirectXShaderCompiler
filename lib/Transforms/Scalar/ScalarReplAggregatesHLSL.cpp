@@ -1071,7 +1071,6 @@ bool SROA_HLSL::runOnFunction(Function &F) {
   splitter.Split(F);
 
   Changed |= markPrecise(F);
-  Changed |= performPromotion(F);
 
   return Changed;
 }
@@ -2572,21 +2571,12 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
   }
 }
 
-static Type *GetArrayEltTy(Type *Ty) {
-  if (isa<PointerType>(Ty))
-    Ty = Ty->getPointerElementType();
-  while (isa<ArrayType>(Ty)) {
-    Ty = Ty->getArrayElementType();
-  }
-  return Ty;
-}
-
 /// isVectorOrStructArray - Check if T is array of vector or struct.
 static bool isVectorOrStructArray(Type *T) {
   if (!T->isArrayTy())
     return false;
 
-  T = GetArrayEltTy(T);
+  T = HLModule::GetArrayEltTy(T);
 
   return T->isStructTy() || T->isVectorTy();
 }
@@ -4620,8 +4610,8 @@ void SROA_Parameter_HLSL::replaceCastParameter(
       }
     }
 
-    Type *NewEltTy = GetArrayEltTy(NewTy);
-    Type *OldEltTy = GetArrayEltTy(OldTy);
+    Type *NewEltTy = HLModule::GetArrayEltTy(NewTy);
+    Type *OldEltTy = HLModule::GetArrayEltTy(OldTy);
 
     if (NewEltTy == HandlePtrTy) {
       // Save resource attribute.
@@ -4924,7 +4914,7 @@ void SROA_Parameter_HLSL::flattenArgument(
           EltAnnotation.SetSemanticString(semantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
-          Type *EltTy = GetArrayEltTy(Ty);
+          Type *EltTy = HLModule::GetArrayEltTy(Ty);
           DXASSERT(EltTy->isStructTy(), "must be a struct type to has semantic.");
           semanticTypeMap[eltSem] = EltTy->getStructElementType(i);
         }
@@ -5844,36 +5834,180 @@ ModulePass *llvm::createSROA_Parameter_HLSL() {
 }
 
 //===----------------------------------------------------------------------===//
+// Lower one type to another type.
+//===----------------------------------------------------------------------===//
+namespace {
+class LowerTypePass : public ModulePass {
+public:
+  explicit LowerTypePass(char &ID)
+      : ModulePass(ID) {}
+
+  bool runOnModule(Module &M) override;
+private:
+  bool runOnFunction(Function &F, bool HasDbgInfo);
+  AllocaInst *lowerAlloca(AllocaInst *A);
+  GlobalVariable *lowerInternalGlobal(GlobalVariable *GV);
+protected:
+  virtual bool needToLower(Value *V) = 0;
+  virtual void lowerUseWithNewValue(Value *V, Value *NewV) = 0;
+  virtual Type *lowerType(Type *Ty) = 0;
+  virtual Constant *lowerInitVal(Constant *InitVal, Type *NewTy) = 0;
+  virtual StringRef getGlobalPrefix() = 0;
+  virtual void initialize(Module &M) {};
+};
+
+AllocaInst *LowerTypePass::lowerAlloca(AllocaInst *A) {
+  IRBuilder<> Builder(A);
+  Type *NewTy = lowerType(A->getAllocatedType());
+  return Builder.CreateAlloca(NewTy);
+}
+
+GlobalVariable *LowerTypePass::lowerInternalGlobal(GlobalVariable *GV) {
+  Type *NewTy = lowerType(GV->getType()->getPointerElementType());
+  // So set init val to undef.
+  Constant *InitVal = UndefValue::get(NewTy);
+  if (GV->hasInitializer()) {
+    Constant *OldInitVal = GV->getInitializer();
+    if (isa<ConstantAggregateZero>(OldInitVal))
+      InitVal = ConstantAggregateZero::get(NewTy);
+    else if (!isa<UndefValue>(OldInitVal)) {
+      InitVal = lowerInitVal(OldInitVal, NewTy);
+    }
+  }
+
+  bool isConst = GV->isConstant();
+  GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();
+  unsigned AddressSpace = GV->getType()->getAddressSpace();
+  GlobalValue::LinkageTypes linkage = GV->getLinkage();
+
+  Module *M = GV->getParent();
+  GlobalVariable *NewGV = new llvm::GlobalVariable(
+      *M, NewTy, /*IsConstant*/ isConst, linkage,
+      /*InitVal*/ InitVal, GV->getName() + getGlobalPrefix(),
+      /*InsertBefore*/ nullptr, TLMode, AddressSpace);
+  return NewGV;
+}
+
+bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
+  std::vector<AllocaInst *> workList;
+  // Scan the entry basic block, adding allocas to the worklist.
+  BasicBlock &BB = F.getEntryBlock();
+  for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I) {
+    if (!isa<AllocaInst>(I))
+      continue;
+    AllocaInst *A = cast<AllocaInst>(I);
+    if (needToLower(A))
+      workList.emplace_back(A);
+  }
+  LLVMContext &Context = F.getContext();
+  for (AllocaInst *A : workList) {
+    AllocaInst *NewA = lowerAlloca(A);
+    if (HasDbgInfo) {
+      // Add debug info.
+      DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(A);
+      if (DDI) {
+        Value *DDIVar = MetadataAsValue::get(Context, DDI->getRawVariable());
+        Value *DDIExp = MetadataAsValue::get(Context, DDI->getRawExpression());
+        Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
+        IRBuilder<> debugBuilder(DDI);
+        debugBuilder.CreateCall(DDI->getCalledFunction(),
+                                {VMD, DDIVar, DDIExp});
+      }
+    }
+    // Replace users.
+    lowerUseWithNewValue(A, NewA);
+    // Remove alloca.
+    A->eraseFromParent();
+  }
+  return true;
+}
+
+bool LowerTypePass::runOnModule(Module &M) {
+  initialize(M);
+  // Load up debug information, to cross-reference values and the instructions
+  // used to load them.
+  bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+  llvm::DebugInfoFinder Finder;
+  if (HasDbgInfo) {
+    Finder.processModule(M);
+  }
+
+  std::vector<AllocaInst*> multiDimAllocas;
+  for (Function &F : M.functions()) {
+    if (F.isDeclaration())
+      continue;
+    runOnFunction(F, HasDbgInfo);
+  }
+
+  // Work on internal global.
+  std::vector<GlobalVariable *> vecGVs;
+  for (GlobalVariable &GV : M.globals()) {
+    if (HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV)) {
+      if (needToLower(&GV) && !GV.user_empty())
+        vecGVs.emplace_back(&GV);
+    }
+  }
+
+  for (GlobalVariable *GV : vecGVs) {
+    GlobalVariable *NewGV = lowerInternalGlobal(GV);
+    // Add debug info.
+    if (HasDbgInfo) {
+      HLModule::UpdateGlobalVariableDebugInfo(GV, Finder, NewGV);
+    }
+    // Replace users.
+    lowerUseWithNewValue(GV, NewGV);
+    // Remove GV.
+    GV->removeDeadConstantUsers();
+    GV->eraseFromParent();
+  }
+
+  return true;
+}
+
+}
+
+
+//===----------------------------------------------------------------------===//
 // DynamicIndexingVector to Array.
 //===----------------------------------------------------------------------===//
 
 namespace {
-class DynamicIndexingVectorToArray : public ModulePass {
+class DynamicIndexingVectorToArray : public LowerTypePass {
   bool ReplaceAllVectors;
-  bool runOnFunction(Function &F);
-  void runOnInternalGlobal(GlobalVariable *GV, HLModule *HLM);
-  bool m_HasDbgInfo;
 public:
   explicit DynamicIndexingVectorToArray(bool ReplaceAll = false)
-      : ModulePass(ID), ReplaceAllVectors(ReplaceAll) {}
+      : LowerTypePass(ID), ReplaceAllVectors(ReplaceAll) {}
   static char ID; // Pass identification, replacement for typeid
-  bool runOnModule(Module &M) override;
+  void applyOptions(PassOptions O) override;
+  void dumpConfig(raw_ostream &OS) override;
+protected:
+  bool needToLower(Value *V) override;
+  void lowerUseWithNewValue(Value *V, Value *NewV) override;
+  Type *lowerType(Type *Ty) override;
+  Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
+  StringRef getGlobalPrefix() override { return ".v"; }
+
+private:
+  bool HasVectorDynamicIndexing(Value *V);
+  void ReplaceVecGEP(Value *GEP, ArrayRef<Value *> idxList, Value *A,
+                     IRBuilder<> &Builder);
+  void ReplaceVecArrayGEP(Value *GEP, ArrayRef<Value *> idxList, Value *A,
+                          IRBuilder<> &Builder);
+  void ReplaceVectorWithArray(Value *Vec, Value *Array);
+  void ReplaceVectorArrayWithArray(Value *VecArray, Value *Array);
+  void ReplaceStaticIndexingOnVector(Value *V);
 };
+
+void DynamicIndexingVectorToArray::applyOptions(PassOptions O) {
+  GetPassOptionBool(O, "ReplaceAllVectors", &ReplaceAllVectors,
+                    ReplaceAllVectors);
+}
+void DynamicIndexingVectorToArray::dumpConfig(raw_ostream &OS) {
+  ModulePass::dumpConfig(OS);
+  OS << ",ReplaceAllVectors=" << ReplaceAllVectors;
 }
 
-static bool HasVectorDynamicIndexing(Value *V) {
-  for (auto User : V->users()) {
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
-      for (auto Idx = GEP->idx_begin(); Idx != GEP->idx_end(); ++Idx) {
-        if (!isa<ConstantInt>(Idx))
-          return true;
-      }
-    }
-  }
-  return false;
-}
-
-static void ReplaceStaticIndexingOnVector(Value *V) {
+void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
   for (auto U = V->user_begin(), E = V->user_end(); U != E;) {
     Value *User = *(U++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
@@ -5917,52 +6051,82 @@ static void ReplaceStaticIndexingOnVector(Value *V) {
           }
         }
         GEP->eraseFromParent();
+      } else if (GEP->getNumIndices() == 1) {
+        Value *Idx = *GEP->idx_begin();
+        if (ConstantInt *C = dyn_cast<ConstantInt>(Idx)) {
+          if (C->getLimitedValue() == 0) {
+            GEP->replaceAllUsesWith(V);
+            GEP->eraseFromParent();
+          }
+        }
       }
     }
   }
 }
 
-// Replace vector with array.
-static void VectorToArray(Value *V, Value *A) {
-  Type *i32Ty = Type::getInt32Ty(V->getContext());
-  unsigned size = V->getType()->getPointerElementType()->getVectorNumElements();
-  std::vector<CallInst *> callUsers;
-  std::vector<AllocaInst *> callUserTempAllocas;
+bool DynamicIndexingVectorToArray::needToLower(Value *V) {
+  Type *Ty = V->getType()->getPointerElementType();
+  if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
+    if (isa<GlobalVariable>(V) || ReplaceAllVectors) {
+      return true;
+    }
+    // Don't lower local vector which only static indexing.
+    if (HasVectorDynamicIndexing(V)) {
+      return true;
+    } else {
+      // Change vector indexing with ld st.
+      ReplaceStaticIndexingOnVector(V);
+      return false;
+    }
+  } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
+    // Array must be replaced even without dynamic indexing to remove vector
+    // type in dxil.
+    // TODO: optimize static array index in later pass.
+    Type *EltTy = HLModule::GetArrayEltTy(AT);
+    return isa<VectorType>(EltTy);
+  }
+  return false;
+}
 
-  for (auto U = V->user_begin(); U != V->user_end();) {
+void DynamicIndexingVectorToArray::ReplaceVecGEP(Value *GEP, ArrayRef<Value *> idxList,
+                                       Value *A, IRBuilder<> &Builder) {
+  Value *newGEP = Builder.CreateGEP(A, idxList);
+  if (GEP->getType()->getPointerElementType()->isVectorTy()) {
+    ReplaceVectorWithArray(GEP, newGEP);
+  } else {
+    GEP->replaceAllUsesWith(newGEP);
+  }
+}
+
+void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) {
+  unsigned size = Vec->getType()->getPointerElementType()->getVectorNumElements();
+  for (auto U = Vec->user_begin(); U != Vec->user_end();) {
     User *User = (*U++);
+
+    // GlobalVariable user.
     if (isa<ConstantExpr>(User)) {
       if (User->user_empty())
         continue;
       if (GEPOperator *GEP = dyn_cast<GEPOperator>(User)) {
+        IRBuilder<> Builder(Vec->getContext());
         SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
-        IRBuilder<> Builder(i32Ty->getContext());
-        Value *newGEP = Builder.CreateGEP(A, idxList);
-        if (GEP->getType()->getPointerElementType()->isVectorTy()) {
-          VectorToArray(GEP, newGEP);
-        } else {
-          GEP->replaceAllUsesWith(newGEP);
-        }
+        ReplaceVecGEP(GEP, idxList, A, Builder);
         continue;
       }
     }
+    // Instrution user.
     Instruction *UserInst = cast<Instruction>(User);
     IRBuilder<> Builder(UserInst);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
       SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
-      Value *newGEP = Builder.CreateGEP(A, idxList);
-      if (GEP->getType()->getPointerElementType()->isVectorTy()) {
-        VectorToArray(GEP, newGEP);
-      } else {
-        GEP->replaceAllUsesWith(newGEP);
-      }
+      ReplaceVecGEP(cast<GEPOperator>(GEP), idxList, A, Builder);
       GEP->eraseFromParent();
     } else if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
       // If ld whole struct, need to split the load.
       Value *newLd = UndefValue::get(ldInst->getType());
-      Value *zero = ConstantInt::get(i32Ty, 0);
+      Value *zero = Builder.getInt32(0);
       for (unsigned i = 0; i < size; i++) {
-        Value *idx = ConstantInt::get(i32Ty, i);
+        Value *idx = Builder.getInt32(i);
         Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
         Value *Elt = Builder.CreateLoad(GEP);
         newLd = Builder.CreateInsertElement(newLd, Elt, i);
@@ -5971,434 +6135,122 @@ static void VectorToArray(Value *V, Value *A) {
       ldInst->eraseFromParent();
     } else if (StoreInst *stInst = dyn_cast<StoreInst>(User)) {
       Value *val = stInst->getValueOperand();
-      Value *zero = ConstantInt::get(i32Ty, 0);
+      Value *zero = Builder.getInt32(0);
       for (unsigned i = 0; i < size; i++) {
         Value *Elt = Builder.CreateExtractElement(val, i);
-        Value *idx = ConstantInt::get(i32Ty, i);
+        Value *idx = Builder.getInt32(i);
         Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
         Builder.CreateStore(Elt, GEP);
       }
       stInst->eraseFromParent();
-    } else if (CallInst *CI = dyn_cast<CallInst>(User)) {
-      // Create alloca at the beginning of parent function.
-      IRBuilder<> allocaBuilder(CI->getParent()->getParent()->begin()->begin());
-      AllocaInst *AI = allocaBuilder.CreateAlloca(V->getType()->getPointerElementType());
-      callUsers.emplace_back(CI);
-      callUserTempAllocas.emplace_back(AI);
     } else {
+      // Vector parameter should be lowered.
+      // No function call should use vector.
       DXASSERT(0, "not implement yet");
     }
   }
-
-  for (unsigned i = 0; i < callUsers.size(); i++) {
-    CallInst *CI = callUsers[i];
-    AllocaInst *AI = callUserTempAllocas[i];
-    IRBuilder<> Builder(CI);
-    // Copy data to AI before CI.
-    Value *newLd = UndefValue::get(AI->getAllocatedType());
-    Value *zero = ConstantInt::get(i32Ty, 0);
-    for (unsigned i = 0; i < size; i++) {
-      Value *idx = ConstantInt::get(i32Ty, i);
-      Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
-      Value *Elt = Builder.CreateLoad(GEP);
-      newLd = Builder.CreateInsertElement(newLd, Elt, i);
-    }
-    Builder.CreateStore(newLd, AI);
-    CI->replaceUsesOfWith(V, AI);
-    // Copy back data from AI to Array after CI.
-    Builder.SetInsertPoint(CI->getNextNode());
-    Value *result = Builder.CreateLoad(AI);
-    for (unsigned i = 0; i < size; i++) {
-      Value *Elt = Builder.CreateExtractElement(result, i);
-      Value *idx = ConstantInt::get(i32Ty, i);
-      Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
-      Builder.CreateStore(Elt, GEP);
-    }
-  }
 }
 
-static Value *GenerateVectorFromArrayLoad(VectorType *DstTy, Value *A,
-                                          IRBuilder<> &Builder) {
-  Type *i32Ty = Type::getInt32Ty(DstTy->getContext());
-  Value *zero = ConstantInt::get(i32Ty, 0);
-  Value *VecVal = UndefValue::get(DstTy);
-  for (unsigned ai = 0; ai < DstTy->getNumElements(); ai++) {
-    Value *EltGEP =
-        Builder.CreateInBoundsGEP(A, {zero, ConstantInt::get(i32Ty, ai)});
-    Value *arrayElt = Builder.CreateLoad(EltGEP);
-    VecVal = Builder.CreateInsertElement(VecVal, arrayElt, ai);
-  }
-  return VecVal;
-}
-
-static Value *GenerateArrayLoad(Type *DstTy, Value *A, IRBuilder<> &Builder) {
-  ArrayType *AT = cast<ArrayType>(DstTy);
-  Type *EltTy = AT->getElementType();
-  Type *i32Ty = Type::getInt32Ty(EltTy->getContext());
-  Value *zero = ConstantInt::get(i32Ty, 0);
-  if (EltTy->isArrayTy()) {
-    Value *arrayVal = UndefValue::get(AT);
-    for (unsigned ai = 0; ai < AT->getNumElements(); ai++) {
-      Value *EltGEP = Builder.CreateInBoundsGEP(A, {zero, ConstantInt::get(i32Ty, ai)});
-      Value *arrayElt = GenerateArrayLoad(EltTy, EltGEP, Builder);
-      arrayVal = Builder.CreateInsertValue(arrayVal, arrayElt, ai);
-    }
-    return arrayVal;
+void DynamicIndexingVectorToArray::ReplaceVecArrayGEP(Value *GEP,
+                                            ArrayRef<Value *> idxList, Value *A,
+                                            IRBuilder<> &Builder) {
+  Value *newGEP = Builder.CreateGEP(A, idxList);
+  Type *Ty = GEP->getType()->getPointerElementType();
+  if (Ty->isVectorTy()) {
+    ReplaceVectorWithArray(GEP, newGEP);
+  } else if (Ty->isArrayTy()) {
+    ReplaceVectorArrayWithArray(GEP, newGEP);
   } else {
-    // Generate vector here.
-    VectorType *VT = cast<VectorType>(EltTy);
-    Value *arrayVal = UndefValue::get(AT);
-    for (unsigned ai = 0; ai < AT->getNumElements(); ai++) {
-      Value *EltGEP = Builder.CreateInBoundsGEP(A, {zero, ConstantInt::get(i32Ty, ai)});
-      Value *arrayElt = GenerateVectorFromArrayLoad(VT, EltGEP, Builder);
-      arrayVal = Builder.CreateInsertValue(arrayVal, arrayElt, ai);
-    }
-    return arrayVal;
+    DXASSERT(Ty->isSingleValueType(), "must be vector subscript here");
+    GEP->replaceAllUsesWith(newGEP);
   }
 }
 
-static void GenerateArrayStore(Value *VecVal, Value *scalarArrayPtr,
-                               IRBuilder<> &Builder) {
-  Value *zero = Builder.getInt32(0);
-  if (ArrayType *AT = dyn_cast<ArrayType>(VecVal->getType())) {
-    for (unsigned ai = 0; ai < AT->getNumElements(); ai++) {
-      Value *EltGEP = Builder.CreateInBoundsGEP(scalarArrayPtr,
-                                                {zero, Builder.getInt32(ai)});
-      Value *EltVal = Builder.CreateExtractValue(VecVal, ai);
-      GenerateArrayStore(EltVal, EltGEP, Builder);
-    }
-  } else {
-    // Generate vector here.
-    VectorType *VT = cast<VectorType>(VecVal->getType());
-    for (unsigned ai = 0; ai < VT->getNumElements(); ai++) {
-      Value *EltGEP = Builder.CreateInBoundsGEP(scalarArrayPtr,
-                                                {zero, Builder.getInt32(ai)});
-
-      Value *Elt = Builder.CreateExtractElement(VecVal, ai);
-      Builder.CreateStore(Elt, EltGEP);
-    }
-  }
-}
-// Replace vector array with array.
-static void VectorArrayToArray(Value *VA, Value *A) {
-
+void DynamicIndexingVectorToArray::ReplaceVectorArrayWithArray(Value *VA, Value *A) {
   for (auto U = VA->user_begin(); U != VA->user_end();) {
     User *User = *(U++);
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
       IRBuilder<> Builder(GEP);
       SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
-      Value *newGEP = Builder.CreateGEP(A, idxList);
-      Type *Ty = GEP->getType()->getPointerElementType();
-      if (Ty->isVectorTy()) {
-        VectorToArray(GEP, newGEP);
-      } else if (Ty->isArrayTy()) {
-        VectorArrayToArray(GEP, newGEP);
-      } else {
-        assert(Ty->isSingleValueType() && "must be vector subscript here");
-        GEP->replaceAllUsesWith(newGEP);
-      }
+      ReplaceVecArrayGEP(GEP, idxList, A, Builder);
       GEP->eraseFromParent();
     } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(User)) {
       IRBuilder<> Builder(GEPOp->getContext());
       SmallVector<Value *, 4> idxList(GEPOp->idx_begin(), GEPOp->idx_end());
-      Value *newGEP = Builder.CreateGEP(A, idxList);
-      Type *Ty = GEPOp->getType()->getPointerElementType();
-      if (Ty->isVectorTy()) {
-        VectorToArray(GEPOp, newGEP);
-      } else if (Ty->isArrayTy()) {
-        VectorArrayToArray(GEPOp, newGEP);
-      } else {
-        assert(Ty->isSingleValueType() && "must be vector subscript here");
-        GEPOp->replaceAllUsesWith(newGEP);
-      }
-    } else if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
-      IRBuilder<> Builder(ldInst);
-      Value *arrayLd = GenerateArrayLoad(ldInst->getType(), A, Builder);
-      ldInst->replaceAllUsesWith(arrayLd);
-      ldInst->eraseFromParent();
-    } else if (StoreInst *stInst = dyn_cast<StoreInst>(User)) {
-      IRBuilder<> Builder(stInst);
-      GenerateArrayStore(stInst->getValueOperand(), A, Builder);
-      stInst->eraseFromParent();
+      ReplaceVecArrayGEP(GEPOp, idxList, A, Builder);
     } else {
-      assert(0 && "not implement yet");
+      DXASSERT(0, "Array pointer should only used by GEP");
     }
   }
 }
 
-static void flatArrayLoad(LoadInst *LI) {
-  ArrayType *AT = cast<ArrayType>(LI->getType());
-  unsigned size = AT->getArrayNumElements();
-  Value *Ptr = LI->getPointerOperand();
-  std::vector<LoadInst *> elements(size);
-  Value *Result = UndefValue::get(AT);
-  IRBuilder<> Builder(LI);
-  Value *zero = Builder.getInt32(0);
-  for (unsigned i=0;i<size;i++) {
-    Value *EltPtr = Builder.CreateInBoundsGEP(Ptr, {zero, Builder.getInt32(i)});
-    LoadInst *Elt = Builder.CreateLoad(EltPtr);
-    elements[i] = Elt;
-    Result = Builder.CreateInsertValue(Result, Elt, i);
+void DynamicIndexingVectorToArray::lowerUseWithNewValue(Value *V, Value *NewV) {
+  Type *Ty = V->getType()->getPointerElementType();
+  // Replace V with NewV.
+  if (Ty->isVectorTy()) {
+    ReplaceVectorWithArray(V, NewV);
+  } else {
+    ReplaceVectorArrayWithArray(V, NewV);
   }
-
-  Type *EltTy = AT->getElementType();
-  if (isa<ArrayType>(EltTy)) {
-    for (unsigned i = 0; i < size; i++) {
-      LoadInst *Elt = elements[i];
-      flatArrayLoad(Elt);
-    }
-  }
-  LI->replaceAllUsesWith(Result);
-  LI->eraseFromParent();
 }
 
-static void flatArrayStore(StoreInst *SI) {
-  Value *V = SI->getValueOperand();
-  ArrayType *AT = cast<ArrayType>(V->getType());
-  unsigned size = AT->getArrayNumElements();
-  Value *Ptr = SI->getPointerOperand();
-  std::vector<StoreInst *> elements(size);
+Type *DynamicIndexingVectorToArray::lowerType(Type *Ty) {
+  if (VectorType *VT = dyn_cast<VectorType>(Ty)) {
+    return ArrayType::get(VT->getElementType(), VT->getNumElements());
+  } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
+    SmallVector<ArrayType *, 4> nestArrayTys;
+    nestArrayTys.emplace_back(AT);
 
-  IRBuilder<> Builder(SI);
-  Value *zero = Builder.getInt32(0);
-  for (unsigned i=0;i<size;i++) {
-    Value *Elt = Builder.CreateExtractValue(V, i);
-    Value *EltPtr = Builder.CreateInBoundsGEP(Ptr, {zero, Builder.getInt32(i)});
-    StoreInst *EltSt = Builder.CreateStore(Elt, EltPtr);
-    elements[i] = EltSt;
-  }
-
-  Type *EltTy = AT->getElementType();
-  if (isa<ArrayType>(EltTy)) {
-    for (unsigned i = 0; i < size; i++) {
-      StoreInst *Elt = elements[i];
-      flatArrayStore(Elt);
+    Type *EltTy = AT->getElementType();
+    // support multi level of array
+    while (EltTy->isArrayTy()) {
+      ArrayType *ElAT = cast<ArrayType>(EltTy);
+      nestArrayTys.emplace_back(ElAT);
+      EltTy = ElAT->getElementType();
     }
+    if (EltTy->isVectorTy()) {
+      Type *vecAT = ArrayType::get(EltTy->getVectorElementType(),
+                                   EltTy->getVectorNumElements());
+      return CreateNestArrayTy(vecAT, nestArrayTys);
+    }
+    return nullptr;
   }
-  SI->eraseFromParent();
+  return nullptr;
 }
 
-bool DynamicIndexingVectorToArray::runOnFunction(Function &F) {
-  std::vector<AllocaInst *> workList;
-  std::vector<AllocaInst *> arrayLdStWorkList;
-  std::vector<Type *> targetTypeList;
-  // Scan the entry basic block, adding allocas to the worklist.
-  BasicBlock &BB = F.getEntryBlock();
-  for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I) {
-    if (!isa<AllocaInst>(I))
-      continue;
-    AllocaInst *A = cast<AllocaInst>(I);
-    Type *Ty = A->getAllocatedType();
-    if (Ty->isVectorTy()) {
-      if (ReplaceAllVectors || HasVectorDynamicIndexing(A)) {
-        workList.emplace_back(A);
-        Type *vecAT = ArrayType::get(Ty->getVectorElementType(),
-                                     Ty->getVectorNumElements());
-        targetTypeList.emplace_back(vecAT);
-      } else {
-        ReplaceStaticIndexingOnVector(A);
-      }
-    } else if (Ty->isArrayTy()) {
-      SmallVector<ArrayType *, 4> nestArrayTys;
-      ArrayType *AT = cast<ArrayType>(Ty);
-      nestArrayTys.emplace_back(AT);
-
-      Type *EltTy = AT->getElementType();
-      // support multi level of array
-      while (EltTy->isArrayTy()) {
-        ArrayType *ElAT = cast<ArrayType>(EltTy);
-        nestArrayTys.emplace_back(ElAT);
-        EltTy = ElAT->getElementType();
-      }
-      // Array must be replaced even without dynamic indexing to remove vector
-      // type in dxil.
-      // TODO: optimize static array index in later pass.
-      if (EltTy->isVectorTy()) {
-        workList.emplace_back(A);
-        Type *vecAT = ArrayType::get(EltTy->getVectorElementType(),
-                                     EltTy->getVectorNumElements());
-        ArrayType *AT = CreateNestArrayTy(vecAT, nestArrayTys);
-        targetTypeList.emplace_back(AT);
-      } else {
-        for (User *U : A->users()) {
-          if (isa<LoadInst>(U) || isa<StoreInst>(U)) {
-            arrayLdStWorkList.emplace_back(A);
-            break;
-          }
-        }
-      }
-    }
-  }
-  // Flat array load store.
-  for (AllocaInst *A : arrayLdStWorkList) {
-    for (auto It = A->user_begin(); It != A->user_end(); ) {
-      User *U = *(It++);
-      if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-        flatArrayLoad(LI);
-      } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-        flatArrayStore(SI);
-      }
-    }
-  }
-
-  LLVMContext &Context = F.getContext();
-
-  unsigned size = workList.size();
-  for (unsigned i = 0; i < size; i++) {
-    AllocaInst *V = workList[i];
-    Type *Ty = targetTypeList[i];
-    IRBuilder<> Builder(V);
-
-    AllocaInst *A = Builder.CreateAlloca(Ty, nullptr, V->getName());
-
-    if (HLModule::HasPreciseAttributeWithMetadata(V))
-      HLModule::MarkPreciseAttributeWithMetadata(A);
-
-    DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(V);
-    if (DDI) {
-      Value *DDIVar = MetadataAsValue::get(Context, DDI->getRawVariable());
-      Value *DDIExp = MetadataAsValue::get(Context, DDI->getRawExpression());
-      Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(A));
-      IRBuilder<> debugBuilder(DDI);
-      debugBuilder.CreateCall(DDI->getCalledFunction(), {VMD, DDIVar, DDIExp});
-    }
-
-    if (V->getAllocatedType()->isVectorTy())
-      VectorToArray(V, A);
-    else
-      VectorArrayToArray(V, A);
-
-    V->eraseFromParent();
-  }
-
-  return size > 0;
-}
-
-static Constant *VectorConstToArray(Type *VecTy, Constant *C, ArrayType *ArrayTy) {
+Constant *DynamicIndexingVectorToArray::lowerInitVal(Constant *InitVal, Type *NewTy) {
+  Type *VecTy = InitVal->getType();
+  ArrayType *ArrayTy = cast<ArrayType>(NewTy);
   if (VecTy->isVectorTy()) {
     SmallVector<Constant *, 4> Elts;
-    for (unsigned i=0;i<VecTy->getVectorNumElements();i++) {
-      Elts.emplace_back(C->getAggregateElement(i));
+    for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+      Elts.emplace_back(InitVal->getAggregateElement(i));
     }
     return ConstantArray::get(ArrayTy, Elts);
   } else {
     ArrayType *AT = cast<ArrayType>(VecTy);
-    Type *EltTy = AT->getElementType();
     ArrayType *EltArrayTy = cast<ArrayType>(ArrayTy->getElementType());
     SmallVector<Constant *, 4> Elts;
-    for (unsigned i=0;i<AT->getNumElements();i++) {
-      Constant *Elt = VectorConstToArray(EltTy, C->getAggregateElement(i), EltArrayTy);
+    for (unsigned i = 0; i < AT->getNumElements(); i++) {
+      Constant *Elt = lowerInitVal(InitVal->getAggregateElement(i), EltArrayTy);
       Elts.emplace_back(Elt);
     }
     return ConstantArray::get(ArrayTy, Elts);
   }
 }
 
-void DynamicIndexingVectorToArray::runOnInternalGlobal(GlobalVariable *GV,
-                                                       HLModule *HLM) {
-  Type *Ty = GV->getType()->getPointerElementType();
-  // Convert vector type to array type.
-  if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
-    SmallVector<unsigned, 4> arraySizeList;
-    while (Ty->isArrayTy()) {
-      arraySizeList.push_back(Ty->getArrayNumElements());
-      Ty = Ty->getArrayElementType();
-    }
-
-    DXASSERT_NOMSG(Ty->isVectorTy());
-    Ty = ArrayType::get(Ty->getVectorElementType(), Ty->getVectorNumElements());
-
-    for (auto arraySize = arraySizeList.rbegin();
-         arraySize != arraySizeList.rend(); arraySize++)
-      Ty = ArrayType::get(Ty, *arraySize);
-  } else {
-    DXASSERT_NOMSG(Ty->isVectorTy());
-    Ty = ArrayType::get(Ty->getVectorElementType(), Ty->getVectorNumElements());
-  }
-
-  ArrayType *AT = cast<ArrayType>(Ty);
-  // So set init val to undef.
-  Constant *InitVal = UndefValue::get(AT);
-  if (GV->hasInitializer()) {
-    Constant *vecInitVal = GV->getInitializer();
-    if (isa<ConstantAggregateZero>(vecInitVal))
-      InitVal = ConstantAggregateZero::get(AT);
-    else if (!isa<UndefValue>(vecInitVal)) {
-      // build arrayInitVal.
-      InitVal = VectorConstToArray(vecInitVal->getType(), vecInitVal, AT);
+bool DynamicIndexingVectorToArray::HasVectorDynamicIndexing(Value *V) {
+  for (auto User : V->users()) {
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
+      for (auto Idx = GEP->idx_begin(); Idx != GEP->idx_end(); ++Idx) {
+        if (!isa<ConstantInt>(Idx))
+          return true;
+      }
     }
   }
-
-  bool isConst = GV->isConstant();
-  GlobalVariable::ThreadLocalMode TLMode = GV->getThreadLocalMode();
-  unsigned AddressSpace = GV->getType()->getAddressSpace();
-  GlobalValue::LinkageTypes linkage = GV->getLinkage();
-
-  Module *M = GV->getParent();
-  GlobalVariable *ArrayGV =
-      new llvm::GlobalVariable(*M, AT, /*IsConstant*/ isConst, linkage,
-                               /*InitVal*/ InitVal, GV->getName() + ".v",
-                               /*InsertBefore*/ nullptr, TLMode, AddressSpace);
-  // Add debug info.
-  if (m_HasDbgInfo) {
-    DebugInfoFinder &Finder = HLM->GetOrCreateDebugInfoFinder();
-    HLModule::UpdateGlobalVariableDebugInfo(GV, Finder, ArrayGV);
-  }
-
-  // Replace GV with ArrayGV.
-  if (GV->getType()->getPointerElementType()->isVectorTy()) {
-    VectorToArray(GV, ArrayGV);
-  } else {
-    VectorArrayToArray(GV, ArrayGV);
-  }
-  GV->removeDeadConstantUsers();
-  GV->eraseFromParent();
+  return false;
 }
 
-bool DynamicIndexingVectorToArray::runOnModule(Module &M) {
-  if (!M.HasHLModule())
-    return false;
-  HLModule *HLM = &M.GetHLModule();
-
-  // Load up debug information, to cross-reference values and the instructions
-  // used to load them.
-  m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-
-  for (Function &F : M.functions()) {
-    if (F.isDeclaration())
-      continue;
-    runOnFunction(F);
-  }
-
-  // Work on internal global.
-  std::vector<GlobalVariable *> vecGVs;
-  for (GlobalVariable &GV : M.globals()) {
-    if (HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV)) {
-      Type *Ty = GV.getType()->getPointerElementType();
-      if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
-        while (isa<ArrayType>(Ty)) {
-          Ty = Ty->getArrayElementType();
-        }
-      }
-      bool isVecTy = isa<VectorType>(Ty);
-
-      if (isVecTy && !GV.user_empty())
-        vecGVs.emplace_back(&GV);
-    }
-  }
-
-  for (GlobalVariable *GV : vecGVs) {
-    runOnInternalGlobal(GV, HLM);
-  }
-
-  // Merge GEP for all interal globals.
-  for (GlobalVariable &GV : M.globals()) {
-    if (HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV)) {
-      // Merge all GEP.
-      HLModule::MergeGepUse(&GV);
-    }
-  }
-  return true;
 }
 
 char DynamicIndexingVectorToArray::ID = 0;
@@ -6407,7 +6259,7 @@ INITIALIZE_PASS(DynamicIndexingVectorToArray, "dynamic-vector-to-array",
   "Replace dynamic indexing vector with array", false,
   false)
 
-// Public interface to the SROA_Parameter_HLSL pass
+// Public interface to the DynamicIndexingVectorToArray pass
 ModulePass *llvm::createDynamicIndexingVectorToArrayPass(bool ReplaceAllVector) {
   return new DynamicIndexingVectorToArray(ReplaceAllVector);
 }
@@ -6417,32 +6269,63 @@ ModulePass *llvm::createDynamicIndexingVectorToArrayPass(bool ReplaceAllVector) 
 //===----------------------------------------------------------------------===//
 
 namespace {
-class MultiDimArrayToOneDimArray : public ModulePass {
+
+class MultiDimArrayToOneDimArray : public LowerTypePass {
 public:
+  explicit MultiDimArrayToOneDimArray() : LowerTypePass(ID) {}
   static char ID; // Pass identification, replacement for typeid
-  explicit MultiDimArrayToOneDimArray() : ModulePass(ID) {}
-  const char *getPassName() const override { return "Flatten multi-dim array into one-dim array"; }
-
-  bool runOnModule(Module & M) override;
-private:
-  void flattenMultiDimArray(Value *MultiDim, Value *OneDim);
-  void flattenAlloca(AllocaInst *AI);
-  void flattenGlobal(GlobalVariable *GV, DxilModule *DM);
-
-  bool m_HasDbgInfo;
-  Instruction *m_GlobalInsertPoint;
+protected:
+  bool needToLower(Value *V) override;
+  void lowerUseWithNewValue(Value *V, Value *NewV) override;
+  Type *lowerType(Type *Ty) override;
+  Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
+  StringRef getGlobalPrefix() override { return ".1dim"; }
 };
 
-bool IsMultiDimArrayType(Type *Ty) {
+bool MultiDimArrayToOneDimArray::needToLower(Value *V) {
+  Type *Ty = V->getType()->getPointerElementType();
   ArrayType *AT = dyn_cast<ArrayType>(Ty);
-  if (AT)
-    return isa<ArrayType>(AT->getElementType());
-  return false;
+  if (!AT)
+    return false;
+  if (!isa<ArrayType>(AT->getElementType())) {
+    return false;
+  } else {
+    // Merge all GEP.
+    HLModule::MergeGepUse(V);
+    return true;
+  }
 }
 
+void ReplaceMultiDimGEP(User *GEP, Value *OneDim, IRBuilder<> &Builder) {
+  gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
+
+  Value *PtrOffset = GEPIt.getOperand();
+  ++GEPIt;
+  Value *ArrayIdx = GEPIt.getOperand();
+  ++GEPIt;
+  Value *VecIdx = nullptr;
+  for (; GEPIt != E; ++GEPIt) {
+    if (GEPIt->isArrayTy()) {
+      unsigned arraySize = GEPIt->getArrayNumElements();
+      Value *V = GEPIt.getOperand();
+      ArrayIdx = Builder.CreateMul(ArrayIdx, Builder.getInt32(arraySize));
+      ArrayIdx = Builder.CreateAdd(V, ArrayIdx);
+    } else {
+      DXASSERT_NOMSG(isa<VectorType>(*GEPIt));
+      VecIdx = GEPIt.getOperand();
+    }
+  }
+  Value *NewGEP = nullptr;
+  if (!VecIdx)
+    NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx});
+  else
+    NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx, VecIdx});
+
+  GEP->replaceAllUsesWith(NewGEP);
 }
 
-void MultiDimArrayToOneDimArray::flattenMultiDimArray(Value *MultiDim, Value *OneDim) {
+void MultiDimArrayToOneDimArray::lowerUseWithNewValue(Value *MultiDim, Value *OneDim) {
+  LLVMContext &Context = MultiDim->getContext();
   // All users should be element type.
   // Replace users of AI.
   for (auto it = MultiDim->user_begin(); it != MultiDim->user_end();) {
@@ -6452,47 +6335,22 @@ void MultiDimArrayToOneDimArray::flattenMultiDimArray(Value *MultiDim, Value *On
     // Must be GEP.
     GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U);
 
-    Instruction *InsertPoint = GEP;
-    if (!InsertPoint) {
+    if (!GEP) {
       DXASSERT_NOMSG(isa<GEPOperator>(U));
       // NewGEP must be GEPOperator too.
       // No instruction will be build.
-      InsertPoint = m_GlobalInsertPoint;
+      IRBuilder<> Builder(Context);
+      ReplaceMultiDimGEP(U, OneDim, Builder);
+    } else {
+      IRBuilder<> Builder(GEP);
+      ReplaceMultiDimGEP(U, OneDim, Builder);
     }
-    IRBuilder<> Builder(InsertPoint);
-    gep_type_iterator GEPIt = gep_type_begin(U), E = gep_type_end(U);
-
-    Value *PtrOffset = GEPIt.getOperand();
-    ++GEPIt;
-    Value *ArrayIdx = GEPIt.getOperand();
-    ++GEPIt;
-    Value *VecIdx = nullptr;
-    for (; GEPIt != E; ++GEPIt) {
-      if (GEPIt->isArrayTy()) {
-        unsigned arraySize = GEPIt->getArrayNumElements();
-        Value *V = GEPIt.getOperand();
-        ArrayIdx = Builder.CreateMul(ArrayIdx, Builder.getInt32(arraySize));
-        ArrayIdx = Builder.CreateAdd(V, ArrayIdx);
-      } else {
-        DXASSERT_NOMSG(isa<VectorType>(*GEPIt));
-        VecIdx = GEPIt.getOperand();
-      }
-    }
-    Value *NewGEP = nullptr;
-    if (!VecIdx)
-      NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx});
-    else
-      NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx, VecIdx});
-
-    U->replaceAllUsesWith(NewGEP);
     if (GEP)
       GEP->eraseFromParent();
   }
 }
 
-void MultiDimArrayToOneDimArray::flattenAlloca(AllocaInst *AI) {
-  Type *Ty = AI->getAllocatedType();
-
+Type *MultiDimArrayToOneDimArray::lowerType(Type *Ty) {
   ArrayType *AT = cast<ArrayType>(Ty);
   unsigned arraySize = AT->getNumElements();
 
@@ -6504,18 +6362,10 @@ void MultiDimArrayToOneDimArray::flattenAlloca(AllocaInst *AI) {
     EltTy = ElAT->getElementType();
   }
 
-  AT = ArrayType::get(EltTy, arraySize);
-  IRBuilder<> Builder(AI);
-  Value *NewAI = Builder.CreateAlloca(AT);
-  // Merge all GEP of AI.
-  HLModule::MergeGepUse(AI);
-
-  flattenMultiDimArray(AI, NewAI);
-  AI->eraseFromParent();
+  return ArrayType::get(EltTy, arraySize);
 }
 
-static void FlattenMultiDimConstArray(Constant *V,
-                                      std::vector<Constant *> &Elts) {
+void FlattenMultiDimConstArray(Constant *V, std::vector<Constant *> &Elts) {
   if (!V->getType()->isArrayTy()) {
     Elts.emplace_back(V);
   } else {
@@ -6526,130 +6376,24 @@ static void FlattenMultiDimConstArray(Constant *V,
   }
 }
 
-void MultiDimArrayToOneDimArray::flattenGlobal(GlobalVariable *GV, DxilModule *DM) {
-  Type *Ty = GV->getType()->getElementType();
-
-  ArrayType *AT = cast<ArrayType>(Ty);
-  unsigned arraySize = AT->getNumElements();
-
-  Type *EltTy = AT->getElementType();
-  // support multi level of array
-  while (EltTy->isArrayTy()) {
-    ArrayType *ElAT = cast<ArrayType>(EltTy);
-    arraySize *= ElAT->getNumElements();
-    EltTy = ElAT->getElementType();
-  }
-
-  AT = ArrayType::get(EltTy, arraySize);
-  Constant *InitVal = GV->getInitializer();
+Constant *MultiDimArrayToOneDimArray::lowerInitVal(Constant *InitVal, Type *NewTy) {
   if (InitVal) {
     // MultiDim array init should be done by store.
     if (isa<ConstantAggregateZero>(InitVal))
-      InitVal = ConstantAggregateZero::get(AT);
+      InitVal = ConstantAggregateZero::get(NewTy);
     else if (isa<UndefValue>(InitVal))
-      InitVal = UndefValue::get(AT);
+      InitVal = UndefValue::get(NewTy);
     else {
       std::vector<Constant *> Elts;
       FlattenMultiDimConstArray(InitVal, Elts);
-      InitVal = ConstantArray::get(AT, Elts);
+      InitVal = ConstantArray::get(cast<ArrayType>(NewTy), Elts);
     }
   } else {
-    InitVal = UndefValue::get(AT);
+    InitVal = UndefValue::get(NewTy);
   }
-  GlobalVariable *NewGV = new GlobalVariable(
-      *GV->getParent(), AT, /*IsConstant*/ GV->isConstant(), GV->getLinkage(),
-      /*InitVal*/ InitVal, GV->getName() + ".1dim", /*InsertBefore*/ GV,
-      GV->getThreadLocalMode(), GV->getType()->getAddressSpace());
-
-  // Update debuginfo.
-  if (m_HasDbgInfo) {
-    llvm::DebugInfoFinder &Finder = DM->GetOrCreateDebugInfoFinder();
-    HLModule::UpdateGlobalVariableDebugInfo(GV, Finder, NewGV);
-  }
-
-  flattenMultiDimArray(GV, NewGV);
-  GV->removeDeadConstantUsers();
-  GV->eraseFromParent();
+  return InitVal;
 }
 
-static void CheckInBoundForTGSM(GlobalVariable &GV, const DataLayout &DL) {
-  for (User * U : GV.users()) {
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
-      bool allImmIndex = true;
-      for (auto Idx = GEP->idx_begin(), E=GEP->idx_end(); Idx != E; Idx++) {
-        if (!isa<ConstantInt>(Idx)) {
-          allImmIndex = false;
-          break;
-        }
-      }
-      if (!allImmIndex)
-        GEP->setIsInBounds(false);
-      else {
-        Value *Ptr = GEP->getPointerOperand();
-        unsigned size = DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
-        unsigned valSize = DL.getTypeAllocSize(GEP->getType()->getPointerElementType());
-        SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
-        unsigned offset =
-            DL.getIndexedOffset(GEP->getPointerOperandType(), Indices);
-        if ((offset+valSize) > size)
-          GEP->setIsInBounds(false);
-      }
-    }
-  }
-}
-
-bool MultiDimArrayToOneDimArray::runOnModule(Module &M) {
-  if (!M.HasDxilModule())
-    return false;
-  DxilModule *DM = &M.GetDxilModule();
-
-  m_GlobalInsertPoint =
-      DM->GetEntryFunction()->getEntryBlock().getFirstInsertionPt();
-  // Load up debug information, to cross-reference values and the instructions
-  // used to load them.
-  m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-
-  std::vector<AllocaInst*> multiDimAllocas;
-  for (Function &F : M.functions()) {
-    if (F.isDeclaration())
-      continue;
-    BasicBlock &BB = F.getEntryBlock();
-    for (BasicBlock::iterator I = BB.begin(); I != BB.end();) {
-      if (AllocaInst *A = dyn_cast<AllocaInst>(I++)) {
-        if (IsMultiDimArrayType(A->getAllocatedType()))
-          multiDimAllocas.emplace_back(A);
-      }
-    }
-  }
-
-  for (AllocaInst *A : multiDimAllocas) {
-    flattenAlloca(A);
-  }
-
-  // Flatten internal global.
-  std::vector<GlobalVariable *> multiDimGVs;
-  for (GlobalVariable &GV : M.globals()) {
-    if (HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV)) {
-      // Merge all GEP.
-      HLModule::MergeGepUse(&GV);
-      if (IsMultiDimArrayType(GV.getType()->getElementType()) &&
-          !GV.user_empty())
-        multiDimGVs.emplace_back(&GV);
-    }
-  }
-
-  for (GlobalVariable *GV : multiDimGVs)
-    flattenGlobal(GV, DM);
-
-  const DataLayout &DL = M.getDataLayout();
-  // Clear inbound for GEP which has none-const index.
-  for (GlobalVariable &GV : M.globals()) {
-    if (HLModule::IsSharedMemoryGlobal(&GV)) {
-      CheckInBoundForTGSM(GV, DL);
-    }
-  }
-
-  return true;
 }
 
 char MultiDimArrayToOneDimArray::ID = 0;
@@ -6661,4 +6405,168 @@ INITIALIZE_PASS(MultiDimArrayToOneDimArray, "multi-dim-one-dim",
 // Public interface to the SROA_Parameter_HLSL pass
 ModulePass *llvm::createMultiDimArrayToOneDimArrayPass() {
   return new MultiDimArrayToOneDimArray();
+}
+
+//===----------------------------------------------------------------------===//
+// Lower resource into handle.
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+class ResourceToHandle : public LowerTypePass {
+public:
+  explicit ResourceToHandle() : LowerTypePass(ID) {}
+  static char ID; // Pass identification, replacement for typeid
+protected:
+  bool needToLower(Value *V) override;
+  void lowerUseWithNewValue(Value *V, Value *NewV) override;
+  Type *lowerType(Type *Ty) override;
+  Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
+  StringRef getGlobalPrefix() override { return ".res"; }
+  void initialize(Module &M) override;
+private:
+  void ReplaceResourceWithHandle(Value *ResPtr, Value *HandlePtr);
+  void ReplaceResourceGEPWithHandleGEP(Value *GEP, ArrayRef<Value *> idxList,
+                                       Value *A, IRBuilder<> &Builder);
+  void ReplaceResourceArrayWithHandleArray(Value *VA, Value *A);
+
+  Type *m_HandleTy;
+  HLModule *m_pHLM;
+};
+
+void ResourceToHandle::initialize(Module &M) {
+  DXASSERT(M.HasHLModule(), "require HLModule");
+  m_pHLM = &M.GetHLModule();
+  m_HandleTy = m_pHLM->GetOP()->GetHandleType();
+}
+
+bool ResourceToHandle::needToLower(Value *V) {
+  Type *Ty = V->getType()->getPointerElementType();
+  Ty = HLModule::GetArrayEltTy(Ty);
+  return (HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty));
+}
+
+Type *ResourceToHandle::lowerType(Type *Ty) {
+  if ((HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty))) {
+    return m_HandleTy;
+  }
+
+  ArrayType *AT = cast<ArrayType>(Ty);
+
+  SmallVector<ArrayType *, 4> nestArrayTys;
+  nestArrayTys.emplace_back(AT);
+
+  Type *EltTy = AT->getElementType();
+  // support multi level of array
+  while (EltTy->isArrayTy()) {
+    ArrayType *ElAT = cast<ArrayType>(EltTy);
+    nestArrayTys.emplace_back(ElAT);
+    EltTy = ElAT->getElementType();
+  }
+
+  return CreateNestArrayTy(m_HandleTy, nestArrayTys);
+}
+
+Constant *ResourceToHandle::lowerInitVal(Constant *InitVal, Type *NewTy) {
+  DXASSERT(isa<UndefValue>(InitVal), "resource cannot have real init val");
+  return UndefValue::get(NewTy);
+}
+
+void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
+                                                 Value *HandlePtr) {
+  for (auto it = ResPtr->user_begin(); it != ResPtr->user_end();) {
+    User *U = *(it++);
+    if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+      IRBuilder<> Builder(LI);
+      Value *Handle = Builder.CreateLoad(HandlePtr);
+      Type *ResTy = LI->getType();
+      // Used by createHandle or Store.
+      for (auto ldIt = LI->user_begin(); ldIt != LI->user_end();) {
+        User *ldU = *(ldIt++);
+        if (StoreInst *SI = dyn_cast<StoreInst>(ldU)) {
+          Value *TmpRes = HLModule::EmitHLOperationCall(
+              Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::HandleToResCast, ResTy, {Handle},
+              *m_pHLM->GetModule());
+          SI->replaceUsesOfWith(LI, TmpRes);
+        } else {
+          CallInst *CI = cast<CallInst>(ldU);
+          HLOpcodeGroup group =
+              hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+          DXASSERT(group == HLOpcodeGroup::HLCreateHandle,
+                   "must be createHandle");
+          CI->replaceAllUsesWith(Handle);
+          CI->eraseFromParent();
+        }
+      }
+      LI->eraseFromParent();
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      Value *Res = SI->getValueOperand();
+      IRBuilder<> Builder(SI);
+      // CreateHandle from Res.
+      Value *Handle = HLModule::EmitHLOperationCall(
+          Builder, HLOpcodeGroup::HLCreateHandle,
+          /*opcode*/ 0, m_HandleTy, {Res}, *m_pHLM->GetModule());
+      // Store Handle to HandlePtr.
+      Builder.CreateStore(Handle, HandlePtr);
+      // Remove resource Store.
+      SI->eraseFromParent();
+    } else {
+      DXASSERT(0, "invalid operation on resource");
+    }
+  }
+}
+
+void ResourceToHandle::ReplaceResourceGEPWithHandleGEP(
+    Value *GEP, ArrayRef<Value *> idxList, Value *A, IRBuilder<> &Builder) {
+  Value *newGEP = Builder.CreateGEP(A, idxList);
+  Type *Ty = GEP->getType()->getPointerElementType();
+  if (Ty->isArrayTy()) {
+    ReplaceResourceArrayWithHandleArray(GEP, newGEP);
+  } else {
+    DXASSERT(HLModule::IsHLSLObjectType(Ty), "must be resource type here");
+    ReplaceResourceWithHandle(GEP, newGEP);
+  }
+}
+
+void ResourceToHandle::ReplaceResourceArrayWithHandleArray(Value *VA,
+                                                           Value *A) {
+  for (auto U = VA->user_begin(); U != VA->user_end();) {
+    User *User = *(U++);
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
+      IRBuilder<> Builder(GEP);
+      SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
+      ReplaceResourceGEPWithHandleGEP(GEP, idxList, A, Builder);
+      GEP->eraseFromParent();
+    } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(User)) {
+      IRBuilder<> Builder(GEPOp->getContext());
+      SmallVector<Value *, 4> idxList(GEPOp->idx_begin(), GEPOp->idx_end());
+      ReplaceResourceGEPWithHandleGEP(GEPOp, idxList, A, Builder);
+    } else {
+      DXASSERT(0, "Array pointer should only used by GEP");
+    }
+  }
+}
+
+void ResourceToHandle::lowerUseWithNewValue(Value *V, Value *NewV) {
+  Type *Ty = V->getType()->getPointerElementType();
+  // Replace V with NewV.
+  if (Ty->isArrayTy()) {
+    ReplaceResourceArrayWithHandleArray(V, NewV);
+  } else {
+    ReplaceResourceWithHandle(V, NewV);
+  }
+}
+
+}
+
+char ResourceToHandle::ID = 0;
+
+INITIALIZE_PASS(ResourceToHandle, "resource-handle",
+  "Lower resource into handle", false,
+  false)
+
+// Public interface to the ResourceToHandle pass
+ModulePass *llvm::createResourceToHandlePass() {
+  return new ResourceToHandle();
 }

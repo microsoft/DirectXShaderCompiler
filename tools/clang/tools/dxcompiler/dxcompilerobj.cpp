@@ -40,6 +40,11 @@
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+// SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+#include "clang/SPIRV/EmitSPIRVAction.h"
+#endif
+// SPIRV change ends
 
 #if defined(_MSC_VER)
 #include <io.h>
@@ -1670,10 +1675,6 @@ static const char *OpCodeSignatures[] = {
   "(value)",  // LegacyDoubleToUInt32
   "(value)",  // WaveAllBitCount
   "(value)",  // WavePrefixBitCount
-  "(VertexID)",  // Barycentrics
-  "(VertexID)",  // BarycentricsCentroid
-  "(VertexID,sampleIndex)",  // BarycentricsSampleIndex
-  "(VertexID,offsetX,offsetY)",  // BarycentricsSnapped
   "(inputSigId,inputRowIndex,inputColIndex,VertexID)",  // AttributeAtVertex
   "()"  // ViewID
 };
@@ -2048,7 +2049,7 @@ private:
   std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
 };
 
-class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent {
+class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -2107,7 +2108,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface3<IDxcCompiler, IDxcLangExtensions, IDxcContainerEvent>(this, iid, ppvObject);
+    return DoBasicQueryInterface4<IDxcCompiler, IDxcLangExtensions, IDxcContainerEvent, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // Compile a single entry point to the target shader model
@@ -2293,6 +2294,18 @@ public:
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
         }
       }
+      // SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+      else if (opts.GenSPIRV) {
+          clang::EmitSPIRVAction action;
+          FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
+          action.BeginSourceFile(compiler, file);
+          action.Execute();
+          action.EndSourceFile();
+          outStream.flush();
+      }
+#endif
+      // SPIRV change ends
       else {
         llvm::LLVMContext llvmContext;
         EmitBCAction action(&llvmContext);
@@ -2757,6 +2770,25 @@ public:
 
     compiler.getCodeGenOpts().HLSLExtensionsCodegen = std::make_shared<HLSLExtensionsCodegenHelperImpl>(compiler, m_langExtensionsHelper, Opts.RootSignatureDefine);
   }
+
+  // IDxcVersionInfo
+  __override HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) {
+    if (pMajor == nullptr || pMinor == nullptr)
+      return E_INVALIDARG;
+    *pMajor = DXIL::kDxilMajor;
+    *pMinor = DXIL::kDxilMinor;
+    return S_OK;
+  }
+  __override HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) {
+    if (pFlags == nullptr)
+      return E_INVALIDARG;
+    *pFlags = DxcVersionInfoFlags_None;
+#ifdef _DEBUG
+    *pFlags |= DxcVersionInfoFlags_Debug;
+#endif
+    return S_OK;
+  }
+
 };
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {

@@ -74,8 +74,9 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     }
 
     StringRef InputData((char *)pBytes, bytesLen);
+    const bool RequiresNullTerminator = false;
     std::unique_ptr<MemoryBuffer> memBuf =
-        MemoryBuffer::getMemBuffer(InputData);
+        MemoryBuffer::getMemBuffer(InputData, "", RequiresNullTerminator);
 
     // Parse IR
     LLVMContext Context;

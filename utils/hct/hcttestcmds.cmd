@@ -371,6 +371,13 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+dxc.exe -dumpbin smoke.cso > smoke.ll
+if %errorlevel% neq 0 (
+  echo Failed to dumpbin from blob.
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 echo Smoke test for dxa command line program ...
 dxa.exe smoke.cso -listfiles 1> nul
 if %errorlevel% neq 0 (
@@ -407,9 +414,23 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxa.exe smoke.cso -extractpart module -o smoke.cso.plain.ll 1>nul
+dxa.exe smoke.cso -extractpart module -o smoke.cso.plain.bc 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to extract plain module via dxa.exe smoke.cso -extractpart module -o smoke.cso.plain.ll
+  echo Failed to extract plain module via dxa.exe smoke.cso -extractpart module -o smoke.cso.plain.bc
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+dxa.exe smoke.cso.plain.bc -o smoke.rebuilt-container.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to rebuild container from plain module via dxa.exe smoke.cso.plain.bc -o smoke.rebuilt-container.cso
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+dxa.exe smoke.ll -o smoke.rebuilt-container2.cso 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to rebuild container from plain module via dxa.exe smoke.ll -o smoke.rebuilt-container2.cso
   call :cleanup 2>nul
   exit /b 1
 )
@@ -436,8 +457,12 @@ del %CD%\noprivdebugroot.cso
 del %CD%\norootsignature.cso
 del %CD%\NonUniformNoRootSig.cso
 del %CD%\TextVS.cso
-del %CD%\smoke.cso.plain.ll
+del %CD%\smoke.ll
 del %CD%\smoke.cso.ll
+del %CD%\smoke.cso.plain.bc
+del %CD%\smoke.rebuilt-container.cso
+del %CD%\smoke.rebuilt-container2.cso
+
 
 exit /b 0
 

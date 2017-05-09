@@ -604,50 +604,90 @@ Value *TranslateAddUint64(CallInst *CI, IntrinsicOp IOP,
 }
 
 
-CallInst *ValidateLoadInput(Value *V) {
+bool IsValidLoadInput(Value *V) {
   // Must be load input.
+  // TODO: report this error on front-end
+  if (!isa<CallInst>(V)) {
+    V->getContext().emitError("attribute evaluation can only be done on values "
+                              "taken directly from inputs");
+    return false;
+  }
   CallInst *CI = cast<CallInst>(V);
   // Must be immediate.
   ConstantInt *opArg =
       cast<ConstantInt>(CI->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
   DXIL::OpCode op = static_cast<DXIL::OpCode>(opArg->getLimitedValue());
-  // TODO: report error on front-end.
-  // "attribute evaluation can only be done on values taken directly from inputs"
-  DXASSERT_LOCALVAR(op, op == DXIL::OpCode::LoadInput, "must be load input");
-  return CI;
+  if (op != DXIL::OpCode::LoadInput) {
+    V->getContext().emitError("attribute evaluation can only be done on values "
+                              "taken directly from inputs");
+    return false;
+  }
+  return true;
+}
+
+// Apply current shuffle vector mask on top of previous shuffle mask.
+// For example, if previous mask is (12,11,10,13) and current mask is (3,1,0,2)
+// new mask would be (13,11,12,10)
+Constant *AccumulateMask(Constant *curMask, Constant *prevMask) {
+  if (curMask == nullptr) {
+    return prevMask;
+  }
+  unsigned size = cast<VectorType>(curMask->getType())->getNumElements();
+  SmallVector<uint32_t, 16> Elts;
+  for (unsigned i = 0; i != size; ++i) {
+    ConstantInt *Index = cast<ConstantInt>(curMask->getAggregateElement(i));
+    ConstantInt *IVal =
+        cast<ConstantInt>(prevMask->getAggregateElement(Index->getSExtValue()));
+    Elts.emplace_back(IVal->getSExtValue());
+  }
+  return ConstantDataVector::get(curMask->getContext(), Elts);
 }
 
 Constant *GetLoadInputsForEvaluate(Value *V, std::vector<CallInst*> &loadList) {
   Constant *shufMask = nullptr;
   if (V->getType()->isVectorTy()) {
-    // Must be insert element inst.
+    // Must be insert element inst. Keeping track of masks for shuffle vector
     Value *Vec = V;
-    if (ShuffleVectorInst *shuf = dyn_cast<ShuffleVectorInst>(Vec)) {
-      Value *src0 = shuf->getOperand(0);
-      Value *src1 = shuf->getOperand(1);
-      DXASSERT_LOCALVAR(src1, isa<UndefValue>(src1), "must be undef value");
-      shufMask = shuf->getMask();
-      Vec = src0;
+    while (ShuffleVectorInst *shuf = dyn_cast<ShuffleVectorInst>(Vec)) {
+      shufMask = AccumulateMask(shufMask, shuf->getMask());
+      Vec = shuf->getOperand(0);
     }
 
+    // TODO: We are assuming that the operand of insertelement is a LoadInput.
+    // This will fail on the case where we pass in matrix member using array subscript.
     while (!isa<UndefValue>(Vec)) {
       InsertElementInst *insertInst = cast<InsertElementInst>(Vec);
       Vec = insertInst->getOperand(0);
       Value *Elt = insertInst->getOperand(1);
-      CallInst *CI = ValidateLoadInput(Elt);
-      loadList.emplace_back(CI);
+      if (IsValidLoadInput(Elt)) {
+        loadList.emplace_back(cast<CallInst>(Elt));
+      }
     }
   } else {
-    CallInst *CI = ValidateLoadInput(V);
-    loadList.emplace_back(CI);
+    if (IsValidLoadInput(V)) {
+      loadList.emplace_back(cast<CallInst>(V));
+    }
   }
   return shufMask;
+}
+
+// Swizzle could reduce the dimensionality of the Type, but
+// for temporary insertelement instructions should maintain the existing size of the loadinput.
+// So we have to analyze the type of src in order to determine the actual size required.
+Type *GetInsertElementTypeForEvaluate(Value *src) {
+  if (InsertElementInst *IE = dyn_cast<InsertElementInst>(src)) {
+    return src->getType();
+  }
+  else if (ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(src)) {
+    return SV->getOperand(0)->getType();
+  }
+  src->getContext().emitError("Invalid type call for EvaluateAttribute function");
+  return nullptr;
 }
 
 Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                            HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *sampleIdx = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
@@ -659,7 +699,8 @@ Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   OP::OpCode opcode = OP::OpCode::EvalSampleIndex; 
 
   Value *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  
+  Type *Ty = GetInsertElementTypeForEvaluate(val);
+
   Function *evalFunc = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
     
   Value *result = UndefValue::get(Ty);
@@ -679,7 +720,6 @@ Value *TranslateEvalSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
 Value *TranslateEvalSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                             HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
-  Type *Ty = CI->getType();
   Value *val = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *offset = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
@@ -693,7 +733,7 @@ Value *TranslateEvalSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   OP::OpCode opcode = OP::OpCode::EvalSnapped; 
 
   Value *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  
+  Type *Ty = GetInsertElementTypeForEvaluate(val);
   Function *evalFunc = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
     
   Value *result = UndefValue::get(Ty);
@@ -710,13 +750,13 @@ Value *TranslateEvalSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   return result;
 }
 
+
 Value *TranslateEvalCentroid(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                             HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *src = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
   std::vector<CallInst*> loadList;
   Constant *shufMask = GetLoadInputsForEvaluate(src, loadList);
-  Type *Ty = src->getType();
 
   unsigned size = loadList.size();
 
@@ -725,7 +765,8 @@ Value *TranslateEvalCentroid(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   OP::OpCode opcode = OP::OpCode::EvalCentroid; 
 
   Value *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  
+
+  Type *Ty = GetInsertElementTypeForEvaluate(src);
   Function *evalFunc = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
     
   Value *result = UndefValue::get(Ty);
@@ -739,67 +780,6 @@ Value *TranslateEvalCentroid(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   }
   if (shufMask)
     result = Builder.CreateShuffleVector(result, UndefValue::get(Ty), shufMask);
-  return result;
-}
-
-// Barycentrics intrinsics
-Value *TranslateBarycentrics(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
-                             HLOperationLowerHelper &helper,
-                             HLObjectOperationLowerHelper *pObjHelper,
-                             bool &Translated) {
-  DXASSERT(op == OP::OpCode::Barycentrics ||
-           op == OP::OpCode::BarycentricsCentroid,
-           "Wrong opcode to translate");
-  hlsl::OP *hlslOP = &helper.hlslOP;
-  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
-  Value *opArg = hlslOP->GetU32Const((unsigned)op);
-
-  Value *result = UndefValue::get(CI->getType());
-  IRBuilder<> Builder(CI);
-  for (unsigned i = 0; i < 3; ++i) {
-    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i) });
-    result = Builder.CreateInsertElement(result, Elt, i);
-  }
-  return result;
-}
-
-Value *TranslateBarycentricsSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
-  HLOperationLowerHelper &helper,
-  HLObjectOperationLowerHelper *pObjHelper,
-  bool &Translated) {
-  DXASSERT(op == OP::OpCode::BarycentricsSampleIndex, "Wrong opcode to translate");
-  hlsl::OP *hlslOP = &helper.hlslOP;
-  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
-  Value *opArg = hlslOP->GetU32Const((unsigned)op);
-  Value *sampleIndex = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
-
-  Value *result = UndefValue::get(CI->getType());
-  IRBuilder<> Builder(CI);
-  for (unsigned i = 0; i < 3; ++i) {
-    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i), sampleIndex });
-    result = Builder.CreateInsertElement(result, Elt, i);
-  }
-  return result;
-}
-
-Value *TranslateBarycentricsSnapped(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
-  HLOperationLowerHelper &helper,
-  HLObjectOperationLowerHelper *pObjHelper,
-  bool &Translated) {
-  DXASSERT(op == OP::OpCode::BarycentricsSnapped, "Wrong opcode to translate");
-  hlsl::OP *hlslOP = &helper.hlslOP;
-  Function *evalFunc = hlslOP->GetOpFunc(op, Type::getFloatTy(CI->getContext()));
-  Value *opArg = hlslOP->GetU32Const((unsigned)op);
-  Value *offsets = CI->getArgOperand(DXIL::OperandIndex::kUnarySrc0OpIdx);
-
-  Value *result = UndefValue::get(CI->getType());
-  IRBuilder<> Builder(CI);
-  Value *offsetX = Builder.CreateExtractElement(offsets, (uint64_t)0);
-  Value *offsetY = Builder.CreateExtractElement(offsets, 1);
-  for (unsigned i = 0; i < 3; ++i) {
-    Value *Elt = Builder.CreateCall(evalFunc, { opArg, hlslOP->GetI8Const(i), offsetX, offsetY });
-    result = Builder.CreateInsertElement(result, Elt, i);
-  }
   return result;
 }
 
@@ -2359,6 +2339,10 @@ SampleHelper::SampleHelper(
   samplerHandle = CI->getArgOperand(kSamplerArgIndex);
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
+  if (RK == DXIL::ResourceKind::Invalid) {
+    opcode = DXIL::OpCode::NumOpCodes;
+    return;
+  }
   unsigned coordDimensions = DxilResource::GetNumCoords(RK);
   unsigned offsetDimensions = DxilResource::GetNumOffsets(RK);
 
@@ -2696,6 +2680,10 @@ GatherHelper::GatherHelper(
   samplerHandle = CI->getArgOperand(kSamplerArgIndex);
 
   DXIL::ResourceKind RK = pObjHelper->GetRK(texHandle);
+  if (RK == DXIL::ResourceKind::Invalid) {
+    opcode = DXIL::OpCode::NumOpCodes;
+    return;
+  }
   unsigned coordSize = DxilResource::GetNumCoords(RK);
   unsigned offsetSize = DxilResource::GetNumOffsets(RK);
 
@@ -4125,10 +4113,6 @@ IntrinsicLower gLowerTable[static_cast<unsigned>(IntrinsicOp::Num_Intrinsics)] =
     {IntrinsicOp::IOP_EvaluateAttributeCentroid, TranslateEvalCentroid, DXIL::OpCode::EvalCentroid},
     {IntrinsicOp::IOP_EvaluateAttributeSnapped, TranslateEvalSnapped, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex, DXIL::OpCode::AttributeAtVertex},
-    {IntrinsicOp::IOP_GetBarycentrics, TranslateBarycentrics, DXIL::OpCode::Barycentrics},
-    {IntrinsicOp::IOP_GetBarycentricsAtSample, TranslateBarycentricsSample, DXIL::OpCode::BarycentricsSampleIndex},
-    {IntrinsicOp::IOP_GetBarycentricsCentroid, TranslateBarycentrics, DXIL::OpCode::BarycentricsCentroid},
-    {IntrinsicOp::IOP_GetBarycentricsSnapped, TranslateBarycentricsSnapped, DXIL::OpCode::BarycentricsSnapped},
     {IntrinsicOp::IOP_GetRenderTargetSampleCount, TrivialNoArgOperation, DXIL::OpCode::RenderTargetGetSampleCount},
     {IntrinsicOp::IOP_GetRenderTargetSamplePosition, TranslateGetRTSamplePos, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_GroupMemoryBarrier, TrivialBarrier, DXIL::OpCode::Barrier},

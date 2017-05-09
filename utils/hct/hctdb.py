@@ -135,6 +135,7 @@ class db_dxil(object):
         self.passes = []        # inventory of available passes (db_dxil_pass)
         self.name_idx = {}      # DXIL instructions by name
         self.enum_idx = {}      # enumerations by name
+        self.dxil_version_info = {}
 
         self.populate_llvm_instructions()
         self.call_instr = self.get_instr_by_llvm_name("CallInst")
@@ -206,6 +207,11 @@ class db_dxil(object):
                 assert val + 1 == i_val, "values in predicate are not sequential and dense, %d follows %d for %s" % (i_val, val, name_proj(i))
             val = i_val
 
+    def set_op_count_for_version(self, major, minor, op_count):
+        info = self.dxil_version_info.setdefault((major, minor), dict())
+        info['NumOpCodes'] = op_count
+        info['NumOpClasses'] = len(set([op.dxil_class for op in self.instr]))
+
     def populate_categories_and_models(self):
         "Populate the category and shader_stages member of instructions."
         for i in "TempRegLoad,TempRegStore,MinPrecXRegLoad,MinPrecXRegStore,LoadInput,StoreOutput".split(","):
@@ -242,7 +248,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources - gather"
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
-        for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,Barycentrics,BarycentricsCentroid,BarycentricsSampleIndex,BarycentricsSnapped,AttributeAtVertex".split(","):
+        for i in "CalculateLOD,Discard,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,EvalSnapped,EvalSampleIndex,EvalCentroid,SampleIndex,Coverage,InnerCoverage,AttributeAtVertex".split(","):
             self.name_idx[i].category = "Pixel shader"
             self.name_idx[i].shader_stages = "p"
         for i in "ThreadId,GroupId,ThreadIdInGroup,FlattenedThreadIdInGroup".split(","):
@@ -275,7 +281,7 @@ class db_dxil(object):
                 i.is_wave = True
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
-        for i in "ViewID,Barycentrics,BarycentricsCentroid,BarycentricsSampleIndex,BarycentricsSnapped,AttributeAtVertex".split(","):
+        for i in "ViewID,AttributeAtVertex".split(","):
             self.name_idx[i].shader_model = 6,1
 
     def populate_llvm_instructions(self):
@@ -1043,25 +1049,10 @@ class db_dxil(object):
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
-        self.add_dxil_op("Barycentrics", next_op_idx, "Barycentrics", "return weights at a current location.", "f", "rn", [
-            db_dxil_param(0, "f", "", "result"),
-            db_dxil_param(2, "i8", "VertexID", "Vertex Index")])
-        next_op_idx += 1
-        self.add_dxil_op("BarycentricsCentroid", next_op_idx, "BarycentricsCentroid", "return weights at centroid location.", "f", "rn", [
-            db_dxil_param(0, "f", "", "result"),
-            db_dxil_param(2, "i8", "VertexID", "Vertex Index")])
-        next_op_idx += 1
-        self.add_dxil_op("BarycentricsSampleIndex", next_op_idx, "BarycentricsSampleIndex", "return weights at the location of the sample specified by index", "f", "rn", [
-            db_dxil_param(0, "f", "", "result"),
-            db_dxil_param(2, "i8", "VertexID", "Vertex Index"),
-            db_dxil_param(3, "i32", "sampleIndex", "sample index")])
-        next_op_idx += 1
-        self.add_dxil_op("BarycentricsSnapped", next_op_idx, "BarycentricsSnapped", "return weights at the location specified in the pixel's 16x16 sample grid", "f", "rn", [
-            db_dxil_param(0, "f", "", "result"),
-            db_dxil_param(2, "i8", "VertexID", "Vertex Index"),
-            db_dxil_param(3, "i32", "offsetX", "2D offset from the pixel center using a 16x16 grid"),
-            db_dxil_param(4, "i32", "offsetY", "2D offset from the pixel center using a 16x16 grid")])
-        next_op_idx += 1
+
+        # End of DXIL 1.0 opcodes.
+        self.set_op_count_for_version(1, 0, next_op_idx)
+
         self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hf", "rn", [
             db_dxil_param(0, "$o", "", "result"),
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
@@ -1074,7 +1065,11 @@ class db_dxil(object):
             db_dxil_param(0, "i32", "", "result")])
         next_op_idx += 1
 
-        assert next_op_idx == 143, "next operation index is %d rather than 143 and thus opcodes are broken" % next_op_idx
+        # End of DXIL 1.1 opcodes.
+        # Uncomment this when 1.1 is final.
+        #self.set_op_count_for_version(1, 1, next_op_idx)
+
+        assert next_op_idx == 139, "next operation index is %d rather than 139 and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -1253,9 +1248,10 @@ class db_dxil(object):
         add_pass('die', 'DeadInstElimination', 'Dead Instruction Elimination', [])
         add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [])
         add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
-            {'n':'ReplaceAllVector','t':'ReplaceAllVector','c':1}])
+            {'n':'ReplaceAllVectors','t':'bool','c':1}])
         add_pass('hlsl-dxil-legalize-resource-use', 'DxilLegalizeResourceUsePass', 'DXIL legalize resource use', [])
         add_pass('hlsl-dxil-legalize-static-resource-use', 'DxilLegalizeStaticResourceUsePass', 'DXIL legalize static resource use', [])
+        add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
         add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
             {'n':'NotOptimized','t':'bool','c':1}])
         add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
@@ -1264,6 +1260,7 @@ class db_dxil(object):
         add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
         add_pass('scalarizer', 'Scalarizer', 'Scalarize vector operations', [])
         add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
+        add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
         add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
@@ -1380,7 +1377,8 @@ class db_dxil(object):
             (25, "TessFactor", ""),
             (26, "InsideTessFactor", ""),
             (27, "ViewID", ""),
-            (28, "Invalid", ""),
+            (28, "Barycentrics", ""),
+            (29, "Invalid", ""),
             ])
         self.enums.append(SemanticKind)
         SigPointKind = db_dxil_enum("SigPointKind", "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.", [
@@ -1485,6 +1483,7 @@ class db_dxil(object):
             TessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
             InsideTessFactor,NA,NA,NA,NA,NA,NA,TessFactor,TessFactor,NA,NA,NA,NA,NA,NA,NA,NA
             ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA
+            Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -1545,6 +1544,8 @@ class db_dxil(object):
         self.add_valrule("Meta.ForceCaseOnSwitch", "Attribute forcecase only works for switch")
         self.add_valrule("Meta.ControlFlowHintNotOnControlFlow", "Control flow hint only works on control flow inst")
         self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities")
+        self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type")
+        self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")
@@ -1623,6 +1624,7 @@ class db_dxil(object):
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
         self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg")
         self.add_valrule("Instr.TGSMRaceCond", "Race condition writing to shared memory detected, consider making this write conditional")
+        self.add_valrule("Instr.AttributeAtVertexNoInterpolation", "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.")
 
         # Some legacy rules:
         # - space is only supported for shader targets 5.1 and higher
@@ -1689,6 +1691,7 @@ class db_dxil(object):
         self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1")
         self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1")
         self.add_valrule_msg("Sm.OpcodeInInvalidFunction", "Invalid DXIL opcode usage like StorePatchConstant in patch constant function", "opcode '%0' should only used in '%1'")
+        self.add_valrule_msg("Sm.ViewIDNeedsSlot", "ViewID requires compatible space in pixel shader input signature", "Pixel shader input signature lacks available space for ViewID")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")
