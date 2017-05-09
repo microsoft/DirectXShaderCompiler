@@ -3199,6 +3199,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
 
   bool bIsClipCull = false;
   bool bIsTessfactor = false;
+  bool bIsBarycentric = false;
 
   switch (semanticKind) {
   case DXIL::SemanticKind::Depth:
@@ -3277,6 +3278,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     DXASSERT(!bAllowedInSig, "else internal inconsistency between semantic interpretation table and validation code");
     break;
   case DXIL::SemanticKind::Barycentrics:
+    bIsBarycentric = true;
     if (compKind != DXIL::ComponentType::F32) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType, {SE.GetSemantic()->GetName(), "float"});
     }
@@ -3338,9 +3340,13 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     if (SE.GetStartRow() + SE.GetRows() > 8) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticIndexMax, {"SV_Target", "7"});
     }
-  } else if (bAllowedInSig && semanticKind != DXIL::SemanticKind::Arbitrary &&
-             semanticKind != DXIL::SemanticKind::Barycentrics) {
-    if (!bIsClipCull && SE.GetSemanticStartIndex() > 0) {
+  } else if (bAllowedInSig && semanticKind != DXIL::SemanticKind::Arbitrary) {
+    if (bIsBarycentric) {
+      if (SE.GetSemanticStartIndex() > 1) {
+        ValCtx.EmitFormatError(ValidationRule::MetaSemanticIndexMax, { SE.GetSemantic()->GetName(), "1" });
+      }
+    }
+    else if (!bIsClipCull && SE.GetSemanticStartIndex() > 0) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticIndexMax, {SE.GetSemantic()->GetName(), "0"});
     }
     // Maximum rows is 1 for system values other than Target
@@ -3456,7 +3462,8 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
   unsigned TargetMask = 0;
   DXIL::SemanticKind DepthKind = DXIL::SemanticKind::Invalid;
 
-  vector<const InterpolationMode *> baryInterpolationModes;
+  const InterpolationMode *prevBaryInterpMode = nullptr;
+  unsigned numBarycentrics = 0;
 
   for (auto &E : S.GetElements()) {
     DXIL::SemanticKind semanticKind = E->GetSemantic()->GetKind();
@@ -3529,18 +3536,18 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
     case DXIL::SemanticKind::Barycentrics: {
       // There can only be up to two SV_Barycentrics
       // with differeent perspective interpolation modes.
-      if (baryInterpolationModes.size() > 1) {
+      if (numBarycentrics++ > 1) {
         ValCtx.EmitError(ValidationRule::MetaBarycentricsTwoPerspectives);
+        break;
       }
       const InterpolationMode *mode = E->GetInterpolationMode();
-      if (!baryInterpolationModes.empty()) {
-        const InterpolationMode *other = baryInterpolationModes.at(0);
-        if ((mode->IsAnyNoPerspective() && other->IsAnyNoPerspective())
-          || (!mode->IsAnyNoPerspective() && !other->IsAnyNoPerspective())) {
+      if (prevBaryInterpMode) {
+        if ((mode->IsAnyNoPerspective() && prevBaryInterpMode->IsAnyNoPerspective())
+          || (!mode->IsAnyNoPerspective() && !prevBaryInterpMode->IsAnyNoPerspective())) {
           ValCtx.EmitError(ValidationRule::MetaBarycentricsTwoPerspectives);
         }
       }
-      baryInterpolationModes.push_back(mode);
+      prevBaryInterpMode = mode;
       break;
     }
     default:

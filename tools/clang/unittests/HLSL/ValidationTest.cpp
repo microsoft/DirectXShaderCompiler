@@ -202,6 +202,7 @@ public:
   TEST_METHOD(AddUint64Odd)
 
   TEST_METHOD(BarycentricFloat4Fail)
+  TEST_METHOD(BarycentricMaxIndexFail)
   TEST_METHOD(BarycentricNoInterpolationFail)
   TEST_METHOD(BarycentricSamePerspectiveFail)
   TEST_METHOD(ClipCullMaxComponents)
@@ -2978,6 +2979,21 @@ TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
                           /*bRegex*/ true);
 }
 
+TEST_F(ValidationTest, BarycentricMaxIndexFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  RewriteAssemblyCheckMsg(
+      "float4 main(float3 bary : SV_Barycentrics, noperspective float3 bary1 : "
+      "SV_Barycentrics1) : SV_Target { return 1; }",
+      "ps_6_1",
+      {"!([0-9]+) = !{i32 0, !\"SV_Barycentrics\", i8 9, i8 28, !([0-9]+), i8 "
+       "2, i32 1, i8 3, i32 -1, i8 -1, null}\n"
+       "!([0-9]+) = !{i32 0}"},
+      {"!\\1 = !{i32 0, !\"SV_Barycentrics\", i8 9, i8 28, !\\2, i8 2, i32 1, "
+       "i8 3, i32 -1, i8 -1, null}\n"
+       "!\\3 = !{i32 2}"},
+      "SV_Barycentrics semantic index exceeds maximum", /*bRegex*/ true);
+}
+
 TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
   if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
@@ -3009,5 +3025,7 @@ TEST_F(ValidationTest, BarycentricSamePerspectiveFail) {
       "different perspective interpolation mode.",
       true);
 }
+
+
 
 // TODO: reject non-zero padding
