@@ -311,6 +311,7 @@ enum CastKind {
   CK_HLSLMatrixTruncationCast,
   CK_HLSLVectorToMatrixCast,
   CK_HLSLMatrixToVectorCast,
+  CK_HLSLDerivedToBase,
   // HLSL ComponentConversion (HLSLCC) Casts:
   CK_HLSLCC_IntegralCast,
   CK_HLSLCC_IntegralToBoolean,
