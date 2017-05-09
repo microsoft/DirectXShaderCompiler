@@ -394,10 +394,9 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
         CollectValuesContributingToOutputRec(V, ContributingInstructions);
       }
     }
-    // TODO: UAVs
-  } else if (LlvmInst_Call CI = LlvmInst_Call(pContributingInst)) {
-    if (!hlsl::OP::IsDxilOpFuncCallInst(CI.Instr)) {
-      // Return value of a user function.
+  } else if (CallInst *CI = dyn_cast<CallInst>(pContributingInst)) {
+    if (!hlsl::OP::IsDxilOpFuncCallInst(CI)) {
+      // TODO: Return value of a user function.
       DXASSERT_NOMSG(false);
     }
   }
