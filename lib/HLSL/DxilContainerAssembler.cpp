@@ -336,6 +336,53 @@ private:
   DxilPipelineStateValidation m_PSV;
   uint32_t m_PSVBufferSize;
   SmallVector<char, 512> m_PSVBuffer;
+  SmallVector<char, 256> m_StringBuffer;
+  SmallVector<uint32_t, 8> m_SemanticIndexBuffer;
+  std::vector<PSVSignatureElement0> m_SigInputElements;
+  std::vector<PSVSignatureElement0> m_SigOutputElements;
+  std::vector<PSVSignatureElement0> m_SigPatchConstantElements;
+
+  void SetPSVSigElement(PSVSignatureElement0 &E, const DxilSignatureElement &SE) {
+    memset(&E, 0, sizeof(PSVSignatureElement0));
+    E.SemanticName = (uint32_t)m_StringBuffer.size();
+    StringRef Name(SE.GetName());
+    m_StringBuffer.append('\0', Name.size()+1);
+    memcpy(m_StringBuffer.data(), Name.data(), Name.size());
+    // Search index buffer for matching semantic index sequence
+    auto SemIdx = SE.GetSemanticIndexVec();
+    bool match = false;
+    for (uint32_t offset = 0; offset + SE.GetRows() < m_SemanticIndexBuffer.size(); offset++) {
+      match = true;
+      for (uint32_t row = 0; row < SE.GetRows(); row++) {
+        if ((uint32_t)SemIdx[row] != m_SemanticIndexBuffer[offset + row]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        E.SemanticIndexes = offset;
+        break;
+      }
+    }
+    if (!match) {
+      E.SemanticIndexes = m_SemanticIndexBuffer.size();
+      for (uint32_t row = 0; row < SE.GetRows(); row++) {
+        m_SemanticIndexBuffer.push_back((uint32_t)SemIdx[row]);
+      }
+    }
+    E.RowsMinus1 = (uint8_t)(SE.GetRows() - 1);
+    E.ColsMinus1 = (uint8_t)(SE.GetCols() - 1);
+    E.Allocated = SE.IsAllocated() ? 1 : 0;
+    if (E.Allocated) {
+      E.StartRow = (uint8_t)SE.GetStartRow();
+      E.StartCol = (uint8_t)SE.GetStartCol();
+    }
+    E.SemanticKind = (uint8_t)KindToSystemValue(SE.GetKind(), m_Module.GetTessellatorDomain());
+    E.ComponentType = (uint8_t)CompTypeToSigCompType(SE.GetCompType());
+    E.InterpolationMode = (uint8_t)SE.GetInterpolationMode()->GetKind();
+    E.OutputStream = (uint8_t)SE.GetOutputStream();
+    E.DynamicIndexMask = 0;   // TODO: Fill this in!
+  }
 
 public:
   DxilPSVWriter(const DxilModule &module)
@@ -347,6 +394,27 @@ public:
     UINT uSRVs = m_Module.GetSRVs().size();
     UINT uUAVs = m_Module.GetUAVs().size();
     m_PSVInitInfo.ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
+    {
+      // Copy Dxil Signatures
+      m_PSVInitInfo.SigInputElements = m_Module.GetInputSignature().GetElements().size();
+      m_SigInputElements.resize(m_PSVInitInfo.SigInputElements);
+      m_PSVInitInfo.SigOutputElements = m_Module.GetOutputSignature().GetElements().size();
+      m_SigInputElements.resize(m_PSVInitInfo.SigOutputElements);
+      m_PSVInitInfo.SigPatchConstantElements = m_Module.GetPatchConstantSignature().GetElements().size();
+      m_SigInputElements.resize(m_PSVInitInfo.SigPatchConstantElements);
+      uint32_t i = 0;
+      for (auto &SE : m_Module.GetInputSignature().GetElements()) {
+        SetPSVSigElement(m_SigInputElements[i++], *(SE.get()));
+      }
+      i = 0;
+      for (auto &SE : m_Module.GetOutputSignature().GetElements()) {
+        SetPSVSigElement(m_SigOutputElements[i++], *(SE.get()));
+      }
+      i = 0;
+      for (auto &SE : m_Module.GetPatchConstantSignature().GetElements()) {
+        SetPSVSigElement(m_SigPatchConstantElements[i++], *(SE.get()));
+      }
+    }
     m_PSVInitInfo.UsesViewID = (m_Module.m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID) ? true : false;
     m_PSVInitInfo.SigInputVectors = m_Module.GetInputSignature().NumVectorsUsed();
     m_PSVInitInfo.SigOutputVectors = m_Module.GetOutputSignature().NumVectorsUsed();
