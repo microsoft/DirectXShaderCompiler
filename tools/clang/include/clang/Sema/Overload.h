@@ -96,6 +96,7 @@ namespace clang {
     ICK_Flat_Conversion,       ///< Flat assignment conversion for HLSL (inline conversion, straddled)
     ICK_HLSLVector_Splat,      ///< HLSLVector/Matrix splat
     ICK_HLSLVector_Truncation, ///< HLSLVector/Matrix truncation
+    ICK_HLSL_Derived_To_Base,  ///< HLSL Derived-to-base
     // HLSL Change Ends
 
     ICK_Num_Conversion_Kinds   ///< The number of conversion kinds
