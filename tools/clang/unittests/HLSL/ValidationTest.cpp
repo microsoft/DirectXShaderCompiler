@@ -300,15 +300,7 @@ public:
   TEST_METHOD(ViewIDNoSpaceFail)
 
   dxc::DxcDllSupport m_dllSupport;
-  bool m_CompilerPreservesBBNames;
-
-  bool SkipIRSensitiveTest() {
-    if (!m_CompilerPreservesBBNames) {
-      WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirment.");
-      return true;
-    }
-    return false;
-  }
+  VersionSupportInfo m_ver;
 
   void TestCheck(LPCWSTR name) {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
@@ -324,8 +316,18 @@ public:
     CComPtr<IDxcValidator> pValidator;
     CComPtr<IDxcOperationResult> pResult;
 
+    UINT32 Flags = DxcValidatorFlags_Default;
+    if (!IsDxilContainerLike(pBlob->GetBufferPointer(), pBlob->GetBufferSize())) {
+      // Validation of raw bitcode as opposed to DxilContainer is not supported through DXIL.dll
+      if (!m_ver.m_InternalValidator) {
+        WEX::Logging::Log::Comment(L"Test skipped due to validation of raw bitcode without container and use of external DXIL.dll validator.");
+        return;
+      }
+      Flags |= DxcValidatorFlags_ModuleOnly;
+    }
+
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-    VERIFY_SUCCEEDED(pValidator->Validate(pBlob, DxcValidatorFlags_Default, &pResult));
+    VERIFY_SUCCEEDED(pValidator->Validate(pBlob, Flags, &pResult));
 
     CheckOperationResultMsgs(pResult, pErrorMsgs, false, bRegex);
   }
@@ -521,15 +523,7 @@ public:
 bool ValidationTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-
-    // This is a very indirect way of testing this. Consider improving support.
-    CComPtr<IDxcValidator> pValidator;
-    CComPtr<IDxcVersionInfo> pVersionInfo;
-    UINT32 VersionFlags = 0;
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-    VERIFY_SUCCEEDED(pValidator.QueryInterface(&pVersionInfo));
-    VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+    m_ver.Initialize(m_dllSupport);
   }
   return true;
 }
@@ -653,7 +647,7 @@ TEST_F(ValidationTest, WhenDepthNotFloatThenFail) {
 }
 
 TEST_F(ValidationTest, BarrierFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
     RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\barrier.hlsl", "cs_6_0",
       {"dx.op.barrier(i32 80, i32 8)",
@@ -702,7 +696,7 @@ TEST_F(ValidationTest, CsThreadSizeFail) {
       });
 }
 TEST_F(ValidationTest, DeadLoopFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\loop1.hlsl", "ps_6_0",
       {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
@@ -798,7 +792,7 @@ TEST_F(ValidationTest, MultiStream2Fail) {
       "Multiple GS output streams are used but 'XXX' is not pointlist");
 }
 TEST_F(ValidationTest, PhiTGSMFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\phiTGSM.hlsl", "cs_6_0",
       "ret void",
@@ -808,7 +802,7 @@ TEST_F(ValidationTest, PhiTGSMFail) {
       "TGSM pointers must originate from an unambiguous TGSM global variable");
 }
 TEST_F(ValidationTest, ReducibleFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\reducible.hlsl", "ps_6_0",
       {"%conv\n"
@@ -954,7 +948,7 @@ TEST_F(ValidationTest, SimpleGs1Fail) {
        "Stream index (5) must between 0 and 3"});
 }
 TEST_F(ValidationTest, UavBarrierFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\uavBarrier.hlsl", "ps_6_0",
       {"dx.op.barrier(i32 80, i32 2)",
@@ -976,7 +970,7 @@ TEST_F(ValidationTest, UndefValueFail) {
   TestCheck(L"..\\CodeGenHLSL\\UndefValue.hlsl");
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
-  if (SkipIRSensitiveTest()) return;
+  if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\UpdateCounter2.hlsl", "ps_6_0",
       {"%2 = call i32 @dx.op.bufferUpdateCounter(i32 70, %dx.types.Handle %buf2_UAV_structbuf, i8 1)",
@@ -2898,6 +2892,7 @@ TEST_F(ValidationTest, WhenFeatureInfoMismatchThenFail) {
 }
 
 TEST_F(ValidationTest, ViewIDInCSFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(" \
 RWStructuredBuffer<uint> Buf; \
 [numthreads(1,1,1)] \
@@ -2914,6 +2909,7 @@ void main(uint id : SV_GroupIndex) \
 }
 
 TEST_F(ValidationTest, ViewIDIn60Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(" \
 [domain(\"tri\")] \
 float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
@@ -2929,6 +2925,7 @@ float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
 }
 
 TEST_F(ValidationTest, ViewIDNoSpaceFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(" \
 float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
 { return float4(In[vid], 1); } \
@@ -2943,6 +2940,7 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
     "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
     "vs_6_1",
@@ -2955,6 +2953,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
     "float4 main(float4 col : COLOR) : "
     "SV_Target { return EvaluateAttributeCentroid(col).x; }",
@@ -2968,6 +2967,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg("float4 main(nointerpolation float4 col : COLOR) : "
                           "SV_Target { return GetAttributeAtVertex(col, 0); }",
                           "ps_6_1", {"!\"COLOR\", i8 9, i8 0, (![0-9]+), i8 1"},
@@ -2978,6 +2978,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
 }
 
 TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
       "float4 main(float3 bary : SV_Barycentrics) : "
       "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) "
@@ -2989,6 +2990,7 @@ TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
 }
 
 TEST_F(ValidationTest, BarycentricFloat4Fail) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   RewriteAssemblyCheckMsg(
       "float4 main(float4 col : COLOR) : SV_Target { return col; }", "ps_6_1",
       {"!\"COLOR\", i8 9, i8 0"}, {"!\"SV_Barycentrics\", i8 9, i8 28"},
