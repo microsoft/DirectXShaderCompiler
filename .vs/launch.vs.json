@@ -1,0 +1,14 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "args": [ "-T", "ps_6_0", "abs1.hlsl" ],
+      "currentDir": "${workspaceRoot}\\tools\\clang\\test\\CodeGenHLSL",
+      "name": "dxc",
+      "project": "CMakeLists.txt",
+      "projectTarget": "tools\\clang\\tools\\dxc\\dxc",
+      "type": "default"
+    }
+  ]
+}
