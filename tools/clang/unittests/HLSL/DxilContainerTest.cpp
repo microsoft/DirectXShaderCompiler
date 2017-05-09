@@ -425,6 +425,16 @@ public:
     *ppProgram = pProgram.Detach();
   }
 
+  bool DoesValidatorSupportDebugName() {
+    CComPtr<IDxcVersionInfo> pVersionInfo;
+    UINT Major, Minor;
+    HRESULT hrVer = m_dllSupport.CreateInstance(CLSID_DxcValidator, &pVersionInfo);
+    if (hrVer == E_NOINTERFACE) return false;
+    VERIFY_SUCCEEDED(hrVer);
+    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&Major, &Minor));
+    return Major == 1 && (Minor >= 1);
+  }
+
   std::string CompileToDebugName(LPCSTR program, LPCWSTR entryPoint,
                                  LPCWSTR target, LPCWSTR *pArguments, UINT32 argCount) {
     CComPtr<IDxcBlob> pProgram;
@@ -521,6 +531,9 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   // No debug info, no debug name...
   std::string noName = CompileToDebugName(program1, L"main", L"ps_6_0", nullptr, 0);
   VERIFY_IS_TRUE(noName.empty());
+
+  if (!DoesValidatorSupportDebugName())
+    return;
 
   // Debug info, default to source name.
   std::string sourceName1 = CompileToDebugName(program1, L"main", L"ps_6_0", Zi, _countof(Zi));

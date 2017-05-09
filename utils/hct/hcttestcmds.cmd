@@ -38,6 +38,12 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+rem When dxil.dll is present, /Fd with trailing will not produce a name.
+if exist dxil.dll (
+  echo Skipping /Fd with trailing backslash when dxil.dll is present.
+  echo A future dxil.dll will provide this information.
+  goto :skipfdtrail
+)
 dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd %CD%\ /Fo smoke.hlsl.strip 1>nul
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd %CD%\
@@ -65,6 +71,7 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
+:skipfdtrail
 dxc.exe /T ps_6_0 smoke.hlsl /Fe smoke.hlsl.e 1>nul
 if %errorlevel% neq 0 (
   echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Fe %CD%\smoke.hlsl.e

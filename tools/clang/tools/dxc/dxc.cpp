@@ -170,6 +170,8 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
       "information compiling this shader.");
 
     if (pDebugBlob != nullptr) {
+      IFTBOOLMSG(pDebugBlobName && *pDebugBlobName, E_INVALIDARG,
+        "/Fd was specified but no debug name was produced");
       WriteBlobToFile(pDebugBlob, pDebugBlobName);
     }
     else {
