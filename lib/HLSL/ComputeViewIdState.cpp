@@ -36,14 +36,15 @@ using std::vector;
 #define DEBUG_TYPE "viewid"
 
 
-static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
-  ConstantInt *CI = dyn_cast<ConstantInt>(V);
-  if (!CI) return false;
-  uint64_t u = CI->getZExtValue();
-  if (u > UINT32_MAX) return false;
-  *pValue = (uint32_t)u;
-  return true;
-}
+DxilViewIdState::DxilViewIdState(DxilModule *pDxilModule) : m_pModule(pDxilModule) {}
+unsigned DxilViewIdState::getNumInputSigScalars() const   { return m_NumInputSigScalars; }
+unsigned DxilViewIdState::getNumOutputSigScalars() const  { return m_NumOutputSigScalars; }
+unsigned DxilViewIdState::getNumPCSigScalars() const      { return m_NumPCSigScalars; }
+const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getOutputsDependentOnViewId() const      { return m_OutputsDependentOnViewId; }
+const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getPCOutputsDependentOnViewId() const    { return m_PCOutputsDependentOnViewId; }
+const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToOutputs() const   { return m_InputsContributingToOutputs; }
+const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToPCOutputs() const { return m_InputsContributingToPCOutputs; }
+const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getPCInputsContributingToOutputs() const { return m_PCInputsContributingToOutputs; }
 
 void DxilViewIdState::Compute() {
   Clear();
@@ -89,22 +90,47 @@ void DxilViewIdState::Compute() {
 }
 
 void DxilViewIdState::PrintSets(llvm::raw_ostream &OS) {
-  OS << "ViewId and OutputInput sets for shader '" << m_pModule->GetEntryFunction()->getName() << "'\n";
+  const ShaderModel *pSM = m_pModule->GetShaderModel();
+  OS << "ViewId state: \n";
   OS << "Number of inputs: " << m_NumInputSigScalars  << 
                ", outputs: " << m_NumOutputSigScalars << 
             ", patchconst: " << m_NumPCSigScalars     << "\n";
-  OS << "Outputs dependent on ViewId: { ";
+  PrintOutputsDependentOnViewId(OS, "Outputs", m_NumOutputSigScalars, m_OutputsDependentOnViewId);
+  if (pSM->IsHS()) {
+    PrintOutputsDependentOnViewId(OS, "PCOutputs", m_NumPCSigScalars, m_PCOutputsDependentOnViewId);
+  }
+
+  PrintInputsContributingToOutputs(OS, "Inputs", "Outputs", m_InputsContributingToOutputs);
+  if (pSM->IsHS()) {
+    PrintInputsContributingToOutputs(OS, "Inputs", "PCOutputs", m_InputsContributingToPCOutputs);
+  } else if (pSM->IsDS()) {
+    PrintInputsContributingToOutputs(OS, "PCInputs", "Outputs", m_PCInputsContributingToOutputs);
+  }
+  OS << "\n";
+}
+
+void DxilViewIdState::PrintOutputsDependentOnViewId(llvm::raw_ostream &OS,
+                                                    llvm::StringRef SetName,
+                                                    unsigned NumOutputs,
+                                                    const OutputsDependentOnViewIdType &OutputsDependentOnViewId) {
+  OS << SetName << " dependent on ViewId: { ";
   bool bFirst = true;
-  for (unsigned i = 0; i < m_NumOutputSigScalars; i++) {
-    if (m_OutputsDependentOnViewId[i]) {
+  for (unsigned i = 0; i < NumOutputs; i++) {
+    if (OutputsDependentOnViewId[i]) {
       if (!bFirst) OS << ", ";
       OS << i;
       bFirst = false;
     }
   }
   OS << " }\n";
-  OS << "Inputs contributing to computation of outputs:\n";
-  for (auto &it : m_InputsContributingToOutputs) {
+}
+
+void DxilViewIdState::PrintInputsContributingToOutputs(llvm::raw_ostream &OS,
+                                                       llvm::StringRef InputSetName,
+                                                       llvm::StringRef OutputSetName,
+                                                       const InputsContributingToOutputType &InputsContributingToOutputs) {
+  OS << InputSetName << " contributing to computation of " << OutputSetName << ":\n";
+  for (auto &it : InputsContributingToOutputs) {
     unsigned outIdx = it.first;
     auto &Inputs = it.second;
     OS << "output " << outIdx << " depends on inputs: { ";
@@ -172,6 +198,15 @@ void DxilViewIdState::ComputeReachableFunctionsRec(CallGraph &CG, CallGraphNode 
     CallGraphNode *pSuccNode = it->second;
     ComputeReachableFunctionsRec(CG, pSuccNode, FuncSet);
   }
+}
+
+static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
+  ConstantInt *CI = dyn_cast<ConstantInt>(V);
+  if (!CI) return false;
+  uint64_t u = CI->getZExtValue();
+  if (u > UINT32_MAX) return false;
+  *pValue = (uint32_t)u;
+  return true;
 }
 
 void DxilViewIdState::AnalyzeFunctions(EntryInfo &Entry) {
@@ -598,15 +633,14 @@ const vector<unsigned> &DxilViewIdState::GetSerialized() {
     return m_SerializedState;
 
   const ShaderModel *pSM = m_pModule->GetShaderModel();
-  unsigned NumInpUINTs = RoundUpToUINT(m_NumInputSigScalars);
   unsigned NumOutUINTs = RoundUpToUINT(m_NumOutputSigScalars);
   unsigned NumPCUINTs = RoundUpToUINT(m_NumPCSigScalars);
-  unsigned Size1 = 2 + NumOutUINTs + m_NumOutputSigScalars * NumInpUINTs;
+  unsigned Size1 = 2 + NumOutUINTs * (1 + m_NumInputSigScalars);
   unsigned Size2 = 0;
   if (pSM->IsHS()) {
-    Size2 = 2 + NumPCUINTs + m_NumPCSigScalars * NumInpUINTs;
+    Size2 = 2 + NumPCUINTs * (1 + m_NumInputSigScalars);
   } else if (pSM->IsDS()) {
-    Size2 = 2 + NumOutUINTs + m_NumOutputSigScalars * NumPCUINTs;
+    Size2 = 2 + NumOutUINTs * (1 + m_NumPCSigScalars);
   }
   unsigned Size = Size1 + Size2;
 
@@ -634,7 +668,6 @@ void DxilViewIdState::Serialize1(unsigned NumInputs, unsigned NumOutputs,
                                  const OutputsDependentOnViewIdType &OutputsDependentOnViewId,
                                  const InputsContributingToOutputType &InputsContributingToOutputs,
                                  unsigned *&pData) {
-  unsigned NumInpUINTs = RoundUpToUINT(NumInputs);
   unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
 
   unsigned *p = pData;
@@ -653,17 +686,17 @@ void DxilViewIdState::Serialize1(unsigned NumInputs, unsigned NumOutputs,
   }
 
   // Serialize output dependence on inputs.
-  for (unsigned i = 0; i < NumOutputs; i++) {
-    auto it = InputsContributingToOutputs.find(i);
+  for (unsigned outputIdx = 0; outputIdx < NumOutputs; outputIdx++) {
+    auto it = InputsContributingToOutputs.find(outputIdx);
     if (it != InputsContributingToOutputs.end()) {
-      for (unsigned idx : it->second) {
-        unsigned w = idx / 32;
-        unsigned b = idx % 32;
-        p[w] |= (1u << b);
+      for (unsigned inputIdx : it->second) {
+        unsigned w = outputIdx / 32;
+        unsigned b = outputIdx % 32;
+        p[inputIdx*NumOutUINTs + w] |= (1u << b);
       }
     }
-    p += NumInpUINTs;
   }
+  p += NumInputs * NumOutUINTs;
 
   pData = p;
 }
@@ -705,10 +738,9 @@ unsigned DxilViewIdState::Deserialize1(const unsigned *pData, unsigned DataSize,
   const unsigned *p = pData;
   NumInputs  = *p++;
   NumOutputs = *p++;
-  unsigned NumInpUINTs = RoundUpToUINT(NumInputs);
   unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
 
-  unsigned Size = 2 + NumOutUINTs + NumOutputs * NumInpUINTs;
+  unsigned Size = 2 + NumOutUINTs * (1 +  NumInputs);
   IFTBOOL(Size <= DataSize, DXC_E_GENERAL_INTERNAL_ERROR);
 
   // Deserialize output dependence on ViewId.
@@ -722,19 +754,14 @@ unsigned DxilViewIdState::Deserialize1(const unsigned *pData, unsigned DataSize,
   }
 
   // Deserialize output dependence on inputs.
-  for (unsigned i = 0; i < NumOutputs; i++) {
-    std::set<unsigned> S;
-    for (unsigned idx = 0; idx < NumInputs; idx++) {
-      unsigned w = idx / 32;
-      unsigned b = idx % 32;
-      if (p[w] & (1u << b)) {
-        S.emplace(idx);
+  for (unsigned inputIdx = 0; inputIdx < NumInputs; inputIdx++) {
+    for (unsigned outputIdx = 0; outputIdx < NumOutputs; outputIdx++) {
+      unsigned w = outputIdx / 32;
+      unsigned b = outputIdx % 32;
+      if (p[inputIdx*NumOutUINTs + w] & (1u << b)) {
+        InputsContributingToOutputs[outputIdx].insert(inputIdx);
       }
     }
-    if (!S.empty()) {
-      InputsContributingToOutputs.emplace(i, S);
-    }
-    p += NumInpUINTs;
   }
 
   return Size;

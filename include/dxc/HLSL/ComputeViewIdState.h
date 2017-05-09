@@ -49,7 +49,17 @@ public:
   using OutputsDependentOnViewIdType = std::bitset<kMaxSigScalars>;
   using InputsContributingToOutputType = std::map<unsigned, std::set<unsigned>>;
 
-  DxilViewIdState(DxilModule *pDxilModule) : m_pModule(pDxilModule) {}
+  DxilViewIdState(DxilModule *pDxilModule);
+
+  unsigned getNumInputSigScalars() const;
+  unsigned getNumOutputSigScalars() const;
+  unsigned getNumPCSigScalars() const;
+  const OutputsDependentOnViewIdType &getOutputsDependentOnViewId() const;
+  const OutputsDependentOnViewIdType &getPCOutputsDependentOnViewId() const;
+  const InputsContributingToOutputType &getInputsContributingToOutputs() const;
+  const InputsContributingToOutputType &getInputsContributingToPCOutputs() const;
+  const InputsContributingToOutputType &getPCInputsContributingToOutputs() const;
+
   void Compute();
   const std::vector<unsigned> &GetSerialized();
   void Deserialize(const unsigned *pData, unsigned DataSize);
@@ -139,6 +149,13 @@ private:
                         OutputsDependentOnViewIdType &OutputsDependentOnViewId,
                         InputsContributingToOutputType &InputsContributingToOutputs);
   unsigned GetLinearIndex(DxilSignatureElement &SigElem, int row, unsigned col) const;
+
+  void PrintOutputsDependentOnViewId(llvm::raw_ostream &OS,
+                                     llvm::StringRef SetName, unsigned NumOutputs,
+                                     const OutputsDependentOnViewIdType &OutputsDependentOnViewId);
+  void PrintInputsContributingToOutputs(llvm::raw_ostream &OS,
+                                        llvm::StringRef InputSetName, llvm::StringRef OutputSetName,
+                                        const InputsContributingToOutputType &InputsContributingToOutputs);
 };
 
 } // end of hlsl namespace
