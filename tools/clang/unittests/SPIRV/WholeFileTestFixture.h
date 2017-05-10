@@ -1,4 +1,4 @@
-//===- unittests/SPIRV/WholeFileCheck.h ---- WholeFileCheck Test Fixture --===//
+//===- unittests/SPIRV/WholeFileTestFixture.h - Whole file test Fixture ---===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_UNITTESTS_SPIRV_WHOLEFILECHECK_H
-#define LLVM_CLANG_UNITTESTS_SPIRV_WHOLEFILECHECK_H
+#ifndef LLVM_CLANG_UNITTESTS_SPIRV_WHOLEFILETESTFIXTURE_H
+#define LLVM_CLANG_UNITTESTS_SPIRV_WHOLEFILETESTFIXTURE_H
 
 #include "llvm/ADT/StringRef.h"
 #include "gtest/gtest.h"

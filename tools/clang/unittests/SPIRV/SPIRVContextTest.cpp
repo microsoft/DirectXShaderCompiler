@@ -17,7 +17,7 @@ using namespace clang::spirv;
 
 namespace {
 
-TEST(ValidateSPIRVContext, ValidateGetNextId) {
+TEST(SPIRVContext, GetNextId) {
   SPIRVContext context;
   // Check that the first ID is 1.
   EXPECT_EQ(context.getNextId(), 1u);
@@ -25,14 +25,14 @@ TEST(ValidateSPIRVContext, ValidateGetNextId) {
   EXPECT_EQ(context.getNextId(), 1u);
 }
 
-TEST(ValidateSPIRVContext, ValidateTakeNextId) {
+TEST(SPIRVContext, TakeNextId) {
   SPIRVContext context;
   EXPECT_EQ(context.takeNextId(), 1u);
   EXPECT_EQ(context.takeNextId(), 2u);
   EXPECT_EQ(context.getNextId(), 3u);
 }
 
-TEST(ValidateSPIRVContext, ValidateUniqueIdForUniqueNonAggregateType) {
+TEST(SPIRVContext, UniqueIdForUniqueNonAggregateType) {
   SPIRVContext ctx;
   const Type *intt = Type::getInt32(ctx);
   uint32_t intt_id = ctx.getResultIdForType(intt);
@@ -41,7 +41,7 @@ TEST(ValidateSPIRVContext, ValidateUniqueIdForUniqueNonAggregateType) {
   EXPECT_EQ(intt_id, intt_id_again);
 }
 
-TEST(ValidateSPIRVContext, ValidateUniqueIdForUniqueAggregateType) {
+TEST(SPIRVContext, UniqueIdForUniqueAggregateType) {
   SPIRVContext ctx;
   // In this test we construct a struct which includes an integer member and
   // a boolean member.
