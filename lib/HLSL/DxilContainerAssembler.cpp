@@ -170,9 +170,10 @@ private:
              const hlsl::DxilSignatureElement *pElement) {
     const std::vector<unsigned> &indexVec = pElement->GetSemanticIndexVec();
     unsigned eltCount = pElement->GetSemanticIndexVec().size();
-    unsigned eltRows = 0;
+    unsigned eltRows = 1;
     if (eltCount)
       eltRows = pElement->GetRows() / eltCount;
+    DXASSERT_NOMSG(eltRows == 1);
 
     DxilProgramSignatureElement sig;
     memset(&sig, 0, sizeof(DxilProgramSignatureElement));
@@ -354,9 +355,10 @@ private:
       E.SemanticName = 0;
     }
     // Search index buffer for matching semantic index sequence
-    auto SemIdx = SE.GetSemanticIndexVec();
+    DXASSERT_NOMSG(SE.GetRows() == SE.GetSemanticIndexVec().size());
+    auto &SemIdx = SE.GetSemanticIndexVec();
     bool match = false;
-    for (uint32_t offset = 0; offset + SE.GetRows() < m_SemanticIndexBuffer.size(); offset++) {
+    for (uint32_t offset = 0; offset + SE.GetRows() - 1 < m_SemanticIndexBuffer.size(); offset++) {
       match = true;
       for (uint32_t row = 0; row < SE.GetRows(); row++) {
         if ((uint32_t)SemIdx[row] != m_SemanticIndexBuffer[offset + row]) {
@@ -371,7 +373,7 @@ private:
     }
     if (!match) {
       E.SemanticIndexes = m_SemanticIndexBuffer.size();
-      for (uint32_t row = 0; row < SE.GetRows(); row++) {
+      for (uint32_t row = 0; row < E.SemanticIndexes; row++) {
         m_SemanticIndexBuffer.push_back((uint32_t)SemIdx[row]);
       }
     }
