@@ -51,6 +51,10 @@ bool IsStarMatchUTF16(_In_reads_opt_(maskLen) const wchar_t *pMask, size_t maskL
                       _In_reads_opt_(nameLen) const wchar_t *pName, size_t nameLen);
 
 _Success_(return != false)
+bool UTF8BufferToUTF16ComHeap(_In_z_ const char *pUTF8,
+                              _Outptr_result_z_ wchar_t **ppUTF16) throw();
+
+_Success_(return != false)
 bool UTF8BufferToUTF16Buffer(
   _In_NLS_string_(cbUTF8) const char *pUTF8,
   int cbUTF8, 

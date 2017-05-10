@@ -156,10 +156,30 @@ IDxcCompiler : public IUnknown {
     _COM_Outptr_ IDxcOperationResult **ppResult   // Preprocessor output status, buffer, and errors
   ) = 0;
 
+  // Disassemble a program.
   virtual HRESULT STDMETHODCALLTYPE Disassemble(
     _In_ IDxcBlob *pSource,                         // Program to disassemble.
     _COM_Outptr_ IDxcBlobEncoding **ppDisassembly   // Disassembly text.
     ) = 0;
+};
+
+struct __declspec(uuid("A005A9D9-B8BB-4594-B5C9-0E633BEC4D37"))
+IDxcCompiler2 : public IDxcCompiler {
+  // Compile a single entry point to the target shader model with debug information.
+  virtual HRESULT STDMETHODCALLTYPE CompileWithDebug(
+    _In_ IDxcBlob *pSource,                       // Source text to compile
+    _In_opt_ LPCWSTR pSourceName,                 // Optional file name for pSource. Used in errors and include handlers.
+    _In_ LPCWSTR pEntryPoint,                     // Entry point name
+    _In_ LPCWSTR pTargetProfile,                  // Shader profile to compile
+    _In_count_(argCount) LPCWSTR *pArguments,     // Array of pointers to arguments
+    _In_ UINT32 argCount,                         // Number of arguments
+    _In_count_(defineCount) const DxcDefine *pDefines,  // Array of defines
+    _In_ UINT32 defineCount,                      // Number of defines
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
+    _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
+    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob.
+    _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
+  ) = 0;
 };
 
 static const UINT32 DxcValidatorFlags_Default = 0;

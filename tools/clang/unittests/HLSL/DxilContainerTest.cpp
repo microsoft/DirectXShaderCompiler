@@ -65,6 +65,7 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+  TEST_METHOD(CompileWhenDebugSourceThenSourceMatters)
   TEST_METHOD(CompileWhenOKThenIncludesFeatureInfo)
   TEST_METHOD(CompileWhenOKThenIncludesSignatures)
   TEST_METHOD(CompileWhenSigSquareThenIncludeSplit)
@@ -407,20 +408,59 @@ public:
                    __uuidof(ID3D12ShaderReflection), (void **)ppReflection));
   }
 
-  std::string DisassembleProgram(LPCSTR program, LPCWSTR entryPoint,
-                                 LPCWSTR target) {
+  void CompileToProgram(LPCSTR program, LPCWSTR entryPoint, LPCWSTR target,
+                        LPCWSTR *pArguments, UINT32 argCount,
+                        IDxcBlob **ppProgram) {
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcBlob> pProgram;
-    CComPtr<IDxcBlobEncoding> pDisassembly;
     CComPtr<IDxcOperationResult> pResult;
 
     VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
     CreateBlobFromText(program, &pSource);
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", entryPoint,
-                                        target, nullptr, 0, nullptr, 0, nullptr,
-                                        &pResult));
+                                        target, pArguments, argCount, nullptr,
+                                        0, nullptr, &pResult));
     VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+    *ppProgram = pProgram.Detach();
+  }
+
+  bool DoesValidatorSupportDebugName() {
+    CComPtr<IDxcVersionInfo> pVersionInfo;
+    UINT Major, Minor;
+    HRESULT hrVer = m_dllSupport.CreateInstance(CLSID_DxcValidator, &pVersionInfo);
+    if (hrVer == E_NOINTERFACE) return false;
+    VERIFY_SUCCEEDED(hrVer);
+    VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&Major, &Minor));
+    return Major == 1 && (Minor >= 1);
+  }
+
+  std::string CompileToDebugName(LPCSTR program, LPCWSTR entryPoint,
+                                 LPCWSTR target, LPCWSTR *pArguments, UINT32 argCount) {
+    CComPtr<IDxcBlob> pProgram;
+    CComPtr<IDxcBlob> pNameBlob;
+    CComPtr<IDxcContainerReflection> pContainer;
+    UINT32 index;
+
+    CompileToProgram(program, entryPoint, target, pArguments, argCount, &pProgram);
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainer));
+    VERIFY_SUCCEEDED(pContainer->Load(pProgram));
+    if (FAILED(pContainer->FindFirstPartKind(hlsl::DFCC_ShaderDebugName, &index))) {
+      return std::string();
+    }
+    VERIFY_SUCCEEDED(pContainer->GetPartContent(index, &pNameBlob));
+    const hlsl::DxilShaderDebugName *pDebugName = (hlsl::DxilShaderDebugName *)pNameBlob->GetBufferPointer();
+    return std::string((const char *)(pDebugName + 1));
+  }
+
+  std::string DisassembleProgram(LPCSTR program, LPCWSTR entryPoint,
+                                 LPCWSTR target) {
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcBlob> pProgram;
+    CComPtr<IDxcBlobEncoding> pDisassembly;
+
+    CompileToProgram(program, entryPoint, target, nullptr, 0, &pProgram);
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
     return BlobToUtf8(pDisassembly);
   }
@@ -480,6 +520,43 @@ public:
     CompareReflection(pProgramReflection, pProgramReflectionDXBC);
   }
 };
+
+TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
+  char program1[] = "float4 main() : SV_Target { return 0; }";
+  char program2[] = "  float4 main() : SV_Target { return 0; }  ";
+  LPCWSTR Zi[] = { L"/Zi" };
+  LPCWSTR ZiZss[] = { L"/Zi", L"/Zss" };
+  LPCWSTR ZiZsb[] = { L"/Zi", L"/Zsb" };
+  
+  // No debug info, no debug name...
+  std::string noName = CompileToDebugName(program1, L"main", L"ps_6_0", nullptr, 0);
+  VERIFY_IS_TRUE(noName.empty());
+
+  if (!DoesValidatorSupportDebugName())
+    return;
+
+  // Debug info, default to source name.
+  std::string sourceName1 = CompileToDebugName(program1, L"main", L"ps_6_0", Zi, _countof(Zi));
+  VERIFY_IS_FALSE(sourceName1.empty());
+
+  // Deterministic naming.
+  std::string sourceName1Again = CompileToDebugName(program1, L"main", L"ps_6_0", Zi, _countof(Zi));
+  VERIFY_ARE_EQUAL_STR(sourceName1.c_str(), sourceName1Again.c_str());
+
+  // Changes in source become changes in name.
+  std::string sourceName2 = CompileToDebugName(program2, L"main", L"ps_6_0", Zi, _countof(Zi));
+  VERIFY_IS_FALSE(0 == strcmp(sourceName2.c_str(), sourceName1.c_str()));
+
+  // Source again, different because different switches are specified.
+  std::string sourceName1Zss = CompileToDebugName(program1, L"main", L"ps_6_0", ZiZss, _countof(ZiZss));
+  VERIFY_IS_FALSE(0 == strcmp(sourceName1Zss.c_str(), sourceName1.c_str()));
+
+  // Binary program 1 and 2 should be different from source and equal to each other.
+  std::string binName1 = CompileToDebugName(program1, L"main", L"ps_6_0", ZiZsb, _countof(ZiZsb));
+  std::string binName2 = CompileToDebugName(program2, L"main", L"ps_6_0", ZiZsb, _countof(ZiZsb));
+  VERIFY_ARE_EQUAL_STR(binName1.c_str(), binName2.c_str());
+  VERIFY_IS_FALSE(0 == strcmp(sourceName1Zss.c_str(), binName1.c_str()));
+}
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
   char program[] =
