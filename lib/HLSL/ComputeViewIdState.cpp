@@ -16,6 +16,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/Debug.h"
@@ -280,7 +281,7 @@ void DxilViewIdState::AnalyzeFunctions(EntryInfo &Entry) {
         }
 
         // Record dynamic index usage.
-        if (row == Semantic::kUndefinedRow) {
+        if (pDynIdxElems && row == Semantic::kUndefinedRow) {
           (*pDynIdxElems)[id] |= (1 << col);
         }
       }
@@ -324,6 +325,9 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
     }
 
     DxilSignatureElement &SigElem = pDxilSig->GetElement(id);
+    if (!SigElem.IsAllocated())
+      continue;
+
     if (startRow != Semantic::kUndefinedRow) {
       endRow = startRow;
     } else {
@@ -345,13 +349,18 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
 
       for (int row = startRow; row <= endRow; row++) {
         unsigned index = GetLinearIndex(SigElem, row, col);
-        InstructionSetType NewSet;
-        std::set_union(Entry.ContributingInstructions[index].begin(),
-                       Entry.ContributingInstructions[index].end(),
-                       ContributingInstructions.begin(),
-                       ContributingInstructions.end(),
-                       std::inserter(NewSet, NewSet.end()));
-        Entry.ContributingInstructions[index].swap(NewSet);
+        auto it = Entry.ContributingInstructions.emplace(index, InstructionSetType{});
+        if (it.second) {
+          it.first->second = ContributingInstructions;
+        } else {
+          InstructionSetType NewSet;
+          std::set_union(it.first->second.begin(),
+                         it.first->second.end(),
+                         ContributingInstructions.begin(),
+                         ContributingInstructions.end(),
+                         std::inserter(NewSet, NewSet.end()));
+          it.first->second.swap(NewSet);
+        }
       }
     }
   }
@@ -359,6 +368,11 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
 
 void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingValue,
                                                            InstructionSetType &ContributingInstructions) {
+  if (Argument *pArg = dyn_cast<Argument>(pContributingValue)) {
+    // TODO: handle multiple functions.
+    return;
+  }
+
   Instruction *pContributingInst = dyn_cast<Instruction>(pContributingValue);
   if (pContributingInst == nullptr) {
     // Can be literal constant, global decl, branch target.
@@ -397,7 +411,7 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
   } else if (CallInst *CI = dyn_cast<CallInst>(pContributingInst)) {
     if (!hlsl::OP::IsDxilOpFuncCallInst(CI)) {
       // TODO: Return value of a user function.
-      DXASSERT_NOMSG(false);
+      return;
     }
   }
 
@@ -452,8 +466,11 @@ void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &Reach
     return;
   }
 
-  if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(pValue)) {
-    Value *pPtrValue = GEP->getPointerOperand();
+  if (GetElementPtrInst *pGepInst = dyn_cast<GetElementPtrInst>(pValue)) {
+    Value *pPtrValue = pGepInst->getPointerOperand();
+    CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
+  } else if (GEPOperator *pGepOp = dyn_cast<GEPOperator>(pValue)) {
+    Value *pPtrValue = pGepOp->getPointerOperand();
     CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
   } else if (AllocaInst *AI = dyn_cast<AllocaInst>(pValue)) {
     ReachingDecls.emplace(pValue);
@@ -461,6 +478,8 @@ void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &Reach
     for (Value *pPtrValue : phi->operands()) {
       CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
     }
+  } else if (Argument *pArg = dyn_cast<Argument>(pValue)) {
+    ReachingDecls.emplace(pValue);
   } else {
     IFT(DXC_E_GENERAL_INTERNAL_ERROR);
   }
@@ -541,7 +560,7 @@ void DxilViewIdState::CreateViewIdSets(EntryInfo &Entry,
         GetUnsignedVal(LOCP.get_col(), &col);
         GetUnsignedVal(LOCP.get_row(), (uint32_t*)&startRow);
         if (pSM->IsHS()) {
-          pSigElem = &m_pModule->GetPatchConstantSignature().GetElement(inpId);
+          pSigElem = &m_pModule->GetOutputSignature().GetElement(inpId);
           bLoadOutputCPInHS = true;
         } else if (pSM->IsDS()) {
           if (!bPC) {
@@ -562,7 +581,7 @@ void DxilViewIdState::CreateViewIdSets(EntryInfo &Entry,
       }
 
       // Finalize setting output dependence on inputs.
-      if (pSigElem) {
+      if (pSigElem && pSigElem->IsAllocated()) {
         if (startRow != Semantic::kUndefinedRow) {
           endRow = startRow;
         } else {
@@ -712,7 +731,7 @@ void DxilViewIdState::Deserialize(const unsigned *pData, unsigned DataSize) {
     unsigned t = 0;
     if (pSM->IsHS()) {
       unsigned NumInputs;
-      t = Deserialize1(pData, DataSize-ConsumedUINTs, NumInputs, m_NumPCSigScalars,
+      t = Deserialize1(&pData[ConsumedUINTs], DataSize-ConsumedUINTs, NumInputs, m_NumPCSigScalars,
                        m_PCOutputsDependentOnViewId, m_InputsContributingToPCOutputs);
       DXASSERT_NOMSG(NumInputs == m_NumInputSigScalars);
     } else if (pSM->IsDS()) {
@@ -780,7 +799,7 @@ ComputeViewIdState::ComputeViewIdState() : ModulePass(ID) {
 bool ComputeViewIdState::runOnModule(Module &M) {
   DxilModule &DxilModule = M.GetOrCreateDxilModule();
   const ShaderModel *pSM = DxilModule.GetShaderModel();
-  if (pSM->IsSM61Plus()) {
+  if (!pSM->IsCS()) {
     DxilViewIdState &ViewIdState = DxilModule.GetViewIdState();
     ViewIdState.Compute();
     return true;

@@ -948,7 +948,7 @@ void DxilModule::EmitDxilMetadata() {
   MDTuple *pMDResources = EmitDxilResources();
   MDTuple *pMDProperties = EmitDxilShaderProperties();
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
-  if (m_pSM->IsSM61Plus()) {
+  if (!m_pSM->IsCS()) {
     m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
   }
   EmitLLVMUsed();

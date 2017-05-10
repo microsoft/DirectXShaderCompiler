@@ -26,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include <array>
+#include <algorithm>
 
 #include "dxc/Support/WinIncludes.h"
 
@@ -819,8 +820,11 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
 
 void DxilMDHelper::EmitDxilViewIdState(DxilViewIdState &ViewIdState) {
   const vector<unsigned> &Data = ViewIdState.GetSerialized();
-  Constant *V = ConstantDataArray::get(m_Ctx, ArrayRef<uint32_t>(Data));
+  // If all UINTs are zero, do not emit ViewIdState.
+  if (!std::any_of(Data.begin(), Data.end(), [](unsigned e){return e!=0;}))
+    return;
 
+  Constant *V = ConstantDataArray::get(m_Ctx, ArrayRef<uint32_t>(Data));
   NamedMDNode *pViewIdNamedMD = m_pModule->getNamedMetadata(kDxilViewIdStateMDName);
   IFTBOOL(pViewIdNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   pViewIdNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilViewIdStateMDName);
@@ -840,6 +844,8 @@ void DxilMDHelper::LoadDxilViewIdState(DxilViewIdState &ViewIdState) {
 
   const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MDO.get());
   IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  if (isa<ConstantAggregateZero>(pMetaData->getValue()))
+    return;
   const ConstantDataArray *pData = dyn_cast<ConstantDataArray>(pMetaData->getValue());
   IFTBOOL(pData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   IFTBOOL(pData->getElementType() == Type::getInt32Ty(m_Ctx), DXC_E_INCORRECT_DXIL_METADATA);
