@@ -170,6 +170,7 @@ For API clients and LLVM developers.
    MarkedUpDisassembly
    SystemLibrary
    SourceLevelDebugging
+   SourceLevelDebuggingHLSL
    Vectorizers
    WritingAnLLVMBackend
    WritingAnLLVMPass
@@ -203,6 +204,10 @@ For API clients and LLVM developers.
 :doc:`Source Level Debugging with LLVM <SourceLevelDebugging>`
    This document describes the design and philosophy behind the LLVM
    source-level debugger.
+
+:doc:`Source Level Debugging with HLSL <SourceLevelDebuggingHLSL>`
+    This document describes specifics of using source-level debuggers for DXIL
+    and HLSL.
 
 :doc:`Vectorizers`
    This document describes the current status of vectorization in LLVM.

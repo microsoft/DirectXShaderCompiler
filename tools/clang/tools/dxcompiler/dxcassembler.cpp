@@ -121,7 +121,9 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     CComPtr<AbstractMemoryStream> pFinalStream;
     IFT(CreateMemoryStream(pMalloc, &pFinalStream));
 
-    SerializeDxilContainerForModule(&M->GetOrCreateDxilModule(), pOutputStream, pFinalStream);
+    SerializeDxilContainerForModule(&M->GetOrCreateDxilModule(), pOutputStream,
+                                    pFinalStream,
+                                    SerializeDxilFlags::IncludeDebugNamePart);
 
     CComPtr<IDxcBlob> pResultBlob;
     IFT(pFinalStream->QueryInterface(&pResultBlob));
