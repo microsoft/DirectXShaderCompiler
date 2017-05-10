@@ -88,16 +88,15 @@ public:
 
 /// <summary>
 /// Provides a QueryInterface implementation for a class that supports
-/// a single interface in addition to IUnknown.
+/// any number of interfaces in addition to IUnknown.
 /// </summary>
 /// <remarks>
 /// This implementation will also report the instance as not supporting
 /// marshaling. This will help catch marshaling problems early or avoid
 /// them altogether.
 /// </remarks>
-template <typename TInterface, typename TObject>
-HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject)
-{
+template<typename... Ts, typename TObject>
+HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject) {
   if (ppvObject == nullptr) return E_POINTER;
 
   // Support INoMarshal to void GIT shenanigans.
@@ -108,116 +107,22 @@ HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject)
     return S_OK;
   }
 
+  return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
+}
+
+template<typename TObject>
+HRESULT DoBasicQueryInterface_recurse(TObject* self, REFIID iid, void** ppvObject) {
+  return E_NOINTERFACE;
+}
+template<typename TObject, typename TInterface, typename... Ts>
+HRESULT DoBasicQueryInterface_recurse(TObject* self, REFIID iid, void** ppvObject) {
+  if (ppvObject == nullptr) return E_POINTER;
   if (IsEqualIID(iid, __uuidof(TInterface))) {
     *(TInterface**)ppvObject = self;
     self->AddRef();
     return S_OK;
   }
-
-  return E_NOINTERFACE;
-}
-
-/// <summary>
-/// Provides a QueryInterface implementation for a class that supports
-/// two interfaces in addition to IUnknown.
-/// </summary>
-/// <remarks>
-/// This implementation will also report the instance as not supporting
-/// marshaling. This will help catch marshaling problems early or avoid
-/// them altogether.
-/// </remarks>
-template <typename TInterface, typename TInterface2, typename TObject>
-HRESULT DoBasicQueryInterface2(TObject* self, REFIID iid, void** ppvObject)
-{
-  if (ppvObject == nullptr) return E_POINTER;
-
-  // Support INoMarshal to void GIT shenanigans.
-  if (IsEqualIID(iid, __uuidof(IUnknown)) ||
-      IsEqualIID(iid, __uuidof(INoMarshal))) {
-    *ppvObject = reinterpret_cast<IUnknown*>(self);
-    reinterpret_cast<IUnknown*>(self)->AddRef();
-    return S_OK;
-  }
-
-  if (IsEqualIID(__uuidof(TInterface), iid)) {
-    *(TInterface**)ppvObject = self;
-    self->AddRef();
-    return S_OK;
-  }
-
-  if (IsEqualIID(__uuidof(TInterface2), iid)) {
-    *(TInterface2**)ppvObject = self;
-    self->AddRef();
-    return S_OK;
-  }
-
-  return E_NOINTERFACE;
-}
-
-/// <summary>
-/// Provides a QueryInterface implementation for a class that supports
-/// three interfaces in addition to IUnknown.
-/// </summary>
-/// <remarks>
-/// This implementation will also report the instance as not supporting
-/// marshaling. This will help catch marshaling problems early or avoid
-/// them altogether.
-/// </remarks>
-template <typename TInterface, typename TInterface2, typename TInterface3, typename TObject>
-HRESULT DoBasicQueryInterface3(TObject* self, REFIID iid, void** ppvObject)
-{
-  if (ppvObject == nullptr) return E_POINTER;
-  if (IsEqualIID(iid, __uuidof(TInterface3))) {
-    *(TInterface3**)ppvObject = self;
-    self->AddRef();
-    return S_OK;
-  }
-
-  return DoBasicQueryInterface2<TInterface, TInterface2, TObject>(self, iid, ppvObject);
-}
-
-/// <summary>
-/// Provides a QueryInterface implementation for a class that supports
-/// four interfaces in addition to IUnknown.
-/// </summary>
-/// <remarks>
-/// This implementation will also report the instance as not supporting
-/// marshaling. This will help catch marshaling problems early or avoid
-/// them altogether.
-/// </remarks>
-template <typename TInterface, typename TInterface2, typename TInterface3, typename TInterface4, typename TObject>
-HRESULT DoBasicQueryInterface4(TObject* self, REFIID iid, void** ppvObject)
-{
-  if (ppvObject == nullptr) return E_POINTER;
-  if (IsEqualIID(iid, __uuidof(TInterface4))) {
-    *(TInterface4**)ppvObject = self;
-    self->AddRef();
-    return S_OK;
-  }
-
-  return DoBasicQueryInterface3<TInterface, TInterface2, TInterface3, TObject>(self, iid, ppvObject);
-}
-
-/// <summary>
-/// Provides a QueryInterface implementation for a class that supports
-/// five interfaces in addition to IUnknown.
-/// </summary>
-/// <remarks>
-/// This implementation will also report the instance as not supporting
-/// marshaling. This will help catch marshaling problems early or avoid
-/// them altogether.
-/// </remarks>
-template <typename TInterface, typename TInterface2, typename TInterface3, typename TInterface4, typename TInterface5, typename TObject>
-HRESULT DoBasicQueryInterface5(TObject* self, REFIID iid, void** ppvObject)
-{
-  if (ppvObject == nullptr) return E_POINTER;
-  if (IsEqualIID(iid, __uuidof(TInterface5))) {
-    *(TInterface5**)ppvObject = self;
-    self->AddRef();
-    return S_OK;
-  }
-
-  return DoBasicQueryInterface4<TInterface, TInterface2, TInterface3, TInterface4, TObject>(self, iid, ppvObject);
+  return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
 }
 
 template <typename T>

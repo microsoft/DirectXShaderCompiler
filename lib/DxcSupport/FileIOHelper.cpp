@@ -116,7 +116,7 @@ public:
   InternalDxcBlobEncoding() : m_dwRef(0) {
   }
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
   }
 
   ~InternalDxcBlobEncoding() {
@@ -669,7 +669,7 @@ public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface3<IStream, ISequentialStream, IDxcBlob>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IStream, ISequentialStream, IDxcBlob>(this, iid, ppvObject);
   }
 
   MemoryStream(_In_ IMalloc *pMalloc)
@@ -875,7 +875,7 @@ public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IStream, ISequentialStream>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IStream, ISequentialStream>(this, iid, ppvObject);
   }
 
   ReadOnlyBlobStream(IDxcBlob *pSource) : m_pSource(pSource), m_offset(0), m_dwRef(0) {

@@ -401,7 +401,7 @@ public:
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
   }
 
   __override HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(_In_ IDxcBlobEncoding *pSource,
