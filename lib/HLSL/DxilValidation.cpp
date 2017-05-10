@@ -4070,7 +4070,9 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
 }
 
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
-  // Bump these versions after 1.0 to account for additional validation rules.
+  // 1.0 is the first validator.
+  // 1.1 adds:
+  // - ILDN container part support
   *pMajor = 1;
   *pMinor = 1;
 }
@@ -4334,6 +4336,7 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     case DFCC_PrivateData:
     case DFCC_DXIL:
     case DFCC_ShaderDebugInfoDXIL:
+    case DFCC_ShaderDebugName:
       continue;
 
     case DFCC_Container:

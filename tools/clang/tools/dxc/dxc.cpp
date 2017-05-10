@@ -78,6 +78,7 @@ private:
   DxcDllSupport &m_dxcSupport;
 
   int ActOnBlob(IDxcBlob *pBlob);
+  int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
   void UpdatePart(IDxcBlob *pBlob, IDxcBlob **ppResult);
   bool UpdatePartRequired();
   void WriteHeader(IDxcBlobEncoding *pDisassembly, IDxcBlob *pCode,
@@ -135,6 +136,10 @@ static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
 // This function is called either after the compilation is done or /dumpbin option is provided
 // Performing options that are used to process dxil container.
 int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
+  return ActOnBlob(pBlob, nullptr, nullptr);
+}
+
+int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName) {
   int retVal = 0;
   // Text output.
   if (m_Opts.AstDump || m_Opts.OptDump) {
@@ -164,7 +169,14 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
       "/Zi switch to generate debug "
       "information compiling this shader.");
 
-    WritePartToFile(pBlob, hlsl::DFCC_ShaderDebugInfoDXIL, m_Opts.DebugFile);
+    if (pDebugBlob != nullptr) {
+      IFTBOOLMSG(pDebugBlobName && *pDebugBlobName, E_INVALIDARG,
+        "/Fd was specified but no debug name was produced");
+      WriteBlobToFile(pDebugBlob, pDebugBlobName);
+    }
+    else {
+      WritePartToFile(pBlob, hlsl::DFCC_ShaderDebugInfoDXIL, m_Opts.DebugFile);
+    }
   }
 
   // Extract and write root signature information.
@@ -598,6 +610,8 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompile
 int DxcContext::Compile() {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pCompileResult;
+  CComPtr<IDxcBlob> pDebugBlob;
+  std::wstring debugName;
   {
     CComPtr<IDxcBlobEncoding> pSource;
 
@@ -632,11 +646,28 @@ int DxcContext::Compile() {
         TargetProfile = hlsl::ShaderModel::Get(SM->GetKind(), 6, 0)->GetName();
       }
 
-      IFT(pCompiler->Compile(pSource, StringRefUtf16(m_Opts.InputFile),
-        StringRefUtf16(m_Opts.EntryPoint),
-        StringRefUtf16(TargetProfile), args.data(),
-        args.size(), m_Opts.Defines.data(),
-        m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+      if (!m_Opts.DebugFile.empty() && m_Opts.DebugFile.endswith(llvm::StringRef("\\"))) {
+        args.push_back(L"/Qstrip_debug"); // implied
+        CComPtr<IDxcCompiler2> pCompiler2;
+        CComHeapPtr<WCHAR> pDebugName;
+        IFT(pCompiler.QueryInterface(&pCompiler2));
+        IFT(pCompiler2->CompileWithDebug(
+            pSource, StringRefUtf16(m_Opts.InputFile),
+            StringRefUtf16(m_Opts.EntryPoint), StringRefUtf16(TargetProfile),
+            args.data(), args.size(), m_Opts.Defines.data(),
+            m_Opts.Defines.size(), pIncludeHandler, &pCompileResult,
+            &pDebugName, &pDebugBlob));
+        if (pDebugName.m_pData) {
+          Unicode::UTF8ToUTF16String(m_Opts.DebugFile.str().c_str(), &debugName);
+          debugName += pDebugName.m_pData;
+        }
+      } else {
+        IFT(pCompiler->Compile(pSource, StringRefUtf16(m_Opts.InputFile),
+          StringRefUtf16(m_Opts.EntryPoint),
+          StringRefUtf16(TargetProfile), args.data(),
+          args.size(), m_Opts.Defines.data(),
+          m_Opts.Defines.size(), pIncludeHandler, &pCompileResult));
+      }
     }
   }
 
@@ -657,7 +688,7 @@ int DxcContext::Compile() {
     pCompiler.Release();
     pCompileResult.Release();
     if (pProgram.p != nullptr) {
-      ActOnBlob(pProgram.p);
+      ActOnBlob(pProgram.p, pDebugBlob, debugName.c_str());
     }
   }
   return status;

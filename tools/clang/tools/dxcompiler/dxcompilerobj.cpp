@@ -120,6 +120,21 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ IDxcBlob *pShader, UINT32 Flags,
                              _In_ IDxcOperationResult **ppResult);
 
+static HRESULT GetValidatorVersion(IDxcValidator *pValidator, UINT32 *pMajor,
+                                   UINT32 *pMinor) {
+  CComPtr<IDxcVersionInfo> pVersionInfo;
+  IFR(pValidator->QueryInterface(&pVersionInfo));
+  IFR(pVersionInfo->GetVersion(pMajor, pMinor));
+  return S_OK;
+}
+
+static bool DoesValidatorSupportDebugNamePart(IDxcValidator *pValidator) {
+  UINT32 Major, Minor;
+  if (FAILED((GetValidatorVersion(pValidator, &Major, &Minor))))
+    return false;
+  return Major > 1 || (Major == 1 && Minor >= 1);
+}
+
 enum class HandleKind {
   Special = 0,
   File = 1,
@@ -1949,13 +1964,17 @@ public:
   { }
 
   void CloneForDebugInfo() {
-      m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
+    m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
   }
 
- void WrapModuleInDxilContainer(IMalloc *pMalloc,  AbstractMemoryStream *pModuleBitcode, CComPtr<IDxcBlob> &pDxilContainerBlob) {
+  void WrapModuleInDxilContainer(IMalloc *pMalloc,
+                                 AbstractMemoryStream *pModuleBitcode,
+                                 CComPtr<IDxcBlob> &pDxilContainerBlob,
+                                 SerializeDxilFlags Flags) {
     CComPtr<AbstractMemoryStream> pContainerStream;
     IFT(CreateMemoryStream(pMalloc, &pContainerStream));
-    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(), pModuleBitcode, pContainerStream);
+    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(),
+                                    pModuleBitcode, pContainerStream, Flags);
 
     pDxilContainerBlob.Release();
     IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
@@ -1969,7 +1988,7 @@ private:
   std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
 };
 
-class DxcCompiler : public IDxcCompiler, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
+class DxcCompiler : public IDxcCompiler2, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -2028,7 +2047,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface4<IDxcCompiler, IDxcLangExtensions, IDxcContainerEvent, IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface5<IDxcCompiler, IDxcCompiler2, IDxcLangExtensions, IDxcContainerEvent, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // Compile a single entry point to the target shader model
@@ -2043,22 +2062,45 @@ public:
     _In_ UINT32 defineCount,                      // Number of defines
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _COM_Outptr_ IDxcOperationResult **ppResult   // Compiler output status, buffer, and errors
-    ) {
+  ) {
+    return CompileWithDebug(pSource, pSourceName, pEntryPoint, pTargetProfile,
+                            pArguments, argCount, pDefines, defineCount,
+                            pIncludeHandler, ppResult, nullptr, nullptr);
+  }
+
+  // Compile a single entry point to the target shader model with debug information.
+  __override HRESULT STDMETHODCALLTYPE CompileWithDebug(
+    _In_ IDxcBlob *pSource,                       // Source text to compile
+    _In_opt_ LPCWSTR pSourceName,                 // Optional file name for pSource. Used in errors and include handlers.
+    _In_ LPCWSTR pEntryPoint,                     // Entry point name
+    _In_ LPCWSTR pTargetProfile,                  // Shader profile to compile
+    _In_count_(argCount) LPCWSTR *pArguments,     // Array of pointers to arguments
+    _In_ UINT32 argCount,                         // Number of arguments
+    _In_count_(defineCount) const DxcDefine *pDefines,  // Array of defines
+    _In_ UINT32 defineCount,                      // Number of defines
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
+    _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
+    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob.
+    _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
+  ) {
     if (pSource == nullptr || ppResult == nullptr ||
         (defineCount > 0 && pDefines == nullptr) ||
         (argCount > 0 && pArguments == nullptr) || pEntryPoint == nullptr ||
         pTargetProfile == nullptr)
       return E_INVALIDARG;
     *ppResult = nullptr;
+    AssignToOutOpt(nullptr, ppDebugBlobName);
+    AssignToOutOpt(nullptr, ppDebugBlob);
 
     HRESULT hr = S_OK;
     CComPtr<IDxcBlobEncoding> utf8Source;
+    CComPtr<AbstractMemoryStream> pOutputStream;
+    CHeapPtr<wchar_t> DebugBlobName;
     DxcEtw_DXCompilerCompile_Start();
     IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
     try {
       CComPtr<IMalloc> pMalloc;
-      CComPtr<AbstractMemoryStream> pOutputStream;
       CComPtr<IDxcBlob> pOutputBlob;
       DxcArgsFileSystem *msfPtr;
       IFT(CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
@@ -2149,7 +2191,8 @@ public:
 
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
-      bool needsValidation = !opts.CodeGenHighLevel && !opts.DisableValidation;
+      bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
+      bool needsValidation = produceFullContainer && !opts.DisableValidation;
       bool internalValidator = false;
       CComPtr<IDxcValidator> pValidator;
       CComPtr<IDxcOperationResult> pValResult;
@@ -2241,6 +2284,19 @@ public:
         }
         outStream.flush();
 
+        SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+        if (opts.DebugInfo) {
+          if (DoesValidatorSupportDebugNamePart(pValidator))
+            SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
+          // Unless we want to strip it right away, include it in the container.
+          if (!opts.StripDebug || ppDebugBlob == nullptr) {
+            SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+          }
+        }
+        if (opts.DebugNameForSource) {
+          SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+        }
+
         // Don't do work to put in a container if an error has occurred
         if (compileOK) {
           HRESULT valHR = S_OK;
@@ -2257,7 +2313,7 @@ public:
 
           // Do not create a container when there is only a a high-level representation in the module.
           if (!opts.CodeGenHighLevel)
-            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob);
+            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob, SerializeFlags);
 
           if (needsValidation) {
             // Important: in-place edit is required so the blob is reused and thus
@@ -2291,6 +2347,7 @@ public:
             }
             pValidator.Release();
           }
+
           // Callback after valid DXIL is produced
           if (SUCCEEDED(valHR)) {
             CComPtr<IDxcBlob> pTargetBlob;
@@ -2298,6 +2355,19 @@ public:
               HRESULT hr = m_pDxcContainerEventsHandler->OnDxilContainerBuilt(pOutputBlob, &pTargetBlob);
               if (SUCCEEDED(hr) && pTargetBlob != nullptr) {
                 std::swap(pOutputBlob, pTargetBlob);
+              }
+            }
+
+            if (ppDebugBlobName && produceFullContainer) {
+              const DxilContainerHeader *pContainer = reinterpret_cast<DxilContainerHeader *>(pOutputBlob->GetBufferPointer());
+              DXASSERT(IsValidDxilContainer(pContainer, pOutputBlob->GetBufferSize()), "else invalid container generated");
+              auto it = std::find_if(begin(pContainer), end(pContainer),
+                DxilPartIsType(DFCC_ShaderDebugName));
+              if (it != end(pContainer)) {
+                const char *pDebugName;
+                if (GetDxilShaderDebugName(*it, &pDebugName, nullptr) && pDebugName && *pDebugName) {
+                  IFTBOOL(Unicode::UTF8BufferToUTF16ComHeap(pDebugName, &DebugBlobName), DXC_E_CONTAINER_INVALID);
+                }
               }
             }
           }
@@ -2309,6 +2379,19 @@ public:
 
       CreateOperationResultFromOutputs(pOutputBlob, msfPtr, warnings,
                                        compiler.getDiagnostics(), ppResult);
+
+      // On success, return values. After assigning ppResult, nothing should fail.
+      HRESULT status;
+      DXVERIFY_NOMSG(SUCCEEDED((*ppResult)->GetStatus(&status)));
+      if (SUCCEEDED(status)) {
+        if (opts.DebugInfo && ppDebugBlob) {
+          DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(ppDebugBlob)));
+        }
+        if (ppDebugBlobName) {
+          *ppDebugBlobName = DebugBlobName.Detach();
+        }
+      }
+
       hr = S_OK;
     }
     CATCH_CPP_ASSIGN_HRESULT();
@@ -2502,6 +2585,18 @@ public:
         }
 
         it = std::find_if(begin(pContainer), end(pContainer),
+                          DxilPartIsType(DFCC_ShaderDebugName));
+        if (it != end(pContainer)) {
+          const char *pDebugName;
+          if (!GetDxilShaderDebugName(*it, &pDebugName, nullptr)) {
+            Stream << "; shader debug name present; corruption detected\n";
+          }
+          else if (pDebugName && *pDebugName) {
+            Stream << "; shader debug name: " << pDebugName << "\n";
+          }
+        }
+
+        it = std::find_if(begin(pContainer), end(pContainer),
                                            DxilPartIsType(DFCC_DXIL));
         if (it == end(pContainer)) {
           IFC(DXC_E_CONTAINER_MISSING_DXIL);
@@ -2673,9 +2768,12 @@ public:
     else
       compiler.getCodeGenOpts().HLSLSignaturePackingStrategy = (unsigned)DXIL::PackingStrategy::Default;
 
-    // Constructing vector of wide strings to pass in to codegen. Just passing in pArguments will expose ownership of memory to both CodeGenOptions and this caller, which can lead to unexpected behavior.
+    // Constructing vector of wide strings to pass in to codegen. Just passing
+    // in pArguments will expose ownership of memory to both CodeGenOptions and
+    // this caller, which can lead to unexpected behavior.
     for (UINT32 i = 0; i != argCount; ++i) {
-      compiler.getCodeGenOpts().HLSLArguments.emplace_back(Unicode::UTF16ToUTF8StringOrThrow(pArguments[i]));
+      compiler.getCodeGenOpts().HLSLArguments.emplace_back(
+          Unicode::UTF16ToUTF8StringOrThrow(pArguments[i]));
     }
     // Overrding default set of loop unroll.
     if (Opts.PreferFlowControl)
