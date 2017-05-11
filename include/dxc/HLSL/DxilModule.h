@@ -51,6 +51,8 @@ public:
   void SetShaderModel(const ShaderModel *pSM);
   const ShaderModel *GetShaderModel() const;
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
+  void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
+  void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
 
   // Entry functions.
   llvm::Function *GetEntryFunction();
@@ -288,6 +290,8 @@ private:
   const ShaderModel *m_pSM;
   unsigned m_DxilMajor;
   unsigned m_DxilMinor;
+  unsigned m_ValMajor;
+  unsigned m_ValMinor;
 
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;

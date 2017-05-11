@@ -105,6 +105,9 @@ void InitResource(const DxilResource *pSource, DxilResource *pDest) {
 
 void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   // Subsystems.
+  unsigned ValMajor, ValMinor;
+  H.GetValidatorVersion(ValMajor, ValMinor);
+  M.SetValidatorVersion(ValMajor, ValMinor);
   M.SetShaderModel(H.GetShaderModel());
 
   // Entry function.

@@ -188,6 +188,7 @@ public:
 
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
+  // Validator version uses the same constants for fields as kDxilVersion*
 
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag     = 0;
@@ -256,6 +257,10 @@ public:
   // Dxil version.
   void EmitDxilVersion(unsigned Major, unsigned Minor);
   void LoadDxilVersion(unsigned &Major, unsigned &Minor);
+
+  // Validator version.
+  void EmitValidatorVersion(unsigned Major, unsigned Minor);
+  void LoadValidatorVersion(unsigned &Major, unsigned &Minor);
 
   // Shader model.
   void EmitDxilShaderModel(const ShaderModel *pSM);

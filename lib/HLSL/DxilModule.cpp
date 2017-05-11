@@ -68,6 +68,8 @@ DxilModule::DxilModule(Module *pModule)
 , m_pSM(nullptr)
 , m_DxilMajor(DXIL::kDxilMajor)
 , m_DxilMinor(DXIL::kDxilMinor)
+, m_ValMajor(1)
+, m_ValMinor(0)
 , m_InputPrimitive(DXIL::InputPrimitive::Undefined)
 , m_MaxVertexCount(0)
 , m_StreamPrimitiveTopology(DXIL::PrimitiveTopology::Undefined)
@@ -147,6 +149,16 @@ const ShaderModel *DxilModule::GetShaderModel() const {
 void DxilModule::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {
   DxilMajor = m_DxilMajor;
   DxilMinor = m_DxilMinor;
+}
+
+void DxilModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
+  m_ValMajor = ValMajor;
+  m_ValMinor = ValMinor;
+}
+
+void DxilModule::GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
+  ValMajor = m_ValMajor;
+  ValMinor = m_ValMinor;
 }
 
 Function *DxilModule::GetEntryFunction() {
@@ -947,6 +959,7 @@ vector<GlobalVariable* > &DxilModule::GetLLVMUsed() {
 // DXIL metadata serialization/deserialization.
 void DxilModule::EmitDxilMetadata() {
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
+  m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
 
   MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_InputSignature, 
@@ -975,6 +988,7 @@ bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
 
 void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
+  m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedModule;
   m_pMDHelper->LoadDxilShaderModel(loadedModule);
   SetShaderModel(loadedModule);

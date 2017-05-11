@@ -80,6 +80,16 @@ LLVMContext &HLModule::GetCtx() const { return m_Ctx; }
 Module *HLModule::GetModule() const { return m_pModule; }
 OP *HLModule::GetOP() const { return m_pOP.get(); }
 
+void HLModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
+  m_ValMajor = ValMajor;
+  m_ValMinor = ValMinor;
+}
+
+void HLModule::GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
+  ValMajor = m_ValMajor;
+  ValMinor = m_ValMinor;
+}
+
 void HLModule::SetShaderModel(const ShaderModel *pSM) {
   DXASSERT(m_pSM == nullptr, "shader model must not change for the module");
   DXASSERT(pSM != nullptr && pSM->IsValidForDxil(), "shader model must be valid");
@@ -411,6 +421,7 @@ static const StringRef kHLDxilResourceTypeAnnotationMDName       = "dx.resource.
 // DXIL metadata serialization/deserialization.
 void HLModule::EmitHLMetadata() {
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
+  m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
 
   MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_InputSignature, 
@@ -483,6 +494,7 @@ void HLModule::EmitHLMetadata() {
 
 void HLModule::LoadHLMetadata() {
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
+  m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->LoadDxilShaderModel(m_pSM);
   CreateSignatures(m_pSM, m_InputSignature, m_OutputSignature, m_PatchConstantSignature, m_RootSignature);
 
