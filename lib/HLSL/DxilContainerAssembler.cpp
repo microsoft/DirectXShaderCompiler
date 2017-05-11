@@ -411,8 +411,8 @@ private:
       DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
       DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
       memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
-      pSrc += 4 * MaskDwords * InputScalars;
     }
+    pSrc += 4 * MaskDwords * InputScalars;
     return pSrc;
   }
 
@@ -656,6 +656,7 @@ public:
         } else if (m_Module.GetShaderModel()->IsDS()) {
           pSrc = CopyViewIDState(pSrc, PSVComponentMasks(), m_PSV.GetPCInputToOutputTable());
         }
+        DXASSERT_NOMSG(viewState.data() + viewState.size() == pSrc);
       }
     }
 
