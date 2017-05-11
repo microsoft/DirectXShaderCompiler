@@ -402,8 +402,14 @@ private:
 public:
   DxilPSVWriter(const DxilModule &module)
   : m_Module(module),
-    m_PSVInitInfo(1)//module.GetShaderModel()->GetPSVVersion())
+    m_PSVInitInfo(module.GetShaderModel()->GetPSVVersion())
   {
+    unsigned ValMajor, ValMinor;
+    m_Module.GetValidatorVersion(ValMajor, ValMinor);
+    // Allow PSVVersion to be upgraded
+    if (m_PSVInitInfo.PSVVersion < 1 && (ValMajor > 1 || (ValMajor == 1 && ValMinor >= 1)))
+      m_PSVInitInfo.PSVVersion = 1;
+
     UINT uCBuffers = m_Module.GetCBuffers().size();
     UINT uSamplers = m_Module.GetSamplers().size();
     UINT uSRVs = m_Module.GetSRVs().size();
@@ -744,6 +750,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   DXASSERT_NOMSG(pModule != nullptr);
   DXASSERT_NOMSG(pModuleBitcode != nullptr);
   DXASSERT_NOMSG(pFinalStream != nullptr);
+
+  unsigned ValMajor, ValMinor;
+  pModule->GetValidatorVersion(ValMajor, ValMinor);
+  if (ValMajor == 1 && ValMinor == 0)
+    Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
 
   DxilProgramSignatureWriter inputSigWriter(pModule->GetInputSignature(),
                                             pModule->GetTessellatorDomain(),

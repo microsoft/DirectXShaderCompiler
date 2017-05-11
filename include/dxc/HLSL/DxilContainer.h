@@ -434,7 +434,7 @@ public:
 
 DxilContainerWriter *NewDxilContainerWriter();
 
-enum class SerializeDxilFlags {
+enum class SerializeDxilFlags : uint32_t {
   None = 0,                     // No flags defined.
   IncludeDebugInfoPart = 1,     // Include the debug info part in the container.
   IncludeDebugNamePart = 2,     // Include the debug name part in the container.
@@ -444,8 +444,15 @@ inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxi
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));
   return l;
 }
+inline SerializeDxilFlags& operator &=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
+  l = static_cast<SerializeDxilFlags>(static_cast<int>(l) & static_cast<int>(r));
+  return l;
+}
 inline int operator&(SerializeDxilFlags l, SerializeDxilFlags r) {
   return static_cast<int>(l) & static_cast<int>(r);
+}
+inline SerializeDxilFlags operator~(SerializeDxilFlags l) {
+  return static_cast<SerializeDxilFlags>(~static_cast<uint32_t>(l));
 }
 
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,

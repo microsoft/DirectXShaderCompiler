@@ -120,21 +120,6 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ IDxcBlob *pShader, UINT32 Flags,
                              _In_ IDxcOperationResult **ppResult);
 
-static HRESULT GetValidatorVersion(IDxcValidator *pValidator, UINT32 *pMajor,
-                                   UINT32 *pMinor) {
-  CComPtr<IDxcVersionInfo> pVersionInfo;
-  IFR(pValidator->QueryInterface(&pVersionInfo));
-  IFR(pVersionInfo->GetVersion(pMajor, pMinor));
-  return S_OK;
-}
-
-static bool DoesValidatorSupportDebugNamePart(IDxcValidator *pValidator) {
-  UINT32 Major, Minor;
-  if (FAILED((GetValidatorVersion(pValidator, &Major, &Minor))))
-    return false;
-  return Major > 1 || (Major == 1 && Minor >= 1);
-}
-
 enum class HandleKind {
   Special = 0,
   File = 1,
@@ -2368,8 +2353,7 @@ public:
 
         SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
         if (opts.DebugInfo) {
-          if (DoesValidatorSupportDebugNamePart(pValidator))
-            SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
+          SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
           // Unless we want to strip it right away, include it in the container.
           if (!opts.StripDebug || ppDebugBlob == nullptr) {
             SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
