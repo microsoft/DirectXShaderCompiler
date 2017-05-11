@@ -129,7 +129,14 @@ void DxilMDHelper::EmitValidatorVersion(unsigned Major, unsigned Minor) {
 
 void DxilMDHelper::LoadValidatorVersion(unsigned &Major, unsigned &Minor) {
   NamedMDNode *pDxilValidatorVersionMD = m_pModule->getNamedMetadata(kDxilValidatorVersionMDName);
-  IFTBOOL(pDxilValidatorVersionMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+
+  if (pDxilValidatorVersionMD == nullptr) {
+    // If no validator version metadata, assume 1.0
+    Major = 1;
+    Minor = 0;
+    return;
+  }
+
   IFTBOOL(pDxilValidatorVersionMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
 
   MDNode *pVersionMD = pDxilValidatorVersionMD->getOperand(0);

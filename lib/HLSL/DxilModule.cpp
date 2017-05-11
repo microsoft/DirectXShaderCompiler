@@ -1001,7 +1001,8 @@ void DxilModule::EmitDxilMetadata() {
   MDTuple *pMDResources = EmitDxilResources();
   MDTuple *pMDProperties = EmitDxilShaderProperties();
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
-  if (!m_pSM->IsCS()) {
+  if (!m_pSM->IsCS() &&
+      (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
     m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
   }
   EmitLLVMUsed();
