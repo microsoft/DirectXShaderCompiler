@@ -213,6 +213,7 @@ uint64_t DxilModule::ShaderFlags::GetFeatureInfo() const {
   Flags |= m_b64UAVs ? hlsl::ShaderFeatureInfo_64UAVs : 0;
   Flags |= m_bLevel9ComparisonFiltering ? hlsl::ShaderFeatureInfo_LEVEL9ComparisonFiltering : 0;
   Flags |= m_bUAVLoadAdditionalFormats ? hlsl::ShaderFeatureInfo_TypedUAVLoadAdditionalFormats : 0;
+  Flags |= m_bViewID ? hlsl::ShaderFeatureInfo_ViewID : 0;
 
   return Flags;
 }
@@ -260,6 +261,7 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   bool hasMSAD = false;
   bool hasMulticomponentUAVLoads = false;
   bool hasInnerCoverage = false;
+  bool hasViewID = false;
   Type *int16Ty = Type::getInt16Ty(GetCtx());
   Type *int64Ty = Type::getInt64Ty(GetCtx());
 
@@ -363,6 +365,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           case DXIL::OpCode::InnerCoverage:
             hasInnerCoverage = true;
             break;
+          case DXIL::OpCode::ViewID:
+            hasViewID = true;
+            break;
           default:
             // Normal opcodes.
             break;
@@ -381,6 +386,7 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   Flags.SetTiledResources(hasCheckAccessFully);
   Flags.SetEnableMSAD(hasMSAD);
   Flags.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
+  Flags.SetViewID(hasViewID);
 
   const ShaderModel *SM = GetShaderModel();
   if (SM->IsPS()) {
@@ -495,6 +501,7 @@ uint64_t DxilModule::ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetUAVsAtEveryStage(true);
   Flags.SetEnableRawAndStructuredBuffers(true);
   Flags.SetCSRawAndStructuredViaShader4X(true);
+  Flags.SetViewID(true);
   return Flags.GetShaderFlagsRaw();
 }
 

@@ -133,6 +133,18 @@ void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const
   }
 }
 
+uint32_t ShaderModel::GetPSVVersion() const {
+  switch (m_Minor) {
+  case 0: return 0;
+  case 1: return 1;
+  default:
+    DXASSERT(0, "IsValidForDxil() should have caught this.");
+    break;
+  }
+  return (unsigned)-1;
+}
+
+
 std::string ShaderModel::GetKindName() const {
   return std::string(m_pszName).substr(0, 2);
 }

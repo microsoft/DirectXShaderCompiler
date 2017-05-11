@@ -169,6 +169,7 @@ public:
     void SetLevel9ComparisonFiltering(bool flag) { m_bLevel9ComparisonFiltering = flag; }
     void Set64UAVs(bool flag) { m_b64UAVs = flag; }
     void SetUAVsAtEveryStage(bool flag) { m_UAVsAtEveryStage = flag; }
+    void SetViewID(bool flag) { m_bViewID = flag; }
 
     static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
     uint64_t GetShaderFlagsRaw() const;
@@ -202,7 +203,9 @@ public:
     unsigned m_bROVS :1;              // SHADER_FEATURE_ROVS
     unsigned m_bWaveOps :1;           // SHADER_FEATURE_WAVE_OPS
     unsigned m_bInt64Ops :1;          // SHADER_FEATURE_INT64_OPS
-    unsigned m_align0 :11;        // align to 32 bit.
+    unsigned m_bViewID : 1;           // SHADER_FEATURE_VIEWID
+
+    unsigned m_align0 :10;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 
