@@ -4064,8 +4064,6 @@ static unsigned AllocateSemanticIndex(
   } else {
     DXASSERT(argIdx < endArgIdx, "arg index out of bound");
     DxilParameterAnnotation &paramAnnotation = FlatAnnotationList[argIdx];
-    // Save semIndex.
-    paramAnnotation.AppendSemanticIndex(semIndex);
     // Get element size.
     unsigned rows = 1;
     if (paramAnnotation.HasMatrixAnnotation()) {
@@ -4078,6 +4076,9 @@ static unsigned AllocateSemanticIndex(
         rows = matrix.Cols;
       }
     }
+    // Save semIndex.
+    for (unsigned i = 0; i < rows; i++)
+      paramAnnotation.AppendSemanticIndex(semIndex + i);
     // Update semIndex.
     semIndex += rows;
 
@@ -4857,7 +4858,18 @@ void SROA_Parameter_HLSL::flattenArgument(
   llvm::StringMap<Type *> semanticTypeMap;
   // Original semantic type.
   if (!semantic.empty()) {
-    semanticTypeMap[semantic] = Arg->getType();
+    // Unwrap top-level array if primitive
+    if (inputQual == DxilParamInputQual::InputPatch ||
+        inputQual == DxilParamInputQual::OutputPatch ||
+        inputQual == DxilParamInputQual::InputPrimitive) {
+      Type *Ty = Arg->getType();
+      if (Ty->isPointerTy())
+        Ty = Ty->getPointerElementType();
+      if (Ty->isArrayTy())
+        semanticTypeMap[semantic] = Ty->getArrayElementType();
+    } else {
+      semanticTypeMap[semantic] = Arg->getType();
+    }
   }
 
   std::vector<Instruction*> deadAllocas;

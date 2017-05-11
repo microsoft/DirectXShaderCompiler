@@ -103,6 +103,7 @@ static const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
 static const uint64_t ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer = 0x2000;
 static const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
 static const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
+static const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
 
 static const unsigned ShaderFeatureInfoCount = 16;
 
