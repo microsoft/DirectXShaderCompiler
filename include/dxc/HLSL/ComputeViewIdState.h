@@ -61,7 +61,9 @@ public:
   const InputsContributingToOutputType &getPCInputsContributingToOutputs() const;
 
   void Compute();
+  void Serialize();
   const std::vector<unsigned> &GetSerialized();
+  const std::vector<unsigned> &GetSerialized() const;   // returns previously serialized data
   void Deserialize(const unsigned *pData, unsigned DataSize);
   void PrintSets(llvm::raw_ostream &OS);
 

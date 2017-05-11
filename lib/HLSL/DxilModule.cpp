@@ -908,6 +908,9 @@ DxilTypeSystem &DxilModule::GetTypeSystem() {
 DxilViewIdState &DxilModule::GetViewIdState() {
   return *m_pViewIdState;
 }
+const DxilViewIdState &DxilModule::GetViewIdState() const {
+  return *m_pViewIdState;
+}
 
 void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
   m_pTypeSystem.reset(pValue);

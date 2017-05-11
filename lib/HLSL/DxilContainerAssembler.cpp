@@ -395,8 +395,23 @@ private:
     E.DynamicMaskAndStream = (uint8_t)((SE.GetOutputStream() & 0x3) << 4);
 
     // TODO: Fill Dynamic Index Mask in!
-    //DXASSERT_NOMSG((SE.GetDynamicIndexMask() & ~0xF) == 0);
-    //E.DynamicMaskAndStream |= (SE.GetDynamicIndexMask()) & 0xF;
+    E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
+  }
+
+  const uint32_t *CopyViewIDState(const uint32_t *pSrc, const PSVComponentMasks &ViewIDMask, const PSVDependencyTable &IOTable) {
+    uint32_t InputScalars = *(pSrc++);
+    uint32_t OutputScalars = *(pSrc++);
+    DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
+    DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
+    unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(IOTable.OutputVectors);
+    if (ViewIDMask.Masks) {
+      DXASSERT_NOMSG(ViewIDMask.NumVectors == IOTable.OutputVectors);
+      memcpy(ViewIDMask.Masks, pSrc, 4 * MaskDwords);
+    }
+    pSrc += MaskDwords;
+    memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
+    pSrc += 4 * MaskDwords * InputScalars;
+    return pSrc;
   }
 
 public:
@@ -629,7 +644,17 @@ public:
         memcpy(pPatchConstantElement, &m_SigPatchConstantElements[i], sizeof(PSVSignatureElement0));
       }
 
-      // TODO: Write ViewID Output masks and Input to Output dependency tables
+      // Gather ViewID dependency information
+      auto &viewState = m_Module.GetViewIdState().GetSerialized();
+      if (!viewState.empty()) {
+        const uint32_t *pSrc = viewState.data();
+        pSrc = CopyViewIDState(pSrc, m_PSV.GetViewIDOutputMasks(), m_PSV.GetInputToOutputTable());
+        if (m_Module.GetShaderModel()->IsHS()) {
+          pSrc = CopyViewIDState(pSrc, m_PSV.GetViewIDPCOutputMasks(), m_PSV.GetInputToPCOutputTable());
+        } else if (m_Module.GetShaderModel()->IsDS()) {
+          pSrc = CopyViewIDState(pSrc, PSVComponentMasks(), m_PSV.GetPCInputToOutputTable());
+        }
+      }
     }
 
     ULONG cbWritten;

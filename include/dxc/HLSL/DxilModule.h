@@ -118,6 +118,7 @@ public:
 
   // ViewId state.
   DxilViewIdState &GetViewIdState();
+  const DxilViewIdState &GetViewIdState() const;
 
   // DXIL metadata manipulation.
   /// Serialize DXIL in-memory form to metadata form.
