@@ -234,6 +234,9 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.ResetOP(H.ReleaseOP());
   // Keep llvm used.
   M.EmitLLVMUsed();
+
+  // Update Validator Version
+  M.UpgradeToMinValidatorVersion();
 }
 
 class DxilGenerationPass : public ModulePass {
@@ -2999,6 +3002,8 @@ public:
       }
 
       DM.CollectShaderFlags(); // Update flags to reflect any changes.
+                               // Update Validator Version
+      DM.UpgradeToMinValidatorVersion();
       DM.EmitDxilMetadata();
       return true;
     }

@@ -401,7 +401,7 @@ private:
   const uint32_t *CopyViewIDState(const uint32_t *pSrc, const PSVComponentMasks &ViewIDMask, const PSVDependencyTable &IOTable) {
     uint32_t InputScalars = *(pSrc++);
     uint32_t OutputScalars = *(pSrc++);
-    unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars));
+    unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
     if (ViewIDMask.Masks) {
       DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
       memcpy(ViewIDMask.Masks, pSrc, 4 * MaskDwords);
@@ -412,14 +412,14 @@ private:
       DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
       memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
     }
-    pSrc += 4 * MaskDwords * InputScalars;
+    pSrc += MaskDwords * InputScalars;
     return pSrc;
   }
 
 public:
   DxilPSVWriter(const DxilModule &module)
   : m_Module(module),
-    m_PSVInitInfo(module.GetShaderModel()->GetPSVVersion())
+    m_PSVInitInfo(0)
   {
     unsigned ValMajor, ValMinor;
     m_Module.GetValidatorVersion(ValMajor, ValMinor);

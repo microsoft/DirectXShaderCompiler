@@ -52,7 +52,13 @@ public:
   const ShaderModel *GetShaderModel() const;
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
   void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
+  bool UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor);
   void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+
+  // Return true on success, requires valid shader model and CollectShaderFlags to have been set
+  bool GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+  // Update validator version to minimum if higher than current (ex: after CollectShaderFlags)
+  bool UpgradeToMinValidatorVersion();
 
   // Entry functions.
   llvm::Function *GetEntryFunction();
@@ -108,6 +114,8 @@ public:
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
+  // Update validator version metadata to current setting
+  void UpdateValidatorVersionMetadata();
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();

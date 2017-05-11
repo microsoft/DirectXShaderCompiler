@@ -156,9 +156,35 @@ void DxilModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   m_ValMinor = ValMinor;
 }
 
+bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
+  if (ValMajor > m_ValMajor || (ValMajor == m_ValMajor && ValMinor > m_ValMinor)) {
+    // Module requires higher validator version than previously set
+    SetValidatorVersion(ValMajor, ValMinor);
+    return true;
+  }
+  return false;
+}
+
 void DxilModule::GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
   ValMajor = m_ValMajor;
   ValMinor = m_ValMinor;
+}
+
+bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
+  if (!m_pSM)
+    return false;
+  m_pSM->GetMinValidatorVersion(ValMajor, ValMinor);
+  if (ValMajor == 1 && ValMinor == 0 && (m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID))
+    ValMinor = 1;
+  return true;
+}
+
+bool DxilModule::UpgradeToMinValidatorVersion() {
+  unsigned ValMajor = 1, ValMinor = 0;
+  if (GetMinValidatorVersion(ValMajor, ValMinor)) {
+    return UpgradeValidatorVersion(ValMajor, ValMinor);
+  }
+  return false;
 }
 
 Function *DxilModule::GetEntryFunction() {
@@ -883,6 +909,10 @@ void DxilModule::StripRootSignatureFromMetadata() {
   if (pRootSignatureNamedMD) {
     GetModule()->eraseNamedMetadata(pRootSignatureNamedMD);
   }
+}
+
+void DxilModule::UpdateValidatorVersionMetadata() {
+  m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
 }
 
 void DxilModule::ResetInputSignature(DxilSignature *pValue) {
