@@ -18,6 +18,7 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -112,6 +113,9 @@ public:
   /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
   void EmitLLVMUsed();
   std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
+
+  // ViewId state.
+  DxilViewIdState &GetViewIdState();
 
   // DXIL metadata manipulation.
   /// Serialize DXIL in-memory form to metadata form.
@@ -290,6 +294,9 @@ private:
 
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
+
+  // ViewId state.
+  std::unique_ptr<DxilViewIdState> m_pViewIdState;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();

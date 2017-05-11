@@ -17,6 +17,7 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -25,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include <array>
+#include <algorithm>
 
 #include "dxc/Support/WinIncludes.h"
 
@@ -49,14 +51,16 @@ const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valv
 
 // This named metadata is not valid in final module (should be moved to DxilContainer)
 const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
+const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.viewIdState";
 
-static std::array<const char *, 6> DxilMDNames = {
+static std::array<const char *, 7> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
   DxilMDHelper::kDxilShaderModelMDName,
   DxilMDHelper::kDxilEntryPointsMDName,
   DxilMDHelper::kDxilResourcesMDName,
   DxilMDHelper::kDxilTypeSystemMDName,
-  DxilMDHelper::kDxilValidatorVersionMDName
+  DxilMDHelper::kDxilValidatorVersionMDName,
+  DxilMDHelper::kDxilViewIdStateMDName
 };
 
 DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper> EPH)
@@ -814,6 +818,44 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
   }
 }
 
+void DxilMDHelper::EmitDxilViewIdState(DxilViewIdState &ViewIdState) {
+  const vector<unsigned> &Data = ViewIdState.GetSerialized();
+  // If all UINTs are zero, do not emit ViewIdState.
+  if (!std::any_of(Data.begin(), Data.end(), [](unsigned e){return e!=0;}))
+    return;
+
+  Constant *V = ConstantDataArray::get(m_Ctx, ArrayRef<uint32_t>(Data));
+  NamedMDNode *pViewIdNamedMD = m_pModule->getNamedMetadata(kDxilViewIdStateMDName);
+  IFTBOOL(pViewIdNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  pViewIdNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilViewIdStateMDName);
+  pViewIdNamedMD->addOperand(MDNode::get(m_Ctx, {ConstantAsMetadata::get(V)}));
+}
+
+void DxilMDHelper::LoadDxilViewIdState(DxilViewIdState &ViewIdState) {
+  NamedMDNode *pViewIdStateNamedMD = m_pModule->getNamedMetadata(kDxilViewIdStateMDName);
+  if(!pViewIdStateNamedMD)
+    return;
+
+  IFTBOOL(pViewIdStateNamedMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+  MDNode *pNode = pViewIdStateNamedMD->getOperand(0);
+  IFTBOOL(pNode->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDOperand &MDO = pNode->getOperand(0);
+
+  const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MDO.get());
+  IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  if (isa<ConstantAggregateZero>(pMetaData->getValue()))
+    return;
+  const ConstantDataArray *pData = dyn_cast<ConstantDataArray>(pMetaData->getValue());
+  IFTBOOL(pData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(pData->getElementType() == Type::getInt32Ty(m_Ctx), DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(pData->getRawDataValues().size() < UINT_MAX && 
+          (pData->getRawDataValues().size() & 3) == 0, DXC_E_INCORRECT_DXIL_METADATA);
+
+  ViewIdState.Deserialize((unsigned *)pData->getRawDataValues().begin(), 
+                          (unsigned)pData->getRawDataValues().size() / 4);
+}
+
 MDNode *DxilMDHelper::EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints) {
   SmallVector<Metadata *, 4> Args;
   // Reserve operand 0 for self reference.
@@ -1183,6 +1225,12 @@ void DxilExtraPropertyHelper::EmitSignatureElementProperties(const DxilSignature
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSignatureElementOutputStreamTag, m_Ctx));
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(SE.GetOutputStream(), m_Ctx));
   }
+
+  // Mask of Dynamically indexed components.
+  if (SE.GetDynIdxCompMask() != 0) {
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSignatureElementDynIdxCompMaskTag, m_Ctx));
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(SE.GetDynIdxCompMask(), m_Ctx));
+  }
 }
 
 void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MDO, DxilSignatureElement &SE) {
@@ -1203,6 +1251,9 @@ void DxilExtraPropertyHelper::LoadSignatureElementProperties(const MDOperand &MD
       SE.SetOutputStream(DxilMDHelper::ConstMDToUint32(MDO));
       break;
     case DxilMDHelper::kHLSignatureElementGlobalSymbolTag:
+      break;
+    case DxilMDHelper::kDxilSignatureElementDynIdxCompMaskTag:
+      SE.SetDynIdxCompMask(DxilMDHelper::ConstMDToUint32(MDO));
       break;
     default:
       DXASSERT(false, "Unknown signature element tag");
