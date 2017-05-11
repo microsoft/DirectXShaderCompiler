@@ -582,6 +582,7 @@ void HLModule::ClearHLMetadata(llvm::Module &M) {
         name == DxilMDHelper::kDxilRootSignatureMDName ||
         name == DxilMDHelper::kDxilResourcesMDName ||
         name == DxilMDHelper::kDxilTypeSystemMDName ||
+        name == DxilMDHelper::kDxilValidatorVersionMDName ||
         name == kHLDxilFunctionPropertiesMDName || // TODO: adjust to proper name
         name == kHLDxilResourceTypeAnnotationMDName ||
         name == kHLDxilOptionsMDName ||

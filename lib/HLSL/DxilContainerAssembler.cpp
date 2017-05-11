@@ -374,7 +374,7 @@ private:
     }
     if (!match) {
       E.SemanticIndexes = m_SemanticIndexBuffer.size();
-      for (uint32_t row = 0; row < E.SemanticIndexes; row++) {
+      for (uint32_t row = 0; row < SemIdx.size(); row++) {
         m_SemanticIndexBuffer.push_back((uint32_t)SemIdx[row]);
       }
     }
@@ -401,16 +401,18 @@ private:
   const uint32_t *CopyViewIDState(const uint32_t *pSrc, const PSVComponentMasks &ViewIDMask, const PSVDependencyTable &IOTable) {
     uint32_t InputScalars = *(pSrc++);
     uint32_t OutputScalars = *(pSrc++);
-    DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
-    DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
-    unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(IOTable.OutputVectors);
+    unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars));
     if (ViewIDMask.Masks) {
-      DXASSERT_NOMSG(ViewIDMask.NumVectors == IOTable.OutputVectors);
+      DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
       memcpy(ViewIDMask.Masks, pSrc, 4 * MaskDwords);
     }
     pSrc += MaskDwords;
-    memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
-    pSrc += 4 * MaskDwords * InputScalars;
+    if (IOTable.Table && IOTable.InputVectors && IOTable.OutputVectors) {
+      DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
+      DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
+      memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
+      pSrc += 4 * MaskDwords * InputScalars;
+    }
     return pSrc;
   }
 
