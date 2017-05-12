@@ -349,8 +349,8 @@ private:
     if (SE.GetKind() == DXIL::SemanticKind::Arbitrary && strlen(SE.GetName()) > 0) {
       E.SemanticName = (uint32_t)m_StringBuffer.size();
       StringRef Name(SE.GetName());
-      m_StringBuffer.append('\0', Name.size()+1);
-      memcpy(m_StringBuffer.data(), Name.data(), Name.size());
+      m_StringBuffer.append(Name.size()+1, '\0');
+      memcpy(m_StringBuffer.data() + E.SemanticName, Name.data(), Name.size());
     } else {
       // m_StringBuffer always starts with '\0' so offset 0 is empty string:
       E.SemanticName = 0;
@@ -374,7 +374,7 @@ private:
     }
     if (!match) {
       E.SemanticIndexes = m_SemanticIndexBuffer.size();
-      for (uint32_t row = 0; row < E.SemanticIndexes; row++) {
+      for (uint32_t row = 0; row < SemIdx.size(); row++) {
         m_SemanticIndexBuffer.push_back((uint32_t)SemIdx[row]);
       }
     }
@@ -395,15 +395,38 @@ private:
     E.DynamicMaskAndStream = (uint8_t)((SE.GetOutputStream() & 0x3) << 4);
 
     // TODO: Fill Dynamic Index Mask in!
-    //DXASSERT_NOMSG((SE.GetDynamicIndexMask() & ~0xF) == 0);
-    //E.DynamicMaskAndStream |= (SE.GetDynamicIndexMask()) & 0xF;
+    E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
+  }
+
+  const uint32_t *CopyViewIDState(const uint32_t *pSrc, const PSVComponentMasks &ViewIDMask, const PSVDependencyTable &IOTable) {
+    uint32_t InputScalars = *(pSrc++);
+    uint32_t OutputScalars = *(pSrc++);
+    unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
+    if (ViewIDMask.Masks) {
+      DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
+      memcpy(ViewIDMask.Masks, pSrc, 4 * MaskDwords);
+    }
+    pSrc += MaskDwords;
+    if (IOTable.Table && IOTable.InputVectors && IOTable.OutputVectors) {
+      DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
+      DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
+      memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
+    }
+    pSrc += MaskDwords * InputScalars;
+    return pSrc;
   }
 
 public:
-  DxilPSVWriter(const DxilModule &module)
+  DxilPSVWriter(const DxilModule &module, uint32_t PSVVersion = 0)
   : m_Module(module),
-    m_PSVInitInfo(1)//module.GetShaderModel()->GetPSVVersion())
+    m_PSVInitInfo(PSVVersion)
   {
+    unsigned ValMajor, ValMinor;
+    m_Module.GetValidatorVersion(ValMajor, ValMinor);
+    // Allow PSVVersion to be upgraded
+    if (m_PSVInitInfo.PSVVersion < 1 && (ValMajor > 1 || (ValMajor == 1 && ValMinor >= 1)))
+      m_PSVInitInfo.PSVVersion = 1;
+
     UINT uCBuffers = m_Module.GetCBuffers().size();
     UINT uSamplers = m_Module.GetSamplers().size();
     UINT uSRVs = m_Module.GetSRVs().size();
@@ -623,7 +646,18 @@ public:
         memcpy(pPatchConstantElement, &m_SigPatchConstantElements[i], sizeof(PSVSignatureElement0));
       }
 
-      // TODO: Write ViewID Output masks and Input to Output dependency tables
+      // Gather ViewID dependency information
+      auto &viewState = m_Module.GetViewIdState().GetSerialized();
+      if (!viewState.empty()) {
+        const uint32_t *pSrc = viewState.data();
+        pSrc = CopyViewIDState(pSrc, m_PSV.GetViewIDOutputMasks(), m_PSV.GetInputToOutputTable());
+        if (m_Module.GetShaderModel()->IsHS()) {
+          pSrc = CopyViewIDState(pSrc, m_PSV.GetViewIDPCOutputMasks(), m_PSV.GetInputToPCOutputTable());
+        } else if (m_Module.GetShaderModel()->IsDS()) {
+          pSrc = CopyViewIDState(pSrc, PSVComponentMasks(), m_PSV.GetPCInputToOutputTable());
+        }
+        DXASSERT_NOMSG(viewState.data() + viewState.size() == pSrc);
+      }
     }
 
     ULONG cbWritten;
@@ -632,8 +666,8 @@ public:
   }
 };
 
-DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M) {
-  return new DxilPSVWriter(M);
+DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
+  return new DxilPSVWriter(M, PSVVersion);
 }
 
 class DxilContainerWriter_impl : public DxilContainerWriter  {
@@ -744,6 +778,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   DXASSERT_NOMSG(pModule != nullptr);
   DXASSERT_NOMSG(pModuleBitcode != nullptr);
   DXASSERT_NOMSG(pFinalStream != nullptr);
+
+  unsigned ValMajor, ValMinor;
+  pModule->GetValidatorVersion(ValMajor, ValMinor);
+  if (ValMajor == 1 && ValMinor == 0)
+    Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
 
   DxilProgramSignatureWriter inputSigWriter(pModule->GetInputSignature(),
                                             pModule->GetTessellatorDomain(),

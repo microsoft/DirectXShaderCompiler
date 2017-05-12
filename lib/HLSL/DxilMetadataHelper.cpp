@@ -109,6 +109,44 @@ void DxilMDHelper::LoadDxilVersion(unsigned &Major, unsigned &Minor) {
 }
 
 //
+// Validator version.
+//
+void DxilMDHelper::EmitValidatorVersion(unsigned Major, unsigned Minor) {
+  NamedMDNode *pDxilValidatorVersionMD = m_pModule->getNamedMetadata(kDxilValidatorVersionMDName);
+
+  // Allow re-writing the validator version, since this can be changed at later points.
+  if (pDxilValidatorVersionMD)
+    m_pModule->eraseNamedMetadata(pDxilValidatorVersionMD);
+
+  pDxilValidatorVersionMD = m_pModule->getOrInsertNamedMetadata(kDxilValidatorVersionMDName);
+
+  Metadata *MDVals[kDxilVersionNumFields];
+  MDVals[kDxilVersionMajorIdx] = Uint32ToConstMD(Major);
+  MDVals[kDxilVersionMinorIdx] = Uint32ToConstMD(Minor);
+
+  pDxilValidatorVersionMD->addOperand(MDNode::get(m_Ctx, MDVals));
+}
+
+void DxilMDHelper::LoadValidatorVersion(unsigned &Major, unsigned &Minor) {
+  NamedMDNode *pDxilValidatorVersionMD = m_pModule->getNamedMetadata(kDxilValidatorVersionMDName);
+
+  if (pDxilValidatorVersionMD == nullptr) {
+    // If no validator version metadata, assume 1.0
+    Major = 1;
+    Minor = 0;
+    return;
+  }
+
+  IFTBOOL(pDxilValidatorVersionMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+  MDNode *pVersionMD = pDxilValidatorVersionMD->getOperand(0);
+  IFTBOOL(pVersionMD->getNumOperands() == kDxilVersionNumFields, DXC_E_INCORRECT_DXIL_METADATA);
+
+  Major = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMajorIdx));
+  Minor = ConstMDToUint32(pVersionMD->getOperand(kDxilVersionMinorIdx));
+}
+
+//
 // DXIL shader model.
 //
 void DxilMDHelper::EmitDxilShaderModel(const ShaderModel *pSM) {
