@@ -349,8 +349,8 @@ private:
     if (SE.GetKind() == DXIL::SemanticKind::Arbitrary && strlen(SE.GetName()) > 0) {
       E.SemanticName = (uint32_t)m_StringBuffer.size();
       StringRef Name(SE.GetName());
-      m_StringBuffer.append('\0', Name.size()+1);
-      memcpy(m_StringBuffer.data(), Name.data(), Name.size());
+      m_StringBuffer.append(Name.size()+1, '\0');
+      memcpy(m_StringBuffer.data() + E.SemanticName, Name.data(), Name.size());
     } else {
       // m_StringBuffer always starts with '\0' so offset 0 is empty string:
       E.SemanticName = 0;

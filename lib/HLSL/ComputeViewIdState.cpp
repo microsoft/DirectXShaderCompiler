@@ -727,6 +727,8 @@ void DxilViewIdState::Serialize1(unsigned NumInputs, unsigned NumOutputs,
 
 void DxilViewIdState::Deserialize(const unsigned *pData, unsigned DataSize) {
   Clear();
+  m_SerializedState.resize(DataSize);
+  memcpy(m_SerializedState.data(), pData, DataSize * 4);
 
   const ShaderModel *pSM = m_pModule->GetShaderModel();
   unsigned ConsumedUINTs;
