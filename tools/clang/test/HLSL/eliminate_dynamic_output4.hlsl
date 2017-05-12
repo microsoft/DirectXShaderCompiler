@@ -3,10 +3,10 @@
 // CHECK-NOT: storeOutput.f32(i32 5, i32 0, i32 %i
 // CHECK-NOT: storeOutput.f32(i32 5, i32 1, i32 %i
 // CHECK-NOT: storeOutput.f32(i32 5, i32 2, i32 %i
-// CHECK: storeOutput.f32(i32 5, i32 2, i32 0, i8 0
-// CHECK: storeOutput.f32(i32 5, i32 2, i32 1, i8 0
 // CHECK: storeOutput.f32(i32 5, i32 1, i32 0, i8 0
 // CHECK: storeOutput.f32(i32 5, i32 1, i32 1, i8 0
+// CHECK: storeOutput.f32(i32 5, i32 2, i32 0, i8 0
+// CHECK: storeOutput.f32(i32 5, i32 2, i32 1, i8 0
 // CHECK: storeOutput.f32(i32 5, i32 0, i32 0, i8 0
 // CHECK: storeOutput.f32(i32 5, i32 0, i32 1, i8 0
 

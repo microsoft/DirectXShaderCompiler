@@ -19,7 +19,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/IRBuilder.h"
-#include <map>
+#include "llvm/ADT/MapVector.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -67,10 +67,33 @@ private:
                            Function *Entry);
 };
 
-struct CmpSigType {
-  bool operator()(const Value *v0, const Value *v1) const {
-    return cast<ConstantInt>(v0)->getLimitedValue() >
-           cast<ConstantInt>(v1)->getLimitedValue();
+// Wrapper for StoreOutput and StorePachConstant which has same signature.
+// void (opcode, sigId, rowIndex, colIndex, value);
+class DxilOutputStore {
+public:
+  const llvm::CallInst *Instr;
+  // Construction and identification
+  DxilOutputStore(llvm::CallInst *pInstr) : Instr(pInstr) {}
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Accessors
+  llvm::Value *get_outputtSigId() const {
+    return Instr->getOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
+  }
+  llvm::Value *get_rowIndex() const {
+    return Instr->getOperand(DXIL::OperandIndex::kStoreOutputRowOpIdx);
+  }
+  uint64_t get_colIndex() const {
+    Value *col = Instr->getOperand(DXIL::OperandIndex::kStoreOutputColOpIdx);
+    return cast<ConstantInt>(col)->getLimitedValue();
+  }
+  llvm::Value *get_value() const {
+    return Instr->getOperand(DXIL::OperandIndex::kStoreOutputValOpIdx);
   }
 };
 
@@ -80,14 +103,14 @@ bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
   ArrayRef<llvm::Function *> storeOutputs =
       hlslOP->GetOpFuncList(opcode);
 
-  std::map<Value *, Type *, CmpSigType> dynamicSigSet;
+  MapVector<Value *, Type *> dynamicSigSet;
   for (Function *F : storeOutputs) {
     // Skip overload not used.
     if (!F)
       continue;
     for (User *U : F->users()) {
       CallInst *CI = cast<CallInst>(U);
-      DxilInst_StoreOutput store(CI);
+      DxilOutputStore store(CI);
       // Save dynamic indeed sigID.
       if (!isa<ConstantInt>(store.get_rowIndex())) {
         Value *sigID = store.get_outputtSigId();
@@ -132,11 +155,10 @@ void DxilEliminateOutputDynamicIndexing::ReplaceDynamicOutput(
     ArrayRef<Value *> tmpSigElts, Value *sigID, Value *zero, Function *F) {
   for (auto it = F->user_begin(); it != F->user_end();) {
     CallInst *CI = cast<CallInst>(*(it++));
-    DxilInst_StoreOutput store(CI);
+    DxilOutputStore store(CI);
     if (sigID == store.get_outputtSigId()) {
-      Value *col = store.get_colIndex();
-      unsigned c = cast<ConstantInt>(col)->getLimitedValue();
-      Value *tmpSigElt = tmpSigElts[c];
+      uint64_t col = store.get_colIndex();
+      Value *tmpSigElt = tmpSigElts[col];
       IRBuilder<> Builder(CI);
       Value *r = store.get_rowIndex();
       // Store to tmpSigElt.
