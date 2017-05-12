@@ -341,11 +341,11 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
       // Scalar or indexable with known index.
       unsigned index = GetLinearIndex(SigElem, startRow, col);
       InstructionSetType &ContributingInstructions = Entry.ContributingInstructions[index];
-      CollectValuesContributingToOutputRec(pContributingValue, ContributingInstructions);
+      CollectValuesContributingToOutputRec(Entry, pContributingValue, ContributingInstructions);
     } else {
       // Dynamically indexed output.
       InstructionSetType ContributingInstructions;
-      CollectValuesContributingToOutputRec(pContributingValue, ContributingInstructions);
+      CollectValuesContributingToOutputRec(Entry, pContributingValue, ContributingInstructions);
 
       for (int row = startRow; row <= endRow; row++) {
         unsigned index = GetLinearIndex(SigElem, row, col);
@@ -366,10 +366,13 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
   }
 }
 
-void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingValue,
+void DxilViewIdState::CollectValuesContributingToOutputRec(EntryInfo &Entry,
+                                                           Value *pContributingValue,
                                                            InstructionSetType &ContributingInstructions) {
   if (Argument *pArg = dyn_cast<Argument>(pContributingValue)) {
-    // TODO: handle multiple functions.
+    // This must be a leftover signature argument of an entry function.
+    DXASSERT_NOMSG(Entry.pEntryFunc == m_pModule->GetEntryFunction() ||
+                   Entry.pEntryFunc == m_pModule->GetPatchConstantFunction());
     return;
   }
 
@@ -392,7 +395,7 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
       Value *O = phi->getOperand(iOp);
       if (isa<Constant>(O)) {
         BasicBlock *pPredBB = *it;
-        CollectValuesContributingToOutputRec(pPredBB->getTerminator(), ContributingInstructions);
+        CollectValuesContributingToOutputRec(Entry, pPredBB->getTerminator(), ContributingInstructions);
       }
     }
   } else if (isa<LoadInst>(pContributingInst) || 
@@ -405,13 +408,21 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
     for (Value *pDeclValue : ReachingDecls) {
       const ValueSetType &Stores = CollectStores(pDeclValue);
       for (Value *V : Stores) {
-        CollectValuesContributingToOutputRec(V, ContributingInstructions);
+        CollectValuesContributingToOutputRec(Entry, V, ContributingInstructions);
       }
     }
   } else if (CallInst *CI = dyn_cast<CallInst>(pContributingInst)) {
     if (!hlsl::OP::IsDxilOpFuncCallInst(CI)) {
-      // TODO: Return value of a user function.
-      return;
+      Function *F = CI->getCalledFunction();
+      if (!F->empty()) {
+        // Return value of a user function.
+        if (Entry.Functions.find(F) != Entry.Functions.end()) {
+          const FuncInfo &FI = *m_FuncInfo[F];
+          for (ReturnInst *pRetInst : FI.Returns) {
+            CollectValuesContributingToOutputRec(Entry, pRetInst, ContributingInstructions);
+          }
+        }
+      }
     }
   }
 
@@ -419,7 +430,7 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
   unsigned NumOps = pContributingInst->getNumOperands();
   for (unsigned i = 0; i < NumOps; i++) {
     Value *O = pContributingInst->getOperand(i);
-    CollectValuesContributingToOutputRec(O, ContributingInstructions);
+    CollectValuesContributingToOutputRec(Entry, O, ContributingInstructions);
   }
 
   // Handle control dependence of this instruction BB.
@@ -428,7 +439,7 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(Value *pContributingV
   FuncInfo *pFuncInfo = m_FuncInfo[F].get();
   const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
   for (BasicBlock *B : CtrlDepSet) {
-    CollectValuesContributingToOutputRec(B->getTerminator(), ContributingInstructions);
+    CollectValuesContributingToOutputRec(Entry, B->getTerminator(), ContributingInstructions);
   }
 }
 
