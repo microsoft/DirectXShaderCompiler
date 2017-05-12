@@ -2558,7 +2558,7 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
       for (Value *NewGEP : NewGEPs) {
         if (NewGEP->user_empty() && isa<Instruction>(NewGEP)) {
           // Delete unused newGEP.
-          DeadInsts.emplace_back(NewGEP);
+          cast<Instruction>(NewGEP)->eraseFromParent();
         }
       }
       if (GEP->user_empty() && isa<Instruction>(GEP))
