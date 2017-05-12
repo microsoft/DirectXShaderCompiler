@@ -3766,44 +3766,6 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     return;
   }
 
-  // Remove all useless functions.
-  if (!CGM.getCodeGenOpts().HLSLHighLevel) {
-    Function *patchConstantFunc = nullptr;
-    if (m_pHLModule->GetShaderModel()->IsHS()) {
-      patchConstantFunc = m_pHLModule->GetHLFunctionProps(EntryFunc)
-                              .ShaderProps.HS.patchConstantFunc;
-    }
-
-    std::unordered_set<Function *> DeadFuncSet;
-
-    for (auto FIt = TheModule.functions().begin(),
-              FE = TheModule.functions().end();
-         FIt != FE;) {
-      Function *F = FIt++;
-      if (F != EntryFunc && F != patchConstantFunc && !F->isDeclaration()) {
-        if (F->user_empty())
-          F->eraseFromParent();
-        else
-          DeadFuncSet.insert(F);
-      }
-    }
-
-    while (!DeadFuncSet.empty()) {
-      bool noUpdate = true;
-      for (auto FIt = DeadFuncSet.begin(), FE = DeadFuncSet.end(); FIt != FE;) {
-        Function *F = *(FIt++);
-        if (F->user_empty()) {
-          DeadFuncSet.erase(F);
-          F->eraseFromParent();
-          noUpdate = false;
-        }
-      }
-      // Avoid dead loop.
-      if (noUpdate)
-        break;
-    }
-  }
-
   // Create copy for clip plane.
   for (Function *F : clipPlaneFuncList) {
     HLFunctionProps &props = m_pHLModule->GetHLFunctionProps(F);
