@@ -349,18 +349,7 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
 
       for (int row = startRow; row <= endRow; row++) {
         unsigned index = GetLinearIndex(SigElem, row, col);
-        auto it = Entry.ContributingInstructions.emplace(index, InstructionSetType{});
-        if (it.second) {
-          it.first->second = ContributingInstructions;
-        } else {
-          InstructionSetType NewSet;
-          std::set_union(it.first->second.begin(),
-                         it.first->second.end(),
-                         ContributingInstructions.begin(),
-                         ContributingInstructions.end(),
-                         std::inserter(NewSet, NewSet.end()));
-          it.first->second.swap(NewSet);
-        }
+        Entry.ContributingInstructions[index].insert(ContributingInstructions.begin(), ContributingInstructions.end());
       }
     }
   }
@@ -463,11 +452,7 @@ void DxilViewIdState::CollectReachingDeclsRec(Value *pValue, ValueSetType &Reach
   if (!bInitialValue) {
     auto it = m_ReachingDeclsCache.find(pValue);
     if (it != m_ReachingDeclsCache.end()) {
-      ValueSetType NewSet;
-      std::set_union(ReachingDecls.begin(), ReachingDecls.end(),
-                     it->second.begin(), it->second.end(),
-                     std::inserter(NewSet, NewSet.end()));
-      ReachingDecls.swap(NewSet);
+      ReachingDecls.insert(it->second.begin(), it->second.end());
       return;
     }
   }
@@ -516,11 +501,7 @@ void DxilViewIdState::CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores
   if (!bInitialValue) {
     auto it = m_StoresPerDeclCache.find(pValue);
     if (it != m_StoresPerDeclCache.end()) {
-      ValueSetType NewSet;
-      std::set_union(Stores.begin(), Stores.end(),
-                     it->second.begin(), it->second.end(),
-                     std::inserter(NewSet, NewSet.end()));
-      Stores.swap(NewSet);
+      Stores.insert(it->second.begin(), it->second.end());
       return;
     }
   }
@@ -616,13 +597,8 @@ void DxilViewIdState::CreateViewIdSets(EntryInfo &Entry,
             const auto it = m_InputsContributingToOutputs.find(index);
             if (it != m_InputsContributingToOutputs.end()) {
               const std::set<unsigned> &LoadOutputCPInputsContributingToOutputs = it->second;
-              std::set<unsigned> NewSet;
-              std::set_union(ContributingInputs.begin(),
-                             ContributingInputs.end(),
-                             LoadOutputCPInputsContributingToOutputs.begin(),
-                             LoadOutputCPInputsContributingToOutputs.end(),
-                             std::inserter(NewSet, NewSet.end()));
-              ContributingInputs.swap(NewSet);
+              ContributingInputs.insert(LoadOutputCPInputsContributingToOutputs.begin(),
+                                        LoadOutputCPInputsContributingToOutputs.end());
             }
           }
         }
