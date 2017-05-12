@@ -417,9 +417,9 @@ private:
   }
 
 public:
-  DxilPSVWriter(const DxilModule &module)
+  DxilPSVWriter(const DxilModule &module, uint32_t PSVVersion = 0)
   : m_Module(module),
-    m_PSVInitInfo(0)
+    m_PSVInitInfo(PSVVersion)
   {
     unsigned ValMajor, ValMinor;
     m_Module.GetValidatorVersion(ValMajor, ValMinor);
@@ -666,8 +666,8 @@ public:
   }
 };
 
-DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M) {
-  return new DxilPSVWriter(M);
+DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
+  return new DxilPSVWriter(M, PSVVersion);
 }
 
 class DxilContainerWriter_impl : public DxilContainerWriter  {

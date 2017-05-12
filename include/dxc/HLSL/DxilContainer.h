@@ -423,7 +423,7 @@ public:
 DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
 DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M);
+DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
 
 class DxilContainerWriter : public DxilPartWriter  {
 public:
