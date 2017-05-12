@@ -129,7 +129,8 @@ private:
   void ComputeReachableFunctionsRec(llvm::CallGraph &CG, llvm::CallGraphNode *pNode, FunctionSetType &FuncSet);
   void AnalyzeFunctions(EntryInfo &Entry);
   void CollectValuesContributingToOutputs(EntryInfo &Entry);
-  void CollectValuesContributingToOutputRec(llvm::Value *pContributingValue,
+  void CollectValuesContributingToOutputRec(EntryInfo &Entry,
+                                            llvm::Value *pContributingValue,
                                             InstructionSetType &ContributingInstructions);
   const ValueSetType &CollectReachingDecls(llvm::Value *pValue);
   void CollectReachingDeclsRec(llvm::Value *pValue, ValueSetType &ReachingDecls, ValueSetType &Visited);
