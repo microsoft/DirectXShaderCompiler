@@ -449,10 +449,18 @@ public:
     if(!(pSize)) return false;
     if (initInfo.PSVVersion > 1) return false;
 
+    // Versioned structure sizes
+    m_uPSVRuntimeInfoSize = sizeof(PSVRuntimeInfo0);
+    m_uPSVResourceBindInfoSize = sizeof(PSVResourceBindInfo0);
+    m_uPSVSignatureElementSize = sizeof(PSVSignatureElement0);
+    if (initInfo.PSVVersion > 0) {
+      m_uPSVRuntimeInfoSize = sizeof(PSVRuntimeInfo1);
+    }
+
     // PSVVersion 0
-    uint32_t size = sizeof(PSVRuntimeInfo1) + sizeof(uint32_t) * 2;
+    uint32_t size = m_uPSVRuntimeInfoSize + sizeof(uint32_t) * 2;
     if (initInfo.ResourceCount) {
-      size += sizeof(uint32_t) + (sizeof(PSVResourceBindInfo0) * initInfo.ResourceCount);
+      size += sizeof(uint32_t) + (m_uPSVResourceBindInfoSize * initInfo.ResourceCount);
     }
 
     // PSVVersion 1
@@ -462,9 +470,9 @@ public:
       if (initInfo.SigInputElements || initInfo.SigOutputElements || initInfo.SigPatchConstantElements) {
         size += sizeof(uint32_t);   // PSVSignatureElement_size
       }
-      size += sizeof(PSVSignatureElement0) * initInfo.SigInputElements;
-      size += sizeof(PSVSignatureElement0) * initInfo.SigOutputElements;
-      size += sizeof(PSVSignatureElement0) * initInfo.SigPatchConstantElements;
+      size += m_uPSVSignatureElementSize * initInfo.SigInputElements;
+      size += m_uPSVSignatureElementSize * initInfo.SigOutputElements;
+      size += m_uPSVSignatureElementSize * initInfo.SigPatchConstantElements;
 
       if (initInfo.UsesViewID) {
         size += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(initInfo.SigOutputVectors);
@@ -494,10 +502,6 @@ public:
 
     // PSVVersion 0
     memset(pBuffer, 0, size);
-    m_uPSVRuntimeInfoSize = sizeof(PSVRuntimeInfo0);
-    if (initInfo.PSVVersion > 0) {
-      m_uPSVRuntimeInfoSize = sizeof(PSVRuntimeInfo1);
-    }
     uint8_t* pCurBits = (uint8_t*)pBuffer;
     *(uint32_t*)pCurBits = m_uPSVRuntimeInfoSize;
     pCurBits += sizeof(uint32_t);
@@ -505,14 +509,13 @@ public:
     if (initInfo.PSVVersion > 0) {
       m_pPSVRuntimeInfo1 = (PSVRuntimeInfo1*)pCurBits;
     }
-    pCurBits += sizeof(PSVRuntimeInfo1);
+    pCurBits += m_uPSVRuntimeInfoSize;
 
     // Set resource info:
     m_uResourceCount = initInfo.ResourceCount;
     *(uint32_t*)pCurBits = m_uResourceCount;
     pCurBits += sizeof(uint32_t);
     if (m_uResourceCount > 0) {
-      m_uPSVResourceBindInfoSize = sizeof(PSVResourceBindInfo0);
       *(uint32_t*)pCurBits = m_uPSVResourceBindInfoSize;
       pCurBits += sizeof(uint32_t);
       m_pPSVResourceBindInfo = pCurBits;
@@ -547,7 +550,6 @@ public:
 
       // Dxil Signature Elements
       if (m_pPSVRuntimeInfo1->SigInputElements || m_pPSVRuntimeInfo1->SigOutputElements || m_pPSVRuntimeInfo1->SigPatchConstantElements) {
-        m_uPSVSignatureElementSize = sizeof(PSVSignatureElement0);
         *(uint32_t*)pCurBits = m_uPSVSignatureElementSize;
         pCurBits += sizeof(uint32_t);
       }

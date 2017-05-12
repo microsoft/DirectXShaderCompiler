@@ -4248,8 +4248,14 @@ bool VerifySignatureMatches(llvm::Module *pModule,
 static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
                              _In_reads_bytes_(PSVSize) const void *pPSVData,
                              _In_ uint32_t PSVSize) {
+  uint32_t PSVVersion = 1;  // This should be set to the newest version
+  unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(ValCtx.DxilMod, PSVVersion));
+  // Try each version in case an earlier version matches module
+  while (PSVVersion && pWriter->size() != PSVSize) {
+    PSVVersion --;
+    pWriter.reset(NewPSVWriter(ValCtx.DxilMod, PSVVersion));
+  }
   // generate PSV data from module and memcmp
-  unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(ValCtx.DxilMod));
   VerifyBlobPartMatches(ValCtx, "Pipeline State Validation", pWriter.get(), pPSVData, PSVSize);
 }
 
@@ -4494,7 +4500,7 @@ HRESULT ValidateDxilBitcode(
 
   DxilModule &dxilModule = pModule->GetDxilModule();
   if (!dxilModule.GetRootSignature().IsEmpty()) {
-    unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule));
+    unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule, 0));
     DXASSERT_NOMSG(pWriter->size());
     CComPtr<IMalloc> pMalloc;
     IFT(CoGetMalloc(1, &pMalloc));

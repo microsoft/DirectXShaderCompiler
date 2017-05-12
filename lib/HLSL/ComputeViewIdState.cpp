@@ -657,9 +657,9 @@ static unsigned RoundUpToUINT(unsigned x) {
   return (x + 31)/32;
 }
 
-const vector<unsigned> &DxilViewIdState::GetSerialized() {
+void DxilViewIdState::Serialize() {
   if (!m_SerializedState.empty())
-    return m_SerializedState;
+    return;
 
   const ShaderModel *pSM = m_pModule->GetShaderModel();
   unsigned NumOutUINTs = RoundUpToUINT(m_NumOutputSigScalars);
@@ -689,7 +689,13 @@ const vector<unsigned> &DxilViewIdState::GetSerialized() {
                m_OutputsDependentOnViewId, m_PCInputsContributingToOutputs, pData);
   }
   DXASSERT_NOMSG(pData == (&m_SerializedState[0] + Size));
-
+}
+const vector<unsigned> &DxilViewIdState::GetSerialized() {
+  if (m_SerializedState.empty())
+    Serialize();
+  return m_SerializedState;
+}
+const vector<unsigned> &DxilViewIdState::GetSerialized() const {
   return m_SerializedState;
 }
 
@@ -732,6 +738,8 @@ void DxilViewIdState::Serialize1(unsigned NumInputs, unsigned NumOutputs,
 
 void DxilViewIdState::Deserialize(const unsigned *pData, unsigned DataSize) {
   Clear();
+  m_SerializedState.resize(DataSize);
+  memcpy(m_SerializedState.data(), pData, DataSize * 4);
 
   const ShaderModel *pSM = m_pModule->GetShaderModel();
   unsigned ConsumedUINTs;
