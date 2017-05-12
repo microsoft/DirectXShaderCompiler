@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilCondenseResources.cpp                                                 //
+// DxilEliminateOutputDynamicIndexing.cpp                                    //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -19,7 +19,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/IRBuilder.h"
-#include <llvm/ADT/DenseSet.h>
+#include <map>
 
 using namespace llvm;
 using namespace hlsl;
@@ -38,71 +38,95 @@ public:
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
+    bool bUpdated = false;
+    if (DM.GetShaderModel()->IsHS()) {
+      hlsl::OP *hlslOP = DM.GetOP();
+      bUpdated = EliminateDynamicOutput(
+          hlslOP, DXIL::OpCode::StorePatchConstant,
+          DM.GetPatchConstantSignature(), DM.GetPatchConstantFunction());
+    }
+
     // Skip pass thru entry.
     if (!DM.GetEntryFunction())
-      return false;
+      return bUpdated;
 
     hlsl::OP *hlslOP = DM.GetOP();
 
-    ArrayRef<llvm::Function *> storeOutputs = hlslOP->GetOpFuncList(DXIL::OpCode::StoreOutput);
-    DenseMap<Value *, Type *> dynamicSigSet;
-    for (Function *F : storeOutputs) {
-      // Skip overload not used.
-      if (!F)
-        continue;
-      for (User *U : F->users()) {
-        CallInst *CI = cast<CallInst>(U);
-        DxilInst_StoreOutput store(CI);
-        // Save dynamic indeed sigID.
-        if (!isa<ConstantInt>(store.get_rowIndex())) {
-          Value * sigID = store.get_outputtSigId();
-          dynamicSigSet[sigID] = store.get_value()->getType();
-        }
-      }
-    }
+    bUpdated |=
+        EliminateDynamicOutput(hlslOP, DXIL::OpCode::StoreOutput,
+                               DM.GetOutputSignature(), DM.GetEntryFunction());
 
-    if (dynamicSigSet.empty())
-      return false;
-
-    Function *Entry = DM.GetEntryFunction();
-    IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
-
-    DxilSignature &outputSig = DM.GetOutputSignature();
-    Value *opcode =
-        Builder.getInt32(static_cast<unsigned>(DXIL::OpCode::StoreOutput));
-    Value *zero = Builder.getInt32(0);
-
-    for (auto sig : dynamicSigSet) {
-      Value *sigID = sig.first;
-      Type *EltTy = sig.second;
-      unsigned ID = cast<ConstantInt>(sigID)->getLimitedValue();
-      DxilSignatureElement &sigElt = outputSig.GetElement(ID);
-      unsigned row = sigElt.GetRows();
-      unsigned col = sigElt.GetCols();
-      Type *AT = ArrayType::get(EltTy, row);
-
-      std::vector<Value *> tmpSigElts(col);
-      for (unsigned c = 0; c < col; c++) {
-        Value *newCol = Builder.CreateAlloca(AT);
-        tmpSigElts[c] = newCol;
-      }
-
-      Function *F = hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, EltTy);
-      // Change store output to store tmpSigElts.
-      ReplaceDynamicOutput(tmpSigElts, sigID, zero, F);
-      // Store tmpSigElts to Output before return.
-      StoreTmpSigToOutput(tmpSigElts, row, opcode, sigID, F, Entry);
-    }
-
-    return true;
+    return bUpdated;
   }
 
 private:
+  bool EliminateDynamicOutput(hlsl::OP *hlslOP, DXIL::OpCode opcode, DxilSignature &outputSig, Function *Entry);
   void ReplaceDynamicOutput(ArrayRef<Value *> tmpSigElts, Value * sigID, Value *zero, Function *F);
   void StoreTmpSigToOutput(ArrayRef<Value *> tmpSigElts, unsigned row,
                            Value *opcode, Value *sigID, Function *StoreOutput,
                            Function *Entry);
 };
+
+struct CmpSigType {
+  bool operator()(const Value *v0, const Value *v1) const {
+    return cast<ConstantInt>(v0)->getLimitedValue() >
+           cast<ConstantInt>(v1)->getLimitedValue();
+  }
+};
+
+bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
+    hlsl::OP *hlslOP, DXIL::OpCode opcode, DxilSignature &outputSig,
+    Function *Entry) {
+  ArrayRef<llvm::Function *> storeOutputs =
+      hlslOP->GetOpFuncList(opcode);
+
+  std::map<Value *, Type *, CmpSigType> dynamicSigSet;
+  for (Function *F : storeOutputs) {
+    // Skip overload not used.
+    if (!F)
+      continue;
+    for (User *U : F->users()) {
+      CallInst *CI = cast<CallInst>(U);
+      DxilInst_StoreOutput store(CI);
+      // Save dynamic indeed sigID.
+      if (!isa<ConstantInt>(store.get_rowIndex())) {
+        Value *sigID = store.get_outputtSigId();
+        dynamicSigSet[sigID] = store.get_value()->getType();
+      }
+    }
+  }
+
+  if (dynamicSigSet.empty())
+    return false;
+
+  IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
+
+  Value *opcodeV = Builder.getInt32(static_cast<unsigned>(opcode));
+  Value *zero = Builder.getInt32(0);
+
+  for (auto sig : dynamicSigSet) {
+    Value *sigID = sig.first;
+    Type *EltTy = sig.second;
+    unsigned ID = cast<ConstantInt>(sigID)->getLimitedValue();
+    DxilSignatureElement &sigElt = outputSig.GetElement(ID);
+    unsigned row = sigElt.GetRows();
+    unsigned col = sigElt.GetCols();
+    Type *AT = ArrayType::get(EltTy, row);
+
+    std::vector<Value *> tmpSigElts(col);
+    for (unsigned c = 0; c < col; c++) {
+      Value *newCol = Builder.CreateAlloca(AT);
+      tmpSigElts[c] = newCol;
+    }
+
+    Function *F = hlslOP->GetOpFunc(opcode, EltTy);
+    // Change store output to store tmpSigElts.
+    ReplaceDynamicOutput(tmpSigElts, sigID, zero, F);
+    // Store tmpSigElts to Output before return.
+    StoreTmpSigToOutput(tmpSigElts, row, opcodeV, sigID, F, Entry);
+  }
+  return true;
+}
 
 void DxilEliminateOutputDynamicIndexing::ReplaceDynamicOutput(
     ArrayRef<Value *> tmpSigElts, Value *sigID, Value *zero, Function *F) {

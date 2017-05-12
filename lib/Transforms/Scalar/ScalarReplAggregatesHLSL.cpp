@@ -4057,8 +4057,10 @@ static unsigned AllocateSemanticIndex(
       Type *EltTy = Ty->getStructElementType(i);
       argIdx = AllocateSemanticIndex(EltTy, semIndex, argIdx, endArgIdx,
                                      FlatAnnotationList);
-      // Update argIdx by 1.
-      argIdx++;
+      if (!(EltTy->isStructTy() && !HLMatrixLower::IsMatrixType(EltTy))) {
+        // Update argIdx only when it is a leaf node.
+        argIdx++;
+      }
     }
     return argIdx;
   } else {
