@@ -95,6 +95,7 @@ private:
   std::unordered_map<llvm::Type *, MDNode*> resMetadataMap;
 
   bool  m_bDebugInfo;
+  bool  m_bIsLib;
 
   HLCBuffer &GetGlobalCBuffer() {
     return *static_cast<HLCBuffer*>(&(m_pHLModule->GetCBuffer(globalCBIndex)));
@@ -306,6 +307,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     Diags.Report(DiagID) << CGM.getCodeGenOpts().HLSLProfile;
     return;
   }
+  m_bIsLib = SM->IsLib();
   // TODO: add AllResourceBound.
   if (CGM.getCodeGenOpts().HLSLAvoidControlFlow && !CGM.getCodeGenOpts().HLSLAllResourcesBound) {
     if (SM->IsSM51Plus()) {
@@ -394,6 +396,7 @@ void CGMSHLSLRuntime::CheckParameterAnnotation(
     SourceLocation SLoc, DxilParamInputQual paramQual, llvm::StringRef semFullName,
     bool isPatchConstantFunction) {
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
+
   DXIL::SigPointKind sigPoint = SigPointFromInputQual(
     paramQual, SM->GetKind(), isPatchConstantFunction);
 
@@ -3767,13 +3770,16 @@ static void SimpleTransformForHLDXIR(llvm::Module *pM) {
 }
 
 void CGMSHLSLRuntime::FinishCodeGen() {
-  SetEntryFunction();
+  // Library don't have entry.
+  if (!m_bIsLib) {
+    SetEntryFunction();
 
-  // If at this point we haven't determined the entry function it's an error.
-  if (m_pHLModule->GetEntryFunction() == nullptr) {
-    assert(CGM.getDiags().hasErrorOccurred() &&
-           "else SetEntryFunction should have reported this condition");
-    return;
+    // If at this point we haven't determined the entry function it's an error.
+    if (m_pHLModule->GetEntryFunction() == nullptr) {
+      assert(CGM.getDiags().hasErrorOccurred() &&
+             "else SetEntryFunction should have reported this condition");
+      return;
+    }
   }
 
   // Create copy for clip plane.
@@ -3807,38 +3813,39 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Create Global variable and type annotation for each CBuffer.
   ConstructCBuffer(m_pHLModule, CBufferType, m_ConstVarAnnotationMap);
 
-  // add global call to entry func
-  auto AddGlobalCall = [&](StringRef globalName, Instruction *InsertPt) {
-    GlobalVariable *GV = TheModule.getGlobalVariable(globalName);
-    if (GV) {
-      if (ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer())) {
+  if (!m_bIsLib) {
+    // add global call to entry func
+    auto AddGlobalCall = [&](StringRef globalName, Instruction *InsertPt) {
+      GlobalVariable *GV = TheModule.getGlobalVariable(globalName);
+      if (GV) {
+        if (ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer())) {
 
-        IRBuilder<> Builder(InsertPt);
-        for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e;
-             ++i) {
-          if (isa<ConstantAggregateZero>(*i))
-            continue;
-          ConstantStruct *CS = cast<ConstantStruct>(*i);
-          if (isa<ConstantPointerNull>(CS->getOperand(1)))
-            continue;
+          IRBuilder<> Builder(InsertPt);
+          for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e;
+               ++i) {
+            if (isa<ConstantAggregateZero>(*i))
+              continue;
+            ConstantStruct *CS = cast<ConstantStruct>(*i);
+            if (isa<ConstantPointerNull>(CS->getOperand(1)))
+              continue;
 
-          // Must have a function or null ptr.
-          if (!isa<Function>(CS->getOperand(1)))
-            continue;
-          Function *Ctor = cast<Function>(CS->getOperand(1));
-          assert(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0 &&
-                 "function type must be void (void)");
-          Builder.CreateCall(Ctor);
+            // Must have a function or null ptr.
+            if (!isa<Function>(CS->getOperand(1)))
+              continue;
+            Function *Ctor = cast<Function>(CS->getOperand(1));
+            assert(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0 &&
+                   "function type must be void (void)");
+            Builder.CreateCall(Ctor);
+          }
+          // remove the GV
+          GV->eraseFromParent();
         }
-        // remove the GV
-        GV->eraseFromParent();
       }
-    }
-  };
-  // need this for "llvm.global_dtors"?
-  AddGlobalCall("llvm.global_ctors",
-                EntryFunc->getEntryBlock().getFirstInsertionPt());
-
+    };
+    // need this for "llvm.global_dtors"?
+    AddGlobalCall("llvm.global_ctors",
+                  EntryFunc->getEntryBlock().getFirstInsertionPt());
+  }
   // translate opcode into parameter for intrinsic functions
   AddOpcodeParamForIntrinsics(*m_pHLModule, m_IntrinsicMap, resMetadataMap);
 
@@ -3853,8 +3860,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     // Skip no inline functions.
     if (f.hasFnAttribute(llvm::Attribute::NoInline))
       continue;
-    // Always inline.
-    f.addFnAttr(llvm::Attribute::AlwaysInline);
+    // Always inline for used functions.
+    if (!f.user_empty())
+      f.addFnAttr(llvm::Attribute::AlwaysInline);
   }
 
   // Do simple transform to make later lower pass easier.

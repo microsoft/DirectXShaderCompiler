@@ -155,6 +155,7 @@ public:
   std::string HLSLEntryFunction;
   unsigned RootSigMajor;
   unsigned RootSigMinor;
+  bool IsHLSLLibrary;
   // MS Change Ends
   
   bool isSignedOverflowDefined() const {

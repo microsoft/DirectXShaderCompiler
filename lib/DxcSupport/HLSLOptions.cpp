@@ -118,6 +118,10 @@ bool DxcOpts::IsRootSignatureProfile() {
       TargetProfile == "rootsig_1_1";
 }
 
+bool DxcOpts::IsLibraryProfile() {
+  return TargetProfile == "lib_6_1";
+}
+
 MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {
   if (argc > skipArgCount) {
     Utf8StringVector.reserve(argc - skipArgCount);
@@ -220,6 +224,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // The value should default to 'main', but we let the caller apply this policy.
 
   opts.TargetProfile = Args.getLastArgValue(OPT_target_profile);
+
+  if (opts.IsLibraryProfile()) {
+    if (Args.getLastArg(OPT_entrypoint)) {
+      errors << "cannot specify entry point for a library";
+      return 1;
+    } else {
+      // Set entry point to impossible name.
+      opts.EntryPoint = "lib.no::entry";
+    }
+  }
 
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
   opts.HLSL2015 = opts.HLSL2016 = opts.HLSL2017 = false;

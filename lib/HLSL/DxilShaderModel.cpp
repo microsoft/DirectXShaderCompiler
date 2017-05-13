@@ -40,7 +40,9 @@ bool ShaderModel::operator==(const ShaderModel &other) const {
 }
 
 bool ShaderModel::IsValid() const {
-  DXASSERT(IsPS() || IsVS() || IsGS() || IsHS() || IsDS() || IsCS() || m_Kind == Kind::Invalid, "invalid shader model");
+  DXASSERT(IsPS() || IsVS() || IsGS() || IsHS() || IsDS() || IsCS() ||
+               IsLib() || m_Kind == Kind::Invalid,
+           "invalid shader model");
   return m_Kind != Kind::Invalid;
 }
 
@@ -89,11 +91,18 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   case 'h':   Kind = Kind::Hull;      break;
   case 'd':   Kind = Kind::Domain;    break;
   case 'c':   Kind = Kind::Compute;   break;
+  case 'l':   Kind = Kind::Library;   break;
   default:    return GetInvalid();
   }
   unsigned Idx = 3;
-  if (pszName[1] != 's' || pszName[2] != '_')
-    return GetInvalid();
+  if (Kind != Kind::Library) {
+    if (pszName[1] != 's' || pszName[2] != '_')
+      return GetInvalid();
+  } else {
+    if (pszName[1] != 'i' || pszName[2] != 'b' || pszName[3] != '_')
+      return GetInvalid();
+    Idx = 4;
+  }
 
   unsigned Major;
   switch (pszName[Idx++]) {
@@ -149,8 +158,12 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor)
   }
 }
 
+static const char *ShaderModelKindNames[] = {
+    "ps", "vs", "gs", "hs", "ds", "cs", "lib", "invalid",
+};
+
 std::string ShaderModel::GetKindName() const {
-  return std::string(m_pszName).substr(0, 2);
+  return std::string(ShaderModelKindNames[static_cast<unsigned int>(m_Kind)]);
 }
 
 const ShaderModel *ShaderModel::GetInvalid() {
@@ -198,6 +211,8 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Vertex,   5, 1, "vs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Vertex,   6, 0, "vs_6_0",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Vertex,   6, 1, "vs_6_1",  32, 32,  true,  true,  UINT_MAX),
+
+  SM(Kind::Library,  6, 1, "lib_6_1",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Invalid,  0, 0, "invalid", 0,  0,   false, false, 0),
 };
