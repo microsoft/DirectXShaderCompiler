@@ -615,9 +615,11 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S,
   NamedDecl *SD = Found.getAsSingle<NamedDecl>();
   bool IsExtension = false;
   bool AcceptSpec = isAcceptableNestedNameSpecifier(SD, &IsExtension);
-  if (!AcceptSpec && IsExtension) {
+   if (!AcceptSpec && IsExtension) {
     AcceptSpec = true;
-    Diag(IdentifierLoc, diag::ext_nested_name_spec_is_enum);
+    // HLSL Change: Suppress c++11 extension warnings for nested name specifier
+    if (!getLangOpts().HLSL)
+        Diag(IdentifierLoc, diag::ext_nested_name_spec_is_enum);
   }
   if (AcceptSpec) {
     if (!ObjectType.isNull() && !ObjectTypeSearchedInScope &&

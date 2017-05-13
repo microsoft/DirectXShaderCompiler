@@ -60,6 +60,7 @@ enum ArBasicKind {
   AR_BASIC_MIN12INT,
   AR_BASIC_MIN16INT,
   AR_BASIC_MIN16UINT,
+  AR_BASIC_ENUM,
 
   AR_BASIC_COUNT,
 
@@ -247,6 +248,7 @@ enum ArBasicKind {
 #define BPROP_PRIMITIVE         0x00100000  // Whether the type is a primitive scalar type.
 #define BPROP_MIN_PRECISION     0x00200000  // Whether the type is qualified with a minimum precision.
 #define BPROP_ROVBUFFER         0x00400000  // Whether the type is a ROV object.
+#define BPROP_ENUM              0x00800000  // Whether the type is a enum
 
 #define GET_BPROP_PRIM_KIND(_Props) \
     ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
@@ -289,6 +291,9 @@ enum ArBasicKind {
 #define IS_BPROP_UNSIGNABLE(_Props) \
     (IS_BPROP_AINT(_Props) && GET_BPROP_BITS(_Props) != BPROP_BITS12)
 
+#define IS_BPROP_ENUM(_Props) \
+    (((_Props) & BPROP_ENUM) != 0)
+
 const UINT g_uBasicKindProps[] =
 {
   BPROP_PRIMITIVE | BPROP_BOOLEAN | BPROP_INTEGER | BPROP_NUMERIC | BPROP_BITS0,  // AR_BASIC_BOOL
@@ -316,6 +321,7 @@ const UINT g_uBasicKindProps[] =
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_BITS16 | BPROP_MIN_PRECISION,   // AR_BASIC_MIN16INT
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS16 | BPROP_MIN_PRECISION,  // AR_BASIC_MIN16UINT
 
+  BPROP_ENUM | BPROP_NUMERIC | BPROP_INTEGER, // AR_BASIC_ENUM
   BPROP_OTHER,  // AR_BASIC_COUNT
 
   //
@@ -335,6 +341,7 @@ const UINT g_uBasicKindProps[] =
 
   BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_NULL
   BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_STRING
+
 
   // BPROP_OBJECT | BPROP_TEXTURE, // AR_OBJECT_TEXTURE
   BPROP_OBJECT | BPROP_TEXTURE, // AR_OBJECT_TEXTURE1D
@@ -460,6 +467,9 @@ C_ASSERT(ARRAYSIZE(g_uBasicKindProps) == AR_BASIC_MAXIMUM_COUNT);
 
 #define IS_BASIC_UNSIGNABLE(_Kind) \
     IS_BPROP_UNSIGNABLE(GetBasicKindProps(_Kind))
+
+#define IS_BASIC_ENUM(_Kind) \
+    IS_BPROP_ENUM(GetBasicKindProps(_Kind))
 
 #define BITWISE_ENUM_OPS(_Type)                                         \
 inline _Type operator|(_Type F1, _Type F2)                              \
@@ -1296,6 +1306,7 @@ const char* g_ArBasicTypeNames[] =
   "<unknown>",
   "<nocast>",
   "<pointer>",
+  "enum",
   "null",
   "string",
   // "texture",
@@ -3120,6 +3131,7 @@ public:
     }
 
     if (type->isBuiltinType()) return AR_TOBJ_BASIC;
+    if (type->isEnumeralType()) return AR_TOBJ_BASIC;
 
     return AR_TOBJ_INVALID;
   }
@@ -3210,7 +3222,10 @@ public:
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
       }
     }
-
+    if (const EnumType *ET = dyn_cast<EnumType>(type)) {
+        if (ET->isEnumeralType())
+        return AR_BASIC_ENUM;
+    }
     return AR_BASIC_UNKNOWN;
   }
 
@@ -7326,7 +7341,11 @@ bool HLSLExternalSource::CanConvert(
     {
       Remarks |= TYPE_CONVERSION_ELT_TRUNCATION;
     }
-
+    // enum -> enum not allowed
+    if (SourceInfo.EltKind == AR_BASIC_ENUM &&
+        TargetInfo.EltKind == AR_BASIC_ENUM) {
+      return false;
+    }
     if (SourceInfo.EltKind != TargetInfo.EltKind)
     {
       if (TargetInfo.EltKind == AR_BASIC_UNKNOWN ||
@@ -7337,6 +7356,16 @@ bool HLSLExternalSource::CanConvert(
       else if (IS_BASIC_BOOL(TargetInfo.EltKind))
       {
         ComponentConversion = ICK_Boolean_Conversion;
+      }
+      else if (IS_BASIC_ENUM(TargetInfo.EltKind))
+      {
+        // conversion to enum type not allowed
+        return false;
+      }
+      else if (IS_BASIC_ENUM(SourceInfo.EltKind))
+      {
+        // enum -> int
+        Second = ICK_Integral_Conversion;
       }
       else
       {
