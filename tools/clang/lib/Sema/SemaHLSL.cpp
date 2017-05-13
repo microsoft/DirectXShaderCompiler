@@ -8809,6 +8809,11 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (self->getDiagnostics().hasErrorOccurred()) {
     return;
   }
+  // Don't check entry function for library.
+  if (self->getLangOpts().IsHLSLLibrary) {
+    // TODO: validate no recursion start from every function.
+    return;
+  }
 
   // TODO: make these error 'real' errors rather than on-the-fly things
   // Validate that the entry point is available.

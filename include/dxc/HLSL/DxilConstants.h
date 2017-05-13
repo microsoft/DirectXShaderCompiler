@@ -114,6 +114,7 @@ namespace DXIL {
     Hull,
     Domain,
     Compute,
+    Library,
     Invalid,
   };
 

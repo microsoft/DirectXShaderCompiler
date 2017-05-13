@@ -37,6 +37,7 @@ public:
   bool IsHS() const     { return m_Kind == Kind::Hull; }
   bool IsDS() const     { return m_Kind == Kind::Domain; }
   bool IsCS() const     { return m_Kind == Kind::Compute; }
+  bool IsLib() const    { return m_Kind == Kind::Library; }
   bool IsValid() const;
   bool IsValidForDxil() const;
 
@@ -84,7 +85,7 @@ private:
               unsigned m_NumInputRegs, unsigned m_NumOutputRegs,
               bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
 
-  static const unsigned kNumShaderModels = 33;
+  static const unsigned kNumShaderModels = 34;
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 
   static const ShaderModel *GetInvalid();

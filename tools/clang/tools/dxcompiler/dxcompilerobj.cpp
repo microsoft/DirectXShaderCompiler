@@ -1110,11 +1110,14 @@ public:
         rootSigMajor = 1;
         rootSigMinor = 0;
       }
+      compiler.getLangOpts().IsHLSLLibrary = opts.IsLibraryProfile();
 
       // NOTE: this calls the validation component from dxil.dll; the built-in
       // validator can be used as a fallback.
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
-      bool needsValidation = produceFullContainer && !opts.DisableValidation;
+
+      bool needsValidation = produceFullContainer && !opts.DisableValidation &&
+                             !opts.IsLibraryProfile();
 
       if (needsValidation) {
         UINT32 majorVer, minorVer;

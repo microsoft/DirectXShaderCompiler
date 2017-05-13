@@ -264,7 +264,7 @@ public:
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
-    if (!SM->IsCS()) {
+    if (!SM->IsCS() && !SM->IsLib()) {
       CreateDxilSignatures();
 
       // Allocate input output.
@@ -272,7 +272,7 @@ public:
 
       GenerateDxilInputs();
       GenerateDxilOutputs();
-    } else
+    } else if (SM->IsCS())
       GenerateDxilCSInputs();
 
     if (SM->IsDS() || SM->IsHS())
@@ -2448,17 +2448,19 @@ void DxilGenerationPass::GenerateDxilOperations(
     patchConstantFunc = funcProps.ShaderProps.HS.patchConstantFunc;
   }
 
-  for (auto F = M.begin(); F != M.end();) {
-    Function *func = F++;
+  if (!pSM->IsLib()) {
+    for (auto F = M.begin(); F != M.end();) {
+      Function *func = F++;
 
-    if (func->isDeclaration())
-      continue;
-    if (func == entry)
-      continue;
-    if (func == patchConstantFunc)
-      continue;
-    if (func->user_empty())
-      func->eraseFromParent();
+      if (func->isDeclaration())
+        continue;
+      if (func == entry)
+        continue;
+      if (func == patchConstantFunc)
+        continue;
+      if (func->user_empty())
+        func->eraseFromParent();
+    }
   }
 
   TranslateBuiltinOperations(*m_pHLModule, m_extensionsCodegenHelper,
@@ -2524,9 +2526,10 @@ void DxilGenerationPass::TranslatePreciseAttribute() {
   // argument and call site without precise argument, need to clone the function
   // to propagate the precise for the precise call site.
   // This should be done at CGMSHLSLRuntime::FinishCodeGen.
-
   Function *EntryFn = m_pHLModule->GetEntryFunction();
-  TranslatePreciseAttributeOnFunction(*EntryFn, M);
+  if (!m_pHLModule->GetShaderModel()->IsLib()) {
+    TranslatePreciseAttributeOnFunction(*EntryFn, M);
+  }
 
   if (m_pHLModule->GetShaderModel()->IsHS()) {
     HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFn);
