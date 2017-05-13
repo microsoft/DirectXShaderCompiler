@@ -823,7 +823,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 }
 
 static bool IsElementInputOutputType(QualType Ty) {
-  return Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty);
+  return Ty->isBuiltinType() || hlsl::IsHLSLVecMatType(Ty) || Ty->isEnumeralType();
 }
 
 // Return the size for constant buffer of each decl.

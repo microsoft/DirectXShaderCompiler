@@ -4401,6 +4401,7 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
                                 const ParsedTemplateInfo &TemplateInfo,
                                 AccessSpecifier AS, DeclSpecContext DSC) {
+  /*
   // HLSL Change Starts
   if (getLangOpts().HLSL) {
     Diag(Tok, diag::err_hlsl_unsupported_construct) << "enum";
@@ -4410,7 +4411,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
     return;
   }
   // HLSL Change Ends
-
+  */
   // Parse the tag portion of this.
   if (Tok.is(tok::code_completion)) {
     // Code completion for an enum name.
@@ -4423,7 +4424,8 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
   MaybeParseGNUAttributes(attrs);
   MaybeParseCXX11Attributes(attrs);
   MaybeParseMicrosoftDeclSpecs(attrs);
-  assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - enums not allowed
+  MaybeParseHLSLAttributes(attrs);
+  //assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - enums not allowed
 
   SourceLocation ScopedEnumKWLoc;
   bool IsScopedUsingClassTag = false;
@@ -4461,7 +4463,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 
   bool AllowFixedUnderlyingType = AllowDeclaration &&
     (getLangOpts().CPlusPlus11 || getLangOpts().MicrosoftExt ||
-     getLangOpts().ObjC2);
+     getLangOpts().ObjC2); // TODO : Should we allow fixed underlying type in HLSL?
 
   CXXScopeSpec &SS = DS.getTypeSpecScope();
   if (getLangOpts().CPlusPlus) {
@@ -4805,7 +4807,8 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
             << 1 /*enumerator*/;
       ParseCXX11Attributes(attrs);
     }
-    assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - enums not allowed
+    MaybeParseHLSLAttributes(attrs);
+    //assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - enums not allowed
 
     SourceLocation EqualLoc;
     ExprResult AssignedVal;
