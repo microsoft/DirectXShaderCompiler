@@ -2,7 +2,7 @@
 
 // Make sure no load and store
 // CHECK-NOT: store float
-// CHECK-NOT: = load 
+// CHECK-NOT: = load
 
 
 
