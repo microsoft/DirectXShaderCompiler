@@ -119,7 +119,7 @@ bool DxcOpts::IsRootSignatureProfile() {
 }
 
 bool DxcOpts::IsLibraryProfile() {
-  return TargetProfile == "lib_6_1";
+  return TargetProfile.startswith("lib_");
 }
 
 MainArgs::MainArgs(int argc, const wchar_t **argv, int skipArgCount) {

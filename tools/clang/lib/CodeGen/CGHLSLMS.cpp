@@ -3851,11 +3851,13 @@ void CGMSHLSLRuntime::FinishCodeGen() {
 
   // Pin entry point and constant buffers, mark everything else internal.
   for (Function &f : m_pHLModule->GetModule()->functions()) {
-    if (&f == m_pHLModule->GetEntryFunction() || IsPatchConstantFunction(&f) ||
-        f.isDeclaration()) {
-      f.setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
-    } else {
-      f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+    if (!m_bIsLib) {
+      if (&f == m_pHLModule->GetEntryFunction() ||
+          IsPatchConstantFunction(&f) || f.isDeclaration()) {
+        f.setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
+      } else {
+        f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+      }
     }
     // Skip no inline functions.
     if (f.hasFnAttribute(llvm::Attribute::NoInline))
