@@ -16,6 +16,7 @@ add_llvm_library(LLVMHLSL
   DxilMetadataHelper.cpp
   DxilModule.cpp
   DxilOperations.cpp
+  DxilPreserveAllOutputs.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
   DxilRootSignature.cpp
