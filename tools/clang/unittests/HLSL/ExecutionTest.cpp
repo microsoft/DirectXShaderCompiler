@@ -335,7 +335,7 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAnyTrue> {
   OutType operator()(const std::vector<InType> &inputs,
                      const std::vector<int> &masks, int maskValue,
                      unsigned int index) {
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue && inputs.at(i) != 0) {
         return 1;
       }
@@ -349,7 +349,7 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllTrue> {
   OutType operator()(const std::vector<InType> &inputs,
                      const std::vector<int> &masks, int maskValue,
                      unsigned int index) {
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue && inputs.at(i) == 0) {
         return 0;
       }
@@ -379,7 +379,7 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitOr> {
                      const std::vector<int> &masks, int maskValue,
                      unsigned int index) {
     OutType bits = 0x00000000;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         bits |= inputs.at(i);
       }
@@ -394,7 +394,7 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitAnd> {
                      const std::vector<int> &masks, int maskValue,
                      unsigned int index) {
     OutType bits = 0xffffffff;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         bits &= inputs.at(i);
       }
@@ -409,7 +409,7 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitXor> {
                      const std::vector<int> &masks, int maskValue,
                      unsigned int index) {
     OutType bits = 0x00000000;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         bits ^= inputs.at(i);
       }
