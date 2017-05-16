@@ -103,6 +103,7 @@ static const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
 static const uint64_t ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer = 0x2000;
 static const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
 static const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
+static const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
 
 static const unsigned ShaderFeatureInfoCount = 16;
 
@@ -422,7 +423,7 @@ public:
 DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
 DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M);
+DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
 
 class DxilContainerWriter : public DxilPartWriter  {
 public:
@@ -433,7 +434,7 @@ public:
 
 DxilContainerWriter *NewDxilContainerWriter();
 
-enum class SerializeDxilFlags {
+enum class SerializeDxilFlags : uint32_t {
   None = 0,                     // No flags defined.
   IncludeDebugInfoPart = 1,     // Include the debug info part in the container.
   IncludeDebugNamePart = 2,     // Include the debug name part in the container.
@@ -443,8 +444,15 @@ inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxi
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));
   return l;
 }
+inline SerializeDxilFlags& operator &=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
+  l = static_cast<SerializeDxilFlags>(static_cast<int>(l) & static_cast<int>(r));
+  return l;
+}
 inline int operator&(SerializeDxilFlags l, SerializeDxilFlags r) {
   return static_cast<int>(l) & static_cast<int>(r);
+}
+inline SerializeDxilFlags operator~(SerializeDxilFlags l) {
+  return static_cast<SerializeDxilFlags>(~static_cast<uint32_t>(l));
 }
 
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,

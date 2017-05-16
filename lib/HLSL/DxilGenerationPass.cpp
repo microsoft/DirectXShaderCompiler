@@ -105,6 +105,9 @@ void InitResource(const DxilResource *pSource, DxilResource *pDest) {
 
 void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   // Subsystems.
+  unsigned ValMajor, ValMinor;
+  H.GetValidatorVersion(ValMajor, ValMinor);
+  M.SetValidatorVersion(ValMajor, ValMinor);
   M.SetShaderModel(H.GetShaderModel());
 
   // Entry function.
@@ -231,6 +234,9 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.ResetOP(H.ReleaseOP());
   // Keep llvm used.
   M.EmitLLVMUsed();
+
+  // Update Validator Version
+  M.UpgradeToMinValidatorVersion();
 }
 
 class DxilGenerationPass : public ModulePass {
@@ -2996,6 +3002,8 @@ public:
       }
 
       DM.CollectShaderFlags(); // Update flags to reflect any changes.
+                               // Update Validator Version
+      DM.UpgradeToMinValidatorVersion();
       DM.EmitDxilMetadata();
       return true;
     }
