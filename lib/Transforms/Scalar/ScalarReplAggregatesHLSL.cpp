@@ -2379,17 +2379,33 @@ void MemcpySplitter::PatchMemCpyWithZeroIdxGEP(MemCpyInst *MI,
     Src = BC->getOperand(0);
 
   IRBuilder<> Builder(MI);
+  ConstantInt *zero = Builder.getInt32(0);
   Type *DestTy = Dest->getType()->getPointerElementType();
   Type *SrcTy = Src->getType()->getPointerElementType();
   // Support case when bitcast (gep ptr, 0,0) is transformed into
   // bitcast ptr.
+  // Also replace (gep ptr, 0) with ptr.
   ConstantInt *Length = cast<ConstantInt>(MI->getLength());
   unsigned size = Length->getLimitedValue();
   if (unsigned level = MatchSizeByCheckElementType(DestTy, DL, size, 0)) {
     PatchZeroIdxGEP(Dest, MI->getRawDest(), MI, level, Builder);
+  } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(Dest)) {
+    if (GEP->getNumIndices() == 1) {
+       Value *idx = *GEP->idx_begin();
+       if (idx == zero) {
+         GEP->replaceAllUsesWith(GEP->getPointerOperand());
+       }
+    }
   }
   if (unsigned level = MatchSizeByCheckElementType(SrcTy, DL, size, 0)) {
     PatchZeroIdxGEP(Src, MI->getRawSource(), MI, level, Builder);
+  } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(Src)) {
+    if (GEP->getNumIndices() == 1) {
+      Value *idx = *GEP->idx_begin();
+      if (idx == zero) {
+        GEP->replaceAllUsesWith(GEP->getPointerOperand());
+      }
+    }
   }
 }
 
@@ -2541,9 +2557,11 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
       for (Value *NewGEP : NewGEPs) {
         if (NewGEP->user_empty() && isa<Instruction>(NewGEP)) {
           // Delete unused newGEP.
-          DeadInsts.emplace_back(NewGEP);
+          cast<Instruction>(NewGEP)->eraseFromParent();
         }
       }
+      if (GEP->user_empty() && isa<Instruction>(GEP))
+        DeadInsts.push_back(GEP);
     } else {
       Value *vecIdx = NewArgs.back();
       if (ConstantInt *immVecIdx = dyn_cast<ConstantInt>(vecIdx)) {
@@ -3429,7 +3447,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &
 struct PointerStatus {
   /// Keep track of what stores to the pointer look like.
   enum StoredType {
-    /// There is no store to this global.  It can thus be marked constant.
+    /// There is no store to this pointer.  It can thus be marked constant.
     NotStored,
 
     /// This ptr is a global, and is stored to, but the only thing stored is the
@@ -3450,7 +3468,18 @@ struct PointerStatus {
     /// cannot track.
     Stored
   } StoredType;
+  /// Keep track of what loaded from the pointer look like.
+  enum LoadedType {
+    /// There is no load to this pointer.  It can thus be marked constant.
+    NotLoaded,
 
+    /// This ptr is only used by a memcpy.
+    MemcopySrcOnce,
+
+    /// This ptr is loaded to by multiple instructions or something else that we
+    /// cannot track.
+    Loaded
+  } LoadedType;
   /// If only one value (besides the initializer constant) is ever stored to
   /// this global, keep track of what value it is.
   Value *StoredOnceValue;
@@ -3458,6 +3487,8 @@ struct PointerStatus {
   std::vector<MemCpyInst *> memcpyList;
   /// Memcpy which use this ptr as dest.
   MemCpyInst *StoringMemcpy;
+  /// Memcpy which use this ptr as src.
+  MemCpyInst *LoadingMemcpy;
   /// These start out null/false.  When the first accessing function is noticed,
   /// it is recorded. When a second different accessing function is noticed,
   /// HasMultipleAccessingFunctions is set to true.
@@ -3473,13 +3504,15 @@ struct PointerStatus {
                              DxilTypeSystem &typeSys, bool bStructElt);
 
   PointerStatus(unsigned size)
-      : StoredType(NotStored), StoredOnceValue(nullptr), StoringMemcpy(nullptr),
+      : StoredType(NotStored), LoadedType(NotLoaded), StoredOnceValue(nullptr),
+        StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
         AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
         Size(size) {}
   void MarkAsStored() {
     StoredType = PointerStatus::StoredType::Stored;
     StoredOnceValue = nullptr;
   }
+  void MarkAsLoaded() { LoadedType = PointerStatus::LoadedType::Loaded; }
 };
 
 void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
@@ -3521,9 +3554,23 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
             PS.MarkAsStored();
             PS.StoringMemcpy = nullptr;
           }
+        } else if (MC->getRawSource() == V) {
+          if (bFullCopy &&
+              PS.LoadedType == PointerStatus::LoadedType::NotLoaded) {
+            PS.LoadedType = PointerStatus::LoadedType::MemcopySrcOnce;
+            PS.LoadingMemcpy = PS.memcpyList.back();
+          } else {
+            PS.MarkAsLoaded();
+            PS.LoadingMemcpy = nullptr;
+          }
         }
       } else {
-        PS.MarkAsStored();
+        if (MC->getRawDest() == V) {
+          PS.MarkAsStored();
+        } else {
+          DXASSERT(MC->getRawSource() == V, "must be source here");
+          PS.MarkAsLoaded();
+        }
       }
     } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       gep_type_iterator GEPIt = gep_type_begin(GEP);
@@ -3542,12 +3589,56 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
       } else {
         PS.MarkAsStored();
       }
+    } else if (const LoadInst *LI = dyn_cast<LoadInst>(U)) {
+      PS.MarkAsLoaded();
     } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
       Function *F = CI->getCalledFunction();
       DxilFunctionAnnotation *annotation = typeSys.GetFunctionAnnotation(F);
       if (!annotation) {
-        // If not sure its out param or not. Take as out param.
-        PS.MarkAsStored();
+        HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+        switch (group) {
+        case HLOpcodeGroup::HLMatLoadStore: {
+          HLMatLoadStoreOpcode opcode =
+              static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+          switch (opcode) {
+          case HLMatLoadStoreOpcode::ColMatLoad:
+          case HLMatLoadStoreOpcode::RowMatLoad:
+            PS.MarkAsLoaded();
+            break;
+          case HLMatLoadStoreOpcode::ColMatStore:
+          case HLMatLoadStoreOpcode::RowMatStore:
+            PS.MarkAsStored();
+            break;
+          default:
+            DXASSERT(0, "invalid opcode");
+            PS.MarkAsStored();
+            PS.MarkAsLoaded();
+          }
+        } break;
+        case HLOpcodeGroup::HLSubscript: {
+          HLSubscriptOpcode opcode =
+              static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
+          switch (opcode) {
+          case HLSubscriptOpcode::VectorSubscript:
+          case HLSubscriptOpcode::ColMatElement:
+          case HLSubscriptOpcode::ColMatSubscript:
+          case HLSubscriptOpcode::RowMatElement:
+          case HLSubscriptOpcode::RowMatSubscript:
+            analyzePointer(CI, PS, typeSys, bStructElt);
+            break;
+          default:
+            // Rest are resource ptr like buf[i].
+            // Only read of resource handle.
+            PS.MarkAsLoaded();
+            break;
+          }
+        } break;
+        default: {
+          // If not sure its out param or not. Take as out param.
+          PS.MarkAsStored();
+          PS.MarkAsLoaded();
+        }
+        }
         continue;
       }
 
@@ -3559,6 +3650,11 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
               annotation->GetParameterAnnotation(i).GetParamInputQual();
           if (inputQual != DxilParamInputQual::In) {
             PS.MarkAsStored();
+            if (inputQual == DxilParamInputQual::Inout)
+              PS.MarkAsLoaded();
+            break;
+          } else {
+            PS.MarkAsLoaded();
             break;
           }
         }
@@ -3621,26 +3717,69 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   PointerStatus PS(size);
   const bool bStructElt = false;
   PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
-  if (bAllowReplace &&
-      PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce &&
-      !PS.HasMultipleAccessingFunctions) {
-    // How to make sure Src is not updated after Memcopy?
+  if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
+    if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce) {
+      // Replace with src of memcpy.
+      MemCpyInst *MC = PS.StoringMemcpy;
+      if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
+        Value *Src = MC->getOperand(1);
+        // Only remove one level bitcast generated from inline.
+        if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Src))
+          Src = BC->getOperand(0);
 
-    // Replace with src of memcpy.
-    MemCpyInst *MC = PS.StoringMemcpy;
-    if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
-      Value *Src = MC->getOperand(1);
-      // Only remove one level bitcast generated from inline.
-      if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Src))
-        Src = BC->getOperand(0);
-
-      // Need to make sure src not updated after current memcpy.
-      // Check Src only have 1 store now.
-      PointerStatus SrcPS(size);
-      PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
-      if (SrcPS.StoredType != PointerStatus::StoredType::Stored) {
-        ReplaceMemcpy(V, Src, MC);
-        return true;
+        if (GEPOperator *GEP = dyn_cast<GEPOperator>(Src)) {
+          // For GEP, the ptr could have other GEP read/write.
+          // Only scan one GEP is not enough.
+          Value *Ptr = GEP->getPointerOperand();
+          if (CallInst *PtrCI = dyn_cast<CallInst>(Ptr)) {
+            hlsl::HLOpcodeGroup group =
+                hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
+            if (group == HLOpcodeGroup::HLSubscript) {
+              HLSubscriptOpcode opcode =
+                  static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+              if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+                // Ptr from CBuffer is safe.
+                ReplaceMemcpy(V, Src, MC);
+                return true;
+              }
+            }
+          }
+        } else if (!isa<CallInst>(Src)) {
+          // Resource ptr should not be replaced.
+          // Need to make sure src not updated after current memcpy.
+          // Check Src only have 1 store now.
+          PointerStatus SrcPS(size);
+          PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
+          if (SrcPS.StoredType != PointerStatus::StoredType::Stored) {
+            ReplaceMemcpy(V, Src, MC);
+            return true;
+          }
+        }
+      }
+    } else if (PS.LoadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
+      // Replace dst of memcpy.
+      MemCpyInst *MC = PS.LoadingMemcpy;
+      if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
+        Value *Dest = MC->getOperand(0);
+        // Only remove one level bitcast generated from inline.
+        if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Dest))
+          Dest = BC->getOperand(0);
+        // For GEP, the ptr could have other GEP read/write.
+        // Only scan one GEP is not enough.
+        // And resource ptr should not be replaced.
+        if (!isa<GEPOperator>(Dest) && !isa<CallInst>(Dest) &&
+            !isa<BitCastOperator>(Dest)) {
+          // Need to make sure Dest not updated after current memcpy.
+          // Check Dest only have 1 store now.
+          PointerStatus DestPS(size);
+          PointerStatus::analyzePointer(Dest, DestPS, typeSys, bStructElt);
+          if (DestPS.StoredType != PointerStatus::StoredType::Stored) {
+            ReplaceMemcpy(Dest, V, MC);
+            // V still need to be flatten.
+            // Lower memcpy come from Dest.
+            return LowerMemcpy(V, annotation, typeSys, DL, bAllowReplace);
+          }
+        }
       }
     }
   }

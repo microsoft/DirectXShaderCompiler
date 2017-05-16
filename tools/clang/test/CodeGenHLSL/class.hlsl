@@ -21,5 +21,6 @@ X x0;
 float4 main(float4 a : A, float4 b:B) : SV_TARGET
 {
   X x = x0;
+  x.n2[0].n = 1;
   return x.test_inout(a.x).n;
 }
