@@ -82,7 +82,7 @@ static bool ShouldBeAllocated(const DxilSignatureElement *SE) {
 } // anonymous namespace
 
 
-bool DxilSignature::IsFullyAllocated() {
+bool DxilSignature::IsFullyAllocated() const {
   for (auto &SE : m_Elements) {
     if (!ShouldBeAllocated(SE.get()))
       continue;
@@ -90,6 +90,15 @@ bool DxilSignature::IsFullyAllocated() {
       return false;
   }
   return true;
+}
+
+unsigned DxilSignature::NumVectorsUsed() const {
+  unsigned NumVectors = 0;
+  for (auto &SE : m_Elements) {
+    if (SE->IsAllocated())
+      NumVectors = std::max(NumVectors, (unsigned)SE->GetStartRow() + SE->GetRows());
+  }
+  return NumVectors;
 }
 
 unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {

@@ -28,6 +28,7 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h" // HLSL Change
+#include "dxc/HLSL/ComputeViewIdState.h" // HLSL Change
 
 using namespace llvm;
 
@@ -202,12 +203,24 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
                                              /*Promote*/ !NoOpt));
 
   MPM.add(createHLMatrixLowerPass());
+  MPM.add(createResourceToHandlePass());
   // DCE should after SROA to remove unused element.
   MPM.add(createDeadCodeEliminationPass());
   MPM.add(createGlobalDCEPass());
 
+  if (NoOpt) {
+    // If not run mem2reg, try to promote allocas used by EvalOperations.
+    // Do this before change vector to array.
+    MPM.add(createDxilLegalizeEvalOperationsPass());
+  }
+
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
+
+  if (!NoOpt) {
+    // mem2reg
+    MPM.add(createPromoteMemoryToRegisterPass());
+  }
 
   MPM.add(createSimplifyInstPass());
   MPM.add(createCFGSimplificationPass());
@@ -218,11 +231,6 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   MPM.add(createDxilLoadMetadataPass()); // Ensure DxilModule is loaded for optimizations.
 
   MPM.add(createSimplifyInstPass());
-
-  if (!NoOpt) {
-    // mem2reg
-    MPM.add(createPromoteMemoryToRegisterPass());
-  }
 
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());
@@ -269,6 +277,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
       MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+      MPM.add(createComputeViewIdStatePass());    // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
     // HLSL Change Ends.
@@ -538,6 +547,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilCondenseResourcesPass());
     if (DisableUnrollLoops)
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+    MPM.add(createComputeViewIdStatePass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.

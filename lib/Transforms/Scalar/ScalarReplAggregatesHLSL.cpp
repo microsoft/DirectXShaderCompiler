@@ -1071,7 +1071,6 @@ bool SROA_HLSL::runOnFunction(Function &F) {
   splitter.Split(F);
 
   Changed |= markPrecise(F);
-  Changed |= performPromotion(F);
 
   return Changed;
 }
@@ -2380,17 +2379,33 @@ void MemcpySplitter::PatchMemCpyWithZeroIdxGEP(MemCpyInst *MI,
     Src = BC->getOperand(0);
 
   IRBuilder<> Builder(MI);
+  ConstantInt *zero = Builder.getInt32(0);
   Type *DestTy = Dest->getType()->getPointerElementType();
   Type *SrcTy = Src->getType()->getPointerElementType();
   // Support case when bitcast (gep ptr, 0,0) is transformed into
   // bitcast ptr.
+  // Also replace (gep ptr, 0) with ptr.
   ConstantInt *Length = cast<ConstantInt>(MI->getLength());
   unsigned size = Length->getLimitedValue();
   if (unsigned level = MatchSizeByCheckElementType(DestTy, DL, size, 0)) {
     PatchZeroIdxGEP(Dest, MI->getRawDest(), MI, level, Builder);
+  } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(Dest)) {
+    if (GEP->getNumIndices() == 1) {
+       Value *idx = *GEP->idx_begin();
+       if (idx == zero) {
+         GEP->replaceAllUsesWith(GEP->getPointerOperand());
+       }
+    }
   }
   if (unsigned level = MatchSizeByCheckElementType(SrcTy, DL, size, 0)) {
     PatchZeroIdxGEP(Src, MI->getRawSource(), MI, level, Builder);
+  } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(Src)) {
+    if (GEP->getNumIndices() == 1) {
+      Value *idx = *GEP->idx_begin();
+      if (idx == zero) {
+        GEP->replaceAllUsesWith(GEP->getPointerOperand());
+      }
+    }
   }
 }
 
@@ -2542,9 +2557,11 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
       for (Value *NewGEP : NewGEPs) {
         if (NewGEP->user_empty() && isa<Instruction>(NewGEP)) {
           // Delete unused newGEP.
-          DeadInsts.emplace_back(NewGEP);
+          cast<Instruction>(NewGEP)->eraseFromParent();
         }
       }
+      if (GEP->user_empty() && isa<Instruction>(GEP))
+        DeadInsts.push_back(GEP);
     } else {
       Value *vecIdx = NewArgs.back();
       if (ConstantInt *immVecIdx = dyn_cast<ConstantInt>(vecIdx)) {
@@ -2572,21 +2589,12 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
   }
 }
 
-static Type *GetArrayEltTy(Type *Ty) {
-  if (isa<PointerType>(Ty))
-    Ty = Ty->getPointerElementType();
-  while (isa<ArrayType>(Ty)) {
-    Ty = Ty->getArrayElementType();
-  }
-  return Ty;
-}
-
 /// isVectorOrStructArray - Check if T is array of vector or struct.
 static bool isVectorOrStructArray(Type *T) {
   if (!T->isArrayTy())
     return false;
 
-  T = GetArrayEltTy(T);
+  T = HLModule::GetArrayEltTy(T);
 
   return T->isStructTy() || T->isVectorTy();
 }
@@ -3439,7 +3447,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &
 struct PointerStatus {
   /// Keep track of what stores to the pointer look like.
   enum StoredType {
-    /// There is no store to this global.  It can thus be marked constant.
+    /// There is no store to this pointer.  It can thus be marked constant.
     NotStored,
 
     /// This ptr is a global, and is stored to, but the only thing stored is the
@@ -3460,7 +3468,18 @@ struct PointerStatus {
     /// cannot track.
     Stored
   } StoredType;
+  /// Keep track of what loaded from the pointer look like.
+  enum LoadedType {
+    /// There is no load to this pointer.  It can thus be marked constant.
+    NotLoaded,
 
+    /// This ptr is only used by a memcpy.
+    MemcopySrcOnce,
+
+    /// This ptr is loaded to by multiple instructions or something else that we
+    /// cannot track.
+    Loaded
+  } LoadedType;
   /// If only one value (besides the initializer constant) is ever stored to
   /// this global, keep track of what value it is.
   Value *StoredOnceValue;
@@ -3468,6 +3487,8 @@ struct PointerStatus {
   std::vector<MemCpyInst *> memcpyList;
   /// Memcpy which use this ptr as dest.
   MemCpyInst *StoringMemcpy;
+  /// Memcpy which use this ptr as src.
+  MemCpyInst *LoadingMemcpy;
   /// These start out null/false.  When the first accessing function is noticed,
   /// it is recorded. When a second different accessing function is noticed,
   /// HasMultipleAccessingFunctions is set to true.
@@ -3483,13 +3504,15 @@ struct PointerStatus {
                              DxilTypeSystem &typeSys, bool bStructElt);
 
   PointerStatus(unsigned size)
-      : StoredType(NotStored), StoredOnceValue(nullptr), StoringMemcpy(nullptr),
+      : StoredType(NotStored), LoadedType(NotLoaded), StoredOnceValue(nullptr),
+        StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
         AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
         Size(size) {}
   void MarkAsStored() {
     StoredType = PointerStatus::StoredType::Stored;
     StoredOnceValue = nullptr;
   }
+  void MarkAsLoaded() { LoadedType = PointerStatus::LoadedType::Loaded; }
 };
 
 void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
@@ -3531,9 +3554,23 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
             PS.MarkAsStored();
             PS.StoringMemcpy = nullptr;
           }
+        } else if (MC->getRawSource() == V) {
+          if (bFullCopy &&
+              PS.LoadedType == PointerStatus::LoadedType::NotLoaded) {
+            PS.LoadedType = PointerStatus::LoadedType::MemcopySrcOnce;
+            PS.LoadingMemcpy = PS.memcpyList.back();
+          } else {
+            PS.MarkAsLoaded();
+            PS.LoadingMemcpy = nullptr;
+          }
         }
       } else {
-        PS.MarkAsStored();
+        if (MC->getRawDest() == V) {
+          PS.MarkAsStored();
+        } else {
+          DXASSERT(MC->getRawSource() == V, "must be source here");
+          PS.MarkAsLoaded();
+        }
       }
     } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       gep_type_iterator GEPIt = gep_type_begin(GEP);
@@ -3552,12 +3589,56 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
       } else {
         PS.MarkAsStored();
       }
+    } else if (const LoadInst *LI = dyn_cast<LoadInst>(U)) {
+      PS.MarkAsLoaded();
     } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
       Function *F = CI->getCalledFunction();
       DxilFunctionAnnotation *annotation = typeSys.GetFunctionAnnotation(F);
       if (!annotation) {
-        // If not sure its out param or not. Take as out param.
-        PS.MarkAsStored();
+        HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+        switch (group) {
+        case HLOpcodeGroup::HLMatLoadStore: {
+          HLMatLoadStoreOpcode opcode =
+              static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+          switch (opcode) {
+          case HLMatLoadStoreOpcode::ColMatLoad:
+          case HLMatLoadStoreOpcode::RowMatLoad:
+            PS.MarkAsLoaded();
+            break;
+          case HLMatLoadStoreOpcode::ColMatStore:
+          case HLMatLoadStoreOpcode::RowMatStore:
+            PS.MarkAsStored();
+            break;
+          default:
+            DXASSERT(0, "invalid opcode");
+            PS.MarkAsStored();
+            PS.MarkAsLoaded();
+          }
+        } break;
+        case HLOpcodeGroup::HLSubscript: {
+          HLSubscriptOpcode opcode =
+              static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
+          switch (opcode) {
+          case HLSubscriptOpcode::VectorSubscript:
+          case HLSubscriptOpcode::ColMatElement:
+          case HLSubscriptOpcode::ColMatSubscript:
+          case HLSubscriptOpcode::RowMatElement:
+          case HLSubscriptOpcode::RowMatSubscript:
+            analyzePointer(CI, PS, typeSys, bStructElt);
+            break;
+          default:
+            // Rest are resource ptr like buf[i].
+            // Only read of resource handle.
+            PS.MarkAsLoaded();
+            break;
+          }
+        } break;
+        default: {
+          // If not sure its out param or not. Take as out param.
+          PS.MarkAsStored();
+          PS.MarkAsLoaded();
+        }
+        }
         continue;
       }
 
@@ -3569,6 +3650,11 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
               annotation->GetParameterAnnotation(i).GetParamInputQual();
           if (inputQual != DxilParamInputQual::In) {
             PS.MarkAsStored();
+            if (inputQual == DxilParamInputQual::Inout)
+              PS.MarkAsLoaded();
+            break;
+          } else {
+            PS.MarkAsLoaded();
             break;
           }
         }
@@ -3631,26 +3717,69 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   PointerStatus PS(size);
   const bool bStructElt = false;
   PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
-  if (bAllowReplace &&
-      PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce &&
-      !PS.HasMultipleAccessingFunctions) {
-    // How to make sure Src is not updated after Memcopy?
+  if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
+    if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce) {
+      // Replace with src of memcpy.
+      MemCpyInst *MC = PS.StoringMemcpy;
+      if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
+        Value *Src = MC->getOperand(1);
+        // Only remove one level bitcast generated from inline.
+        if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Src))
+          Src = BC->getOperand(0);
 
-    // Replace with src of memcpy.
-    MemCpyInst *MC = PS.StoringMemcpy;
-    if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
-      Value *Src = MC->getOperand(1);
-      // Only remove one level bitcast generated from inline.
-      if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Src))
-        Src = BC->getOperand(0);
-
-      // Need to make sure src not updated after current memcpy.
-      // Check Src only have 1 store now.
-      PointerStatus SrcPS(size);
-      PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
-      if (SrcPS.StoredType != PointerStatus::StoredType::Stored) {
-        ReplaceMemcpy(V, Src, MC);
-        return true;
+        if (GEPOperator *GEP = dyn_cast<GEPOperator>(Src)) {
+          // For GEP, the ptr could have other GEP read/write.
+          // Only scan one GEP is not enough.
+          Value *Ptr = GEP->getPointerOperand();
+          if (CallInst *PtrCI = dyn_cast<CallInst>(Ptr)) {
+            hlsl::HLOpcodeGroup group =
+                hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
+            if (group == HLOpcodeGroup::HLSubscript) {
+              HLSubscriptOpcode opcode =
+                  static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+              if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+                // Ptr from CBuffer is safe.
+                ReplaceMemcpy(V, Src, MC);
+                return true;
+              }
+            }
+          }
+        } else if (!isa<CallInst>(Src)) {
+          // Resource ptr should not be replaced.
+          // Need to make sure src not updated after current memcpy.
+          // Check Src only have 1 store now.
+          PointerStatus SrcPS(size);
+          PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
+          if (SrcPS.StoredType != PointerStatus::StoredType::Stored) {
+            ReplaceMemcpy(V, Src, MC);
+            return true;
+          }
+        }
+      }
+    } else if (PS.LoadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
+      // Replace dst of memcpy.
+      MemCpyInst *MC = PS.LoadingMemcpy;
+      if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
+        Value *Dest = MC->getOperand(0);
+        // Only remove one level bitcast generated from inline.
+        if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Dest))
+          Dest = BC->getOperand(0);
+        // For GEP, the ptr could have other GEP read/write.
+        // Only scan one GEP is not enough.
+        // And resource ptr should not be replaced.
+        if (!isa<GEPOperator>(Dest) && !isa<CallInst>(Dest) &&
+            !isa<BitCastOperator>(Dest)) {
+          // Need to make sure Dest not updated after current memcpy.
+          // Check Dest only have 1 store now.
+          PointerStatus DestPS(size);
+          PointerStatus::analyzePointer(Dest, DestPS, typeSys, bStructElt);
+          if (DestPS.StoredType != PointerStatus::StoredType::Stored) {
+            ReplaceMemcpy(Dest, V, MC);
+            // V still need to be flatten.
+            // Lower memcpy come from Dest.
+            return LowerMemcpy(V, annotation, typeSys, DL, bAllowReplace);
+          }
+        }
       }
     }
   }
@@ -4067,15 +4196,15 @@ static unsigned AllocateSemanticIndex(
       Type *EltTy = Ty->getStructElementType(i);
       argIdx = AllocateSemanticIndex(EltTy, semIndex, argIdx, endArgIdx,
                                      FlatAnnotationList);
-      // Update argIdx by 1.
-      argIdx++;
+      if (!(EltTy->isStructTy() && !HLMatrixLower::IsMatrixType(EltTy))) {
+        // Update argIdx only when it is a leaf node.
+        argIdx++;
+      }
     }
     return argIdx;
   } else {
     DXASSERT(argIdx < endArgIdx, "arg index out of bound");
     DxilParameterAnnotation &paramAnnotation = FlatAnnotationList[argIdx];
-    // Save semIndex.
-    paramAnnotation.AppendSemanticIndex(semIndex);
     // Get element size.
     unsigned rows = 1;
     if (paramAnnotation.HasMatrixAnnotation()) {
@@ -4088,6 +4217,9 @@ static unsigned AllocateSemanticIndex(
         rows = matrix.Cols;
       }
     }
+    // Save semIndex.
+    for (unsigned i = 0; i < rows; i++)
+      paramAnnotation.AppendSemanticIndex(semIndex + i);
     // Update semIndex.
     semIndex += rows;
 
@@ -4620,8 +4752,8 @@ void SROA_Parameter_HLSL::replaceCastParameter(
       }
     }
 
-    Type *NewEltTy = GetArrayEltTy(NewTy);
-    Type *OldEltTy = GetArrayEltTy(OldTy);
+    Type *NewEltTy = HLModule::GetArrayEltTy(NewTy);
+    Type *OldEltTy = HLModule::GetArrayEltTy(OldTy);
 
     if (NewEltTy == HandlePtrTy) {
       // Save resource attribute.
@@ -4867,7 +4999,18 @@ void SROA_Parameter_HLSL::flattenArgument(
   llvm::StringMap<Type *> semanticTypeMap;
   // Original semantic type.
   if (!semantic.empty()) {
-    semanticTypeMap[semantic] = Arg->getType();
+    // Unwrap top-level array if primitive
+    if (inputQual == DxilParamInputQual::InputPatch ||
+        inputQual == DxilParamInputQual::OutputPatch ||
+        inputQual == DxilParamInputQual::InputPrimitive) {
+      Type *Ty = Arg->getType();
+      if (Ty->isPointerTy())
+        Ty = Ty->getPointerElementType();
+      if (Ty->isArrayTy())
+        semanticTypeMap[semantic] = Ty->getArrayElementType();
+    } else {
+      semanticTypeMap[semantic] = Arg->getType();
+    }
   }
 
   std::vector<Instruction*> deadAllocas;
@@ -4924,7 +5067,7 @@ void SROA_Parameter_HLSL::flattenArgument(
           EltAnnotation.SetSemanticString(semantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
-          Type *EltTy = GetArrayEltTy(Ty);
+          Type *EltTy = HLModule::GetArrayEltTy(Ty);
           DXASSERT(EltTy->isStructTy(), "must be a struct type to has semantic.");
           semanticTypeMap[eltSem] = EltTy->getStructElementType(i);
         }
@@ -5863,6 +6006,7 @@ protected:
   virtual Type *lowerType(Type *Ty) = 0;
   virtual Constant *lowerInitVal(Constant *InitVal, Type *NewTy) = 0;
   virtual StringRef getGlobalPrefix() = 0;
+  virtual void initialize(Module &M) {};
 };
 
 AllocaInst *LowerTypePass::lowerAlloca(AllocaInst *A) {
@@ -5932,6 +6076,7 @@ bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
 }
 
 bool LowerTypePass::runOnModule(Module &M) {
+  initialize(M);
   // Load up debug information, to cross-reference values and the instructions
   // used to load them.
   bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
@@ -5986,6 +6131,8 @@ public:
   explicit DynamicIndexingVectorToArray(bool ReplaceAll = false)
       : LowerTypePass(ID), ReplaceAllVectors(ReplaceAll) {}
   static char ID; // Pass identification, replacement for typeid
+  void applyOptions(PassOptions O) override;
+  void dumpConfig(raw_ostream &OS) override;
 protected:
   bool needToLower(Value *V) override;
   void lowerUseWithNewValue(Value *V, Value *NewV) override;
@@ -6003,6 +6150,15 @@ private:
   void ReplaceVectorArrayWithArray(Value *VecArray, Value *Array);
   void ReplaceStaticIndexingOnVector(Value *V);
 };
+
+void DynamicIndexingVectorToArray::applyOptions(PassOptions O) {
+  GetPassOptionBool(O, "ReplaceAllVectors", &ReplaceAllVectors,
+                    ReplaceAllVectors);
+}
+void DynamicIndexingVectorToArray::dumpConfig(raw_ostream &OS) {
+  ModulePass::dumpConfig(OS);
+  OS << ",ReplaceAllVectors=" << ReplaceAllVectors;
+}
 
 void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
   for (auto U = V->user_begin(), E = V->user_end(); U != E;) {
@@ -6048,6 +6204,14 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
           }
         }
         GEP->eraseFromParent();
+      } else if (GEP->getNumIndices() == 1) {
+        Value *Idx = *GEP->idx_begin();
+        if (ConstantInt *C = dyn_cast<ConstantInt>(Idx)) {
+          if (C->getLimitedValue() == 0) {
+            GEP->replaceAllUsesWith(V);
+            GEP->eraseFromParent();
+          }
+        }
       }
     }
   }
@@ -6071,7 +6235,7 @@ bool DynamicIndexingVectorToArray::needToLower(Value *V) {
     // Array must be replaced even without dynamic indexing to remove vector
     // type in dxil.
     // TODO: optimize static array index in later pass.
-    Type *EltTy = GetArrayEltTy(AT);
+    Type *EltTy = HLModule::GetArrayEltTy(AT);
     return isa<VectorType>(EltTy);
   }
   return false;
@@ -6394,4 +6558,168 @@ INITIALIZE_PASS(MultiDimArrayToOneDimArray, "multi-dim-one-dim",
 // Public interface to the SROA_Parameter_HLSL pass
 ModulePass *llvm::createMultiDimArrayToOneDimArrayPass() {
   return new MultiDimArrayToOneDimArray();
+}
+
+//===----------------------------------------------------------------------===//
+// Lower resource into handle.
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+class ResourceToHandle : public LowerTypePass {
+public:
+  explicit ResourceToHandle() : LowerTypePass(ID) {}
+  static char ID; // Pass identification, replacement for typeid
+protected:
+  bool needToLower(Value *V) override;
+  void lowerUseWithNewValue(Value *V, Value *NewV) override;
+  Type *lowerType(Type *Ty) override;
+  Constant *lowerInitVal(Constant *InitVal, Type *NewTy) override;
+  StringRef getGlobalPrefix() override { return ".res"; }
+  void initialize(Module &M) override;
+private:
+  void ReplaceResourceWithHandle(Value *ResPtr, Value *HandlePtr);
+  void ReplaceResourceGEPWithHandleGEP(Value *GEP, ArrayRef<Value *> idxList,
+                                       Value *A, IRBuilder<> &Builder);
+  void ReplaceResourceArrayWithHandleArray(Value *VA, Value *A);
+
+  Type *m_HandleTy;
+  HLModule *m_pHLM;
+};
+
+void ResourceToHandle::initialize(Module &M) {
+  DXASSERT(M.HasHLModule(), "require HLModule");
+  m_pHLM = &M.GetHLModule();
+  m_HandleTy = m_pHLM->GetOP()->GetHandleType();
+}
+
+bool ResourceToHandle::needToLower(Value *V) {
+  Type *Ty = V->getType()->getPointerElementType();
+  Ty = HLModule::GetArrayEltTy(Ty);
+  return (HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty));
+}
+
+Type *ResourceToHandle::lowerType(Type *Ty) {
+  if ((HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty))) {
+    return m_HandleTy;
+  }
+
+  ArrayType *AT = cast<ArrayType>(Ty);
+
+  SmallVector<ArrayType *, 4> nestArrayTys;
+  nestArrayTys.emplace_back(AT);
+
+  Type *EltTy = AT->getElementType();
+  // support multi level of array
+  while (EltTy->isArrayTy()) {
+    ArrayType *ElAT = cast<ArrayType>(EltTy);
+    nestArrayTys.emplace_back(ElAT);
+    EltTy = ElAT->getElementType();
+  }
+
+  return CreateNestArrayTy(m_HandleTy, nestArrayTys);
+}
+
+Constant *ResourceToHandle::lowerInitVal(Constant *InitVal, Type *NewTy) {
+  DXASSERT(isa<UndefValue>(InitVal), "resource cannot have real init val");
+  return UndefValue::get(NewTy);
+}
+
+void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
+                                                 Value *HandlePtr) {
+  for (auto it = ResPtr->user_begin(); it != ResPtr->user_end();) {
+    User *U = *(it++);
+    if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
+      IRBuilder<> Builder(LI);
+      Value *Handle = Builder.CreateLoad(HandlePtr);
+      Type *ResTy = LI->getType();
+      // Used by createHandle or Store.
+      for (auto ldIt = LI->user_begin(); ldIt != LI->user_end();) {
+        User *ldU = *(ldIt++);
+        if (StoreInst *SI = dyn_cast<StoreInst>(ldU)) {
+          Value *TmpRes = HLModule::EmitHLOperationCall(
+              Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::HandleToResCast, ResTy, {Handle},
+              *m_pHLM->GetModule());
+          SI->replaceUsesOfWith(LI, TmpRes);
+        } else {
+          CallInst *CI = cast<CallInst>(ldU);
+          HLOpcodeGroup group =
+              hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
+          DXASSERT(group == HLOpcodeGroup::HLCreateHandle,
+                   "must be createHandle");
+          CI->replaceAllUsesWith(Handle);
+          CI->eraseFromParent();
+        }
+      }
+      LI->eraseFromParent();
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      Value *Res = SI->getValueOperand();
+      IRBuilder<> Builder(SI);
+      // CreateHandle from Res.
+      Value *Handle = HLModule::EmitHLOperationCall(
+          Builder, HLOpcodeGroup::HLCreateHandle,
+          /*opcode*/ 0, m_HandleTy, {Res}, *m_pHLM->GetModule());
+      // Store Handle to HandlePtr.
+      Builder.CreateStore(Handle, HandlePtr);
+      // Remove resource Store.
+      SI->eraseFromParent();
+    } else {
+      DXASSERT(0, "invalid operation on resource");
+    }
+  }
+}
+
+void ResourceToHandle::ReplaceResourceGEPWithHandleGEP(
+    Value *GEP, ArrayRef<Value *> idxList, Value *A, IRBuilder<> &Builder) {
+  Value *newGEP = Builder.CreateGEP(A, idxList);
+  Type *Ty = GEP->getType()->getPointerElementType();
+  if (Ty->isArrayTy()) {
+    ReplaceResourceArrayWithHandleArray(GEP, newGEP);
+  } else {
+    DXASSERT(HLModule::IsHLSLObjectType(Ty), "must be resource type here");
+    ReplaceResourceWithHandle(GEP, newGEP);
+  }
+}
+
+void ResourceToHandle::ReplaceResourceArrayWithHandleArray(Value *VA,
+                                                           Value *A) {
+  for (auto U = VA->user_begin(); U != VA->user_end();) {
+    User *User = *(U++);
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
+      IRBuilder<> Builder(GEP);
+      SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
+      ReplaceResourceGEPWithHandleGEP(GEP, idxList, A, Builder);
+      GEP->eraseFromParent();
+    } else if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(User)) {
+      IRBuilder<> Builder(GEPOp->getContext());
+      SmallVector<Value *, 4> idxList(GEPOp->idx_begin(), GEPOp->idx_end());
+      ReplaceResourceGEPWithHandleGEP(GEPOp, idxList, A, Builder);
+    } else {
+      DXASSERT(0, "Array pointer should only used by GEP");
+    }
+  }
+}
+
+void ResourceToHandle::lowerUseWithNewValue(Value *V, Value *NewV) {
+  Type *Ty = V->getType()->getPointerElementType();
+  // Replace V with NewV.
+  if (Ty->isArrayTy()) {
+    ReplaceResourceArrayWithHandleArray(V, NewV);
+  } else {
+    ReplaceResourceWithHandle(V, NewV);
+  }
+}
+
+}
+
+char ResourceToHandle::ID = 0;
+
+INITIALIZE_PASS(ResourceToHandle, "resource-handle",
+  "Lower resource into handle", false,
+  false)
+
+// Public interface to the ResourceToHandle pass
+ModulePass *llvm::createResourceToHandlePass() {
+  return new ResourceToHandle();
 }

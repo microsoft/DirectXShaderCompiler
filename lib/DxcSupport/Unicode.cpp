@@ -123,6 +123,22 @@ std::string UTF16ToUTF8StringOrThrow(_In_z_ const wchar_t *pUTF16) {
 }
 
 _Use_decl_annotations_
+bool UTF8BufferToUTF16ComHeap(const char *pUTF8, wchar_t **ppUTF16) throw() {
+  *ppUTF16 = nullptr;
+  int c = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, -1,
+                                nullptr, 0);
+  if (c == 0)
+    return false;
+  CComHeapPtr<wchar_t> p;
+  if (!p.Allocate(c))
+    return false;
+  DXVERIFY_NOMSG(0 < ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8,
+                                           -1, p.m_pData, c));
+  *ppUTF16 = p.Detach();
+  return true;
+}
+
+_Use_decl_annotations_
 bool UTF8BufferToUTF16Buffer(const char *pUTF8, int cbUTF8, wchar_t **ppUTF16, size_t *pcUTF16) throw() {
   *ppUTF16 = nullptr;
   *pcUTF16 = 0;

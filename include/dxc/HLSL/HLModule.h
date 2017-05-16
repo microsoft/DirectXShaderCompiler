@@ -114,6 +114,8 @@ public:
   OP *GetOP() const;
   void SetShaderModel(const ShaderModel *pSM);
   const ShaderModel *GetShaderModel() const;
+  void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
+  void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
 
   // HLOptions
   void SetHLOptions(HLOptions &opts);
@@ -198,6 +200,7 @@ public:
   static unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
+  static llvm::Type *GetArrayEltTy(llvm::Type *Ty);
 
   static bool IsStaticGlobal(llvm::GlobalVariable *GV);
   static bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);
@@ -298,6 +301,8 @@ private:
   const ShaderModel *m_pSM;
   unsigned m_DxilMajor;
   unsigned m_DxilMinor;
+  unsigned m_ValMajor;
+  unsigned m_ValMinor;
   HLOptions m_Options;
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;

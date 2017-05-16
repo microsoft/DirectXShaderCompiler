@@ -38,6 +38,7 @@ namespace llvm {
 /// \brief Create and return a pass that tranform the module into a DXIL module
 /// Note that this pass is designed for use with the legacy pass manager.
 ModulePass *createDxilCondenseResourcesPass();
+ModulePass *createDxilEliminateOutputDynamicIndexingPass();
 ModulePass *createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper);
 ModulePass *createHLEmitMetadataPass();
 ModulePass *createHLEnsureMetadataPass();
@@ -46,10 +47,12 @@ ModulePass *createDxilLoadMetadataPass();
 ModulePass *createDxilPrecisePropagatePass();
 FunctionPass *createDxilLegalizeResourceUsePass();
 ModulePass *createDxilLegalizeStaticResourceUsePass();
+ModulePass *createDxilLegalizeEvalOperationsPass();
 FunctionPass *createDxilLegalizeSampleOffsetPass();
 FunctionPass *createSimplifyInstPass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
+void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
 void initializeDxilGenerationPassPass(llvm::PassRegistry&);
 void initializeHLEnsureMetadataPass(llvm::PassRegistry&);
 void initializeHLEmitMetadataPass(llvm::PassRegistry&);
@@ -58,6 +61,7 @@ void initializeDxilLoadMetadataPass(llvm::PassRegistry&);
 void initializeDxilPrecisePropagatePassPass(llvm::PassRegistry&);
 void initializeDxilLegalizeResourceUsePassPass(llvm::PassRegistry&);
 void initializeDxilLegalizeStaticResourceUsePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeEvalOperationsPass(llvm::PassRegistry&);
 void initializeDxilLegalizeSampleOffsetPassPass(llvm::PassRegistry&);
 void initializeSimplifyInstPass(llvm::PassRegistry&);
 

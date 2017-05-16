@@ -18,6 +18,7 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -50,6 +51,14 @@ public:
   void SetShaderModel(const ShaderModel *pSM);
   const ShaderModel *GetShaderModel() const;
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
+  void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
+  bool UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor);
+  void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+
+  // Return true on success, requires valid shader model and CollectShaderFlags to have been set
+  bool GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+  // Update validator version to minimum if higher than current (ex: after CollectShaderFlags)
+  bool UpgradeToMinValidatorVersion();
 
   // Entry functions.
   llvm::Function *GetEntryFunction();
@@ -105,6 +114,8 @@ public:
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
+  // Update validator version metadata to current setting
+  void UpdateValidatorVersionMetadata();
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
@@ -112,6 +123,10 @@ public:
   /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
   void EmitLLVMUsed();
   std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
+
+  // ViewId state.
+  DxilViewIdState &GetViewIdState();
+  const DxilViewIdState &GetViewIdState() const;
 
   // DXIL metadata manipulation.
   /// Serialize DXIL in-memory form to metadata form.
@@ -165,6 +180,7 @@ public:
     void SetLevel9ComparisonFiltering(bool flag) { m_bLevel9ComparisonFiltering = flag; }
     void Set64UAVs(bool flag) { m_b64UAVs = flag; }
     void SetUAVsAtEveryStage(bool flag) { m_UAVsAtEveryStage = flag; }
+    void SetViewID(bool flag) { m_bViewID = flag; }
 
     static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
     uint64_t GetShaderFlagsRaw() const;
@@ -198,7 +214,9 @@ public:
     unsigned m_bROVS :1;              // SHADER_FEATURE_ROVS
     unsigned m_bWaveOps :1;           // SHADER_FEATURE_WAVE_OPS
     unsigned m_bInt64Ops :1;          // SHADER_FEATURE_INT64_OPS
-    unsigned m_align0 :11;        // align to 32 bit.
+    unsigned m_bViewID : 1;           // SHADER_FEATURE_VIEWID
+
+    unsigned m_align0 :10;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 
@@ -281,6 +299,8 @@ private:
   const ShaderModel *m_pSM;
   unsigned m_DxilMajor;
   unsigned m_DxilMinor;
+  unsigned m_ValMajor;
+  unsigned m_ValMinor;
 
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;
@@ -290,6 +310,9 @@ private:
 
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
+
+  // ViewId state.
+  std::unique_ptr<DxilViewIdState> m_pViewIdState;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();

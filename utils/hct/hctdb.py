@@ -1248,9 +1248,10 @@ class db_dxil(object):
         add_pass('die', 'DeadInstElimination', 'Dead Instruction Elimination', [])
         add_pass('globaldce', 'GlobalDCE', 'Dead Global Elimination', [])
         add_pass('dynamic-vector-to-array', 'DynamicIndexingVectorToArray', 'Replace dynamic indexing vector with array', [
-            {'n':'ReplaceAllVector','t':'ReplaceAllVector','c':1}])
+            {'n':'ReplaceAllVectors','t':'bool','c':1}])
         add_pass('hlsl-dxil-legalize-resource-use', 'DxilLegalizeResourceUsePass', 'DXIL legalize resource use', [])
         add_pass('hlsl-dxil-legalize-static-resource-use', 'DxilLegalizeStaticResourceUsePass', 'DXIL legalize static resource use', [])
+        add_pass('hlsl-dxil-legalize-eval-operations', 'DxilLegalizeEvalOperations', 'DXIL legalize eval operations', [])
         add_pass('dxilgen', 'DxilGenerationPass', 'HLSL DXIL Generation', [
             {'n':'NotOptimized','t':'bool','c':1}])
         add_pass('simplify-inst', 'SimplifyInst', 'Simplify Instructions', [])
@@ -1259,7 +1260,9 @@ class db_dxil(object):
         add_pass('dxil-legalize-sample-offset', 'DxilLegalizeSampleOffsetPass', 'DXIL legalize sample offset', [])
         add_pass('scalarizer', 'Scalarizer', 'Scalarize vector operations', [])
         add_pass('multi-dim-one-dim', 'MultiDimArrayToOneDimArray', 'Flatten multi-dim array into one-dim array', [])
+        add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
+        add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
         add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
         add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [])
@@ -1544,6 +1547,7 @@ class db_dxil(object):
         self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities")
         self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type")
         self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
+        self.add_valrule("Meta.BarycentricsTwoPerspectives", "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")

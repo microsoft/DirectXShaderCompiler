@@ -308,7 +308,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   }
   // TODO: add AllResourceBound.
   if (CGM.getCodeGenOpts().HLSLAvoidControlFlow && !CGM.getCodeGenOpts().HLSLAllResourcesBound) {
-    if (SM->GetMajor() >= 5 && SM->GetMinor() >= 1) {
+    if (SM->IsSM51Plus()) {
       DiagnosticsEngine &Diags = CGM.getDiags();
       unsigned DiagID =
           Diags.getCustomDiagID(DiagnosticsEngine::Error,
@@ -330,6 +330,8 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
   m_pHLModule->SetHLOptions(opts);
+
+  m_pHLModule->SetValidatorVersion(CGM.getCodeGenOpts().HLSLValidatorMajorVer, CGM.getCodeGenOpts().HLSLValidatorMinorVer);
 
   m_bDebugInfo = CGM.getCodeGenOpts().getDebugInfo() == CodeGenOptions::FullDebugInfo;
 
@@ -3463,6 +3465,8 @@ static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &dea
         }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       // Skip function call.
+    } else if (BitCastInst *Cast = dyn_cast<BitCastInst>(U)) {
+      // Skip bitcast.
     } else {
       DXASSERT(0, "not support yet");
     }
@@ -3764,44 +3768,6 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     assert(CGM.getDiags().hasErrorOccurred() &&
            "else SetEntryFunction should have reported this condition");
     return;
-  }
-
-  // Remove all useless functions.
-  if (!CGM.getCodeGenOpts().HLSLHighLevel) {
-    Function *patchConstantFunc = nullptr;
-    if (m_pHLModule->GetShaderModel()->IsHS()) {
-      patchConstantFunc = m_pHLModule->GetHLFunctionProps(EntryFunc)
-                              .ShaderProps.HS.patchConstantFunc;
-    }
-
-    std::unordered_set<Function *> DeadFuncSet;
-
-    for (auto FIt = TheModule.functions().begin(),
-              FE = TheModule.functions().end();
-         FIt != FE;) {
-      Function *F = FIt++;
-      if (F != EntryFunc && F != patchConstantFunc && !F->isDeclaration()) {
-        if (F->user_empty())
-          F->eraseFromParent();
-        else
-          DeadFuncSet.insert(F);
-      }
-    }
-
-    while (!DeadFuncSet.empty()) {
-      bool noUpdate = true;
-      for (auto FIt = DeadFuncSet.begin(), FE = DeadFuncSet.end(); FIt != FE;) {
-        Function *F = *(FIt++);
-        if (F->user_empty()) {
-          DeadFuncSet.erase(F);
-          F->eraseFromParent();
-          noUpdate = false;
-        }
-      }
-      // Avoid dead loop.
-      if (noUpdate)
-        break;
-    }
   }
 
   // Create copy for clip plane.
@@ -5433,23 +5399,34 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     clang::QualType SrcTy,
     llvm::Value *DestPtr,
     clang::QualType DestTy) {
-    // It is possiable to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore the same way.
-    // But split value to scalar will generate many instruction when src type is same as dest type.
-    SmallVector<Value *, 4> idxList;
-    SmallVector<Value *, 4> SrcGEPList;
-    SmallVector<QualType, 4> SrcEltTyList;
-    FlattenAggregatePtrToGepList(CGF, SrcPtr, idxList, SrcTy, SrcPtr->getType(), SrcGEPList,
+  llvm::Type *SrcPtrTy = SrcPtr->getType()->getPointerElementType();
+  llvm::Type *DestPtrTy = DestPtr->getType()->getPointerElementType();
+  if (SrcPtrTy == DestPtrTy) {
+    // Memcpy if type is match.
+    unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+    CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
+    return;
+  }
+  // It is possiable to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore
+  // the same way. But split value to scalar will generate many instruction when
+  // src type is same as dest type.
+  SmallVector<Value *, 4> idxList;
+  SmallVector<Value *, 4> SrcGEPList;
+  SmallVector<QualType, 4> SrcEltTyList;
+  FlattenAggregatePtrToGepList(CGF, SrcPtr, idxList, SrcTy, SrcPtr->getType(),
+                               SrcGEPList, SrcEltTyList);
+
+  SmallVector<Value *, 4> LdEltList;
+  LoadFlattenedGepList(CGF, SrcGEPList, SrcEltTyList, LdEltList);
+
+  idxList.clear();
+  SmallVector<Value *, 4> DestGEPList;
+  SmallVector<QualType, 4> DestEltTyList;
+  FlattenAggregatePtrToGepList(CGF, DestPtr, idxList, DestTy,
+                               DestPtr->getType(), DestGEPList, DestEltTyList);
+
+  StoreFlattenedGepList(CGF, DestGEPList, DestEltTyList, LdEltList,
                         SrcEltTyList);
-
-    SmallVector<Value *, 4> LdEltList;
-    LoadFlattenedGepList(CGF, SrcGEPList, SrcEltTyList, LdEltList);
-
-    idxList.clear();
-    SmallVector<Value *, 4> DestGEPList;
-    SmallVector<QualType, 4> DestEltTyList;
-    FlattenAggregatePtrToGepList(CGF, DestPtr, idxList, DestTy, DestPtr->getType(), DestGEPList, DestEltTyList);
-
-    StoreFlattenedGepList(CGF, DestGEPList, DestEltTyList, LdEltList, SrcEltTyList);
 }
 
 void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *SrcVal,

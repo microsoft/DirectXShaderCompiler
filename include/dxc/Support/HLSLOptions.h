@@ -109,9 +109,12 @@ public:
 
   bool AllResourcesBound; // OPT_all_resources_bound
   bool AstDump; // OPT_ast_dump
+  bool GenSPIRV; // OPT_spirv // SPIRV change
   bool ColorCodeAssembly; // OPT_Cc
   bool CodeGenHighLevel; // OPT_fcgl
   bool DebugInfo; // OPT__SLASH_Zi
+  bool DebugNameForBinary; // OPT_Zsb
+  bool DebugNameForSource; // OPT_Zss
   bool DumpBin;        // OPT_dumpbin
   bool WarningAsError; // OPT__SLASH_WX
   bool IEEEStrict;     // OPT_Gis

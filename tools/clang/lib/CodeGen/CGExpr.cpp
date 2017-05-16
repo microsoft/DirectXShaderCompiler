@@ -3375,7 +3375,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     return MakeAddrLValue(bitcast, ToType);
   }
   case CK_FlatConversion: {
-    // HLSL only single inheritance.
     // Just bitcast.
     QualType ToType = getContext().getLValueReferenceType(E->getType());
 
@@ -3386,6 +3385,34 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     llvm::Type *ResultType = ConvertType(ToType);
     llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
     return MakeAddrLValue(bitcast, ToType);
+  }
+  case CK_HLSLDerivedToBase: {
+    // HLSL only single inheritance.
+    // Just GEP.
+    QualType ToType = getContext().getLValueReferenceType(E->getType());
+
+    LValue LV = EmitLValue(E->getSubExpr());
+    llvm::Value *This = LV.getAddress();
+
+    // gep to target type
+    llvm::Type *ResultType = ConvertType(ToType);
+    unsigned level = 0;
+    llvm::Type *ToTy = ResultType->getPointerElementType();
+    llvm::Type *FromTy = This->getType()->getPointerElementType();
+    // For empty struct, just bitcast.
+    if (!isa<llvm::StructType>(FromTy->getStructElementType(0))) {
+      llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
+      return MakeAddrLValue(bitcast, ToType);
+    }
+
+    while (ToTy != FromTy) {
+      FromTy = FromTy->getStructElementType(0);
+      ++level;
+    }
+    llvm::Value *zeroIdx = Builder.getInt32(0);
+    SmallVector<llvm::Value *, 2> IdxList(level + 1, zeroIdx);
+    llvm::Value *GEP = Builder.CreateInBoundsGEP(This, IdxList);
+    return MakeAddrLValue(GEP, ToType);
   }
   // HLSL Change Ends
   case CK_ZeroToOCLEvent:

@@ -4169,26 +4169,43 @@ private:
     FK_Simple,
     FK_Fields,
     FK_Expressions,
-    FK_IncompleteArray
+    FK_IncompleteArray,
+    FK_Bases,
   };
 
   // Use this struct to represent a specific point in the tracked tree.
   struct FlattenedTypeTracker {
     QualType Type;                            // Type at this position in the tree.
     unsigned int Count;                       // Count of consecutive types
+    CXXRecordDecl::base_class_iterator CurrentBase; // Current base for a structure type.
+    CXXRecordDecl::base_class_iterator EndBase;     // STL-style end of bases.
     RecordDecl::field_iterator CurrentField;  // Current field in for a structure type.
     RecordDecl::field_iterator EndField;      // STL-style end of fields.
     MultiExprArg::iterator CurrentExpr;       // Current expression (advanceable for a list of expressions).
     MultiExprArg::iterator EndExpr;           // STL-style end of expressions.
     FlattenedIterKind IterKind;               // Kind of tracker.
+    bool   IsConsidered;                      // If a FlattenedTypeTracker already been considered.
 
-    FlattenedTypeTracker(QualType type) : Type(type), Count(0), CurrentExpr(nullptr), IterKind(FK_IncompleteArray) {}
-    FlattenedTypeTracker(QualType type, unsigned int count, MultiExprArg::iterator expression) :
-        Type(type), Count(count), CurrentExpr(expression), IterKind(FK_Simple) {}
-    FlattenedTypeTracker(QualType type, RecordDecl::field_iterator current, RecordDecl::field_iterator end)
-      : Type(type), Count(0), CurrentField(current), EndField(end), CurrentExpr(nullptr), IterKind(FK_Fields) {}
-    FlattenedTypeTracker(MultiExprArg::iterator current, MultiExprArg::iterator end)
-      : Count(0), CurrentExpr(current), EndExpr(end), IterKind(FK_Expressions) {}
+    FlattenedTypeTracker(QualType type)
+        : Type(type), Count(0), CurrentExpr(nullptr),
+          IterKind(FK_IncompleteArray), IsConsidered(false) {}
+    FlattenedTypeTracker(QualType type, unsigned int count,
+                         MultiExprArg::iterator expression)
+        : Type(type), Count(count), CurrentExpr(expression),
+          IterKind(FK_Simple), IsConsidered(false) {}
+    FlattenedTypeTracker(QualType type, RecordDecl::field_iterator current,
+                         RecordDecl::field_iterator end)
+        : Type(type), Count(0), CurrentField(current), EndField(end),
+          CurrentExpr(nullptr), IterKind(FK_Fields), IsConsidered(false) {}
+    FlattenedTypeTracker(MultiExprArg::iterator current,
+                         MultiExprArg::iterator end)
+        : Count(0), CurrentExpr(current), EndExpr(end),
+          IterKind(FK_Expressions), IsConsidered(false) {}
+    FlattenedTypeTracker(QualType type,
+                         CXXRecordDecl::base_class_iterator current,
+                         CXXRecordDecl::base_class_iterator end)
+        : Count(0), CurrentBase(current), EndBase(end), CurrentExpr(nullptr),
+          IterKind(FK_Bases), IsConsidered(false) {}
 
     /// <summary>Gets the current expression if one is available.</summary>
     Expr* getExprOrNull() const { return CurrentExpr ? *CurrentExpr : nullptr; }
@@ -6763,6 +6780,10 @@ clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
       From = m_sema->ImpCastExprToType(From, targetType.getUnqualifiedType(), CK_FlatConversion, From->getValueKind(), /*BasePath=*/0, CCK).get();
       break;
     }
+    case ICK_HLSL_Derived_To_Base: {
+      From = m_sema->ImpCastExprToType(From, targetType.getUnqualifiedType(), CK_HLSLDerivedToBase, From->getValueKind(), /*BasePath=*/0, CCK).get();
+      break;
+    }
     case ICK_HLSLVector_Splat: {
       // 1. optionally convert from vec1 or mat1x1 to scalar
       From = HLSLImpCastToScalar(m_sema, From, SourceInfo.ShapeKind, SourceInfo.EltKind);
@@ -7052,7 +7073,7 @@ bool HLSLExternalSource::CanConvert(
           goto lSuccess;
         }
         if (sourceCXXRD->isDerivedFrom(targetCXXRD)) {
-          Second = ICK_Flat_Conversion;
+          Second = ICK_HLSL_Derived_To_Base;
           goto lSuccess;
         }
       } else {
@@ -9118,6 +9139,8 @@ bool FlattenedTypeIterator::considerLeaf()
 
   bool result = false;
   FlattenedTypeTracker& tracker = m_typeTrackers.back();
+  tracker.IsConsidered = true;
+
   switch (tracker.IterKind) {
   case FlattenedIterKind::FK_Expressions:
     if (pushTrackerForExpression(tracker.CurrentExpr)) {
@@ -9127,6 +9150,17 @@ bool FlattenedTypeIterator::considerLeaf()
   case FlattenedIterKind::FK_Fields:
     if (pushTrackerForType(tracker.CurrentField->getType(), nullptr)) {
       result = considerLeaf();
+    } else {
+      // Pop empty struct.
+      m_typeTrackers.pop_back();
+    }
+    break;
+  case FlattenedIterKind::FK_Bases:
+    if (pushTrackerForType(tracker.CurrentBase->getType(), nullptr)) {
+      result = considerLeaf();
+    } else {
+      // Pop empty base.
+      m_typeTrackers.pop_back();
     }
     break;
   case FlattenedIterKind::FK_IncompleteArray:
@@ -9158,6 +9192,11 @@ void FlattenedTypeIterator::consumeLeaf()
     }
 
     FlattenedTypeTracker& tracker = m_typeTrackers.back();
+    // Reach a leaf which is not considered before.
+    // Stop here.
+    if (!tracker.IsConsidered) {
+      break;
+    }
     switch (tracker.IterKind) {
     case FlattenedIterKind::FK_Expressions:
       ++tracker.CurrentExpr;
@@ -9169,8 +9208,18 @@ void FlattenedTypeIterator::consumeLeaf()
       }
       break;
     case FlattenedIterKind::FK_Fields:
+
       ++tracker.CurrentField;
       if (tracker.CurrentField == tracker.EndField) {
+        m_typeTrackers.pop_back();
+        topConsumed = false;
+      } else {
+        return;
+      }
+      break;
+    case FlattenedIterKind::FK_Bases:
+      ++tracker.CurrentBase;
+      if (tracker.CurrentBase == tracker.EndBase) {
         m_typeTrackers.pop_back();
         topConsumed = false;
       } else {
@@ -9264,18 +9313,39 @@ bool FlattenedTypeIterator::pushTrackerForType(QualType type, MultiExprArg::iter
   case ArTypeObjectKind::AR_TOBJ_BASIC:
     m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(type, 1, expression));
     return true;
-  case ArTypeObjectKind::AR_TOBJ_COMPOUND:
+  case ArTypeObjectKind::AR_TOBJ_COMPOUND: {
     recordType = type->getAsStructureType();
     if (recordType == nullptr)
       recordType = dyn_cast<RecordType>(type.getTypePtr());
+
     fi = recordType->getDecl()->field_begin();
     fe = recordType->getDecl()->field_end();
+
+    bool bAddTracker = false;
+
     // Skip empty struct.
-    if (fi == fe)
-      return false;
-    m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(type, fi, fe));
-    type = (*fi)->getType();
-    return true;
+    if (fi != fe) {
+      m_typeTrackers.push_back(
+          FlattenedTypeIterator::FlattenedTypeTracker(type, fi, fe));
+      type = (*fi)->getType();
+      bAddTracker = true;
+    }
+
+    if (CXXRecordDecl *cxxRecordDecl =
+            dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+      CXXRecordDecl::base_class_iterator bi, be;
+      bi = cxxRecordDecl->bases_begin();
+      be = cxxRecordDecl->bases_end();
+      if (bi != be) {
+        // Add type tracker for base.
+        // Add base after child to make sure base considered first.
+        m_typeTrackers.push_back(
+            FlattenedTypeIterator::FlattenedTypeTracker(type, bi, be));
+        bAddTracker = true;
+      }
+    }
+    return bAddTracker;
+  }
   case ArTypeObjectKind::AR_TOBJ_MATRIX:
     m_typeTrackers.push_back(FlattenedTypeIterator::FlattenedTypeTracker(
       m_source.GetMatrixOrVectorElementType(type),

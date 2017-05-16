@@ -17,6 +17,7 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxillib.h"
 
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IRReader/IRReader.h"
@@ -26,6 +27,9 @@
 
 using namespace llvm;
 using namespace hlsl;
+
+// This declaration is used for the locally-linked validator.
+HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 class DxcAssembler : public IDxcAssembler {
 private:
@@ -115,13 +119,34 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       return S_OK;
     }
 
+    // Upgrade Validator Version if necessary:
+    {
+      CComPtr<IDxcValidator> pValidator;
+      if (DxilLibIsEnabled()) {
+        DxilLibCreateInstance(CLSID_DxcValidator, &pValidator);
+      }
+      if (pValidator == nullptr) {
+        CreateDxcValidator(IID_PPV_ARGS(&pValidator));
+      }
+      CComPtr<IDxcVersionInfo> pVersionInfo;
+      if (pValidator && SUCCEEDED(pValidator.QueryInterface(&pVersionInfo))) {
+        UINT32 majorVer, minorVer;
+        IFT(pVersionInfo->GetVersion(&majorVer, &minorVer));
+        if (program.UpgradeValidatorVersion(majorVer, minorVer)) {
+          program.UpdateValidatorVersionMetadata();
+        }
+      }
+    }
+
     WriteBitcodeToFile(M.get(), outStream);
     outStream.flush();
 
     CComPtr<AbstractMemoryStream> pFinalStream;
     IFT(CreateMemoryStream(pMalloc, &pFinalStream));
 
-    SerializeDxilContainerForModule(&M->GetOrCreateDxilModule(), pOutputStream, pFinalStream);
+    SerializeDxilContainerForModule(&M->GetOrCreateDxilModule(), pOutputStream,
+                                    pFinalStream,
+                                    SerializeDxilFlags::IncludeDebugNamePart);
 
     CComPtr<IDxcBlob> pResultBlob;
     IFT(pFinalStream->QueryInterface(&pResultBlob));

@@ -76,6 +76,7 @@ enum DxilFourCC {
   DFCC_PatchConstantSignature   = DXIL_FOURCC('P', 'S', 'G', '1'),
   DFCC_ShaderStatistics         = DXIL_FOURCC('S', 'T', 'A', 'T'),
   DFCC_ShaderDebugInfoDXIL      = DXIL_FOURCC('I', 'L', 'D', 'B'),
+  DFCC_ShaderDebugName          = DXIL_FOURCC('I', 'L', 'D', 'N'),
   DFCC_FeatureInfo              = DXIL_FOURCC('S', 'F', 'I', '0'),
   DFCC_PrivateData              = DXIL_FOURCC('P', 'R', 'I', 'V'),
   DFCC_RootSignature            = DXIL_FOURCC('R', 'T', 'S', '0'),
@@ -102,12 +103,12 @@ static const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
 static const uint64_t ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer = 0x2000;
 static const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
 static const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
+static const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
 
 static const unsigned ShaderFeatureInfoCount = 16;
 
-struct DxilShaderFeatureInfo
-{
-    uint64_t FeatureFlags;
+struct DxilShaderFeatureInfo {
+  uint64_t FeatureFlags;
 };
 
 // DXIL program information.
@@ -209,6 +210,15 @@ struct DxilProgramSignatureElement {
 
 // Easy to get this wrong. Earlier assertions can help determine
 static_assert(sizeof(DxilProgramSignatureElement) == 0x20, "else DxilProgramSignatureElement is misaligned");
+
+struct DxilShaderDebugName {
+  uint16_t Flags;       // Reserved, must be set to zero.
+  uint16_t NameLength;  // Length of the debug name, without null terminator.
+  // Followed by NameLength bytes of the UTF-8-encoded name.
+  // Followed by a null terminator.
+  // Followed by [0-3] zero bytes to align to a 4-byte boundary.
+};
+static const size_t MinDxilShaderDebugNameSize = sizeof(DxilShaderDebugName) + 4;
 
 #pragma pack(pop)
 
@@ -376,6 +386,33 @@ inline uint32_t EncodeVersion(DXIL::ShaderKind shaderType, uint32_t major,
   return ((unsigned)shaderType << 16) | (major << 4) | minor;
 }
 
+inline bool IsDxilShaderDebugNameValid(const DxilPartHeader *pPart) {
+  if (pPart->PartFourCC != DFCC_ShaderDebugName) return false;
+  if (pPart->PartSize < MinDxilShaderDebugNameSize) return false;
+  const DxilShaderDebugName *pDebugNameContent = reinterpret_cast<const DxilShaderDebugName *>(GetDxilPartData(pPart));
+  uint16_t ExpectedSize = sizeof(DxilShaderDebugName) + pDebugNameContent->NameLength + 1;
+  if (ExpectedSize & 0x3) {
+    ExpectedSize += 0x4;
+    ExpectedSize &= ~(0x3);
+  }
+  if (pPart->PartSize != ExpectedSize) return false;
+  return true;
+}
+
+inline bool GetDxilShaderDebugName(const DxilPartHeader *pDebugNamePart,
+  const char **ppUtf8Name, _Out_opt_ uint16_t *pUtf8NameLen) {
+  *ppUtf8Name = nullptr;
+  if (!IsDxilShaderDebugNameValid(pDebugNamePart)) {
+    return false;
+  }
+  const DxilShaderDebugName *pDebugNameContent = reinterpret_cast<const DxilShaderDebugName *>(GetDxilPartData(pDebugNamePart));
+  if (pUtf8NameLen) {
+    *pUtf8NameLen = pDebugNameContent->NameLength;
+  }
+  *ppUtf8Name = (const char *)(pDebugNameContent + 1);
+  return true;
+}
+
 class DxilPartWriter {
 public:
   virtual ~DxilPartWriter() {}
@@ -386,7 +423,7 @@ public:
 DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
 DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M);
+DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
 
 class DxilContainerWriter : public DxilPartWriter  {
 public:
@@ -397,9 +434,31 @@ public:
 
 DxilContainerWriter *NewDxilContainerWriter();
 
+enum class SerializeDxilFlags : uint32_t {
+  None = 0,                     // No flags defined.
+  IncludeDebugInfoPart = 1,     // Include the debug info part in the container.
+  IncludeDebugNamePart = 2,     // Include the debug name part in the container.
+  DebugNameDependOnSource = 4   // Make the debug name depend on source (and not just final module).
+};
+inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
+  l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));
+  return l;
+}
+inline SerializeDxilFlags& operator &=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
+  l = static_cast<SerializeDxilFlags>(static_cast<int>(l) & static_cast<int>(r));
+  return l;
+}
+inline int operator&(SerializeDxilFlags l, SerializeDxilFlags r) {
+  return static_cast<int>(l) & static_cast<int>(r);
+}
+inline SerializeDxilFlags operator~(SerializeDxilFlags l) {
+  return static_cast<SerializeDxilFlags>(~static_cast<uint32_t>(l));
+}
+
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,
-                                     AbstractMemoryStream *pStream);
+                                     AbstractMemoryStream *pStream,
+                                     SerializeDxilFlags Flags);
 void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
                                      AbstractMemoryStream *pStream);
 
