@@ -402,6 +402,11 @@ public:
     DisassembleProgram(pProgram, &disassembly);
     for (unsigned i = 0; i < pLookFors.size(); ++i) {
       LPCSTR pLookFor = pLookFors[i];
+      bool bOptional = false;
+      if (pLookFor[0] == '?') {
+        bOptional = true;
+        pLookFor++;
+      }
       LPCSTR pReplacement = pReplacements[i];
       if (pLookFor && *pLookFor) {
         if (bRegex) {
@@ -409,8 +414,10 @@ public:
           std::string reErrors;
           VERIFY_IS_TRUE(RE.isValid(reErrors));
           std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
-          VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
-          VERIFY_IS_TRUE(reErrors.empty());
+          if (!bOptional) {
+            VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
+            VERIFY_IS_TRUE(reErrors.empty());
+          }
           disassembly = std::move(replaced);
         } else {
           bool found = false;
@@ -425,7 +432,9 @@ public:
             disassembly.replace(pos, lookForLen, pReplacement);
             pos += replaceLen;
           }
-          VERIFY_IS_TRUE(found);
+          if (!bOptional) {
+            VERIFY_IS_TRUE(found);
+          }
         }
       }
     }
@@ -766,8 +775,10 @@ TEST_F(ValidationTest, InnerCoverageFail) {
 TEST_F(ValidationTest, InterpChangeFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\interpChange.hlsl", "ps_6_0",
-      "i32 1, i8 0, null}",
-      "i32 0, i8 2, null}",
+      { "i32 1, i8 0, null}",
+        "?!dx.viewIdState ="},
+      { "i32 0, i8 2, null}",
+        "!1012 ="},
       "interpolation mode that differs from another element packed",
       /*bRegex*/true);
 }
@@ -873,10 +884,10 @@ TEST_F(ValidationTest, SigOutOfRangeFail) {
 TEST_F(ValidationTest, SigOverlapFail) {
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\semaOverlap1.hlsl", "ps_6_0",
-      {"i32 1, i8 0, null}",
-      },
-      {"i32 0, i8 0, null}",
-      },
+      { "i32 1, i8 0, null}",
+        "?!dx.viewIdState =" },
+      { "i32 0, i8 0, null}",
+        "!1012 =" },
       {"signature element A at location (0,0) size (1,4) overlaps another signature element"});
 }
 TEST_F(ValidationTest, SimpleHs1Fail) {
@@ -1763,8 +1774,10 @@ TEST_F(ValidationTest, SemTargetMax) {
 float4 main(float4 col : COLOR) : SV_Target7 { return col; } \
     ",
     "ps_6_0", 
-    "!{i32 0, !\"SV_Target\", i8 9, i8 16, ![0-9]+, i8 0, i32 1, i8 4, i32 7, i8 0, null}",
-    "!{i32 0, !\"SV_Target\", i8 9, i8 16, !101, i8 0, i32 1, i8 4, i32 8, i8 0, null}\n!101 = !{i32 8}",
+    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, ![0-9]+, i8 0, i32 1, i8 4, i32 7, i8 0, null}",
+      "?!dx.viewIdState ="},
+    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !101, i8 0, i32 1, i8 4, i32 8, i8 0, null}\n!101 = !{i32 8}",
+      "!1012 ="},
     "SV_Target semantic index exceeds maximum \\(7\\)",
     /*bRegex*/true);
 }
@@ -1774,8 +1787,10 @@ TEST_F(ValidationTest, SemTargetIndexMatchesRow) {
 float4 main(float4 col : COLOR) : SV_Target7 { return col; } \
     ",
     "ps_6_0", 
-    "!{i32 0, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 7, i8 0, null}",
-    "!{i32 0, !\"SV_Target\", i8 9, i8 16, !\\1, i8 0, i32 1, i8 4, i32 6, i8 0, null}",
+    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !([0-9]+), i8 0, i32 1, i8 4, i32 7, i8 0, null}",
+      "?!dx.viewIdState ="},
+    { "!{i32 0, !\"SV_Target\", i8 9, i8 16, !\\1, i8 0, i32 1, i8 4, i32 6, i8 0, null}",
+      "!1012 ="},
     "SV_Target semantic index must match packed row location",
     /*bRegex*/true);
 }
@@ -1864,8 +1879,10 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 3 > patch) { 
 } \
     ",
     "hs_6_0",
-    "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 1, i8 1, i32 3, i8 0, null}",
-    "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !101, i8 0, i32 2, i8 1, i32 3, i8 0, null}\n!101 = !{i32 0, i32 1}",
+    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 1, i8 1, i32 3, i8 0, null}",
+      "?!dx.viewIdState =" },
+    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !101, i8 0, i32 2, i8 1, i32 3, i8 0, null}\n!101 = !{i32 0, i32 1}",
+      "!1012 =" },
     "InsideTessFactor rows, columns \\(2, 1\\) invalid for domain Tri.  Expected 1 rows and 1 column.",
     /*bRegex*/true);
 }
@@ -1934,15 +1951,17 @@ void main( \
     ",
     "vs_6_0",
 
-    "= !{i32 1, !\"f2out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 2, i32 1, i8 0, null}\n"
-    "!([0-9]+) = !{i32 2, !\"f3out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 3, i32 2, i8 0, null}\n"
-    "!([0-9]+) = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !([0-9]+), i8 2, i32 1, i8 2, i32 3, i8 0, null}\n"
-    "!([0-9]+) = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !([0-9]+), i8 2, i32 1, i8 1, i32 3, i8 2, null}\n",
+    { "= !{i32 1, !\"f2out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 2, i32 1, i8 0, null}\n"
+      "!([0-9]+) = !{i32 2, !\"f3out\", i8 9, i8 0, !([0-9]+), i8 2, i32 1, i8 3, i32 2, i8 0, null}\n"
+      "!([0-9]+) = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !([0-9]+), i8 2, i32 1, i8 2, i32 3, i8 0, null}\n"
+      "!([0-9]+) = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !([0-9]+), i8 2, i32 1, i8 1, i32 3, i8 2, null}\n",
+      "?!dx.viewIdState =" },
 
-    "= !{i32 1, !\"f2out\", i8 9, i8 0, !\\1, i8 2, i32 1, i8 2, i32 1, i8 2, null}\n"
-    "!\\2 = !{i32 2, !\"f3out\", i8 9, i8 0, !\\3, i8 2, i32 1, i8 3, i32 2, i8 1, null}\n"
-    "!\\4 = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !\\5, i8 2, i32 1, i8 2, i32 2, i8 0, null}\n"
-    "!\\6 = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !\\7, i8 2, i32 1, i8 1, i32 1, i8 0, null}\n",
+    { "= !{i32 1, !\"f2out\", i8 9, i8 0, !\\1, i8 2, i32 1, i8 2, i32 1, i8 2, null}\n"
+      "!\\2 = !{i32 2, !\"f3out\", i8 9, i8 0, !\\3, i8 2, i32 1, i8 3, i32 2, i8 1, null}\n"
+      "!\\4 = !{i32 3, !\"SV_ClipDistance\", i8 9, i8 6, !\\5, i8 2, i32 1, i8 2, i32 2, i8 0, null}\n"
+      "!\\6 = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !\\7, i8 2, i32 1, i8 1, i32 1, i8 0, null}\n",
+      "!1012 =" },
 
     "signature element SV_ClipDistance at location \\(2,0\\) size \\(1,2\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
     "signature element SV_CullDistance at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
@@ -1989,15 +2008,17 @@ float4 main( \
     ",
     "ps_6_0",
 
-    "= !{i32 1, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
-    "!([0-9]+) = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
-    "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
-    "!([0-9]+) = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 2, i8 0, null}\n",
+    { "= !{i32 1, !\"Value\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
+      "!([0-9]+) = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
+      "!([0-9]+) = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !([0-9]+), i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
+      "!([0-9]+) = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !([0-9]+), i8 1, i32 1, i8 1, i32 2, i8 0, null}\n",
+      "?!dx.viewIdState ="},
 
-    "= !{i32 1, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
-    "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
-    "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !\\5, i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
-    "!\\6 = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !\\7, i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
+    { "= !{i32 1, !\"Value\", i8 5, i8 0, !\\1, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n"
+      "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
+      "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 1, i8 13, !\\5, i8 1, i32 1, i8 1, i32 1, i8 2, null}\n"
+      "!\\6 = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !\\7, i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
+      "!1012 ="},
 
     "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
     "signature element ViewPortArrayIndex at location \\(1,3\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
@@ -2060,8 +2081,10 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 4 > patch) { 
     ",
     "hs_6_0",
     //!{i32 0, !"SV_TessFactor", i8 9, i8 25, !23, i8 0, i32 4, i8 1, i32 0, i8 3, null}
-    "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 2, i8 1, i32 4, i8 3, null}",
-    "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !\\1, i8 0, i32 2, i8 1, i32 0, i8 2, null}",
+    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 2, i8 1, i32 4, i8 3, null}",
+      "?!dx.viewIdState =" },
+    { "!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !\\1, i8 0, i32 2, i8 1, i32 0, i8 2, null}",
+      "!1012 =" },
     "signature element SV_InsideTessFactor at location \\(0,2\\) size \\(2,1\\) has an indexing conflict with another signature element packed into the same row.",
     /*bRegex*/true);
 }
@@ -2130,8 +2153,10 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 4 > patch) { 
 } \
     ",
     "hs_6_0",
-    "!{i32 2, !\"Arb\", i8 9, i8 0, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 0, null}",
-    "!{i32 2, !\"Arb\", i8 9, i8 0, !\\1, i8 0, i32 3, i8 1, i32 31, i8 0, null}",
+    { "!{i32 2, !\"Arb\", i8 9, i8 0, !([0-9]+), i8 0, i32 3, i8 1, i32 0, i8 0, null}",
+      "?!dx.viewIdState =" },
+    { "!{i32 2, !\"Arb\", i8 9, i8 0, !\\1, i8 0, i32 3, i8 1, i32 31, i8 0, null}",
+      "!1012 =" },
     "signature element Arb at location \\(31,0\\) size \\(3,1\\) is out of range.",
     /*bRegex*/true);
 }
@@ -2935,10 +2960,12 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
 { return float4(In[vid], 1); } \
     ",
     "ps_6_1",
-    {"!{i32 0, !\"INPUT\", i8 9, i8 0, !([0-9]+), i8 2, i32 31",
-     "!{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30}"},
-    {"!{i32 0, !\"INPUT\", i8 9, i8 0, !\\1, i8 2, i32 32",
-     "!{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31}"},
+    { "!{i32 0, !\"INPUT\", i8 9, i8 0, !([0-9]+), i8 2, i32 31",
+      "!{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30}",
+      "?!dx.viewIdState =" },
+    { "!{i32 0, !\"INPUT\", i8 9, i8 0, !\\1, i8 2, i32 32",
+      "!{i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31}",
+      "!1012 =" },
     "Pixel shader input signature lacks available space for ViewID",
     /*bRegex*/true);
 }
