@@ -935,6 +935,7 @@ public:
   TEST_METHOD(DxilGen_StoreOutput)
   TEST_METHOD(ConstantFolding)
   TEST_METHOD(HoistConstantArray)
+  TEST_METHOD(ViewID)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -4571,4 +4572,18 @@ TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
   std::string failLog(VerifyOperationFailed(pResult));
   VERIFY_ARE_NOT_EQUAL(string::npos, failLog.find(
     "Signature element SV_Position, referred to by patch constant function, is not found in corresponding hull shader output."));
+}
+
+TEST_F(CompilerTest, ViewID) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid01.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid02.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid03.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid04.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid05.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid06.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid07.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid08.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid09.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid10.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid11.hlsl");
 }

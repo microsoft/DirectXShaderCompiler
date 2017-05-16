@@ -390,6 +390,7 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(EntryInfo &Entry,
   // Handle special cases.
   if (PHINode *phi = dyn_cast<PHINode>(pContributingInst)) {
     // For constant operands of phi, handle control dependence on incident edge.
+    //QQQ
     unsigned iOp = 0;
     for (auto it = phi->block_begin(), endIt = phi->block_end(); it != endIt; ++it, iOp++) {
       Value *O = phi->getOperand(iOp);
