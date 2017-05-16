@@ -133,6 +133,22 @@ void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const
   }
 }
 
+void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
+  DXASSERT(IsValidForDxil(), "invalid shader model");
+  ValMajor = 1;
+  switch (m_Minor) {
+  case 0:
+    ValMinor = 0;
+    break;
+  case 1:
+    ValMinor = 1;
+    break;
+  default:
+    DXASSERT(0, "IsValidForDxil() should have caught this.");
+    break;
+  }
+}
+
 std::string ShaderModel::GetKindName() const {
   return std::string(m_pszName).substr(0, 2);
 }

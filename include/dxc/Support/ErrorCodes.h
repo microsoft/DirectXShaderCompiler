@@ -98,3 +98,6 @@
 
 // 0X80AA0017 - DXIL optimization pass failed.
 #define DXC_E_OPTIMIZATION_FAILED                     DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0017))
+
+// 0X80AA0018 - General internal error.
+#define DXC_E_GENERAL_INTERNAL_ERROR                  DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0018))

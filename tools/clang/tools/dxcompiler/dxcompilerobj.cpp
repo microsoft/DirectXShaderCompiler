@@ -120,21 +120,6 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ IDxcBlob *pShader, UINT32 Flags,
                              _In_ IDxcOperationResult **ppResult);
 
-static HRESULT GetValidatorVersion(IDxcValidator *pValidator, UINT32 *pMajor,
-                                   UINT32 *pMinor) {
-  CComPtr<IDxcVersionInfo> pVersionInfo;
-  IFR(pValidator->QueryInterface(&pVersionInfo));
-  IFR(pVersionInfo->GetVersion(pMajor, pMinor));
-  return S_OK;
-}
-
-static bool DoesValidatorSupportDebugNamePart(IDxcValidator *pValidator) {
-  UINT32 Major, Minor;
-  if (FAILED((GetValidatorVersion(pValidator, &Major, &Minor))))
-    return false;
-  return Major > 1 || (Major == 1 && Minor >= 1);
-}
-
 enum class HandleKind {
   Special = 0,
   File = 1,
@@ -1048,6 +1033,21 @@ static void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
   OS << comment << "\n";
 }
 
+static void PintCompMaskNameCompact(raw_string_ostream &OS, unsigned CompMask) {
+  char Mask[5];
+  memset(Mask, '\0', sizeof(Mask));
+  unsigned idx = 0;
+  if (CompMask & DxilProgramSigMaskX)
+    Mask[idx++] = 'x';
+  if (CompMask & DxilProgramSigMaskY)
+    Mask[idx++] = 'y';
+  if (CompMask & DxilProgramSigMaskZ)
+    Mask[idx++] = 'z';
+  if (CompMask & DxilProgramSigMaskW)
+    Mask[idx++] = 'w';
+  OS << right_justify(Mask, 4);
+}
+
 static void PrintDxilSignature(LPCSTR pName,
                                      const DxilSignature &Signature,
                                      raw_string_ostream &OS,
@@ -1060,8 +1060,8 @@ static void PrintDxilSignature(LPCSTR pName,
   OS << comment << "\n"
      << comment << " " << pName << " signature:\n"
      << comment << "\n"
-     << comment << " Name                 Index             InterpMode\n"
-     << comment << " -------------------- ----- ----------------------\n";
+     << comment << " Name                 Index             InterpMode DynIdx\n"
+     << comment << " -------------------- ----- ---------------------- ------\n";
 
   for (auto &sigElt : sigElts) {
     OS << comment << " ";
@@ -1070,6 +1070,8 @@ static void PrintDxilSignature(LPCSTR pName,
     OS << ' ' << format("%5u", sigElt->GetSemanticIndexVec()[0]);
     sigElt->GetInterpolationMode()->GetName();
     OS << ' ' << right_justify(sigElt->GetInterpolationMode()->GetName(), 22);
+    OS << "   ";
+    PintCompMaskNameCompact(OS, sigElt->GetDynIdxCompMask());
     OS << "\n";
   }
 }
@@ -1215,6 +1217,69 @@ static void PrintResourceBindings(DxilModule &M, raw_string_ostream &OS, StringR
   }
   for (auto &res : M.GetUAVs()) {
     PrintResourceBinding(*res.get(), OS, comment);
+  }
+  OS << comment << "\n";
+}
+
+static void PrintOutputsDependentOnViewId(llvm::raw_ostream &OS,
+                                          llvm::StringRef comment,
+                                          llvm::StringRef SetName,
+                                          unsigned NumOutputs,
+                                          const DxilViewIdState::OutputsDependentOnViewIdType &OutputsDependentOnViewId) {
+  OS << comment << " " << SetName << " dependent on ViewId: { ";
+  bool bFirst = true;
+  for (unsigned i = 0; i < NumOutputs; i++) {
+    if (OutputsDependentOnViewId[i]) {
+      if (!bFirst) OS << ", ";
+      OS << i;
+      bFirst = false;
+    }
+  }
+  OS << " }\n";
+}
+
+static void PrintInputsContributingToOutputs(llvm::raw_ostream &OS,
+                                             llvm::StringRef comment,
+                                             llvm::StringRef InputSetName,
+                                             llvm::StringRef OutputSetName,
+                                             const DxilViewIdState::InputsContributingToOutputType &InputsContributingToOutputs) {
+  OS << comment << " " << InputSetName << " contributing to computation of " << OutputSetName << ":\n";
+  for (auto &it : InputsContributingToOutputs) {
+    unsigned outIdx = it.first;
+    auto &Inputs = it.second;
+    OS << comment << "   output " << outIdx << " depends on inputs: { ";
+    bool bFirst = true;
+    for (unsigned i : Inputs) {
+      if (!bFirst) OS << ", ";
+      OS << i;
+      bFirst = false;
+    }
+    OS << " }\n";
+  }
+}
+
+static void PrintViewIdState(DxilModule &M, raw_string_ostream &OS, StringRef comment) {
+  if (!M.GetModule()->getNamedMetadata("dx.viewIdState")) 
+    return;
+
+  const ShaderModel *pSM = M.GetShaderModel();
+  DxilViewIdState &VID = M.GetViewIdState();
+  OS << comment << "\n";
+  OS << comment << " ViewId state:\n";
+  OS << comment << "\n";
+  OS << comment << " Number of inputs: " << VID.getNumInputSigScalars()  << 
+                           ", outputs: " << VID.getNumOutputSigScalars() << 
+                        ", patchconst: " << VID.getNumPCSigScalars()     << "\n";
+  PrintOutputsDependentOnViewId(OS, comment, "Outputs", VID.getNumOutputSigScalars(), VID.getOutputsDependentOnViewId());
+  if (pSM->IsHS()) {
+    PrintOutputsDependentOnViewId(OS, comment, "PCOutputs", VID.getNumPCSigScalars(), VID.getPCOutputsDependentOnViewId());
+  }
+
+  PrintInputsContributingToOutputs(OS, comment, "Inputs", "Outputs", VID.getInputsContributingToOutputs());
+  if (pSM->IsHS()) {
+    PrintInputsContributingToOutputs(OS, comment, "Inputs", "PCOutputs", VID.getInputsContributingToPCOutputs());
+  } else if (pSM->IsDS()) {
+    PrintInputsContributingToOutputs(OS, comment, "PCInputs", "Outputs", VID.getPCInputsContributingToOutputs());
   }
   OS << comment << "\n";
 }
@@ -2288,8 +2353,7 @@ public:
 
         SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
         if (opts.DebugInfo) {
-          if (DoesValidatorSupportDebugNamePart(pValidator))
-            SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
+          SerializeFlags = SerializeDxilFlags::IncludeDebugNamePart;
           // Unless we want to strip it right away, include it in the container.
           if (!opts.StripDebug || ppDebugBlob == nullptr) {
             SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
@@ -2661,6 +2725,7 @@ public:
                                  /*comment*/ ";");
         PrintBufferDefinitions(dxilModule, Stream, /*comment*/ ";");
         PrintResourceBindings(dxilModule, Stream, /*comment*/ ";");
+        PrintViewIdState(dxilModule, Stream, /*comment*/ ";");
       }
       DxcAssemblyAnnotationWriter w;
       pModule.get()->print(Stream, &w);
