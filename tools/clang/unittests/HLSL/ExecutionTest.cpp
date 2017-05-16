@@ -250,7 +250,7 @@ struct computeExpected {
   OutType operator()(const std::vector<InType> &inputs,
                      const std::vector<int> &masks, int maskValue,
                      unsigned int index) {
-    reuturn 0;
+    return 0;
   }
 };
 
