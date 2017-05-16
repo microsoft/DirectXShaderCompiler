@@ -313,7 +313,7 @@ std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
 }
 
 // Get opcode from arg0 of function call.
-unsigned  GetHLOpcode(CallInst *CI) {
+unsigned  GetHLOpcode(const CallInst *CI) {
   Value *idArg = CI->getArgOperand(HLOperandIndex::kOpcodeIdx);
   Constant *idConst = cast<Constant>(idArg);
   return idConst->getUniqueInteger().getLimitedValue();

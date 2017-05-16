@@ -3463,6 +3463,8 @@ static void SimplifyBitCast(BitCastOperator *BC, std::vector<Instruction *> &dea
         }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       // Skip function call.
+    } else if (BitCastInst *Cast = dyn_cast<BitCastInst>(U)) {
+      // Skip bitcast.
     } else {
       DXASSERT(0, "not support yet");
     }
@@ -5395,23 +5397,34 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     clang::QualType SrcTy,
     llvm::Value *DestPtr,
     clang::QualType DestTy) {
-    // It is possiable to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore the same way.
-    // But split value to scalar will generate many instruction when src type is same as dest type.
-    SmallVector<Value *, 4> idxList;
-    SmallVector<Value *, 4> SrcGEPList;
-    SmallVector<QualType, 4> SrcEltTyList;
-    FlattenAggregatePtrToGepList(CGF, SrcPtr, idxList, SrcTy, SrcPtr->getType(), SrcGEPList,
+  llvm::Type *SrcPtrTy = SrcPtr->getType()->getPointerElementType();
+  llvm::Type *DestPtrTy = DestPtr->getType()->getPointerElementType();
+  if (SrcPtrTy == DestPtrTy) {
+    // Memcpy if type is match.
+    unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+    CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
+    return;
+  }
+  // It is possiable to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore
+  // the same way. But split value to scalar will generate many instruction when
+  // src type is same as dest type.
+  SmallVector<Value *, 4> idxList;
+  SmallVector<Value *, 4> SrcGEPList;
+  SmallVector<QualType, 4> SrcEltTyList;
+  FlattenAggregatePtrToGepList(CGF, SrcPtr, idxList, SrcTy, SrcPtr->getType(),
+                               SrcGEPList, SrcEltTyList);
+
+  SmallVector<Value *, 4> LdEltList;
+  LoadFlattenedGepList(CGF, SrcGEPList, SrcEltTyList, LdEltList);
+
+  idxList.clear();
+  SmallVector<Value *, 4> DestGEPList;
+  SmallVector<QualType, 4> DestEltTyList;
+  FlattenAggregatePtrToGepList(CGF, DestPtr, idxList, DestTy,
+                               DestPtr->getType(), DestGEPList, DestEltTyList);
+
+  StoreFlattenedGepList(CGF, DestGEPList, DestEltTyList, LdEltList,
                         SrcEltTyList);
-
-    SmallVector<Value *, 4> LdEltList;
-    LoadFlattenedGepList(CGF, SrcGEPList, SrcEltTyList, LdEltList);
-
-    idxList.clear();
-    SmallVector<Value *, 4> DestGEPList;
-    SmallVector<QualType, 4> DestEltTyList;
-    FlattenAggregatePtrToGepList(CGF, DestPtr, idxList, DestTy, DestPtr->getType(), DestGEPList, DestEltTyList);
-
-    StoreFlattenedGepList(CGF, DestGEPList, DestEltTyList, LdEltList, SrcEltTyList);
 }
 
 void CGMSHLSLRuntime::EmitHLSLAggregateStore(CodeGenFunction &CGF, llvm::Value *SrcVal,
