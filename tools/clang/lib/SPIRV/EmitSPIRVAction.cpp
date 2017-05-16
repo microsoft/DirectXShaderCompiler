@@ -23,6 +23,33 @@
 namespace clang {
 namespace spirv {
 
+namespace {
+
+/// Returns true if the given type is a signed integer or vector of signed
+/// integer type.
+bool isSintOrVecOfSintType(QualType type) {
+  return type->isSignedIntegerType() ||
+         (hlsl::IsHLSLVecType(type) &&
+          hlsl::GetHLSLVecElementType(type)->isSignedIntegerType());
+}
+
+/// Returns true if the given type is an unsigned integer or vector of unsigned
+/// integer type.
+bool isUintOrVecOfUintType(QualType type) {
+  return type->isUnsignedIntegerType() ||
+         (hlsl::IsHLSLVecType(type) &&
+          hlsl::GetHLSLVecElementType(type)->isUnsignedIntegerType());
+}
+
+/// Returns true if the given type is a float or vector of float type.
+bool isFloatOrVecOfFloatType(QualType type) {
+  return type->isFloatingType() ||
+         (hlsl::IsHLSLVecType(type) &&
+          hlsl::GetHLSLVecElementType(type)->isFloatingType());
+}
+
+} // namespace
+
 /// SPIR-V emitter class. It consumes the HLSL AST and emits SPIR-V words.
 ///
 /// This class only overrides the HandleTranslationUnit() method; Traversing
@@ -239,22 +266,33 @@ public:
       // Handle initializer. SPIR-V requires that "initializer must be an <id>
       // from a constant instruction or a global (module scope) OpVariable
       // instruction."
-      llvm::Optional<uint32_t> init = llvm::None;
+      llvm::Optional<uint32_t> constInitializer = llvm::None;
+      uint32_t varInitializer = 0;
       if (decl->hasInit()) {
         const Expr *declInit = decl->getInit();
-        if (declInit->isConstantInitializer(astContext, /*ForRef*/ false)) {
-          APValue evalResult;
-          llvm::SmallVector<PartialDiagnosticAt, 0> notes;
-          declInit->EvaluateAsInitializer(evalResult, astContext, decl, notes);
-          init = llvm::Optional<uint32_t>(
-              translateAPValue(evalResult, decl->getType()));
+
+        // First try to evaluate the initializer as a constant expression
+        Expr::EvalResult evalResult;
+        if (declInit->EvaluateAsRValue(evalResult, astContext) &&
+            !evalResult.HasSideEffects) {
+          constInitializer = llvm::Optional<uint32_t>(
+              translateAPValue(evalResult.Val, decl->getType()));
+        }
+
+        // If we cannot evaluate the initializer as a constant expression, we'll
+        // need use OpStore to write the initializer to the variable.
+        if (!constInitializer.hasValue()) {
+          varInitializer = doExpr(declInit);
         }
       }
 
       const uint32_t varId =
-          theBuilder.addFnVariable(ptrType, decl->getName(), init);
-
+          theBuilder.addFnVariable(ptrType, decl->getName(), constInitializer);
       declIdMapper.registerDeclResultId(decl, varId);
+
+      if (varInitializer) {
+        theBuilder.createStore(varId, varInitializer);
+      }
     } else {
       // TODO: handle global variables
       emitError("Global variables are not supported yet.");
@@ -499,18 +537,22 @@ public:
   }
 
   uint32_t doExpr(const Expr *expr) {
-    if (auto *delRefExpr = dyn_cast<DeclRefExpr>(expr)) {
+    if (const auto *delRefExpr = dyn_cast<DeclRefExpr>(expr)) {
       // Returns the <result-id> of the referenced Decl.
       const NamedDecl *referredDecl = delRefExpr->getFoundDecl();
       assert(referredDecl && "found non-NamedDecl referenced");
       return declIdMapper.getDeclResultId(referredDecl);
-    } else if (auto *parenExpr = dyn_cast<ParenExpr>(expr)) {
+    }
+
+    if (const auto *parenExpr = dyn_cast<ParenExpr>(expr)) {
       // Just need to return what's inside the parentheses.
       return doExpr(parenExpr->getSubExpr());
-    } else if (auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
+    }
+
+    if (const auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
       const uint32_t base = doExpr(memberExpr->getBase());
-      auto *memberDecl = memberExpr->getMemberDecl();
-      if (auto *fieldDecl = dyn_cast<FieldDecl>(memberDecl)) {
+      const auto *memberDecl = memberExpr->getMemberDecl();
+      if (const auto *fieldDecl = dyn_cast<FieldDecl>(memberDecl)) {
         const auto index =
             theBuilder.getConstantInt32(fieldDecl->getFieldIndex());
         const uint32_t fieldType =
@@ -521,11 +563,16 @@ public:
       } else {
         emitError("Decl '%0' in MemberExpr is not supported yet.")
             << memberDecl->getDeclKindName();
+        return 0;
       }
-    } else if (auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
+    }
+
+    if (const auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
       return doImplicitCastExpr(castExpr);
-    } else if (auto *cxxFunctionalCastExpr =
-                   dyn_cast<CXXFunctionalCastExpr>(expr)) {
+    }
+
+    if (const auto *cxxFunctionalCastExpr =
+            dyn_cast<CXXFunctionalCastExpr>(expr)) {
       // Explicit cast is a NO-OP (e.g. vector<float, 4> -> float4)
       if (cxxFunctionalCastExpr->getCastKind() == CK_NoOp) {
         return doExpr(cxxFunctionalCastExpr->getSubExpr());
@@ -533,32 +580,53 @@ public:
       emitError("Found unhandled CXXFunctionalCastExpr cast type: %0")
           << cxxFunctionalCastExpr->getCastKindName();
       return 0;
-    } else if (auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
+    }
+
+    if (const auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
+      // First try to evaluate the expression as constant expression
+      Expr::EvalResult evalResult;
+      if (expr->EvaluateAsRValue(evalResult, astContext) &&
+          !evalResult.HasSideEffects) {
+        return translateAPValue(evalResult.Val, expr->getType());
+      }
+
       const uint32_t resultType =
           typeTranslator.translateType(initListExpr->getType());
 
+      // Special case for vectors of size 1.
+      if (initListExpr->getNumInits() == 1) {
+        return doExpr(initListExpr->getInit(0));
+      }
       std::vector<uint32_t> constituents;
       for (size_t i = 0; i < initListExpr->getNumInits(); ++i) {
         constituents.push_back(doExpr(initListExpr->getInit(i)));
       }
 
-      if (expr->isConstantInitializer(astContext, false)) {
-        return theBuilder.getConstantComposite(resultType, constituents);
-      } else {
-        return theBuilder.createCompositeConstruct(resultType, constituents);
-      }
-    } else if (auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
+      return theBuilder.createCompositeConstruct(resultType, constituents);
+    }
+
+    if (const auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
       const bool value = boolLiteral->getValue();
       return theBuilder.getConstantBool(value);
-    } else if (auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
+    }
+
+    if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
       return translateAPInt(intLiteral->getValue(), expr->getType());
-    } else if (auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
+    }
+
+    if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
       return translateAPFloat(floatLiteral->getValue(), expr->getType());
-    } else if (auto *binOp = dyn_cast<BinaryOperator>(expr)) {
+    }
+
+    if (const auto *binOp = dyn_cast<BinaryOperator>(expr)) {
       return doBinaryOperator(binOp);
-    } else if (auto *unaryOp = dyn_cast<UnaryOperator>(expr)) {
+    }
+
+    if (const auto *unaryOp = dyn_cast<UnaryOperator>(expr)) {
       return doUnaryOperator(unaryOp);
-    } else if (auto *funcCall = dyn_cast<CallExpr>(expr)) {
+    }
+
+    if (const auto *funcCall = dyn_cast<CallExpr>(expr)) {
       return doCallExpr(funcCall);
     }
 
@@ -579,6 +647,12 @@ public:
       theBuilder.createStore(lhs, rhs);
       // Assignment returns a rvalue.
       return rhs;
+    }
+
+    // Try to optimize floatN * float case
+    if (opcode == BO_Mul) {
+      if (const uint32_t result = tryToGenFloatVectorScale(expr))
+        return result;
     }
 
     const uint32_t lhs = doExpr(expr->getLHS());
@@ -673,12 +747,36 @@ public:
       const uint32_t resultType = typeTranslator.translateType(toType);
       return theBuilder.createLoad(resultType, fromValue);
     }
+
+    case CastKind::CK_HLSLVectorSplat: {
+      const size_t size = hlsl::GetHLSLVecSize(expr->getType());
+      const uint32_t scalarValue = doExpr(subExpr);
+
+      // Just return the scalar value for vector splat with size 1
+      if (size == 1) {
+        return scalarValue;
+      }
+
+      const uint32_t vecTypeId = typeTranslator.translateType(toType);
+      llvm::SmallVector<uint32_t, 4> elements(size, scalarValue);
+
+      return theBuilder.createCompositeConstruct(vecTypeId, elements);
+    }
+    case CastKind::CK_HLSLVectorToScalarCast: {
+      // We should have already treated vectors of size 1 as scalars.
+      // So do nothing here.
+      if (hlsl::GetHLSLVecSize(subExpr->getType()) == 1) {
+        return doExpr(subExpr);
+      }
+      emitError("vector to scalar cast unimplemented");
+      return 0;
+    }
     case CastKind::CK_FunctionToPointerDecay:
       // Just need to return the function id
       return doExpr(subExpr);
     default:
       emitError("ImplictCast Kind '%0' is not supported yet.")
-          << expr->getCastKind();
+          << expr->getCastKindName();
       expr->dump();
       return 0;
     }
@@ -721,13 +819,62 @@ public:
     return 0;
   }
 
+  /// Translates a floatN * float multiplication into SPIR-V instructions and
+  /// returns the <result-id>. Returns 0 if the given binary operation is not
+  /// floatN * float.
+  uint32_t tryToGenFloatVectorScale(const BinaryOperator *expr) {
+    const QualType type = expr->getType();
+    // We can only translate floatN * float into OpVectorTimesScalar.
+    // So the result type must be floatN.
+    if (!hlsl::IsHLSLVecType(type) ||
+        !hlsl::GetHLSLVecElementType(type)->isFloatingType())
+      return 0;
+
+    const Expr *lhs = expr->getLHS();
+    const Expr *rhs = expr->getRHS();
+
+    // Multiplying a float vector with a float scalar will be represented in
+    // AST via a binary operation with two float vectors as operands; one of
+    // the operand is from an implicit cast with kind CK_HLSLVectorSplat.
+
+    // vector * scalar
+    if (hlsl::IsHLSLVecType(lhs->getType())) {
+      if (const auto *cast = dyn_cast<ImplicitCastExpr>(rhs)) {
+        if (cast->getCastKind() == CK_HLSLVectorSplat) {
+          const uint32_t vecType =
+              typeTranslator.translateType(expr->getType());
+          const uint32_t lhsId = doExpr(lhs);
+          const uint32_t rhsId = doExpr(cast->getSubExpr());
+          return theBuilder.createBinaryOp(spv::Op::OpVectorTimesScalar,
+                                           vecType, lhsId, rhsId);
+        }
+      }
+    }
+
+    // scalar * vector
+    if (hlsl::IsHLSLVecType(rhs->getType())) {
+      if (const auto *cast = dyn_cast<ImplicitCastExpr>(lhs)) {
+        if (cast->getCastKind() == CK_HLSLVectorSplat) {
+          const uint32_t vecType =
+              typeTranslator.translateType(expr->getType());
+          const uint32_t lhsId = doExpr(cast->getSubExpr());
+          const uint32_t rhsId = doExpr(rhs);
+          return theBuilder.createBinaryOp(spv::Op::OpVectorTimesScalar,
+                                           vecType, rhsId, lhsId);
+        }
+      }
+    }
+
+    return 0;
+  }
+
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type) {
     // TODO: the following is not considering vector types yet.
-    const bool isSintType = type->isSignedIntegerType();
-    const bool isUintType = type->isUnsignedIntegerType();
-    const bool isFloatType = type->isFloatingType();
+    const bool isSintType = isSintOrVecOfSintType(type);
+    const bool isUintType = isUintOrVecOfUintType(type);
+    const bool isFloatType = isFloatOrVecOfFloatType(type);
 
 #define BIN_OP_CASE_INT_FLOAT(kind, intBinOp, floatBinOp)                      \
   \
@@ -802,6 +949,20 @@ case BO_##kind : {                                                             \
       return theBuilder.getConstantFloat32(1.0);
     }
 
+    if (hlsl::IsHLSLVecType(type)) {
+      const QualType elemType = hlsl::GetHLSLVecElementType(type);
+      const uint32_t elemOneId = getValueOne(elemType);
+
+      const size_t size = hlsl::GetHLSLVecSize(type);
+      if (size == 1)
+        return elemOneId;
+
+      llvm::SmallVector<uint32_t, 4> elements(size, elemOneId);
+
+      const uint32_t vecTypeId = typeTranslator.translateType(type);
+      return theBuilder.getConstantComposite(vecTypeId, elements);
+    }
+
     emitError("getting value 1 for type '%0' unimplemented") << type;
     return 0;
   }
@@ -824,7 +985,27 @@ case BO_##kind : {                                                             \
       return translateAPFloat(floatValue, targetType);
     }
 
+    if (hlsl::IsHLSLVecType(targetType)) {
+      const uint32_t vecType = typeTranslator.translateType(targetType);
+      const QualType elemType = hlsl::GetHLSLVecElementType(targetType);
+
+      const auto numElements = value.getVectorLength();
+      // Special case for vectors of size 1. SPIR-V doesn't support this vector
+      // size so we need to translate it to scalar values.
+      if (numElements == 1) {
+        return translateAPValue(value.getVectorElt(0), elemType);
+      }
+
+      llvm::SmallVector<uint32_t, 4> elements;
+      for (uint32_t i = 0; i < numElements; ++i) {
+        elements.push_back(translateAPValue(value.getVectorElt(i), elemType));
+      }
+
+      return theBuilder.getConstantComposite(vecType, elements);
+    }
+
     emitError("APValue of type '%0' is not supported yet.") << value.getKind();
+    value.dump();
     return 0;
   }
 
