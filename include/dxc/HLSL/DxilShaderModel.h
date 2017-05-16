@@ -46,6 +46,7 @@ public:
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
   bool IsSM50Plus() const   { return m_Major >= 5; }
   bool IsSM51Plus() const   { return m_Major > 5 || (m_Major == 5 && m_Minor >= 1); }
+  bool IsSM60Plus() const   { return m_Major >= 6; }
   bool IsSM61Plus() const   { return m_Major > 6 || (m_Major == 6 && m_Minor >= 1); }
   const char *GetName() const { return m_pszName; }
   std::string GetKindName() const;

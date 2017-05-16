@@ -46,6 +46,7 @@ class DxilFieldAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
 class RootSignatureHandle;
+class DxilViewIdState;
 
 
 /// Use this class to manipulate DXIL-spcific metadata.
@@ -75,6 +76,9 @@ public:
   // Root Signature, for intermediate use, not valid in final DXIL module.
   static const char kDxilRootSignatureMDName[];
 
+  // ViewId state.
+  static const char kDxilViewIdStateMDName[];
+
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
   static const unsigned kDxilEntryPointName       = 1;  // Entry point unmangled name.
@@ -103,8 +107,9 @@ public:
   static const unsigned kDxilSignatureElementNameValueList  = 10;  // Name-value list for extended properties.
 
   // Signature Element Extended Properties.
-  static const unsigned kDxilSignatureElementOutputStreamTag = 0;
-  static const unsigned kHLSignatureElementGlobalSymbolTag   = 1;
+  static const unsigned kDxilSignatureElementOutputStreamTag    = 0;
+  static const unsigned kHLSignatureElementGlobalSymbolTag      = 1;
+  static const unsigned kDxilSignatureElementDynIdxCompMaskTag  = 2;
 
   // Resources.
   static const char kDxilResourcesMDName[];
@@ -308,6 +313,10 @@ public:
   void LoadDxilFunctionAnnotation(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
   llvm::Metadata *EmitDxilParamAnnotation(const DxilParameterAnnotation &PA);
   void LoadDxilParamAnnotation(const llvm::MDOperand &MDO, DxilParameterAnnotation &PA);
+
+  // ViewId state.
+  void EmitDxilViewIdState(DxilViewIdState &ViewIdState);
+  void LoadDxilViewIdState(DxilViewIdState &ViewIdState);
 
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);

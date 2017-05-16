@@ -37,7 +37,8 @@ DxilSignatureElement::DxilSignatureElement(DXIL::SigPointKind sigPointKind)
 , m_Rows(0)
 , m_Cols(0)
 , m_StartRow(Semantic::kUndefinedRow)
-, m_StartCol(Semantic::kUndefinedCol) {
+, m_StartCol(Semantic::kUndefinedCol)
+, m_DynIdxCompMask(0) {
 }
 
 DxilSignatureElement::~DxilSignatureElement() {
@@ -260,6 +261,16 @@ uint8_t DxilSignatureElement::GetColsAsMask() const {
 
 bool DxilSignatureElement::IsAllocated() const {
   return (m_StartRow != Semantic::kUndefinedRow) && (m_StartCol != Semantic::kUndefinedCol);
+}
+
+unsigned DxilSignatureElement::GetDynIdxCompMask() const {
+  DXASSERT_NOMSG(m_DynIdxCompMask <= 0xF);
+  return m_DynIdxCompMask;
+}
+
+void DxilSignatureElement::SetDynIdxCompMask(unsigned DynIdxCompMask) {
+  DXASSERT_NOMSG(DynIdxCompMask <= 0xF);
+  m_DynIdxCompMask = DynIdxCompMask;
 }
 
 } // namespace hlsl
