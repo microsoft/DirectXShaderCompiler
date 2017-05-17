@@ -3527,7 +3527,7 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
     if (const Instruction *I = dyn_cast<Instruction>(U)) {
       const Function *F = I->getParent()->getParent();
       if (!PS.AccessingFunction) {
-        F = PS.AccessingFunction;
+        PS.AccessingFunction = F;
       } else {
         if (F != PS.AccessingFunction)
           PS.HasMultipleAccessingFunctions = true;
@@ -3943,6 +3943,24 @@ public:
       }
     }
 
+    // Lower static global into allocas.
+    staticGVs.clear();
+    for (GlobalVariable &GV : M.globals()) {
+      bool isStaticGlobal =
+          HLModule::IsStaticGlobal(&GV) &&
+          GV.getType()->getAddressSpace() == DXIL::kDefaultAddrSpace;
+      bool noInitializer =
+          !GV.hasInitializer() || isa<UndefValue>(GV.getInitializer());
+      if (isStaticGlobal && noInitializer) {
+        staticGVs.emplace_back(&GV);
+      }
+    }
+
+    const DataLayout &DL = M.getDataLayout();
+    for (GlobalVariable *GV : staticGVs) {
+      lowerStaticGlobalIntoAlloca(GV, DL);
+    }
+
     return true;
   }
 
@@ -3977,6 +3995,7 @@ private:
     unsigned startArgIndex, llvm::StringMap<Type *> &semanticTypeMap);
   bool hasDynamicVectorIndexing(Value *V);
   void flattenGlobal(GlobalVariable *GV);
+  void lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL);
   /// DeadInsts - Keep track of instructions we have made dead, so that
   /// we can remove them after we are done working.
   SmallVector<Value *, 32> DeadInsts;
@@ -4064,8 +4083,6 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
   while (!WorkList.empty()) {
     GlobalVariable *EltGV = cast<GlobalVariable>(WorkList.front());
     WorkList.pop_front();
-    // Flat Global vector if no dynamic vector indexing.
-    bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
 
     const bool bAllowReplace = true;
     if (SROA_Helper::LowerMemcpy(EltGV, /*annoation*/ nullptr, dxilTypeSys, DL,
@@ -4073,6 +4090,8 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
       continue;
     }
 
+    // Flat Global vector if no dynamic vector indexing.
+    bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
     std::vector<Value *> Elts;
     bool SROAed = SROA_Helper::DoScalarReplacement(
         EltGV, Elts, Builder, bFlatVector,
@@ -4116,6 +4135,23 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
     GV->removeDeadConstantUsers();
     GV->eraseFromParent();
   }
+}
+
+void SROA_Parameter_HLSL::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {
+  DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
+  unsigned size = DL.getTypeAllocSize(GV->getType()->getElementType());
+  PointerStatus PS(size);
+  GV->removeDeadConstantUsers();
+  PS.analyzePointer(GV, PS, typeSys, /*bStructElt*/false);
+  // Make sure GV only used in one function.
+  if (PS.HasMultipleAccessingFunctions)
+    return;
+
+  Function *F = const_cast<Function*>(PS.AccessingFunction);
+  IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+  AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
+  ReplaceConstantWithInst(GV, AI, Builder);
+  GV->eraseFromParent();
 }
 
 static DxilFieldAnnotation &GetEltAnnotation(Type *Ty, unsigned idx, DxilFieldAnnotation &annotation, DxilTypeSystem &dxilTypeSys) {

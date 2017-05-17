@@ -392,6 +392,7 @@ public:
   TEST_METHOD(CodeGenCast7)
   TEST_METHOD(CodeGenCbuf_init_static)
   TEST_METHOD(CodeGenCbufferCopy)
+  TEST_METHOD(CodeGenCbufferCopy1)
   TEST_METHOD(CodeGenCbufferCopy2)
   TEST_METHOD(CodeGenCbufferCopy3)
   TEST_METHOD(CodeGenCbufferCopy4)
@@ -2312,6 +2313,10 @@ TEST_F(CompilerTest, CodeGenCbuf_init_static) {
 
 TEST_F(CompilerTest, CodeGenCbufferCopy) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_copy.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferCopy1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_copy1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenCbufferCopy2) {
