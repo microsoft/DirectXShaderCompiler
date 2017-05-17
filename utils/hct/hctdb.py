@@ -1066,8 +1066,7 @@ class db_dxil(object):
         next_op_idx += 1
 
         # End of DXIL 1.1 opcodes.
-        # Uncomment this when 1.1 is final.
-        #self.set_op_count_for_version(1, 1, next_op_idx)
+        self.set_op_count_for_version(1, 1, next_op_idx)
 
         assert next_op_idx == 139, "next operation index is %d rather than 139 and thus opcodes are broken" % next_op_idx
 
@@ -1334,6 +1333,7 @@ class db_dxil(object):
         add_pass('lowerbitsets', 'LowerBitSets', 'Lower bitset metadata', [
             {'n':'lowerbitsets-avoid-reuse', 'i':'AvoidReuse', 't':'bool', 'd':'Try to avoid reuse of byte array addresses using aliases'}])
         add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
+        add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
         # TODO: turn STATISTICS macros into ETW events
         # assert no duplicate names
         self.pass_idx_args = set()
