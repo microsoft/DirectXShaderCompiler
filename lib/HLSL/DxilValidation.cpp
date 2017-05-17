@@ -3127,14 +3127,38 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     }
   }
 
+  unsigned compWidth = 0;
+  bool compFloat = false;
+  bool compInt = false;
+  bool compUnsigned = false;
+  bool compBool = false;
+  bool compSNorm = false;
+  bool compUNorm = false;
+
   switch (compKind) {
-  case CompType::Kind::U64:
-  case CompType::Kind::I64:
-  case CompType::Kind::U32:
-  case CompType::Kind::I32:
-  case CompType::Kind::U16:
-  case CompType::Kind::I16:
-  case CompType::Kind::I1:
+  case CompType::Kind::U64: compWidth = 64; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::I64: compWidth = 64; compInt = true; break;
+  case CompType::Kind::U32: compWidth = 32; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::I32: compWidth = 32; compInt = true; break;
+  case CompType::Kind::U16: compWidth = 16; compInt = true; compUnsigned = true; break;
+  case CompType::Kind::I16: compWidth = 16; compInt = true; break;
+  case CompType::Kind::I1: compWidth = 1; compBool = true; break;
+  case CompType::Kind::F64: compWidth = 64; compFloat = true; break;
+  case CompType::Kind::F32: compWidth = 32; compFloat = true; break;
+  case CompType::Kind::F16: compWidth = 16; compFloat = true; break;
+  case CompType::Kind::SNormF64: compWidth = 64; compFloat = true; compSNorm = true; break;
+  case CompType::Kind::SNormF32: compWidth = 32; compFloat = true; compSNorm = true; break;
+  case CompType::Kind::SNormF16: compWidth = 16; compFloat = true; compSNorm = true; break;
+  case CompType::Kind::UNormF64: compWidth = 64; compFloat = true; compUNorm = true; break;
+  case CompType::Kind::UNormF32: compWidth = 32; compFloat = true; compUNorm = true; break;
+  case CompType::Kind::UNormF16: compWidth = 16; compFloat = true; compUNorm = true; break;
+  case CompType::Kind::Invalid:
+  default:
+    ValCtx.EmitFormatError(ValidationRule::MetaSignatureCompType, { SE.GetName() });
+    break;
+  }
+
+  if (compInt || compBool) {
     switch (Mode) {
     case DXIL::InterpolationMode::Linear:
     case DXIL::InterpolationMode::LinearCentroid:
@@ -3145,21 +3169,6 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
       ValCtx.EmitFormatError(ValidationRule::MetaIntegerInterpMode, {SE.GetName()});
     } break;
     }
-    break;
-  case CompType::Kind::F64:
-  case CompType::Kind::F32:
-  case CompType::Kind::F16:
-  case CompType::Kind::SNormF64:
-  case CompType::Kind::SNormF32:
-  case CompType::Kind::SNormF16:
-  case CompType::Kind::UNormF64:
-  case CompType::Kind::UNormF32:
-  case CompType::Kind::UNormF16:
-    break;
-  case CompType::Kind::Invalid:
-  default:
-    ValCtx.EmitFormatError(ValidationRule::MetaSignatureCompType, {SE.GetName()});
-    break;
   }
 
   // Elements that should not appear in the Dxil signature:
@@ -3205,7 +3214,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticKind::Depth:
   case DXIL::SemanticKind::DepthGreaterEqual:
   case DXIL::SemanticKind::DepthLessEqual:
-    if (compKind != CompType::Kind::F32 || SE.GetCols() != 1) {
+    if (!compFloat || compWidth > 32 || SE.GetCols() != 1) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "float"});
     }
@@ -3221,15 +3230,13 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     }
     break;
   case DXIL::SemanticKind::Position:
-    if (compKind != CompType::Kind::F32 || SE.GetCols() != 4) {
+    if (!compFloat || compWidth > 32 || SE.GetCols() != 4) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "float4"});
     }
     break;
   case DXIL::SemanticKind::Target:
-    if (compKind == CompType::Kind::F64 ||
-        compKind == CompType::Kind::I64 ||
-        compKind == CompType::Kind::U64) {
+    if (compWidth > 32) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "float/int/uint"});
     }
@@ -3237,14 +3244,14 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticKind::ClipDistance:
   case DXIL::SemanticKind::CullDistance:
     bIsClipCull = true;
-    if ((compKind != CompType::Kind::F32 && compKind != CompType::Kind::F16)) {
+    if (!compFloat || compWidth > 32) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "float"});
     }
     // NOTE: clip cull distance size is checked at ValidateSignature.
     break;
   case DXIL::SemanticKind::IsFrontFace:
-    if (compKind != CompType::Kind::I1 || SE.GetCols() != 1) {
+    if (!compBool || SE.GetCols() != 1) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "bool"});
     }
@@ -3266,7 +3273,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticKind::InsideTessFactor:
     // NOTE: the size check is at CheckPatchConstantSemantic.
     bIsTessfactor = true;
-    if (compKind != CompType::Kind::F32) {
+    if (!compFloat || compWidth > 32) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType,
                              {SE.GetSemantic()->GetName(), "float"});
     }
@@ -3279,7 +3286,7 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     break;
   case DXIL::SemanticKind::Barycentrics:
     bIsBarycentric = true;
-    if (compKind != DXIL::ComponentType::F32) {
+    if (!compFloat || compWidth > 32) {
       ValCtx.EmitFormatError(ValidationRule::MetaSemanticCompType, {SE.GetSemantic()->GetName(), "float"});
     }
     if (Mode != InterpolationMode::Kind::Linear &&
