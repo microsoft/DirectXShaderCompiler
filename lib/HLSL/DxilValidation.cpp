@@ -3387,12 +3387,13 @@ static void ValidateSignatureOverlap(
     return;
   }
 
-  DxilSignatureAllocator::ConflictType conflict = allocator.DetectRowConflict(&E, E.GetStartRow());
+  DxilPackElement PE(&E);
+  DxilSignatureAllocator::ConflictType conflict = allocator.DetectRowConflict(&PE, E.GetStartRow());
   if (conflict == DxilSignatureAllocator::kNoConflict || conflict == DxilSignatureAllocator::kInsufficientFreeComponents)
-    conflict = allocator.DetectColConflict(&E, E.GetStartRow(), E.GetStartCol());
+    conflict = allocator.DetectColConflict(&PE, E.GetStartRow(), E.GetStartCol());
   switch (conflict) {
   case DxilSignatureAllocator::kNoConflict:
-    allocator.PlaceElement(&E, E.GetStartRow(), E.GetStartCol());
+    allocator.PlaceElement(&PE, E.GetStartRow(), E.GetStartCol());
     break;
   case DxilSignatureAllocator::kConflictsWithIndexed:
     ValCtx.EmitFormatError(ValidationRule::MetaSignatureIndexConflict,
@@ -3569,10 +3570,12 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
 
   if (ValCtx.hasViewID && S.IsInput() && ValCtx.DxilMod.GetShaderModel()->GetKind() == DXIL::ShaderKind::Pixel) {
     // Ensure sufficient space for ViewID:
-    DxilSignatureElement viewID(DXIL::SigPointKind::PSIn);
-    // Don't use SV_ViewID here because it will be rejected by packing (NotInSig).
-    // Instead, use arbitrary with uint32 type and constant interpolation.
-    viewID.Initialize("ViewID", hlsl::CompType::getU32(), DXIL::InterpolationMode::Constant, 1, 1);
+    DxilSignatureAllocator::DummyElement viewID;
+    viewID.rows = 1;
+    viewID.cols = 1;
+    viewID.kind = DXIL::SemanticKind::Arbitrary;
+    viewID.interpolation = DXIL::InterpolationMode::Constant;
+    viewID.interpretation = DXIL::SemanticInterpretationKind::SGV;
     allocator[0].PackNext(&viewID, 0, 32);
     if (!viewID.IsAllocated()) {
       ValCtx.EmitError(ValidationRule::SmViewIDNeedsSlot);

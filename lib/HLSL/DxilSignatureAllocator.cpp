@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilSignature.cpp                                                         //
+// DxilSignatureAllocator.cpp                                                //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -9,12 +9,12 @@
 
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
+#include <memory>
 #include <algorithm>
 
 using std::vector;
 using std::unique_ptr;
 using std::sort;
-
 
 namespace hlsl {
 
@@ -22,7 +22,7 @@ namespace hlsl {
 //
 // DxilSignatureAllocator methods.
 //
-uint8_t DxilSignatureAllocator::GetElementFlags(const DxilSignatureElement *SE) {
+uint8_t DxilSignatureAllocator::GetElementFlags(const PackElement *SE) {
   uint8_t flags = 0;
   DXIL::SemanticInterpretationKind interpretation = SE->GetInterpretation();
   switch (interpretation) {
@@ -142,12 +142,12 @@ DxilSignatureAllocator::DxilSignatureAllocator(unsigned numRegisters) {
   Registers.resize(numRegisters);
 }
 
-DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectRowConflict(const DxilSignatureElement *SE, unsigned row) {
+DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectRowConflict(const PackElement *SE, unsigned row) {
   unsigned rows = SE->GetRows();
   if (rows + row > Registers.size())
     return kConflictFit;
   unsigned cols = SE->GetCols();
-  DXIL::InterpolationMode interp = SE->GetInterpolationMode()->GetKind();
+  DXIL::InterpolationMode interp = SE->GetInterpolationMode();
   uint8_t flags = GetElementFlags(SE);
   for (unsigned i = 0; i < rows; ++i) {
     ConflictType conflict = Registers[row + i].DetectRowConflict(flags, GetIndexFlags(i, rows), interp, cols);
@@ -157,7 +157,7 @@ DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectRowConflict(c
   return kNoConflict;
 }
 
-DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectColConflict(const DxilSignatureElement *SE, unsigned row, unsigned col) {
+DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectColConflict(const PackElement *SE, unsigned row, unsigned col) {
   unsigned rows = SE->GetRows();
   unsigned cols = SE->GetCols();
   uint8_t flags = GetElementFlags(SE);
@@ -169,11 +169,11 @@ DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectColConflict(c
   return kNoConflict;
 }
 
-void DxilSignatureAllocator::PlaceElement(const DxilSignatureElement *SE, unsigned row, unsigned col) {
+void DxilSignatureAllocator::PlaceElement(const PackElement *SE, unsigned row, unsigned col) {
   // Assume no conflicts (DetectRowConflict and DetectColConflict both return 0).
   unsigned rows = SE->GetRows();
   unsigned cols = SE->GetCols();
-  DXIL::InterpolationMode interp = SE->GetInterpolationMode()->GetKind();
+  DXIL::InterpolationMode interp = SE->GetInterpolationMode();
   uint8_t flags = GetElementFlags(SE);
   for (unsigned i = 0; i < rows; ++i) {
     Registers[row + i].PlaceElement(flags, GetIndexFlags(i, rows), interp, col, cols);
@@ -191,9 +191,9 @@ int cmp(T a, T b) {
     return 1;
   return 0;
 }
-int CmpElements(const DxilSignatureElement* left, const DxilSignatureElement* right) {
+int CmpElements(const DxilSignatureAllocator::PackElement* left, const DxilSignatureAllocator::PackElement* right) {
   unsigned result;
-  if (result = cmp((unsigned)left->GetInterpolationMode()->GetKind(), (unsigned)right->GetInterpolationMode()->GetKind()))
+  if (result = cmp((unsigned)left->GetInterpolationMode(), (unsigned)right->GetInterpolationMode()))
     return result;
   if (result = -cmp(left->GetRows(), right->GetRows()))
     return result;
@@ -205,14 +205,14 @@ int CmpElements(const DxilSignatureElement* left, const DxilSignatureElement* ri
 }
 
 struct {
-  bool operator()(const DxilSignatureElement* left, const DxilSignatureElement* right) {
+  bool operator()(const DxilSignatureAllocator::PackElement* left, const DxilSignatureAllocator::PackElement* right) {
     return CmpElements(left, right) < 0;
   }
 } CmpElementsLess;
 
 } // anonymous namespace
 
-unsigned DxilSignatureAllocator::PackNext(DxilSignatureElement* SE, unsigned startRow, unsigned numRows, unsigned startCol) {
+unsigned DxilSignatureAllocator::PackNext(PackElement* SE, unsigned startRow, unsigned numRows, unsigned startCol) {
   unsigned rowsUsed = startRow;
 
   unsigned rows = SE->GetRows();
@@ -229,8 +229,7 @@ unsigned DxilSignatureAllocator::PackNext(DxilSignatureElement* SE, unsigned sta
       if (DetectColConflict(SE, row, col))
         continue;
       PlaceElement(SE, row, col);
-      SE->SetStartRow((int)row);
-      SE->SetStartCol((int)col);
+      SE->SetLocation(row, col);
       return row + rows;
     }
   }
@@ -238,7 +237,7 @@ unsigned DxilSignatureAllocator::PackNext(DxilSignatureElement* SE, unsigned sta
   return rowsUsed;
 }
 
-unsigned DxilSignatureAllocator::PackGreedy(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows, unsigned startCol) {
+unsigned DxilSignatureAllocator::PackGreedy(std::vector<PackElement*> elements, unsigned startRow, unsigned numRows, unsigned startCol) {
   // Allocation failures should be caught by IsFullyAllocated()
   unsigned rowsUsed = startRow;
 
@@ -249,7 +248,7 @@ unsigned DxilSignatureAllocator::PackGreedy(std::vector<DxilSignatureElement*> e
   return rowsUsed;
 }
 
-unsigned DxilSignatureAllocator::PackOptimized(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows) {
+unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> elements, unsigned startRow, unsigned numRows) {
   unsigned rowsUsed = startRow;
 
   // Clip/Cull needs special handling due to limitations unique to these.
@@ -280,7 +279,7 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<DxilSignatureElement*
 
   // ==========
   // Group elements
-  std::vector<DxilSignatureElement*>  clipcullElements,
+  std::vector<PackElement*>  clipcullElements,
                                       clipcullElementsByRow[2],
                                       vec4Elements,
                                       arbElements,
@@ -291,8 +290,7 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<DxilSignatureElement*
   for (auto &SE : elements) {
     // Clear any existing allocation
     if (SE->IsAllocated()) {
-      SE->SetStartRow(-1);
-      SE->SetStartCol(-1);
+      SE->ClearLocation();
     }
 
     switch (SE->GetInterpretation()) {
@@ -341,17 +339,17 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<DxilSignatureElement*
     clipcullElementsByRow[row].push_back(SE);
     clipcullComponentsByRow[row] += SE->GetCols();
     // Deallocate element, to be allocated later:
-    SE->SetStartRow(-1);
-    SE->SetStartCol(-1);
+    SE->ClearLocation();
   }
   // Init temp elements, used to find compatible spaces for subsets:
-  DxilSignatureElement clipcullTempElements[2] = {DXIL::SigPointKind::VSOut, DXIL::SigPointKind::VSOut};
+  DummyElement clipcullTempElements[2];
   for (unsigned row = 0; row < clipcullRegUsed; ++row) {
     DXASSERT_NOMSG(!clipcullElementsByRow[row].empty());
-    clipcullTempElements[row].Initialize( clipcullElementsByRow[row][0]->GetName(),
-                                          clipcullElementsByRow[row][0]->GetCompType(),
-                                          *clipcullElementsByRow[row][0]->GetInterpolationMode(),
-                                          1, clipcullComponentsByRow[row]);
+    clipcullTempElements[row].kind = clipcullElementsByRow[row][0]->GetKind();
+    clipcullTempElements[row].interpolation = clipcullElementsByRow[row][0]->GetInterpolationMode();
+    clipcullTempElements[row].interpretation = clipcullElementsByRow[row][0]->GetInterpretation();
+    clipcullTempElements[row].rows = 1;
+    clipcullTempElements[row].cols = clipcullComponentsByRow[row];
   }
 
   // ==========
@@ -405,8 +403,7 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<DxilSignatureElement*
           continue;
         for (auto &SE : clipcullElementsByRow[i]) {
           PlaceElement(SE, row, col);
-          SE->SetStartRow((int)row);
-          SE->SetStartCol((int)col);
+          SE->SetLocation(row, col);
           col += SE->GetCols();
         }
         bAllocated = true;
@@ -431,20 +428,19 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<DxilSignatureElement*
   return rowsUsed;
 }
 
-unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<DxilSignatureElement*> elements, unsigned startRow, unsigned numRows) {
+unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<PackElement*> elements, unsigned startRow, unsigned numRows) {
   unsigned rowsUsed = startRow;
 
   // Special handling for prefix-stable clip/cull arguments
   // - basically, do not pack with anything else to maximize chance to pack into two register limit
   unsigned clipcullRegUsed = 0;
   DxilSignatureAllocator clipcullAllocator(2);
-  DxilSignatureElement clipcullTempElements[2] = {DXIL::SigPointKind::VSOut, DXIL::SigPointKind::VSOut};
+  DummyElement clipcullTempElements[2];
 
   for (auto &SE : elements) {
     // Clear any existing allocation
     if (SE->IsAllocated()) {
-      SE->SetStartRow(-1);
-      SE->SetStartCol(-1);
+      SE->ClearLocation();
     }
 
     switch (SE->GetInterpretation()) {
@@ -458,14 +454,15 @@ unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<DxilSignatureEleme
             if (used > clipcullRegUsed) {
               clipcullRegUsed = used;
               // allocate placeholder element, reserving new row
-              clipcullTempElements[used - 1].Initialize(SE->GetName(),
-                                                        SE->GetCompType(),
-                                                        *SE->GetInterpolationMode(),
-                                                        1, 4);
+              clipcullTempElements[used - 1].kind = SE->GetKind();
+              clipcullTempElements[used - 1].interpolation = SE->GetInterpolationMode();
+              clipcullTempElements[used - 1].interpretation = SE->GetInterpretation();
+              clipcullTempElements[used - 1].rows = 1;
+              clipcullTempElements[used - 1].cols = 4;
               rowsUsed = std::max(rowsUsed, PackNext(&clipcullTempElements[used - 1], startRow, numRows));
             }
             // Actually place element in correct row:
-            SE->SetStartRow(clipcullTempElements[used - 1].GetStartRow());
+            SE->SetLocation(clipcullTempElements[used - 1].GetStartRow(), SE->GetStartCol());
           }
           continue;
         }
