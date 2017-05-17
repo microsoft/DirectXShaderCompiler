@@ -1,12 +1,13 @@
-// Failing on dxc but addition works on vanilla clang
-// Look at CheckBinOpForHLSL on SemaHLSL.cpp
+// RUN: %dxc -E main -T ps_6_1 -HV 2017 %s | FileCheck %s
+
+// CHECK: fadd
+
 enum Vertex {
     FIRST,
     SECOND,
     THIRD
 };
 
-
-int4 main(float4 col : COLOR) : SV_Target {
-    return col.x + Vertex::FIRST; 
+float4 main(float4 col : COLOR) : SV_Target {
+    return !Vertex::FIRST + col;
 }

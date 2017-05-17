@@ -428,6 +428,11 @@ public:
   TEST_METHOD(CodeGenEliminateDynamicIndexing6)
   TEST_METHOD(CodeGenEmpty)
   TEST_METHOD(CodeGenEmptyStruct)
+  TEST_METHOD(CodeGenEnum1)
+  TEST_METHOD(CodeGenEnum2)
+  TEST_METHOD(CodeGenEnum3)
+  TEST_METHOD(CodeGenEnum4)
+  TEST_METHOD(CodeGenEnum5)
   TEST_METHOD(CodeGenEarlyDepthStencil)
   TEST_METHOD(CodeGenEval)
   TEST_METHOD(CodeGenEvalInvalid)
@@ -2456,6 +2461,26 @@ TEST_F(CompilerTest, CodeGenEmpty) {
 
 TEST_F(CompilerTest, CodeGenEmptyStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\emptyStruct.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEnum1) {
+    CodeGenTestCheck(L"..\\CodeGenHLSL\\enum1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEnum2) {
+    CodeGenTestCheck(L"..\\CodeGenHLSL\\enum2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEnum3) {
+    CodeGenTestCheck(L"..\\CodeGenHLSL\\enum3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEnum4) {
+    CodeGenTestCheck(L"..\\CodeGenHLSL\\enum4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEnum5) {
+    CodeGenTestCheck(L"..\\CodeGenHLSL\\enum5.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenEarlyDepthStencil) {

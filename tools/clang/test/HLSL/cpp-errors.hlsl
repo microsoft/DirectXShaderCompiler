@@ -251,8 +251,8 @@ void vla(int size) {
   return n[0];
 }
 
-enum MyEnum  { MyEnum_MyVal1, MyEnum_MyVal2 }; // expected-error {{enum is unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
-enum class MyEnumWithClass { MyEnumWithClass_MyVal1, MyEnumWithClass_MyVal2 }; // expected-error {{enum is unsupported in HLSL}} expected-warning {{declaration does not declare anything}}
+enum MyEnum  { MyEnum_MyVal1, MyEnum_MyVal2 }; // expected-error {{enum is unsupported in HLSL before 2017}} expected-warning {{declaration does not declare anything}}
+enum class MyEnumWithClass { MyEnumWithClass_MyVal1, MyEnumWithClass_MyVal2 }; // expected-error {{enum is unsupported in HLSL before 2017}} expected-warning {{declaration does not declare anything}}
 
 float4 fn_with_semantic() : SV_Target0{
   return 0;

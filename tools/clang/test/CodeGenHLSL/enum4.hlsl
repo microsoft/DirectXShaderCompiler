@@ -1,19 +1,12 @@
-enum Vertex {
+// RUN: %dxc -E main -T ps_6_1 -HV 2017 %s | FileCheck %s
+
+// CHECK: call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 1)
+
+enum Vertex : int {
     FIRST,
     SECOND,
     THIRD
 };
-
-int4 getValueVertex(Vertex v) {
-    switch (v) {
-        case FIRST:
-            return int4(1,1,1,1);
-        case SECOND:
-            return int4(2,2,2,2);
-        case THIRD:
-            return int4(3,3,3,3);
-    }
-}
 
 int4 getValueInt(int i) {
     switch (i) {

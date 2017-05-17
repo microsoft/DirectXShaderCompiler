@@ -1,3 +1,7 @@
+// RUN: %dxc -E main -T ps_6_1 -HV 2017 %s | FileCheck %s
+
+// CHECK: dx.op.attributeAtVertex
+
 enum Vertex {
     FIRST,
     SECOND,

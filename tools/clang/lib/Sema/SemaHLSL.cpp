@@ -78,6 +78,7 @@ enum ArBasicKind {
   //
 
   AR_BASIC_POINTER,
+  AR_BASIC_ENUM_CLASS,
 
   AR_OBJECT_NULL,
   AR_OBJECT_STRING,
@@ -338,6 +339,7 @@ const UINT g_uBasicKindProps[] =
   //
 
   BPROP_POINTER,  // AR_BASIC_POINTER
+  BPROP_ENUM, // AR_BASIC_ENUM_CLASS
 
   BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_NULL
   BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_STRING
@@ -1300,13 +1302,15 @@ const char* g_ArBasicTypeNames[] =
   "int", "uint", "long", "ulong",
   "min10float", "min16float",
   "min12int", "min16int", "min16uint",
+  "enum",
 
   "<count>",
   "<none>",
   "<unknown>",
   "<nocast>",
   "<pointer>",
-  "enum",
+  "enum class",
+
   "null",
   "string",
   // "texture",
@@ -3223,7 +3227,8 @@ public:
       }
     }
     if (const EnumType *ET = dyn_cast<EnumType>(type)) {
-        if (ET->isEnumeralType())
+        if (ET->getDecl()->isScopedUsingClassTag())
+            return AR_BASIC_ENUM_CLASS;
         return AR_BASIC_ENUM;
     }
     return AR_BASIC_UNKNOWN;
@@ -3372,7 +3377,7 @@ public:
     case AR_OBJECT_APPEND_STRUCTURED_BUFFER:
     case AR_OBJECT_CONSUME_STRUCTURED_BUFFER:
     case AR_OBJECT_WAVE:
-    {
+{
         const ArBasicKind* match = std::find(g_ArBasicKindsAsTypes, &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
         DXASSERT(match != &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], "otherwise can't find constant in basic kinds");
         size_t index = match - g_ArBasicKindsAsTypes;
@@ -7346,8 +7351,10 @@ bool HLSLExternalSource::CanConvert(
       Remarks |= TYPE_CONVERSION_ELT_TRUNCATION;
     }
     // enum -> enum not allowed
-    if (SourceInfo.EltKind == AR_BASIC_ENUM &&
-        TargetInfo.EltKind == AR_BASIC_ENUM) {
+    if ((SourceInfo.EltKind == AR_BASIC_ENUM &&
+        TargetInfo.EltKind == AR_BASIC_ENUM) ||
+        SourceInfo.EltKind == AR_BASIC_ENUM_CLASS ||
+        TargetInfo.EltKind == AR_BASIC_ENUM_CLASS) {
       return false;
     }
     if (SourceInfo.EltKind != TargetInfo.EltKind)
