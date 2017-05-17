@@ -394,6 +394,7 @@ public:
   TEST_METHOD(CodeGenCbufferCopy)
   TEST_METHOD(CodeGenCbufferCopy2)
   TEST_METHOD(CodeGenCbufferCopy3)
+  TEST_METHOD(CodeGenCbufferCopy4)
   TEST_METHOD(CodeGenCbuffer_unused)
   TEST_METHOD(CodeGenCbuffer1_50)
   TEST_METHOD(CodeGenCbuffer1_51)
@@ -419,6 +420,12 @@ public:
   TEST_METHOD(CodeGenDot1)
   TEST_METHOD(CodeGenDynamic_Resources)
   TEST_METHOD(CodeGenEffectSkip)
+  TEST_METHOD(CodeGenEliminateDynamicIndexing)
+  TEST_METHOD(CodeGenEliminateDynamicIndexing2)
+  TEST_METHOD(CodeGenEliminateDynamicIndexing3)
+  TEST_METHOD(CodeGenEliminateDynamicIndexing4)
+  TEST_METHOD(CodeGenEliminateDynamicIndexing5)
+  TEST_METHOD(CodeGenEliminateDynamicIndexing6)
   TEST_METHOD(CodeGenEmpty)
   TEST_METHOD(CodeGenEmptyStruct)
   TEST_METHOD(CodeGenEarlyDepthStencil)
@@ -650,6 +657,7 @@ public:
   TEST_METHOD(CodeGenUmaxObjectAtomic)
   TEST_METHOD(CodeGenUnrollDbg)
   TEST_METHOD(CodeGenUnsignedShortHandMatrixVector)
+  TEST_METHOD(CodeGenUnusedFunc)
   TEST_METHOD(CodeGenUnusedCB)
   TEST_METHOD(CodeGenUpdateCounter)
   TEST_METHOD(CodeGenUpperCaseRegister1);
@@ -2314,6 +2322,10 @@ TEST_F(CompilerTest, CodeGenCbufferCopy3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_copy3.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCbufferCopy4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer_copy4.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenCbuffer_unused) {
   CodeGenTest(L"..\\CodeGenHLSL\\cbuffer_unused.hlsl");
 }
@@ -2412,6 +2424,30 @@ TEST_F(CompilerTest, CodeGenDynamic_Resources) {
 
 TEST_F(CompilerTest, CodeGenEffectSkip) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\effect_skip.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing) {
+  CodeGenTestCheck(L"eliminate_dynamic_output.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing2) {
+  CodeGenTestCheck(L"eliminate_dynamic_output2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing3) {
+  CodeGenTestCheck(L"eliminate_dynamic_output3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing4) {
+  CodeGenTestCheck(L"eliminate_dynamic_output4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing5) {
+  CodeGenTestCheck(L"eliminate_dynamic_output5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEliminateDynamicIndexing6) {
+  CodeGenTestCheck(L"eliminate_dynamic_output6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenEmpty) {
@@ -3322,6 +3358,10 @@ TEST_F(CompilerTest, CodeGenUnrollDbg) {
 
 TEST_F(CompilerTest, CodeGenUnsignedShortHandMatrixVector) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\unsignedShortHandMatrixVector.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenUnusedFunc) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\unused_func.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenUnusedCB) {

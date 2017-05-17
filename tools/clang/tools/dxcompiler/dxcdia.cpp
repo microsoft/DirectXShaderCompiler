@@ -678,8 +678,8 @@ public:
     /* [in] */ DWORD index,
     /* [retval][out] */ TItem **ppItem) {
     if (index >= m_count)
-      return GetItem(index, ppItem);
-    return E_INVALIDARG;
+      return E_INVALIDARG;
+    return GetItem(index, ppItem);
   }
 
   virtual HRESULT GetItem(DWORD index, TItem **ppItem) {
