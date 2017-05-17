@@ -5233,6 +5233,10 @@ static bool UnaryOperatorKindDisallowsBool(UnaryOperatorKind Opc)
     Opc == UnaryOperatorKind::UO_PostDec || Opc == UnaryOperatorKind::UO_PostInc;
 }
 
+static bool IsIncrementOp(UnaryOperatorKind Opc) {
+  return Opc == UnaryOperatorKind::UO_PreInc || Opc == UnaryOperatorKind::UO_PostInc;
+}
+
 /// <summary>
 /// Checks whether the specified AR_TOBJ* value is a primitive or aggregate of primitive elements
 /// (as opposed to a built-in object like a sampler or texture, or a void type).
@@ -7364,8 +7368,8 @@ bool HLSLExternalSource::CanConvert(
       }
       else if (IS_BASIC_ENUM(SourceInfo.EltKind))
       {
-        // enum -> int
-        Second = ICK_Integral_Conversion;
+        // enum -> int/float
+        ComponentConversion = ICK_Integral_Conversion;
       }
       else
       {
@@ -7853,6 +7857,12 @@ QualType HLSLExternalSource::CheckUnaryOpForHLSL(
   ArBasicKind elementKind = GetTypeElementKind(expr->getType());
 
   if (UnaryOperatorKindRequiresModifiableValue(Opc)) {
+    if (elementKind == AR_BASIC_ENUM) {
+      bool isInc = IsIncrementOp(Opc);
+      m_sema->Diag(OpLoc, diag::err_increment_decrement_enum) << isInc << expr->getType();
+      return QualType();
+    }
+
     extern bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S);
     if (CheckForModifiableLvalue(expr, OpLoc, *m_sema))
       return QualType();
