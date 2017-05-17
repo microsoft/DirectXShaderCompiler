@@ -666,7 +666,12 @@ public:
     case BO_Mul:
     case BO_Div:
     case BO_Rem:
-    case BO_LT: {
+    case BO_LT:
+    case BO_LE:
+    case BO_GT:
+    case BO_GE:
+    case BO_EQ:
+    case BO_NE: {
       const spv::Op spvOp = translateOp(opcode, elemType);
       return theBuilder.createBinaryOp(spvOp, typeId, lhs, rhs);
     }
@@ -924,6 +929,14 @@ case BO_##kind : {                                                             \
       // Note there is no OpURem in SPIR-V.
       BIN_OP_CASE_SINT_UINT_FLOAT(Rem, SRem, UMod, FRem);
       BIN_OP_CASE_SINT_UINT_FLOAT(LT, SLessThan, ULessThan, FOrdLessThan);
+      BIN_OP_CASE_SINT_UINT_FLOAT(LE, SLessThanEqual, ULessThanEqual,
+                                  FOrdLessThanEqual);
+      BIN_OP_CASE_SINT_UINT_FLOAT(GT, SGreaterThan, UGreaterThan,
+                                  FOrdGreaterThan);
+      BIN_OP_CASE_SINT_UINT_FLOAT(GE, SGreaterThanEqual, UGreaterThanEqual,
+                                  FOrdGreaterThanEqual);
+      BIN_OP_CASE_INT_FLOAT(EQ, IEqual, FOrdEqual);
+      BIN_OP_CASE_INT_FLOAT(NE, INotEqual, FOrdNotEqual);
     default:
       break;
     }

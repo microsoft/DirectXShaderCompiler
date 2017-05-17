@@ -253,7 +253,51 @@ In Clang AST, these semantics are represented as ``SemanticDecl``, which is atta
 Expressions
 -----------
 
-[TODO]
+Arithmetic operators
+++++++++++++++++++++
+
+Arithmetic operators (``+``, ``-``, ``*``, ``/``, ``%``) are translated into their corresponding SPIR-V opcodes according to the following table.
+
++-------+-----------------------------+-------------------------------+--------------------+
+|       | (Vector of) Signed Integers | (Vector of) Unsigned Integers | (Vector of) Floats |
++-------+-----------------------------+-------------------------------+--------------------+
+| ``+`` |                         ``OpIAdd``                          |     ``OpFAdd``     |
++-------+-------------------------------------------------------------+--------------------+
+| ``-`` |                         ``OpISub``                          |     ``OpFSub``     |
++-------+-------------------------------------------------------------+--------------------+
+| ``*`` |                         ``OpIMul``                          |     ``OpFMul``     |
++-------+-----------------------------+-------------------------------+--------------------+
+| ``/`` |    ``OpSDiv``               |       ``OpUDiv``              |     ``OpFDiv``     |
++-------+-----------------------------+-------------------------------+--------------------+
+| ``%`` |    ``OpSRem``               |       ``OpUMod``              |     ``OpFRem``     |
++-------+-----------------------------+-------------------------------+--------------------+
+
+Note that for modulo operation, SPIR-V has two sets of instructions: ``Op*Rem`` and ``Op*Mod``. For ``Op*Rem``, the sign of a non-0 result comes from the first operand; while for ``Op*Mod``, the sign of a non-0 result comes from the second operand. HLSL doc does not mandate which set of instructions modulo operations should be translated into; it only says "the % operator is defined only in cases where either both sides are positive or both sides are negative." So technically it's undefined behavior to use the modulo operation with operands of different signs. But considering HLSL's C heritage and the behavior of Clang frontend, we translate modulo operators into ``Op*Rem`` (there is no ``OpURem``).
+
+For multiplications of float vectors and float scalars, the dedicated SPIR-V operation ``OpVectorTimesScalar`` will be used.
+
+Comparison operators
+++++++++++++++++++++
+
+Comparison operators (``<``, ``<=``, ``>``, ``>=``, ``==``, ``!=``) are translated into their corresponding SPIR-V opcodes according to the following table.
+
++--------+-----------------------------+-------------------------------+------------------------------+
+|        | (Vector of) Signed Integers | (Vector of) Unsigned Integers |     (Vector of) Floats       |
++--------+-----------------------------+-------------------------------+------------------------------+
+| ``<``  |  ``OpSLessThan``            |  ``OpULessThan``              |  ``OpFOrdLessThan``          |
++--------+-----------------------------+-------------------------------+------------------------------+
+| ``<=`` |  ``OpSLessThanEqual``       |  ``OpULessThanEqual``         |  ``OpFOrdLessThanEqual``     |
++--------+-----------------------------+-------------------------------+------------------------------+
+| ``>``  |  ``OpSGreaterThan``         |  ``OpUGreaterThan``           |  ``OpFOrdGreaterThan``       |
++--------+-----------------------------+-------------------------------+------------------------------+
+| ``>=`` |  ``OpSGreaterThanEqual``    |  ``OpUGreaterThanEqual``      |  ``OpFOrdGreaterThanEqual``  |
++--------+-----------------------------+-------------------------------+------------------------------+
+| ``==`` |                     ``OpIEqual``                            |  ``OpFOrdEqual``             |
++--------+-------------------------------------------------------------+------------------------------+
+| ``!=`` |                     ``OpINotEqual``                         |  ``OpFOrdNotEqual``          |
++--------+-------------------------------------------------------------+------------------------------+
+
+Note that for comparison of (vectors of) floats, SPIR-V has two sets of instructions: ``OpFOrd*``, ``OpFUnord*``. We translate into ``OpFOrd*`` ones.
 
 Control flows
 -------------
