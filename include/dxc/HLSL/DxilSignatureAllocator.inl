@@ -1,20 +1,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilSignatureAllocator.cpp                                                //
+// DxilSignatureAllocator.inl                                                //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
-#include "dxc/HLSL/DxilSignatureAllocator.h"
-#include <memory>
-#include <algorithm>
+//#include "dxc/Support/Global.h"   // for DXASSERT
+//#include "dxc/HLSL/DxilSignatureAllocator.h"
 
-using std::vector;
-using std::unique_ptr;
-using std::sort;
+using std::vector;      // #include <vector>
+using std::unique_ptr;  // #include <memory>
+using std::sort;        // #include <algorithm>
 
 namespace hlsl {
 
