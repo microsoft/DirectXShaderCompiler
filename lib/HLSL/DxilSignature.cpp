@@ -104,14 +104,19 @@ unsigned DxilSignature::NumVectorsUsed() const {
 unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
   unsigned rowsUsed = 0;
 
+  // Transfer to elements derived from DxilSignatureAllocator::PackElement
+  std::vector<DxilPackElement> packElements;
+  for (auto &SE : m_Elements) {
+    if (ShouldBeAllocated(SE.get()))
+      packElements.emplace_back(SE.get());
+  }
+
   if (m_sigPointKind == DXIL::SigPointKind::GSOut) {
     // Special case due to support for multiple streams
     DxilSignatureAllocator alloc[4] = {32, 32, 32, 32};
-    std::vector<DxilSignatureElement*> elements[4];
-    for (auto &SE : m_Elements) {
-      if (!ShouldBeAllocated(SE.get()))
-        continue;
-      elements[SE->GetOutputStream()].push_back(SE.get());
+    std::vector<DxilSignatureAllocator::PackElement*> elements[4];
+    for (auto &SE : packElements) {
+      elements[SE.Get()->GetOutputStream()].push_back(&SE);
     }
     for (unsigned i = 0; i < 4; ++i) {
       if (!elements[i].empty()) {
@@ -144,24 +149,19 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
 
   case DXIL::PackingKind::InputAssembler:
     // incrementally assign each element that belongs in the signature to the start of the next free row
-    for (auto &SE : m_Elements) {
-      if (!ShouldBeAllocated(SE.get()))
-        continue;
-      SE->SetStartRow(rowsUsed);
-      SE->SetStartCol(0);
-      rowsUsed += SE->GetRows();
+    for (auto &SE : packElements) {
+      SE.SetLocation(rowsUsed, 0);
+      rowsUsed += SE.GetRows();
     }
     break;
 
   case DXIL::PackingKind::Vertex:
   case DXIL::PackingKind::PatchConstant: {
       DxilSignatureAllocator alloc(32);
-      std::vector<DxilSignatureElement*> elements;
-      elements.reserve(m_Elements.size());
-      for (auto &SE : m_Elements){
-        if (!ShouldBeAllocated(SE.get()))
-          continue;
-        elements.push_back(SE.get());
+      std::vector<DxilSignatureAllocator::PackElement*> elements;
+      elements.reserve(packElements.size());
+      for (auto &SE : packElements){
+        elements.push_back(&SE);
       }
       switch (packing) {
       case DXIL::PackingStrategy::PrefixStable:
@@ -179,14 +179,13 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
   case DXIL::PackingKind::Target:
     // for SV_Target, assign rows according to semantic index, the rest are unassigned (-1)
     // Note: Overlapping semantic indices should be checked elsewhere
-    for (auto &SE : m_Elements) {
-      if (SE->GetKind() != DXIL::SemanticKind::Target)
+    for (auto &SE : packElements) {
+      if (SE.GetKind() != DXIL::SemanticKind::Target)
         continue;
-      unsigned row = SE->GetSemanticStartIndex();
-      SE->SetStartRow(row);
-      SE->SetStartCol(0);
-      DXASSERT(SE->GetRows() == 1, "otherwise, SV_Target output not broken into separate rows earlier");
-      row += SE->GetRows();
+      unsigned row = SE.Get()->GetSemanticStartIndex();
+      SE.SetLocation(row, 0);
+      DXASSERT(SE.GetRows() == 1, "otherwise, SV_Target output not broken into separate rows earlier");
+      row += SE.GetRows();
       if (rowsUsed < row)
         rowsUsed = row;
     }
@@ -201,3 +200,6 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
 }
 
 } // namespace hlsl
+
+#include <algorithm>
+#include "dxc/HLSL/DxilSignatureAllocator.inl"
