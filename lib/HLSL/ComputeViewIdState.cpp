@@ -31,6 +31,8 @@ using namespace hlsl;
 using llvm::legacy::PassManager;
 using llvm::legacy::FunctionPassManager;
 using std::vector;
+using std::unordered_set;
+using std::unordered_map;
 
 #define DXILVIEWID_DBG   0
 
@@ -174,6 +176,7 @@ void DxilViewIdState::EntryInfo::Clear() {
 void DxilViewIdState::FuncInfo::Clear() {
   Returns.clear();
   CtrlDep.Clear();
+  pDomTree.reset();
 }
 
 void DxilViewIdState::DetermineMaxPackedLocation(DxilSignature &DxilSig, unsigned &MaxSigLoc) {
@@ -287,6 +290,13 @@ void DxilViewIdState::AnalyzeFunctions(EntryInfo &Entry) {
       }
     }
 
+    // Compute dominator relation.
+    pFuncInfo->pDomTree = make_unique<DominatorTreeBase<BasicBlock> >(false);
+    pFuncInfo->pDomTree->recalculate(*F);
+#if DXILVIEWID_DBG
+    pFuncInfo->pDomTree->print(dbgs());
+#endif
+
     // Compute postdominator relation.
     DominatorTreeBase<BasicBlock> PDR(true);
     PDR.recalculate(*F);
@@ -378,15 +388,7 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(EntryInfo &Entry,
 
   // Handle special cases.
   if (PHINode *phi = dyn_cast<PHINode>(pContributingInst)) {
-    // For constant operands of phi, handle control dependence on incident edge.
-    unsigned iOp = 0;
-    for (auto it = phi->block_begin(), endIt = phi->block_end(); it != endIt; ++it, iOp++) {
-      Value *O = phi->getOperand(iOp);
-      if (isa<Constant>(O)) {
-        BasicBlock *pPredBB = *it;
-        CollectValuesContributingToOutputRec(Entry, pPredBB->getTerminator(), ContributingInstructions);
-      }
-    }
+    CollectPhiCFValuesContributingToOutputRec(phi, Entry, ContributingInstructions);
   } else if (isa<LoadInst>(pContributingInst) || 
              isa<AtomicCmpXchgInst>(pContributingInst) ||
              isa<AtomicRMWInst>(pContributingInst)) {
@@ -429,6 +431,93 @@ void DxilViewIdState::CollectValuesContributingToOutputRec(EntryInfo &Entry,
   const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
   for (BasicBlock *B : CtrlDepSet) {
     CollectValuesContributingToOutputRec(Entry, B->getTerminator(), ContributingInstructions);
+  }
+}
+
+// Only process control-dependent basic blocks for constant operands of the phi-function.
+// An obvious "definition" point for a constant operand is the predecessor along corresponding edge.
+// However, this may be too conservative and, as such, pick up extra control dependent BBs.
+// A better "definition" point is the highest dominator where it is still legal to "insert" constant assignment.
+// In this context, "legal" means that only one value "leaves" the dominator and reaches Phi.
+void DxilViewIdState::CollectPhiCFValuesContributingToOutputRec(PHINode *pPhi,
+                                                                EntryInfo &Entry,
+                                                                InstructionSetType &ContributingInstructions) {
+  Function *F = pPhi->getParent()->getParent();
+  FuncInfo *pFuncInfo = m_FuncInfo[F].get();
+  unordered_map<DomTreeNodeBase<BasicBlock> *, Value *> DomTreeMarkers;
+
+  // Mark predecessors of each value, so that there is a legal "definition" point.
+  for (unsigned i = 0; i < pPhi->getNumOperands(); i++) {
+    Value *pValue = pPhi->getIncomingValue(i);
+    BasicBlock *pBB = pPhi->getIncomingBlock(i);
+    DomTreeNodeBase<BasicBlock> *pDomNode = pFuncInfo->pDomTree->getNode(pBB);
+    auto it = DomTreeMarkers.emplace(pDomNode, pValue);
+    DXASSERT_NOMSG(it.second || it.first->second == pValue); it;
+  }
+  // Mark the dominator tree with "definition" values, walking up to the parent.
+  for (unsigned i = 0; i < pPhi->getNumOperands(); i++) {
+    Value *pValue = pPhi->getIncomingValue(i);
+    BasicBlock *pDefBB = &F->getEntryBlock();
+    if (Instruction *pDefInst = dyn_cast<Instruction>(pValue)) {
+      pDefBB = pDefInst->getParent();
+    }
+
+    BasicBlock *pBB = pPhi->getIncomingBlock(i);
+    if (pBB == pDefBB) {
+      continue; // we already handled the predecessor.
+    }
+    DomTreeNodeBase<BasicBlock> *pDomNode = pFuncInfo->pDomTree->getNode(pBB);
+    pDomNode = pDomNode->getIDom();
+    while (pDomNode) {
+      auto it = DomTreeMarkers.emplace(pDomNode, pValue);
+      if (!it.second) {
+        if (it.first->second != pValue && it.first->second != nullptr) {
+          if (!isa<Constant>(it.first->second) || !isa<Constant>(pValue)) {
+            // Unless both are different constants, mark the "definition" point as illegal.
+            it.first->second = nullptr;
+            // If both are constants, leave the marker of the first one.
+          }
+        }
+        break;
+      }
+
+      // Do not go higher than a legal definition point.
+      pBB = pDomNode->getBlock();
+      if (pBB == pDefBB)
+        break;
+
+      pDomNode = pDomNode->getIDom();
+    }
+  }
+
+  // Handle control dependence for Constant arguments of Phi.
+  for (unsigned i = 0; i < pPhi->getNumOperands(); i++) {
+    Value *pValue = pPhi->getIncomingValue(i);
+    if (!isa<Constant>(pValue))
+      continue;
+
+    // Determine the higher legal "definition" point.
+    BasicBlock *pBB = pPhi->getIncomingBlock(i);
+    DomTreeNodeBase<BasicBlock> *pDomNode = pFuncInfo->pDomTree->getNode(pBB);
+    DomTreeNodeBase<BasicBlock> *pDefDomNode = pDomNode;
+    while (pDomNode) {
+      auto it = DomTreeMarkers.find(pDomNode);
+      DXASSERT_NOMSG(it != DomTreeMarkers.end());
+      if (it->second != pValue) {
+        DXASSERT_NOMSG(it->second == nullptr || isa<Constant>(it->second));
+        break;
+      }
+
+      pDefDomNode = pDomNode;
+      pDomNode = pDomNode->getIDom();
+    }
+
+    // Handle control dependence of this constant argument highest legal "definition" point.
+    pBB = pDefDomNode->getBlock();
+    const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
+    for (BasicBlock *B : CtrlDepSet) {
+      CollectValuesContributingToOutputRec(Entry, B->getTerminator(), ContributingInstructions);
+    }
   }
 }
 
