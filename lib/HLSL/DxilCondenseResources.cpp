@@ -82,8 +82,12 @@ public:
         DM.GetUAVs().size() || DM.GetSRVs().size() || DM.GetSamplers().size();
 
     if (hasResource) {
-      AllocateDxilResources(DM);
-      PatchCreateHandle(DM);
+      if (!DM.GetShaderModel()->IsLib()) {
+        AllocateDxilResources(DM);
+        PatchCreateHandle(DM);
+      } else {
+        PatchCreateHandleForLib(DM);
+      }
     }
     return true;
   }
@@ -101,6 +105,8 @@ private:
   void AllocateDxilResources(DxilModule &DM);
   // Add lowbound to create handle range index.
   void PatchCreateHandle(DxilModule &DM);
+  // Add lowbound to create handle range index for library.
+  void PatchCreateHandleForLib(DxilModule &DM);
   // Switch CBuffer for SRV for TBuffers.
   void PatchTBuffers(DxilModule &DM);
 };
@@ -244,7 +250,8 @@ void PatchLowerBoundOfCreateHandle(CallInst *handle, DxilModule &DM) {
 
   DXIL::ResourceClass ResClass =
       static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
-  // Not support case dynamic rangeId yet.
+  // Dynamic rangeId is not supported - skip and let validation report the
+  // error.
   if (!isa<ConstantInt>(createHandle.get_rangeId()))
     return;
 
@@ -446,6 +453,51 @@ void DxilCondenseResources::PatchCreateHandle(DxilModule &DM) {
 
   for (User *U : createHandle->users()) {
     PatchLowerBoundOfCreateHandle(cast<CallInst>(U), DM);
+  }
+}
+
+void DxilCondenseResources::PatchCreateHandleForLib(DxilModule &DM) {
+  Function *createHandle = DM.GetOP()->GetOpFunc(DXIL::OpCode::CreateHandle,
+                                                 Type::getVoidTy(DM.GetCtx()));
+  DM.CreateResourceLinkInfo();
+  Value *zeroIndex = ConstantInt::get(Type::getInt32Ty(DM.GetCtx()), 0);
+  for (User *U : createHandle->users()) {
+    CallInst *handle = cast<CallInst>(U);
+    DxilInst_CreateHandle createHandle(handle);
+    DXASSERT_NOMSG(createHandle);
+
+    DXIL::ResourceClass ResClass =
+        static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+    // Dynamic rangeId is not supported - skip and let validation report the
+    // error.
+    if (!isa<ConstantInt>(createHandle.get_rangeId()))
+      continue;
+
+    unsigned rangeId =
+        cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
+
+    const DxilModule::ResourceLinkInfo &linkInfo =
+        DM.GetResourceLinkInfo(ResClass, rangeId);
+
+    IRBuilder<> Builder(handle);
+    Value *linkRangeID = Builder.CreateLoad(linkInfo.ResRangeID);
+    // Update rangeID to linkinfo rangeID.
+    handle->setArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx,
+                          linkRangeID);
+
+    Value *Index = createHandle.get_index();
+    Value *linkIndex = Builder.CreateLoad(linkInfo.ResIndex);
+
+    if (Index == zeroIndex) {
+      // Update index to linkinfo index.
+      handle->setArgOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx,
+                            linkIndex);
+    } else {
+      // Add linkinfo index to index.
+      Value *newIdx = Builder.CreateAdd(Index, linkIndex);
+      handle->setArgOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx,
+                            newIdx);
+    }
   }
 }
 

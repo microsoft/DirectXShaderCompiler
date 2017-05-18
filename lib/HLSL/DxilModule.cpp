@@ -801,6 +801,58 @@ const vector<unique_ptr<DxilResource> > &DxilModule::GetUAVs() const {
   return m_UAVs;
 }
 
+static void CreateResourceLinkConstant(Module &M, DxilResourceBase *pRes,
+    std::vector<DxilModule::ResourceLinkInfo> &resLinkInfo) {
+  Type *i32Ty = Type::getInt32Ty(M.getContext());
+  const bool IsConstantTrue = true;
+  Constant *NullInitVal = nullptr;
+  GlobalVariable *rangeID = new GlobalVariable(
+      M, i32Ty, IsConstantTrue, llvm::GlobalValue::ExternalLinkage, NullInitVal,
+      pRes->GetGlobalName() + "_rangeID");
+  GlobalVariable *index = new GlobalVariable(
+      M, i32Ty, IsConstantTrue, llvm::GlobalValue::ExternalLinkage, NullInitVal,
+      pRes->GetGlobalName() + "_index");
+
+  resLinkInfo.emplace_back(DxilModule::ResourceLinkInfo{rangeID, index});
+}
+
+void DxilModule::CreateResourceLinkInfo() {
+  DXASSERT(GetShaderModel()->IsLib(), "only for library profile");
+  DXASSERT(m_SRVsLinkInfo.empty() && m_UAVsLinkInfo.empty() &&
+               m_CBuffersLinkInfo.empty() && m_SamplersLinkInfo.empty(),
+           "else resource link info was already created");
+  Module &M = *m_pModule;
+  for (auto &SRV : m_SRVs) {
+    CreateResourceLinkConstant(M, SRV.get(), m_SRVsLinkInfo);
+  }
+  for (auto &UAV : m_UAVs) {
+    CreateResourceLinkConstant(M, UAV.get(), m_UAVsLinkInfo);
+  }
+  for (auto &CBuffer : m_CBuffers) {
+    CreateResourceLinkConstant(M, CBuffer.get(), m_CBuffersLinkInfo);
+  }
+  for (auto &Sampler : m_Samplers) {
+    CreateResourceLinkConstant(M, Sampler.get(), m_SamplersLinkInfo);
+  }
+}
+
+const DxilModule::ResourceLinkInfo &
+DxilModule::GetResourceLinkInfo(DXIL::ResourceClass resClass,
+                                unsigned rangeID) const {
+  switch (resClass) {
+  case DXIL::ResourceClass::UAV:
+    return m_UAVsLinkInfo[rangeID];
+  case DXIL::ResourceClass::CBuffer:
+    return m_CBuffersLinkInfo[rangeID];
+  case DXIL::ResourceClass::Sampler:
+    return m_SamplersLinkInfo[rangeID];
+  default:
+    DXASSERT(DXIL::ResourceClass::SRV == resClass,
+             "else invalid resource class");
+    return m_SRVsLinkInfo[rangeID];
+  }
+}
+
 void DxilModule::LoadDxilResourceBaseFromMDNode(MDNode *MD, DxilResourceBase &R) {
   return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD, R);
 }
@@ -1068,6 +1120,8 @@ void DxilModule::EmitDxilMetadata() {
   if (!m_RootSignature->IsEmpty()) {
     m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
   }
+  if (m_pSM->IsLib())
+    EmitDxilResourcesLinkInfo();
 }
 
 bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
@@ -1104,6 +1158,9 @@ void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
 
   m_pMDHelper->LoadDxilViewIdState(*m_pViewIdState.get());
+
+  if (loadedModule->IsLib())
+    LoadDxilResourcesLinkInfo();
 }
 
 MDTuple *DxilModule::EmitDxilResources() {
@@ -1196,6 +1253,85 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
       AddSampler(std::move(pSampler));
     }
   }
+}
+
+static MDTuple *CreateResourcesLinkInfo(std::vector<DxilModule::ResourceLinkInfo> &LinkInfoList,
+                                    unsigned size, LLVMContext &Ctx) {
+  DXASSERT(size == LinkInfoList.size(), "link info size must match resource size");
+  if (LinkInfoList.empty())
+    return nullptr;
+
+  vector<Metadata *> MDVals;
+  for (size_t i = 0; i < size; i++) {
+    MDVals.emplace_back(ValueAsMetadata::get(LinkInfoList[i].ResRangeID));
+    MDVals.emplace_back(ValueAsMetadata::get(LinkInfoList[i].ResIndex));
+  }
+  return MDNode::get(Ctx, MDVals);
+}
+
+void DxilModule::EmitDxilResourcesLinkInfo() {
+  // Emit SRV base records.
+  MDTuple *pTupleSRVs =
+      CreateResourcesLinkInfo(m_SRVsLinkInfo, m_SRVs.size(), m_Ctx);
+
+  // Emit UAV base records.
+  MDTuple *pTupleUAVs =
+      CreateResourcesLinkInfo(m_UAVsLinkInfo, m_UAVs.size(), m_Ctx);
+
+  // Emit CBuffer base records.
+  MDTuple *pTupleCBuffers =
+      CreateResourcesLinkInfo(m_CBuffersLinkInfo, m_CBuffers.size(), m_Ctx);
+
+  // Emit Sampler records.
+  MDTuple *pTupleSamplers =
+      CreateResourcesLinkInfo(m_SamplersLinkInfo, m_Samplers.size(), m_Ctx);
+
+  if (pTupleSRVs != nullptr || pTupleUAVs != nullptr ||
+      pTupleCBuffers != nullptr || pTupleSamplers != nullptr) {
+    m_pMDHelper->EmitDxilResourceLinkInfoTuple(pTupleSRVs, pTupleUAVs,
+                                               pTupleCBuffers, pTupleSamplers);
+  }
+}
+
+static void
+LoadResourcesLinkInfo(const llvm::MDTuple *pMD,
+                      std::vector<DxilModule::ResourceLinkInfo> &LinkInfoList,
+                      unsigned size, DxilMDHelper *pMDHelper) {
+  if (!pMD) {
+    IFTBOOL(size == 0, DXC_E_INCORRECT_DXIL_METADATA);
+    return;
+  }
+  unsigned operandSize = pMD->getNumOperands();
+  IFTBOOL(operandSize == (2 * size), DXC_E_INCORRECT_DXIL_METADATA);
+  for (unsigned i = 0; i < operandSize; i += 2) {
+    Constant *rangeID =
+        dyn_cast<Constant>(pMDHelper->ValueMDToValue(pMD->getOperand(i)));
+    Constant *index =
+        dyn_cast<Constant>(pMDHelper->ValueMDToValue(pMD->getOperand(i + 1)));
+    LinkInfoList.emplace_back(DxilModule::ResourceLinkInfo{rangeID, index});
+  }
+}
+
+void DxilModule::LoadDxilResourcesLinkInfo() {
+  const llvm::MDTuple *pSRVs, *pUAVs, *pCBuffers, *pSamplers;
+  m_pMDHelper->LoadDxilResourceLinkInfoTuple(pSRVs, pUAVs, pCBuffers,
+                                             pSamplers);
+
+  // Load SRV base records.
+  LoadResourcesLinkInfo(pSRVs, m_SRVsLinkInfo, m_SRVs.size(),
+                        m_pMDHelper.get());
+
+  // Load UAV base records.
+  LoadResourcesLinkInfo(pUAVs, m_UAVsLinkInfo, m_UAVs.size(),
+                        m_pMDHelper.get());
+
+  // Load CBuffer records.
+  LoadResourcesLinkInfo(pCBuffers, m_CBuffersLinkInfo, m_CBuffers.size(),
+                        m_pMDHelper.get());
+
+  // Load Sampler records.
+  LoadResourcesLinkInfo(pSamplers, m_SamplersLinkInfo, m_Samplers.size(),
+                        m_pMDHelper.get());
 }
 
 MDTuple *DxilModule::EmitDxilShaderProperties() {

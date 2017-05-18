@@ -42,6 +42,7 @@ const char DxilMDHelper::kDxilVersionMDName[]                         = "dx.vers
 const char DxilMDHelper::kDxilShaderModelMDName[]                     = "dx.shaderModel";
 const char DxilMDHelper::kDxilEntryPointsMDName[]                     = "dx.entryPoints";
 const char DxilMDHelper::kDxilResourcesMDName[]                       = "dx.resources";
+const char DxilMDHelper::kDxilResourcesLinkInfoMDName[]               = "dx.resources.link.info";
 const char DxilMDHelper::kDxilTypeSystemMDName[]                      = "dx.typeAnnotations";
 const char DxilMDHelper::kDxilTypeSystemHelperVariablePrefix[]        = "dx.typevar.";
 const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.controlflow.hints";
@@ -440,6 +441,52 @@ MDTuple *DxilMDHelper::EmitDxilResourceTuple(MDTuple *pSRVs, MDTuple *pUAVs,
   pResourcesNamedMD->addOperand(pTupleMD);
 
   return pTupleMD;
+}
+
+void DxilMDHelper::EmitDxilResourceLinkInfoTuple(MDTuple *pSRVs, MDTuple *pUAVs,
+                                             MDTuple *pCBuffers,
+                                             MDTuple *pSamplers) {
+  DXASSERT(pSRVs != nullptr || pUAVs != nullptr || pCBuffers != nullptr ||
+               pSamplers != nullptr,
+           "resource tuple should not be emitted if there are no resources");
+  Metadata *MDVals[kDxilNumResourceFields];
+  MDVals[kDxilResourceSRVs] = pSRVs;
+  MDVals[kDxilResourceUAVs] = pUAVs;
+  MDVals[kDxilResourceCBuffers] = pCBuffers;
+  MDVals[kDxilResourceSamplers] = pSamplers;
+  MDTuple *pTupleMD = MDNode::get(m_Ctx, MDVals);
+
+  NamedMDNode *pResourcesNamedMD =
+      m_pModule->getNamedMetadata(kDxilResourcesLinkInfoMDName);
+  IFTBOOL(pResourcesNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  pResourcesNamedMD =
+      m_pModule->getOrInsertNamedMetadata(kDxilResourcesLinkInfoMDName);
+  pResourcesNamedMD->addOperand(pTupleMD);
+}
+
+void DxilMDHelper::LoadDxilResourceLinkInfoTuple(const llvm::MDTuple *&pSRVs,
+                                             const llvm::MDTuple *&pUAVs,
+                                             const llvm::MDTuple *&pCBuffers,
+                                             const llvm::MDTuple *&pSamplers) {
+  NamedMDNode *pResourcesNamedMD =
+      m_pModule->getNamedMetadata(kDxilResourcesLinkInfoMDName);
+  if (!pResourcesNamedMD) {
+    pSRVs = pUAVs = pCBuffers = pSamplers = nullptr;
+    return;
+  }
+
+  IFTBOOL(pResourcesNamedMD->getNumOperands() == 1,
+          DXC_E_INCORRECT_DXIL_METADATA);
+
+  const MDTuple *pTupleMD = dyn_cast<MDTuple>(pResourcesNamedMD->getOperand(0));
+  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(pTupleMD->getNumOperands() == kDxilNumResourceFields,
+          DXC_E_INCORRECT_DXIL_METADATA);
+
+  pSRVs = CastToTupleOrNull(pTupleMD->getOperand(kDxilResourceSRVs));
+  pUAVs = CastToTupleOrNull(pTupleMD->getOperand(kDxilResourceUAVs));
+  pCBuffers = CastToTupleOrNull(pTupleMD->getOperand(kDxilResourceCBuffers));
+  pSamplers = CastToTupleOrNull(pTupleMD->getOperand(kDxilResourceSamplers));
 }
 
 void DxilMDHelper::GetDxilResources(const MDOperand &MDO, const MDTuple *&pSRVs,

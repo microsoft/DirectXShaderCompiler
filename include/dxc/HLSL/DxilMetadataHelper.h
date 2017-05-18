@@ -114,6 +114,7 @@ public:
 
   // Resources.
   static const char kDxilResourcesMDName[];
+  static const char kDxilResourcesLinkInfoMDName[];
   static const unsigned kDxilNumResourceFields              = 4;
   static const unsigned kDxilResourceSRVs                   = 0;
   static const unsigned kDxilResourceUAVs                   = 1;
@@ -292,6 +293,13 @@ public:
                                        llvm::MDTuple *pCBuffers, llvm::MDTuple *pSamplers);
   void GetDxilResources(const llvm::MDOperand &MDO, const llvm::MDTuple *&pSRVs, const llvm::MDTuple *&pUAVs, 
                         const llvm::MDTuple *&pCBuffers, const llvm::MDTuple *&pSamplers);
+  void EmitDxilResourceLinkInfoTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs,
+                                 llvm::MDTuple *pCBuffers,
+                                 llvm::MDTuple *pSamplers);
+  void LoadDxilResourceLinkInfoTuple(const llvm::MDTuple *&pSRVs,
+                                 const llvm::MDTuple *&pUAVs,
+                                 const llvm::MDTuple *&pCBuffers,
+                                 const llvm::MDTuple *&pSamplers);
   void EmitDxilResourceBase(const DxilResourceBase &R, llvm::Metadata *ppMDVals[]);
   void LoadDxilResourceBase(const llvm::MDOperand &MDO, DxilResourceBase &R);
   llvm::MDTuple *EmitDxilSRV(const DxilResource &SRV);
