@@ -32,7 +32,7 @@ using llvm::legacy::PassManager;
 using llvm::legacy::FunctionPassManager;
 using std::vector;
 
-#define DXILVIEWID_DBG   1
+#define DXILVIEWID_DBG   0
 
 #define DEBUG_TYPE "viewid"
 

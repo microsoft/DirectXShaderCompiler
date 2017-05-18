@@ -143,6 +143,7 @@ enum class DxilProgramSigMinPrecision : uint32_t {
   Any10 = 0xf1
 };
 
+// Corresponds to D3D_NAME and D3D10_SB_NAME
 enum class DxilProgramSigSemantic : uint32_t {
   Undefined = 0,
   Position = 1,
@@ -161,6 +162,7 @@ enum class DxilProgramSigSemantic : uint32_t {
   FinalTriInsideTessfactor = 14,
   FinalLineDetailTessfactor = 15,
   FinalLineDensityTessfactor = 16,
+  Barycentrics = 23,
   Target = 64,
   Depth = 65,
   Coverage = 66,
@@ -168,7 +170,6 @@ enum class DxilProgramSigSemantic : uint32_t {
   DepthLE = 68,
   StencilRef = 69,
   InnerCoverage = 70,
-  Barycentrics = 71
 };
 
 enum class DxilProgramSigCompType : uint32_t {
