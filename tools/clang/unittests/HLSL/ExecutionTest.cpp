@@ -336,10 +336,13 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllTrue> {
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllEqual> {
   OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
-    OutType val = inputs.at(0); // assuming there is always one lane per wave
-    for (size_t i = 1; i < inputs.size(); ++i) {
-      if (masks.at(i) == maskValue && val != inputs.at(i)) {
-        return 0;
+    const InType *val = nullptr;
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      if (masks.at(i) == maskValue) {
+        if (val && *val != inputs.at(i)) {
+          return 0;
+        }
+        val = &inputs.at(i);
       }
     }
     return 1;
