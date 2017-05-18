@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_1 %s | FileCheck %s
 
-// CHECK: Number of inputs: 4, outputs: 4, patchconst: 0
+// CHECK: Number of inputs: 4, outputs: 4
 // CHECK: Outputs dependent on ViewId: { 2 }
 // CHECK: Inputs contributing to computation of Outputs:
 // CHECK:   output 0 depends on inputs: { 1 }

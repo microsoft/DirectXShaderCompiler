@@ -4,7 +4,7 @@
 // CHECK: -------------------- ----- ---------------------- ------
 // CHECK: AAA                      0                 linear      y
 
-// CHECK: Number of inputs: 12, outputs: 4, patchconst: 0
+// CHECK: Number of inputs: 12, outputs: 4
 // CHECK: Outputs dependent on ViewId: {  }
 // CHECK: Inputs contributing to computation of Outputs:
 // CHECK:   output 0 depends on inputs: { 1, 2, 3, 5, 8, 9 }
