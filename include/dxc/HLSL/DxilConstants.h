@@ -451,6 +451,7 @@ namespace DXIL {
     WaveReadLaneFirst = 118, // returns the value from the first lane
   
     NumOpCodes_Dxil_1_0 = 137,
+    NumOpCodes_Dxil_1_1 = 139,
   
     NumOpCodes = 139 // exclusive last value of enumeration
   };
@@ -608,6 +609,7 @@ namespace DXIL {
     WaveReadLaneFirst,
   
     NumOpClasses_Dxil_1_0 = 93,
+    NumOpClasses_Dxil_1_1 = 95,
   
     NumOpClasses = 95 // exclusive last value of enumeration
   };
