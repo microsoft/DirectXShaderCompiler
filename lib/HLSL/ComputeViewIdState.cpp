@@ -482,7 +482,7 @@ void DxilViewIdState::CollectPhiCFValuesContributingToOutputRec(PHINode *pPhi,
     while (pDomNode) {
       auto it = DomTreeMarkers.emplace(pDomNode, pValue);
       if (!it.second) {
-        if (it.first->second != pValue) {
+        if (it.first->second != pValue && it.first->second != nullptr) {
           if (!isa<Constant>(it.first->second) || !isa<Constant>(pValue)) {
             // Unless both are different constants, mark the "definition" point as illegal.
             it.first->second = nullptr;
