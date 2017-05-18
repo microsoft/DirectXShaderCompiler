@@ -14,6 +14,7 @@
 #pragma once
 #include "llvm/Pass.h"
 #include "dxc/HLSL/ControlDependence.h"
+#include "llvm/Support/GenericDomTree.h"
 
 #include <memory>
 #include <bitset>
@@ -29,6 +30,7 @@ namespace llvm {
   class Instruction;
   class ReturnInst;
   class Value;
+  class PHINode;
   class AnalysisUsage;
   class CallGraph;
   class CallGraphNode;
@@ -112,6 +114,7 @@ private:
   struct FuncInfo {
     FunctionReturnSet Returns;
     ControlDependence CtrlDep;
+    std::unique_ptr<llvm::DominatorTreeBase<llvm::BasicBlock> > pDomTree;
     void Clear();
   };
 
@@ -134,6 +137,9 @@ private:
   void CollectValuesContributingToOutputRec(EntryInfo &Entry,
                                             llvm::Value *pContributingValue,
                                             InstructionSetType &ContributingInstructions);
+  void CollectPhiCFValuesContributingToOutputRec(llvm::PHINode *pPhi,
+                                                 EntryInfo &Entry,
+                                                 InstructionSetType &ContributingInstructions);
   const ValueSetType &CollectReachingDecls(llvm::Value *pValue);
   void CollectReachingDeclsRec(llvm::Value *pValue, ValueSetType &ReachingDecls, ValueSetType &Visited);
   const ValueSetType &CollectStores(llvm::Value *pValue);
