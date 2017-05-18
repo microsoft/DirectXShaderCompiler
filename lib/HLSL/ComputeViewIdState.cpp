@@ -783,9 +783,9 @@ unsigned DxilViewIdState::Deserialize1(const unsigned *pData, unsigned DataSize,
 
 char ComputeViewIdState::ID = 0;
 
-INITIALIZE_PASS_BEGIN(ComputeViewIdState, "viewid_state",
+INITIALIZE_PASS_BEGIN(ComputeViewIdState, "viewid-state",
                 "Compute information related to ViewID", true, true)
-INITIALIZE_PASS_END(ComputeViewIdState, "viewid_state",
+INITIALIZE_PASS_END(ComputeViewIdState, "viewid-state",
                 "Compute information related to ViewID", true, true)
 
 ComputeViewIdState::ComputeViewIdState() : ModulePass(ID) {
