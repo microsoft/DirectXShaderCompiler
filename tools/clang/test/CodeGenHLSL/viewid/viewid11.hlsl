@@ -8,7 +8,7 @@
 // CHECK: Outputs dependent on ViewId: {  }
 // CHECK: Inputs contributing to computation of Outputs:
 // CHECK:   output 0 depends on inputs: { 0, 1, 5, 7, 9 }
-// CHECK:   output 3 depends on inputs: { 0, 1, 2, 5, 6, 9, 10 }
+// CHECK:   output 3 depends on inputs: { 1, 2, 5, 6, 9, 10 }
 
 uint g1;
 
