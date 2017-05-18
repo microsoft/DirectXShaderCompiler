@@ -42,12 +42,14 @@ public:
     DXIL::SemanticKind kind;
     DXIL::InterpolationMode interpolation;
     DXIL::SemanticInterpretationKind interpretation;
+    uint32_t indexFlags;
 
   public:
     DummyElement(uint32_t index = 0) : id(index), rows(1), cols(1), row((uint32_t)-1), col((uint32_t)-1),
       kind(DXIL::SemanticKind::Arbitrary),
       interpolation(DXIL::InterpolationMode::Undefined),
-      interpretation(DXIL::SemanticInterpretationKind::Arb)
+      interpretation(DXIL::SemanticInterpretationKind::Arb),
+      indexFlags(0)
     {}
     __override ~DummyElement() {}
     __override uint32_t GetID() const { return id; }

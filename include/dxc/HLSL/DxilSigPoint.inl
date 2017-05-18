@@ -1,18 +1,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilSigPoint.cpp                                                          //
+// DxilSigPoint.inl                                                          //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
-
-#include "dxc/HLSL/DxilSigPoint.h"
-#include "dxc/Support/Global.h"
-
-#include <string>
-
-using std::string;
 
 /* <py>
 import hctdb_instrhelp

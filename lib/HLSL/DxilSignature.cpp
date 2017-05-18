@@ -92,10 +92,10 @@ bool DxilSignature::IsFullyAllocated() const {
   return true;
 }
 
-unsigned DxilSignature::NumVectorsUsed() const {
+unsigned DxilSignature::NumVectorsUsed(unsigned streamIndex) const {
   unsigned NumVectors = 0;
   for (auto &SE : m_Elements) {
-    if (SE->IsAllocated())
+    if (SE->IsAllocated() && SE->GetOutputStream() == streamIndex)
       NumVectors = std::max(NumVectors, (unsigned)SE->GetStartRow() + SE->GetRows());
   }
   return NumVectors;
@@ -203,3 +203,7 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
 
 #include <algorithm>
 #include "dxc/HLSL/DxilSignatureAllocator.inl"
+#include "dxc/HLSL/DxilSigPoint.inl"
+#include "dxc/HLSL/DxilPipelineStateValidation.h"
+#include <functional>
+#include "dxc/HLSL/ViewIDPipelineValidation.inl"

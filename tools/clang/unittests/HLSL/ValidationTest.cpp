@@ -1055,10 +1055,12 @@ TEST_F(ValidationTest, StreamIDOutOfBound) {
 
 TEST_F(ValidationTest, SignatureStreamIDForNonGS) {
   RewriteAssemblyCheckMsg(
-      L"..\\CodeGenHLSL\\abs1.hlsl", "ps_6_0",
-      ", i8 0, i32 1, i8 4, i32 0, i8 0, null}",
-      ", i8 0, i32 1, i8 4, i32 0, i8 0, !19}\n!19 = !{i32 0, i32 1}", 
-      "Stream index (1) must between 0 and 0");
+    L"..\\CodeGenHLSL\\abs1.hlsl", "ps_6_0",
+    { ", i8 0, i32 1, i8 4, i32 0, i8 0, null}",
+      "?!dx.viewIdState ="},
+    { ", i8 0, i32 1, i8 4, i32 0, i8 0, !19}\n!19 = !{i32 0, i32 1}",
+      "!1012 =" },
+    "Stream index (1) must between 0 and 0");
 }
 
 TEST_F(ValidationTest, TypedUAVStoreFullMask0) {

@@ -885,7 +885,7 @@ void DxilViewIdState::Deserialize(const unsigned *pData, unsigned DataSizeInUINT
   memcpy(m_SerializedState.data(), pData, DataSizeInUINTs * sizeof(unsigned));
 
   const ShaderModel *pSM = m_pModule->GetShaderModel();
-  m_bUsesViewId = m_pModule->m_ShaderFlags.GetUsesViewId();
+  m_bUsesViewId = m_pModule->m_ShaderFlags.GetViewID();
   unsigned ConsumedUINTs = 0;
 
   IFTBOOL(DataSizeInUINTs-ConsumedUINTs >= 1, DXC_E_GENERAL_INTERNAL_ERROR);
