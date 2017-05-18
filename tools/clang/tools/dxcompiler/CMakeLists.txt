@@ -68,7 +68,6 @@ set(LIBRARIES
   clangTooling
   clangBasic
   libclang
-  LLVMHLSL
   )
 
 set(GENERATED_HEADERS

@@ -186,11 +186,11 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format, UINT32 m_width
 
 // Setup for wave intrinsics tests
 enum class ShaderOpKind {
-  WaveActiveSum,
-  WaveActiveProduct,
+  WaveSum,
+  WaveProduct,
   WaveActiveMax,
   WaveActiveMin,
-  WaveActiveCountBits,
+  WaveCountBits,
   WaveActiveAllEqual,
   WaveActiveAnyTrue,
   WaveActiveAllTrue,
@@ -206,21 +206,30 @@ struct ShaderOpKindPair {
 };
 
 static ShaderOpKindPair ShaderOpKindTable[] = {
-  { L"WaveActiveSum", ShaderOpKind::WaveActiveSum },
-  { L"WaveActiveUSum", ShaderOpKind::WaveActiveSum },
-  { L"WaveActiveProduct", ShaderOpKind::WaveActiveProduct },
-  { L"WaveActiveUProduct", ShaderOpKind::WaveActiveProduct },
+  { L"WaveActiveSum", ShaderOpKind::WaveSum },
+  { L"WaveActiveUSum", ShaderOpKind::WaveSum },
+  { L"WaveActiveProduct", ShaderOpKind::WaveProduct },
+  { L"WaveActiveUProduct", ShaderOpKind::WaveProduct },
   { L"WaveActiveMax", ShaderOpKind::WaveActiveMax },
   { L"WaveActiveUMax", ShaderOpKind::WaveActiveMax },
   { L"WaveActiveMin", ShaderOpKind::WaveActiveMin },
   { L"WaveActiveUMin", ShaderOpKind::WaveActiveMin },
-  { L"WaveActiveCountBits", ShaderOpKind::WaveActiveCountBits },
+  { L"WaveActiveCountBits", ShaderOpKind::WaveCountBits },
   { L"WaveActiveAllEqual", ShaderOpKind::WaveActiveAllEqual },
   { L"WaveActiveAnyTrue", ShaderOpKind::WaveActiveAnyTrue },
   { L"WaveActiveAllTrue", ShaderOpKind::WaveActiveAllTrue },
   { L"WaveActiveBitOr", ShaderOpKind::WaveActiveBitOr },
   { L"WaveActiveBitAnd", ShaderOpKind::WaveActiveBitAnd },
-  { L"WaveActiveBitXor", ShaderOpKind::WaveActiveBitXor }
+  { L"WaveActiveBitXor", ShaderOpKind::WaveActiveBitXor },
+  { L"WavePrefixSum", ShaderOpKind::WaveSum },
+  { L"WavePrefixUSum", ShaderOpKind::WaveSum },
+  { L"WavePrefixProduct", ShaderOpKind::WaveProduct },
+  { L"WavePrefixUProduct", ShaderOpKind::WaveProduct },
+  { L"WavePrefixMax", ShaderOpKind::WaveActiveMax },
+  { L"WavePrefixUMax", ShaderOpKind::WaveActiveMax },
+  { L"WavePrefixMin", ShaderOpKind::WaveActiveMin },
+  { L"WavePrefixUMin", ShaderOpKind::WaveActiveMin },
+  { L"WavePrefixCountBits", ShaderOpKind::WaveCountBits }
 };
 
 ShaderOpKind GetShaderOpKind(LPCWSTR str) {
@@ -238,16 +247,20 @@ struct TableParameter;
 
 template <typename InType, typename OutType, ShaderOpKind kind>
 struct computeExpected {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
-    reuturn 0;
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
+    return 0;
   }
 };
 
 template <typename InType, typename OutType>
-struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveSum> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+struct computeExpected<InType, OutType, ShaderOpKind::WaveSum> {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     OutType sum = 0;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         sum += inputs.at(i);
       }
@@ -257,10 +270,12 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveSum> {
 };
 
 template <typename InType, typename OutType>
-struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveProduct> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+struct computeExpected<InType, OutType, ShaderOpKind::WaveProduct> {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     OutType prod = 1;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         prod *= inputs.at(i);
       }
@@ -271,9 +286,11 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveProduct> {
 
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveMax> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     OutType maximum = std::numeric_limits<OutType>::min();
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue && inputs.at(i) > maximum)
         maximum = inputs.at(i);
     }
@@ -283,9 +300,11 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveMax> {
 
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveMin> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     OutType minimum = std::numeric_limits<OutType>::max();
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue && inputs.at(i) < minimum)
         minimum = inputs.at(i);
     }
@@ -294,10 +313,12 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveMin> {
 };
 
 template <typename InType, typename OutType>
-struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveCountBits> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+struct computeExpected<InType, OutType, ShaderOpKind::WaveCountBits> {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     OutType count = 0;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue && inputs.at(i) > 3) {
         count++;
       }
@@ -311,8 +332,10 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveCountBits> {
 // HLSL returns 0 for false and 1 for true
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAnyTrue> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
-    for (size_t i = 0; i < inputs.size(); ++i) {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue && inputs.at(i) != 0) {
         return 1;
       }
@@ -323,8 +346,10 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAnyTrue> {
 
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllTrue> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
-    for (size_t i = 0; i < inputs.size(); ++i) {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue && inputs.at(i) == 0) {
         return 0;
       }
@@ -335,9 +360,11 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllTrue> {
 
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllEqual> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     const InType *val = nullptr;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         if (val && *val != inputs.at(i)) {
           return 0;
@@ -351,9 +378,11 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllEqual> {
 
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitOr> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     OutType bits = 0x00000000;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         bits |= inputs.at(i);
       }
@@ -364,9 +393,11 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitOr> {
 
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitAnd> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     OutType bits = 0xffffffff;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         bits &= inputs.at(i);
       }
@@ -377,9 +408,11 @@ struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitAnd> {
 
 template <typename InType, typename OutType>
 struct computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitXor> {
-  OutType operator()(const std::vector<InType> &inputs, const std::vector<int> &masks, int maskValue) {
+  OutType operator()(const std::vector<InType> &inputs,
+                     const std::vector<int> &masks, int maskValue,
+                     unsigned int index) {
     OutType bits = 0x00000000;
-    for (size_t i = 0; i < inputs.size(); ++i) {
+    for (size_t i = 0; i < index; ++i) {
       if (masks.at(i) == maskValue) {
         bits ^= inputs.at(i);
       }
@@ -410,32 +443,32 @@ static MaskFunction MaskFunctionTable[] = {
 template <typename InType, typename OutType>
 static OutType computeExpectedWithShaderOp(const std::vector<InType> &inputs,
                                            const std::vector<int> &masks,
-                                           unsigned int index, int maskValue,
+                                           int maskValue, unsigned int index,
                                            LPCWSTR str) {
   ShaderOpKind kind = GetShaderOpKind(str);
   switch (kind) {
-  case ShaderOpKind::WaveActiveSum:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveSum>()(inputs, masks, maskValue);
-  case ShaderOpKind::WaveActiveProduct:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveProduct>()(inputs, masks, maskValue);
+  case ShaderOpKind::WaveSum:
+    return computeExpected<InType, OutType, ShaderOpKind::WaveSum>()(inputs, masks, maskValue, index);
+  case ShaderOpKind::WaveProduct:
+    return computeExpected<InType, OutType, ShaderOpKind::WaveProduct>()(inputs, masks, maskValue, index);
   case ShaderOpKind::WaveActiveMax:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveMax>()(inputs, masks, maskValue);
+    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveMax>()(inputs, masks, maskValue, index);
   case ShaderOpKind::WaveActiveMin:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveMin>()(inputs, masks, maskValue);
-  case ShaderOpKind::WaveActiveCountBits:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveCountBits>()(inputs, masks, maskValue);
+    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveMin>()(inputs, masks, maskValue, index);
+  case ShaderOpKind::WaveCountBits:
+    return computeExpected<InType, OutType, ShaderOpKind::WaveCountBits>()(inputs, masks, maskValue, index);
   case ShaderOpKind::WaveActiveBitOr:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitOr>()(inputs, masks, maskValue);
+    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitOr>()(inputs, masks, maskValue, index);
   case ShaderOpKind::WaveActiveBitAnd:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitAnd>()(inputs, masks, maskValue);
+    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitAnd>()(inputs, masks, maskValue, index);
   case ShaderOpKind::WaveActiveBitXor:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitXor>()(inputs, masks, maskValue);
+    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveBitXor>()(inputs, masks, maskValue, index);
   case ShaderOpKind::WaveActiveAnyTrue:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveAnyTrue>()(inputs, masks, maskValue);
+    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveAnyTrue>()(inputs, masks, maskValue, index);
   case ShaderOpKind::WaveActiveAllTrue:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllTrue>()(inputs, masks, maskValue);
+    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllTrue>()(inputs, masks, maskValue, index);
   case ShaderOpKind::WaveActiveAllEqual:
-    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllEqual>()(inputs, masks, maskValue);
+    return computeExpected<InType, OutType, ShaderOpKind::WaveActiveAllEqual>()(inputs, masks, maskValue, index);
   default:
     DXASSERT(false, "Invalid ShaderOp Name: %s", str);
     return (OutType) 0;
@@ -474,6 +507,15 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
+  BEGIN_TEST_METHOD(WaveIntrinsicsPrefixIntTest)
+  TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsPrefixIntTable")
+  TEST_METHOD_PROPERTY(L"Priority", L"2")
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(WaveIntrinsicsPrefixUintTest)
+  TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsPrefixUintTable")
+  TEST_METHOD_PROPERTY(L"Priority", L"2")
+  END_TEST_METHOD()
   // TAEF data-driven tests.
   BEGIN_TEST_METHOD(UnaryFloatOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryFloatOpTable")
@@ -518,8 +560,8 @@ public:
   static const float ClearColor[4];
 
   template <class T1, class T2>
-  void WaveIntrinsicsActiveTest(
-    TableParameter *pParameterList, size_t numParameter);
+  void WaveIntrinsicsActivePrefixTest(
+    TableParameter *pParameterList, size_t numParameter, bool isPrefix);
 
   bool UseDxbc() {
     return GetTestParamBool(L"DXBC");
@@ -2654,7 +2696,27 @@ static TableParameter WaveIntrinsicsActiveIntParameters[] = {
     { L"Validation.InputSet4", TableParameter::INT_TABLE, false }
 };
 
+static TableParameter WaveIntrinsicsPrefixIntParameters[] = {
+  { L"ShaderOp.Name", TableParameter::STRING, true },
+  { L"ShaderOp.Text", TableParameter::STRING, true },
+  { L"Validation.NumInputSet", TableParameter::UINT, true },
+  { L"Validation.InputSet1", TableParameter::INT_TABLE, true },
+  { L"Validation.InputSet2", TableParameter::INT_TABLE, false },
+  { L"Validation.InputSet3", TableParameter::INT_TABLE, false },
+  { L"Validation.InputSet4", TableParameter::INT_TABLE, false }
+};
+
 static TableParameter WaveIntrinsicsActiveUintParameters[] = {
+  { L"ShaderOp.Name", TableParameter::STRING, true },
+  { L"ShaderOp.Text", TableParameter::STRING, true },
+  { L"Validation.NumInputSet", TableParameter::UINT, true },
+  { L"Validation.InputSet1", TableParameter::UINT_TABLE, true },
+  { L"Validation.InputSet2", TableParameter::UINT_TABLE, false },
+  { L"Validation.InputSet3", TableParameter::UINT_TABLE, false },
+  { L"Validation.InputSet4", TableParameter::UINT_TABLE, false }
+};
+
+static TableParameter WaveIntrinsicsPrefixUintParameters[] = {
   { L"ShaderOp.Name", TableParameter::STRING, true },
   { L"ShaderOp.Text", TableParameter::STRING, true },
   { L"Validation.NumInputSet", TableParameter::UINT, true },
@@ -3800,8 +3862,8 @@ TEST_F(ExecutionTest, Msad4Test) {
 }
 
 template <class T1, class T2>
-void ExecutionTest::WaveIntrinsicsActiveTest(
-    TableParameter *pParameterList, size_t numParameter) {
+void ExecutionTest::WaveIntrinsicsActivePrefixTest(
+    TableParameter *pParameterList, size_t numParameter, bool isPrefix) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   // Resource representation for compute shader
@@ -3924,22 +3986,24 @@ void ExecutionTest::WaveIntrinsicsActiveTest(
         LogCommentFmt(inputStr.data());
         LogCommentFmt(maskStr.data());
         // Compute expected output for a given inputs, masks, and index
-        for (size_t j = 0; j < waveData->size(); ++j) {
+        for (size_t laneIndex = 0; laneIndex < waveData->size(); ++laneIndex) {
           T2 expected;
-          if (waveData->at(j)->mask == 1) {
+          // WaveActive is equivalent to WavePrefix lane # lane count
+          unsigned int index = isPrefix ? laneIndex : waveData->size();
+          if (waveData->at(laneIndex)->mask == 1) {
             expected = computeExpectedWithShaderOp<T1, T2>(
-              inputList, maskList, i, 1,
+              inputList, maskList, 1, index,
               handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
           }
           else {
             expected = computeExpectedWithShaderOp<T1, T2>(
-              inputList, maskList, i, 0,
+              inputList, maskList, 0, index,
               handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
           }
           // TODO: use different comparison for floating point inputs
-          bool equal = waveData->at(j)->output == expected;
+          bool equal = waveData->at(laneIndex)->output == expected;
           if (!equal) {
-            LogCommentFmt(L"lane%d: %4d, Expected : %4d", j, waveData->at(j)->output, expected);
+            LogCommentFmt(L"lane%d: %4d, Expected : %4d", laneIndex, waveData->at(laneIndex)->output, expected);
           }
           VERIFY_IS_TRUE(equal);
         }
@@ -3949,15 +4013,27 @@ void ExecutionTest::WaveIntrinsicsActiveTest(
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
-  WaveIntrinsicsActiveTest<int, int>(
+  WaveIntrinsicsActivePrefixTest<int, int>(
     WaveIntrinsicsActiveIntParameters,
-    sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter));
+    sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter), /*isPrefix*/ false);
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsActiveUintTest) {
-  WaveIntrinsicsActiveTest<unsigned int, unsigned int>(
+  WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
       WaveIntrinsicsActiveUintParameters,
-      sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter));
+      sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter), /*isPrefix*/ false);
+}
+
+TEST_F(ExecutionTest, WaveIntrinsicsPrefixIntTest) {
+  WaveIntrinsicsActivePrefixTest<int, int>(
+    WaveIntrinsicsPrefixIntParameters,
+    sizeof(WaveIntrinsicsPrefixIntParameters) / sizeof(TableParameter), /*isPrefix*/ true);
+}
+
+TEST_F(ExecutionTest, WaveIntrinsicsPrefixUintTest) {
+  WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
+    WaveIntrinsicsPrefixUintParameters,
+    sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter), /*isPrefix*/ true);
 }
 
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,

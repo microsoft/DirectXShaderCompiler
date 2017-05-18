@@ -12,6 +12,7 @@ set( LLVM_LINK_COMPONENTS
   option
   bitwriter
   analysis
+  ipa
   )
 
 add_clang_library(clang-hlsl-tests SHARED
@@ -44,7 +45,6 @@ target_link_libraries(clang-hlsl-tests PRIVATE
   ${TAEF_LIBRARIES}
   ${DIASDK_LIBRARIES}
   ${D3D12_LIBRARIES}
-  LLVMipa
   )
 
 # Add includes for platform helpers and dxc API.

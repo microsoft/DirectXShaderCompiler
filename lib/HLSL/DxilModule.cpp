@@ -121,6 +121,7 @@ DxilModule::ShaderFlags::ShaderFlags():
 , m_bROVS(false)
 , m_bWaveOps(false)
 , m_bInt64Ops(false)
+, m_bViewID(false)
 , m_align0(0)
 , m_align1(0)
 {}
