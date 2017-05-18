@@ -5377,7 +5377,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   
   std::vector<Value *> FlatParamList;
   std::vector<DxilParameterAnnotation> FlatParamAnnotationList;
-  const bool bForParam = true;
+  const bool bForParamTrue = true;
   // Add all argument to worklist.
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
@@ -5387,7 +5387,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     DxilParameterAnnotation &paramAnnotation =
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
-    flattenArgument(F, &Arg, bForParam, paramAnnotation, FlatParamList,
+    flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
                     FlatParamAnnotationList, Builder, DDI);
   }
 
@@ -5449,7 +5449,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     }
 
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
-    flattenArgument(F, retValAddr, bForParam, funcAnnotation->GetRetTypeAnnotation(),
+    flattenArgument(F, retValAddr, bForParamTrue, funcAnnotation->GetRetTypeAnnotation(),
                     FlatRetList, FlatRetAnnotationList, Builder, DDI);
   }
 
@@ -5622,7 +5622,7 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
   Type *retType = F->getReturnType();
   std::vector<Value *> FlatRetList;
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
-  const bool bForParam = false;
+  const bool bForParamFalse = false;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
     Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
@@ -5666,7 +5666,7 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
     }
     CI->replaceAllUsesWith(newRetVal);
     // Flat ret val
-    flattenArgument(flatF, retValAddr, bForParam,
+    flattenArgument(flatF, retValAddr, bForParamFalse,
                     funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
                     FlatRetAnnotationList, AllocaBuilder,
                     /*DbgDeclareInst*/ nullptr);
@@ -5710,7 +5710,7 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
                  &paramAnnotation);
       }
       arg = tempArg;
-      flattenArgument(flatF, arg, bForParam, paramAnnotation, FlatParamList,
+      flattenArgument(flatF, arg, bForParamFalse, paramAnnotation, FlatParamList,
                       FlatParamAnnotationList, AllocaBuilder,
                       /*DbgDeclareInst*/ nullptr);
     } else {
