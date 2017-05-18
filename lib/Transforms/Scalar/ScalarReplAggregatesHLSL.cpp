@@ -5449,8 +5449,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     }
 
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
-    flattenArgument(F, retValAddr, bForParamTrue, funcAnnotation->GetRetTypeAnnotation(),
-                    FlatRetList, FlatRetAnnotationList, Builder, DDI);
+    flattenArgument(F, retValAddr, bForParamTrue,
+                    funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
+                    FlatRetAnnotationList, Builder, DDI);
   }
 
   // Always change return type as parameter.
@@ -5710,8 +5711,8 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
                  &paramAnnotation);
       }
       arg = tempArg;
-      flattenArgument(flatF, arg, bForParamFalse, paramAnnotation, FlatParamList,
-                      FlatParamAnnotationList, AllocaBuilder,
+      flattenArgument(flatF, arg, bForParamFalse, paramAnnotation,
+                      FlatParamList, FlatParamAnnotationList, AllocaBuilder,
                       /*DbgDeclareInst*/ nullptr);
     } else {
       // Cast vector into array.
