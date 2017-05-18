@@ -40,22 +40,24 @@ using std::unordered_map;
 
 
 DxilViewIdState::DxilViewIdState(DxilModule *pDxilModule) : m_pModule(pDxilModule) {}
-unsigned DxilViewIdState::getNumInputSigScalars() const   { return m_NumInputSigScalars; }
-unsigned DxilViewIdState::getNumOutputSigScalars() const  { return m_NumOutputSigScalars; }
-unsigned DxilViewIdState::getNumPCSigScalars() const      { return m_NumPCSigScalars; }
-const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getOutputsDependentOnViewId() const      { return m_OutputsDependentOnViewId; }
-const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getPCOutputsDependentOnViewId() const    { return m_PCOutputsDependentOnViewId; }
-const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToOutputs() const   { return m_InputsContributingToOutputs; }
-const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToPCOutputs() const { return m_InputsContributingToPCOutputs; }
-const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getPCInputsContributingToOutputs() const { return m_PCInputsContributingToOutputs; }
+unsigned DxilViewIdState::getNumInputSigScalars() const                   { return m_NumInputSigScalars; }
+unsigned DxilViewIdState::getNumOutputSigScalars(unsigned StreamId) const { return m_NumOutputSigScalars[StreamId]; }
+unsigned DxilViewIdState::getNumPCSigScalars() const                      { return m_NumPCSigScalars; }
+const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getOutputsDependentOnViewId(unsigned StreamId) const    { return m_OutputsDependentOnViewId[StreamId]; }
+const DxilViewIdState::OutputsDependentOnViewIdType   &DxilViewIdState::getPCOutputsDependentOnViewId() const                   { return m_PCOutputsDependentOnViewId; }
+const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToOutputs(unsigned StreamId) const { return m_InputsContributingToOutputs[StreamId]; }
+const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getInputsContributingToPCOutputs() const                { return m_InputsContributingToPCOutputs; }
+const DxilViewIdState::InputsContributingToOutputType &DxilViewIdState::getPCInputsContributingToOutputs() const                { return m_PCInputsContributingToOutputs; }
 
 void DxilViewIdState::Compute() {
   Clear();
 
+  const ShaderModel *pSM = m_pModule->GetShaderModel();
+
   // 1. Traverse signature MD to determine max packed location.
-  DetermineMaxPackedLocation(m_pModule->GetInputSignature(), m_NumInputSigScalars);
-  DetermineMaxPackedLocation(m_pModule->GetOutputSignature(), m_NumOutputSigScalars);
-  DetermineMaxPackedLocation(m_pModule->GetPatchConstantSignature(), m_NumPCSigScalars);
+  DetermineMaxPackedLocation(m_pModule->GetInputSignature(), &m_NumInputSigScalars, 1);
+  DetermineMaxPackedLocation(m_pModule->GetOutputSignature(), &m_NumOutputSigScalars[0], pSM->IsGS() ? kNumStreams : 1);
+  DetermineMaxPackedLocation(m_pModule->GetPatchConstantSignature(), &m_NumPCSigScalars, 1);
 
   // 2. Collect sets of functions reachable from main and pc entries.
   CallGraphAnalysis CGA;
@@ -76,12 +78,19 @@ void DxilViewIdState::Compute() {
   CollectValuesContributingToOutputs(m_PCEntry);
 
   // 5. Construct dependency sets.
-  const ShaderModel *pSM = m_pModule->GetShaderModel();
-  CreateViewIdSets(m_Entry, m_OutputsDependentOnViewId, m_InputsContributingToOutputs, false);
+  for (unsigned StreamId = 0; StreamId < kNumStreams; StreamId++) {
+    CreateViewIdSets(m_Entry.ContributingInstructions[StreamId],
+                     m_OutputsDependentOnViewId[StreamId],
+                     m_InputsContributingToOutputs[StreamId], false);
+  }
   if (pSM->IsHS()) {
-    CreateViewIdSets(m_PCEntry, m_PCOutputsDependentOnViewId, m_InputsContributingToPCOutputs, true);
+    CreateViewIdSets(m_PCEntry.ContributingInstructions[0],
+                     m_PCOutputsDependentOnViewId,
+                     m_InputsContributingToPCOutputs, true);
   } else if (pSM->IsDS()) {
-    CreateViewIdSets(m_PCEntry, m_OutputsDependentOnViewId, m_PCInputsContributingToOutputs, true);
+    CreateViewIdSets(m_PCEntry.ContributingInstructions[0],
+                     m_OutputsDependentOnViewId[0],
+                     m_PCInputsContributingToOutputs, true);
   }
 
   // 6. Update dynamically indexed input/output component masks.
@@ -95,15 +104,38 @@ void DxilViewIdState::Compute() {
 void DxilViewIdState::PrintSets(llvm::raw_ostream &OS) {
   const ShaderModel *pSM = m_pModule->GetShaderModel();
   OS << "ViewId state: \n";
-  OS << "Number of inputs: " << m_NumInputSigScalars  << 
-               ", outputs: " << m_NumOutputSigScalars << 
-            ", patchconst: " << m_NumPCSigScalars     << "\n";
-  PrintOutputsDependentOnViewId(OS, "Outputs", m_NumOutputSigScalars, m_OutputsDependentOnViewId);
+
+  if (!pSM->IsGS()) {
+    OS << "Number of inputs: " << m_NumInputSigScalars     << 
+                 ", outputs: " << m_NumOutputSigScalars[0] << 
+              ", patchconst: " << m_NumPCSigScalars        << "\n";
+  } else {
+    OS << "Number of inputs: "   << m_NumInputSigScalars     << 
+                 ", outputs: { " << m_NumOutputSigScalars[0] << ", " << m_NumOutputSigScalars[1] << ", " <<
+                                    m_NumOutputSigScalars[2] << ", " << m_NumOutputSigScalars[3] << " }" <<
+              ", patchconst: "   << m_NumPCSigScalars        << "\n";
+  }
+
+  if (!pSM->IsGS()) {
+    PrintOutputsDependentOnViewId(OS, "Outputs", m_NumOutputSigScalars[0], m_OutputsDependentOnViewId[0]);
+  } else {
+    PrintOutputsDependentOnViewId(OS, "Outputs for Stream0", m_NumOutputSigScalars[0], m_OutputsDependentOnViewId[0]);
+    PrintOutputsDependentOnViewId(OS, "Outputs for Stream1", m_NumOutputSigScalars[1], m_OutputsDependentOnViewId[1]);
+    PrintOutputsDependentOnViewId(OS, "Outputs for Stream2", m_NumOutputSigScalars[2], m_OutputsDependentOnViewId[2]);
+    PrintOutputsDependentOnViewId(OS, "Outputs for Stream3", m_NumOutputSigScalars[3], m_OutputsDependentOnViewId[3]);
+  }
   if (pSM->IsHS()) {
     PrintOutputsDependentOnViewId(OS, "PCOutputs", m_NumPCSigScalars, m_PCOutputsDependentOnViewId);
   }
 
-  PrintInputsContributingToOutputs(OS, "Inputs", "Outputs", m_InputsContributingToOutputs);
+  if (!pSM->IsGS()) {
+    PrintInputsContributingToOutputs(OS, "Inputs", "Outputs", m_InputsContributingToOutputs[0]);
+  } else {
+    PrintInputsContributingToOutputs(OS, "Inputs", "Outputs for Stream0", m_InputsContributingToOutputs[0]);
+    PrintInputsContributingToOutputs(OS, "Inputs", "Outputs for Stream1", m_InputsContributingToOutputs[1]);
+    PrintInputsContributingToOutputs(OS, "Inputs", "Outputs for Stream2", m_InputsContributingToOutputs[2]);
+    PrintInputsContributingToOutputs(OS, "Inputs", "Outputs for Stream3", m_InputsContributingToOutputs[3]);
+  }
   if (pSM->IsHS()) {
     PrintInputsContributingToOutputs(OS, "Inputs", "PCOutputs", m_InputsContributingToPCOutputs);
   } else if (pSM->IsDS()) {
@@ -148,15 +180,18 @@ void DxilViewIdState::PrintInputsContributingToOutputs(llvm::raw_ostream &OS,
 }
 
 void DxilViewIdState::Clear() {
+  m_bUsesViewId = false;
   m_NumInputSigScalars  = 0;
-  m_NumOutputSigScalars = 0;
+  for (unsigned i = 0; i < kNumStreams; i++) {
+    m_NumOutputSigScalars[i] = 0;
+    m_OutputsDependentOnViewId[i].reset();
+    m_InputsContributingToOutputs[i].clear();
+  }
   m_NumPCSigScalars     = 0;
   m_InpSigDynIdxElems.clear();
   m_OutSigDynIdxElems.clear();
   m_PCSigDynIdxElems.clear();
-  m_OutputsDependentOnViewId.reset();
   m_PCOutputsDependentOnViewId.reset();
-  m_InputsContributingToOutputs.clear();
   m_InputsContributingToPCOutputs.clear();
   m_PCInputsContributingToOutputs.clear();
   m_Entry.Clear();
@@ -170,7 +205,8 @@ void DxilViewIdState::EntryInfo::Clear() {
   pEntryFunc = nullptr;
   Functions.clear();
   Outputs.clear();
-  ContributingInstructions.clear();
+  for (unsigned i = 0; i < kNumStreams; i++)
+    ContributingInstructions[i].clear();
 }
 
 void DxilViewIdState::FuncInfo::Clear() {
@@ -179,15 +215,22 @@ void DxilViewIdState::FuncInfo::Clear() {
   pDomTree.reset();
 }
 
-void DxilViewIdState::DetermineMaxPackedLocation(DxilSignature &DxilSig, unsigned &MaxSigLoc) {
+void DxilViewIdState::DetermineMaxPackedLocation(DxilSignature &DxilSig,
+                                                 unsigned *pMaxSigLoc,
+                                                 unsigned NumStreams) {
   if (&DxilSig == nullptr) return;
+  DXASSERT_NOMSG(NumStreams == 1 || NumStreams == kNumStreams);
 
-  MaxSigLoc = 0;
+  for (unsigned i = 0; i < NumStreams; i++) {
+    pMaxSigLoc[i] = 0;
+  }
+
   for (auto &E : DxilSig.GetElements()) {
     if (E->GetStartRow() == Semantic::kUndefinedRow) continue;
 
+    unsigned StreamId = E->GetOutputStream();
     unsigned endLoc = GetLinearIndex(*E, E->GetRows() - 1, E->GetCols() - 1);
-    MaxSigLoc = std::max(MaxSigLoc, endLoc + 1);
+    pMaxSigLoc[StreamId] = std::max(pMaxSigLoc[StreamId], endLoc + 1);
     E->GetCols();
   }
 }
@@ -338,6 +381,8 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
     if (!SigElem.IsAllocated())
       continue;
 
+    unsigned StreamId = SigElem.GetOutputStream();
+
     if (startRow != Semantic::kUndefinedRow) {
       endRow = startRow;
     } else {
@@ -350,7 +395,7 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
     if (startRow == endRow) {
       // Scalar or indexable with known index.
       unsigned index = GetLinearIndex(SigElem, startRow, col);
-      InstructionSetType &ContributingInstructions = Entry.ContributingInstructions[index];
+      InstructionSetType &ContributingInstructions = Entry.ContributingInstructions[StreamId][index];
       CollectValuesContributingToOutputRec(Entry, pContributingValue, ContributingInstructions);
     } else {
       // Dynamically indexed output.
@@ -359,7 +404,7 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
 
       for (int row = startRow; row <= endRow; row++) {
         unsigned index = GetLinearIndex(SigElem, row, col);
-        Entry.ContributingInstructions[index].insert(ContributingInstructions.begin(), ContributingInstructions.end());
+        Entry.ContributingInstructions[StreamId][index].insert(ContributingInstructions.begin(), ContributingInstructions.end());
       }
     }
   }
@@ -609,18 +654,18 @@ void DxilViewIdState::CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores
   }
 }
 
-void DxilViewIdState::CreateViewIdSets(EntryInfo &Entry, 
+void DxilViewIdState::CreateViewIdSets(const std::unordered_map<unsigned, InstructionSetType> &ContributingInstructions, 
                                        OutputsDependentOnViewIdType &OutputsDependentOnViewId,
                                        InputsContributingToOutputType &InputsContributingToOutputs,
                                        bool bPC) {
   const ShaderModel *pSM = m_pModule->GetShaderModel();
 
-  for (auto &itOut : Entry.ContributingInstructions) {
+  for (auto &itOut : ContributingInstructions) {
     unsigned outIdx = itOut.first;
-    InstructionSetType &ContributingInstrunction = itOut.second;
-    for (Instruction *pInst : ContributingInstrunction) {
+    for (Instruction *pInst : itOut.second) {
       // Set output dependence on ViewId.
       if (DxilInst_ViewID VID = DxilInst_ViewID(pInst)) {
+        m_bUsesViewId = true;
         OutputsDependentOnViewId[outIdx] = true;
         continue;
       }
@@ -681,10 +726,10 @@ void DxilViewIdState::CreateViewIdSets(EntryInfo &Entry,
             // that is the output value of the HS main (control-point) function.
             // Transitively update this (patch-constant) output dependence on main (control-point) output.
             DXASSERT_NOMSG(&OutputsDependentOnViewId == &m_PCOutputsDependentOnViewId);
-            OutputsDependentOnViewId[outIdx] = OutputsDependentOnViewId[outIdx] || m_OutputsDependentOnViewId[index];
+            OutputsDependentOnViewId[outIdx] = OutputsDependentOnViewId[outIdx] || m_OutputsDependentOnViewId[0][index];
 
-            const auto it = m_InputsContributingToOutputs.find(index);
-            if (it != m_InputsContributingToOutputs.end()) {
+            const auto it = m_InputsContributingToOutputs[0].find(index);
+            if (it != m_InputsContributingToOutputs[0].end()) {
               const std::set<unsigned> &LoadOutputCPInputsContributingToOutputs = it->second;
               ContributingInputs.insert(LoadOutputCPInputsContributingToOutputs.begin(),
                                         LoadOutputCPInputsContributingToOutputs.end());
@@ -699,6 +744,7 @@ void DxilViewIdState::CreateViewIdSets(EntryInfo &Entry,
 unsigned DxilViewIdState::GetLinearIndex(DxilSignatureElement &SigElem, int row, unsigned col) const {
   DXASSERT_NOMSG(row >= 0 && col < kNumComps && SigElem.GetStartRow() != Semantic::kUndefinedRow);
   unsigned idx = (((unsigned)row) + SigElem.GetStartRow())*kNumComps + col + SigElem.GetStartCol();
+  DXASSERT_NOMSG(idx < kMaxSigScalars);
   return idx;
 }
 
@@ -723,56 +769,83 @@ static unsigned RoundUpToUINT(unsigned x) {
 }
 
 void DxilViewIdState::Serialize() {
-  if (!m_SerializedState.empty())
-    return;
-
   const ShaderModel *pSM = m_pModule->GetShaderModel();
-  unsigned NumOutUINTs = RoundUpToUINT(m_NumOutputSigScalars);
-  unsigned NumPCUINTs = RoundUpToUINT(m_NumPCSigScalars);
-  unsigned Size1 = 2 + NumOutUINTs * (1 + m_NumInputSigScalars);
-  unsigned Size2 = 0;
-  if (pSM->IsHS()) {
-    Size2 = 2 + NumPCUINTs * (1 + m_NumInputSigScalars);
-  } else if (pSM->IsDS()) {
-    Size2 = 2 + NumOutUINTs * (1 + m_NumPCSigScalars);
+  m_SerializedState.clear();
+
+  // Compute serialized state size in UINTs.
+  unsigned NumInputs = getNumInputSigScalars();
+  unsigned NumStreams = pSM->IsGS()? kNumStreams : 1;
+  unsigned Size = 0;
+  Size += 1;  // #Inputs.
+  for (unsigned StreamId = 0; StreamId < NumStreams; StreamId++) {
+    Size += 1;  // #Outputs for stream StreamId.
+    unsigned NumOutputs = getNumOutputSigScalars(StreamId);
+    unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
+    if (m_bUsesViewId) {
+      Size += NumOutUINTs;  // m_OutputsDependentOnViewId[StreamId]
+    }
+    Size += NumInputs * NumOutUINTs;  // m_InputsContributingToOutputs[StreamId]
   }
-  unsigned Size = Size1 + Size2;
+  if (pSM->IsHS() || pSM->IsDS()) {
+    Size += 1;  // #PatchConstant.
+    unsigned NumPCs = getNumPCSigScalars();
+    unsigned NumPCUINTs = RoundUpToUINT(NumPCs);
+    if (pSM->IsHS()) {
+      if (m_bUsesViewId) {
+        Size += NumPCUINTs;  // m_PCOutputsDependentOnViewId
+      }
+      Size += NumInputs * NumPCUINTs; // m_InputsContributingToPCOutputs
+    } else {
+      unsigned NumOutputs = getNumOutputSigScalars(0);
+      unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
+      Size += NumPCs * NumOutUINTs;   // m_PCInputsContributingToOutputs
+    }
+  }
 
   m_SerializedState.resize(Size);
   std::fill(m_SerializedState.begin(), m_SerializedState.end(), 0u);
 
+  // Serialize ViewId state.
   unsigned *pData = &m_SerializedState[0];
-  Serialize1(m_NumInputSigScalars, m_NumOutputSigScalars,
-             m_OutputsDependentOnViewId, m_InputsContributingToOutputs, pData);
-  DXASSERT_NOMSG(pData == (&m_SerializedState[0] + Size1));
-
-  if (pSM->IsHS()) {
-    Serialize1(m_NumInputSigScalars, m_NumPCSigScalars,
-               m_PCOutputsDependentOnViewId, m_InputsContributingToPCOutputs, pData);
-  } else if (pSM->IsDS()) {
-    Serialize1(m_NumPCSigScalars, m_NumOutputSigScalars,
-               m_OutputsDependentOnViewId, m_PCInputsContributingToOutputs, pData);
+  *pData++ = NumInputs;
+  for (unsigned StreamId = 0; StreamId < NumStreams; StreamId++) {
+    unsigned NumOutputs = getNumOutputSigScalars(StreamId);
+    *pData++ = NumOutputs;
+    if (m_bUsesViewId) {
+      SerializeOutputsDependentOnViewId(NumOutputs, m_OutputsDependentOnViewId[StreamId], pData);
+    }
+    SerializeInputsContributingToOutput(NumInputs, NumOutputs, m_InputsContributingToOutputs[StreamId], pData);
+  }
+  if (pSM->IsHS() || pSM->IsDS()) {
+    unsigned NumPCs = getNumPCSigScalars();
+    *pData++ = NumPCs;
+    if (pSM->IsHS()) {
+      if (m_bUsesViewId) {
+        SerializeOutputsDependentOnViewId(NumPCs, m_PCOutputsDependentOnViewId, pData);
+      }
+      SerializeInputsContributingToOutput(NumInputs, NumPCs, m_InputsContributingToPCOutputs, pData);
+    } else {
+      unsigned NumOutputs = getNumOutputSigScalars(0);
+      SerializeInputsContributingToOutput(NumPCs, NumOutputs, m_PCInputsContributingToOutputs, pData);
+    }
   }
   DXASSERT_NOMSG(pData == (&m_SerializedState[0] + Size));
 }
+
 const vector<unsigned> &DxilViewIdState::GetSerialized() {
   if (m_SerializedState.empty())
     Serialize();
   return m_SerializedState;
 }
+
 const vector<unsigned> &DxilViewIdState::GetSerialized() const {
   return m_SerializedState;
 }
 
-void DxilViewIdState::Serialize1(unsigned NumInputs, unsigned NumOutputs,
-                                 const OutputsDependentOnViewIdType &OutputsDependentOnViewId,
-                                 const InputsContributingToOutputType &InputsContributingToOutputs,
-                                 unsigned *&pData) {
+void DxilViewIdState::SerializeOutputsDependentOnViewId(unsigned NumOutputs, 
+                                                        const OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+                                                        unsigned *&pData) {
   unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
-
-  unsigned *p = pData;
-  *p++ = NumInputs;
-  *p++ = NumOutputs;
 
   // Serialize output dependence on ViewId.
   for (unsigned i = 0; i < NumOutUINTs; i++) {
@@ -782,8 +855,14 @@ void DxilViewIdState::Serialize1(unsigned NumInputs, unsigned NumOutputs,
         x |= (1u << j);
       }
     }
-    *p++ = x;
+    *pData++ = x;
   }
+}
+
+void DxilViewIdState::SerializeInputsContributingToOutput(unsigned NumInputs, unsigned NumOutputs,
+                                                          const InputsContributingToOutputType &InputsContributingToOutputs,
+                                                          unsigned *&pData) {
+  unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
 
   // Serialize output dependence on inputs.
   for (unsigned outputIdx = 0; outputIdx < NumOutputs; outputIdx++) {
@@ -792,62 +871,81 @@ void DxilViewIdState::Serialize1(unsigned NumInputs, unsigned NumOutputs,
       for (unsigned inputIdx : it->second) {
         unsigned w = outputIdx / 32;
         unsigned b = outputIdx % 32;
-        p[inputIdx*NumOutUINTs + w] |= (1u << b);
+        pData[inputIdx*NumOutUINTs + w] |= (1u << b);
       }
     }
   }
-  p += NumInputs * NumOutUINTs;
 
-  pData = p;
+  pData += NumInputs * NumOutUINTs;
 }
 
-void DxilViewIdState::Deserialize(const unsigned *pData, unsigned DataSize) {
+void DxilViewIdState::Deserialize(const unsigned *pData, unsigned DataSizeInUINTs) {
   Clear();
-  m_SerializedState.resize(DataSize);
-  memcpy(m_SerializedState.data(), pData, DataSize * 4);
+  m_SerializedState.resize(DataSizeInUINTs);
+  memcpy(m_SerializedState.data(), pData, DataSizeInUINTs * sizeof(unsigned));
 
   const ShaderModel *pSM = m_pModule->GetShaderModel();
-  unsigned ConsumedUINTs;
-  ConsumedUINTs = Deserialize1(pData, DataSize, m_NumInputSigScalars, m_NumOutputSigScalars,
-                               m_OutputsDependentOnViewId, m_InputsContributingToOutputs);
+  m_bUsesViewId = m_pModule->m_ShaderFlags.GetUsesViewId();
+  unsigned ConsumedUINTs = 0;
 
-  if (ConsumedUINTs < DataSize) {
-    unsigned t = 0;
-    if (pSM->IsHS()) {
-      unsigned NumInputs;
-      t = Deserialize1(&pData[ConsumedUINTs], DataSize-ConsumedUINTs, NumInputs, m_NumPCSigScalars,
-                       m_PCOutputsDependentOnViewId, m_InputsContributingToPCOutputs);
-      DXASSERT_NOMSG(NumInputs == m_NumInputSigScalars);
-    } else if (pSM->IsDS()) {
-      unsigned NumOutputs;
-      OutputsDependentOnViewIdType OutputsDependentOnViewId;
-      t = Deserialize1(&pData[ConsumedUINTs], DataSize-ConsumedUINTs,
-                       m_NumPCSigScalars, NumOutputs,
-                       OutputsDependentOnViewId, m_PCInputsContributingToOutputs);
-      DXASSERT_NOMSG(NumOutputs == m_NumOutputSigScalars);
-      DXASSERT_NOMSG(OutputsDependentOnViewId == m_OutputsDependentOnViewId);
+  IFTBOOL(DataSizeInUINTs-ConsumedUINTs >= 1, DXC_E_GENERAL_INTERNAL_ERROR);
+  unsigned NumInputs = pData[ConsumedUINTs++];
+  m_NumInputSigScalars = NumInputs;
+
+  unsigned NumStreams = pSM->IsGS()? kNumStreams : 1;
+  for (unsigned StreamId = 0; StreamId < NumStreams; StreamId++) {
+    IFTBOOL(DataSizeInUINTs-ConsumedUINTs >= 1, DXC_E_GENERAL_INTERNAL_ERROR);
+    unsigned NumOutputs = pData[ConsumedUINTs++];
+    m_NumOutputSigScalars[StreamId] = NumOutputs;
+
+    if (m_bUsesViewId) {
+      ConsumedUINTs += DeserializeOutputsDependentOnViewId(NumOutputs, 
+                                                           m_OutputsDependentOnViewId[StreamId],
+                                                           &pData[ConsumedUINTs],
+                                                           DataSizeInUINTs-ConsumedUINTs);
     }
-    ConsumedUINTs += t;
+    ConsumedUINTs += DeserializeInputsContributingToOutput(NumInputs, NumOutputs,
+                                                           m_InputsContributingToOutputs[StreamId],
+                                                           &pData[ConsumedUINTs],
+                                                           DataSizeInUINTs-ConsumedUINTs);
   }
-  DXASSERT_NOMSG(ConsumedUINTs == DataSize);
+
+  if (pSM->IsHS() || pSM->IsDS()) {
+    IFTBOOL(DataSizeInUINTs-ConsumedUINTs >= 1, DXC_E_GENERAL_INTERNAL_ERROR);
+    unsigned NumPCs = pData[ConsumedUINTs++];
+    m_NumPCSigScalars = NumPCs;
+    if (pSM->IsHS()) {
+      if (m_bUsesViewId) {
+        ConsumedUINTs += DeserializeOutputsDependentOnViewId(NumPCs, 
+                                                             m_PCOutputsDependentOnViewId,
+                                                             &pData[ConsumedUINTs],
+                                                             DataSizeInUINTs-ConsumedUINTs);
+      }
+      ConsumedUINTs += DeserializeInputsContributingToOutput(NumInputs, NumPCs,
+                                                             m_InputsContributingToPCOutputs,
+                                                             &pData[ConsumedUINTs],
+                                                             DataSizeInUINTs-ConsumedUINTs);
+    } else {
+      unsigned NumOutputs = getNumOutputSigScalars(0);
+      ConsumedUINTs += DeserializeInputsContributingToOutput(NumPCs, NumOutputs,
+                                                             m_PCInputsContributingToOutputs,
+                                                             &pData[ConsumedUINTs],
+                                                             DataSizeInUINTs-ConsumedUINTs);
+    }
+  }
+
+  DXASSERT_NOMSG(ConsumedUINTs == DataSizeInUINTs);
 }
 
-unsigned DxilViewIdState::Deserialize1(const unsigned *pData, unsigned DataSize,
-                                       unsigned &NumInputs, unsigned &NumOutputs,
-                                       OutputsDependentOnViewIdType &OutputsDependentOnViewId,
-                                       InputsContributingToOutputType &InputsContributingToOutputs) {
-  IFTBOOL(DataSize >= 2, DXC_E_GENERAL_INTERNAL_ERROR);
-  const unsigned *p = pData;
-  NumInputs  = *p++;
-  NumOutputs = *p++;
+unsigned DxilViewIdState::DeserializeOutputsDependentOnViewId(unsigned NumOutputs, 
+                                                              OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+                                                              const unsigned *pData, unsigned DataSize) {
   unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
-
-  unsigned Size = 2 + NumOutUINTs * (1 +  NumInputs);
-  IFTBOOL(Size <= DataSize, DXC_E_GENERAL_INTERNAL_ERROR);
+  IFTBOOL(NumOutUINTs <= DataSize, DXC_E_GENERAL_INTERNAL_ERROR);
 
   // Deserialize output dependence on ViewId.
   for (unsigned i = 0; i < NumOutUINTs; i++) {
-    unsigned x = *p++;
+    unsigned x = *pData++;
     for (unsigned j = 0; j < std::min(32u, NumOutputs - 32u*i); j++) {
       if (x & (1u << j)) {
         OutputsDependentOnViewId[i*32 + j] = true;
@@ -855,12 +953,22 @@ unsigned DxilViewIdState::Deserialize1(const unsigned *pData, unsigned DataSize,
     }
   }
 
+  return NumOutUINTs;
+}
+
+unsigned DxilViewIdState::DeserializeInputsContributingToOutput(unsigned NumInputs, unsigned NumOutputs,
+                                                                InputsContributingToOutputType &InputsContributingToOutputs,
+                                                                const unsigned *pData, unsigned DataSize) {
+  unsigned NumOutUINTs = RoundUpToUINT(NumOutputs);
+  unsigned Size = NumInputs * NumOutUINTs;
+  IFTBOOL(Size <= DataSize, DXC_E_GENERAL_INTERNAL_ERROR);
+
   // Deserialize output dependence on inputs.
   for (unsigned inputIdx = 0; inputIdx < NumInputs; inputIdx++) {
     for (unsigned outputIdx = 0; outputIdx < NumOutputs; outputIdx++) {
       unsigned w = outputIdx / 32;
       unsigned b = outputIdx % 32;
-      if (p[inputIdx*NumOutUINTs + w] & (1u << b)) {
+      if (pData[inputIdx*NumOutUINTs + w] & (1u << b)) {
         InputsContributingToOutputs[outputIdx].insert(inputIdx);
       }
     }
@@ -868,7 +976,6 @@ unsigned DxilViewIdState::Deserialize1(const unsigned *pData, unsigned DataSize,
 
   return Size;
 }
-
 
 char ComputeViewIdState::ID = 0;
 

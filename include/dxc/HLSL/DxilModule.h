@@ -168,6 +168,7 @@ public:
 
     uint64_t GetFeatureInfo() const;
     bool GetWaveOps() const { return m_bWaveOps; }
+    bool GetUsesViewId() const { return m_bViewID != 0; }
     void SetCSRawAndStructuredViaShader4X(bool flag) { m_bCSRawAndStructuredViaShader4X = flag; }
     void SetROVs(bool flag) { m_bROVS = flag; }
     void SetWaveOps(bool flag) { m_bWaveOps = flag; }

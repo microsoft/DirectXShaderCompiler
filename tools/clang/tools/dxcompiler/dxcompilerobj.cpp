@@ -106,6 +106,7 @@
 using namespace llvm;
 using namespace clang;
 using namespace hlsl;
+using std::string;
 
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -1267,15 +1268,44 @@ static void PrintViewIdState(DxilModule &M, raw_string_ostream &OS, StringRef co
   OS << comment << "\n";
   OS << comment << " ViewId state:\n";
   OS << comment << "\n";
-  OS << comment << " Number of inputs: " << VID.getNumInputSigScalars()  << 
-                           ", outputs: " << VID.getNumOutputSigScalars() << 
-                        ", patchconst: " << VID.getNumPCSigScalars()     << "\n";
-  PrintOutputsDependentOnViewId(OS, comment, "Outputs", VID.getNumOutputSigScalars(), VID.getOutputsDependentOnViewId());
+  OS << comment << " Number of inputs: " << VID.getNumInputSigScalars();
+  if (!pSM->IsGS()) {
+    OS << ", outputs: " << VID.getNumOutputSigScalars(0);
+  } else {
+    OS << ", outputs per stream: { " << VID.getNumOutputSigScalars(0) << ", " <<
+                                        VID.getNumOutputSigScalars(1) << ", " <<
+                                        VID.getNumOutputSigScalars(2) << ", " <<
+                                        VID.getNumOutputSigScalars(3) << " }";
+  }
+  if (pSM->IsHS() || pSM->IsDS()) {
+    OS << ", patchconst: " << VID.getNumPCSigScalars();
+  }
+  OS << "\n";
+
+  if (!pSM->IsGS()) {
+    PrintOutputsDependentOnViewId(OS, comment, "Outputs", VID.getNumOutputSigScalars(0), VID.getOutputsDependentOnViewId(0));
+  } else {
+    for (unsigned i = 0; i < 4; i++) {
+      if (VID.getNumOutputSigScalars(i) > 0) {
+        string OutputsName = string("Outputs for Stream ") + std::to_string(i);
+        PrintOutputsDependentOnViewId(OS, comment, OutputsName, VID.getNumOutputSigScalars(i), VID.getOutputsDependentOnViewId(i));
+      }
+    }
+  }
   if (pSM->IsHS()) {
     PrintOutputsDependentOnViewId(OS, comment, "PCOutputs", VID.getNumPCSigScalars(), VID.getPCOutputsDependentOnViewId());
   }
 
-  PrintInputsContributingToOutputs(OS, comment, "Inputs", "Outputs", VID.getInputsContributingToOutputs());
+  if (!pSM->IsGS()) {
+    PrintInputsContributingToOutputs(OS, comment, "Inputs", "Outputs", VID.getInputsContributingToOutputs(0));
+  } else {
+    for (unsigned i = 0; i < 4; i++) {
+      if (VID.getNumOutputSigScalars(i) > 0) {
+        string OutputsName = string("Outputs for Stream ") + std::to_string(i);
+        PrintInputsContributingToOutputs(OS, comment, "Inputs", OutputsName, VID.getInputsContributingToOutputs(i));
+      }
+    }
+  }
   if (pSM->IsHS()) {
     PrintInputsContributingToOutputs(OS, comment, "Inputs", "PCOutputs", VID.getInputsContributingToPCOutputs());
   } else if (pSM->IsDS()) {
