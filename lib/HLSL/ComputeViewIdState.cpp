@@ -83,7 +83,7 @@ void DxilViewIdState::Compute() {
   }
 
   // 5. Construct dependency sets.
-  for (unsigned StreamId = 0; StreamId < kNumStreams; StreamId++) {
+  for (unsigned StreamId = 0; StreamId < (pSM->IsGS() ? kNumStreams : 1u); StreamId++) {
     CreateViewIdSets(m_Entry.ContributingInstructions[StreamId],
                      m_OutputsDependentOnViewId[StreamId],
                      m_InputsContributingToOutputs[StreamId], false);
