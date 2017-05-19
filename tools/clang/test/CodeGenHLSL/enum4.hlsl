@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_1 -HV 2017 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2017 %s | FileCheck %s
 
 // CHECK: call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 1)
 
