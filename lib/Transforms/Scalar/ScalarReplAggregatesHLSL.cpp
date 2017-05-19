@@ -3970,7 +3970,8 @@ private:
   void replaceCall(Function *F, Function *flatF);
   void createFlattenedFunction(Function *F);
   void createFlattenedFunctionCall(Function *F, Function *flatF, CallInst *CI);
-  void flattenArgument(Function *F, Value *Arg,
+  void
+  flattenArgument(Function *F, Value *Arg, bool bForParam,
                   DxilParameterAnnotation &paramAnnotation,
                   std::vector<Value *> &FlatParamList,
                   std::vector<DxilParameterAnnotation> &FlatRetAnnotationList,
@@ -4069,11 +4070,10 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
   WorkList.push_back(GV);
   // merge GEP use for global.
   HLModule::MergeGepUse(GV);
-  Function *Entry = m_pHLModule->GetEntryFunction();
   
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
-
-  IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
+  // Only used to create ConstantExpr.
+  IRBuilder<> Builder(m_pHLModule->GetCtx());
   std::vector<Instruction*> deadAllocas;
 
   const DataLayout &DL = GV->getParent()->getDataLayout();
@@ -4993,10 +4993,11 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
 }
 
 void SROA_Parameter_HLSL::flattenArgument(
-    Function *F, Value *Arg, DxilParameterAnnotation &paramAnnotation,
+    Function *F, Value *Arg, bool bForParam,
+    DxilParameterAnnotation &paramAnnotation,
     std::vector<Value *> &FlatParamList,
-    std::vector<DxilParameterAnnotation> &FlatAnnotationList, IRBuilder<> &Builder,
-    DbgDeclareInst *DDI) {
+    std::vector<DxilParameterAnnotation> &FlatAnnotationList,
+    IRBuilder<> &Builder, DbgDeclareInst *DDI) {
   std::deque<Value *> WorkList;
   WorkList.push_back(Arg);
 
@@ -5022,7 +5023,6 @@ void SROA_Parameter_HLSL::flattenArgument(
   const std::string &semantic = paramAnnotation.GetSemanticString();
   bool bSemOverride = !semantic.empty();
 
-  bool bForParam = F == Builder.GetInsertPoint()->getParent()->getParent();
   DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
   bool bOut = inputQual == DxilParamInputQual::Out ||
               inputQual == DxilParamInputQual::Inout ||
@@ -5564,6 +5564,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   
   std::vector<Value *> FlatParamList;
   std::vector<DxilParameterAnnotation> FlatParamAnnotationList;
+  const bool bForParamTrue = true;
   // Add all argument to worklist.
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
@@ -5573,7 +5574,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     DxilParameterAnnotation &paramAnnotation =
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
-    flattenArgument(F, &Arg, paramAnnotation, FlatParamList,
+    flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
                     FlatParamAnnotationList, Builder, DDI);
   }
 
@@ -5627,12 +5628,6 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
                                         HLOpcodeGroup::HLMatLoadStore, opcode,
                                         voidTy, {retValAddr, RetVal}, M);
         }
-        // Clone the return.
-        ReturnInst *NewRet = RetBuilder.CreateRet(RI->getReturnValue());
-        if (RI == InsertPt) {
-          Builder.SetInsertPoint(NewRet);
-        }
-        RI->eraseFromParent();
       }
     }
     // Create a fake store to keep retValAddr so it can be flattened.
@@ -5641,8 +5636,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     }
 
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
-    flattenArgument(F, retValAddr, funcAnnotation->GetRetTypeAnnotation(),
-                    FlatRetList, FlatRetAnnotationList, Builder, DDI);
+    flattenArgument(F, retValAddr, bForParamTrue,
+                    funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
+                    FlatRetAnnotationList, Builder, DDI);
   }
 
   // Always change return type as parameter.
@@ -5814,6 +5810,7 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
   Type *retType = F->getReturnType();
   std::vector<Value *> FlatRetList;
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
+  const bool bForParamFalse = false;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
     Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
@@ -5857,9 +5854,10 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
     }
     CI->replaceAllUsesWith(newRetVal);
     // Flat ret val
-    flattenArgument(flatF, retValAddr, funcAnnotation->GetRetTypeAnnotation(),
-                    FlatRetList, FlatRetAnnotationList, AllocaBuilder,
-                    /*DbgDeclareInst*/nullptr);
+    flattenArgument(flatF, retValAddr, bForParamFalse,
+                    funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
+                    FlatRetAnnotationList, AllocaBuilder,
+                    /*DbgDeclareInst*/ nullptr);
   }
 
   std::vector<Value *> args;
@@ -5900,8 +5898,8 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
                  &paramAnnotation);
       }
       arg = tempArg;
-      flattenArgument(flatF, arg, paramAnnotation, FlatParamList,
-                      FlatParamAnnotationList, AllocaBuilder,
+      flattenArgument(flatF, arg, bForParamFalse, paramAnnotation,
+                      FlatParamList, FlatParamAnnotationList, AllocaBuilder,
                       /*DbgDeclareInst*/ nullptr);
     } else {
       // Cast vector into array.
