@@ -24,7 +24,6 @@ add_llvm_library(LLVMHLSL
   DxilShaderModel.cpp
   DxilSignature.cpp
   DxilSignatureElement.cpp
-  DxilSigPoint.cpp
   DxilTypeSystem.cpp
   DxilValidation.cpp
   DxcOptimizer.cpp

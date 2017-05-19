@@ -168,6 +168,8 @@ public:
 
     uint64_t GetFeatureInfo() const;
     bool GetWaveOps() const { return m_bWaveOps; }
+    bool GetViewID() const { return m_bViewID; }
+    bool GetBarycentrics() const { return m_bBarycentrics; }
     void SetCSRawAndStructuredViaShader4X(bool flag) { m_bCSRawAndStructuredViaShader4X = flag; }
     void SetROVs(bool flag) { m_bROVS = flag; }
     void SetWaveOps(bool flag) { m_bWaveOps = flag; }
@@ -181,6 +183,7 @@ public:
     void Set64UAVs(bool flag) { m_b64UAVs = flag; }
     void SetUAVsAtEveryStage(bool flag) { m_UAVsAtEveryStage = flag; }
     void SetViewID(bool flag) { m_bViewID = flag; }
+    void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
 
     static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
     uint64_t GetShaderFlagsRaw() const;
@@ -215,8 +218,9 @@ public:
     unsigned m_bWaveOps :1;           // SHADER_FEATURE_WAVE_OPS
     unsigned m_bInt64Ops :1;          // SHADER_FEATURE_INT64_OPS
     unsigned m_bViewID : 1;           // SHADER_FEATURE_VIEWID
+    unsigned m_bBarycentrics : 1;     // SHADER_FEATURE_BARYCENTRICS
 
-    unsigned m_align0 :10;        // align to 32 bit.
+    unsigned m_align0 : 9;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 
