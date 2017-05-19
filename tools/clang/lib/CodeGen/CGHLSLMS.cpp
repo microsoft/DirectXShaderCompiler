@@ -28,6 +28,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -114,6 +115,9 @@ private:
   // Map to save patch constant functions
   StringMap<Function *> patchConstantFunctionMap;
   bool IsPatchConstantFunction(const Function *F);
+
+  // Map to save entry functions.
+  StringMap<Function *> entryFunctionMap;
 
   // List for functions with clip plane.
   std::vector<Function *> clipPlaneFuncList;
@@ -1053,8 +1057,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (isEntry)
     EntryFunc = F;
 
-  std::unique_ptr<HLFunctionProps> funcProps =
-      llvm::make_unique<HLFunctionProps>();
+  std::unique_ptr<DxilFunctionProps> funcProps =
+      llvm::make_unique<DxilFunctionProps>();
 
   // Save patch constant function to patchConstantFunctionMap.
   bool isPatchConstantFunction = false;
@@ -1165,7 +1169,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (patchConstantFunctionMap.count(funcName) == 1) {
       Function *patchConstFunc = patchConstantFunctionMap[funcName];
       funcProps->ShaderProps.HS.patchConstantFunc = patchConstFunc;
-      DXASSERT_NOMSG(m_pHLModule->HasHLFunctionProps(patchConstFunc));
+      DXASSERT_NOMSG(m_pHLModule->HasDxilFunctionProps(patchConstFunc));
       // Check no inout parameter for patch constant function.
       DxilFunctionAnnotation *patchConstFuncAnnotation =
           m_pHLModule->GetFunctionAnnotation(patchConstFunc);
@@ -1597,9 +1601,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (isHS) {
     // Check
     Function *patchConstFunc = funcProps->ShaderProps.HS.patchConstantFunc;
-    if (m_pHLModule->HasHLFunctionProps(patchConstFunc)) {
-      HLFunctionProps &patchProps =
-          m_pHLModule->GetHLFunctionProps(patchConstFunc);
+    if (m_pHLModule->HasDxilFunctionProps(patchConstFunc)) {
+      DxilFunctionProps &patchProps =
+          m_pHLModule->GetDxilFunctionProps(patchConstFunc);
       if (patchProps.ShaderProps.HS.outputControlPoints != 0 &&
           patchProps.ShaderProps.HS.outputControlPoints !=
               funcProps->ShaderProps.HS.outputControlPoints) {
@@ -1627,13 +1631,24 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   // Only add functionProps when exist.
   if (profileAttributes || isPatchConstantFunction)
-    m_pHLModule->AddHLFunctionProps(F, funcProps);
+    m_pHLModule->AddDxilFunctionProps(F, funcProps);
+  // Save F to entry map.
+  if (profileAttributes) {
+    if (entryFunctionMap.count(FD->getName())) {
+      DiagnosticsEngine &Diags = CGM.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "redefinition of %0");
+      Diags.Report(FD->getLocStart(), DiagID) << FD->getName();
+    }
+    entryFunctionMap[FD->getNameAsString()] = F;
+  }
 }
 
 void CGMSHLSLRuntime::EmitHLSLFunctionProlog(Function *F, const FunctionDecl *FD) {
   // Support clip plane need debug info which not available when create function attribute.
   if (const HLSLClipPlanesAttr *Attr = FD->getAttr<HLSLClipPlanesAttr>()) {
-    HLFunctionProps &funcProps = m_pHLModule->GetHLFunctionProps(F);
+    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
     // Initialize to null.
     memset(funcProps.ShaderProps.VS.clipPlanes, 0, sizeof(funcProps.ShaderProps.VS.clipPlanes));
     // Create global for each clip plane, and use the clip plane val as init val.
@@ -3769,6 +3784,50 @@ static void SimpleTransformForHLDXIR(llvm::Module *pM) {
     I->eraseFromParent();
 }
 
+// Clone shader entry function to be called by other functions.
+// The original function will be used as shader entry.
+static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
+                             HLModule &HLM) {
+  // Use mangled name for cloned one.
+  Function *F = Function::Create(ShaderF->getFunctionType(),
+                                 GlobalValue::LinkageTypes::ExternalLinkage,
+                                 "", HLM.GetModule());
+  F->takeName(ShaderF);
+  // Set to name before mangled.
+  ShaderF->setName(EntryName);
+
+  SmallVector<ReturnInst *, 2> Returns;
+  ValueToValueMapTy vmap;
+  // Map params.
+  auto entryParamIt = F->arg_begin();
+  for (Argument &param : ShaderF->args()) {
+    vmap[&param] = (entryParamIt++);
+  }
+
+  llvm::CloneFunctionInto(F, ShaderF, vmap, /*ModuleLevelChagnes*/ false,
+                          Returns);
+
+  // Copy function annotation.
+  DxilFunctionAnnotation *shaderAnnot = HLM.GetFunctionAnnotation(ShaderF);
+  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotation(F);
+
+  DxilParameterAnnotation &retAnnot = shaderAnnot->GetRetTypeAnnotation();
+  DxilParameterAnnotation &cloneRetAnnot = annot->GetRetTypeAnnotation();
+  cloneRetAnnot = retAnnot;
+  // Clear semantic for cloned one.
+  retAnnot.SetSemanticString("");
+  retAnnot.SetSemanticIndexVec({});
+  for (unsigned i = 0; i < shaderAnnot->GetNumParameters(); i++) {
+    DxilParameterAnnotation &cloneParamAnnot = annot->GetParameterAnnotation(i);
+    DxilParameterAnnotation &paramAnnot =
+        shaderAnnot->GetParameterAnnotation(i);
+    cloneParamAnnot = paramAnnot;
+    // Clear semantic for cloned one.
+    cloneParamAnnot.SetSemanticString("");
+    cloneParamAnnot.SetSemanticIndexVec({});
+  }
+}
+
 void CGMSHLSLRuntime::FinishCodeGen() {
   // Library don't have entry.
   if (!m_bIsLib) {
@@ -3780,11 +3839,15 @@ void CGMSHLSLRuntime::FinishCodeGen() {
              "else SetEntryFunction should have reported this condition");
       return;
     }
+  } else {
+    for (auto &it : entryFunctionMap) {
+      CloneShaderEntry(it.second, it.getKey(), *m_pHLModule);
+    }
   }
 
   // Create copy for clip plane.
   for (Function *F : clipPlaneFuncList) {
-    HLFunctionProps &props = m_pHLModule->GetHLFunctionProps(F);
+    DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(F);
     IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
     for (unsigned i = 0; i < DXIL::kNumClipPlanes; i++) {

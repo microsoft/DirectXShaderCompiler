@@ -222,7 +222,7 @@ const vector<unique_ptr<HLResource> > &HLModule::GetUAVs() const {
 
 void HLModule::RemoveFunction(llvm::Function *F) {
   DXASSERT_NOMSG(F != nullptr);
-  m_HLFunctionPropsMap.erase(F);
+  m_DxilFunctionPropsMap.erase(F);
   if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
     m_pTypeSystem.get()->EraseFunctionAnnotation(F);
   m_pOP->RemoveFunction(F);
@@ -361,15 +361,15 @@ vector<GlobalVariable* > &HLModule::GetLLVMUsed() {
   return m_LLVMUsed;
 }
 
-bool HLModule::HasHLFunctionProps(llvm::Function *F) {
-  return m_HLFunctionPropsMap.find(F) != m_HLFunctionPropsMap.end();
+bool HLModule::HasDxilFunctionProps(llvm::Function *F) {
+  return m_DxilFunctionPropsMap.find(F) != m_DxilFunctionPropsMap.end();
 }
-HLFunctionProps &HLModule::GetHLFunctionProps(llvm::Function *F)  {
-  return *m_HLFunctionPropsMap[F];
+DxilFunctionProps &HLModule::GetDxilFunctionProps(llvm::Function *F)  {
+  return *m_DxilFunctionPropsMap[F];
 }
-void HLModule::AddHLFunctionProps(llvm::Function *F, std::unique_ptr<HLFunctionProps> &info) {
-  DXASSERT(m_HLFunctionPropsMap.count(F) == 0, "F already in map, info will be overwritten");
-  m_HLFunctionPropsMap[F] = std::move(info);
+void HLModule::AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info) {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) == 0, "F already in map, info will be overwritten");
+  m_DxilFunctionPropsMap[F] = std::move(info);
 }
 
 DxilFunctionAnnotation *HLModule::GetFunctionAnnotation(llvm::Function *F) {
@@ -440,8 +440,8 @@ void HLModule::EmitHLMetadata() {
 
   {
     NamedMDNode * fnProps = m_pModule->getOrInsertNamedMetadata(kHLDxilFunctionPropertiesMDName);
-    for (auto && pair : m_HLFunctionPropsMap) {
-      const hlsl::HLFunctionProps * props = pair.second.get();
+    for (auto && pair : m_DxilFunctionPropsMap) {
+      const hlsl::DxilFunctionProps * props = pair.second.get();
       Metadata *MDVals[30];
       std::fill(MDVals, MDVals + _countof(MDVals), nullptr);
       unsigned valIdx = 0;
@@ -521,7 +521,7 @@ void HLModule::LoadHLMetadata() {
     while (propIdx < fnProps->getNumOperands()) {
       MDTuple *pProps = dyn_cast<MDTuple>(fnProps->getOperand(propIdx++));
 
-      std::unique_ptr<hlsl::HLFunctionProps> props = llvm::make_unique<hlsl::HLFunctionProps>();
+      std::unique_ptr<hlsl::DxilFunctionProps> props = llvm::make_unique<hlsl::DxilFunctionProps>();
       unsigned idx = 0;
       Function *F = dyn_cast<Function>(dyn_cast<ValueAsMetadata>(pProps->getOperand(idx++))->getValue());
       switch (m_pSM->GetKind()) {
@@ -554,7 +554,7 @@ void HLModule::LoadHLMetadata() {
         break;
       }
 
-      m_HLFunctionPropsMap[F] = std::move(props);
+      m_DxilFunctionPropsMap[F] = std::move(props);
     }
 
     const NamedMDNode * options = m_pModule->getOrInsertNamedMetadata(kHLDxilOptionsMDName);

@@ -1000,7 +1000,7 @@ ComputeViewIdState::ComputeViewIdState() : ModulePass(ID) {
 bool ComputeViewIdState::runOnModule(Module &M) {
   DxilModule &DxilModule = M.GetOrCreateDxilModule();
   const ShaderModel *pSM = DxilModule.GetShaderModel();
-  if (!pSM->IsCS()) {
+  if (!pSM->IsCS() && !pSM->IsLib()) {
     DxilViewIdState &ViewIdState = DxilModule.GetViewIdState();
     ViewIdState.Compute();
     return true;

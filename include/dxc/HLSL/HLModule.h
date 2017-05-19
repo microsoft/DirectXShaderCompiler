@@ -19,6 +19,7 @@
 #include "dxc/HLSL/DxilSampler.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilSignature.h"
+#include "dxc/HLSL/DxilFunctionProps.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -43,47 +44,6 @@ namespace hlsl {
 class ShaderModel;
 class OP;
 class RootSignatureHandle;
-
-struct HLFunctionProps {
-  union {
-    // TODO: not every function need this union.
-    // Compute shader.
-    struct {
-      unsigned numThreads[3];
-    } CS;
-    // Geometry shader.
-    struct {
-      DXIL::InputPrimitive inputPrimitive;
-      unsigned maxVertexCount;
-      unsigned instanceCount;
-      DXIL::PrimitiveTopology streamPrimitiveTopologies[DXIL::kNumOutputStreams];
-    } GS;
-    // Hull shader.
-    struct {
-      llvm::Function *patchConstantFunc;
-      DXIL::TessellatorDomain domain;
-      DXIL::TessellatorPartitioning partition;
-      DXIL::TessellatorOutputPrimitive outputPrimitive;
-      unsigned inputControlPoints;
-      unsigned outputControlPoints;
-      float    maxTessFactor;
-    } HS;
-    // Domain shader.
-    struct {
-      DXIL::TessellatorDomain domain;
-      unsigned inputControlPoints;
-    } DS;
-    // Vertex shader.
-    struct {
-      llvm::Constant *clipPlanes[DXIL::kNumClipPlanes];
-    } VS;
-    // Pixel shader.
-    struct {
-      bool EarlyDepthStencil;
-    } PS;
-  } ShaderProps;
-  DXIL::ShaderKind shaderKind;
-};
 
 struct HLOptions {
   HLOptions()
@@ -164,10 +124,10 @@ public:
   DxilSignature &GetPatchConstantSignature();
   RootSignatureHandle &GetRootSignature();
 
-  // HLFunctionProps.
-  bool HasHLFunctionProps(llvm::Function *F);
-  HLFunctionProps &GetHLFunctionProps(llvm::Function *F);
-  void AddHLFunctionProps(llvm::Function *F, std::unique_ptr<HLFunctionProps> &info);
+  // DxilFunctionProps.
+  bool HasDxilFunctionProps(llvm::Function *F);
+  DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
+  void AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
 
   DxilFunctionAnnotation *GetFunctionAnnotation(llvm::Function *F);
   DxilFunctionAnnotation *AddFunctionAnnotation(llvm::Function *F);
@@ -286,7 +246,7 @@ private:
   std::vector<llvm::GlobalVariable*>  m_TGSMVariables;
 
   // High level function info.
-  std::unordered_map<llvm::Function *, std::unique_ptr<HLFunctionProps>>  m_HLFunctionPropsMap;
+  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>  m_DxilFunctionPropsMap;
 
   // Resource type annotation.
   std::unordered_map<llvm::Type *, std::pair<DXIL::ResourceClass, DXIL::ResourceKind>> m_ResTypeAnnotation;
