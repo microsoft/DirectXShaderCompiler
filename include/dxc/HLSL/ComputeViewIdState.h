@@ -54,11 +54,11 @@ public:
   DxilViewIdState(DxilModule *pDxilModule);
 
   unsigned getNumInputSigScalars() const;
-  unsigned getNumOutputSigScalars() const;
+  unsigned getNumOutputSigScalars(unsigned StreamId) const;
   unsigned getNumPCSigScalars() const;
-  const OutputsDependentOnViewIdType &getOutputsDependentOnViewId() const;
+  const OutputsDependentOnViewIdType &getOutputsDependentOnViewId(unsigned StreamId) const;
   const OutputsDependentOnViewIdType &getPCOutputsDependentOnViewId() const;
-  const InputsContributingToOutputType &getInputsContributingToOutputs() const;
+  const InputsContributingToOutputType &getInputsContributingToOutputs(unsigned StreamId) const;
   const InputsContributingToOutputType &getInputsContributingToPCOutputs() const;
   const InputsContributingToOutputType &getPCInputsContributingToOutputs() const;
 
@@ -66,14 +66,18 @@ public:
   void Serialize();
   const std::vector<unsigned> &GetSerialized();
   const std::vector<unsigned> &GetSerialized() const;   // returns previously serialized data
-  void Deserialize(const unsigned *pData, unsigned DataSize);
+  void Deserialize(const unsigned *pData, unsigned DataSizeInUINTs);
   void PrintSets(llvm::raw_ostream &OS);
 
 private:
+  static const unsigned kNumStreams = 4;
+
   DxilModule *m_pModule;
 
+  bool m_bUsesViewId = false;
+
   unsigned m_NumInputSigScalars  = 0;
-  unsigned m_NumOutputSigScalars = 0;
+  unsigned m_NumOutputSigScalars[kNumStreams] = {0,0,0,0};
   unsigned m_NumPCSigScalars     = 0;
 
   // Dynamically indexed components of signature elements.
@@ -83,11 +87,11 @@ private:
   DynamicallyIndexedElemsType m_PCSigDynIdxElems;
 
   // Set of scalar outputs dependent on ViewID.
-  OutputsDependentOnViewIdType m_OutputsDependentOnViewId;
+  OutputsDependentOnViewIdType m_OutputsDependentOnViewId[kNumStreams];
   OutputsDependentOnViewIdType m_PCOutputsDependentOnViewId;
 
   // Set of scalar inputs contributing to computation of scalar outputs.
-  InputsContributingToOutputType m_InputsContributingToOutputs;
+  InputsContributingToOutputType m_InputsContributingToOutputs[kNumStreams];
   InputsContributingToOutputType m_InputsContributingToPCOutputs; // HS PC only.
   InputsContributingToOutputType m_PCInputsContributingToOutputs; // DS only.
 
@@ -101,7 +105,7 @@ private:
     // Outputs to analyze.
     InstructionSetType Outputs;
     // Contributing instructions per output.
-    std::unordered_map<unsigned, InstructionSetType> ContributingInstructions;
+    std::unordered_map<unsigned, InstructionSetType> ContributingInstructions[kNumStreams];
 
     void Clear();
   };
@@ -130,7 +134,7 @@ private:
   std::vector<unsigned> m_SerializedState;
 
   void Clear();
-  void DetermineMaxPackedLocation(DxilSignature &DxilSig, unsigned &MaxSigLoc);
+  void DetermineMaxPackedLocation(DxilSignature &DxilSig, unsigned *pMaxSigLoc, unsigned NumStreams);
   void ComputeReachableFunctionsRec(llvm::CallGraph &CG, llvm::CallGraphNode *pNode, FunctionSetType &FuncSet);
   void AnalyzeFunctions(EntryInfo &Entry);
   void CollectValuesContributingToOutputs(EntryInfo &Entry);
@@ -145,18 +149,23 @@ private:
   const ValueSetType &CollectStores(llvm::Value *pValue);
   void CollectStoresRec(llvm::Value *pValue, ValueSetType &Stores, ValueSetType &Visited);
   void UpdateDynamicIndexUsageState() const;
-  void CreateViewIdSets(EntryInfo &Entry, OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+  void CreateViewIdSets(const std::unordered_map<unsigned, InstructionSetType> &ContributingInstructions,
+                        OutputsDependentOnViewIdType &OutputsDependentOnViewId,
                         InputsContributingToOutputType &InputsContributingToOutputs, bool bPC);
 
   void UpdateDynamicIndexUsageStateForSig(DxilSignature &Sig, const DynamicallyIndexedElemsType &DynIdxElems) const;
-  void Serialize1(unsigned NumInputs, unsigned NumOutputs,
-                  const OutputsDependentOnViewIdType &OutputsDependentOnViewId,
-                  const InputsContributingToOutputType &InputsContributingToOutputs,
-                  unsigned *&pData);
-  unsigned Deserialize1(const unsigned *pData, unsigned DataSize,
-                        unsigned &NumInputs, unsigned &NumOutputs,
-                        OutputsDependentOnViewIdType &OutputsDependentOnViewId,
-                        InputsContributingToOutputType &InputsContributingToOutputs);
+  void SerializeOutputsDependentOnViewId(unsigned NumOutputs, 
+                                         const OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+                                         unsigned *&pData);
+  void SerializeInputsContributingToOutput(unsigned NumInputs, unsigned NumOutputs,
+                                           const InputsContributingToOutputType &InputsContributingToOutputs,
+                                           unsigned *&pData);
+  unsigned DeserializeOutputsDependentOnViewId(unsigned NumOutputs, 
+                                               OutputsDependentOnViewIdType &OutputsDependentOnViewId,
+                                               const unsigned *pData, unsigned DataSize);
+  unsigned DeserializeInputsContributingToOutput(unsigned NumInputs, unsigned NumOutputs,
+                                                 InputsContributingToOutputType &InputsContributingToOutputs,
+                                                 const unsigned *pData, unsigned DataSize);
   unsigned GetLinearIndex(DxilSignatureElement &SigElem, int row, unsigned col) const;
 
   void PrintOutputsDependentOnViewId(llvm::raw_ostream &OS,

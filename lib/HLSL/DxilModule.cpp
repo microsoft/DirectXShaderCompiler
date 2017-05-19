@@ -122,6 +122,7 @@ DxilModule::ShaderFlags::ShaderFlags():
 , m_bWaveOps(false)
 , m_bInt64Ops(false)
 , m_bViewID(false)
+, m_bBarycentrics(false)
 , m_align0(0)
 , m_align1(0)
 {}
@@ -253,6 +254,7 @@ uint64_t DxilModule::ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bLevel9ComparisonFiltering ? hlsl::ShaderFeatureInfo_LEVEL9ComparisonFiltering : 0;
   Flags |= m_bUAVLoadAdditionalFormats ? hlsl::ShaderFeatureInfo_TypedUAVLoadAdditionalFormats : 0;
   Flags |= m_bViewID ? hlsl::ShaderFeatureInfo_ViewID : 0;
+  Flags |= m_bBarycentrics ? hlsl::ShaderFeatureInfo_Barycentrics : 0;
 
   return Flags;
 }
@@ -541,6 +543,7 @@ uint64_t DxilModule::ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetEnableRawAndStructuredBuffers(true);
   Flags.SetCSRawAndStructuredViaShader4X(true);
   Flags.SetViewID(true);
+  Flags.SetBarycentrics(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -996,11 +999,12 @@ void DxilModule::EmitDxilMetadata() {
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
 
+  MDTuple *pMDProperties = EmitDxilShaderProperties();
+
   MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_InputSignature, 
                                                            *m_OutputSignature,
                                                            *m_PatchConstantSignature);
   MDTuple *pMDResources = EmitDxilResources();
-  MDTuple *pMDProperties = EmitDxilShaderProperties();
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   if (!m_pSM->IsCS() &&
       (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
@@ -1040,10 +1044,12 @@ void DxilModule::LoadDxilMetadata() {
   SetEntryFunction(pEntryFunc);
   SetEntryFunctionName(EntryName);
 
+  LoadDxilShaderProperties(*pProperties);
+
   m_pMDHelper->LoadDxilSignatures(*pSignatures, *m_InputSignature,
                                   *m_OutputSignature, *m_PatchConstantSignature);
   LoadDxilResources(*pResources);
-  LoadDxilShaderProperties(*pProperties);
+
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
 
   m_pMDHelper->LoadRootSignature(*m_RootSignature.get());

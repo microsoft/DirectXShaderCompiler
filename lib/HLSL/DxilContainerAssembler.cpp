@@ -388,31 +388,27 @@ private:
       E.ColsAndStart |= 0x40 | (SE.GetStartCol() << 4);
       E.StartRow = (uint8_t)SE.GetStartRow();
     }
-    E.SemanticKind = (uint8_t)KindToSystemValue(SE.GetKind(), m_Module.GetTessellatorDomain());
+    E.SemanticKind = (uint8_t)SE.GetKind();
     E.ComponentType = (uint8_t)CompTypeToSigCompType(SE.GetCompType());
     E.InterpolationMode = (uint8_t)SE.GetInterpolationMode()->GetKind();
     DXASSERT_NOMSG(SE.GetOutputStream() < 4);
     E.DynamicMaskAndStream = (uint8_t)((SE.GetOutputStream() & 0x3) << 4);
-
-    // TODO: Fill Dynamic Index Mask in!
     E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
   }
 
-  const uint32_t *CopyViewIDState(const uint32_t *pSrc, const PSVComponentMasks &ViewIDMask, const PSVDependencyTable &IOTable) {
-    uint32_t InputScalars = *(pSrc++);
-    uint32_t OutputScalars = *(pSrc++);
+  const uint32_t *CopyViewIDState(const uint32_t *pSrc, uint32_t InputScalars, uint32_t OutputScalars, PSVComponentMask ViewIDMask, PSVDependencyTable IOTable) {
     unsigned MaskDwords = PSVComputeMaskDwordsFromVectors(PSVALIGN4(OutputScalars) / 4);
-    if (ViewIDMask.Masks) {
+    if (ViewIDMask.IsValid()) {
       DXASSERT_NOMSG(!IOTable.Table || ViewIDMask.NumVectors == IOTable.OutputVectors);
-      memcpy(ViewIDMask.Masks, pSrc, 4 * MaskDwords);
+      memcpy(ViewIDMask.Mask, pSrc, 4 * MaskDwords);
+      pSrc += MaskDwords;
     }
-    pSrc += MaskDwords;
-    if (IOTable.Table && IOTable.InputVectors && IOTable.OutputVectors) {
+    if (IOTable.IsValid() && IOTable.InputVectors && IOTable.OutputVectors) {
       DXASSERT_NOMSG((InputScalars <= IOTable.InputVectors * 4) && (IOTable.InputVectors * 4 - InputScalars < 4));
       DXASSERT_NOMSG((OutputScalars <= IOTable.OutputVectors * 4) && (IOTable.OutputVectors * 4 - OutputScalars < 4));
       memcpy(IOTable.Table, pSrc, 4 * MaskDwords * InputScalars);
+      pSrc += MaskDwords * InputScalars;
     }
-    pSrc += MaskDwords * InputScalars;
     return pSrc;
   }
 
@@ -427,12 +423,14 @@ public:
     if (m_PSVInitInfo.PSVVersion < 1 && (ValMajor > 1 || (ValMajor == 1 && ValMinor >= 1)))
       m_PSVInitInfo.PSVVersion = 1;
 
+    const ShaderModel *SM = m_Module.GetShaderModel();
     UINT uCBuffers = m_Module.GetCBuffers().size();
     UINT uSamplers = m_Module.GetSamplers().size();
     UINT uSRVs = m_Module.GetSRVs().size();
     UINT uUAVs = m_Module.GetUAVs().size();
     m_PSVInitInfo.ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
     if (m_PSVInitInfo.PSVVersion > 0) {
+      m_PSVInitInfo.ShaderStage = (PSVShaderKind)SM->GetKind();
       // Copy Dxil Signatures
       m_StringBuffer.push_back('\0'); // For empty semantic name (system value)
       m_PSVInitInfo.SigInputElements = m_Module.GetInputSignature().GetElements().size();
@@ -459,18 +457,22 @@ public:
       m_PSVInitInfo.SemanticIndexTable.Table = m_SemanticIndexBuffer.data();
       m_PSVInitInfo.SemanticIndexTable.Entries = m_SemanticIndexBuffer.size();
       // Set up ViewID and signature dependency info
-      m_PSVInitInfo.UsesViewID = (m_Module.m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID) ? true : false;
-      m_PSVInitInfo.SigInputVectors = m_Module.GetInputSignature().NumVectorsUsed();
-      m_PSVInitInfo.SigOutputVectors = m_Module.GetOutputSignature().NumVectorsUsed();
-      m_PSVInitInfo.SigPCOutputVectors = m_PSVInitInfo.SigPCInputVectors = 0;
-      if (m_Module.GetShaderModel()->IsHS()) {
-        m_PSVInitInfo.SigPCOutputVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed();
+      m_PSVInitInfo.UsesViewID = m_Module.m_ShaderFlags.GetViewID() ? true : false;
+      m_PSVInitInfo.SigInputVectors = m_Module.GetInputSignature().NumVectorsUsed(0);
+      for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
+        m_PSVInitInfo.SigOutputVectors[streamIndex] = m_Module.GetOutputSignature().NumVectorsUsed(streamIndex);
       }
-      if (m_Module.GetShaderModel()->IsDS()) {
-        m_PSVInitInfo.SigPCInputVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed();
+      m_PSVInitInfo.SigPatchConstantVectors = m_PSVInitInfo.SigPatchConstantVectors = 0;
+      if (SM->IsHS()) {
+        m_PSVInitInfo.SigPatchConstantVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed(0);
+      }
+      if (SM->IsDS()) {
+        m_PSVInitInfo.SigPatchConstantVectors = m_Module.GetPatchConstantSignature().NumVectorsUsed(0);
       }
     }
-    m_PSV.InitNew(m_PSVInitInfo, nullptr, &m_PSVBufferSize);
+    if (!m_PSV.InitNew(m_PSVInitInfo, nullptr, &m_PSVBufferSize)) {
+      DXASSERT(false, "PSV InitNew failed computing size!");
+    }
   }
   __override uint32_t size() const {
     return m_PSVBufferSize;
@@ -478,7 +480,9 @@ public:
 
   __override void write(AbstractMemoryStream *pStream) {
     m_PSVBuffer.resize(m_PSVBufferSize);
-    m_PSV.InitNew(m_PSVInitInfo, m_PSVBuffer.data(), &m_PSVBufferSize);
+    if (!m_PSV.InitNew(m_PSVInitInfo, m_PSVBuffer.data(), &m_PSVBufferSize)) {
+      DXASSERT(false, "PSV InitNew failed!");
+    }
     DXASSERT_NOMSG(m_PSVBuffer.size() == m_PSVBufferSize);
 
     // Set DxilRuntimInfo
@@ -650,11 +654,20 @@ public:
       auto &viewState = m_Module.GetViewIdState().GetSerialized();
       if (!viewState.empty()) {
         const uint32_t *pSrc = viewState.data();
-        pSrc = CopyViewIDState(pSrc, m_PSV.GetViewIDOutputMasks(), m_PSV.GetInputToOutputTable());
+        const uint32_t InputScalars = *(pSrc++);
+        uint32_t OutputScalars[4];
+        for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
+          OutputScalars[streamIndex] = *(pSrc++);
+          pSrc = CopyViewIDState(pSrc, InputScalars, OutputScalars[streamIndex], m_PSV.GetViewIDOutputMask(streamIndex), m_PSV.GetInputToOutputTable(streamIndex));
+          if (!SM->IsGS())
+            break;
+        }
         if (m_Module.GetShaderModel()->IsHS()) {
-          pSrc = CopyViewIDState(pSrc, m_PSV.GetViewIDPCOutputMasks(), m_PSV.GetInputToPCOutputTable());
+          const uint32_t PCScalars = *(pSrc++);
+          pSrc = CopyViewIDState(pSrc, InputScalars, PCScalars, m_PSV.GetViewIDPCOutputMask(), m_PSV.GetInputToPCOutputTable());
         } else if (m_Module.GetShaderModel()->IsDS()) {
-          pSrc = CopyViewIDState(pSrc, PSVComponentMasks(), m_PSV.GetPCInputToOutputTable());
+          const uint32_t PCScalars = *(pSrc++);
+          pSrc = CopyViewIDState(pSrc, PCScalars, OutputScalars[0], PSVComponentMask(), m_PSV.GetPCInputToOutputTable());
         }
         DXASSERT_NOMSG(viewState.data() + viewState.size() == pSrc);
       }
