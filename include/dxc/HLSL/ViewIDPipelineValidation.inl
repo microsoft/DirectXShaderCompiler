@@ -412,8 +412,8 @@ public:
 
 } // namespace anonymous
 
-std::unique_ptr<ViewIDValidator> NewViewIDValidator(unsigned viewIDCount, unsigned gsRastStreamIndex) {
-  return std::make_unique<ViewIDValidator_impl>(viewIDCount, gsRastStreamIndex);
+ViewIDValidator* NewViewIDValidator(unsigned viewIDCount, unsigned gsRastStreamIndex) {
+  return new ViewIDValidator_impl(viewIDCount, gsRastStreamIndex);
 }
 
 } // namespace hlsl

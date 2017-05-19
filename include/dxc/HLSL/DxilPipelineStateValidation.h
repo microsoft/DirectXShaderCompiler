@@ -14,7 +14,6 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <memory>
 
 // How many dwords are required for mask with one bit per component, 4 components per vector
 inline uint32_t PSVComputeMaskDwordsFromVectors(uint32_t Vectors) { return (Vectors + 7) >> 3; }
@@ -809,7 +808,7 @@ namespace hlsl {
                                  unsigned &mismatchElementId) = 0;
   };
 
-  std::unique_ptr<ViewIDValidator> NewViewIDValidator(unsigned viewIDCount, unsigned gsRastStreamIndex);
+  ViewIDValidator* NewViewIDValidator(unsigned viewIDCount, unsigned gsRastStreamIndex);
 
 }
 
