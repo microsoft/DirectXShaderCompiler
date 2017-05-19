@@ -1327,6 +1327,8 @@ void DxilGenerationPass::GenerateDxilInputsOutputs(bool bInput) {
 
   OP::OpCode opcode = bInput ? OP::OpCode::LoadInput : OP::OpCode::StoreOutput;
   bool bNeedVertexID = bInput && (pSM->IsGS() || pSM->IsDS() || pSM->IsHS());
+  // Use LoadOutputControlPoint for DS input.
+  opcode = (bInput && pSM->IsDS()) ? OP::OpCode::LoadOutputControlPoint : opcode;
 
   Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
 
