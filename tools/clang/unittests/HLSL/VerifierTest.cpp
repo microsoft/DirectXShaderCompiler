@@ -39,6 +39,7 @@ public:
   TEST_METHOD(RunConstAssign);
   TEST_METHOD(RunConstDefault);
   TEST_METHOD(RunCppErrors);
+  TEST_METHOD(RunEnums);
   TEST_METHOD(RunFunctions);
   TEST_METHOD(RunIndexingOperator);
   TEST_METHOD(RunIntrinsicExamples);
@@ -151,6 +152,10 @@ TEST_F(VerifierTest, RunConstDefault) {
 
 TEST_F(VerifierTest, RunCppErrors) {
   CheckVerifiesHLSL(L"cpp-errors.hlsl");
+}
+
+TEST_F(VerifierTest, RunEnums) {
+  CheckVerifiesHLSL(L"enums.hlsl");
 }
 
 TEST_F(VerifierTest, RunFunctions) {

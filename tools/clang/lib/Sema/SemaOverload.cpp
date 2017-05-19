@@ -5132,7 +5132,7 @@ static ExprResult CheckConvertedConstantExpression(Sema &S, Expr *From,
                                                    QualType T, APValue &Value,
                                                    Sema::CCEKind CCE,
                                                    bool RequireInt) {
-  assert(S.getLangOpts().CPlusPlus11 &&
+  assert(S.getLangOpts().CPlusPlus11 || S.getLangOpts().HLSL2017 &&
          "converted constant expression outside C++11");
 
   if (checkPlaceholderForOverload(S, From))
