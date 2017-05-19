@@ -4656,4 +4656,11 @@ TEST_F(CompilerTest, ViewID) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid09.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid10.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid11.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid12.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid13.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid14.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid15.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid16.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid17.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid18.hlsl");
 }
