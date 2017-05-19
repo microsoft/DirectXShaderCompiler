@@ -66,19 +66,24 @@ void DxilViewIdState::Compute() {
   m_PCEntry.pEntryFunc = m_pModule->GetPatchConstantFunction();
   ComputeReachableFunctionsRec(CG, CG[m_Entry.pEntryFunc], m_Entry.Functions);
   if (m_PCEntry.pEntryFunc) {
+    DXASSERT_NOMSG(pSM->IsHS());
     ComputeReachableFunctionsRec(CG, CG[m_PCEntry.pEntryFunc], m_PCEntry.Functions);
   }
 
   // 3. Determine shape components that are dynamically accesses and collect all sig outputs.
   AnalyzeFunctions(m_Entry);
-  AnalyzeFunctions(m_PCEntry);
+  if (m_PCEntry.pEntryFunc) {
+    AnalyzeFunctions(m_PCEntry);
+  }
 
   // 4. Collect sets of values contributing to outputs.
   CollectValuesContributingToOutputs(m_Entry);
-  CollectValuesContributingToOutputs(m_PCEntry);
+  if (m_PCEntry.pEntryFunc) {
+    CollectValuesContributingToOutputs(m_PCEntry);
+  }
 
   // 5. Construct dependency sets.
-  for (unsigned StreamId = 0; StreamId < kNumStreams; StreamId++) {
+  for (unsigned StreamId = 0; StreamId < (pSM->IsGS() ? kNumStreams : 1u); StreamId++) {
     CreateViewIdSets(m_Entry.ContributingInstructions[StreamId],
                      m_OutputsDependentOnViewId[StreamId],
                      m_InputsContributingToOutputs[StreamId], false);
@@ -88,9 +93,11 @@ void DxilViewIdState::Compute() {
                      m_PCOutputsDependentOnViewId,
                      m_InputsContributingToPCOutputs, true);
   } else if (pSM->IsDS()) {
-    CreateViewIdSets(m_PCEntry.ContributingInstructions[0],
-                     m_OutputsDependentOnViewId[0],
+    OutputsDependentOnViewIdType OutputsDependentOnViewId;
+    CreateViewIdSets(m_Entry.ContributingInstructions[0],
+                     OutputsDependentOnViewId,
                      m_PCInputsContributingToOutputs, true);
+    DXASSERT_NOMSG(OutputsDependentOnViewId == m_OutputsDependentOnViewId[0]);
   }
 
   // 6. Update dynamically indexed input/output component masks.
@@ -681,6 +688,9 @@ void DxilViewIdState::CreateViewIdSets(const std::unordered_map<unsigned, Instru
         GetUnsignedVal(LI.get_colIndex(), &col);
         GetUnsignedVal(LI.get_rowIndex(), (uint32_t*)&startRow);
         pSigElem = &m_pModule->GetInputSignature().GetElement(inpId);
+        if (pSM->IsDS() && bPC) {
+          pSigElem = nullptr;
+        }
       } else if (DxilInst_LoadOutputControlPoint LOCP = DxilInst_LoadOutputControlPoint(pInst)) {
         GetUnsignedVal(LOCP.get_inputSigId(), &inpId);
         GetUnsignedVal(LOCP.get_col(), &col);
