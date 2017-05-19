@@ -1722,9 +1722,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #else
   StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
   Opts.HLSL2015 = Opts.HLSL2016 = Opts.HLSL2017 = false;
-  if (ver.empty() || ver == "2016") { Opts.HLSL2016 = true; }   // Default to 2016
-  else if           (ver == "2015") { Opts.HLSL2015 = true; }
-  else if           (ver == "2017") { Opts.HLSL2017 = true; }
+  if (ver.empty() || ver == "2016" || ver == "-2016") { Opts.HLSL2016 = true; }   // Default to 2016
+  else if           (ver == "2015" || ver == "-2015") { Opts.HLSL2015 = true; }
+  else if           (ver == "2017" || ver == "-2017") { Opts.HLSL2017 = true; }
   else {
     Diags.Report(diag::err_drv_invalid_value)
       << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)

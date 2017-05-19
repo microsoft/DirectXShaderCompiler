@@ -50,6 +50,7 @@ HlslBinDir = os.path.expandvars(r'${HLSL_BLD_DIR}\Debug\bin')
 VerifierTests = {
     'RunAttributes': "attributes.hlsl",
 #    'RunCppErrors': "cpp-errors.hlsl",             # This test doesn't work properly in HLSL (fxc mode)
+    'RunEnums' : "enums.hlsl",
     'RunIndexingOperator': "indexing-operator.hlsl",
     'RunIntrinsicExamples': "intrinsic-examples.hlsl",
     'RunMatrixAssignments': "matrix-assignments.hlsl",
