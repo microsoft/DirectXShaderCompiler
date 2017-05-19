@@ -469,9 +469,6 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-echo Smoke test for debug info extraction.
-dxc.exe smoke.hlsl
-
 call :cleanup
 exit /b 0
 
