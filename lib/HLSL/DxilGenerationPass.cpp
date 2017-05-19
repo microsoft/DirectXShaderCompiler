@@ -112,7 +112,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
 
   // Entry function.
   Function *EntryFn = H.GetEntryFunction();
-  HLFunctionProps *FnProps = H.HasHLFunctionProps(EntryFn) ? &H.GetHLFunctionProps(EntryFn) : nullptr;
+  DxilFunctionProps *FnProps = H.HasDxilFunctionProps(EntryFn) ? &H.GetDxilFunctionProps(EntryFn) : nullptr;
   M.SetEntryFunction(EntryFn);
   M.SetEntryFunctionName(H.GetEntryFunctionName());
   
@@ -706,7 +706,7 @@ void DxilGenerationPass::CreateDxilSignatures() {
   m_OtherSemanticsUsed.clear();
 
   if (SM->IsHS()) {
-    HLFunctionProps &EntryProps = m_pHLModule->GetHLFunctionProps(EntryFunc);
+    DxilFunctionProps &EntryProps = m_pHLModule->GetDxilFunctionProps(EntryFunc);
     Function *patchConstantFunc = EntryProps.ShaderProps.HS.patchConstantFunc;
     if (patchConstantFunc == nullptr) {
       EntryFunc->getContext().emitError("Patch constant function is not specified.");
@@ -1506,7 +1506,7 @@ void DxilGenerationPass::GenerateDxilPatchConstantLdSt() {
   const bool bIsInout = false;
   const bool bNeedVertexID = false;
   if (bIsHs) {
-    HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFunc);
+    DxilFunctionProps &EntryQual = m_pHLModule->GetDxilFunctionProps(EntryFunc);
     Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
     InsertPt = patchConstantFunc->getEntryBlock().getFirstInsertionPt();
   }
@@ -1584,7 +1584,7 @@ void DxilGenerationPass::GenerateDxilPatchConstantFunctionInputs() {
   OP *hlslOP = m_pHLModule->GetOP();
   Constant *constZero = hlslOP->GetU32Const(0);
   Function *EntryFunc = m_pHLModule->GetEntryFunction();
-  HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFunc);
+  DxilFunctionProps &EntryQual = m_pHLModule->GetDxilFunctionProps(EntryFunc);
 
   Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
   DxilFunctionAnnotation *patchFuncAnnotation = m_pHLModule->GetFunctionAnnotation(patchConstantFunc);
@@ -1631,11 +1631,11 @@ void DxilGenerationPass::GenerateDxilPatchConstantFunctionInputs() {
 
 bool DxilGenerationPass::HasClipPlanes() {
   Function *EntryFunc = m_pHLModule->GetEntryFunction();
-  if (!m_pHLModule->HasHLFunctionProps(EntryFunc))
+  if (!m_pHLModule->HasDxilFunctionProps(EntryFunc))
     return false;
 
 
-  HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFunc);
+  DxilFunctionProps &EntryQual = m_pHLModule->GetDxilFunctionProps(EntryFunc);
   auto &VS = EntryQual.ShaderProps.VS;
   unsigned numClipPlanes = 0;
 
@@ -1651,7 +1651,7 @@ bool DxilGenerationPass::HasClipPlanes() {
 void DxilGenerationPass::GenerateClipPlanesForVS(Value *outPosition) {
   Function *EntryFunc = m_pHLModule->GetEntryFunction();
 
-  HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFunc);
+  DxilFunctionProps &EntryQual = m_pHLModule->GetDxilFunctionProps(EntryFunc);
   auto &VS = EntryQual.ShaderProps.VS;
   unsigned numClipPlanes = 0;
 
@@ -2444,7 +2444,7 @@ void DxilGenerationPass::GenerateDxilOperations(
   const ShaderModel *pSM = m_pHLModule->GetShaderModel();
   Function *patchConstantFunc = nullptr;
   if (pSM->IsHS()) {
-    HLFunctionProps &funcProps = m_pHLModule->GetHLFunctionProps(entry);
+    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(entry);
     patchConstantFunc = funcProps.ShaderProps.HS.patchConstantFunc;
   }
 
@@ -2532,7 +2532,7 @@ void DxilGenerationPass::TranslatePreciseAttribute() {
   }
 
   if (m_pHLModule->GetShaderModel()->IsHS()) {
-    HLFunctionProps &EntryQual = m_pHLModule->GetHLFunctionProps(EntryFn);
+    DxilFunctionProps &EntryQual = m_pHLModule->GetDxilFunctionProps(EntryFn);
     Function *patchConstantFunc = EntryQual.ShaderProps.HS.patchConstantFunc;
     TranslatePreciseAttributeOnFunction(*patchConstantFunc, M);
   }

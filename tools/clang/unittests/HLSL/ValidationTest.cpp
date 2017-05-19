@@ -617,8 +617,8 @@ TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
 TEST_F(ValidationTest, WhenZeroInputPatchCountWithInputThenFail) {
 	RewriteAssemblyCheckMsg(
 		L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
-		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z.flat\", i32 3, i32 3",
-		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z.flat\", i32 0, i32 3",
+		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z\", i32 3, i32 3",
+		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z\", i32 0, i32 3",
 		"When HS input control point count is 0, no input signature should exist");
 }
 
