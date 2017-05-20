@@ -85,7 +85,7 @@ public:
   FileMapDxcBlobEncoding() : m_dwRef(0), m_MappedView(nullptr) {
   }
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
   }
 
   ~FileMapDxcBlobEncoding() {

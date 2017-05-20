@@ -2144,7 +2144,12 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface5<IDxcCompiler, IDxcCompiler2, IDxcLangExtensions, IDxcContainerEvent, IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcCompiler,
+                                 IDxcCompiler2,
+                                 IDxcLangExtensions,
+                                 IDxcContainerEvent,
+                                 IDxcVersionInfo>
+                                 (this, iid, ppvObject);
   }
 
   // Compile a single entry point to the target shader model

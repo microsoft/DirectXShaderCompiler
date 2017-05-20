@@ -98,7 +98,7 @@ public:
   DxcValidator() : m_dwRef(0) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // For internal use only.
