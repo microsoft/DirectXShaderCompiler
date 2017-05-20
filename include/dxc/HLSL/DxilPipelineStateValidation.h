@@ -805,6 +805,7 @@ namespace hlsl {
     };
     virtual ~ViewIDValidator() {}
     virtual Result ValidateStage(const DxilPipelineStateValidation &PSV,
+                                 bool bFinalStage,
                                  unsigned &mismatchElementId) = 0;
   };
 
