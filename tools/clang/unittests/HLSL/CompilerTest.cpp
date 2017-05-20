@@ -2478,6 +2478,7 @@ TEST_F(CompilerTest, CodeGenEnum2) {
 }
 
 TEST_F(CompilerTest, CodeGenEnum3) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
     CodeGenTestCheck(L"..\\CodeGenHLSL\\enum3.hlsl");
 }
 
@@ -4645,6 +4646,7 @@ TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
 }
 
 TEST_F(CompilerTest, ViewID) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid01.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid02.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid03.hlsl");
