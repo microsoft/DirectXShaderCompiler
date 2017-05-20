@@ -37,6 +37,10 @@ struct ComponentMask : public PSVComponentMask {
     }
     return *this;
   }
+  ComponentMask &operator=(const ComponentMask &other) {
+    *this = (const PSVComponentMask &)other;
+    return *this;
+  }
   ComponentMask &operator|=(const PSVComponentMask &other) {
     NumVectors = std::max(NumVectors, other.NumVectors);
     PSVComponentMask::operator|=(other);
@@ -95,8 +99,11 @@ static void AddViewIDElements(ElementVec &outElements,
             uint32_t componentIndex = (E.GetStartRow() + row) * 4 + E.GetStartCol() + col;
             DxilSignatureAllocator::DummyElement NE(numElements);
             NE.rows = bDynIndex ? E.GetRows() : 1;
-            if (mask.Get(componentIndex)) {
-              NE.rows *= viewIDCount;
+            for (uint32_t indexedRow = 0; indexedRow < NE.rows; indexedRow++) {
+              if (mask.Get(componentIndex + (4 * indexedRow))) {
+                NE.rows *= viewIDCount;
+                break;
+              }
             }
             NE.kind = E.kind;
             NE.interpolation = E.interpolation;
@@ -108,7 +115,7 @@ static void AddViewIDElements(ElementVec &outElements,
       }
     }
     if (!adding)
-      outElements.resize(numElements);
+      outElements.reserve(numElements);
   }
 }
 
@@ -118,12 +125,20 @@ static bool CheckFit(ElementVec &elements) {
   for (auto &E : elements)
     packElements.push_back(&E);
   DxilSignatureAllocator alloc(32);
+  alloc.SetIgnoreIndexing(true);
   alloc.PackOptimized(packElements, 0, 32);
   for (auto &E : elements) {
     if (!E.IsAllocated())
       return false;
   }
   return true;
+}
+
+static bool CheckMaxVertexCount(const ElementVec &elements, unsigned maxVertexCount) {
+  unsigned numComponents = 0;
+  for (auto &E : elements)
+    numComponents += E.GetRows() * E.GetCols();
+  return numComponents <= 1024 && maxVertexCount <= 1024 && numComponents * maxVertexCount <= 1024;
 }
 
 static bool MergeElements(const ElementVec &priorElements,
@@ -189,6 +204,13 @@ class ViewIDValidator_impl : public hlsl::ViewIDValidator {
   ElementVec m_PriorPCSignature;
   unsigned m_ViewIDCount;
   unsigned m_GSRastStreamIndex;
+
+  void ClearPriorState() {
+    m_PriorOutputMask = ComponentMask();
+    m_PriorPCMask = ComponentMask();
+    m_PriorOutputSignature.clear();
+    m_PriorPCSignature.clear();
+  }
 
 public:
   ViewIDValidator_impl(unsigned viewIDCount, unsigned gsRastStreamIndex)
@@ -346,18 +368,11 @@ public:
       break;
     }
     case PSVShaderKind::Geometry: {
-      // Initialize mask with direct ViewID dependent outputs
-      ComponentMask mask(PSV.GetViewIDOutputMask(m_GSRastStreamIndex));
-
       // capture signatures
-      ElementVec inSig, outSig;
+      ElementVec inSig, outSig[4];
       CopyElements( inSig, DXIL::SigPointKind::GSVIn, PSV.GetSigInputElements(), 0,
                     [&](unsigned i) -> PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetInputElement0(i));
-                    });
-      CopyElements( outSig, DXIL::SigPointKind::GSOut, PSV.GetSigOutputElements(), m_GSRastStreamIndex,
-                    [&](unsigned i) -> PSVSignatureElement {
-                      return PSV.GetSignatureElement(PSV.GetOutputElement0(i));
                     });
 
       // Merge prior and input signatures, update prior mask size if necessary
@@ -372,19 +387,47 @@ public:
       if (!CheckFit(viewIDSig))
         return Result::InsufficientSpace;
 
-      // Propagate prior mask through input-output dependencies
-      if (PSV.GetInputToOutputTable(0).IsValid()) {
-        PropagateMask(m_PriorOutputMask, inSig, mask,
-                      [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToOutputTable(m_GSRastStreamIndex).GetMaskForInput(i); });
+      for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
+        // Initialize mask with direct ViewID dependent outputs
+        ComponentMask mask(PSV.GetViewIDOutputMask(streamIndex));
+
+        CopyElements( outSig[streamIndex], DXIL::SigPointKind::GSOut, PSV.GetSigOutputElements(), streamIndex,
+                      [&](unsigned i) -> PSVSignatureElement {
+                        return PSV.GetSignatureElement(PSV.GetOutputElement0(i));
+                      });
+
+        if (!outSig[streamIndex].empty()) {
+          // Propagate prior mask through input-output dependencies
+          if (PSV.GetInputToOutputTable(streamIndex).IsValid()) {
+            PropagateMask(m_PriorOutputMask, inSig, mask,
+              [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToOutputTable(streamIndex).GetMaskForInput(i); });
+          }
+
+          // Create new version with ViewID elements from prior signature
+          ElementVec viewIDSig;
+          AddViewIDElements(viewIDSig, outSig[streamIndex], mask, m_ViewIDCount);
+
+          // Verify fit
+          if (!CheckMaxVertexCount(viewIDSig, PSV.GetPSVRuntimeInfo1()->MaxVertexCount))
+            return Result::InsufficientSpace;
+          if (!CheckFit(viewIDSig))
+            return Result::InsufficientSpace;
+        }
+
+        // Capture this mask for the next stage
+        if (m_GSRastStreamIndex == streamIndex)
+          m_PriorOutputMask = mask;
       }
 
-      // Copy mask to prior mask
-      m_PriorOutputMask = mask;
+      if (m_GSRastStreamIndex < 4 && !bFinalStage) {
+        m_PriorOutputSignature = std::move(outSig[m_GSRastStreamIndex]);
+      } else {
+        ClearPriorState();
+        if (!bFinalStage)
+          return Result::InvalidUsage;
+      }
 
-      // Capture output signature for next stage
-      m_PriorOutputSignature = std::move(outSig);
-
-      break;
+      return Result::Success;
     }
     case PSVShaderKind::Pixel: {
       // capture signatures
