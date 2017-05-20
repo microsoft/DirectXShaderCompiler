@@ -313,7 +313,7 @@ Operation           Control Point (Hull) Patch Constant         Domain
 Store Input CP
 Load Input CP       LoadInput            LoadInput
 Store Output CP     StoreOutput
-Load Output CP                           LoadOutputControlPoint LoadOutputControlPoint
+Load Output CP                           LoadOutputControlPoint LoadInput
 Store PC                                 StorePatchConstant
 Load PC                                  LoadPatchConstant      LoadPatchConstant
 Store Output Vertex                                             StoreOutput
