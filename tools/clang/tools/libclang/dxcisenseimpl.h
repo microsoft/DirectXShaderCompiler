@@ -197,7 +197,7 @@ public:
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langHelper);
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcIntelliSense, IDxcLangExtensions>(
+    return DoBasicQueryInterface<IDxcIntelliSense, IDxcLangExtensions>(
         this, iid, ppvObject);
   }
 
