@@ -13,6 +13,11 @@
 
 #include "dxc/HLSL/DxilConstants.h"
 
+namespace llvm {
+class Function;
+class Constant;
+}
+
 namespace hlsl {
 struct DxilFunctionProps {
   union {

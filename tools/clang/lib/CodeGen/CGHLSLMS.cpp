@@ -1059,10 +1059,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   std::unique_ptr<DxilFunctionProps> funcProps =
       llvm::make_unique<DxilFunctionProps>();
+  // TODO: add attribute to mark shader entry.
+  funcProps->shaderKind = DXIL::ShaderKind::Invalid;
 
   // Save patch constant function to patchConstantFunctionMap.
   bool isPatchConstantFunction = false;
-  if (CGM.getContext().IsPatchConstantFunctionDecl(FD)) {
+  if (!isEntry && CGM.getContext().IsPatchConstantFunctionDecl(FD)) {
     isPatchConstantFunction = true;
     if (patchConstantFunctionMap.count(FD->getName()) == 0)
       patchConstantFunctionMap[FD->getName()] = F;
@@ -1091,12 +1093,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             GetHLSLInputPatchCount(parmDecl->getType());
       }
     }
+    funcProps->shaderKind = DXIL::ShaderKind::Hull;
   }
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
-
-  // TODO: how to know VS/PS?
-  funcProps->shaderKind = DXIL::ShaderKind::Invalid;
 
   DiagnosticsEngine &Diags = CGM.getDiags();
   // Geometry shader.

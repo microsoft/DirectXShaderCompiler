@@ -11,6 +11,12 @@
 // Make sure cloned function exist.
 // CHECK: @"\01?entry
 
+// Make sure function props exist.
+// CHECK: dx.func.props
+
+// Make sure function props is correct for [numthreads(8,8,1)].
+// CHECK: @entry, i32 5, i32 8, i32 8, i32 1
+
 void StoreOutputMat(float2x2  m, uint gidx);
 float2x2 LoadInputMat(uint x, uint y);
 float2x2 RotateMat(float2x2 m, uint x, uint y);
