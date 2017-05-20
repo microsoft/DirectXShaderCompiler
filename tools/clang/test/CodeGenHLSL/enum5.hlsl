@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_1 -HV 2017 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2017 %s | FileCheck %s
 
 // CHECK: fadd
 
