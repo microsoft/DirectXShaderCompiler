@@ -55,6 +55,10 @@ static void InitElement(DxilSignatureAllocator::DummyElement &eOut,
   eOut.interpolation = (DXIL::InterpolationMode)eIn.GetInterpolationMode();
   eOut.interpretation = SigPoint::GetInterpretation(eOut.kind, sigPoint, 6, 1);
   eOut.indexFlags = eIn.GetDynamicIndexMask();
+
+  // Tessfactors must be treated as dynamically indexed to prevent breaking them up
+  if (eOut.interpretation == DXIL::SemanticInterpretationKind::TessFactor)
+    eOut.indexFlags = (1 << eOut.cols) - 1;
 }
 
 static void CopyElements( ElementVec &outElements,
@@ -159,7 +163,7 @@ static bool MergeElements(const ElementVec &priorElements,
   return true;
 }
 
-static void PropegateMask(const ComponentMask &priorMask,
+static void PropagateMask(const ComponentMask &priorMask,
                           ElementVec &inputElements,
                           ComponentMask &outMask,
                           std::function<PSVComponentMask(unsigned)> getMask) {
@@ -194,7 +198,13 @@ public:
   {}
   virtual ~ViewIDValidator_impl() {}
   __override Result ValidateStage(const DxilPipelineStateValidation &PSV,
+                                  bool bFinalStage,
                                   unsigned &mismatchElementId) {
+    if (!PSV.GetPSVRuntimeInfo0())
+      return Result::InvalidPSV;
+    if (!PSV.GetPSVRuntimeInfo1())
+      return Result::InvalidPSVVersion;
+
     switch (PSV.GetShaderKind()) {
     case PSVShaderKind::Vertex: {
       // Initialize mask with direct ViewID dependent outputs
@@ -216,6 +226,9 @@ public:
       break;
     }
     case PSVShaderKind::Hull: {
+      if (bFinalStage)
+        return Result::InvalidUsage;
+
       // Initialize mask with direct ViewID dependent outputs
       ComponentMask outputMask(PSV.GetViewIDOutputMask(0));
       ComponentMask pcMask(PSV.GetViewIDPCOutputMask());
@@ -247,13 +260,13 @@ public:
       if (!CheckFit(viewIDSig))
         return Result::InsufficientSpace;
 
-      // Propegate prior mask through input-output dependencies
+      // Propagate prior mask through input-output dependencies
       if (PSV.GetInputToOutputTable(0).IsValid()) {
-        PropegateMask(m_PriorOutputMask, inSig, outputMask,
+        PropagateMask(m_PriorOutputMask, inSig, outputMask,
                       [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToOutputTable(0).GetMaskForInput(i); });
       }
       if (PSV.GetInputToPCOutputTable().IsValid()) {
-        PropegateMask(m_PriorOutputMask, inSig, pcMask,
+        PropagateMask(m_PriorOutputMask, inSig, pcMask,
                       [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToPCOutputTable().GetMaskForInput(i); });
       }
 
@@ -277,7 +290,7 @@ public:
                     [&](unsigned i) -> PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetInputElement0(i));
                     });
-      CopyElements( pcSig, DXIL::SigPointKind::DSCPIn, PSV.GetSigPatchConstantElements(), 0,
+      CopyElements( pcSig, DXIL::SigPointKind::DSIn, PSV.GetSigPatchConstantElements(), 0,
                     [&](unsigned i) -> PSVSignatureElement {
                       return PSV.GetSignatureElement(PSV.GetPatchConstantElement0(i));
                     });
@@ -312,13 +325,13 @@ public:
           return Result::InsufficientPCSpace;
       }
 
-      // Propegate prior mask through input-output dependencies
+      // Propagate prior mask through input-output dependencies
       if (PSV.GetInputToOutputTable(0).IsValid()) {
-        PropegateMask(m_PriorOutputMask, inSig, mask,
+        PropagateMask(m_PriorOutputMask, inSig, mask,
                       [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToOutputTable(0).GetMaskForInput(i); });
       }
       if (PSV.GetPCInputToOutputTable().IsValid()) {
-        PropegateMask(m_PriorPCMask, pcSig, mask,
+        PropagateMask(m_PriorPCMask, pcSig, mask,
                       [&](unsigned i) -> PSVComponentMask { return PSV.GetPCInputToOutputTable().GetMaskForInput(i); });
       }
 
@@ -359,9 +372,9 @@ public:
       if (!CheckFit(viewIDSig))
         return Result::InsufficientSpace;
 
-      // Propegate prior mask through input-output dependencies
+      // Propagate prior mask through input-output dependencies
       if (PSV.GetInputToOutputTable(0).IsValid()) {
-        PropegateMask(m_PriorOutputMask, inSig, mask,
+        PropagateMask(m_PriorOutputMask, inSig, mask,
                       [&](unsigned i) -> PSVComponentMask { return PSV.GetInputToOutputTable(m_GSRastStreamIndex).GetMaskForInput(i); });
       }
 
@@ -374,8 +387,6 @@ public:
       break;
     }
     case PSVShaderKind::Pixel: {
-      // QUESTION: Do we propegate to PS SV_Target output?
-
       // capture signatures
       ElementVec inSig;
       CopyElements( inSig, DXIL::SigPointKind::PSIn, PSV.GetSigInputElements(), 0,
@@ -399,11 +410,23 @@ public:
       m_PriorOutputMask = ComponentMask();
       m_PriorOutputSignature.clear();
 
-      break;
+      // PS has to be the last stage, so return.
+      return Result::Success;
     }
     case PSVShaderKind::Compute:
     default:
       return Result::InvalidUsage;
+    }
+
+    if (bFinalStage) {
+      // Last stage was not pixel shader, so output has not yet been validated.
+      // Create new version with ViewID elements from prior signature
+      ElementVec viewIDSig;
+      AddViewIDElements(viewIDSig, m_PriorOutputSignature, m_PriorOutputMask, m_ViewIDCount);
+
+      // Verify fit
+      if (!CheckFit(viewIDSig))
+        return Result::InsufficientSpace;
     }
 
     return Result::Success;
