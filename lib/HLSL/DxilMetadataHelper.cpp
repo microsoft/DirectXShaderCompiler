@@ -18,6 +18,7 @@
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilRootSignature.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
+#include "dxc/HLSL/DxilFunctionProps.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -53,6 +54,7 @@ const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valv
 // This named metadata is not valid in final module (should be moved to DxilContainer)
 const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
 const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.viewIdState";
+const char DxilMDHelper::kDxilFunctionPropertiesMDName[]              = "dx.func.props";
 
 static std::array<const char *, 7> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
@@ -901,6 +903,114 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       IFTBOOL(false, DXC_E_INCORRECT_DXIL_METADATA);
     }
   }
+}
+
+Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
+                                              hlsl::DxilFunctionProps *props) {
+  unsigned idx = 0;
+  Function *F = dyn_cast<Function>(
+      dyn_cast<ValueAsMetadata>(pProps->getOperand(idx++))->getValue());
+  DXIL::ShaderKind shaderKind =
+      static_cast<DXIL::ShaderKind>(ConstMDToUint32(pProps->getOperand(idx++)));
+
+  props->shaderKind = shaderKind;
+  switch (shaderKind) {
+  case DXIL::ShaderKind::Compute:
+    props->ShaderProps.CS.numThreads[0] =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.CS.numThreads[1] =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.CS.numThreads[2] =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    break;
+  case DXIL::ShaderKind::Geometry:
+    props->ShaderProps.GS.inputPrimitive =
+        (DXIL::InputPrimitive)ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.GS.maxVertexCount =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    for (size_t i = 0;
+         i < _countof(props->ShaderProps.GS.streamPrimitiveTopologies); ++i)
+      props->ShaderProps.GS.streamPrimitiveTopologies[i] =
+          (DXIL::PrimitiveTopology)ConstMDToUint32(pProps->getOperand(idx++));
+    break;
+  case DXIL::ShaderKind::Hull:
+    props->ShaderProps.HS.patchConstantFunc = dyn_cast<Function>(
+        dyn_cast<ValueAsMetadata>(pProps->getOperand(idx++))->getValue());
+    props->ShaderProps.HS.domain =
+        (DXIL::TessellatorDomain)ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.HS.partition =
+        (DXIL::TessellatorPartitioning)ConstMDToUint32(
+            pProps->getOperand(idx++));
+    props->ShaderProps.HS.outputPrimitive =
+        (DXIL::TessellatorOutputPrimitive)ConstMDToUint32(
+            pProps->getOperand(idx++));
+    props->ShaderProps.HS.inputControlPoints =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.HS.outputControlPoints =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.HS.maxTessFactor =
+        ConstMDToFloat(pProps->getOperand(idx++));
+    break;
+  case DXIL::ShaderKind::Domain:
+    props->ShaderProps.DS.domain =
+        (DXIL::TessellatorDomain)ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.DS.inputControlPoints =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    break;
+  case DXIL::ShaderKind::Pixel:
+    props->ShaderProps.PS.EarlyDepthStencil =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    break;
+  }
+  return F;
+}
+
+MDTuple *
+DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
+                                    Function *F) {
+  Metadata *MDVals[30];
+  std::fill(MDVals, MDVals + _countof(MDVals), nullptr);
+  unsigned valIdx = 0;
+  MDVals[valIdx++] = ValueAsMetadata::get(F);
+  MDVals[valIdx++] = Uint32ToConstMD(static_cast<unsigned>(props->shaderKind));
+  switch (props->shaderKind) {
+  case DXIL::ShaderKind::Compute:
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.CS.numThreads[0]);
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.CS.numThreads[1]);
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.CS.numThreads[2]);
+    break;
+  case DXIL::ShaderKind::Geometry:
+    MDVals[valIdx++] =
+        Uint8ToConstMD((uint8_t)props->ShaderProps.GS.inputPrimitive);
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.GS.maxVertexCount);
+    for (size_t i = 0;
+         i < _countof(props->ShaderProps.GS.streamPrimitiveTopologies); ++i)
+      MDVals[valIdx++] = Uint8ToConstMD(
+          (uint8_t)props->ShaderProps.GS.streamPrimitiveTopologies[i]);
+    break;
+  case DXIL::ShaderKind::Hull:
+    MDVals[valIdx++] =
+        ValueAsMetadata::get(props->ShaderProps.HS.patchConstantFunc);
+    MDVals[valIdx++] = Uint8ToConstMD((uint8_t)props->ShaderProps.HS.domain);
+    MDVals[valIdx++] = Uint8ToConstMD((uint8_t)props->ShaderProps.HS.partition);
+    MDVals[valIdx++] =
+        Uint8ToConstMD((uint8_t)props->ShaderProps.HS.outputPrimitive);
+    MDVals[valIdx++] =
+        Uint32ToConstMD(props->ShaderProps.HS.inputControlPoints);
+    MDVals[valIdx++] =
+        Uint32ToConstMD(props->ShaderProps.HS.outputControlPoints);
+    MDVals[valIdx++] = FloatToConstMD(props->ShaderProps.HS.maxTessFactor);
+    break;
+  case DXIL::ShaderKind::Domain:
+    MDVals[valIdx++] = Uint8ToConstMD((uint8_t)props->ShaderProps.DS.domain);
+    MDVals[valIdx++] =
+        Uint32ToConstMD(props->ShaderProps.DS.inputControlPoints);
+    break;
+  case DXIL::ShaderKind::Pixel:
+    MDVals[valIdx++] = BoolToConstMD(props->ShaderProps.PS.EarlyDepthStencil);
+    break;
+  }
+  return MDTuple::get(m_Ctx, ArrayRef<llvm::Metadata *>(MDVals, valIdx));
 }
 
 void DxilMDHelper::EmitDxilViewIdState(DxilViewIdState &ViewIdState) {

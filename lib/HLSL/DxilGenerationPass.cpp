@@ -178,55 +178,12 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
-  // Compute shader.
-  if (FnProps != nullptr && FnProps->shaderKind == DXIL::ShaderKind::Compute) {
-    auto &CS = FnProps->ShaderProps.CS;
-    for (size_t i = 0; i < _countof(M.m_NumThreads); ++i)
-      M.m_NumThreads[i] = CS.numThreads[i];
-  }
+  if (FnProps)
+    M.SetShaderProperties(FnProps);
 
-  // Geometry shader.
-  if (FnProps != nullptr && FnProps->shaderKind == DXIL::ShaderKind::Geometry) {
-    auto &GS = FnProps->ShaderProps.GS;
-    M.SetInputPrimitive(GS.inputPrimitive);
-    M.SetMaxVertexCount(GS.maxVertexCount);
-    for (size_t i = 0; i < _countof(GS.streamPrimitiveTopologies); ++i) {
-      if (GS.streamPrimitiveTopologies[i] != DXIL::PrimitiveTopology::Undefined) {
-        M.SetStreamActive(i, true);
-        DXASSERT_NOMSG(M.GetStreamPrimitiveTopology() ==
-                           DXIL::PrimitiveTopology::Undefined ||
-                       M.GetStreamPrimitiveTopology() ==
-                           GS.streamPrimitiveTopologies[i]);
-        M.SetStreamPrimitiveTopology(GS.streamPrimitiveTopologies[i]);
-      }
-    }
-    M.SetGSInstanceCount(GS.instanceCount);
-  }
-
-  // Hull and Domain shaders.
-  if (FnProps != nullptr && FnProps->shaderKind == DXIL::ShaderKind::Domain) {
-    auto &DS = FnProps->ShaderProps.DS;
-    M.SetTessellatorDomain(DS.domain);
-    M.SetInputControlPointCount(DS.inputControlPoints);
-  }
-
-  // Hull shader.
-  if (FnProps != nullptr && FnProps->shaderKind == DXIL::ShaderKind::Hull) {
-    auto &HS = FnProps->ShaderProps.HS;
-    M.SetPatchConstantFunction(HS.patchConstantFunc);
-    M.SetTessellatorDomain(HS.domain);
-    M.SetTessellatorPartitioning(HS.partition);
-    M.SetTessellatorOutputPrimitive(HS.outputPrimitive);
-    M.SetInputControlPointCount(HS.inputControlPoints);
-    M.SetOutputControlPointCount(HS.outputControlPoints);
-    M.SetMaxTessellationFactor(HS.maxTessFactor);
-  }
-
-  // Pixel shader.
-  if (FnProps != nullptr && FnProps->shaderKind == DXIL::ShaderKind::Pixel) {
-    auto &PS = FnProps->ShaderProps.PS;
-    M.m_ShaderFlags.SetForceEarlyDepthStencil(PS.EarlyDepthStencil);
-  }
+  // Move function props.
+  if (M.GetShaderModel()->IsLib())
+    M.ResetFunctionPropsMap(H.ReleaseFunctionPropsMap());
 
   // DXIL type system.
   M.ResetTypeSystem(H.ReleaseTypeSystem());

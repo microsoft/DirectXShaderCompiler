@@ -212,6 +212,8 @@ public:
   DxilTypeSystem *ReleaseTypeSystem();
   OP *ReleaseOP();
   RootSignatureHandle *ReleaseRootSignature();
+  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>> &&
+  ReleaseFunctionPropsMap();
 
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
   static llvm::DIGlobalVariable *

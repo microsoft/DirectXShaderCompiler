@@ -14,6 +14,7 @@
 #include "dxc/HLSL/DxilSignatureElement.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/HLSL/DxilFunctionProps.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -729,6 +730,58 @@ void DxilModule::SetMaxTessellationFactor(float MaxTessellationFactor) {
   m_MaxTessellationFactor = MaxTessellationFactor;
 }
 
+void DxilModule::SetShaderProperties(DxilFunctionProps *props) {
+  if (!props)
+    return;
+  switch (props->shaderKind) {
+  case DXIL::ShaderKind::Pixel: {
+    auto &PS = props->ShaderProps.PS;
+    m_ShaderFlags.SetForceEarlyDepthStencil(PS.EarlyDepthStencil);
+  } break;
+  case DXIL::ShaderKind::Compute: {
+    auto &CS = props->ShaderProps.CS;
+    for (size_t i = 0; i < _countof(m_NumThreads); ++i)
+      m_NumThreads[i] = CS.numThreads[i];
+  } break;
+  case DXIL::ShaderKind::Domain: {
+    auto &DS = props->ShaderProps.DS;
+    SetTessellatorDomain(DS.domain);
+    SetInputControlPointCount(DS.inputControlPoints);
+  } break;
+  case DXIL::ShaderKind::Hull: {
+    auto &HS = props->ShaderProps.HS;
+    SetPatchConstantFunction(HS.patchConstantFunc);
+    SetTessellatorDomain(HS.domain);
+    SetTessellatorPartitioning(HS.partition);
+    SetTessellatorOutputPrimitive(HS.outputPrimitive);
+    SetInputControlPointCount(HS.inputControlPoints);
+    SetOutputControlPointCount(HS.outputControlPoints);
+    SetMaxTessellationFactor(HS.maxTessFactor);
+  } break;
+  case DXIL::ShaderKind::Vertex:
+    break;
+  default: {
+    DXASSERT(props->shaderKind == DXIL::ShaderKind::Geometry,
+             "else invalid shader kind");
+    auto &GS = props->ShaderProps.GS;
+    SetInputPrimitive(GS.inputPrimitive);
+    SetMaxVertexCount(GS.maxVertexCount);
+    for (size_t i = 0; i < _countof(GS.streamPrimitiveTopologies); ++i) {
+      if (GS.streamPrimitiveTopologies[i] !=
+          DXIL::PrimitiveTopology::Undefined) {
+        SetStreamActive(i, true);
+        DXASSERT_NOMSG(GetStreamPrimitiveTopology() ==
+                           DXIL::PrimitiveTopology::Undefined ||
+                       GetStreamPrimitiveTopology() ==
+                           GS.streamPrimitiveTopologies[i]);
+        SetStreamPrimitiveTopology(GS.streamPrimitiveTopologies[i]);
+      }
+    }
+    SetGSInstanceCount(GS.instanceCount);
+  } break;
+  }
+}
+
 template<typename T> unsigned 
 DxilModule::AddResource(vector<unique_ptr<T> > &Vec, unique_ptr<T> pRes) {
   DXASSERT_NOMSG((unsigned)Vec.size() < UINT_MAX);
@@ -912,6 +965,7 @@ static void ConvertUsedResource(std::unordered_set<unsigned> &immResID,
 
 void DxilModule::RemoveFunction(llvm::Function *F) {
   DXASSERT_NOMSG(F != nullptr);
+  m_DxilFunctionPropsMap.erase(F);
   if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
     m_pTypeSystem.get()->EraseFunctionAnnotation(F);
   m_pOP->RemoveFunction(F);
@@ -1051,8 +1105,12 @@ void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
   m_pTypeSystem.reset(pValue);
 }
 
-void DxilModule::ResetOP(hlsl::OP *hlslOP) {
-  m_pOP.reset(hlslOP);
+void DxilModule::ResetOP(hlsl::OP *hlslOP) { m_pOP.reset(hlslOP); }
+
+void DxilModule::ResetFunctionPropsMap(
+    std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
+        &&propsMap) {
+  m_DxilFunctionPropsMap = std::move(propsMap);
 }
 
 void DxilModule::EmitLLVMUsed() {
@@ -1120,8 +1178,16 @@ void DxilModule::EmitDxilMetadata() {
   if (!m_RootSignature->IsEmpty()) {
     m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
   }
-  if (m_pSM->IsLib())
+  if (m_pSM->IsLib()) {
     EmitDxilResourcesLinkInfo();
+    NamedMDNode *fnProps = m_pModule->getOrInsertNamedMetadata(
+        DxilMDHelper::kDxilFunctionPropertiesMDName);
+    for (auto &&pair : m_DxilFunctionPropsMap) {
+      const hlsl::DxilFunctionProps *props = pair.second.get();
+      MDTuple *pProps = m_pMDHelper->EmitDxilFunctionProps(props, pair.first);
+      fnProps->addOperand(pProps);
+    }
+  }
 }
 
 bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
@@ -1159,8 +1225,22 @@ void DxilModule::LoadDxilMetadata() {
 
   m_pMDHelper->LoadDxilViewIdState(*m_pViewIdState.get());
 
-  if (loadedModule->IsLib())
+  if (loadedModule->IsLib()) {
     LoadDxilResourcesLinkInfo();
+    NamedMDNode *fnProps = m_pModule->getNamedMetadata(
+        DxilMDHelper::kDxilFunctionPropertiesMDName);
+    size_t propIdx = 0;
+    while (propIdx < fnProps->getNumOperands()) {
+      MDTuple *pProps = dyn_cast<MDTuple>(fnProps->getOperand(propIdx++));
+
+      std::unique_ptr<hlsl::DxilFunctionProps> props =
+          llvm::make_unique<hlsl::DxilFunctionProps>();
+
+      Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
+
+      m_DxilFunctionPropsMap[F] = std::move(props);
+    }
+  }
 }
 
 MDTuple *DxilModule::EmitDxilResources() {

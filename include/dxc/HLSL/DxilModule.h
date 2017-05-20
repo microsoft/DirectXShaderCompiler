@@ -19,9 +19,13 @@
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
+
+
+
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace llvm {
 class LLVMContext;
@@ -38,6 +42,7 @@ namespace hlsl {
 class ShaderModel;
 class OP;
 class RootSignatureHandle;
+struct DxilFunctionProps;
 
 /// Use this class to manipulate DXIL of a shader.
 class DxilModule {
@@ -149,6 +154,9 @@ public:
   void ResetRootSignature(RootSignatureHandle *pValue);
   void ResetTypeSystem(DxilTypeSystem *pValue);
   void ResetOP(hlsl::OP *hlslOP);
+  void ResetFunctionPropsMap(
+      std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
+          &&propsMap);
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -335,6 +343,8 @@ public:
   float GetMaxTessellationFactor() const;
   void SetMaxTessellationFactor(float MaxTessellationFactor);
 
+  void SetShaderProperties(DxilFunctionProps *props);
+
   // Shader resource information only needed before linking.
   // Use constant as rangeID and index for resource in a library.
   // When link the library, replace these constants with real rangeID and index.
@@ -401,6 +411,10 @@ private:
 
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
+
+  // Function properties for shader functions.
+  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
+      m_DxilFunctionPropsMap;
 
   // ViewId state.
   std::unique_ptr<DxilViewIdState> m_pViewIdState;

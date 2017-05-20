@@ -48,7 +48,7 @@ class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
 class RootSignatureHandle;
 class DxilViewIdState;
-
+struct DxilFunctionProps;
 
 /// Use this class to manipulate DXIL-spcific metadata.
 // In our code, only DxilModule and HLModule should use this class.
@@ -79,6 +79,9 @@ public:
 
   // ViewId state.
   static const char kDxilViewIdStateMDName[];
+
+  // Function props.
+  static const char kDxilFunctionPropertiesMDName[];
 
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
@@ -327,6 +330,12 @@ public:
   void LoadDxilFunctionAnnotation(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
   llvm::Metadata *EmitDxilParamAnnotation(const DxilParameterAnnotation &PA);
   void LoadDxilParamAnnotation(const llvm::MDOperand &MDO, DxilParameterAnnotation &PA);
+
+  // Function props.
+  llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
+                                       llvm::Function *F);
+  llvm::Function *LoadDxilFunctionProps(llvm::MDTuple *pProps,
+                                        hlsl::DxilFunctionProps *props);
 
   // ViewId state.
   void EmitDxilViewIdState(DxilViewIdState &ViewIdState);

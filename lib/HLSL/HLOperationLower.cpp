@@ -51,7 +51,9 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
   i1Ty = Type::getInt1Ty(Ctx);
   i8Ty = Type::getInt8Ty(Ctx);
   Function *EntryFunc = HLM.GetEntryFunction();
-  functionProps = &HLM.GetDxilFunctionProps(EntryFunc);
+  functionProps = nullptr;
+  if (HLM.HasDxilFunctionProps(EntryFunc))
+    functionProps = &HLM.GetDxilFunctionProps(EntryFunc);
   bLegacyCBufferLoad = HLM.GetHLOptions().bLegacyCBufferLoad;
 }
 
