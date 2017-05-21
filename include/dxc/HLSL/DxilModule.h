@@ -27,6 +27,7 @@ namespace llvm {
 class LLVMContext;
 class Module;
 class Function;
+class Instruction;
 class MDTuple;
 class MDOperand;
 class DebugInfoFinder;
@@ -148,6 +149,10 @@ public:
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
 
   static DxilModule *TryGetDxilModule(llvm::Module *pModule);
+
+  // Return true if the instruction is marked precise or if global
+  // refactoring is disabled.
+  bool IsPrecise(llvm::Instruction *inst);
 
 public:
   // Shader properties.

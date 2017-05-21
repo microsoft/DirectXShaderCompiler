@@ -1346,6 +1346,12 @@ hlsl::DxilModule *hlsl::DxilModule::TryGetDxilModule(llvm::Module *pModule) {
   return pDxilModule;
 }
 
+bool DxilModule::IsPrecise(Instruction *inst) {
+  if (m_ShaderFlags.GetDisableMathRefactoring())
+    return true;
+  return DxilMDHelper::IsMarkedPrecise(inst);
+}
+
 } // namespace hlsl
 
 namespace llvm {
