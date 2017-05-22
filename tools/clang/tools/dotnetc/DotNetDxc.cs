@@ -322,6 +322,23 @@ namespace DotNetDxc
         public void GetLength(out UInt32 length) { length = (UInt32)this.contents.Length; }
     }
 
+    public delegate int DxcCreateInstanceFn(ref Guid clsid, ref Guid iid, [MarshalAs(UnmanagedType.IUnknown)] out object instance);
+
+    class DefaultDxcLib
+    {
+        [DllImport(@"dxcompiler.dll", CallingConvention = CallingConvention.StdCall)]
+        private static extern int DxcCreateInstance(
+            ref Guid clsid,
+            ref Guid iid,
+            [MarshalAs(UnmanagedType.IUnknown)] out object instance);
+
+        [MethodImplAttribute(MethodImplOptions.NoInlining)]
+        internal static DxcCreateInstanceFn GetDxcCreateInstanceFn()
+        {
+            return DxcCreateInstance;
+        }
+    }
+
     class HlslDxcLib
     {
         private static Guid CLSID_DxcAssembler = new Guid("D728DB68-F903-4F80-94CD-DCCF76EC7151");
@@ -332,11 +349,32 @@ namespace DotNetDxc
         private static Guid CLSID_DxcOptimizer = new Guid("AE2CD79F-CC22-453F-9B6B-B124E7A5204C");
         private static Guid CLSID_DxcValidator = new Guid("8CA3E215-F728-4CF3-8CDD-88AF917587A1");
 
-        [DllImport(@"dxcompiler.dll", CallingConvention = CallingConvention.StdCall)]
-        private static extern int DxcCreateInstance(
+        public static DxcCreateInstanceFn DxcCreateInstanceFn;
+
+        [DllImport("kernel32.dll", CallingConvention = CallingConvention.Winapi, SetLastError =true, CharSet=CharSet.Unicode, ExactSpelling = true)]
+        private static extern IntPtr LoadLibraryW([MarshalAs(UnmanagedType.LPWStr)] string fileName);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling =true)]
+        private static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+
+        public static DxcCreateInstanceFn LoadDxcCreateInstance(string dllPath, string fnName)
+        {
+            IntPtr handle = LoadLibraryW(dllPath);
+            if (handle == IntPtr.Zero)
+            {
+                throw new System.ComponentModel.Win32Exception();
+            }
+            IntPtr fnPtr = GetProcAddress(handle, fnName);
+            return (DxcCreateInstanceFn)Marshal.GetDelegateForFunctionPointer(fnPtr, typeof(DxcCreateInstanceFn));
+        }
+
+        private static int DxcCreateInstance(
             ref Guid clsid,
             ref Guid iid,
-            [MarshalAs(UnmanagedType.IUnknown)] out object instance);
+            out object instance)
+        {
+            return DxcCreateInstanceFn(ref clsid, ref iid, out instance);
+        }
 
         [MethodImplAttribute(MethodImplOptions.NoInlining)]
         public static IDxcAssembler CreateDxcAssembler()

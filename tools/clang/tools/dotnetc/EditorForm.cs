@@ -35,6 +35,7 @@ namespace MainNs
         private string docFileName;
         private DocumentKind documentKind;
         private MRUManager mruManager;
+        private SettingsManager settingsManager;
         private Action pendingASTDump;
         private FindDialog findDialog;
         private TabPage errorListTabPage;
@@ -1248,7 +1249,7 @@ namespace MainNs
             try
             {
                 HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
-                args = fileVars.Arguments.ToList();
+                args = fileVars.Arguments.Where(a => !String.IsNullOrWhiteSpace(a)).ToList();
             }
             catch(Exception)
             {
@@ -1359,17 +1360,37 @@ namespace MainNs
             }
         }
 
-        private static IEnumerable<TextSection> EnumerateSections(string separator, string text)
+        private static bool ClosestMatch(string text, ref int start, string[] separators, out string separator)
+        {
+            int closest = -1;
+            separator = null;
+            for (int i = 0; i < separators.Length; ++i)
+            {
+                int idx = text.IndexOf(separators[i], start);
+                if (idx >= 0 && (closest < 0 || idx < closest))
+                {
+                    closest = idx;
+                    separator = separators[i];
+                }
+            }
+            start = closest;
+            return closest >= 0;
+        }
+
+        private static IEnumerable<TextSection> EnumerateSections(string[] separators, string text)
         {
             string prior = null;
-            int idx = text.IndexOf(separator);
-            while (idx >= 0)
+            string separator;
+            int idx = 0;
+            while (idx >= 0 && ClosestMatch(text, ref idx, separators, out separator))
             {
                 int lineEnd = text.IndexOf('\n', idx);
                 if (lineEnd < 0) break;
                 string title = text.Substring(idx + separator.Length, lineEnd - (idx + separator.Length));
                 title = title.Trim();
-                int next = text.IndexOf(separator, lineEnd);
+                int next = lineEnd;
+                if (!ClosestMatch(text, ref next, separators, out separator))
+                    next = -1;
                 string sectionText = (next < 0) ? text.Substring(lineEnd + 1) : text.Substring(lineEnd + 1, next - (lineEnd + 1));
                 sectionText = sectionText.Trim();
                 if (sectionText == prior)
@@ -1441,7 +1462,7 @@ namespace MainNs
                 RadioButton rightButton = new RadioButton() { Text = "Right Only", Left = diffButton.Right };
                 Panel optionsPanel = new Panel() { Dock = DockStyle.Top, Height = diffButton.Bottom };
                 optionsPanel.Controls.AddRange(new Control[] { leftButton, diffButton, rightButton } );
-                var sections = EnumerateSections("MODULE-PRINT", resultText).ToArray();
+                var sections = EnumerateSections(new string[] { "MODULE-PRINT", "Phase:" }, resultText).ToArray();
                 TextSection last = null;
                 foreach (var s in sections)
                 {
@@ -2416,6 +2437,9 @@ namespace MainNs
         {
             this.mruManager = new MRUManager();
             this.mruManager.LoadFromFile();
+            this.settingsManager = new SettingsManager();
+            this.settingsManager.LoadFromFile();
+            this.CheckSettingsForDxcLibrary();
         }
 
         private void RefreshMRUMenu(MRUManager mru, ToolStripMenuItem parent)
@@ -2765,6 +2789,38 @@ namespace MainNs
             Control target = this.DeepActiveControl;
             if (target == null) return;
             target.Font = new Font(target.Font.FontFamily, target.Font.Size / 1.1f);
+        }
+
+        private void optionsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Form form = new Form();
+            PropertyGrid grid = new PropertyGrid();
+            grid.SelectedObject = this.settingsManager;
+            grid.Dock = DockStyle.Fill;
+            form.Controls.Add(grid);
+            form.FormClosing += (_, __) =>
+            {
+                this.settingsManager.SaveToFile();
+                this.CheckSettingsForDxcLibrary();
+            };
+            form.ShowDialog(this);
+        }
+
+        private void CheckSettingsForDxcLibrary()
+        {
+            if (!String.IsNullOrWhiteSpace(this.settingsManager.ExternalLib))
+            {
+                try
+                {
+                    HlslDxcLib.DxcCreateInstanceFn = HlslDxcLib.LoadDxcCreateInstance(
+                        this.settingsManager.ExternalLib,
+                        this.settingsManager.ExternalFunction);
+                }
+                catch (Exception e)
+                {
+                    HandleException(e);
+                }
+            }
         }
     }
 

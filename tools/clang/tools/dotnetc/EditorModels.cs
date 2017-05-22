@@ -15,6 +15,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace MainNs
 {
@@ -200,5 +202,106 @@ namespace MainNs
         }
 
         #endregion Public methods.
+    }
+
+    class SettingsManager
+    {
+        #region Private fields.
+
+        private XDocument doc = new XDocument();
+
+        #endregion Private fields.
+
+        #region Constructors.
+
+        public SettingsManager()
+        {
+            this.doc = new XDocument(new XElement("settings"));
+            this.SettingsPath =
+                System.IO.Path.Combine(
+                    System.Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "dndxc",
+                    "settings.xml");
+        }
+
+        #endregion Constructors.
+
+        #region Public properties.
+
+        internal string SettingsPath { get; set; }
+        [Description("The name of an external DLL implementing the compiler.")]
+        public string ExternalLib
+        {
+            get { return this.GetPathTextOrDefault("", "external", "lib"); }
+            set { this.SetPathText(value, "external", "lib"); }
+        }
+        [Description("The name of the factory function export on the external DLL implementing the compiler.")]
+        public string ExternalFunction
+        {
+            get { return this.GetPathTextOrDefault("", "external", "fun"); }
+            set { this.SetPathText(value, "external", "fun"); }
+        }
+
+        #endregion Public properties.
+
+        #region Public methods.
+
+        public void LoadFromFile()
+        {
+            this.LoadFromFile(this.SettingsPath);
+        }
+
+        public void LoadFromFile(string path)
+        {
+            if (!System.IO.File.Exists(path))
+                return;
+            this.doc = XDocument.Load(path);
+        }
+
+        public void SaveToFile()
+        {
+            this.SaveToFile(this.SettingsPath);
+        }
+
+        public void SaveToFile(string path)
+        {
+            string dirName = System.IO.Path.GetDirectoryName(path);
+            if (!System.IO.Directory.Exists(dirName))
+                System.IO.Directory.CreateDirectory(dirName);
+            this.doc.Save(path);
+        }
+
+        #endregion Public methods.
+
+        #region Private methods.
+
+        private string GetPathTextOrDefault(string defaultValue, params string[] paths)
+        {
+            var element = this.doc.Root;
+            foreach (string path in paths)
+            {
+                element = element.Element(XName.Get(path));
+                if (element == null) return defaultValue;
+            }
+            return element.Value;
+        }
+
+        private void SetPathText(string value, params string[] paths)
+        {
+            var element = this.doc.Root;
+            foreach (string path in paths)
+            {
+                var next = element.Element(XName.Get(path));
+                if (next == null)
+                {
+                    next = new XElement(XName.Get(path));
+                    element.Add(next);
+                }
+                element = next;
+            }
+            element.Value = value;
+        }
+
+        #endregion Private methods.
     }
 }
