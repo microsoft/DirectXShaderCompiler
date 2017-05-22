@@ -37,7 +37,7 @@ function(llvm_update_compile_flags name)
       list(APPEND LLVM_COMPILE_FLAGS "/GR-")
     endif ()
   endif()
-  
+
   # HLSL Changes Start
   if (LLVM_ENABLE_EH)
     if (MSVC)
@@ -749,11 +749,12 @@ endfunction(add_llvm_implicit_external_projects)
 
 # Generic support for adding a unittest.
 function(add_unittest test_suite test_name)
-  if( NOT LLVM_BUILD_TESTS )
+  if( NOT LLVM_BUILD_TESTS AND NOT SPIRV_BUILD_TESTS ) # SPIRV change
     set(EXCLUDE_FROM_ALL ON)
   endif()
 
-  include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
+  include_directories(${DXC_GTEST_DIR}/googletest/include) # SPIRV change
+  include_directories(${DXC_GTEST_DIR}/googlemock/include) # SPIRV change
   if (NOT LLVM_ENABLE_THREADS)
     list(APPEND LLVM_COMPILE_DEFINITIONS GTEST_HAS_PTHREAD=0)
   endif ()
@@ -769,7 +770,7 @@ function(add_unittest test_suite test_name)
   set_output_directory(${test_name} ${outdir} ${outdir})
   target_link_libraries(${test_name}
     gtest
-    gtest_main
+    # gtest_main # SPIRV change
     LLVMSupport # gtest needs it for raw_ostream.
     )
 

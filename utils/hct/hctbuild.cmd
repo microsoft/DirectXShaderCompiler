@@ -119,6 +119,11 @@ if "%1"=="-spirv" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=ON
   shift /1
 )
+if "%1"=="-spirvtest" (
+  echo Building SPIR-V tests is enabled.
+  set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=ON
+  shift /1
+)
 rem End SPIRV change
 
 if "%BUILD_ARCH%"=="x64" (

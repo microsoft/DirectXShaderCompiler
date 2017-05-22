@@ -86,6 +86,10 @@ option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default buil
 
 # SPIRV change starts
 option(ENABLE_SPIRV_CODEGEN "Enables SPIR-V code generation." OFF)
+option(SPIRV_BUILD_TESTS "Build targets for the SPIR-V unit tests." OFF)
+if (${SPIRV_BUILD_TESTS})
+  set(ENABLE_SPIRV_CODEGEN ON)
+endif()
 if (${ENABLE_SPIRV_CODEGEN})
   add_definitions(-DENABLE_SPIRV_CODEGEN)
 endif()
