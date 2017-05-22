@@ -1097,6 +1097,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
+  if (isEntry) {
+    funcProps->shaderKind = SM->GetKind();
+  }
 
   DiagnosticsEngine &Diags = CGM.getDiags();
   // Geometry shader.
@@ -1630,7 +1633,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Only add functionProps when exist.
-  if (profileAttributes || isPatchConstantFunction)
+  if (profileAttributes || isPatchConstantFunction || isEntry)
     m_pHLModule->AddDxilFunctionProps(F, funcProps);
   // Save F to entry map.
   if (profileAttributes) {

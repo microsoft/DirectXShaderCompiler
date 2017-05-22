@@ -58,6 +58,22 @@ struct DxilFunctionProps {
     } PS;
   } ShaderProps;
   DXIL::ShaderKind shaderKind;
+  bool IsPS() const     { return shaderKind == DXIL::ShaderKind::Pixel; }
+  bool IsVS() const     { return shaderKind == DXIL::ShaderKind::Vertex; }
+  bool IsGS() const     { return shaderKind == DXIL::ShaderKind::Geometry; }
+  bool IsHS() const     { return shaderKind == DXIL::ShaderKind::Hull; }
+  bool IsDS() const     { return shaderKind == DXIL::ShaderKind::Domain; }
+  bool IsCS() const     { return shaderKind == DXIL::ShaderKind::Compute; }
+  bool IsGraphics() const {
+    switch (shaderKind) {
+    case DXIL::ShaderKind::Compute:
+    case DXIL::ShaderKind::Library:
+    case DXIL::ShaderKind::Invalid:
+      return false;
+    default:
+      return true;
+    }
+  }
 };
 
 } // namespace hlsl

@@ -140,9 +140,7 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM) {
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   DXIL::ShaderKind shaderKind = pSM->GetKind();
-  m_InputSignature.reset(new DxilSignature(shaderKind, DXIL::SignatureKind::Input));
-  m_OutputSignature.reset(new DxilSignature(shaderKind, DXIL::SignatureKind::Output));
-  m_PatchConstantSignature.reset(new DxilSignature(shaderKind, DXIL::SignatureKind::PatchConstant));
+  m_EntrySignature = llvm::make_unique<DxilEntrySignature>(shaderKind);
   m_RootSignature.reset(new RootSignatureHandle());
 }
 
@@ -1036,27 +1034,27 @@ void DxilModule::RemoveUnusedResources() {
 }
 
 DxilSignature &DxilModule::GetInputSignature() {
-  return *m_InputSignature;
+  return m_EntrySignature->InputSignature;
 }
 
 const DxilSignature &DxilModule::GetInputSignature() const {
-  return *m_InputSignature;
+  return m_EntrySignature->InputSignature;
 }
 
 DxilSignature &DxilModule::GetOutputSignature() {
-  return *m_OutputSignature;
+  return m_EntrySignature->OutputSignature;
 }
 
 const DxilSignature &DxilModule::GetOutputSignature() const {
-  return *m_OutputSignature;
+  return m_EntrySignature->OutputSignature;
 }
 
 DxilSignature &DxilModule::GetPatchConstantSignature() {
-  return *m_PatchConstantSignature;
+  return m_EntrySignature->PatchConstantSignature;
 }
 
 const DxilSignature &DxilModule::GetPatchConstantSignature() const {
-  return *m_PatchConstantSignature;
+  return m_EntrySignature->PatchConstantSignature;
 }
 
 const RootSignatureHandle &DxilModule::GetRootSignature() const {
@@ -1074,16 +1072,8 @@ void DxilModule::UpdateValidatorVersionMetadata() {
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
 }
 
-void DxilModule::ResetInputSignature(DxilSignature *pValue) {
-  m_InputSignature.reset(pValue);
-}
-
-void DxilModule::ResetOutputSignature(DxilSignature *pValue) {
-  m_OutputSignature.reset(pValue);
-}
-
-void DxilModule::ResetPatchConstantSignature(DxilSignature *pValue) {
-  m_PatchConstantSignature.reset(pValue);
+void DxilModule::ResetEntrySignature(DxilEntrySignature *pValue) {
+  m_EntrySignature.reset(pValue);
 }
 
 void DxilModule::ResetRootSignature(RootSignatureHandle *pValue) {
@@ -1160,9 +1150,7 @@ void DxilModule::EmitDxilMetadata() {
 
   MDTuple *pMDProperties = EmitDxilShaderProperties();
 
-  MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_InputSignature, 
-                                                           *m_OutputSignature,
-                                                           *m_PatchConstantSignature);
+  MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_EntrySignature);
   MDTuple *pMDResources = EmitDxilResources();
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   if (!m_pSM->IsCS() &&
@@ -1200,7 +1188,7 @@ void DxilModule::LoadDxilMetadata() {
   const ShaderModel *loadedModule;
   m_pMDHelper->LoadDxilShaderModel(loadedModule);
   SetShaderModel(loadedModule);
-  DXASSERT(m_InputSignature != nullptr, "else SetShaderModel didn't create input signature");
+  DXASSERT(m_EntrySignature != nullptr, "else SetShaderModel didn't create entry signature");
 
   const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
   IFTBOOL(pEntries->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
@@ -1215,8 +1203,7 @@ void DxilModule::LoadDxilMetadata() {
 
   LoadDxilShaderProperties(*pProperties);
 
-  m_pMDHelper->LoadDxilSignatures(*pSignatures, *m_InputSignature,
-                                  *m_OutputSignature, *m_PatchConstantSignature);
+  m_pMDHelper->LoadDxilSignatures(*pSignatures, *m_EntrySignature);
   LoadDxilResources(*pResources);
 
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());

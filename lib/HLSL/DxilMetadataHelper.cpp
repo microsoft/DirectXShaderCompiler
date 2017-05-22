@@ -256,10 +256,12 @@ void DxilMDHelper::GetDxilEntryPoint(const MDNode *MDO, Function *&pFunc, string
 //
 // Signatures.
 //
-MDTuple *DxilMDHelper::EmitDxilSignatures(const DxilSignature &InputSig, 
-                                          const DxilSignature &OutputSig,
-                                          const DxilSignature &PCSig) {
+MDTuple *DxilMDHelper::EmitDxilSignatures(const DxilEntrySignature &EntrySig) {
   MDTuple *pSignatureTupleMD = nullptr;
+
+  const DxilSignature &InputSig = EntrySig.InputSignature;
+  const DxilSignature &OutputSig = EntrySig.OutputSignature;
+  const DxilSignature &PCSig = EntrySig.PatchConstantSignature;
 
   if (!InputSig.GetElements().empty() || !OutputSig.GetElements().empty() || !PCSig.GetElements().empty()) {
     Metadata *MDVals[kDxilNumSignatureFields];
@@ -290,13 +292,12 @@ void DxilMDHelper::EmitRootSignature(RootSignatureHandle &RootSig) {
   return ;
 }
 
-void DxilMDHelper::LoadDxilSignatures(const MDOperand &MDO, 
-                                      DxilSignature &InputSig, 
-                                      DxilSignature &OutputSig,
-                                      DxilSignature &PCSig) {
+void DxilMDHelper::LoadDxilSignatures(const MDOperand &MDO, DxilEntrySignature &EntrySig) {
   if (MDO.get() == nullptr)
     return;
-
+  DxilSignature &InputSig = EntrySig.InputSignature;
+  DxilSignature &OutputSig = EntrySig.OutputSignature;
+  DxilSignature &PCSig = EntrySig.PatchConstantSignature;
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   IFTBOOL(pTupleMD->getNumOperands() == kDxilNumSignatureFields, DXC_E_INCORRECT_DXIL_METADATA);
