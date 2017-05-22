@@ -65,6 +65,7 @@ public:
   static const ShaderModel *Get(unsigned Idx);
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(const char *pszName);
+  static std::string GetKindName(Kind kind);
 
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }

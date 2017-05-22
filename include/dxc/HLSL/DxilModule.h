@@ -148,9 +148,7 @@ public:
   static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
 
   // Reset functions used to transfer ownership.
-  void ResetInputSignature(DxilSignature *pValue);
-  void ResetOutputSignature(DxilSignature *pValue);
-  void ResetPatchConstantSignature(DxilSignature *pValue);
+  void ResetEntrySignature(DxilEntrySignature *pValue);
   void ResetRootSignature(RootSignatureHandle *pValue);
   void ResetTypeSystem(DxilTypeSystem *pValue);
   void ResetOP(hlsl::OP *hlslOP);
@@ -355,9 +353,7 @@ public:
 
 private:
   // Signatures.
-  std::unique_ptr<DxilSignature> m_InputSignature;
-  std::unique_ptr<DxilSignature> m_OutputSignature;
-  std::unique_ptr<DxilSignature> m_PatchConstantSignature;
+  std::unique_ptr<DxilEntrySignature> m_EntrySignature;
   std::unique_ptr<RootSignatureHandle> m_RootSignature;
 
   // Shader resources.

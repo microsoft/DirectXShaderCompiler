@@ -119,9 +119,6 @@ public:
   void AddGroupSharedVariable(llvm::GlobalVariable *GV);
 
   // Signatures.
-  DxilSignature &GetInputSignature();
-  DxilSignature &GetOutputSignature();
-  DxilSignature &GetPatchConstantSignature();
   RootSignatureHandle &GetRootSignature();
 
   // DxilFunctionProps.
@@ -206,9 +203,6 @@ public:
   std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
 
   // Release functions used to transfer ownership.
-  DxilSignature *ReleaseInputSignature();
-  DxilSignature *ReleaseOutputSignature();
-  DxilSignature *ReleasePatchConstantSignature();
   DxilTypeSystem *ReleaseTypeSystem();
   OP *ReleaseOP();
   RootSignatureHandle *ReleaseRootSignature();
@@ -233,9 +227,6 @@ public:
 
 private:
   // Signatures.
-  std::unique_ptr<DxilSignature> m_InputSignature;
-  std::unique_ptr<DxilSignature> m_OutputSignature;
-  std::unique_ptr<DxilSignature> m_PatchConstantSignature;
   std::unique_ptr<RootSignatureHandle> m_RootSignature;
 
   // Shader resources.

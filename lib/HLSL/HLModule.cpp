@@ -35,19 +35,6 @@ using std::unique_ptr;
 
 namespace hlsl {
 
-static void
-CreateSignatures(const ShaderModel *pSM,
-                 std::unique_ptr<DxilSignature> &InputSignature,
-                 std::unique_ptr<DxilSignature> &OutputSignature,
-                 std::unique_ptr<DxilSignature> &PatchConstantSignature,
-                 std::unique_ptr<RootSignatureHandle> &RootSignature) {
-  DXIL::ShaderKind shaderKind = pSM->GetKind();
-  InputSignature = llvm::make_unique<DxilSignature>(shaderKind, DxilSignature::Kind::Input);
-  OutputSignature = llvm::make_unique<DxilSignature>(shaderKind, DxilSignature::Kind::Output);
-  PatchConstantSignature = llvm::make_unique<DxilSignature>(shaderKind, DxilSignature::Kind::PatchConstant);
-  RootSignature = llvm::make_unique<RootSignatureHandle>();
-}
-
 //------------------------------------------------------------------------------
 //
 //  HLModule methods.
@@ -96,7 +83,7 @@ void HLModule::SetShaderModel(const ShaderModel *pSM) {
   m_pSM = pSM;
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
-  CreateSignatures(m_pSM, m_InputSignature, m_OutputSignature, m_PatchConstantSignature, m_RootSignature);
+  m_RootSignature = llvm::make_unique<RootSignatureHandle>();
 }
 
 const ShaderModel *HLModule::GetShaderModel() const {
@@ -293,36 +280,12 @@ void HLModule::AddGroupSharedVariable(GlobalVariable *GV) {
   m_TGSMVariables.emplace_back(GV);
 }
 
-DxilSignature &HLModule::GetInputSignature() {
-  return *m_InputSignature;
-}
-
-DxilSignature &HLModule::GetOutputSignature() {
-  return *m_OutputSignature;
-}
-
-DxilSignature &HLModule::GetPatchConstantSignature() {
-  return *m_PatchConstantSignature;
-}
-
 RootSignatureHandle &HLModule::GetRootSignature() {
   return *m_RootSignature;
 }
 
 DxilTypeSystem &HLModule::GetTypeSystem() {
   return *m_pTypeSystem;
-}
-
-DxilSignature *HLModule::ReleaseInputSignature() {
-  return m_InputSignature.release();
-}
-
-DxilSignature *HLModule::ReleaseOutputSignature() {
-  return m_OutputSignature.release();
-}
-
-DxilSignature *HLModule::ReleasePatchConstantSignature() {
-  return m_PatchConstantSignature.release();
 }
 
 DxilTypeSystem *HLModule::ReleaseTypeSystem() {
@@ -431,16 +394,13 @@ void HLModule::EmitHLMetadata() {
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
 
-  MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_InputSignature, 
-                                                           *m_OutputSignature,
-                                                           *m_PatchConstantSignature);
   MDTuple *pMDResources = EmitHLResources();
   MDTuple *pMDProperties = EmitHLShaderProperties();
 
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   EmitLLVMUsed();
-
-  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
+  MDTuple *const pNullMDSig = nullptr;
+  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pNullMDSig, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
   Entries.emplace_back(pEntry);
   m_pMDHelper->EmitDxilEntryPoints(Entries);
@@ -470,7 +430,7 @@ void HLModule::LoadHLMetadata() {
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->LoadDxilShaderModel(m_pSM);
-  CreateSignatures(m_pSM, m_InputSignature, m_OutputSignature, m_PatchConstantSignature, m_RootSignature);
+  m_RootSignature = llvm::make_unique<RootSignatureHandle>();
 
   const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
 
@@ -482,8 +442,6 @@ void HLModule::LoadHLMetadata() {
   SetEntryFunction(pEntryFunc);
   SetEntryFunctionName(EntryName);
 
-  m_pMDHelper->LoadDxilSignatures(*pSignatures, *m_InputSignature, 
-                                  *m_OutputSignature, *m_PatchConstantSignature);
   LoadHLResources(*pResources);
   LoadHLShaderProperties(*pProperties);
 

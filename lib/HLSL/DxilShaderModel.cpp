@@ -163,7 +163,11 @@ static const char *ShaderModelKindNames[] = {
 };
 
 std::string ShaderModel::GetKindName() const {
-  return std::string(ShaderModelKindNames[static_cast<unsigned int>(m_Kind)]);
+  return GetKindName(m_Kind);
+}
+
+std::string ShaderModel::GetKindName(Kind kind) {
+  return std::string(ShaderModelKindNames[static_cast<unsigned int>(kind)]);
 }
 
 const ShaderModel *ShaderModel::GetInvalid() {
