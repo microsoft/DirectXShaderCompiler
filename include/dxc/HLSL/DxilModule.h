@@ -157,33 +157,74 @@ public:
 
     unsigned GetGlobalFlags() const;
     void SetDisableOptimizations(bool flag) { m_bDisableOptimizations = flag; }
+    bool GetDisableOptimizations() const { return m_bDisableOptimizations; }
+
     void SetDisableMathRefactoring(bool flag) { m_bDisableMathRefactoring = flag; }
+    bool GetDisableMathRefactoring() const { return m_bDisableMathRefactoring; }
+
     void SetEnableDoublePrecision(bool flag) { m_bEnableDoublePrecision = flag; }
+    bool GetEnableDoublePrecision() const { return m_bEnableDoublePrecision; }
+
     void SetForceEarlyDepthStencil(bool flag) { m_bForceEarlyDepthStencil = flag; }
+    bool GetForceEarlyDepthStencil() const { return m_bForceEarlyDepthStencil; }
+
     void SetEnableRawAndStructuredBuffers(bool flag) { m_bEnableRawAndStructuredBuffers = flag; }
+    bool GetEnableRawAndStructuredBuffers() const { return m_bEnableRawAndStructuredBuffers; }
+
     void SetEnableMinPrecision(bool flag) { m_bEnableMinPrecision = flag; }
+    bool GetEnableMinPrecision() const { return m_bEnableMinPrecision; }
+
     void SetEnableDoubleExtensions(bool flag) { m_bEnableDoubleExtensions = flag; }
+    bool GetEnableDoubleExtensions() const { return m_bEnableDoubleExtensions; }
+
     void SetEnableMSAD(bool flag) { m_bEnableMSAD = flag; }
+    bool GetEnableMSAD() const { return m_bEnableMSAD; }
+
     void SetAllResourcesBound(bool flag) { m_bAllResourcesBound = flag; }
+    bool GetAllResourcesBound() const { return m_bAllResourcesBound; }
 
     uint64_t GetFeatureInfo() const;
-    bool GetWaveOps() const { return m_bWaveOps; }
-    bool GetViewID() const { return m_bViewID; }
-    bool GetBarycentrics() const { return m_bBarycentrics; }
     void SetCSRawAndStructuredViaShader4X(bool flag) { m_bCSRawAndStructuredViaShader4X = flag; }
+    bool GetCSRawAndStructuredViaShader4X() const { return m_bCSRawAndStructuredViaShader4X; }
+
     void SetROVs(bool flag) { m_bROVS = flag; }
+    bool GetROVs() const { return m_bROVS; }
+
     void SetWaveOps(bool flag) { m_bWaveOps = flag; }
+    bool GetWaveOps() const { return m_bWaveOps; }
+
     void SetInt64Ops(bool flag) { m_bInt64Ops = flag; }
+    bool GetInt64Ops() const { return m_bInt64Ops; }
+
     void SetTiledResources(bool flag) { m_bTiledResources = flag; }
+    bool GetTiledResources() const { return m_bTiledResources; }
+
     void SetStencilRef(bool flag) { m_bStencilRef = flag; }
+    bool GetStencilRef() const { return m_bStencilRef; }
+
     void SetInnerCoverage(bool flag) { m_bInnerCoverage = flag; }
+    bool GetInnerCoverage() const { return m_bInnerCoverage; }
+
     void SetViewportAndRTArrayIndex(bool flag) { m_bViewportAndRTArrayIndex = flag; }
+    bool GetViewportAndRTArrayIndex() const { return m_bViewportAndRTArrayIndex; }
+
     void SetUAVLoadAdditionalFormats(bool flag) { m_bUAVLoadAdditionalFormats = flag; }
+    bool GetUAVLoadAdditionalFormats() const { return m_bUAVLoadAdditionalFormats; }
+
     void SetLevel9ComparisonFiltering(bool flag) { m_bLevel9ComparisonFiltering = flag; }
+    bool GetLevel9ComparisonFiltering() const { return m_bLevel9ComparisonFiltering; }
+
     void Set64UAVs(bool flag) { m_b64UAVs = flag; }
+    bool Get64UAVs() const { return m_b64UAVs; }
+
     void SetUAVsAtEveryStage(bool flag) { m_UAVsAtEveryStage = flag; }
+    bool GetUAVsAtEveryStage() const { return m_UAVsAtEveryStage; }
+
     void SetViewID(bool flag) { m_bViewID = flag; }
+    bool GetViewID() const { return m_bViewID; }
+
     void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
+    bool GetBarycentrics() const { return m_bBarycentrics; }
 
     static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
     uint64_t GetShaderFlagsRaw() const;
