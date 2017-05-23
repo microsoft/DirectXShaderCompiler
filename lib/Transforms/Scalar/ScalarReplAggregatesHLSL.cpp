@@ -4632,6 +4632,8 @@ void SROA_Parameter_HLSL::replaceCastArgument(Value *&NewArg, Value *OldArg,
         elts[i] = Elt;
       }
     }
+    // Don't need elts anymore.
+    vectorEltsMap.erase(NewArg);
   } else if (!NewTy->isPointerTy()) {
     // Ptr param is cast to non-ptr param.
     // Must be in param.
@@ -4735,7 +4737,8 @@ void SROA_Parameter_HLSL::replaceCastParameter(
         OldParam->replaceAllUsesWith(Vec);
       }
     }
-
+    // Don't need elts anymore.
+    vectorEltsMap.erase(NewParam);
   } else if (!NewTy->isPointerTy()) {
     // Ptr param is cast to non-ptr param.
     // Must be in param.
@@ -5977,6 +5980,8 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
         for (Value *elt : elts) {
           FlatParamList[++i] = elt;
         }
+        // Don't need elts anymore.
+        vectorEltsMap.erase(flatArg);
       }
     }
   }

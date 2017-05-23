@@ -504,6 +504,7 @@ public:
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
+  TEST_METHOD(CodeGenLibEntries)
   TEST_METHOD(CodeGenLibResource)
   TEST_METHOD(CodeGenLibUnusedFunc)
   TEST_METHOD(CodeGenLitInParen)
@@ -2786,6 +2787,10 @@ TEST_F(CompilerTest, CodeGenLibCsEntry2) {
 
 TEST_F(CompilerTest, CodeGenLibCsEntry3) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_cs_entry3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibEntries) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_entries.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibResource) {

@@ -221,10 +221,27 @@ public:
 
     std::unique_ptr<DxilEntrySignature> pSig =
         llvm::make_unique<DxilEntrySignature>(SM->GetKind());
+    // EntrySig for shader functions.
+    std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
+        DxilEntrySignatureMap;
+
     if (!SM->IsLib()) {
       HLSignatureLower sigLower(m_pHLModule->GetEntryFunction(), *m_pHLModule,
                               *pSig);
       sigLower.Run();
+    } else {
+      for (auto It = M.begin(); It != M.end();) {
+        Function &F = *(It++);
+        // Lower signature for each entry function.
+        if (m_pHLModule->HasDxilFunctionProps(&F)) {
+          DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(&F);
+          std::unique_ptr<DxilEntrySignature> pSig =
+              llvm::make_unique<DxilEntrySignature>(props.shaderKind);
+          HLSignatureLower sigLower(&F, *m_pHLModule, *pSig);
+          sigLower.Run();
+          DxilEntrySignatureMap[&F] = std::move(pSig);
+        }
+      }
     }
 
     std::unordered_set<LoadInst *> UpdateCounterSet;
@@ -265,6 +282,9 @@ public:
     hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);
     InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, pSig.release(),
                                m_HasDbgInfo);
+    if (SM->IsLib())
+      DxilMod.ResetEntrySignatureMap(std::move(DxilEntrySignatureMap));
+
     HLModule::ClearHLMetadata(M);
     M.ResetHLModule();
 
@@ -303,21 +323,8 @@ private:
   // Translate precise attribute into HL function call.
   void TranslatePreciseAttribute();
 
-  // SignatureElement to Value map.
-  std::unordered_map<DxilSignatureElement *, Value *> m_sigValueMap;
-  // Set to save inout arguments.
-  std::unordered_set<Value *> m_inoutArgSet;
-
-  // SignatureElement which has precise attribute.
-  std::unordered_set<DxilSignatureElement *> m_preciseSigSet;
-  // Patch constant function inputs to signature element map.
-  std::unordered_map<unsigned, DxilSignatureElement *> m_patchConstantInputsSigMap;
   // Input module is not optimized.
   bool NotOptimized;
-
-  // For validation
-  std::unordered_map<unsigned, std::unordered_set<unsigned> > m_InputSemanticsUsed,
-    m_OutputSemanticsUsed[4], m_PatchConstantSemanticsUsed, m_OtherSemanticsUsed;
 };
 
 class SimplifyInst : public FunctionPass {
@@ -1370,7 +1377,7 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
     }
   }
 
-  Function *NewFunc = Function::Create(FT, F->getLinkage(), F->getName());
+  Function *NewFunc = Function::Create(FT, F->getLinkage());
   M.getFunctionList().insert(F, NewFunc);
   // Splice the body of the old function right into the new function.
   NewFunc->getBasicBlockList().splice(NewFunc->begin(), F->getBasicBlockList());
@@ -1386,6 +1393,11 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
     FunctionDIs[NewFunc] = SP;
   }
   NewFunc->takeName(F);
+  if (DM.HasDxilFunctionProps(F)) {
+    DM.ReplaceDxilEntrySignature(F, NewFunc);
+    DM.ReplaceDxilFunctionProps(F, NewFunc);
+  }
+
   DM.GetTypeSystem().EraseFunctionAnnotation(F);
   F->eraseFromParent();
   DM.GetTypeSystem().AddFunctionAnnotation(NewFunc);
@@ -1554,19 +1566,39 @@ public:
       DxilModule &DM = M.GetDxilModule();
       DenseMap<const Function *, DISubprogram *> FunctionDIs =
           makeSubprogramMap(M);
-      if (Function *PatchConstantFunc = DM.GetPatchConstantFunction()) {
-        PatchConstantFunc =
-            StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
-        if (PatchConstantFunc)
-          DM.SetPatchConstantFunction(PatchConstantFunc);
-      }
+      // Strip parameters of entry function.
+      if (!DM.GetShaderModel()->IsLib()) {
+        if (Function *PatchConstantFunc = DM.GetPatchConstantFunction()) {
+          PatchConstantFunc =
+              StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
+          if (PatchConstantFunc)
+            DM.SetPatchConstantFunction(PatchConstantFunc);
+        }
 
-      if (Function *EntryFunc = DM.GetEntryFunction()) {
-        StringRef Name = DM.GetEntryFunctionName();
-        EntryFunc->setName(Name);
-        EntryFunc = StripFunctionParameter(EntryFunc, DM, FunctionDIs);
-        if (EntryFunc)
-          DM.SetEntryFunction(EntryFunc);
+        if (Function *EntryFunc = DM.GetEntryFunction()) {
+          StringRef Name = DM.GetEntryFunctionName();
+          EntryFunc->setName(Name);
+          EntryFunc = StripFunctionParameter(EntryFunc, DM, FunctionDIs);
+          if (EntryFunc)
+            DM.SetEntryFunction(EntryFunc);
+        }
+      } else {
+        std::vector<Function *> entries;
+        for (iplist<Function>::iterator F : M.getFunctionList()) {
+          if (DM.HasDxilFunctionProps(F)) {
+            entries.emplace_back(F);
+          }
+        }
+        for (Function *entry : entries) {
+          DxilFunctionProps &props = DM.GetDxilFunctionProps(entry);
+          if (props.IsHS()) {
+            // Strip patch constant function first.
+            Function *patchConstFunc = StripFunctionParameter(
+                props.ShaderProps.HS.patchConstantFunc, DM, FunctionDIs);
+            props.ShaderProps.HS.patchConstantFunc = patchConstFunc;
+          }
+          StripFunctionParameter(entry, DM, FunctionDIs);
+        }
       }
 
       DM.CollectShaderFlags(); // Update flags to reflect any changes.

@@ -114,6 +114,8 @@ private:
   
   // Map to save patch constant functions
   StringMap<Function *> patchConstantFunctionMap;
+  std::unordered_map<Function *, std::unique_ptr<DxilFunctionProps>>
+      patchConstantFunctionPropsMap;
   bool IsPatchConstantFunction(const Function *F);
 
   // Map to save entry functions.
@@ -1172,7 +1174,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (patchConstantFunctionMap.count(funcName) == 1) {
       Function *patchConstFunc = patchConstantFunctionMap[funcName];
       funcProps->ShaderProps.HS.patchConstantFunc = patchConstFunc;
-      DXASSERT_NOMSG(m_pHLModule->HasDxilFunctionProps(patchConstFunc));
+      DXASSERT_NOMSG(patchConstantFunctionPropsMap.count(patchConstFunc));
       // Check no inout parameter for patch constant function.
       DxilFunctionAnnotation *patchConstFuncAnnotation =
           m_pHLModule->GetFunctionAnnotation(patchConstFunc);
@@ -1604,9 +1606,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (isHS) {
     // Check
     Function *patchConstFunc = funcProps->ShaderProps.HS.patchConstantFunc;
-    if (m_pHLModule->HasDxilFunctionProps(patchConstFunc)) {
+    if (patchConstantFunctionPropsMap.count(patchConstFunc)) {
       DxilFunctionProps &patchProps =
-          m_pHLModule->GetDxilFunctionProps(patchConstFunc);
+          *patchConstantFunctionPropsMap[patchConstFunc];
       if (patchProps.ShaderProps.HS.outputControlPoints != 0 &&
           patchProps.ShaderProps.HS.outputControlPoints !=
               funcProps->ShaderProps.HS.outputControlPoints) {
@@ -1633,8 +1635,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Only add functionProps when exist.
-  if (profileAttributes || isPatchConstantFunction || isEntry)
+  if (profileAttributes || isEntry)
     m_pHLModule->AddDxilFunctionProps(F, funcProps);
+  if (isPatchConstantFunction)
+    patchConstantFunctionPropsMap[F] = std::move(funcProps);
+
   // Save F to entry map.
   if (profileAttributes) {
     if (entryFunctionMap.count(FD->getName())) {
@@ -3818,8 +3823,8 @@ static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
   DxilParameterAnnotation &cloneRetAnnot = annot->GetRetTypeAnnotation();
   cloneRetAnnot = retAnnot;
   // Clear semantic for cloned one.
-  retAnnot.SetSemanticString("");
-  retAnnot.SetSemanticIndexVec({});
+  cloneRetAnnot.SetSemanticString("");
+  cloneRetAnnot.SetSemanticIndexVec({});
   for (unsigned i = 0; i < shaderAnnot->GetNumParameters(); i++) {
     DxilParameterAnnotation &cloneParamAnnot = annot->GetParameterAnnotation(i);
     DxilParameterAnnotation &paramAnnot =
