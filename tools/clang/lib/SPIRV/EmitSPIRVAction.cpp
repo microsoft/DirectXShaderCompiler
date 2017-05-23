@@ -772,6 +772,21 @@ public:
     }
     case UO_Not:
       return theBuilder.createUnaryOp(spv::Op::OpNot, subTypeId, subValue);
+    case UO_LNot:
+      // Parsing will do the necessary casting to make sure we are applying the
+      // ! operator on boolean values.
+      return theBuilder.createUnaryOp(spv::Op::OpLogicalNot, subTypeId,
+                                      subValue);
+    case UO_Plus:
+      // No need to do anything for the prefix + operator.
+      return subValue;
+    case UO_Minus: {
+      // SPIR-V have two opcodes for negating values: OpSNegate and OpFNegate.
+      const spv::Op spvOp = isFloatOrVecOfFloatType(subType)
+                                ? spv::Op::OpFNegate
+                                : spv::Op::OpSNegate;
+      return theBuilder.createUnaryOp(spvOp, subTypeId, subValue);
+    }
     default:
       break;
     }
