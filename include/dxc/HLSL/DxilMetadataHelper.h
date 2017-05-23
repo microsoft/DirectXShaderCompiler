@@ -83,6 +83,7 @@ public:
 
   // Function props.
   static const char kDxilFunctionPropertiesMDName[];
+  static const char kDxilEntrySignaturesMDName[];
 
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.

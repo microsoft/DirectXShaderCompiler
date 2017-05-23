@@ -964,6 +964,7 @@ static void ConvertUsedResource(std::unordered_set<unsigned> &immResID,
 void DxilModule::RemoveFunction(llvm::Function *F) {
   DXASSERT_NOMSG(F != nullptr);
   m_DxilFunctionPropsMap.erase(F);
+  m_DxilEntrySignatureMap.erase(F);
   if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
     m_pTypeSystem.get()->EraseFunctionAnnotation(F);
   m_pOP->RemoveFunction(F);
@@ -1061,6 +1062,38 @@ const RootSignatureHandle &DxilModule::GetRootSignature() const {
   return *m_RootSignature;
 }
 
+bool DxilModule::HasDxilEntrySignature(llvm::Function *F) const {
+  return m_DxilEntrySignatureMap.find(F) != m_DxilEntrySignatureMap.end();
+}
+DxilEntrySignature &DxilModule::GetDxilEntrySignature(llvm::Function *F) {
+  DXASSERT(m_DxilEntrySignatureMap.count(F) != 0, "cannot find F in map");
+  return *m_DxilEntrySignatureMap[F];
+}
+void DxilModule::ReplaceDxilEntrySignature(llvm::Function *F,
+                                           llvm::Function *NewF) {
+  DXASSERT(m_DxilEntrySignatureMap.count(F) != 0, "cannot find F in map");
+  std::unique_ptr<DxilEntrySignature> Sig =
+      std::move(m_DxilEntrySignatureMap[F]);
+  m_DxilEntrySignatureMap.erase(F);
+  m_DxilEntrySignatureMap[NewF] = std::move(Sig);
+}
+
+bool DxilModule::HasDxilFunctionProps(llvm::Function *F) const {
+  return m_DxilFunctionPropsMap.find(F) != m_DxilFunctionPropsMap.end();
+}
+DxilFunctionProps &DxilModule::GetDxilFunctionProps(llvm::Function *F) {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
+  return *m_DxilFunctionPropsMap[F];
+}
+void DxilModule::ReplaceDxilFunctionProps(llvm::Function *F,
+                                          llvm::Function *NewF) {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
+  std::unique_ptr<DxilFunctionProps> props =
+      std::move(m_DxilFunctionPropsMap[F]);
+  m_DxilFunctionPropsMap.erase(F);
+  m_DxilFunctionPropsMap[NewF] = std::move(props);
+}
+
 void DxilModule::StripRootSignatureFromMetadata() {
   NamedMDNode *pRootSignatureNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilRootSignatureMDName);
   if (pRootSignatureNamedMD) {
@@ -1101,6 +1134,12 @@ void DxilModule::ResetFunctionPropsMap(
     std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
         &&propsMap) {
   m_DxilFunctionPropsMap = std::move(propsMap);
+}
+
+void DxilModule::ResetEntrySignatureMap(
+    std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
+        &&SigMap) {
+  m_DxilEntrySignatureMap = std::move(SigMap);
 }
 
 void DxilModule::EmitLLVMUsed() {
@@ -1175,6 +1214,16 @@ void DxilModule::EmitDxilMetadata() {
       MDTuple *pProps = m_pMDHelper->EmitDxilFunctionProps(props, pair.first);
       fnProps->addOperand(pProps);
     }
+
+    NamedMDNode *entrySigs = m_pModule->getOrInsertNamedMetadata(
+        DxilMDHelper::kDxilEntrySignaturesMDName);
+    for (auto &&pair : m_DxilEntrySignatureMap) {
+      Function *F = pair.first;
+      DxilEntrySignature *Sig = pair.second.get();
+      MDTuple *pSig = m_pMDHelper->EmitDxilSignatures(*Sig);
+      entrySigs->addOperand(
+          MDTuple::get(m_Ctx, {ValueAsMetadata::get(F), pSig}));
+    }
   }
 }
 
@@ -1226,6 +1275,28 @@ void DxilModule::LoadDxilMetadata() {
       Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
 
       m_DxilFunctionPropsMap[F] = std::move(props);
+    }
+
+    NamedMDNode *entrySigs = m_pModule->getOrInsertNamedMetadata(
+        DxilMDHelper::kDxilEntrySignaturesMDName);
+    size_t sigIdx = 0;
+    while (sigIdx < entrySigs->getNumOperands()) {
+      MDTuple *pSig = dyn_cast<MDTuple>(entrySigs->getOperand(sigIdx++));
+
+      unsigned idx = 0;
+      Function *F = dyn_cast<Function>(
+          dyn_cast<ValueAsMetadata>(pSig->getOperand(idx++))->getValue());
+      // Entry must have props.
+      IFTBOOL(m_DxilFunctionPropsMap.count(F), DXC_E_INCORRECT_DXIL_METADATA);
+
+      DXIL::ShaderKind shaderKind = m_DxilFunctionPropsMap[F]->shaderKind;
+
+      std::unique_ptr<hlsl::DxilEntrySignature> Sig =
+          llvm::make_unique<hlsl::DxilEntrySignature>(shaderKind);
+
+      m_pMDHelper->LoadDxilSignatures(pSig->getOperand(idx), *Sig);
+
+      m_DxilEntrySignatureMap[F] = std::move(Sig);
     }
   }
 }

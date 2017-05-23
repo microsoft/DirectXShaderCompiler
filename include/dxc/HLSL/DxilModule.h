@@ -122,6 +122,16 @@ public:
   DxilSignature &GetPatchConstantSignature();
   const DxilSignature &GetPatchConstantSignature() const;
   const RootSignatureHandle &GetRootSignature() const;
+  bool HasDxilEntrySignature(llvm::Function *F) const;
+  DxilEntrySignature &GetDxilEntrySignature(llvm::Function *F);
+  // Move DxilEntrySignature of F to NewF.
+  void ReplaceDxilEntrySignature(llvm::Function *F, llvm::Function *NewF);
+
+  // DxilFunctionProps.
+  bool HasDxilFunctionProps(llvm::Function *F) const;
+  DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
+  // Move DxilFunctionProps of F to NewF.
+  void ReplaceDxilFunctionProps(llvm::Function *F, llvm::Function *NewF);
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
@@ -155,6 +165,9 @@ public:
   void ResetFunctionPropsMap(
       std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
           &&propsMap);
+  void ResetEntrySignatureMap(
+      std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
+          &&SigMap);
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -411,6 +424,9 @@ private:
   // Function properties for shader functions.
   std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
       m_DxilFunctionPropsMap;
+  // EntrySig for shader functions.
+  std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
+      m_DxilEntrySignatureMap;
 
   // ViewId state.
   std::unique_ptr<DxilViewIdState> m_pViewIdState;

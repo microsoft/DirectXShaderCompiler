@@ -55,6 +55,7 @@ const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valv
 const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
 const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.viewIdState";
 const char DxilMDHelper::kDxilFunctionPropertiesMDName[]              = "dx.func.props";
+const char DxilMDHelper::kDxilEntrySignaturesMDName[]                 = "dx.func.signatures";
 
 static std::array<const char *, 7> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
