@@ -1164,18 +1164,11 @@ unsigned HLModule::FindCastOp(bool fromUnsigned, bool toUnsigned,
 }
 
 bool HLModule::HasPreciseAttributeWithMetadata(Instruction *I) {
-  MDNode *preciseNode =
-      I->getMetadata(DxilMDHelper::kDxilPreciseAttributeMDName);
-  return preciseNode != nullptr;
+  return DxilMDHelper::IsMarkedPrecise(I);
 }
 
 void HLModule::MarkPreciseAttributeWithMetadata(Instruction *I) {
-  LLVMContext &Ctx = I->getContext();
-  MDNode *preciseNode = MDNode::get(
-      Ctx,
-      {ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1))});
-
-  I->setMetadata(DxilMDHelper::kDxilPreciseAttributeMDName, preciseNode);
+  return DxilMDHelper::MarkPrecise(I);
 }
 
 void HLModule::ClearPreciseAttributeWithMetadata(Instruction *I) {
