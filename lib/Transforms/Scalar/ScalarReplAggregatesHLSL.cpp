@@ -4845,7 +4845,7 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
         V = Builder.CreateExtractElement(OldV, (uint64_t)0);
         vectorEltsMap[V].emplace_back(V);
         for (unsigned i = 1; i < vecSize; i++) {
-          Value *Elt = Builder.CreateExtractElement(OldV, (uint64_t)0);
+          Value *Elt = Builder.CreateExtractElement(OldV, i);
           vectorEltsMap[V].emplace_back(Elt);
         }
       }
@@ -5538,6 +5538,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   if (F->getReturnType()->isVoidTy() && F->getArgumentList().empty()) {
     return;
   }
+  // Clear maps for cast.
+  castParamMap.clear();
+  vectorEltsMap.clear();
 
   DxilFunctionAnnotation *funcAnnotation = m_pHLModule->GetFunctionAnnotation(F);
   DXASSERT(funcAnnotation, "must find annotation for function");
@@ -5796,6 +5799,10 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *flatF, CallInst *CI) {
   DxilFunctionAnnotation *funcAnnotation = m_pHLModule->GetFunctionAnnotation(F);
   DXASSERT(funcAnnotation, "must find annotation for function");
+
+  // Clear maps for cast.
+  castParamMap.clear();
+  vectorEltsMap.clear();
 
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
 
