@@ -379,7 +379,7 @@ public:
   static llvm::Value *ValueMDToValue(const llvm::MDOperand &MDO);
   llvm::MDTuple *Uint32VectorToConstMDTuple(const std::vector<unsigned> &Vec);
   void ConstMDTupleToUint32Vector(llvm::MDTuple *pTupleMD, std::vector<unsigned> &Vec);
-  static bool IsMarkedPrecise(llvm::Instruction *inst);
+  static bool IsMarkedPrecise(const llvm::Instruction *inst);
   static void MarkPrecise(llvm::Instruction *inst);
 
 private:

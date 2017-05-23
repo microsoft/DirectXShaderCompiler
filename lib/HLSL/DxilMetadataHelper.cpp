@@ -1428,7 +1428,7 @@ void DxilMDHelper::ConstMDTupleToUint32Vector(MDTuple *pTupleMD, std::vector<uns
   }
 }
 
-bool DxilMDHelper::IsMarkedPrecise(Instruction *inst) {
+bool DxilMDHelper::IsMarkedPrecise(const Instruction *inst) {
   int32_t val = 0;
   if (MDNode *precise = inst->getMetadata(kDxilPreciseAttributeMDName)) {
     assert(precise->getNumOperands() == 1);
