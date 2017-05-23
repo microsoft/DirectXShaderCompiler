@@ -10,6 +10,7 @@ add_llvm_library(LLVMHLSL
   DxilContainerAssembler.cpp
   DxilContainerReflection.cpp
   DxilEliminateOutputDynamicIndexing.cpp
+  DxilExpandTrigIntrinsics.cpp
   DxilGenerationPass.cpp
   DxilInterpolationMode.cpp
   DxilLegalizeSampleOffsetPass.cpp

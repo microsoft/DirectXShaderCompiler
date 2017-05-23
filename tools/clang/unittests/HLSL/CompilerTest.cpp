@@ -441,6 +441,7 @@ public:
   TEST_METHOD(CodeGenEvalMatMember)
   TEST_METHOD(CodeGenEvalPos)
   TEST_METHOD(CodeGenExternRes)
+  TEST_METHOD(CodeGenExpandTrig)
   TEST_METHOD(CodeGenFloatCast)
   TEST_METHOD(CodeGenFloatToBool)
   TEST_METHOD(CodeGenFirstbitHi)
@@ -2516,6 +2517,23 @@ TEST_F(CompilerTest, CodeGenEvalPos) {
 
 TEST_F(CompilerTest, CodeGenExternRes) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\extern_res.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenExpandTrig) {
+  CodeGenTestCheck(L"expand_trig\\acos.hlsl");
+  CodeGenTestCheck(L"expand_trig\\acos_h.hlsl");
+  CodeGenTestCheck(L"expand_trig\\asin.hlsl");
+  CodeGenTestCheck(L"expand_trig\\asin_h.hlsl");
+  CodeGenTestCheck(L"expand_trig\\atan.hlsl");
+  CodeGenTestCheck(L"expand_trig\\atan_h.hlsl");
+  CodeGenTestCheck(L"expand_trig\\hcos.hlsl");
+  CodeGenTestCheck(L"expand_trig\\hcos_h.hlsl");
+  CodeGenTestCheck(L"expand_trig\\hsin.hlsl");
+  CodeGenTestCheck(L"expand_trig\\hsin_h.hlsl");
+  CodeGenTestCheck(L"expand_trig\\htan.hlsl");
+  CodeGenTestCheck(L"expand_trig\\htan_h.hlsl");
+  CodeGenTestCheck(L"expand_trig\\keep_precise.0.hlsl");
+  CodeGenTestCheck(L"expand_trig\\keep_precise.1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenFloatCast) {
