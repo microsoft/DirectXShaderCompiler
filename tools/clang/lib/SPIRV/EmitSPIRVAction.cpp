@@ -752,15 +752,23 @@ public:
     const auto subTypeId = typeTranslator.translateType(subType);
 
     switch (opcode) {
-    case UO_PreInc: {
-      const spv::Op spvOp = translateOp(BO_Add, subType);
+    case UO_PreInc:
+    case UO_PreDec:
+    case UO_PostInc:
+    case UO_PostDec: {
+      const bool isPre = opcode == UO_PreInc || opcode == UO_PreDec;
+      const bool isInc = opcode == UO_PreInc || opcode == UO_PostInc;
+
+      const spv::Op spvOp = translateOp(isInc ? BO_Add : BO_Sub, subType);
       const uint32_t one = getValueOne(subType);
       const uint32_t originValue = theBuilder.createLoad(subTypeId, subValue);
       const uint32_t incValue =
           theBuilder.createBinaryOp(spvOp, subTypeId, originValue, one);
       theBuilder.createStore(subValue, incValue);
-      // Prefix increment operator returns a lvalue.
-      return subValue;
+
+      // Prefix increment/decrement operator returns a lvalue, while postfix
+      // increment/decrement returns a rvalue.
+      return isPre ? subValue : originValue;
     }
     case UO_Not:
       return theBuilder.createUnaryOp(spv::Op::OpNot, subTypeId, subValue);

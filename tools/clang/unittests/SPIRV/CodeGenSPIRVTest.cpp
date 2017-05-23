@@ -34,20 +34,35 @@ TEST_F(WholeFileTest, ConstantPixelShader) {
 
 // === Partial output tests ===
 
+// For types
 TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
 
+// For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
 TEST_F(FileTest, VectorConstants) { runFileTest("constant.vector.hlsl"); }
 
+// For variables
 TEST_F(FileTest, VariableInitialier) { runFileTest("var.init.hlsl"); }
 
+// For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
   runFileTest("unary-op.prefix-inc.hlsl");
 }
+TEST_F(FileTest, UnaryOpPrefixDecrement) {
+  runFileTest("unary-op.prefix-dec.hlsl");
+}
+TEST_F(FileTest, UnaryOpPostfixIncrement) {
+  runFileTest("unary-op.postfix-inc.hlsl");
+}
+TEST_F(FileTest, UnaryOpPostfixDecrement) {
+  runFileTest("unary-op.postfix-dec.hlsl");
+}
 
+// For assignments
 TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
 
+// For arithmetic binary operators
 TEST_F(FileTest, BinaryOpScalarArithmetic) {
   runFileTest("binary-op.arithmetic.scalar.hlsl");
 }
@@ -58,6 +73,7 @@ TEST_F(FileTest, BinaryOpMixedArithmetic) {
   runFileTest("binary-op.arithmetic.mixed.hlsl");
 }
 
+// For arithmetic assignments
 TEST_F(FileTest, BinaryOpScalarArithAssign) {
   runFileTest("binary-op.arith-assign.scalar.hlsl");
 }
@@ -68,6 +84,7 @@ TEST_F(FileTest, BinaryOpMixedArithAssign) {
   runFileTest("binary-op.arith-assign.mixed.hlsl");
 }
 
+// For bitwise binary operators
 TEST_F(FileTest, BinaryOpScalarBitwise) {
   runFileTest("binary-op.bitwise.scalar.hlsl");
 }
@@ -78,6 +95,7 @@ TEST_F(FileTest, BinaryOpMixedBitwise) {
   runFileTest("binary-op.bitwise.mixed.hlsl");
 }
 
+// For bitwise assignments
 TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
   runFileTest("binary-op.bitwise-assign.scalar.hlsl");
 }
@@ -88,6 +106,7 @@ TEST_F(FileTest, BinaryOpMixedBitwiseAssign) {
   runFileTest("binary-op.bitwise-assign.mixed.hlsl");
 }
 
+// For comparison operators
 TEST_F(FileTest, BinaryOpScalarComparison) {
   runFileTest("binary-op.comparison.scalar.hlsl");
 }
@@ -98,16 +117,18 @@ TEST_F(FileTest, BinaryOpMixedComparison) {
   runFileTest("binary-op.comparison.mixed.hlsl");
 }
 
+// For if statements
 TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("if-stmt.plain.hlsl"); }
-
 TEST_F(FileTest, IfStmtNestedIfStmt) { runFileTest("if-stmt.nested.hlsl"); }
 
+// For for statements
 TEST_F(FileTest, ForStmtPlainAssign) { runFileTest("for-stmt.plain.hlsl"); }
-
 TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("for-stmt.nested.hlsl"); }
 
+// For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
 
+// For function calls
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
 
 } // namespace
