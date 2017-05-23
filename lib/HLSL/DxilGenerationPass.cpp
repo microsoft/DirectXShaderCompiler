@@ -2872,7 +2872,7 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
 
-  void patchSM60(Module &M) {
+  void patchValidation_1_0(Module &M) {
     for (iplist<Function>::iterator F : M.getFunctionList()) {
       for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
            ++BBI) {
@@ -2880,8 +2880,19 @@ public:
         for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;
              ++II) {
           Instruction *I = II;
-          if (I->getMetadata(LLVMContext::MD_noalias)) {
-            I->setMetadata(LLVMContext::MD_noalias, nullptr);
+          if (I->hasMetadataOtherThanDebugLoc()) {
+            SmallVector<std::pair<unsigned, MDNode*>, 2> MDs;
+            I->getAllMetadataOtherThanDebugLoc(MDs);
+            for (auto &MD : MDs) {
+              unsigned kind = MD.first;
+              // Remove Metadata which validation_1_0 not allowed.
+              bool bNeedPatch = kind == LLVMContext::MD_tbaa ||
+                  kind == LLVMContext::MD_prof ||
+                  (kind > LLVMContext::MD_fpmath &&
+                  kind <= LLVMContext::MD_dereferenceable_or_null);
+              if (bNeedPatch)
+                I->setMetadata(kind, nullptr);
+            }
           }
         }
       }
@@ -2892,9 +2903,11 @@ public:
     if (M.HasDxilModule()) {
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
-      bool bIsSM61Plus = M.GetDxilModule().GetShaderModel()->IsSM61Plus();
-      if (!bIsSM61Plus) {
-        patchSM60(M);
+      unsigned ValMajor = 0;
+      unsigned ValMinor = 0;
+      M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
+      if (ValMajor == 1 && ValMinor == 0) {
+        patchValidation_1_0(M);
       }
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (!hlslOP->IsDxilOpFunc(F))
