@@ -34,6 +34,11 @@ inline bool wcsieq(LPCWSTR a, LPCWSTR b) { return _wcsicmp(a, b) == 0; }
 inline bool wcsistarts(LPCWSTR text, LPCWSTR prefix) {
   return wcslen(text) >= wcslen(prefix) && _wcsnicmp(text, prefix, wcslen(prefix)) == 0;
 }
+inline bool wcsieqopt(LPCWSTR text, LPCWSTR opt) {
+  return (text[0] == L'-' || text[0] == L'/') && wcsieq(text + 1, opt);
+}
+
+static dxc::DxcDllSupport g_DxcSupport;
 
 enum class ProgramAction {
   PrintHelp,
@@ -82,7 +87,7 @@ static HRESULT ReadStdin(std::string &input) {
 static void BlobFromFile(LPCWSTR pFileName, IDxcBlob **ppBlob) {
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcBlobEncoding> pFileBlob;
-  IFT(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&pLibrary)));
+  IFT(g_DxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   if (isStdIn(pFileName)) {
     std::string input;
     IFT(ReadStdin(input));
@@ -98,7 +103,7 @@ static void BlobFromFile(LPCWSTR pFileName, IDxcBlob **ppBlob) {
 static void PrintOptOutput(LPCWSTR pFileName, IDxcBlob *pBlob, IDxcBlobEncoding *pOutputText) {
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcBlobEncoding> pOutputText16;
-  IFT(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&pLibrary)));
+  IFT(g_DxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->GetBlobAsUtf16(pOutputText, &pOutputText16));
   wprintf(L"%*s", (int)pOutputText16->GetBufferSize(),
           (wchar_t *)pOutputText16->GetBufferPointer());
@@ -149,16 +154,54 @@ static void PrintPasses(IDxcOptimizer *pOptimizer, bool includeDetails) {
   }
 }
 
+static void ReadFileOpts(LPCWSTR pPassFileName, IDxcBlobEncoding **ppPassOpts, std::vector<LPCWSTR> &passes, LPCWSTR **pOptArgs, UINT32 *pOptArgCount) {
+  *ppPassOpts = nullptr;
+  // If there is no file, there is no work to be done.
+  if (!pPassFileName || !*pPassFileName) {
+    return;
+  }
+
+  CComPtr<IDxcBlob> pPassOptsBlob;
+  CComPtr<IDxcBlobEncoding> pPassOpts;
+  BlobFromFile(pPassFileName, &pPassOptsBlob);
+  IFT(hlsl::DxcGetBlobAsUtf16(pPassOptsBlob, &pPassOpts));
+  LPWSTR pCursor = (LPWSTR)pPassOpts->GetBufferPointer();
+  while (*pCursor) {
+    passes.push_back(pCursor);
+    while (*pCursor && *pCursor != L'\n' && *pCursor != L'\r') {
+      ++pCursor;
+    }
+    while (*pCursor && (*pCursor == L'\n' || *pCursor == L'\r')) {
+      *pCursor = L'\0';
+      ++pCursor;
+    }
+  }
+
+  // Remove empty entries and comments.
+  size_t i = passes.size();
+  do {
+    --i;
+    if (wcslen(passes[i]) == 0 || passes[i][0] == L'#') {
+      passes.erase(passes.begin() + i);
+    }
+  } while (i != 0);
+
+  *pOptArgs = passes.data();
+  *pOptArgCount = passes.size();
+  *ppPassOpts = pPassOpts.Detach();
+}
+
 static void PrintHelp() {
   wprintf(L"%s",
     L"Performs optimizations on a bitcode file by running a sequence of passes.\n\n"
-    L"dxopt [-? | -passes | -pass-details | IN-FILE [-o=OUT-FILE] OPT-ARGUMENTS ...]\n\n"
+    L"dxopt [-? | -passes | -pass-details | -pf [PASS-FILE] | [-o=OUT-FILE] | IN-FILE OPT-ARGUMENTS ...]\n\n"
     L"Arguments:\n"
     L"  -?  Displays this help message\n"
     L"  -passes        Displays a list of pass names\n"
     L"  -pass-details  Displays a list of passes with detailed information\n"
-    L"  IN-FILE        File with with bitcode to optimize\n"
+    L"  -pf PASS-FILE  Loads passes from the specified file\n"
     L"  -o=OUT-FILE    Output file for processed module\n"
+    L"  IN-FILE        File with with bitcode to optimize\n"
     L"  OPT-ARGUMENTS  One or more passes to run in sequence\n"
     L"\n"
     L"Text that is traced during optimization is written to the standard output.\n"
@@ -175,20 +218,50 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     ProgramAction action = ProgramAction::PrintHelp;
     LPCWSTR inFileName = nullptr;
     LPCWSTR outFileName = nullptr;
+    LPCWSTR externalLib = nullptr;
+    LPCWSTR externalFn = nullptr;
+    LPCWSTR passFileName = nullptr;
     const wchar_t **optArgs = nullptr;
     UINT32 optArgCount = 0;
 
-    if (argc > 1) {
-      int argIdx = 1;
-      LPCWSTR arg = argv_[1];
-      if (wcsieq(arg, L"-?") || wcsieq(arg, L"/?")) {
+    int argIdx = 1;
+    while (argIdx < argc) {
+      LPCWSTR arg = argv_[argIdx];
+      if (wcsieqopt(arg, L"?")) {
         action = ProgramAction::PrintHelp;
       }
-      else if (wcsieq(arg, L"-passes") || wcsieq(arg, L"/passes")) {
+      else if (wcsieqopt(arg, L"passes")) {
         action = ProgramAction::PrintPasses;
       }
-      else if (wcsieq(arg, L"-pass-details") || wcsieq(arg, L"/pass-details")) {
+      else if (wcsieqopt(arg, L"pass-details")) {
         action = ProgramAction::PrintPassesWithDetails;
+      }
+      else if (wcsieqopt(arg, L"external")) {
+        ++argIdx;
+        if (argIdx == argc) {
+          PrintHelp();
+          return 1;
+        }
+        externalLib = argv_[argIdx];
+      }
+      else if (wcsieqopt(arg, L"external-fn")) {
+        ++argIdx;
+        if (argIdx == argc) {
+          PrintHelp();
+          return 1;
+        }
+        externalFn = argv_[argIdx];
+      }
+      else if (wcsieqopt(arg, L"pf")) {
+        ++argIdx;
+        if (argIdx == argc) {
+          PrintHelp();
+          return 1;
+        }
+        passFileName = argv_[argIdx];
+      }
+      else if (wcsistarts(arg, L"-o=")) {
+        outFileName = argv_[argIdx] + 3;
       }
       else {
         action = ProgramAction::RunOptimizer;
@@ -201,15 +274,13 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
         else {
           inFileName = STDIN_FILE_NAME;
         }
-        // Look for a file output argument.
-        if (argc > argIdx && wcsistarts(argv_[argIdx], L"-o=")) {
-          outFileName = argv_[argIdx] + 3;
-          argIdx++;
-        }
+
         // The remaining arguments are optimizer args.
         optArgs = argv_ + argIdx;
         optArgCount = argc - argIdx;
+        break;
       }
+      ++argIdx;
     }
 
     if (action == ProgramAction::PrintHelp) {
@@ -217,11 +288,26 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       return retVal;
     }
 
+    if (passFileName && optArgCount) {
+      wprintf(L"%s", L"Cannot specify both command-line options and an pass option file.\n");
+      return 1;
+    }
+
+    if (externalLib) {
+      CW2A externalFnA(externalFn, CP_UTF8);
+      IFT(g_DxcSupport.InitializeForDll(externalLib, externalFnA));
+    }
+    else {
+      IFT(g_DxcSupport.Initialize());
+    }
+
     CComPtr<IDxcBlob> pBlob;
     CComPtr<IDxcBlob> pOutputModule;
     CComPtr<IDxcBlobEncoding> pOutputText;
     CComPtr<IDxcOptimizer> pOptimizer;
-    IFT(DxcCreateInstance(CLSID_DxcOptimizer, IID_PPV_ARGS(&pOptimizer)));
+    CComPtr<IDxcBlobEncoding> pPassOpts;
+    std::vector<LPCWSTR> passes;
+    IFT(g_DxcSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
     switch (action) {
     case ProgramAction::PrintPasses:
       pStage = "Printing passes...";
@@ -234,6 +320,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     case ProgramAction::RunOptimizer:
       pStage = "Optimizer processing";
       BlobFromFile(inFileName, &pBlob);
+      ReadFileOpts(passFileName, &pPassOpts, passes, &optArgs, &optArgCount);
       IFT(pOptimizer->RunOptimizer(pBlob, optArgs, optArgCount, &pOutputModule, &pOutputText));
       PrintOptOutput(outFileName, pOutputModule, pOutputText);
       break;
