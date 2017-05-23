@@ -68,6 +68,26 @@ TEST_F(FileTest, BinaryOpMixedArithAssign) {
   runFileTest("binary-op.arith-assign.mixed.hlsl");
 }
 
+TEST_F(FileTest, BinaryOpScalarBitwise) {
+  runFileTest("binary-op.bitwise.scalar.hlsl");
+}
+TEST_F(FileTest, BinaryOpVectorBitwise) {
+  runFileTest("binary-op.bitwise.vector.hlsl");
+}
+TEST_F(FileTest, BinaryOpMixedBitwise) {
+  runFileTest("binary-op.bitwise.mixed.hlsl");
+}
+
+TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
+  runFileTest("binary-op.bitwise-assign.scalar.hlsl");
+}
+TEST_F(FileTest, BinaryOpVectorBitwiseAssign) {
+  runFileTest("binary-op.bitwise-assign.vector.hlsl");
+}
+TEST_F(FileTest, BinaryOpMixedBitwiseAssign) {
+  runFileTest("binary-op.bitwise-assign.mixed.hlsl");
+}
+
 TEST_F(FileTest, BinaryOpScalarComparison) {
   runFileTest("binary-op.comparison.scalar.hlsl");
 }

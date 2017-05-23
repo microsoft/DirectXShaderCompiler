@@ -256,7 +256,7 @@ Expressions
 Arithmetic operators
 ++++++++++++++++++++
 
-Arithmetic operators (``+``, ``-``, ``*``, ``/``, ``%``) are translated into their corresponding SPIR-V opcodes according to the following table.
+`Arithmetic operators <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509631(v=vs.85).aspx#Additive_and_Multiplicative_Operators>`_ (``+``, ``-``, ``*``, ``/``, ``%``) are translated into their corresponding SPIR-V opcodes according to the following table.
 
 +-------+-----------------------------+-------------------------------+--------------------+
 |       | (Vector of) Signed Integers | (Vector of) Unsigned Integers | (Vector of) Floats |
@@ -276,10 +276,31 @@ Note that for modulo operation, SPIR-V has two sets of instructions: ``Op*Rem`` 
 
 For multiplications of float vectors and float scalars, the dedicated SPIR-V operation ``OpVectorTimesScalar`` will be used.
 
+Bitwise operators
++++++++++++++++++
+
+`Bitwise operators <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509631(v=vs.85).aspx#Bitwise_Operators>`_ (``~``, ``&``, ``|``, ``^``, ``<<``, ``>>``) are translated into their corresponding SPIR-V opcodes according to the following table.
+
++--------+-----------------------------+-------------------------------+
+|        | (Vector of) Signed Integers | (Vector of) Unsigned Integers |
++--------+-----------------------------+-------------------------------+
+| ``~``  |                         ``OpNot``                           |
++--------+-------------------------------------------------------------+
+| ``&``  |                      ``OpBitwiseAnd``                       |
++--------+-------------------------------------------------------------+
+| ``|``  |                      ``OpBitwiseOr``                        |
++--------+-----------------------------+-------------------------------+
+| ``^``  |                      ``OpBitwiseXor``                       |
++--------+-----------------------------+-------------------------------+
+| ``<<`` |                   ``OpShiftLeftLogical``                    |
++--------+-----------------------------+-------------------------------+
+| ``>>`` | ``OpShiftRightArithmetic``  | ``OpShiftRightLogical``       |
++--------+-----------------------------+-------------------------------+
+
 Comparison operators
 ++++++++++++++++++++
 
-Comparison operators (``<``, ``<=``, ``>``, ``>=``, ``==``, ``!=``) are translated into their corresponding SPIR-V opcodes according to the following table.
+`Comparison operators <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509631(v=vs.85).aspx#Comparison_Operators>`_ (``<``, ``<=``, ``>``, ``>=``, ``==``, ``!=``) are translated into their corresponding SPIR-V opcodes according to the following table.
 
 +--------+-----------------------------+-------------------------------+------------------------------+
 |        | (Vector of) Signed Integers | (Vector of) Unsigned Integers |     (Vector of) Floats       |

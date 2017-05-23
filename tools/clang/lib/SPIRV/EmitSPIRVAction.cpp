@@ -677,7 +677,12 @@ public:
     case BO_GT:
     case BO_GE:
     case BO_EQ:
-    case BO_NE: {
+    case BO_NE:
+    case BO_And:
+    case BO_Or:
+    case BO_Xor:
+    case BO_Shl:
+    case BO_Shr: {
       const spv::Op spvOp = translateOp(opcode, elemType);
       return theBuilder.createBinaryOp(spvOp, typeId, lhs, rhs);
     }
@@ -688,7 +693,8 @@ public:
       break;
     }
 
-    emitError("BinaryOperator '%0' is not supported yet.") << opcode;
+    emitError("BinaryOperator '%0' is not supported yet.")
+        << expr->getOpcodeStr(opcode);
     expr->dump();
     return 0;
   }
@@ -710,7 +716,12 @@ public:
     case BO_SubAssign:
     case BO_MulAssign:
     case BO_DivAssign:
-    case BO_RemAssign: {
+    case BO_RemAssign:
+    case BO_AndAssign:
+    case BO_OrAssign:
+    case BO_XorAssign:
+    case BO_ShlAssign:
+    case BO_ShrAssign: {
       const uint32_t resultType = typeTranslator.translateType(expr->getType());
 
       // Evalute rhs before lhs
@@ -728,7 +739,7 @@ public:
     }
     default:
       emitError("CompoundAssignOperator '%0' unimplemented")
-          << expr->getStmtClassName();
+          << expr->getOpcodeStr(opcode);
       return 0;
     }
   }
@@ -751,11 +762,14 @@ public:
       // Prefix increment operator returns a lvalue.
       return subValue;
     }
+    case UO_Not:
+      return theBuilder.createUnaryOp(spv::Op::OpNot, subTypeId, subValue);
     default:
       break;
     }
 
-    emitError("unary operator '%0' unimplemented yet") << opcode;
+    emitError("unary operator '%0' unimplemented yet")
+        << expr->getOpcodeStr(opcode);
     expr->dump();
     return 0;
   }
@@ -966,6 +980,18 @@ case BO_##kind : {                                                             \
   }                                                                            \
   break
 
+#define BIN_OP_CASE_SINT_UINT(kind, sintBinOp, uintBinOp)                      \
+  \
+case BO_##kind : {                                                             \
+    if (isSintType) {                                                          \
+      return spv::Op::Op##sintBinOp;                                           \
+    }                                                                          \
+    if (isUintType) {                                                          \
+      return spv::Op::Op##uintBinOp;                                           \
+    }                                                                          \
+  }                                                                            \
+  break
+
     switch (op) {
       BIN_OP_CASE_INT_FLOAT(Add, IAdd, FAdd);
       BIN_OP_CASE_INT_FLOAT(AddAssign, IAdd, FAdd);
@@ -1000,14 +1026,26 @@ case BO_##kind : {                                                             \
                                   FOrdGreaterThanEqual);
       BIN_OP_CASE_INT_FLOAT(EQ, IEqual, FOrdEqual);
       BIN_OP_CASE_INT_FLOAT(NE, INotEqual, FOrdNotEqual);
+      BIN_OP_CASE_SINT_UINT(And, BitwiseAnd, BitwiseAnd);
+      BIN_OP_CASE_SINT_UINT(AndAssign, BitwiseAnd, BitwiseAnd);
+      BIN_OP_CASE_SINT_UINT(Or, BitwiseOr, BitwiseOr);
+      BIN_OP_CASE_SINT_UINT(OrAssign, BitwiseOr, BitwiseOr);
+      BIN_OP_CASE_SINT_UINT(Xor, BitwiseXor, BitwiseXor);
+      BIN_OP_CASE_SINT_UINT(XorAssign, BitwiseXor, BitwiseXor);
+      BIN_OP_CASE_SINT_UINT(Shl, ShiftLeftLogical, ShiftLeftLogical);
+      BIN_OP_CASE_SINT_UINT(ShlAssign, ShiftLeftLogical, ShiftLeftLogical);
+      BIN_OP_CASE_SINT_UINT(Shr, ShiftRightArithmetic, ShiftRightLogical);
+      BIN_OP_CASE_SINT_UINT(ShrAssign, ShiftRightArithmetic, ShiftRightLogical);
     default:
       break;
     }
 
 #undef BIN_OP_CASE_INT_FLOAT
 #undef BIN_OP_CASE_SINT_UINT_FLOAT
+#undef BIN_OP_CASE_SINT_UINT
 
-    emitError("translating binary operator '%0' unimplemented") << op;
+    emitError("translating binary operator '%0' unimplemented")
+        << BinaryOperator::getOpcodeStr(op);
     return spv::Op::OpNop;
   }
 
