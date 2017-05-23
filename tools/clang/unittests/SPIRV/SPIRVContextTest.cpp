@@ -75,6 +75,24 @@ TEST(SPIRVContext, UniqueIdForUniqueAggregateType) {
   EXPECT_EQ(struct_1_id, struct_2_id);
 }
 
+TEST(SPIRVContext, UniqueIdForUniqueConstants) {
+  SPIRVContext ctx;
+
+  const Constant *int1 = Constant::getInt32(ctx, /*type_id*/ 1, /*value*/ 0);
+  const Constant *uint1 = Constant::getUint32(ctx, 2, 0);
+  const Constant *float1 = Constant::getFloat32(ctx, 3, 0);
+  const Constant *anotherInt1 = Constant::getInt32(ctx, /*type_id*/ 4, 0);
+
+  const uint32_t int1Id = ctx.getResultIdForConstant(int1);
+  const uint32_t uint1Id = ctx.getResultIdForConstant(uint1);
+  const uint32_t float1Id = ctx.getResultIdForConstant(float1);
+  const uint32_t anotherInt1Id = ctx.getResultIdForConstant(anotherInt1);
+
+  EXPECT_NE(int1Id, uint1Id);
+  EXPECT_NE(int1Id, float1Id);
+  EXPECT_NE(uint1Id, float1Id);
+  EXPECT_NE(int1Id, anotherInt1Id);
+}
 // TODO: Add more SPIRVContext tests
 
 } // anonymous namespace

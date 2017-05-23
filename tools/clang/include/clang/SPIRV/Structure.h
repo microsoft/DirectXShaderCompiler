@@ -108,12 +108,40 @@ public:
   /// \brief Preprends an instruction to this basic block.
   inline void prependInstruction(Instruction &&);
 
+  /// \brief Adds the given basic block as a successsor to this basic block.
+  inline void addSuccessor(BasicBlock *);
+
+  /// \brief Gets all successor basic blocks.
+  inline const llvm::SmallVector<BasicBlock *, 2> &getSuccessors() const;
+
+  /// \brief Sets the merge target to the given basic block.
+  /// The caller must make sure this basic block contains an OpSelectionMerge or
+  /// OpLoopMerge instruction.
+  inline void setMergeTarget(BasicBlock *);
+
+  /// \brief Returns the merge target if this basic block contains an
+  /// OpSelectionMerge or OpLoopMerge instruction. Returns nullptr otherwise.
+  inline BasicBlock *getMergeTarget() const;
+
+  /// \brief Sets the continue target to the given basic block.
+  /// The caller must make sure this basic block contains an OpLoopMerge
+  /// instruction.
+  inline void setContinueTarget(BasicBlock *);
+
+  /// \brief Returns the continue target if this basic block contains an
+  /// OpLoopMerge instruction. Returns nullptr otherwise.
+  inline BasicBlock *getContinueTarget() const;
+
   /// \brief Returns true if this basic block is terminated.
   bool isTerminated() const;
 
 private:
   uint32_t labelId; ///< The label id for this basic block. Zero means invalid.
   std::deque<Instruction> instructions;
+
+  llvm::SmallVector<BasicBlock *, 2> successors;
+  BasicBlock *mergeTarget;
+  BasicBlock *continueTarget;
 };
 
 // === Function definition ===
@@ -327,7 +355,8 @@ std::vector<uint32_t> Instruction::take() { return std::move(words); }
 
 // === Basic block inline implementations ===
 
-BasicBlock::BasicBlock(uint32_t id) : labelId(id) {}
+BasicBlock::BasicBlock(uint32_t id)
+    : labelId(id), mergeTarget(nullptr), continueTarget(nullptr) {}
 
 bool BasicBlock::isEmpty() const {
   return labelId == 0 && instructions.empty();
@@ -340,6 +369,24 @@ void BasicBlock::appendInstruction(Instruction &&inst) {
 void BasicBlock::prependInstruction(Instruction &&inst) {
   instructions.push_front(std::move(inst));
 }
+
+void BasicBlock::addSuccessor(BasicBlock *successor) {
+  successors.push_back(successor);
+}
+
+const llvm::SmallVector<BasicBlock *, 2> &BasicBlock::getSuccessors() const {
+  return successors;
+}
+
+void BasicBlock::setMergeTarget(BasicBlock *target) { mergeTarget = target; }
+
+BasicBlock *BasicBlock::getMergeTarget() const { return mergeTarget; }
+
+void BasicBlock::setContinueTarget(BasicBlock *target) {
+  continueTarget = target;
+}
+
+BasicBlock *BasicBlock::getContinueTarget() const { return continueTarget; }
 
 // === Function inline implementations ===
 

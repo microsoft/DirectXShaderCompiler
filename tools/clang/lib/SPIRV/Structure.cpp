@@ -9,6 +9,8 @@
 
 #include "clang/SPIRV/Structure.h"
 
+#include "clang/SPIRV/BlockReadableOrder.h"
+
 namespace clang {
 namespace spirv {
 
@@ -122,6 +124,10 @@ void Function::take(InstBuilder *builder) {
     builder->opFunctionParameter(param.first, param.second).x();
   }
 
+  if (!variables.empty()) {
+    assert(!blocks.empty());
+  }
+
   // Preprend all local variables to the entry block.
   // This is necessary since SPIR-V requires all local variables to be defined
   // at the very begining of the entry block.
@@ -131,8 +137,17 @@ void Function::take(InstBuilder *builder) {
     blocks.front()->prependInstruction(std::move(*it));
   }
 
+  // Collect basic blocks in a human-readable order that satisfies SPIR-V
+  // validation rules.
+  std::vector<BasicBlock *> orderedBlocks;
+  if (!blocks.empty()) {
+    BlockReadableOrderVisitor([&orderedBlocks](BasicBlock *block) {
+      orderedBlocks.push_back(block);
+    }).visit(blocks.front().get());
+  }
+
   // Write out all basic blocks.
-  for (auto &block : blocks) {
+  for (auto *block : orderedBlocks) {
     block->take(builder);
   }
 

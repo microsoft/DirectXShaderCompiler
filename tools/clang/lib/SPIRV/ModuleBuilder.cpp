@@ -109,14 +109,33 @@ uint32_t ModuleBuilder::createBasicBlock(llvm::StringRef name) {
   return labelId;
 }
 
-bool ModuleBuilder::setInsertPoint(uint32_t labelId) {
-  auto it = basicBlocks.find(labelId);
-  if (it == basicBlocks.end()) {
-    assert(false && "invalid <label-id>");
-    return false;
-  }
-  insertPoint = it->second.get();
-  return true;
+void ModuleBuilder::addSuccessor(uint32_t successorLabel) {
+  assert(insertPoint && "null insert point");
+  insertPoint->addSuccessor(getBasicBlock(successorLabel));
+}
+
+void ModuleBuilder::setMergeTarget(uint32_t mergeLabel) {
+  assert(insertPoint && "null insert point");
+  insertPoint->setMergeTarget(getBasicBlock(mergeLabel));
+}
+
+void ModuleBuilder::setContinueTarget(uint32_t continueLabel) {
+  assert(insertPoint && "null insert point");
+  insertPoint->setContinueTarget(getBasicBlock(continueLabel));
+}
+
+void ModuleBuilder::setInsertPoint(uint32_t labelId) {
+  insertPoint = getBasicBlock(labelId);
+}
+
+uint32_t
+ModuleBuilder::createCompositeConstruct(uint32_t resultType,
+                                        llvm::ArrayRef<uint32_t> constituents) {
+  assert(insertPoint && "null insert point");
+  const uint32_t resultId = theContext.takeNextId();
+  instBuilder.opCompositeConstruct(resultType, resultId, constituents).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
 }
 
 uint32_t ModuleBuilder::createLoad(uint32_t resultType, uint32_t pointer) {
@@ -348,6 +367,16 @@ ModuleBuilder::getConstantComposite(uint32_t typeId,
   const uint32_t constId = theContext.getResultIdForConstant(constant);
   theModule.addConstant(constant, constId);
   return constId;
+}
+
+BasicBlock *ModuleBuilder::getBasicBlock(uint32_t labelId) {
+  auto it = basicBlocks.find(labelId);
+  if (it == basicBlocks.end()) {
+    assert(false && "invalid <label-id>");
+    return nullptr;
+  }
+
+  return it->second.get();
 }
 
 } // end namespace spirv
