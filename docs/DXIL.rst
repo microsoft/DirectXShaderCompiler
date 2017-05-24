@@ -111,7 +111,7 @@ DXIL version
 
 The primary mechanism to evolve HLSL capabilities is through shader models. However, DXIL version is reserved for additional flexibility of future extensions. There are two currently defined versions: 1.0 and 1.1.
 
-DXIL version has major and minor versions that are specified as named metadata:
+DXIL version has major and minor versions that are specified as named metadata::
 
   !dx.version = !{ !0 }
   !0 = !{ i32 <major>, i32 <minor> }
