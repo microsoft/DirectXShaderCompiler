@@ -102,17 +102,22 @@ STATISTIC(NumTripCountsNotComputed,
 STATISTIC(NumBruteForceTripCountsComputed,
           "Number of loops with trip counts computed by force");
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned>
 MaxBruteForceIterations("scalar-evolution-max-iterations", cl::ReallyHidden,
-                        cl::desc("Maximum number of iterations SCEV will "
-                                 "symbolically execute a constant "
-                                 "derived loop"),
-                        cl::init(100));
+  cl::desc("Maximum number of iterations SCEV will "
+    "symbolically execute a constant "
+    "derived loop"),
+  cl::init(100));
 
 // FIXME: Enable this with XDEBUG when the test suite is clean.
 static cl::opt<bool>
 VerifySCEV("verify-scev",
-           cl::desc("Verify ScalarEvolution's backedge taken counts (slow)"));
+  cl::desc("Verify ScalarEvolution's backedge taken counts (slow)"));
+#else
+static const unsigned MaxBruteForceIterations = 100;
+static const bool VerifySCEV = false;
+#endif // HLSL Change Ends
 
 INITIALIZE_PASS_BEGIN(ScalarEvolution, "scalar-evolution",
                 "Scalar Evolution Analysis", false, true)

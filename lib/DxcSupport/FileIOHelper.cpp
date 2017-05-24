@@ -22,36 +22,107 @@
 
 #define CP_UTF16 1200
 
+struct HeapMalloc : public IMalloc {
+public:
+  ULONG STDMETHODCALLTYPE AddRef() {
+    return 1;
+  }
+  ULONG STDMETHODCALLTYPE Release() {
+    return 1;
+  }
+  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) {
+    return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
+  }
+  virtual void *STDMETHODCALLTYPE Alloc(
+    /* [annotation][in] */
+    _In_  SIZE_T cb) {
+    return HeapAlloc(GetProcessHeap(), 0, cb);
+  }
+
+  virtual void *STDMETHODCALLTYPE Realloc(
+    /* [annotation][in] */
+    _In_opt_  void *pv,
+    /* [annotation][in] */
+    _In_  SIZE_T cb)
+  {
+    return HeapReAlloc(GetProcessHeap(), 0, pv, cb);
+  }
+
+  virtual void STDMETHODCALLTYPE Free(
+    /* [annotation][in] */
+    _In_opt_  void *pv)
+  {
+    HeapFree(GetProcessHeap(), 0, pv);
+  }
+
+
+  virtual SIZE_T STDMETHODCALLTYPE GetSize(
+    /* [annotation][in] */
+    _In_opt_ _Post_writable_byte_size_(return)  void *pv)
+  {
+    return HeapSize(GetProcessHeap(), 0, pv);
+  }
+
+  virtual int STDMETHODCALLTYPE DidAlloc(
+    /* [annotation][in] */
+    _In_opt_  void *pv)
+  {
+    return -1; // don't know
+  }
+
+
+  virtual void STDMETHODCALLTYPE HeapMinimize(void)
+  {
+  }
+};
+
+static HeapMalloc g_HeapMalloc;
+
 namespace hlsl {
 
+IMalloc *GetGlobalHeapMalloc() {
+  return &g_HeapMalloc;
+}
+
 _Use_decl_annotations_
-void ReadBinaryFile(LPCWSTR pFileName, void **ppData, DWORD *pDataSize) {
-  HANDLE hFile = CreateFileW(pFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-  if(hFile == INVALID_HANDLE_VALUE) {
+void ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
+                    DWORD *pDataSize) {
+  HANDLE hFile = CreateFileW(pFileName, GENERIC_READ, FILE_SHARE_READ, NULL,
+                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (hFile == INVALID_HANDLE_VALUE) {
     IFT(HRESULT_FROM_WIN32(GetLastError()));
   }
+
   CHandle h(hFile);
 
   LARGE_INTEGER FileSize;
-  if(!GetFileSizeEx(hFile, &FileSize)) {
+  if (!GetFileSizeEx(hFile, &FileSize)) {
     IFT(HRESULT_FROM_WIN32(GetLastError()));
   }
-  if(FileSize.HighPart != 0) {
+  if (FileSize.HighPart != 0) {
     throw(hlsl::Exception(DXC_E_INPUT_FILE_TOO_LARGE, "input file is too large"));
   }
-  CComHeapPtr<char> pData;
-  if (!pData.AllocateBytes(FileSize.LowPart)) {
+
+  char *pData = (char *)pMalloc->Alloc(FileSize.LowPart);
+  if (!pData) {
     throw std::bad_alloc();
   }
 
   DWORD BytesRead;
-  if(!ReadFile(hFile, pData.m_pData, FileSize.LowPart, &BytesRead, nullptr)) {
-    IFT(HRESULT_FROM_WIN32(GetLastError()));
+  if (!ReadFile(hFile, pData, FileSize.LowPart, &BytesRead, nullptr)) {
+    HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
+    pMalloc->Free(pData);
+    throw ::hlsl::Exception(hr);
   }
   DXASSERT(FileSize.LowPart == BytesRead, "ReadFile operation failed");
 
-  *ppData = pData.Detach();
+  *ppData = pData;
   *pDataSize = FileSize.LowPart;
+}
+
+_Use_decl_annotations_
+void ReadBinaryFile(LPCWSTR pFileName, void **ppData, DWORD *pDataSize) {
+  return ReadBinaryFile(GetGlobalHeapMalloc(), pFileName, ppData, pDataSize);
 }
 
 _Use_decl_annotations_
@@ -103,7 +174,7 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) {
 
 class InternalDxcBlobEncoding : public IDxcBlobEncoding {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   LPCVOID m_Buffer = nullptr;
   IUnknown* m_Owner = nullptr; // IMalloc when MallocFree is true
   SIZE_T m_BufferSize;
@@ -112,9 +183,19 @@ private:
   unsigned m_MallocFree : 1;
   UINT32 m_CodePage;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  InternalDxcBlobEncoding() : m_dwRef(0) {
+  DXC_MICROCOM_ADDREF_IMPL(m_dwRef)
+  ULONG STDMETHODCALLTYPE Release() {
+    // Because blobs are also used by tests and utilities,
+    // we avoid using TLS.
+    ULONG result = InterlockedDecrement(&m_dwRef); \
+      if (result == 0) {
+        CComPtr<IMalloc> pTmp(m_pMalloc);
+        this->~InternalDxcBlobEncoding();
+        pTmp->Free(this);
+      }
+    return result;
   }
+  DXC_MICROCOM_TM_CTOR(InternalDxcBlobEncoding)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface2<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
   }
@@ -135,7 +216,7 @@ public:
   CreateFromHeap(LPCVOID buffer, SIZE_T bufferSize, bool encodingKnown,
                  UINT32 codePage,
                  _COM_Outptr_ InternalDxcBlobEncoding **pEncoding) {
-    *pEncoding = new (std::nothrow) InternalDxcBlobEncoding();
+    *pEncoding = InternalDxcBlobEncoding::Alloc(DxcGetThreadMallocNoRef());
     if (*pEncoding == nullptr) {
       return E_OUTOFMEMORY;
     }
@@ -152,7 +233,7 @@ public:
   static HRESULT
   CreateFromBlob(_In_ IDxcBlob *pBlob, bool encodingKnown, UINT32 codePage,
                  _COM_Outptr_ InternalDxcBlobEncoding **pEncoding) {
-    *pEncoding = new (std::nothrow) InternalDxcBlobEncoding();
+    *pEncoding = new InternalDxcBlobEncoding(DxcGetThreadMallocNoRef());
     if (*pEncoding == nullptr) {
       return E_OUTOFMEMORY;
     }
@@ -167,11 +248,13 @@ public:
     (*pEncoding)->AddRef();
     return S_OK;
   }
+
   static HRESULT
   CreateFromMalloc(LPCVOID buffer, IMalloc *pIMalloc, SIZE_T bufferSize, bool encodingKnown,
     UINT32 codePage, _COM_Outptr_ InternalDxcBlobEncoding **pEncoding) {
-    *pEncoding = new (std::nothrow) InternalDxcBlobEncoding();
+    *pEncoding = InternalDxcBlobEncoding::Alloc(pIMalloc);
     if (*pEncoding == nullptr) {
+      *pEncoding = nullptr;
       return E_OUTOFMEMORY;
     }
     pIMalloc->AddRef();
@@ -317,17 +400,18 @@ DxcCreateBlobOnHeapCopy(_In_bytecount_(size) LPCVOID pData, UINT32 size,
 }
 
 _Use_decl_annotations_
-HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, UINT32 *pCodePage,
-                              IDxcBlobEncoding **ppBlobEncoding) {
+HRESULT
+DxcCreateBlobFromFile(IMalloc *pMalloc, LPCWSTR pFileName, UINT32 *pCodePage,
+                      IDxcBlobEncoding **ppBlobEncoding) throw() {
   if (pFileName == nullptr || ppBlobEncoding == nullptr) {
     return E_POINTER;
   }
 
-  CComHeapPtr<char> pData;
+  LPVOID pData;
   DWORD dataSize;
   *ppBlobEncoding = nullptr;
   try {
-    ReadBinaryFile(pFileName, (void **)(&pData), &dataSize);
+    ReadBinaryFile(pMalloc, pFileName, &pData, &dataSize);
   }
   CATCH_CPP_RETURN_HRESULT();
 
@@ -335,13 +419,23 @@ HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, UINT32 *pCodePage,
   UINT32 codePage = (pCodePage != nullptr) ? *pCodePage : 0;
 
   InternalDxcBlobEncoding *internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromHeap(
-      pData, dataSize, known, codePage, &internalEncoding);
+  HRESULT hr = InternalDxcBlobEncoding::CreateFromMalloc(
+    pData, pMalloc, dataSize, known, codePage, &internalEncoding);
   if (SUCCEEDED(hr)) {
     *ppBlobEncoding = internalEncoding;
-    pData.Detach();
+  }
+  else {
+    pMalloc->Free(pData);
   }
   return hr;
+}
+
+_Use_decl_annotations_
+HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, UINT32 *pCodePage,
+                              IDxcBlobEncoding **ppBlobEncoding) {
+  CComPtr<IMalloc> pMalloc;
+  IFR(CoGetMalloc(1, &pMalloc));
+  return DxcCreateBlobFromFile(pMalloc, pFileName, pCodePage, ppBlobEncoding);
 }
 
 _Use_decl_annotations_
@@ -659,22 +753,30 @@ bool IsBlobNullOrEmpty(_In_opt_ IDxcBlob *pBlob) throw() {
 
 class MemoryStream : public AbstractMemoryStream, public IDxcBlob {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
-  CComPtr<IMalloc> m_pMalloc;
-  LPBYTE m_pMemory;
-  ULONG m_offset;
-  ULONG m_size;
-  ULONG m_allocSize;
+  DXC_MICROCOM_TM_REF_FIELDS()
+  LPBYTE m_pMemory = nullptr;
+  ULONG m_offset = 0;
+  ULONG m_size = 0;
+  ULONG m_allocSize = 0;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_ADDREF_IMPL(m_dwRef)
+  ULONG STDMETHODCALLTYPE Release() {
+    // Because memory streams are also used by tests and utilities,
+    // we avoid using TLS.
+    ULONG result = InterlockedDecrement(&m_dwRef); \
+    if (result == 0) {
+      CComPtr<IMalloc> pTmp(m_pMalloc);
+      this->~MemoryStream();
+      pTmp->Free(this);
+    }
+    return result;
+  }
+
+  DXC_MICROCOM_TM_CTOR(MemoryStream)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface3<IStream, ISequentialStream, IDxcBlob>(this, iid, ppvObject);
   }
-
-  MemoryStream(_In_ IMalloc *pMalloc)
-    : m_dwRef(0), m_pMalloc(pMalloc), m_pMemory(nullptr), m_offset(0),
-    m_size(0), m_allocSize(0) {}
 
   ~MemoryStream() {
     Reset();
@@ -866,19 +968,22 @@ public:
 
 class ReadOnlyBlobStream : public IStream {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<IDxcBlob> m_pSource;
   LPBYTE m_pMemory;
   ULONG m_offset;
   ULONG m_size;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(ReadOnlyBlobStream)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface2<IStream, ISequentialStream>(this, iid, ppvObject);
   }
 
-  ReadOnlyBlobStream(IDxcBlob *pSource) : m_pSource(pSource), m_offset(0), m_dwRef(0) {
+  void Init(IDxcBlob *pSource) {
+    m_pSource = pSource;
+    m_offset = 0;
     m_size = m_pSource->GetBufferSize();
     m_pMemory = (LPBYTE)m_pSource->GetBufferPointer();
   }
@@ -982,7 +1087,7 @@ HRESULT CreateMemoryStream(_In_ IMalloc *pMalloc, _COM_Outptr_ AbstractMemoryStr
     return E_POINTER;
   }
 
-  CComPtr<MemoryStream> stream = new (std::nothrow) MemoryStream(pMalloc);
+  CComPtr<MemoryStream> stream = MemoryStream::Alloc(pMalloc);
   *ppResult = stream.Detach();
   return (*ppResult == nullptr) ? E_OUTOFMEMORY : S_OK;
 }
@@ -992,7 +1097,10 @@ HRESULT CreateReadOnlyBlobStream(_In_ IDxcBlob *pSource, _COM_Outptr_ IStream** 
     return E_POINTER;
   }
 
-  CComPtr<ReadOnlyBlobStream> stream = new (std::nothrow) ReadOnlyBlobStream(pSource);
+  CComPtr<ReadOnlyBlobStream> stream = ReadOnlyBlobStream::Alloc(DxcGetThreadMallocNoRef());
+  if (stream.p) {
+    stream->Init(pSource);
+  }
   *ppResult = stream.Detach();
   return (*ppResult == nullptr) ? E_OUTOFMEMORY : S_OK;
 }

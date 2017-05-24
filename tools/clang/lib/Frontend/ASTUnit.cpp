@@ -196,11 +196,12 @@ void ASTUnit::clearFileLevelDecls() {
 }
 
 void ASTUnit::CleanTemporaryFiles() {
-  getOnDiskData(this).CleanTemporaryFiles();
+  // getOnDiskData(this).CleanTemporaryFiles(); // HLSL Change - no temporary files generated
 }
 
 void ASTUnit::addTemporaryFile(StringRef TempFile) {
-  getOnDiskData(this).TemporaryFiles.push_back(TempFile);
+  // getOnDiskData(this).TemporaryFiles.push_back(TempFile); // HLSL Change - no temporary files generated
+  assert("caller attempted to create a temporary file");
 }
 
 /// \brief After failing to build a precompiled preamble (due to
@@ -243,7 +244,7 @@ ASTUnit::~ASTUnit() {
   clearFileLevelDecls();
 
   // Clean up the temporary files and the preamble file.
-  removeOnDiskEntry(this);
+  // removeOnDiskEntry(this); // HLSL Change - no temporary/preamble files generated.
 
   // Free the buffers associated with remapped files. We are required to
   // perform this operation here because we explicitly request that the

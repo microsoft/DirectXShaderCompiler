@@ -46,18 +46,18 @@ using namespace hlsl;
 
 class DxilContainerReflection : public IDxcContainerReflection {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<IDxcBlob> m_container;
-  const DxilContainerHeader *m_pHeader;
-  uint32_t m_headerLen;
+  const DxilContainerHeader *m_pHeader = nullptr;
+  uint32_t m_headerLen = 0;
   bool IsLoaded() const { return m_pHeader != nullptr; }
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxilContainerReflection)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDxcContainerReflection>(this, iid, ppvObject);
   }
 
-  DxilContainerReflection() : m_dwRef(0), m_pHeader(nullptr), m_headerLen(0) { }
   __override HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pContainer);
   __override HRESULT STDMETHODCALLTYPE GetPartCount(_Out_ UINT32 *pResult);
   __override HRESULT STDMETHODCALLTYPE GetPartKind(UINT32 idx, _Out_ UINT32 *pResult);
@@ -70,11 +70,11 @@ class CShaderReflectionConstantBuffer;
 class CShaderReflectionType;
 class DxilShaderReflection : public ID3D12ShaderReflection {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<IDxcBlob> m_pContainer;
   LLVMContext Context;
   std::unique_ptr<Module> m_pModule; // Must come after LLVMContext, otherwise unique_ptr will over-delete.
-  DxilModule *m_pDxilModule;
+  DxilModule *m_pDxilModule = nullptr;
   std::vector<CShaderReflectionConstantBuffer>    m_CBs;
   std::vector<D3D12_SHADER_INPUT_BIND_DESC>       m_Resources;
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC>     m_InputSignature;
@@ -103,7 +103,8 @@ public:
       api = DxilShaderReflection::PublicAPI::D3D11_47;
     return api;
   }
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxilShaderReflection)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     HRESULT hr = DoBasicQueryInterface<ID3D12ShaderReflection>(this, iid, ppvObject);
     if (hr == E_NOINTERFACE) {
@@ -119,7 +120,6 @@ public:
     return hr;
   }
 
-  DxilShaderReflection() : m_dwRef(0), m_pDxilModule(nullptr) { }
   HRESULT Load(IDxcBlob *pBlob, const DxilPartHeader *pPart);
 
   // ID3D12ShaderReflection
@@ -216,6 +216,7 @@ HRESULT DxilContainerReflection::GetPartContent(UINT32 idx, _COM_Outptr_ IDxcBlo
   const char *pData = GetDxilPartData(pPart);
   uint32_t offset = (uint32_t)(pData - (char*)m_container->GetBufferPointer()); // Offset from the beginning.
   uint32_t length = pPart->PartSize;
+  DxcThreadMalloc TM(m_pMalloc);
   return DxcCreateBlobFromBlob(m_container, offset, length, ppResult);
 }
 
@@ -241,8 +242,9 @@ HRESULT DxilContainerReflection::GetPartReflection(UINT32 idx, REFIID iid, void 
     return E_NOTIMPL;
   }
   
+  DxcThreadMalloc TM(m_pMalloc);
   HRESULT hr = S_OK;
-  CComPtr<DxilShaderReflection> pReflection = new (std::nothrow)DxilShaderReflection();
+  CComPtr<DxilShaderReflection> pReflection = DxilShaderReflection::Alloc(m_pMalloc);
   IFCOOM(pReflection.p);
   DxilShaderReflection::PublicAPI api = DxilShaderReflection::IIDToAPI(iid);
   pReflection->SetPublicAPI(api);
@@ -254,8 +256,9 @@ Cleanup:
 }
 
 void hlsl::CreateDxcContainerReflection(IDxcContainerReflection **ppResult) {
-  CComPtr<DxilContainerReflection> pReflection = new DxilContainerReflection();
+  CComPtr<DxilContainerReflection> pReflection = DxilContainerReflection::Alloc(DxcGetThreadMallocNoRef());
   *ppResult = pReflection.Detach();
+  if (*ppResult == nullptr) throw std::bad_alloc();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

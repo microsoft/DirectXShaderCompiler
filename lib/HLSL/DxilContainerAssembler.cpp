@@ -670,9 +670,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
         [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
     pModule->StripRootSignatureFromMetadata();
     pInputProgramStream.Release();
-    CComPtr<IMalloc> pMalloc;
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pInputProgramStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pInputProgramStream));
     raw_stream_ostream outStream(pInputProgramStream.p);
     WriteBitcodeToFile(pModule->GetModule(), outStream, true);
   }
@@ -693,9 +691,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     llvm::StripDebugInfo(*pModule->GetModule());
     pModule->StripDebugRelatedCode();
 
-    CComPtr<IMalloc> pMalloc;
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pProgramStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pProgramStream));
     raw_stream_ostream outStream(pProgramStream.p);
     WriteBitcodeToFile(pModule->GetModule(), outStream, true);
 

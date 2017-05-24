@@ -54,12 +54,6 @@ static cl::opt<bool> ExtraVectorizerPasses(
     "extra-vectorizer-passes", cl::init(false), cl::Hidden,
     cl::desc("Run cleanup optimization passes after vectorization."));
 
-#else
-
-// Don't declare the 'false' counterparts - simply avoid altogether.
-
-#endif // HLSL Change - don't build vectorization passes
-
 static cl::opt<bool> UseNewSROA("use-new-sroa",
   cl::init(true), cl::Hidden,
   cl::desc("Enable the new, experimental SROA pass"));
@@ -97,6 +91,21 @@ static cl::opt<bool> EnableLoopInterchange(
 static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
+
+#else
+
+// Don't declare the 'false' counterparts - simply avoid altogether.
+
+static const bool UseNewSROA = true;
+static const bool RunLoopRerolling = false;
+static const bool RunFloat2Int = true;
+static const bool RunLoadCombine = false;
+static const bool RunSLPAfterLoopVectorization = true;
+static const bool UseCFLAA = false;
+static const bool EnableMLSM = true;
+static const bool EnableLoopInterchange = false;
+static const bool EnableLoopDistribute = false;
+#endif // HLSL Change - don't build vectorization passes
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;

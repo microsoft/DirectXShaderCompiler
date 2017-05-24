@@ -66,9 +66,13 @@ STATISTIC(TotalInsts,  "Total number of instructions analyzed");
 
 // The specific value of 100 here was chosen based only on intuition and a
 // few specific examples.
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned>
 Threshold("loop-unswitch-threshold", cl::desc("Max loop size to unswitch"),
           cl::init(100), cl::Hidden);
+#else
+static const unsigned Threshold = 100;
+#endif
 
 namespace {
 

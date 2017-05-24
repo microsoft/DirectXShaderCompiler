@@ -11,12 +11,64 @@
 
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/FileSystem.h"
-
+#include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/HLSLOptions.h"
 #include "dxcetw.h"
 #include "dxillib.h"
 
 namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
+
+// operator new and friends.
+void *operator new(std::size_t size) /* throw(std::bad_alloc) */ {
+  void * ptr = DxcGetThreadMallocNoRef()->Alloc(size);
+  if (ptr == nullptr)
+    throw std::bad_alloc();
+  return ptr;
+}
+void *operator new(std::size_t size,
+  const std::nothrow_t &nothrow_value) throw() {
+  return DxcGetThreadMallocNoRef()->Alloc(size);
+}
+void operator delete (void* ptr) throw() {
+  DxcGetThreadMallocNoRef()->Free(ptr);
+}
+void operator delete (void* ptr, const std::nothrow_t& nothrow_constant) throw() {
+  DxcGetThreadMallocNoRef()->Free(ptr);
+}
+
+static HRESULT InitMaybeFail() throw() {
+  HRESULT hr;
+  bool fsSetup = false, memSetup = false;
+  IFC(DxcInitThreadMalloc());
+  DxcSetThreadMallocOrDefault(nullptr);
+  memSetup = true;
+  if (::llvm::sys::fs::SetupPerThreadFileSystem()) {
+    hr = E_FAIL;
+    goto Cleanup;
+  }
+  fsSetup = true;
+  IFC(hlsl::SetupRegistryPassForHLSL());
+  IFC(DxilLibInitialize());
+  if (hlsl::options::initHlslOptTable()) {
+    hr = E_FAIL;
+    goto Cleanup;
+  }
+Cleanup:
+  if (FAILED(hr)) {
+    if (fsSetup) {
+      ::llvm::sys::fs::CleanupPerThreadFileSystem();
+    }
+    if (memSetup) {
+      DxcClearThreadMalloc();
+      DxcCleanupThreadMalloc();
+    }
+  }
+  else {
+    DxcClearThreadMalloc();
+  }
+  return hr;
+}
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
   BOOL result = TRUE;
@@ -24,34 +76,26 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
     EventRegisterMicrosoft_Windows_DXCompiler_API();
     DxcEtw_DXCompilerInitialization_Start();
     DisableThreadLibraryCalls(hinstDLL);
-    HRESULT hr = S_OK;
-    if (::llvm::sys::fs::SetupPerThreadFileSystem()) {
-      hr = E_FAIL;
-    }
-    else {
-      hr = hlsl::SetupRegistryPassForHLSL();
-      if (SUCCEEDED(hr)) {
-        DxilLibInitialize();
-      }
-      else {
-        ::llvm::sys::fs::CleanupPerThreadFileSystem();
-      }
-    }
+    HRESULT hr = InitMaybeFail();
     DxcEtw_DXCompilerInitialization_Stop(hr);
     result = SUCCEEDED(hr) ? TRUE : FALSE;
   } else if (Reason == DLL_PROCESS_DETACH) {
     DxcEtw_DXCompilerShutdown_Start();
+    DxcSetThreadMallocOrDefault(nullptr);
+    ::hlsl::options::cleanupHlslOptTable();
     ::llvm::sys::fs::CleanupPerThreadFileSystem();
     ::llvm::llvm_shutdown();
-    DxcEtw_DXCompilerShutdown_Stop(S_OK);
-    EventUnregisterMicrosoft_Windows_DXCompiler_API();
     if (reserved == NULL) { // FreeLibrary has been called or the DLL load failed
       DxilLibCleanup(DxilLibCleanUpType::UnloadLibrary);
     }
     else { // Process termination. We should not call FreeLibrary()
       DxilLibCleanup(DxilLibCleanUpType::ProcessTermination);
     }
-  } 
+    DxcClearThreadMalloc();
+    DxcCleanupThreadMalloc();
+    DxcEtw_DXCompilerShutdown_Stop(S_OK);
+    EventUnregisterMicrosoft_Windows_DXCompiler_API();
+  }
 
   return result;
 }

@@ -36,9 +36,13 @@ using namespace llvm;
 
 #define DEBUG_TYPE "loop-rotate"
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned>
 DefaultRotationThreshold("rotation-max-header-size", cl::init(16), cl::Hidden,
        cl::desc("The default maximum header size for automatic loop rotation"));
+#else
+static const unsigned DefaultRotationThreshold = 0;
+#endif // HLSL Change Ends
 
 STATISTIC(NumRotated, "Number of loops rotated");
 namespace {

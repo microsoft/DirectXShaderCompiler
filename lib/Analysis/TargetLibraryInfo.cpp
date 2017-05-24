@@ -16,14 +16,18 @@
 #include "llvm/Support/CommandLine.h"
 using namespace llvm;
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
-    "vector-library", cl::Hidden, cl::desc("Vector functions library"),
-    cl::init(TargetLibraryInfoImpl::NoLibrary),
-    cl::values(clEnumValN(TargetLibraryInfoImpl::NoLibrary, "none",
-                          "No vector functions library"),
-               clEnumValN(TargetLibraryInfoImpl::Accelerate, "Accelerate",
-                          "Accelerate framework"),
-               clEnumValEnd));
+  "vector-library", cl::Hidden, cl::desc("Vector functions library"),
+  cl::init(TargetLibraryInfoImpl::NoLibrary),
+  cl::values(clEnumValN(TargetLibraryInfoImpl::NoLibrary, "none",
+    "No vector functions library"),
+    clEnumValN(TargetLibraryInfoImpl::Accelerate, "Accelerate",
+      "Accelerate framework"),
+    clEnumValEnd));
+#else
+static const TargetLibraryInfoImpl::VectorLibrary ClVectorLibrary = TargetLibraryInfoImpl::NoLibrary;
+#endif // HLSL Change Ends
 
 const char *const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] = {
 #define TLI_DEFINE_STRING

@@ -34,15 +34,19 @@ public:
   __override HRESULT STDMETHODCALLTYPE RemovePart(_In_ UINT32 fourCC);                // Remove the part with fourCC
   __override HRESULT STDMETHODCALLTYPE SerializeContainer(_Out_ IDxcOperationResult **ppResult); // Builds a container of the given container builder state
 
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcContainerBuilder)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) {
     return DoBasicQueryInterface<IDxcContainerBuilder>(this, riid, ppvObject);
   }
 
-  DxcContainerBuilder(const char *warning) : m_dwRef(0), m_parts(), m_pContainer(), m_warning(warning), m_RequireValidation(false) {}
+  void Init(const char *warning) {
+    m_warning = warning;
+    m_RequireValidation = false;
+  }
 
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
 
   class DxilPart {
   public:
@@ -64,6 +68,7 @@ private:
 };
 
 HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(_In_ IDxcBlob *pSource) {
+  DxcThreadMalloc TM(m_pMalloc);
   try {
     IFTBOOL(m_pContainer == nullptr && pSource != nullptr &&
       IsDxilContainerLike(pSource->GetBufferPointer(),
@@ -88,6 +93,7 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(_In_ IDxcBlob *pSource) {
 
 
 HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(_In_ UINT32 fourCC, _In_ IDxcBlob *pSource) {
+  DxcThreadMalloc TM(m_pMalloc);
   try {
     IFTBOOL(pSource != nullptr && !IsDxilContainerLike(pSource->GetBufferPointer(),
       pSource->GetBufferSize()),
@@ -108,6 +114,7 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(_In_ UINT32 fourCC, _In_ 
 }
 
 HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(_In_ UINT32 fourCC) {
+  DxcThreadMalloc TM(m_pMalloc);
   try {
     IFTBOOL(fourCC == DxilFourCC::DFCC_ShaderDebugInfoDXIL ||
                 fourCC == DxilFourCC::DFCC_RootSignature ||
@@ -124,14 +131,13 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(_In_ UINT32 fourCC) {
 }
 
 HRESULT STDMETHODCALLTYPE DxcContainerBuilder::SerializeContainer(_Out_ IDxcOperationResult **ppResult) {
+  DxcThreadMalloc TM(m_pMalloc);
   try {
     // Allocate memory for new dxil container.
     uint32_t ContainerSize = ComputeContainerSize();
-    CComPtr<IMalloc> pMalloc;
     CComPtr<AbstractMemoryStream> pMemoryStream;
     CComPtr<IDxcBlob> pResult;
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pMemoryStream));
+    IFT(CreateMemoryStream(m_pMalloc, &pMemoryStream));
     IFT(pMemoryStream->QueryInterface(&pResult));
     IFT(pMemoryStream->Reserve(ContainerSize))
     
@@ -154,11 +160,9 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::SerializeContainer(_Out_ IDxcOper
       IFT(pValidator->Validate(pResult, DxcValidatorFlags_RootSignatureOnly, &pValidationResult));
       IFT(pValidationResult->GetStatus(&valHR));
       if (FAILED(valHR)) {
-        CComPtr<IMalloc> pErrorMalloc;
         CComPtr<AbstractMemoryStream> pErrorOutputStream;
         CComPtr<IDxcBlob> pErrorResult;
-        IFT(CoGetMalloc(1, &pErrorMalloc));
-        IFT(CreateMemoryStream(pErrorMalloc, &pErrorOutputStream));
+        IFT(CreateMemoryStream(m_pMalloc, &pErrorOutputStream));
         IFT(pErrorOutputStream.QueryInterface(&pErrorResult));
         
         // Combine existing warnings and errors from validation
@@ -230,6 +234,7 @@ HRESULT DxcContainerBuilder::UpdateParts(AbstractMemoryStream *pStream) {
 
 HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   // Call dxil.dll's containerbuilder 
+  *ppv = nullptr;
   const char *warning;
   HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder, (IDxcContainerBuilder**)ppv);
   if (FAILED(hr)) {
@@ -239,10 +244,8 @@ HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
     return hr;
   }
 
-  CComPtr<IDxcContainerBuilder> Result = new  (std::nothrow) DxcContainerBuilder(warning);
-  if (Result == nullptr) {
-    *ppv = nullptr;
-    return E_OUTOFMEMORY;
-  }
+  CComPtr<DxcContainerBuilder> Result = DxcContainerBuilder::Alloc(DxcGetThreadMallocNoRef());
+  IFROOM(Result.p);
+  Result->Init(warning);
   return Result->QueryInterface(riid, ppv);
 }

@@ -846,8 +846,12 @@ HRESULT DxcContext::GetDxcDiaTable(IDxcLibrary *pLibrary, IDxcBlob *pTargetBlob,
 int __cdecl wmain(int argc, const wchar_t **argv_) {
   const char *pStage = "Operation";
   int retVal = 0;
+  if (FAILED(DxcInitThreadMalloc())) return 1;
+  DxcSetThreadMallocOrDefault(nullptr);
   try {
     pStage = "Argument processing";
+
+    if (initHlslOptTable()) throw std::bad_alloc();
 
     // Parse command line options.
     const OptTable *optionTable = getHlslOptTable();

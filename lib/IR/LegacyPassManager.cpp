@@ -46,6 +46,7 @@ enum PassDebugLevel {
 };
 }
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<enum PassDebugLevel>
 PassDebugging("debug-pass", cl::Hidden,
                   cl::desc("Print PassManager debugging information"),
@@ -56,12 +57,16 @@ PassDebugging("debug-pass", cl::Hidden,
   clEnumVal(Executions, "print pass name before it is executed"),
   clEnumVal(Details   , "print pass details when it is executed"),
                              clEnumValEnd));
+#else
+static const PassDebugLevel PassDebugging  = PassDebugLevel::Disabled;
+#endif // HLSL Change Ends
 
 namespace {
 typedef llvm::cl::list<const llvm::PassInfo *, bool, PassNameParser>
 PassOptionList;
 }
 
+#if 0 // HLSL Change Starts - option pending
 // Print IR out before/after specified passes.
 static PassOptionList
 PrintBefore("print-before",
@@ -81,6 +86,10 @@ static cl::opt<bool>
 PrintAfterAll("print-after-all",
               llvm::cl::desc("Print IR after each pass"),
               cl::init(false));
+#else
+static const bool PrintBeforeAll = false;
+static const bool PrintAfterAll = false;
+#endif // HLSL Change Ends
 
 /// This is a helper to determine whether to print IR before or
 /// after a pass.
@@ -99,13 +108,13 @@ static bool ShouldPrintBeforeOrAfterPass(const PassInfo *PI,
 /// This is a utility to check whether a pass should have IR dumped
 /// before it.
 static bool ShouldPrintBeforePass(const PassInfo *PI) {
-  return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PI, PrintBefore);
+  return false; // HLSL Change - return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PI, PrintBefore);
 }
 
 /// This is a utility to check whether a pass should have IR dumped
 /// after it.
 static bool ShouldPrintAfterPass(const PassInfo *PI) {
-  return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
+  return false; // HLSL Change -PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
 }
 
 /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
@@ -1744,9 +1753,11 @@ bool PassManager::run(Module &M) {
 // TimingInfo implementation
 
 bool llvm::TimePassesIsEnabled = false;
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool,true>
 EnableTiming("time-passes", cl::location(TimePassesIsEnabled),
             cl::desc("Time each pass, printing elapsed time for each on exit"));
+#endif
 
 // createTheTimeInfo - This method either initializes the TheTimeInfo pointer to
 // a non-null value (if the -time-passes option is enabled) or it leaves it

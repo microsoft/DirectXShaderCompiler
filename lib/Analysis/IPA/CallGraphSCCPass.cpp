@@ -31,8 +31,12 @@ using namespace llvm;
 
 #define DEBUG_TYPE "cgscc-passmgr"
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned> 
 MaxIterations("max-cg-scc-iterations", cl::ReallyHidden, cl::init(4));
+#else
+static const unsigned MaxIterations = 4;
+#endif
 
 STATISTIC(MaxSCCIterations, "Maximum CGSCCPassMgr iterations on one SCC");
 

@@ -4188,10 +4188,8 @@ static void VerifyBlobPartMatches(_In_ ValidationContext &ValCtx,
     return;
   }
 
-  CComPtr<IMalloc> pMalloc;
-  IFT(CoGetMalloc(1, &pMalloc));
   CComPtr<AbstractMemoryStream> pOutputStream;
-  IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+  IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
   pOutputStream->Reserve(Size);
 
   pWriter->write(pOutputStream);
@@ -4496,10 +4494,8 @@ HRESULT ValidateDxilBitcode(
   if (!dxilModule.GetRootSignature().IsEmpty()) {
     unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule));
     DXASSERT_NOMSG(pWriter->size());
-    CComPtr<IMalloc> pMalloc;
-    IFT(CoGetMalloc(1, &pMalloc));
     CComPtr<AbstractMemoryStream> pOutputStream;
-    IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
     pOutputStream->Reserve(pWriter->size());
     pWriter->write(pOutputStream);
     const DxilVersionedRootSignatureDesc* pDesc = dxilModule.GetRootSignature().GetDesc();

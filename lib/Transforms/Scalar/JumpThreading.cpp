@@ -44,10 +44,14 @@ STATISTIC(NumThreads, "Number of jumps threaded");
 STATISTIC(NumFolds,   "Number of terminators folded");
 STATISTIC(NumDupes,   "Number of branch blocks duplicated to eliminate phi");
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned>
 BBDuplicateThreshold("jump-threading-threshold",
           cl::desc("Max block size to duplicate for jump threading"),
           cl::init(6), cl::Hidden);
+#else
+static const unsigned BBDuplicateThreshold = 6;
+#endif // HLSL Change Ends
 
 namespace {
   // These are at global scope so static functions can use them too.

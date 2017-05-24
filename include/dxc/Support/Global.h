@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Provides important declarations global to all DX Compiler code.          //
+// Provides important declarations global to all DX Compiler code.           //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -25,6 +25,47 @@ typedef _Return_type_success_(return >= 0) long HRESULT;
 #include <stdarg.h>
 #include "dxc/Support/exception.h"
 
+///////////////////////////////////////////////////////////////////////////////
+// Memory allocation support.
+//
+// This mechanism ties into the C++ new and delete operators.
+//
+// Other allocators may be used in specific situations, eg sub-allocators or
+// the COM allocator for interop. This is the preferred allocator in general,
+// however, as it eventually allows the library user to specify their own.
+//
+
+struct IMalloc;
+
+// Used by DllMain to set up and tear down per-thread tracking.
+HRESULT DxcInitThreadMalloc() throw();
+void DxcCleanupThreadMalloc() throw();
+
+// Used by APIs entry points to set up per-thread/invocation allocator.
+void DxcClearThreadMalloc() throw();
+void DxcSetThreadMalloc(IMalloc *pMalloc) throw();
+void DxcSetThreadMallocOrDefault(IMalloc *pMalloc) throw();
+IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw();
+IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMalloc, IMalloc **ppPrior) throw();
+
+// Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
+IMalloc *DxcGetThreadMallocNoRef() throw();
+_Ret_maybenull_ _Post_writable_byte_size_(nBytes) void *DxcThreadAlloc(size_t nBytes) throw();
+void DxcThreadFree(void *) throw();
+
+struct DxcThreadMalloc {
+  DxcThreadMalloc(IMalloc *pMallocOrNull) throw() {
+    p = DxcSwapThreadMallocOrDefault(pMallocOrNull, &pPrior);
+  }
+  ~DxcThreadMalloc() {
+    DxcSwapThreadMalloc(pPrior, nullptr);
+  }
+  IMalloc *p;
+  IMalloc *pPrior;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Error handling support.
 namespace std { class error_code; }
 void CheckLLVMErrorCode(const std::error_code &ec);
 

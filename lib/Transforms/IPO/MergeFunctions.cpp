@@ -112,12 +112,16 @@ STATISTIC(NumThunksWritten, "Number of thunks generated");
 STATISTIC(NumAliasesWritten, "Number of aliases generated");
 STATISTIC(NumDoubleWeak, "Number of new functions created");
 
+#if 0 // HLSL Change
 static cl::opt<unsigned> NumFunctionsForSanityCheck(
     "mergefunc-sanity",
     cl::desc("How many functions in module could be used for "
              "MergeFunctions pass sanity check. "
              "'0' disables this check. Works only with '-debug' key."),
     cl::init(0), cl::Hidden);
+#else
+static const unsigned NumFunctionsForSanityCheck = 0;
+#endif
 
 namespace {
 

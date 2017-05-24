@@ -17,6 +17,12 @@ struct IDxcBlobEncoding;
 
 namespace hlsl {
 
+IMalloc *GetGlobalHeapMalloc() throw();
+
+void ReadBinaryFile(_In_opt_ IMalloc *pMalloc,
+                    _In_z_ LPCWSTR pFileName,
+                    _Outptr_result_bytebuffer_(*pDataSize) void **ppData,
+                    _Out_ DWORD *pDataSize);
 void ReadBinaryFile(_In_z_ LPCWSTR pFileName,
                     _Outptr_result_bytebuffer_(*pDataSize) void **ppData,
                     _Out_ DWORD *pDataSize);
@@ -30,8 +36,13 @@ void WriteBinaryFile(_In_z_ LPCWSTR pFileName,
 UINT32 DxcCodePageFromBytes(_In_count_(byteLen) const char *bytes,
                             size_t byteLen) throw();
 
+HRESULT
+DxcCreateBlobFromFile(_In_opt_ IMalloc *pMalloc, LPCWSTR pFileName,
+                      _In_opt_ UINT32 *pCodePage,
+                      _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+
 HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, _In_opt_ UINT32 *pCodePage,
-                              _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+                              _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw();
 
 // Given a blob, creates a subrange view.
 HRESULT DxcCreateBlobFromBlob(_In_ IDxcBlob *pBlob, UINT32 offset,

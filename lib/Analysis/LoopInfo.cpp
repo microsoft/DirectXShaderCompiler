@@ -43,9 +43,12 @@ static bool VerifyLoopInfo = true;
 #else
 static bool VerifyLoopInfo = false;
 #endif
-static cl::opt<bool,true>
+#if 0 // HLSL Change Starts - option pending
+static cl::opt<bool, true>
 VerifyLoopInfoX("verify-loop-info", cl::location(VerifyLoopInfo),
-                cl::desc("Verify loop info (time consuming)"));
+  cl::desc("Verify loop info (time consuming)"));
+#else
+#endif // HLSL Change Ends
 
 // Loop identifier metadata name.
 static const char *const LoopMDName = "llvm.loop";

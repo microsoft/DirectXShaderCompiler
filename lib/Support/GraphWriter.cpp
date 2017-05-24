@@ -18,8 +18,12 @@
 #include "llvm/Support/Program.h"
 using namespace llvm;
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool> ViewBackground("view-background", cl::Hidden,
   cl::desc("Execute graph viewer in the background. Creates tmp file litter."));
+#else
+static const bool ViewBackground = false;
+#endif // HLSL Change Ends
 
 std::string llvm::DOT::EscapeString(const std::string &Label) {
   std::string Str(Label);

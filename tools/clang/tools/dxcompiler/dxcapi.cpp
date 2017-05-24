@@ -15,6 +15,7 @@
 
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
+#include "dxc/Support/Global.h"
 #include "dxcetw.h"
 #include "dxillib.h"
 #include <memory>
@@ -63,6 +64,7 @@ DxcCreateInstance(_In_ REFCLSID   rclsid,
 
   HRESULT hr = S_OK;
   DxcEtw_DXCompilerCreateInstance_Start();
+  DxcThreadMalloc TM(nullptr);
   *ppv = nullptr;
   if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
     hr = CreateDxcIntelliSense(riid, ppv);

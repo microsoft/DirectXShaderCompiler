@@ -493,26 +493,29 @@ public:
     _In_      DWORD dwCreationDisposition,
     _In_      DWORD dwFlagsAndAttributes) throw() {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::CreateFileW %S\n", lpFileName);
+    DWORD findError; // Cleanly set last error after local destructors.
     size_t sourceNameLen = wcslen(m_pSourceName);
-    std::wstring FileNameStore;
-    MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
-    size_t fileNameLen = wcslen(lpFileName);
+    {
+      std::wstring FileNameStore;
+      MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
+      size_t fileNameLen = wcslen(lpFileName);
 
-    // Check for a match to the output file.
-    if (m_pOutputStreamName != nullptr &&
-        0 == wcscmp(lpFileName, m_pOutputStreamName)) {
-      return OutputHandle.Handle;
-    }
+      // Check for a match to the output file.
+      if (m_pOutputStreamName != nullptr &&
+          0 == wcscmp(lpFileName, m_pOutputStreamName)) {
+        return OutputHandle.Handle;
+      }
 
-    HANDLE dirHandle = TryFindDirHandle(lpFileName);
-    if (dirHandle != INVALID_HANDLE_VALUE) {
-      return dirHandle;
-    }
+      HANDLE dirHandle = TryFindDirHandle(lpFileName);
+      if (dirHandle != INVALID_HANDLE_VALUE) {
+        return dirHandle;
+      }
 
-    size_t includedIndex;
-    DWORD findError = TryFindOrOpen(lpFileName, includedIndex);
-    if (findError == ERROR_SUCCESS) {
-      return IncludedFileIndexToHandle(includedIndex);
+      size_t includedIndex;
+      findError = TryFindOrOpen(lpFileName, includedIndex);
+      if (findError == ERROR_SUCCESS) {
+        return IncludedFileIndexToHandle(includedIndex);
+      }
     }
 
     SetLastError(findError);
@@ -1992,7 +1995,7 @@ private:
 
 class DxcCompiler : public IDxcCompiler2, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
   CComPtr<IDxcContainerEventsHandler> m_pDxcContainerEventsHandler;
 
@@ -2033,7 +2036,8 @@ private:
     finished = false;
   }
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcCompiler)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
   __override HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) {
@@ -2099,10 +2103,10 @@ public:
     CComPtr<AbstractMemoryStream> pOutputStream;
     CHeapPtr<wchar_t> DebugBlobName;
     DxcEtw_DXCompilerCompile_Start();
+    DxcThreadMalloc TM(m_pMalloc);
     IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
     try {
-      CComPtr<IMalloc> pMalloc;
       CComPtr<IDxcBlob> pOutputBlob;
       DxcArgsFileSystem *msfPtr;
       IFT(CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
@@ -2111,8 +2115,7 @@ public:
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      IFT(CoGetMalloc(1, &pMalloc));
-      IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+      IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       int argCountInt;
@@ -2143,7 +2146,7 @@ public:
       }
 
       IFT(msfPtr->RegisterOutputStream(L"output.bc", pOutputStream));
-      IFT(msfPtr->CreateStdStreams(pMalloc));
+      IFT(msfPtr->CreateStdStreams(m_pMalloc));
 
       StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
                      utf8Source->GetBufferSize());
@@ -2251,7 +2254,7 @@ public:
           auto rootSigHandle = action.takeRootSigHandle();
 
           CComPtr<AbstractMemoryStream> pContainerStream;
-          IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+          IFT(CreateMemoryStream(m_pMalloc, &pContainerStream));
           SerializeDxilContainerForRootSignature(rootSigHandle.get(),
                                                  pContainerStream);
 
@@ -2315,7 +2318,7 @@ public:
 
           // Do not create a container when there is only a a high-level representation in the module.
           if (!opts.CodeGenHighLevel)
-            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob, SerializeFlags);
+            llvmModule.WrapModuleInDxilContainer(m_pMalloc, pOutputStream, pOutputBlob, SerializeFlags);
 
           if (needsValidation) {
             // Important: in-place edit is required so the blob is reused and thus
@@ -2421,6 +2424,7 @@ public:
 
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerPreprocess_Start();
+    DxcThreadMalloc TM(m_pMalloc);
     CComPtr<IDxcBlobEncoding> utf8Source;
     IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
@@ -2434,8 +2438,7 @@ public:
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      IFT(CoGetMalloc(1, &pMalloc));
-      IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+      IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
 
       const llvm::opt::OptTable *table = ::options::getHlslOptTable();
       int argCountInt;
@@ -2534,6 +2537,7 @@ public:
 
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerDisassemble_Start();
+    DxcThreadMalloc TM(m_pMalloc); 
     try {
       ::llvm::sys::fs::MSFileSystem *msfPtr;
       IFT(CreateMSFileSystemForDisk(&msfPtr));
@@ -2811,7 +2815,7 @@ public:
 };
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcCompiler> result = new (std::nothrow) DxcCompiler();
+  CComPtr<DxcCompiler> result = DxcCompiler::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;
     return E_OUTOFMEMORY;
