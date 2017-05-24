@@ -15,7 +15,7 @@ We distinguish between DXIL, which is a low-level IR for GPU driver compilers, a
 
 LLVM is quickly becoming a de facto standard in modern compilation technology. The LLVM framework offers several distinct features, such as a vibrant ecosystem, complete compilation framework, modular design, and reasonable documentation. We can leverage these to achieve two important objectives.
 
-First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion the current HLSL IL, called DXBC IL in this document, and DXIL.
+First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion the current HLSL IL, called DXBC IL in this document, to DXIL.
 
 Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL and DXIR to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL verifier to check consistency of generated DXIL.
 
@@ -40,13 +40,13 @@ The following diagram shows how some of these components tie together::
                 |      |             |     |
                 |      |             |     |
    +------------v------+-------------v-----v-------+
-   |              Low|level IR (DXIL)              |
+   |              Low level IR (DXIL)              |
    +------------+----------------------+-----------+
                 |                      |
                 v                      v
         Driver Compiler             Verifier
 
-The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes DXIR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Verifier* element is a public component that verifies DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
+The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes DXIR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Verifier* element is a public component that verifies and signs DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
 
 DXIL does not support the following HLSL features that were present in prior implementations.
 
@@ -109,9 +109,9 @@ For shader models prior to 6.0, only the rules applicable to the DXIL representa
 DXIL version
 ------------
 
-The primary mechanism to evolve HLSL capabilities is through shader models. However, DXIL version is reserved for additional flexibility of future extensions. The only currently defined version is 1.0.
+The primary mechanism to evolve HLSL capabilities is through shader models. However, DXIL version is reserved for additional flexibility of future extensions. There are two currently defined versions: 1.0 and 1.1.
 
-DXIL version has major and minor versions that are specified as named metadata::
+DXIL version has major and minor versions that are specified as named metadata:
 
   !dx.version = !{ !0 }
   !0 = !{ i32 <major>, i32 <minor> }
