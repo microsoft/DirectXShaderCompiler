@@ -669,6 +669,8 @@ public:
         return castToBool(init, type);
       } else if (targetElemType->isIntegerType()) {
         return castToInt(init, type);
+      } else if (targetElemType->isFloatingType()) {
+        return castToFloat(init, type);
       } else {
         emitError("unimplemented vector InitList cases");
         expr->dump();
@@ -881,7 +883,10 @@ public:
 
       return castToInt(subExpr, toType);
     }
-    case CastKind::CK_FloatingCast: {
+    case CastKind::CK_FloatingCast:
+    case CastKind::CK_IntegralToFloating:
+    case CastKind::CK_HLSLCC_FloatingCast:
+    case CastKind::CK_HLSLCC_IntegralToFloating: {
       // First try to see if we can do constant folding for floating point
       // numbers like what we are doing for integers in the above.
       Expr::EvalResult evalResult;
@@ -889,8 +894,8 @@ public:
           !evalResult.HasSideEffects) {
         return translateAPFloat(evalResult.Val.getFloat(), toType);
       }
-      emitError("floating cast unimplemented");
-      return 0;
+
+      return castToFloat(subExpr, toType);
     }
     case CastKind::CK_IntegralToBoolean:
     case CastKind::CK_FloatingToBoolean:
@@ -1017,12 +1022,16 @@ public:
   uint32_t castToBool(const Expr *expr, QualType toBoolType) {
     // Converting to bool means comparing with value zero.
 
+    const uint32_t fromVal = doExpr(expr);
+
+    if (isBoolOrVecOfBoolType(expr->getType()))
+      return fromVal;
+
     const spv::Op spvOp = translateOp(BO_NE, expr->getType());
     const uint32_t boolType = typeTranslator.translateType(toBoolType);
-    const uint32_t originalVal = doExpr(expr);
     const uint32_t zeroVal = getValueZero(expr->getType());
 
-    return theBuilder.createBinaryOp(spvOp, boolType, originalVal, zeroVal);
+    return theBuilder.createBinaryOp(spvOp, boolType, fromVal, zeroVal);
   }
 
   /// Processes the given expr, casts the result into the given integer (vector)
@@ -1038,6 +1047,8 @@ public:
       return theBuilder.createSelect(intType, fromVal, one, zero);
     } else if (isSintOrVecOfSintType(fromType) ||
                isUintOrVecOfUintType(fromType)) {
+      if (fromType == toIntType)
+        return fromVal;
       // TODO: handle different bitwidths
       return theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, fromVal);
     } else if (isFloatOrVecOfFloatType(fromType)) {
@@ -1079,6 +1090,36 @@ public:
 
     emitError("Intrinsic function '%0' not yet implemented.")
         << callee->getName();
+    return 0;
+  }
+
+  uint32_t castToFloat(const Expr *expr, QualType toFloatType) {
+    const QualType fromType = expr->getType();
+    const uint32_t floatType = typeTranslator.translateType(toFloatType);
+    const uint32_t fromVal = doExpr(expr);
+
+    if (isBoolOrVecOfBoolType(fromType)) {
+      const uint32_t one = getValueOne(toFloatType);
+      const uint32_t zero = getValueZero(toFloatType);
+      return theBuilder.createSelect(floatType, fromVal, one, zero);
+    }
+
+    if (isSintOrVecOfSintType(fromType)) {
+      return theBuilder.createUnaryOp(spv::Op::OpConvertSToF, floatType,
+                                      fromVal);
+    }
+
+    if (isUintOrVecOfUintType(fromType)) {
+      return theBuilder.createUnaryOp(spv::Op::OpConvertUToF, floatType,
+                                      fromVal);
+    }
+
+    if (isFloatOrVecOfFloatType(fromType)) {
+      return fromVal;
+    }
+
+    emitError("unimplemented casting to floating point");
+    expr->dump();
     return 0;
   }
 
