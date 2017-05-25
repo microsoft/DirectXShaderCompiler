@@ -568,42 +568,12 @@ public:
       }
     }
 
-    if (const auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
-      return doImplicitCastExpr(castExpr);
-    }
-
-    if (const auto *cxxFunctionalCastExpr =
-            dyn_cast<CXXFunctionalCastExpr>(expr)) {
-      // Explicit cast is a NO-OP (e.g. vector<float, 4> -> float4)
-      if (cxxFunctionalCastExpr->getCastKind() == CK_NoOp) {
-        return doExpr(cxxFunctionalCastExpr->getSubExpr());
-      }
-      emitError("Found unhandled CXXFunctionalCastExpr cast type: %0")
-          << cxxFunctionalCastExpr->getCastKindName();
-      return 0;
+    if (const auto *castExpr = dyn_cast<CastExpr>(expr)) {
+      return doCastExpr(castExpr);
     }
 
     if (const auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
-      // First try to evaluate the expression as constant expression
-      Expr::EvalResult evalResult;
-      if (expr->EvaluateAsRValue(evalResult, astContext) &&
-          !evalResult.HasSideEffects) {
-        return translateAPValue(evalResult.Val, expr->getType());
-      }
-
-      const uint32_t resultType =
-          typeTranslator.translateType(initListExpr->getType());
-
-      // Special case for vectors of size 1.
-      if (initListExpr->getNumInits() == 1) {
-        return doExpr(initListExpr->getInit(0));
-      }
-      std::vector<uint32_t> constituents;
-      for (size_t i = 0; i < initListExpr->getNumInits(); ++i) {
-        constituents.push_back(doExpr(initListExpr->getInit(i)));
-      }
-
-      return theBuilder.createCompositeConstruct(resultType, constituents);
+      return doInitListExpr(initListExpr);
     }
 
     if (const auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
@@ -644,6 +614,73 @@ public:
     emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
     // TODO: handle other expressions
     return 0;
+  }
+
+  uint32_t doInitListExpr(const InitListExpr *expr) {
+    // First try to evaluate the expression as constant expression
+    Expr::EvalResult evalResult;
+    if (expr->EvaluateAsRValue(evalResult, astContext) &&
+        !evalResult.HasSideEffects) {
+      return translateAPValue(evalResult.Val, expr->getType());
+    }
+
+    const QualType type = expr->getType();
+
+    // InitListExpr is tricky to handle. It can have initializers of different
+    // types, and each initializer can itself be of a composite type.
+    // The front end parsing only gurantees the total number of elements in
+    // the initializers are the same as the one of the InitListExpr's type.
+
+    // For builtin types, we can assume the front end parsing has injected
+    // the necessary ImplicitCastExpr for type casting. So we just need to
+    // return the result of processing the only initializer.
+    if (type->isBuiltinType()) {
+      assert(expr->getNumInits() == 1);
+      return doExpr(expr->getInit(0));
+    }
+
+    // For composite types, we need to type cast the initializers if necessary.
+
+    const auto initCount = expr->getNumInits();
+    const uint32_t resultType = typeTranslator.translateType(type);
+
+    // For InitListExpr of vector type and having one initializer, we can avoid
+    // composite extraction and construction.
+    if (initCount == 1 && hlsl::IsHLSLVecType(type)) {
+      const Expr *init = expr->getInit(0);
+
+      // If the initializer already have the correct type, we don't need to
+      // type cast.
+      if (init->getType() == type) {
+        return doExpr(init);
+      }
+
+      // For the rest, we can do type cast as a whole.
+
+      const auto targetElemType = hlsl::GetHLSLVecElementType(type);
+      if (targetElemType->isBooleanType()) {
+        return castToBool(init, type);
+      } else {
+        emitError("unimplemented vector InitList cases");
+        expr->dump();
+        return 0;
+      }
+    }
+
+    // Cases needing composite extraction and construction
+
+    std::vector<uint32_t> constituents;
+    for (size_t i = 0; i < initCount; ++i) {
+      const Expr *init = expr->getInit(i);
+      if (!init->getType()->isBuiltinType()) {
+        emitError("unimplemented InitList initializer type");
+        init->dump();
+        return 0;
+      }
+      constituents.push_back(doExpr(init));
+    }
+
+    return theBuilder.createCompositeConstruct(resultType, constituents);
   }
 
   uint32_t doBinaryOperator(const BinaryOperator *expr) {
@@ -804,11 +841,20 @@ public:
     return 0;
   }
 
-  uint32_t doImplicitCastExpr(const ImplicitCastExpr *expr) {
+  uint32_t doCastExpr(const CastExpr *expr) {
     const Expr *subExpr = expr->getSubExpr();
     const QualType toType = expr->getType();
 
     switch (expr->getCastKind()) {
+    case CastKind::CK_LValueToRValue: {
+      const uint32_t fromValue = doExpr(subExpr);
+      // Using lvalue as rvalue means we need to OpLoad the contents from
+      // the parameter/variable first.
+      const uint32_t resultType = typeTranslator.translateType(toType);
+      return theBuilder.createLoad(resultType, fromValue);
+    }
+    case CastKind::CK_NoOp:
+      return doExpr(subExpr);
     case CastKind::CK_IntegralCast: {
       // Integer literals in the AST are represented using 64bit APInt
       // themselves and then implicitly casted into the expected bitwidth.
@@ -835,14 +881,19 @@ public:
       emitError("floating cast unimplemented");
       return 0;
     }
-    case CastKind::CK_LValueToRValue: {
-      const uint32_t fromValue = doExpr(subExpr);
-      // Using lvalue as rvalue means we need to OpLoad the contents from
-      // the parameter/variable first.
-      const uint32_t resultType = typeTranslator.translateType(toType);
-      return theBuilder.createLoad(resultType, fromValue);
-    }
+    case CastKind::CK_IntegralToBoolean:
+    case CastKind::CK_FloatingToBoolean:
+    case CastKind::CK_HLSLCC_IntegralToBoolean:
+    case CastKind::CK_HLSLCC_FloatingToBoolean: {
+      // First try to see if we can do constant folding.
+      bool boolVal;
+      if (!expr->HasSideEffects(astContext) &&
+          expr->EvaluateAsBooleanCondition(boolVal, astContext)) {
+        return theBuilder.getConstantBool(boolVal);
+      }
 
+      return castToBool(subExpr, toType);
+    }
     case CastKind::CK_HLSLVectorSplat: {
       const size_t size = hlsl::GetHLSLVecSize(expr->getType());
       const uint32_t scalarValue = doExpr(subExpr);
@@ -948,6 +999,19 @@ public:
       }
       return result;
     }
+  }
+
+  /// Processes the given expr, casts the result into the given bool (vector)
+  /// type and returns the <result-id> of the casted value.
+  uint32_t castToBool(const Expr *expr, QualType toBoolType) {
+    // Converting to bool means comparing with value zero.
+
+    const spv::Op spvOp = translateOp(BO_NE, expr->getType());
+    const uint32_t boolType = typeTranslator.translateType(toBoolType);
+    const uint32_t originalVal = doExpr(expr);
+    const uint32_t zeroVal = getValueZero(expr->getType());
+
+    return theBuilder.createBinaryOp(spvOp, boolType, originalVal, zeroVal);
   }
 
   uint32_t processIntrinsicCallExpr(const CallExpr *callExpr) {
@@ -1227,6 +1291,39 @@ case BO_##kind : {                                                             \
     }
 
     emitError("getting value 1 for type '%0' unimplemented") << type;
+    return 0;
+  }
+
+  /// Returns the <result-id> for constant value 0 of the given type.
+  uint32_t getValueZero(QualType type) {
+    if (type->isSignedIntegerType()) {
+      return theBuilder.getConstantInt32(0);
+    }
+
+    if (type->isUnsignedIntegerType()) {
+      return theBuilder.getConstantUint32(0);
+    }
+
+    if (type->isFloatingType()) {
+      return theBuilder.getConstantFloat32(0.0);
+    }
+
+    if (hlsl::IsHLSLVecType(type)) {
+      const QualType elemType = hlsl::GetHLSLVecElementType(type);
+      const uint32_t elemZeroId = getValueZero(elemType);
+
+      const size_t size = hlsl::GetHLSLVecSize(type);
+      if (size == 1)
+        return elemZeroId;
+
+      llvm::SmallVector<uint32_t, 4> elements(size, elemZeroId);
+
+      const uint32_t vecTypeId = typeTranslator.translateType(type);
+      return theBuilder.getConstantComposite(vecTypeId, elements);
+    }
+
+    emitError("getting value 0 for type '%0' unimplemented")
+        << type.getAsString();
     return 0;
   }
 

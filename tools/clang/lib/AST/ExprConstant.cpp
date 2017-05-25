@@ -5629,7 +5629,14 @@ static bool EvaluateVector(const Expr* E, APValue& Result, EvalInfo &Info) {
 }
 
 bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
-  const VectorType *VTy = E->getType()->castAs<VectorType>();
+  // HLSL Change Begins.
+  const VectorType *VTy;
+  if (Info.getLangOpts().HLSL && hlsl::IsHLSLVecType(E->getType())) {
+    VTy = hlsl::ConvertHLSLVecMatTypeToExtVectorType(getEvalInfo().Ctx, E->getType());
+  } else {
+    VTy = E->getType()->castAs<VectorType>();
+  }
+  // HLSL Change Ends.
   unsigned NElts = VTy->getNumElements();
 
   const Expr *SE = E->getSubExpr();
@@ -5733,7 +5740,11 @@ VectorExprEvaluator::VisitInitListExpr(const InitListExpr *E) {
   while (CountElts < NumElements) {
     // Handle nested vector initialization.
     if (CountInits < NumInits 
-        && E->getInit(CountInits)->getType()->isVectorType()) {
+        && (E->getInit(CountInits)->getType()->isVectorType() ||
+            // HLSL Change Begins.
+            (Info.getLangOpts().HLSL &&
+             hlsl::IsHLSLVecType(E->getInit(CountInits)->getType())))) {
+            // HLSL Change Ends.
       APValue v;
       if (!EvaluateVector(E->getInit(CountInits), v, Info))
         return Error(E);

@@ -43,7 +43,7 @@ TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
 TEST_F(FileTest, VectorConstants) { runFileTest("constant.vector.hlsl"); }
 
 // For variables
-TEST_F(FileTest, VariableInitialier) { runFileTest("var.init.hlsl"); }
+TEST_F(FileTest, VariableInitializer) { runFileTest("var.init.hlsl"); }
 
 // For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
@@ -136,6 +136,11 @@ TEST_F(FileTest, BinaryOpLogicalOr) {
 TEST_F(FileTest, TernaryOpConditionalOp) {
   runFileTest("ternary-op.cond-op.hlsl");
 }
+
+// For casting
+TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
+TEST_F(FileTest, CastImplicit2Bool) { runFileTest("cast.2bool.implicit.hlsl"); }
+TEST_F(FileTest, CastExplicit2Bool) { runFileTest("cast.2bool.explicit.hlsl"); }
 
 // For if statements
 TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("if-stmt.plain.hlsl"); }
