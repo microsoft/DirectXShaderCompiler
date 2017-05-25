@@ -168,6 +168,9 @@ public:
   
   // Set fast math flags configured to indicate the instruction is precise.
   static void SetPreciseFastMathFlags(llvm::Instruction *inst);
+  
+  // True if fast math flags are preserved across serialize/deserialize.
+  static bool PreservesFastMathFlags(const llvm::Instruction *inst);
 
 public:
   // Shader properties.

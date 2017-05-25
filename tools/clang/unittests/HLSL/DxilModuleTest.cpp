@@ -52,6 +52,7 @@ public:
   TEST_METHOD(Precise2);
   TEST_METHOD(Precise3);
   TEST_METHOD(Precise4);
+  TEST_METHOD(Precise5);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -299,3 +300,36 @@ TEST_F(DxilModuleTest, Precise4) {
   VERIFY_ARE_EQUAL(numChecks, 3);
 }
 
+TEST_F(DxilModuleTest, Precise5) {
+  Compiler c(m_dllSupport);
+  c.Compile(
+    "float C[10];\n"
+    "float main(float x : X, float y : Y, int i : I) : SV_Target {\n"
+    "  float A[2];\n"
+    "  A[0] = x;\n"
+    "  A[1] = y;\n"
+    "  return A[i] + C[i];\n"
+    "}\n"
+  );
+
+  // Make sure load and extract value are not reported as precise.
+  DxilModule &DM = c.GetDxilModule();
+  Function *F = DM.GetEntryFunction();
+  int numChecks = 0;
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    Instruction *Inst = &*I;
+    if (LlvmInst_ExtractValue(Inst)) {
+      numChecks++;
+      VERIFY_IS_FALSE(DM.IsPrecise(Inst));
+    }
+    else if (LlvmInst_Load(Inst)) {
+      numChecks++;
+      VERIFY_IS_FALSE(DM.IsPrecise(Inst));
+    }
+    else if (LlvmInst_FAdd(Inst)) {
+      numChecks++;
+      VERIFY_IS_FALSE(DM.IsPrecise(Inst));
+    }
+  }
+  VERIFY_ARE_EQUAL(numChecks, 3);
+}

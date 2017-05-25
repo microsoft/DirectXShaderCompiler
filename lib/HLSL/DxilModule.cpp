@@ -1351,12 +1351,29 @@ hlsl::DxilModule *hlsl::DxilModule::TryGetDxilModule(llvm::Module *pModule) {
 // the instruction is precise.
 // Precise fast math flags means none of the fast math flags are set.
 bool DxilModule::HasPreciseFastMathFlags(const Instruction *inst) {
-  return !inst->getFastMathFlags().any();
+  return isa<FPMathOperator>(inst) && !inst->getFastMathFlags().any();
 }
 
 // Set fast math flags configured to indicate the instruction is precise.
 void DxilModule::SetPreciseFastMathFlags(llvm::Instruction *inst) {
-    inst->copyFastMathFlags(FastMathFlags());
+  assert(isa<FPMathOperator>(inst));
+  inst->copyFastMathFlags(FastMathFlags());
+}
+
+// True if fast math flags are preserved across serialization/deserialization
+// of the dxil module.
+//
+// We need to check for this when querying fast math flags for preciseness
+// otherwise we will be overly conservative by reporting instructions precise
+// because their fast math flags were not preserved.
+//
+// Currently we restrict it to the instruction types that have fast math
+// preserved in the bitcode. We can expand this by converting fast math
+// flags to dx.precise metadata during serialization and back to fast
+// math flags during deserialization.
+bool DxilModule::PreservesFastMathFlags(const llvm::Instruction *inst) {
+  return
+    isa<FPMathOperator>(inst) && (isa<BinaryOperator>(inst) || isa<FCmpInst>(inst));
 }
 
 bool DxilModule::IsPrecise(const Instruction *inst) const {
@@ -1364,10 +1381,7 @@ bool DxilModule::IsPrecise(const Instruction *inst) const {
     return true;
   else if (DxilMDHelper::IsMarkedPrecise(inst))
     return true;
-  // TODO: Remove check for isa<CallInst> once we translate precise metadata into
-  //       fast math flags after loading metadata. Currently, all float intrinsics
-  //       say they are precise without this check.
-  else if (isa<FPMathOperator>(inst) && !isa<CallInst>(inst))
+  else if (PreservesFastMathFlags(inst))
     return HasPreciseFastMathFlags(inst);
   else
     return false;

@@ -3089,8 +3089,9 @@ static void PropagatePreciseAttributeOnOperand(Value *V, DxilTypeSystem &typeSys
     return;
   // TODO: skip precise on integer type, sample instruction...
 
-  // Clear fast math.
-  DxilModule::SetPreciseFastMathFlags(I);
+  // Set precise fast math on those instructions that support it.
+  if (DxilModule::PreservesFastMathFlags(I))
+    DxilModule::SetPreciseFastMathFlags(I);
 
   // Fast math not work on call, use metadata.
   if (CallInst *CI = dyn_cast<CallInst>(I))
