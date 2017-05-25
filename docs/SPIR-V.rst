@@ -346,6 +346,23 @@ FOr `unary operators <https://msdn.microsoft.com/en-us/library/windows/desktop/b
 - ``+`` requires no additional SPIR-V instructions.
 - ``-`` is translated into ``OpSNegate`` and ``OpFNegate`` for (vectors of) integers and floats, respectively.
 
+Casts
++++++
+
+Casting between (vectors) of scalar types is translated according to the following table:
+
++------------+-------------------+-----------------------------+-----------------------------+
+| From \\ To |        Bool       |            SInt             |            UInt             |
++------------+-------------------+-----------------------------+-----------------------------+
+|   Bool     |       no-op       | select between one and zero | select between one and zero |
++------------+-------------------+-----------------------------+-----------------------------+
+|   SInt     | compare with zero |          no-op              |        ``OpBitcast``        |
++------------+-------------------+-----------------------------+-----------------------------+
+|   UInt     | compare with zero |        ``OpBitcast``        |            no-op            |
++------------+-------------------+-----------------------------+-----------------------------+
+|   Float    | compare with zero |      ``OpConvertFToS``      |       ``OpConvertFToU``     |
++------------+-------------------+-----------------------------+-----------------------------+
+
 Control flows
 -------------
 

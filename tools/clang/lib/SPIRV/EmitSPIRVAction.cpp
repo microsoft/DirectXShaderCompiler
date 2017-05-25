@@ -26,6 +26,13 @@ namespace spirv {
 
 namespace {
 
+/// Returns true if the given type is a bool or vector of bool type.
+bool isBoolOrVecOfBoolType(QualType type) {
+  return type->isBooleanType() ||
+         (hlsl::IsHLSLVecType(type) &&
+          hlsl::GetHLSLVecElementType(type)->isBooleanType());
+}
+
 /// Returns true if the given type is a signed integer or vector of signed
 /// integer type.
 bool isSintOrVecOfSintType(QualType type) {
@@ -660,6 +667,8 @@ public:
       const auto targetElemType = hlsl::GetHLSLVecElementType(type);
       if (targetElemType->isBooleanType()) {
         return castToBool(init, type);
+      } else if (targetElemType->isIntegerType()) {
+        return castToInt(init, type);
       } else {
         emitError("unimplemented vector InitList cases");
         expr->dump();
@@ -855,7 +864,10 @@ public:
     }
     case CastKind::CK_NoOp:
       return doExpr(subExpr);
-    case CastKind::CK_IntegralCast: {
+    case CastKind::CK_IntegralCast:
+    case CastKind::CK_FloatingToIntegral:
+    case CastKind::CK_HLSLCC_IntegralCast:
+    case CastKind::CK_HLSLCC_FloatingToIntegral: {
       // Integer literals in the AST are represented using 64bit APInt
       // themselves and then implicitly casted into the expected bitwidth.
       // We need special treatment of integer literals here because generating
@@ -865,10 +877,9 @@ public:
       llvm::APSInt intValue;
       if (expr->EvaluateAsInt(intValue, astContext, Expr::SE_NoSideEffects)) {
         return translateAPInt(intValue, toType);
-      } else {
-        emitError("Integral cast is not supported yet");
-        return 0;
       }
+
+      return castToInt(subExpr, toType);
     }
     case CastKind::CK_FloatingCast: {
       // First try to see if we can do constant folding for floating point
@@ -1012,6 +1023,39 @@ public:
     const uint32_t zeroVal = getValueZero(expr->getType());
 
     return theBuilder.createBinaryOp(spvOp, boolType, originalVal, zeroVal);
+  }
+
+  /// Processes the given expr, casts the result into the given integer (vector)
+  /// type and returns the <result-id> of the casted value.
+  uint32_t castToInt(const Expr *expr, QualType toIntType) {
+    const QualType fromType = expr->getType();
+    const uint32_t intType = typeTranslator.translateType(toIntType);
+    const uint32_t fromVal = doExpr(expr);
+
+    if (isBoolOrVecOfBoolType(fromType)) {
+      const uint32_t one = getValueOne(toIntType);
+      const uint32_t zero = getValueZero(toIntType);
+      return theBuilder.createSelect(intType, fromVal, one, zero);
+    } else if (isSintOrVecOfSintType(fromType) ||
+               isUintOrVecOfUintType(fromType)) {
+      // TODO: handle different bitwidths
+      return theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, fromVal);
+    } else if (isFloatOrVecOfFloatType(fromType)) {
+      if (isSintOrVecOfSintType(toIntType)) {
+        return theBuilder.createUnaryOp(spv::Op::OpConvertFToS, intType,
+                                        fromVal);
+      } else if (isUintOrVecOfUintType(toIntType)) {
+        return theBuilder.createUnaryOp(spv::Op::OpConvertFToU, intType,
+                                        fromVal);
+      } else {
+        emitError("unimplemented casting to integer from floating point");
+      }
+    } else {
+      emitError("unimplemented casting to integer");
+    }
+
+    expr->dump();
+    return 0;
   }
 
   uint32_t processIntrinsicCallExpr(const CallExpr *callExpr) {
