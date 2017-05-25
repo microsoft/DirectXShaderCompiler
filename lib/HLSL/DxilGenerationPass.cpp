@@ -3085,12 +3085,13 @@ static void PropagatePreciseAttributeOnOperand(Value *V, DxilTypeSystem &typeSys
     return;
 
   // Skip inst already marked.
-  if (!I->hasUnsafeAlgebra())
+  if (DxilModule::HasPreciseFastMathFlags(I))
     return;
   // TODO: skip precise on integer type, sample instruction...
 
   // Clear fast math.
-  I->copyFastMathFlags(FastMathFlags());
+  DxilModule::SetPreciseFastMathFlags(I);
+
   // Fast math not work on call, use metadata.
   if (CallInst *CI = dyn_cast<CallInst>(I))
     HLModule::MarkPreciseAttributeWithMetadata(CI);

@@ -21,6 +21,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -1346,10 +1347,30 @@ hlsl::DxilModule *hlsl::DxilModule::TryGetDxilModule(llvm::Module *pModule) {
   return pDxilModule;
 }
 
-bool DxilModule::IsPrecise(Instruction *inst) {
+// Check if the instruction has fast math flags configured to indicate
+// the instruction is precise.
+// Precise fast math flags means none of the fast math flags are set.
+bool DxilModule::HasPreciseFastMathFlags(const Instruction *inst) {
+  return !inst->getFastMathFlags().any();
+}
+
+// Set fast math flags configured to indicate the instruction is precise.
+void DxilModule::SetPreciseFastMathFlags(llvm::Instruction *inst) {
+    inst->copyFastMathFlags(FastMathFlags());
+}
+
+bool DxilModule::IsPrecise(const Instruction *inst) const {
   if (m_ShaderFlags.GetDisableMathRefactoring())
     return true;
-  return DxilMDHelper::IsMarkedPrecise(inst);
+  else if (DxilMDHelper::IsMarkedPrecise(inst))
+    return true;
+  // TODO: Remove check for isa<CallInst> once we translate precise metadata into
+  //       fast math flags after loading metadata. Currently, all float intrinsics
+  //       say they are precise without this check.
+  else if (isa<FPMathOperator>(inst) && !isa<CallInst>(inst))
+    return HasPreciseFastMathFlags(inst);
+  else
+    return false;
 }
 
 } // namespace hlsl
