@@ -924,14 +924,30 @@ public:
 
       return theBuilder.createCompositeConstruct(vecTypeId, elements);
     }
-    case CastKind::CK_HLSLVectorToScalarCast: {
-      // We should have already treated vectors of size 1 as scalars.
-      // So do nothing here.
-      if (hlsl::GetHLSLVecSize(subExpr->getType()) == 1) {
-        return doExpr(subExpr);
+    case CastKind::CK_HLSLVectorTruncationCast: {
+      const uint32_t toVecTypeId = typeTranslator.translateType(toType);
+      const uint32_t elemTypeId =
+          typeTranslator.translateType(hlsl::GetHLSLVecElementType(toType));
+      const auto toSize = hlsl::GetHLSLVecSize(toType);
+
+      const uint32_t composite = doExpr(subExpr);
+      llvm::SmallVector<uint32_t, 4> elements;
+
+      for (uint32_t i = 0; i < toSize; ++i) {
+        elements.push_back(
+            theBuilder.createCompositeExtract(elemTypeId, composite, {i}));
       }
-      emitError("vector to scalar cast unimplemented");
-      return 0;
+
+      if (toSize == 1) {
+        return elements.front();
+      }
+
+      return theBuilder.createCompositeConstruct(toVecTypeId, elements);
+    }
+    case CastKind::CK_HLSLVectorToScalarCast: {
+      // The underlying should already be a vector of size 1.
+      assert(hlsl::GetHLSLVecSize(subExpr->getType()) == 1);
+      return doExpr(subExpr);
     }
     case CastKind::CK_FunctionToPointerDecay:
       // Just need to return the function id
