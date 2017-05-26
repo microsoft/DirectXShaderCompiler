@@ -1898,7 +1898,7 @@ void ShaderOpParser::ParseResource(IXmlReader *pReader, ShaderOpResource *pResou
         else if (0 == _wcsnicmp(pText, L"inf", 3) || 0 == _wcsnicmp(pText, L"+inf", 4)) {
           fVal = INFINITY;
         }
-        else if (0 == _wcsnicmp(pText, L"-denorm", 6)) {
+        else if (0 == _wcsnicmp(pText, L"-denorm", 7)) {
           fVal = -(FLT_MIN / 2);
         }
         else if (0 == _wcsnicmp(pText, L"denorm", 6)) {
