@@ -150,9 +150,27 @@ public:
 
   static DxilModule *TryGetDxilModule(llvm::Module *pModule);
 
-  // Return true if the instruction is marked precise or if global
-  // refactoring is disabled.
-  bool IsPrecise(llvm::Instruction *inst);
+  // Helpers for working with precise.
+
+  // Return true if the instruction should be considered precise.
+  //
+  // An instruction can be marked precise in the following ways:
+  //
+  // 1. Global refactoring is disabled.
+  // 2. The instruction has a precise metadata annotation.
+  // 3. The instruction has precise fast math flags set.
+  //
+  bool IsPrecise(const llvm::Instruction *inst) const;
+
+  // Check if the instruction has fast math flags configured to indicate
+  // the instruction is precise.
+  static bool HasPreciseFastMathFlags(const llvm::Instruction *inst);
+  
+  // Set fast math flags configured to indicate the instruction is precise.
+  static void SetPreciseFastMathFlags(llvm::Instruction *inst);
+  
+  // True if fast math flags are preserved across serialize/deserialize.
+  static bool PreservesFastMathFlags(const llvm::Instruction *inst);
 
 public:
   // Shader properties.
