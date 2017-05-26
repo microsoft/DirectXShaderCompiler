@@ -53,6 +53,8 @@ public:
   TEST_METHOD(Precise3);
   TEST_METHOD(Precise4);
   TEST_METHOD(Precise5);
+  TEST_METHOD(Precise6);
+  TEST_METHOD(Precise7);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -332,4 +334,56 @@ TEST_F(DxilModuleTest, Precise5) {
     }
   }
   VERIFY_ARE_EQUAL(numChecks, 3);
+}
+
+TEST_F(DxilModuleTest, Precise6) {
+  Compiler c(m_dllSupport);
+  c.Compile(
+    "precise float2 main(float2 x : A, float2 y : B) : SV_Target {\n"
+    "  return sqrt(x * y);\n"
+    "}\n"
+  );
+
+  // Make sure sqrt and mul are marked precise.
+  DxilModule &DM = c.GetDxilModule();
+  Function *F = DM.GetEntryFunction();
+  int numChecks = 0;
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    Instruction *Inst = &*I;
+    if (DxilInst_Sqrt(Inst)) {
+      numChecks++;
+      VERIFY_IS_TRUE(DM.IsPrecise(Inst));
+    }
+    else if (LlvmInst_FMul(Inst)) {
+      numChecks++;
+      VERIFY_IS_TRUE(DM.IsPrecise(Inst));
+    }
+  }
+  VERIFY_ARE_EQUAL(numChecks, 4);
+}
+
+TEST_F(DxilModuleTest, Precise7) {
+  Compiler c(m_dllSupport);
+  c.Compile(
+    "float2 main(float2 x : A, float2 y : B) : SV_Target {\n"
+    "  return sqrt(x * y);\n"
+    "}\n"
+  );
+
+  // Make sure sqrt and mul are not marked precise.
+  DxilModule &DM = c.GetDxilModule();
+  Function *F = DM.GetEntryFunction();
+  int numChecks = 0;
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    Instruction *Inst = &*I;
+    if (DxilInst_Sqrt(Inst)) {
+      numChecks++;
+      VERIFY_IS_FALSE(DM.IsPrecise(Inst));
+    }
+    else if (LlvmInst_FMul(Inst)) {
+      numChecks++;
+      VERIFY_IS_FALSE(DM.IsPrecise(Inst));
+    }
+  }
+  VERIFY_ARE_EQUAL(numChecks, 4);
 }
