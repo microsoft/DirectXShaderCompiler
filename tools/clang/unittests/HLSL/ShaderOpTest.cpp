@@ -1889,19 +1889,19 @@ void ShaderOpParser::ParseResource(IXmlReader *pReader, ShaderOpResource *pResou
         LPCWSTR pEnd = FindByteInitSeparators(pText);
         // Consider looking for prefixes/suffixes to handle bases and types.
         float fVal;
-        if (0 == _wcsicmp(pText, L"nan")) {
+        if (0 == _wcsnicmp(pText, L"nan", 3)) {
           fVal = NAN;
         }
-        else if (0 == _wcsicmp(pText, L"-inf")) {
+        else if (0 == _wcsnicmp(pText, L"-inf", 4)) {
           fVal = -(INFINITY);
         }
-        else if (0 == _wcsicmp(pText, L"inf") || 0 == _wcsicmp(pText, L"+inf")) {
+        else if (0 == _wcsnicmp(pText, L"inf", 3) || 0 == _wcsnicmp(pText, L"+inf", 4)) {
           fVal = INFINITY;
         }
-        else if (0 == _wcsicmp(pText, L"-denorm")) {
+        else if (0 == _wcsnicmp(pText, L"-denorm", 6)) {
           fVal = -(FLT_MIN / 2);
         }
-        else if (0 == _wcsicmp(pText, L"denorm")) {
+        else if (0 == _wcsnicmp(pText, L"denorm", 6)) {
           fVal = (FLT_MIN / 2);
         }
         else {
