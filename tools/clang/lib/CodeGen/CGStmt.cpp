@@ -572,6 +572,10 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S,
         RunCleanupsScope ExecutedScope(*this);
         EmitStmt(Executed);
       }
+      // HLSL Change Begin.
+      // Emit Cond to make sure not short circuiting.
+      EmitScalarExpr(S.getCond());
+      // HLSL Change End.
       return;
     }
   }
