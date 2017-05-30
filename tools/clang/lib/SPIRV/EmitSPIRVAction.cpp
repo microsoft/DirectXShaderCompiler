@@ -18,6 +18,7 @@
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "clang/SPIRV/TypeTranslator.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SetVector.h"
 
 namespace clang {
 namespace spirv {
@@ -112,23 +113,21 @@ public:
 
     TranslationUnitDecl *tu = context.getTranslationUnitDecl();
 
-    // A queue of functions we need to translate.
-    std::deque<FunctionDecl *> workQueue;
-
     // The entry function is the seed of the queue.
     for (auto *decl : tu->decls()) {
       if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
         if (funcDecl->getName() == entryFunctionName) {
-          workQueue.push_back(funcDecl);
+          workQueue.insert(funcDecl);
         }
       }
     }
     // TODO: enlarge the queue upon seeing a function call.
 
     // Translate all functions reachable from the entry function.
-    while (!workQueue.empty()) {
-      doFunctionDecl(workQueue.front());
-      workQueue.pop_front();
+    // The queue can grow in the meanwhile; so need to keep evaluating
+    // workQueue.size().
+    for (uint32_t i = 0; i < workQueue.size(); ++i) {
+      doDecl(workQueue[i]);
     }
 
     theBuilder.addEntryPoint(shaderStage, entryFunctionId, entryFunctionName,
@@ -145,9 +144,11 @@ public:
         reinterpret_cast<const char *>(m.data()), m.size() * 4);
   }
 
-  void doDecl(Decl *decl) {
-    if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
+  void doDecl(const Decl *decl) {
+    if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       doVarDecl(varDecl);
+    } else if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
+      doFunctionDecl(funcDecl);
     } else {
       // TODO: Implement handling of other Decl types.
       emitWarning("Decl type '%0' is not supported yet.")
@@ -155,50 +156,81 @@ public:
     }
   }
 
-  void doFunctionDecl(FunctionDecl *decl) {
+  void doFunctionDecl(const FunctionDecl *decl) {
     curFunction = decl;
 
     const llvm::StringRef funcName = decl->getName();
 
+    uint32_t funcId;
+
     if (funcName == entryFunctionName) {
       // First create stage variables for the entry point.
       declIdMapper.createStageVarFromFnReturn(decl);
-      for (auto *param : decl->params())
+      for (const auto *param : decl->params())
         declIdMapper.createStageVarFromFnParam(param);
 
       // Construct the function signature.
       const uint32_t voidType = theBuilder.getVoidType();
       const uint32_t funcType = theBuilder.getFunctionType(voidType, {});
-      const uint32_t funcId =
-          theBuilder.beginFunction(funcType, voidType, funcName);
 
-      if (decl->hasBody()) {
-        // The entry basic block.
-        const uint32_t entryLabel = theBuilder.createBasicBlock("bb.entry");
-        theBuilder.setInsertPoint(entryLabel);
-
-        // Process all statments in the body.
-        doStmt(decl->getBody());
-
-        // We have processed all Stmts in this function and now in the last
-        // basic block. Make sure we have OpReturn if missing.
-        if (!theBuilder.isCurrentBasicBlockTerminated()) {
-          theBuilder.createReturn();
-        }
-      }
-
-      theBuilder.endFunction();
+      // The entry function surely does not have pre-assigned <result-id> for
+      // it like other functions that got added to the work queue following
+      // function calls.
+      funcId = theBuilder.beginFunction(funcType, voidType, funcName);
 
       // Record the entry function's <result-id>.
       entryFunctionId = funcId;
     } else {
-      emitError("Non-entry functions are not supported yet.");
+      const uint32_t retType =
+          typeTranslator.translateType(decl->getReturnType());
+
+      // Construct the function signature.
+      llvm::SmallVector<uint32_t, 4> paramTypes;
+      for (const auto *param : decl->params()) {
+        const uint32_t valueType =
+            typeTranslator.translateType(param->getType());
+        const uint32_t ptrType =
+            theBuilder.getPointerType(valueType, spv::StorageClass::Function);
+        paramTypes.push_back(ptrType);
+      }
+      const uint32_t funcType = theBuilder.getFunctionType(retType, paramTypes);
+
+      // Non-entry functions are added to the work queue following function
+      // calls. We have already assigned <result-id>s for it when translating
+      // its call site. Query it here.
+      funcId = declIdMapper.getDeclResultId(decl);
+      theBuilder.beginFunction(funcType, retType, funcName, funcId);
+
+      // Create all parameters.
+      for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
+        const ParmVarDecl *paramDecl = decl->getParamDecl(i);
+        const uint32_t paramId =
+            theBuilder.addFnParameter(paramTypes[i], paramDecl->getName());
+        declIdMapper.registerDeclResultId(paramDecl, paramId);
+      }
     }
+
+    if (decl->hasBody()) {
+      // The entry basic block.
+      const uint32_t entryLabel = theBuilder.createBasicBlock("bb.entry");
+      theBuilder.setInsertPoint(entryLabel);
+
+      // Process all statments in the body.
+      doStmt(decl->getBody());
+
+      // We have processed all Stmts in this function and now in the last
+      // basic block. Make sure we have OpReturn if missing.
+      if (!theBuilder.isCurrentBasicBlockTerminated()) {
+        theBuilder.createReturn();
+      }
+    }
+
+    theBuilder.endFunction();
 
     curFunction = nullptr;
   }
 
-  void doVarDecl(VarDecl *decl) {
+  void doVarDecl(const VarDecl *decl) {
     if (decl->isLocalVarDecl()) {
       const uint32_t ptrType = theBuilder.getPointerType(
           typeTranslator.translateType(decl->getType()),
@@ -526,6 +558,8 @@ public:
       return doBinaryOperator(binOp);
     } else if (auto *unaryOp = dyn_cast<UnaryOperator>(expr)) {
       return doUnaryOperator(unaryOp);
+    } else if (auto *funcCall = dyn_cast<CallExpr>(expr)) {
+      return doCallExpr(funcCall);
     }
 
     emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
@@ -639,11 +673,52 @@ public:
       const uint32_t resultType = typeTranslator.translateType(toType);
       return theBuilder.createLoad(resultType, fromValue);
     }
+    case CastKind::CK_FunctionToPointerDecay:
+      // Just need to return the function id
+      return doExpr(subExpr);
     default:
       emitError("ImplictCast Kind '%0' is not supported yet.")
           << expr->getCastKind();
+      expr->dump();
       return 0;
     }
+  }
+
+  uint32_t doCallExpr(const CallExpr *callExpr) {
+    const FunctionDecl *callee = callExpr->getDirectCallee();
+
+    if (callee) {
+      const uint32_t returnType =
+          typeTranslator.translateType(callExpr->getType());
+
+      // Get or forward declare the function <result-id>
+      const uint32_t funcId = declIdMapper.getOrRegisterDeclResultId(callee);
+
+      // Evaluate parameters
+      llvm::SmallVector<uint32_t, 4> params;
+      for (const auto *arg : callExpr->arguments()) {
+        // We need to create variables for holding the values to be used as
+        // arguments. The variables themselves are of pointer types.
+        const uint32_t ptrType = theBuilder.getPointerType(
+            typeTranslator.translateType(arg->getType()),
+            spv::StorageClass::Function);
+
+        const uint32_t tempVarId = theBuilder.addFnVariable(ptrType);
+        theBuilder.createStore(tempVarId, doExpr(arg));
+
+        params.push_back(tempVarId);
+      }
+
+      // Push the callee into the work queue if it is not there.
+      if (!workQueue.count(callee)) {
+        workQueue.insert(callee);
+      }
+
+      return theBuilder.createFunctionCall(returnType, funcId, params);
+    }
+
+    emitError("calling non-function unimplemented");
+    return 0;
   }
 
   /// Translates the given frontend binary operator into its SPIR-V equivalent
@@ -833,6 +908,11 @@ private:
   DeclResultIdMapper declIdMapper;
   TypeTranslator typeTranslator;
 
+  /// A queue of decls reachable from the entry function. Decls inserted into
+  /// this queue will persist to avoid duplicated translations. And we'd like
+  /// a deterministic order of iterating the queue for finding the next decl
+  /// to translate. So we need SetVector here.
+  llvm::SetVector<const DeclaratorDecl *> workQueue;
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
   uint32_t entryFunctionId;

@@ -62,4 +62,6 @@ TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("for-stmt.nested.hlsl"); }
 
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
 
+TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
+
 } // namespace

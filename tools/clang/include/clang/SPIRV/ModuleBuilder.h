@@ -34,28 +34,31 @@ public:
   /// \brief Constructs a ModuleBuilder with the given SPIR-V context.
   explicit ModuleBuilder(SPIRVContext *);
 
+  /// \brief Returns the associated SPIRVContext.
+  inline SPIRVContext *getSPIRVContext();
+
   /// \brief Takes the SPIR-V module under building. This will consume the
   /// module under construction.
   std::vector<uint32_t> takeModule();
 
   // === Function and Basic Block ===
 
-  /// \brief Begins building a SPIR-V function. At any time, there can only
-  /// exist at most one function under building. Returns the <result-id> for the
+  /// \brief Begins building a SPIR-V function. Returns the <result-id> for the
   /// function on success. Returns zero on failure.
-  uint32_t beginFunction(uint32_t funcType, uint32_t returnType,
-                         llvm::StringRef name = "");
-
-  /// \brief Registers a function parameter of the given type onto the current
-  /// function and returns its <result-id>.
-  uint32_t addFnParameter(uint32_t type, llvm::StringRef name = "");
-
-  /// \brief Creates a local variable of the given value type in the current
-  /// function and returns its <result-id>.
   ///
-  /// The corresponding pointer type of the given value type will be constructed
-  /// for the variable itself.
-  uint32_t addFnVariable(uint32_t valueType, llvm::StringRef name = "",
+  /// If the resultId supplied is not zero, the created function will use it;
+  /// otherwise, an unused <result-id> will be assgined.
+  /// At any time, there can only exist at most one function under building.
+  uint32_t beginFunction(uint32_t funcType, uint32_t returnType,
+                         llvm::StringRef name = "", uint32_t resultId = 0);
+
+  /// \brief Registers a function parameter of the given pointer type in the
+  /// current function and returns its <result-id>.
+  uint32_t addFnParameter(uint32_t ptrType, llvm::StringRef name = "");
+
+  /// \brief Creates a local variable of the given pointer type in the current
+  /// function and returns its <result-id>.
+  uint32_t addFnVariable(uint32_t ptrType, llvm::StringRef name = "",
                          llvm::Optional<uint32_t> init = llvm::None);
 
   /// \brief Ends building of the current function. Returns true of success,
@@ -103,6 +106,11 @@ public:
   /// \brief Creates a store instruction storing the given value into the given
   /// address.
   void createStore(uint32_t address, uint32_t value);
+
+  /// \brief Creates a function call instruction and returns the <result-id> for
+  /// the return value.
+  uint32_t createFunctionCall(uint32_t returnType, uint32_t functionId,
+                              llvm::ArrayRef<uint32_t> params);
 
   /// \brief Creates an access chain instruction to retrieve the element from
   /// the given base by walking through the given indexes. Returns the
@@ -175,7 +183,7 @@ public:
   uint32_t getPointerType(uint32_t pointeeType, spv::StorageClass);
   uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes);
   uint32_t getFunctionType(uint32_t returnType,
-                           const std::vector<uint32_t> &paramTypes);
+                           llvm::ArrayRef<uint32_t> paramTypes);
 
   // === Constant ===
   uint32_t getConstantBool(bool value);
@@ -205,9 +213,14 @@ private:
   OrderedBasicBlockMap basicBlocks;      ///< The basic blocks under building.
   BasicBlock *insertPoint;               ///< The current insertion point.
 
-  std::vector<uint32_t> constructSite; ///< InstBuilder construction site.
+  /// An InstBuilder associated with the current ModuleBuilder.
+  /// It can be used to contruct instructions on the fly.
+  /// The constructed instruction will appear in constructSite.
   InstBuilder instBuilder;
+  std::vector<uint32_t> constructSite; ///< InstBuilder construction site.
 };
+
+SPIRVContext *ModuleBuilder::getSPIRVContext() { return &theContext; }
 
 bool ModuleBuilder::isCurrentBasicBlockTerminated() const {
   return insertPoint && insertPoint->isTerminated();
