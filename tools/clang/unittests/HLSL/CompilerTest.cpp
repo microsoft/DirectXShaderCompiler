@@ -606,6 +606,7 @@ public:
   TEST_METHOD(CodeGenSelectObj3)
   TEST_METHOD(CodeGenSelectObj4)
   TEST_METHOD(CodeGenSelectObj5)
+  TEST_METHOD(CodeGenSelfCopy)
   TEST_METHOD(CodeGenSelMat)
   TEST_METHOD(CodeGenShare_Mem_Dbg)
   TEST_METHOD(CodeGenShare_Mem_Phi)
@@ -3177,6 +3178,10 @@ TEST_F(CompilerTest, CodeGenSelectObj4) {
 
 TEST_F(CompilerTest, CodeGenSelectObj5) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selectObj5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSelfCopy) {
+  CodeGenTest(L"..\\CodeGenHLSL\\self_copy.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSelMat) {
