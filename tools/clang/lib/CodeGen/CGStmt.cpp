@@ -568,6 +568,12 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S,
     if (!ContainsLabel(Skipped)) {
       if (CondConstant)
         incrementProfileCounter(&S);
+      // HLSL Change Begin.
+      if (getLangOpts().HLSL) {
+        // Emit Cond to make sure not short circuiting.
+        EmitScalarExpr(S.getCond());
+      }
+      // HLSL Change End.
       if (Executed) {
         RunCleanupsScope ExecutedScope(*this);
         EmitStmt(Executed);

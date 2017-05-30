@@ -606,6 +606,10 @@ public:
   TEST_METHOD(CodeGenShare_Mem2)
   TEST_METHOD(CodeGenShare_Mem2Dim)
   TEST_METHOD(CodeGenShift)
+  TEST_METHOD(CodeGenShortCircuiting0)
+  TEST_METHOD(CodeGenShortCircuiting1)
+  TEST_METHOD(CodeGenShortCircuiting2)
+  TEST_METHOD(CodeGenShortCircuiting3)
   TEST_METHOD(CodeGenSimpleDS1)
   TEST_METHOD(CodeGenSimpleGS1)
   TEST_METHOD(CodeGenSimpleGS2)
@@ -3184,6 +3188,22 @@ TEST_F(CompilerTest, CodeGenShare_Mem2Dim) {
 
 TEST_F(CompilerTest, CodeGenShift) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\shift.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenShortCircuiting0) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\short_circuiting0.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenShortCircuiting1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\short_circuiting1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenShortCircuiting2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\short_circuiting2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenShortCircuiting3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\short_circuiting3.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenSimpleDS1) {
