@@ -568,6 +568,7 @@ public:
   TEST_METHOD(CodeGenPrecise4)
   TEST_METHOD(CodeGenPreciseOnCall)
   TEST_METHOD(CodeGenPreciseOnCallNot)
+  TEST_METHOD(CodeGenPreserveAllOutputs)
   TEST_METHOD(CodeGenRaceCond2)
   TEST_METHOD(CodeGenRaw_Buf1)
   TEST_METHOD(CodeGenRcp1)
@@ -3024,6 +3025,16 @@ TEST_F(CompilerTest, CodeGenPreciseOnCall) {
 
 TEST_F(CompilerTest, CodeGenPreciseOnCallNot) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\precise_call_not.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenPreserveAllOutputs) {
+  CodeGenTestCheck(L"preserve_all_outputs_1.hlsl");
+  CodeGenTestCheck(L"preserve_all_outputs_2.hlsl");
+  CodeGenTestCheck(L"preserve_all_outputs_3.hlsl");
+  CodeGenTestCheck(L"preserve_all_outputs_4.hlsl");
+  CodeGenTestCheck(L"preserve_all_outputs_5.hlsl");
+  CodeGenTestCheck(L"preserve_all_outputs_6.hlsl");
+  CodeGenTestCheck(L"preserve_all_outputs_7.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRaceCond2) {
