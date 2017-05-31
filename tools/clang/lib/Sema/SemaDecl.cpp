@@ -13659,6 +13659,7 @@ EnumConstantDecl *Sema::CheckEnumConstant(EnumDecl *Enum,
       EltTy = Context.DependentTy;
     else {
       SourceLocation ExpLoc;
+      // HLSL Change - check constant expression for enum
       if ((getLangOpts().HLSL2017 || getLangOpts().CPlusPlus11) &&
           Enum->isFixed() && !getLangOpts().MSVCCompat) {
         // C++11 [dcl.enum]p5: If the underlying type is fixed, [...] the
