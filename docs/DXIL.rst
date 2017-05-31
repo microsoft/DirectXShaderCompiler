@@ -380,11 +380,11 @@ Explicit conversions between types are supported via LLVM instructions.
 Precise qualifier
 -----------------
 
-HLSL precise type qualifier requires that all operations contributing to the value be IEEE compliant with respect to optimizations.
+By default, all floating-point HLSL operations are considered 'fast' or non-precise. HLSL and driver compilers are allowed to refactor such operations. Non-precise LLVM instructions: fadd, fsub, fmul, fdiv, frem, fcmp are marked with 'fast' math flags.
 
-Each relevant instruction that contributes to such a value is annotated with dx.precise metadata that indicates that it is illegal for the driver compiler to perform IEEE-unsafe optimizations.
+HLSL precise type qualifier requires that all operations contributing to the value be IEEE compliant with respect to optimizations. The /Gis compiler switch implicitly declares all variables and values as precise.
 
-The default mode for DXIL is that operations are not precise; i.e., each operation is 'fast' (this is reverse of LLVM IR default mode). There is a way to change the default behavior for the entire shader via AllOperationsPrecise shader property. 
+Precise behavior is represented in LLVM instructions: fadd, fsub, fmul, fdiv, frem, fcmp by not having 'fast' math flags set. Each relevant call instruction that contributes to computation of a precise value is annotated with dx.precise metadata that indicates that it is illegal for the driver compiler to perform IEEE-unsafe optimizations.
 
 Type annotations
 ----------------
