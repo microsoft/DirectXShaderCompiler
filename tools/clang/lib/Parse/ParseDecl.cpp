@@ -4764,7 +4764,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 ///         identifier
 ///
 void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
-  assert(getLangOpts().HLSL && "HLSL does not support enums"); // HLSL Change
+  assert(getLangOpts().HLSL2017 && "HLSL does not support enums before 2017"); // HLSL Change
 
   // Enter the scope of the enum body and start the definition.
   ParseScope EnumScope(this, Scope::DeclScope | Scope::EnumScope);

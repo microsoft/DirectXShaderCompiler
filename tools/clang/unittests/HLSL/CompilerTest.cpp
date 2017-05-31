@@ -434,6 +434,7 @@ public:
   TEST_METHOD(CodeGenEnum3)
   TEST_METHOD(CodeGenEnum4)
   TEST_METHOD(CodeGenEnum5)
+  TEST_METHOD(CodeGenEnum6)
   TEST_METHOD(CodeGenEarlyDepthStencil)
   TEST_METHOD(CodeGenEval)
   TEST_METHOD(CodeGenEvalInvalid)
@@ -2495,6 +2496,10 @@ TEST_F(CompilerTest, CodeGenEnum4) {
 
 TEST_F(CompilerTest, CodeGenEnum5) {
     CodeGenTestCheck(L"..\\CodeGenHLSL\\enum5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenEnum6) {
+    CodeGenTestCheck(L"..\\CodeGenHLSL\\enum6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenEarlyDepthStencil) {
