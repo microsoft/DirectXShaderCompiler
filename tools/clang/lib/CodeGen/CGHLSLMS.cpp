@@ -698,6 +698,12 @@ static void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotat
     CompType::Kind kind = BuiltinTyToCompTy(BTy, bSNorm, bUNorm);
     fieldAnnotation.SetCompType(kind);
   }
+  else if (EltTy->isEnumeralType()) {
+    const EnumType *ETy = EltTy->getAs<EnumType>();
+    QualType type = ETy->getDecl()->getIntegerType();
+    if (const BuiltinType *BTy = dyn_cast<BuiltinType>(type->getCanonicalTypeInternal()))
+        fieldAnnotation.SetCompType(BuiltinTyToCompTy(BTy, bSNorm, bUNorm));
+  }
   else
     DXASSERT(!bSNorm && !bUNorm, "snorm/unorm on invalid type, validate at handleHLSLTypeAttr");
 }
