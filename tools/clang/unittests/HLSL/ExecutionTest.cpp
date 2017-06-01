@@ -499,22 +499,18 @@ public:
   // TODO: Change the priority to 0 once there is a driver that fixes the issue with WaveActive operations
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveIntTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveUintTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveUintTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsPrefixIntTest)
   TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsPrefixIntTable")
-  TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsPrefixUintTest)
   TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsPrefixUintTable")
-  TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
   // TAEF data-driven tests.
   BEGIN_TEST_METHOD(UnaryFloatOpTest)
