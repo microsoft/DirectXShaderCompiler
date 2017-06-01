@@ -240,31 +240,23 @@
         <Parameter Name="Validation.NumInput">9</Parameter>
         <Parameter Name="Validation.Input">
           <Value>NaN</Value>
-    <!-- TODO: Uncomment this when WARP is fixed
           <Value>-Inf</Value>
-    -->
           <Value>-denorm</Value>
           <Value>-0</Value>
           <Value>0</Value>
           <Value>denorm</Value>
-    <!-- TODO: Uncomment this when WARP is fixed
           <Value>Inf</Value>
-    -->
           <Value>1</Value>
           <Value>-1</Value>
         </Parameter>
         <Parameter Name="Validation.Expected">
           <Value>NaN</Value>
-    <!-- TODO: Uncomment this when WARP is fixed
           <Value>-1</Value>
-    -->
           <Value>-0.0</Value>
           <Value>-0.0</Value>
           <Value>0.0</Value>
           <Value>0.0</Value>
-    <!-- TODO: Uncomment this when WARP is fixed
           <Value>1</Value>
-    -->
           <Value>0.761594</Value>
           <Value>-0.761594</Value>
         </Parameter>
@@ -387,9 +379,7 @@
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
         <Parameter Name="Validation.NumInput">8</Parameter>
         <Parameter Name="Validation.Input">
-    <!-- TODO: Uncomment this when WARP is fixed
           <Value>NaN</Value>
-    -->
           <Value>-Inf</Value>
           <Value>-denorm</Value>
           <Value>-0</Value>
@@ -400,9 +390,7 @@
           <Value>-1</Value>
         </Parameter>
         <Parameter Name="Validation.Expected">
-    <!-- TODO: Uncomment this when WARP is fixed
           <Value>NaN</Value>
-    -->
           <Value>-1.570796</Value>
           <Value>0.0</Value>
           <Value>0.0</Value>
@@ -1036,9 +1024,7 @@
         <Parameter Name="Validation.Tolerance">0</Parameter>
         <Parameter Name="Validation.NumInput">8</Parameter>
         <Parameter Name="Validation.Input">
-     <!-- TODO: Uncomment this when WARP is fixed
           <Value>NaN</Value>
-     -->
           <Value>-Inf</Value>
           <Value>-denorm</Value>
           <Value>-0</Value>
@@ -1049,9 +1035,7 @@
           <Value>-1.0</Value>
         </Parameter>
         <Parameter Name="Validation.Expected">
-     <!-- TODO: Uncomment this when WARP is fixed
           <Value>0</Value>
-     -->
           <Value>0</Value>
           <Value>1</Value>
           <Value>1</Value>
