@@ -799,6 +799,7 @@ namespace hlsl {
   public:
     enum class Result {
       Success = 0,
+      SuccessWithViewIDDependentTessFactor,
       InsufficientSpace,
       InsufficientPCSpace,
       MismatchedSignatures,
@@ -810,6 +811,7 @@ namespace hlsl {
     virtual ~ViewIDValidator() {}
     virtual Result ValidateStage(const DxilPipelineStateValidation &PSV,
                                  bool bFinalStage,
+                                 bool bExpandInputOnly,
                                  unsigned &mismatchElementId) = 0;
   };
 
