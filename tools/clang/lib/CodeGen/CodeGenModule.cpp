@@ -3699,21 +3699,6 @@ void CodeGenModule::EmitVersionIdentMetadata() {
 
   llvm::Metadata *IdentNode[] = {llvm::MDString::get(Ctx, Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(Ctx, IdentNode));
-
-  // HLSL Change Starts
-  if (getCodeGenOpts().HLSLValidatorMajorVer != 0 ||
-      getCodeGenOpts().HLSLValidatorMinorVer != 0) {
-    llvm::NamedMDNode *VerMetadata =
-        TheModule.getOrInsertNamedMetadata("dx.valver");
-    llvm::Metadata *VerValues[] = {
-        llvm::ValueAsMetadata::get(llvm::ConstantInt::get(
-            Ctx, llvm::APInt(32, getCodeGenOpts().HLSLValidatorMajorVer))),
-        llvm::ValueAsMetadata::get(llvm::ConstantInt::get(
-            Ctx, llvm::APInt(32, getCodeGenOpts().HLSLValidatorMinorVer)))};
-    llvm::MDTuple *VerNode = llvm::MDTuple::get(Ctx, VerValues);
-    VerMetadata->addOperand(VerNode);
-  }
-  // HLSL Change Ends
 }
 
 void CodeGenModule::EmitTargetMetadata() {

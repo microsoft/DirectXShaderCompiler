@@ -20,6 +20,7 @@ namespace llvm {
 class LLVMContext;
 class Module;
 class Function;
+class Instruction;
 class Value;
 class MDOperand;
 class Metadata;
@@ -46,6 +47,7 @@ class DxilFieldAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
 class RootSignatureHandle;
+class DxilViewIdState;
 
 
 /// Use this class to manipulate DXIL-spcific metadata.
@@ -75,6 +77,9 @@ public:
   // Root Signature, for intermediate use, not valid in final DXIL module.
   static const char kDxilRootSignatureMDName[];
 
+  // ViewId state.
+  static const char kDxilViewIdStateMDName[];
+
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
   static const unsigned kDxilEntryPointName       = 1;  // Entry point unmangled name.
@@ -103,8 +108,9 @@ public:
   static const unsigned kDxilSignatureElementNameValueList  = 10;  // Name-value list for extended properties.
 
   // Signature Element Extended Properties.
-  static const unsigned kDxilSignatureElementOutputStreamTag = 0;
-  static const unsigned kHLSignatureElementGlobalSymbolTag   = 1;
+  static const unsigned kDxilSignatureElementOutputStreamTag    = 0;
+  static const unsigned kHLSignatureElementGlobalSymbolTag      = 1;
+  static const unsigned kDxilSignatureElementDynIdxCompMaskTag  = 2;
 
   // Resources.
   static const char kDxilResourcesMDName[];
@@ -183,6 +189,7 @@ public:
 
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
+  // Validator version uses the same constants for fields as kDxilVersion*
 
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag     = 0;
@@ -252,6 +259,10 @@ public:
   void EmitDxilVersion(unsigned Major, unsigned Minor);
   void LoadDxilVersion(unsigned &Major, unsigned &Minor);
 
+  // Validator version.
+  void EmitValidatorVersion(unsigned Major, unsigned Minor);
+  void LoadValidatorVersion(unsigned &Major, unsigned &Minor);
+
   // Shader model.
   void EmitDxilShaderModel(const ShaderModel *pSM);
   void LoadDxilShaderModel(const ShaderModel *&pSM);
@@ -309,6 +320,10 @@ public:
   llvm::Metadata *EmitDxilParamAnnotation(const DxilParameterAnnotation &PA);
   void LoadDxilParamAnnotation(const llvm::MDOperand &MDO, DxilParameterAnnotation &PA);
 
+  // ViewId state.
+  void EmitDxilViewIdState(DxilViewIdState &ViewIdState);
+  void LoadDxilViewIdState(DxilViewIdState &ViewIdState);
+
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);
 
@@ -364,6 +379,8 @@ public:
   static llvm::Value *ValueMDToValue(const llvm::MDOperand &MDO);
   llvm::MDTuple *Uint32VectorToConstMDTuple(const std::vector<unsigned> &Vec);
   void ConstMDTupleToUint32Vector(llvm::MDTuple *pTupleMD, std::vector<unsigned> &Vec);
+  static bool IsMarkedPrecise(const llvm::Instruction *inst);
+  static void MarkPrecise(llvm::Instruction *inst);
 
 private:
   llvm::LLVMContext &m_Ctx;

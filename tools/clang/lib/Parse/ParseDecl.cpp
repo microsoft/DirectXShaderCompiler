@@ -4402,9 +4402,8 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
                                 const ParsedTemplateInfo &TemplateInfo,
                                 AccessSpecifier AS, DeclSpecContext DSC) {
   // HLSL Change Starts
-  if (getLangOpts().HLSL) {
-    Diag(Tok, diag::err_hlsl_unsupported_construct) << "enum";
-
+  if (getLangOpts().HLSL && !getLangOpts().HLSL2017) {
+    Diag(Tok, diag::err_hlsl_enum);
     // Skip the rest of this declarator, up until the comma or semicolon.
     SkipUntil(tok::comma, StopAtSemi);
     return;
@@ -4423,15 +4422,17 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
   MaybeParseGNUAttributes(attrs);
   MaybeParseCXX11Attributes(attrs);
   MaybeParseMicrosoftDeclSpecs(attrs);
-  assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - enums not allowed
+  MaybeParseHLSLAttributes(attrs);
 
   SourceLocation ScopedEnumKWLoc;
   bool IsScopedUsingClassTag = false;
 
   // In C++11, recognize 'enum class' and 'enum struct'.
   if (Tok.isOneOf(tok::kw_class, tok::kw_struct)) {
-    Diag(Tok, getLangOpts().CPlusPlus11 ? diag::warn_cxx98_compat_scoped_enum
-                                        : diag::ext_scoped_enum);
+    // HLSL Change: Supress C++11 warning
+    if (!getLangOpts().HLSL)
+      Diag(Tok, getLangOpts().CPlusPlus11 ? diag::warn_cxx98_compat_scoped_enum
+                                          : diag::ext_scoped_enum);
     IsScopedUsingClassTag = Tok.is(tok::kw_class);
     ScopedEnumKWLoc = ConsumeToken();
 
@@ -4461,7 +4462,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 
   bool AllowFixedUnderlyingType = AllowDeclaration &&
     (getLangOpts().CPlusPlus11 || getLangOpts().MicrosoftExt ||
-     getLangOpts().ObjC2);
+     getLangOpts().ObjC2 || getLangOpts().HLSL2017);
 
   CXXScopeSpec &SS = DS.getTypeSpecScope();
   if (getLangOpts().CPlusPlus) {
@@ -4763,7 +4764,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 ///         identifier
 ///
 void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
-  assert(getLangOpts().HLSL && "HLSL does not support enums"); // HLSL Change
+  assert(getLangOpts().HLSL2017 && "HLSL does not support enums before 2017"); // HLSL Change
 
   // Enter the scope of the enum body and start the definition.
   ParseScope EnumScope(this, Scope::DeclScope | Scope::EnumScope);
@@ -4805,7 +4806,7 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
             << 1 /*enumerator*/;
       ParseCXX11Attributes(attrs);
     }
-    assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - enums not allowed
+    MaybeParseHLSLAttributes(attrs);
 
     SourceLocation EqualLoc;
     ExprResult AssignedVal;

@@ -10,8 +10,11 @@ set( LLVM_LINK_COMPONENTS
   dxcsupport
   hlsl
   option
+  bitreader
   bitwriter
   analysis
+  ipa
+  irreader
   )
 
 add_clang_library(clang-hlsl-tests SHARED
@@ -19,6 +22,7 @@ add_clang_library(clang-hlsl-tests SHARED
   CompilationResult.h
   CompilerTest.cpp
   DxilContainerTest.cpp
+  DxilModuleTest.cpp
   DXIsenseTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp

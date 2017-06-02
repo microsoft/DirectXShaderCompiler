@@ -196,7 +196,7 @@ public:
   }
   DXC_MICROCOM_TM_CTOR(InternalDxcBlobEncoding)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcBlob, IDxcBlobEncoding>(this, iid, ppvObject);
   }
 
   ~InternalDxcBlobEncoding() {
@@ -762,7 +762,7 @@ public:
   DXC_MICROCOM_TM_CTOR(MemoryStream)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface3<IStream, ISequentialStream, IDxcBlob>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IStream, ISequentialStream, IDxcBlob>(this, iid, ppvObject);
   }
 
   ~MemoryStream() {
@@ -965,7 +965,7 @@ public:
   DXC_MICROCOM_TM_CTOR(ReadOnlyBlobStream)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IStream, ISequentialStream>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IStream, ISequentialStream>(this, iid, ppvObject);
   }
 
   void Init(IDxcBlob *pSource) {

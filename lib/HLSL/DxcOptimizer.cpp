@@ -19,6 +19,7 @@
 #include "dxc/HLSL/ReducibilityAnalysis.h"
 #include "dxc/HLSL/HLMatrixLowerPass.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/Support/dxcapi.impl.h"
 
 #include "llvm/Pass.h"
@@ -73,6 +74,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeBasicAliasAnalysisPass(Registry);
     initializeCFGSimplifyPassPass(Registry);
     initializeCFLAliasAnalysisPass(Registry);
+    initializeComputeViewIdStatePass(Registry);
     initializeConstantMergePass(Registry);
     initializeCorrelatedValuePropagationPass(Registry);
     initializeDAEPass(Registry);
@@ -83,6 +85,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilCondenseResourcesPass(Registry);
     initializeDxilEliminateOutputDynamicIndexingPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
+    initializeDxilExpandTrigIntrinsicsPass(Registry);
     initializeDxilGenerationPassPass(Registry);
     initializeDxilLegalizeEvalOperationsPass(Registry);
     initializeDxilLegalizeResourceUsePassPass(Registry);
@@ -90,6 +93,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilLegalizeStaticResourceUsePassPass(Registry);
     initializeDxilLoadMetadataPass(Registry);
     initializeDxilPrecisePropagatePassPass(Registry);
+    initializeDxilPreserveAllOutputsPass(Registry);
     initializeDynamicIndexingVectorToArrayPass(Registry);
     initializeEarlyCSELegacyPassPass(Registry);
     initializeEliminateAvailableExternallyPass(Registry);

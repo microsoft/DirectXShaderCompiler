@@ -98,7 +98,7 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcValidator)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // For internal use only.

@@ -2379,17 +2379,33 @@ void MemcpySplitter::PatchMemCpyWithZeroIdxGEP(MemCpyInst *MI,
     Src = BC->getOperand(0);
 
   IRBuilder<> Builder(MI);
+  ConstantInt *zero = Builder.getInt32(0);
   Type *DestTy = Dest->getType()->getPointerElementType();
   Type *SrcTy = Src->getType()->getPointerElementType();
   // Support case when bitcast (gep ptr, 0,0) is transformed into
   // bitcast ptr.
+  // Also replace (gep ptr, 0) with ptr.
   ConstantInt *Length = cast<ConstantInt>(MI->getLength());
   unsigned size = Length->getLimitedValue();
   if (unsigned level = MatchSizeByCheckElementType(DestTy, DL, size, 0)) {
     PatchZeroIdxGEP(Dest, MI->getRawDest(), MI, level, Builder);
+  } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(Dest)) {
+    if (GEP->getNumIndices() == 1) {
+       Value *idx = *GEP->idx_begin();
+       if (idx == zero) {
+         GEP->replaceAllUsesWith(GEP->getPointerOperand());
+       }
+    }
   }
   if (unsigned level = MatchSizeByCheckElementType(SrcTy, DL, size, 0)) {
     PatchZeroIdxGEP(Src, MI->getRawSource(), MI, level, Builder);
+  } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(Src)) {
+    if (GEP->getNumIndices() == 1) {
+      Value *idx = *GEP->idx_begin();
+      if (idx == zero) {
+        GEP->replaceAllUsesWith(GEP->getPointerOperand());
+      }
+    }
   }
 }
 
@@ -2409,12 +2425,24 @@ void MemcpySplitter::PatchMemCpyWithZeroIdxGEP(Module &M) {
   }
 }
 
+static void DeleteMemcpy(MemCpyInst *MI) {
+  Value *Op0 = MI->getOperand(0);
+  Value *Op1 = MI->getOperand(1);
+  // delete memcpy
+  MI->eraseFromParent();
+  if (Instruction *op0 = dyn_cast<Instruction>(Op0)) {
+    if (op0->user_empty())
+      op0->eraseFromParent();
+  }
+  if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
+    if (op1->user_empty())
+      op1->eraseFromParent();
+  }
+}
+
 void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
                                  DxilFieldAnnotation *fieldAnnotation,
                                  DxilTypeSystem &typeSys) {
-  Value *Op0 = MI->getOperand(0);
-  Value *Op1 = MI->getOperand(1);
-
   Value *Dest = MI->getRawDest();
   Value *Src = MI->getRawSource();
   // Only remove one level bitcast generated from inline.
@@ -2422,6 +2450,12 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
     Dest = BC->getOperand(0);
   if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Src))
     Src = BC->getOperand(0);
+
+  if (Dest == Src) {
+    // delete self copy.
+    DeleteMemcpy(MI);
+    return;
+  }
 
   IRBuilder<> Builder(MI);
   Type *DestTy = Dest->getType()->getPointerElementType();
@@ -2439,15 +2473,7 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
   SplitCpy(Dest->getType(), Dest, Src, idxList, Builder, typeSys,
            fieldAnnotation);
   // delete memcpy
-  MI->eraseFromParent();
-  if (Instruction *op0 = dyn_cast<Instruction>(Op0)) {
-    if (op0->user_empty())
-      op0->eraseFromParent();
-  }
-  if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
-    if (op1->user_empty())
-      op1->eraseFromParent();
-  }
+  DeleteMemcpy(MI);
 }
 
 void MemcpySplitter::Split(llvm::Function &F) {
@@ -2541,9 +2567,11 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
       for (Value *NewGEP : NewGEPs) {
         if (NewGEP->user_empty() && isa<Instruction>(NewGEP)) {
           // Delete unused newGEP.
-          DeadInsts.emplace_back(NewGEP);
+          cast<Instruction>(NewGEP)->eraseFromParent();
         }
       }
+      if (GEP->user_empty() && isa<Instruction>(GEP))
+        DeadInsts.push_back(GEP);
     } else {
       Value *vecIdx = NewArgs.back();
       if (ConstantInt *immVecIdx = dyn_cast<ConstantInt>(vecIdx)) {
@@ -3429,7 +3457,7 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV, std::vector<Value *> &
 struct PointerStatus {
   /// Keep track of what stores to the pointer look like.
   enum StoredType {
-    /// There is no store to this global.  It can thus be marked constant.
+    /// There is no store to this pointer.  It can thus be marked constant.
     NotStored,
 
     /// This ptr is a global, and is stored to, but the only thing stored is the
@@ -3450,14 +3478,27 @@ struct PointerStatus {
     /// cannot track.
     Stored
   } StoredType;
+  /// Keep track of what loaded from the pointer look like.
+  enum LoadedType {
+    /// There is no load to this pointer.  It can thus be marked constant.
+    NotLoaded,
 
+    /// This ptr is only used by a memcpy.
+    MemcopySrcOnce,
+
+    /// This ptr is loaded to by multiple instructions or something else that we
+    /// cannot track.
+    Loaded
+  } LoadedType;
   /// If only one value (besides the initializer constant) is ever stored to
   /// this global, keep track of what value it is.
   Value *StoredOnceValue;
   /// Memcpy which this ptr is used.
-  std::vector<MemCpyInst *> memcpyList;
+  std::unordered_set<MemCpyInst *> memcpySet;
   /// Memcpy which use this ptr as dest.
   MemCpyInst *StoringMemcpy;
+  /// Memcpy which use this ptr as src.
+  MemCpyInst *LoadingMemcpy;
   /// These start out null/false.  When the first accessing function is noticed,
   /// it is recorded. When a second different accessing function is noticed,
   /// HasMultipleAccessingFunctions is set to true.
@@ -3473,13 +3514,15 @@ struct PointerStatus {
                              DxilTypeSystem &typeSys, bool bStructElt);
 
   PointerStatus(unsigned size)
-      : StoredType(NotStored), StoredOnceValue(nullptr), StoringMemcpy(nullptr),
+      : StoredType(NotStored), LoadedType(NotLoaded), StoredOnceValue(nullptr),
+        StoringMemcpy(nullptr), LoadingMemcpy(nullptr),
         AccessingFunction(nullptr), HasMultipleAccessingFunctions(false),
         Size(size) {}
   void MarkAsStored() {
     StoredType = PointerStatus::StoredType::Stored;
     StoredOnceValue = nullptr;
   }
+  void MarkAsLoaded() { LoadedType = PointerStatus::LoadedType::Loaded; }
 };
 
 void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
@@ -3494,7 +3537,7 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
     if (const Instruction *I = dyn_cast<Instruction>(U)) {
       const Function *F = I->getParent()->getParent();
       if (!PS.AccessingFunction) {
-        F = PS.AccessingFunction;
+        PS.AccessingFunction = F;
       } else {
         if (F != PS.AccessingFunction)
           PS.HasMultipleAccessingFunctions = true;
@@ -3507,7 +3550,8 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
       // Do not collect memcpy on struct GEP use.
       // These memcpy will be flattened in next level.
       if (!bStructElt) {
-        PS.memcpyList.emplace_back(const_cast<MemCpyInst *>(MC));
+        MemCpyInst *MI = const_cast<MemCpyInst *>(MC);
+        PS.memcpySet.insert(MI);
         bool bFullCopy = false;
         if (ConstantInt *Length = dyn_cast<ConstantInt>(MC->getLength())) {
           bFullCopy = PS.Size == Length->getLimitedValue();
@@ -3516,14 +3560,28 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
           if (bFullCopy &&
               PS.StoredType == PointerStatus::StoredType::NotStored) {
             PS.StoredType = PointerStatus::StoredType::MemcopyDestOnce;
-            PS.StoringMemcpy = PS.memcpyList.back();
+            PS.StoringMemcpy = MI;
           } else {
             PS.MarkAsStored();
             PS.StoringMemcpy = nullptr;
           }
+        } else if (MC->getRawSource() == V) {
+          if (bFullCopy &&
+              PS.LoadedType == PointerStatus::LoadedType::NotLoaded) {
+            PS.LoadedType = PointerStatus::LoadedType::MemcopySrcOnce;
+            PS.LoadingMemcpy = MI;
+          } else {
+            PS.MarkAsLoaded();
+            PS.LoadingMemcpy = nullptr;
+          }
         }
       } else {
-        PS.MarkAsStored();
+        if (MC->getRawDest() == V) {
+          PS.MarkAsStored();
+        } else {
+          DXASSERT(MC->getRawSource() == V, "must be source here");
+          PS.MarkAsLoaded();
+        }
       }
     } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
       gep_type_iterator GEPIt = gep_type_begin(GEP);
@@ -3542,12 +3600,56 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
       } else {
         PS.MarkAsStored();
       }
+    } else if (const LoadInst *LI = dyn_cast<LoadInst>(U)) {
+      PS.MarkAsLoaded();
     } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
       Function *F = CI->getCalledFunction();
       DxilFunctionAnnotation *annotation = typeSys.GetFunctionAnnotation(F);
       if (!annotation) {
-        // If not sure its out param or not. Take as out param.
-        PS.MarkAsStored();
+        HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+        switch (group) {
+        case HLOpcodeGroup::HLMatLoadStore: {
+          HLMatLoadStoreOpcode opcode =
+              static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
+          switch (opcode) {
+          case HLMatLoadStoreOpcode::ColMatLoad:
+          case HLMatLoadStoreOpcode::RowMatLoad:
+            PS.MarkAsLoaded();
+            break;
+          case HLMatLoadStoreOpcode::ColMatStore:
+          case HLMatLoadStoreOpcode::RowMatStore:
+            PS.MarkAsStored();
+            break;
+          default:
+            DXASSERT(0, "invalid opcode");
+            PS.MarkAsStored();
+            PS.MarkAsLoaded();
+          }
+        } break;
+        case HLOpcodeGroup::HLSubscript: {
+          HLSubscriptOpcode opcode =
+              static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
+          switch (opcode) {
+          case HLSubscriptOpcode::VectorSubscript:
+          case HLSubscriptOpcode::ColMatElement:
+          case HLSubscriptOpcode::ColMatSubscript:
+          case HLSubscriptOpcode::RowMatElement:
+          case HLSubscriptOpcode::RowMatSubscript:
+            analyzePointer(CI, PS, typeSys, bStructElt);
+            break;
+          default:
+            // Rest are resource ptr like buf[i].
+            // Only read of resource handle.
+            PS.MarkAsLoaded();
+            break;
+          }
+        } break;
+        default: {
+          // If not sure its out param or not. Take as out param.
+          PS.MarkAsStored();
+          PS.MarkAsLoaded();
+        }
+        }
         continue;
       }
 
@@ -3559,6 +3661,11 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
               annotation->GetParameterAnnotation(i).GetParamInputQual();
           if (inputQual != DxilParamInputQual::In) {
             PS.MarkAsStored();
+            if (inputQual == DxilParamInputQual::Inout)
+              PS.MarkAsLoaded();
+            break;
+          } else {
+            PS.MarkAsLoaded();
             break;
           }
         }
@@ -3621,31 +3728,74 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
   PointerStatus PS(size);
   const bool bStructElt = false;
   PointerStatus::analyzePointer(V, PS, typeSys, bStructElt);
-  if (bAllowReplace &&
-      PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce &&
-      !PS.HasMultipleAccessingFunctions) {
-    // How to make sure Src is not updated after Memcopy?
+  if (bAllowReplace && !PS.HasMultipleAccessingFunctions) {
+    if (PS.StoredType == PointerStatus::StoredType::MemcopyDestOnce) {
+      // Replace with src of memcpy.
+      MemCpyInst *MC = PS.StoringMemcpy;
+      if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
+        Value *Src = MC->getOperand(1);
+        // Only remove one level bitcast generated from inline.
+        if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Src))
+          Src = BC->getOperand(0);
 
-    // Replace with src of memcpy.
-    MemCpyInst *MC = PS.StoringMemcpy;
-    if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
-      Value *Src = MC->getOperand(1);
-      // Only remove one level bitcast generated from inline.
-      if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Src))
-        Src = BC->getOperand(0);
-
-      // Need to make sure src not updated after current memcpy.
-      // Check Src only have 1 store now.
-      PointerStatus SrcPS(size);
-      PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
-      if (SrcPS.StoredType != PointerStatus::StoredType::Stored) {
-        ReplaceMemcpy(V, Src, MC);
-        return true;
+        if (GEPOperator *GEP = dyn_cast<GEPOperator>(Src)) {
+          // For GEP, the ptr could have other GEP read/write.
+          // Only scan one GEP is not enough.
+          Value *Ptr = GEP->getPointerOperand();
+          if (CallInst *PtrCI = dyn_cast<CallInst>(Ptr)) {
+            hlsl::HLOpcodeGroup group =
+                hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
+            if (group == HLOpcodeGroup::HLSubscript) {
+              HLSubscriptOpcode opcode =
+                  static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+              if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+                // Ptr from CBuffer is safe.
+                ReplaceMemcpy(V, Src, MC);
+                return true;
+              }
+            }
+          }
+        } else if (!isa<CallInst>(Src)) {
+          // Resource ptr should not be replaced.
+          // Need to make sure src not updated after current memcpy.
+          // Check Src only have 1 store now.
+          PointerStatus SrcPS(size);
+          PointerStatus::analyzePointer(Src, SrcPS, typeSys, bStructElt);
+          if (SrcPS.StoredType != PointerStatus::StoredType::Stored) {
+            ReplaceMemcpy(V, Src, MC);
+            return true;
+          }
+        }
+      }
+    } else if (PS.LoadedType == PointerStatus::LoadedType::MemcopySrcOnce) {
+      // Replace dst of memcpy.
+      MemCpyInst *MC = PS.LoadingMemcpy;
+      if (MC->getSourceAddressSpace() == MC->getDestAddressSpace()) {
+        Value *Dest = MC->getOperand(0);
+        // Only remove one level bitcast generated from inline.
+        if (BitCastOperator *BC = dyn_cast<BitCastOperator>(Dest))
+          Dest = BC->getOperand(0);
+        // For GEP, the ptr could have other GEP read/write.
+        // Only scan one GEP is not enough.
+        // And resource ptr should not be replaced.
+        if (!isa<GEPOperator>(Dest) && !isa<CallInst>(Dest) &&
+            !isa<BitCastOperator>(Dest)) {
+          // Need to make sure Dest not updated after current memcpy.
+          // Check Dest only have 1 store now.
+          PointerStatus DestPS(size);
+          PointerStatus::analyzePointer(Dest, DestPS, typeSys, bStructElt);
+          if (DestPS.StoredType != PointerStatus::StoredType::Stored) {
+            ReplaceMemcpy(Dest, V, MC);
+            // V still need to be flatten.
+            // Lower memcpy come from Dest.
+            return LowerMemcpy(V, annotation, typeSys, DL, bAllowReplace);
+          }
+        }
       }
     }
   }
 
-  for (MemCpyInst *MC : PS.memcpyList) {
+  for (MemCpyInst *MC : PS.memcpySet) {
     MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
   }
   return false;
@@ -3804,6 +3954,24 @@ public:
       }
     }
 
+    // Lower static global into allocas.
+    staticGVs.clear();
+    for (GlobalVariable &GV : M.globals()) {
+      bool isStaticGlobal =
+          HLModule::IsStaticGlobal(&GV) &&
+          GV.getType()->getAddressSpace() == DXIL::kDefaultAddrSpace;
+      bool noInitializer =
+          !GV.hasInitializer() || isa<UndefValue>(GV.getInitializer());
+      if (isStaticGlobal && noInitializer) {
+        staticGVs.emplace_back(&GV);
+      }
+    }
+
+    const DataLayout &DL = M.getDataLayout();
+    for (GlobalVariable *GV : staticGVs) {
+      lowerStaticGlobalIntoAlloca(GV, DL);
+    }
+
     return true;
   }
 
@@ -3813,7 +3981,8 @@ private:
   void replaceCall(Function *F, Function *flatF);
   void createFlattenedFunction(Function *F);
   void createFlattenedFunctionCall(Function *F, Function *flatF, CallInst *CI);
-  void flattenArgument(Function *F, Value *Arg,
+  void
+  flattenArgument(Function *F, Value *Arg, bool bForParam,
                   DxilParameterAnnotation &paramAnnotation,
                   std::vector<Value *> &FlatParamList,
                   std::vector<DxilParameterAnnotation> &FlatRetAnnotationList,
@@ -3838,6 +4007,7 @@ private:
     unsigned startArgIndex, llvm::StringMap<Type *> &semanticTypeMap);
   bool hasDynamicVectorIndexing(Value *V);
   void flattenGlobal(GlobalVariable *GV);
+  void lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL);
   /// DeadInsts - Keep track of instructions we have made dead, so that
   /// we can remove them after we are done working.
   SmallVector<Value *, 32> DeadInsts;
@@ -3911,11 +4081,10 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
   WorkList.push_back(GV);
   // merge GEP use for global.
   HLModule::MergeGepUse(GV);
-  Function *Entry = m_pHLModule->GetEntryFunction();
   
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
-
-  IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
+  // Only used to create ConstantExpr.
+  IRBuilder<> Builder(m_pHLModule->GetCtx());
   std::vector<Instruction*> deadAllocas;
 
   const DataLayout &DL = GV->getParent()->getDataLayout();
@@ -3925,8 +4094,6 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
   while (!WorkList.empty()) {
     GlobalVariable *EltGV = cast<GlobalVariable>(WorkList.front());
     WorkList.pop_front();
-    // Flat Global vector if no dynamic vector indexing.
-    bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
 
     const bool bAllowReplace = true;
     if (SROA_Helper::LowerMemcpy(EltGV, /*annoation*/ nullptr, dxilTypeSys, DL,
@@ -3934,6 +4101,8 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
       continue;
     }
 
+    // Flat Global vector if no dynamic vector indexing.
+    bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
     std::vector<Value *> Elts;
     bool SROAed = SROA_Helper::DoScalarReplacement(
         EltGV, Elts, Builder, bFlatVector,
@@ -3977,6 +4146,23 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
     GV->removeDeadConstantUsers();
     GV->eraseFromParent();
   }
+}
+
+void SROA_Parameter_HLSL::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {
+  DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
+  unsigned size = DL.getTypeAllocSize(GV->getType()->getElementType());
+  PointerStatus PS(size);
+  GV->removeDeadConstantUsers();
+  PS.analyzePointer(GV, PS, typeSys, /*bStructElt*/false);
+  // Make sure GV only used in one function.
+  if (PS.HasMultipleAccessingFunctions)
+    return;
+
+  Function *F = const_cast<Function*>(PS.AccessingFunction);
+  IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+  AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
+  ReplaceConstantWithInst(GV, AI, Builder);
+  GV->eraseFromParent();
 }
 
 static DxilFieldAnnotation &GetEltAnnotation(Type *Ty, unsigned idx, DxilFieldAnnotation &annotation, DxilTypeSystem &dxilTypeSys) {
@@ -4066,8 +4252,6 @@ static unsigned AllocateSemanticIndex(
   } else {
     DXASSERT(argIdx < endArgIdx, "arg index out of bound");
     DxilParameterAnnotation &paramAnnotation = FlatAnnotationList[argIdx];
-    // Save semIndex.
-    paramAnnotation.AppendSemanticIndex(semIndex);
     // Get element size.
     unsigned rows = 1;
     if (paramAnnotation.HasMatrixAnnotation()) {
@@ -4080,6 +4264,9 @@ static unsigned AllocateSemanticIndex(
         rows = matrix.Cols;
       }
     }
+    // Save semIndex.
+    for (unsigned i = 0; i < rows; i++)
+      paramAnnotation.AppendSemanticIndex(semIndex + i);
     // Update semIndex.
     semIndex += rows;
 
@@ -4817,10 +5004,11 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
 }
 
 void SROA_Parameter_HLSL::flattenArgument(
-    Function *F, Value *Arg, DxilParameterAnnotation &paramAnnotation,
+    Function *F, Value *Arg, bool bForParam,
+    DxilParameterAnnotation &paramAnnotation,
     std::vector<Value *> &FlatParamList,
-    std::vector<DxilParameterAnnotation> &FlatAnnotationList, IRBuilder<> &Builder,
-    DbgDeclareInst *DDI) {
+    std::vector<DxilParameterAnnotation> &FlatAnnotationList,
+    IRBuilder<> &Builder, DbgDeclareInst *DDI) {
   std::deque<Value *> WorkList;
   WorkList.push_back(Arg);
 
@@ -4846,7 +5034,6 @@ void SROA_Parameter_HLSL::flattenArgument(
   const std::string &semantic = paramAnnotation.GetSemanticString();
   bool bSemOverride = !semantic.empty();
 
-  bool bForParam = F == Builder.GetInsertPoint()->getParent()->getParent();
   DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
   bool bOut = inputQual == DxilParamInputQual::Out ||
               inputQual == DxilParamInputQual::Inout ||
@@ -4859,7 +5046,18 @@ void SROA_Parameter_HLSL::flattenArgument(
   llvm::StringMap<Type *> semanticTypeMap;
   // Original semantic type.
   if (!semantic.empty()) {
-    semanticTypeMap[semantic] = Arg->getType();
+    // Unwrap top-level array if primitive
+    if (inputQual == DxilParamInputQual::InputPatch ||
+        inputQual == DxilParamInputQual::OutputPatch ||
+        inputQual == DxilParamInputQual::InputPrimitive) {
+      Type *Ty = Arg->getType();
+      if (Ty->isPointerTy())
+        Ty = Ty->getPointerElementType();
+      if (Ty->isArrayTy())
+        semanticTypeMap[semantic] = Ty->getArrayElementType();
+    } else {
+      semanticTypeMap[semantic] = Arg->getType();
+    }
   }
 
   std::vector<Instruction*> deadAllocas;
@@ -5377,6 +5575,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   
   std::vector<Value *> FlatParamList;
   std::vector<DxilParameterAnnotation> FlatParamAnnotationList;
+  const bool bForParamTrue = true;
   // Add all argument to worklist.
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
@@ -5386,7 +5585,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     DxilParameterAnnotation &paramAnnotation =
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
-    flattenArgument(F, &Arg, paramAnnotation, FlatParamList,
+    flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
                     FlatParamAnnotationList, Builder, DDI);
   }
 
@@ -5440,12 +5639,6 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
                                         HLOpcodeGroup::HLMatLoadStore, opcode,
                                         voidTy, {retValAddr, RetVal}, M);
         }
-        // Clone the return.
-        ReturnInst *NewRet = RetBuilder.CreateRet(RI->getReturnValue());
-        if (RI == InsertPt) {
-          Builder.SetInsertPoint(NewRet);
-        }
-        RI->eraseFromParent();
       }
     }
     // Create a fake store to keep retValAddr so it can be flattened.
@@ -5454,8 +5647,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     }
 
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
-    flattenArgument(F, retValAddr, funcAnnotation->GetRetTypeAnnotation(),
-                    FlatRetList, FlatRetAnnotationList, Builder, DDI);
+    flattenArgument(F, retValAddr, bForParamTrue,
+                    funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
+                    FlatRetAnnotationList, Builder, DDI);
   }
 
   // Always change return type as parameter.
@@ -5627,6 +5821,7 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
   Type *retType = F->getReturnType();
   std::vector<Value *> FlatRetList;
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
+  const bool bForParamFalse = false;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
     Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
@@ -5670,9 +5865,10 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
     }
     CI->replaceAllUsesWith(newRetVal);
     // Flat ret val
-    flattenArgument(flatF, retValAddr, funcAnnotation->GetRetTypeAnnotation(),
-                    FlatRetList, FlatRetAnnotationList, AllocaBuilder,
-                    /*DbgDeclareInst*/nullptr);
+    flattenArgument(flatF, retValAddr, bForParamFalse,
+                    funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
+                    FlatRetAnnotationList, AllocaBuilder,
+                    /*DbgDeclareInst*/ nullptr);
   }
 
   std::vector<Value *> args;
@@ -5713,8 +5909,8 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
                  &paramAnnotation);
       }
       arg = tempArg;
-      flattenArgument(flatF, arg, paramAnnotation, FlatParamList,
-                      FlatParamAnnotationList, AllocaBuilder,
+      flattenArgument(flatF, arg, bForParamFalse, paramAnnotation,
+                      FlatParamList, FlatParamAnnotationList, AllocaBuilder,
                       /*DbgDeclareInst*/ nullptr);
     } else {
       // Cast vector into array.

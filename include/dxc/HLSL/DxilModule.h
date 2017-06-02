@@ -18,6 +18,7 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,6 +27,7 @@ namespace llvm {
 class LLVMContext;
 class Module;
 class Function;
+class Instruction;
 class MDTuple;
 class MDOperand;
 class DebugInfoFinder;
@@ -50,6 +52,14 @@ public:
   void SetShaderModel(const ShaderModel *pSM);
   const ShaderModel *GetShaderModel() const;
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
+  void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
+  bool UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor);
+  void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+
+  // Return true on success, requires valid shader model and CollectShaderFlags to have been set
+  bool GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+  // Update validator version to minimum if higher than current (ex: after CollectShaderFlags)
+  bool UpgradeToMinValidatorVersion();
 
   // Entry functions.
   llvm::Function *GetEntryFunction();
@@ -105,6 +115,8 @@ public:
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
+  // Update validator version metadata to current setting
+  void UpdateValidatorVersionMetadata();
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
@@ -112,6 +124,10 @@ public:
   /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
   void EmitLLVMUsed();
   std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
+
+  // ViewId state.
+  DxilViewIdState &GetViewIdState();
+  const DxilViewIdState &GetViewIdState() const;
 
   // DXIL metadata manipulation.
   /// Serialize DXIL in-memory form to metadata form.
@@ -134,6 +150,28 @@ public:
 
   static DxilModule *TryGetDxilModule(llvm::Module *pModule);
 
+  // Helpers for working with precise.
+
+  // Return true if the instruction should be considered precise.
+  //
+  // An instruction can be marked precise in the following ways:
+  //
+  // 1. Global refactoring is disabled.
+  // 2. The instruction has a precise metadata annotation.
+  // 3. The instruction has precise fast math flags set.
+  //
+  bool IsPrecise(const llvm::Instruction *inst) const;
+
+  // Check if the instruction has fast math flags configured to indicate
+  // the instruction is precise.
+  static bool HasPreciseFastMathFlags(const llvm::Instruction *inst);
+  
+  // Set fast math flags configured to indicate the instruction is precise.
+  static void SetPreciseFastMathFlags(llvm::Instruction *inst);
+  
+  // True if fast math flags are preserved across serialize/deserialize.
+  static bool PreservesFastMathFlags(const llvm::Instruction *inst);
+
 public:
   // Shader properties.
   class ShaderFlags {
@@ -142,29 +180,74 @@ public:
 
     unsigned GetGlobalFlags() const;
     void SetDisableOptimizations(bool flag) { m_bDisableOptimizations = flag; }
+    bool GetDisableOptimizations() const { return m_bDisableOptimizations; }
+
     void SetDisableMathRefactoring(bool flag) { m_bDisableMathRefactoring = flag; }
+    bool GetDisableMathRefactoring() const { return m_bDisableMathRefactoring; }
+
     void SetEnableDoublePrecision(bool flag) { m_bEnableDoublePrecision = flag; }
+    bool GetEnableDoublePrecision() const { return m_bEnableDoublePrecision; }
+
     void SetForceEarlyDepthStencil(bool flag) { m_bForceEarlyDepthStencil = flag; }
+    bool GetForceEarlyDepthStencil() const { return m_bForceEarlyDepthStencil; }
+
     void SetEnableRawAndStructuredBuffers(bool flag) { m_bEnableRawAndStructuredBuffers = flag; }
+    bool GetEnableRawAndStructuredBuffers() const { return m_bEnableRawAndStructuredBuffers; }
+
     void SetEnableMinPrecision(bool flag) { m_bEnableMinPrecision = flag; }
+    bool GetEnableMinPrecision() const { return m_bEnableMinPrecision; }
+
     void SetEnableDoubleExtensions(bool flag) { m_bEnableDoubleExtensions = flag; }
+    bool GetEnableDoubleExtensions() const { return m_bEnableDoubleExtensions; }
+
     void SetEnableMSAD(bool flag) { m_bEnableMSAD = flag; }
+    bool GetEnableMSAD() const { return m_bEnableMSAD; }
+
     void SetAllResourcesBound(bool flag) { m_bAllResourcesBound = flag; }
+    bool GetAllResourcesBound() const { return m_bAllResourcesBound; }
 
     uint64_t GetFeatureInfo() const;
-    bool GetWaveOps() const { return m_bWaveOps; }
     void SetCSRawAndStructuredViaShader4X(bool flag) { m_bCSRawAndStructuredViaShader4X = flag; }
+    bool GetCSRawAndStructuredViaShader4X() const { return m_bCSRawAndStructuredViaShader4X; }
+
     void SetROVs(bool flag) { m_bROVS = flag; }
+    bool GetROVs() const { return m_bROVS; }
+
     void SetWaveOps(bool flag) { m_bWaveOps = flag; }
+    bool GetWaveOps() const { return m_bWaveOps; }
+
     void SetInt64Ops(bool flag) { m_bInt64Ops = flag; }
+    bool GetInt64Ops() const { return m_bInt64Ops; }
+
     void SetTiledResources(bool flag) { m_bTiledResources = flag; }
+    bool GetTiledResources() const { return m_bTiledResources; }
+
     void SetStencilRef(bool flag) { m_bStencilRef = flag; }
+    bool GetStencilRef() const { return m_bStencilRef; }
+
     void SetInnerCoverage(bool flag) { m_bInnerCoverage = flag; }
+    bool GetInnerCoverage() const { return m_bInnerCoverage; }
+
     void SetViewportAndRTArrayIndex(bool flag) { m_bViewportAndRTArrayIndex = flag; }
+    bool GetViewportAndRTArrayIndex() const { return m_bViewportAndRTArrayIndex; }
+
     void SetUAVLoadAdditionalFormats(bool flag) { m_bUAVLoadAdditionalFormats = flag; }
+    bool GetUAVLoadAdditionalFormats() const { return m_bUAVLoadAdditionalFormats; }
+
     void SetLevel9ComparisonFiltering(bool flag) { m_bLevel9ComparisonFiltering = flag; }
+    bool GetLevel9ComparisonFiltering() const { return m_bLevel9ComparisonFiltering; }
+
     void Set64UAVs(bool flag) { m_b64UAVs = flag; }
+    bool Get64UAVs() const { return m_b64UAVs; }
+
     void SetUAVsAtEveryStage(bool flag) { m_UAVsAtEveryStage = flag; }
+    bool GetUAVsAtEveryStage() const { return m_UAVsAtEveryStage; }
+
+    void SetViewID(bool flag) { m_bViewID = flag; }
+    bool GetViewID() const { return m_bViewID; }
+
+    void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
+    bool GetBarycentrics() const { return m_bBarycentrics; }
 
     static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
     uint64_t GetShaderFlagsRaw() const;
@@ -198,7 +281,10 @@ public:
     unsigned m_bROVS :1;              // SHADER_FEATURE_ROVS
     unsigned m_bWaveOps :1;           // SHADER_FEATURE_WAVE_OPS
     unsigned m_bInt64Ops :1;          // SHADER_FEATURE_INT64_OPS
-    unsigned m_align0 :11;        // align to 32 bit.
+    unsigned m_bViewID : 1;           // SHADER_FEATURE_VIEWID
+    unsigned m_bBarycentrics : 1;     // SHADER_FEATURE_BARYCENTRICS
+
+    unsigned m_align0 : 9;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 
@@ -281,6 +367,8 @@ private:
   const ShaderModel *m_pSM;
   unsigned m_DxilMajor;
   unsigned m_DxilMinor;
+  unsigned m_ValMajor;
+  unsigned m_ValMinor;
 
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;
@@ -290,6 +378,9 @@ private:
 
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
+
+  // ViewId state.
+  std::unique_ptr<DxilViewIdState> m_pViewIdState;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();

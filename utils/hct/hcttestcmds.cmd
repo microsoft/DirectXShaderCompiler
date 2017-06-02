@@ -469,36 +469,70 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-echo Smoke test for debug info extraction.
-dxc.exe smoke.hlsl
+echo Smoke test for dxopt command line ...
+dxc /Odump /T ps_6_0 smoke.hlsl > passes.txt
+if %errorlevel% neq 0 (
+  echo Failed to /ODump
+  call :cleanup 2>nul
+  exit /b 1
+)
+findstr emit passes.txt 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to find an emit in the default pass configuration.
+  call :cleanup 2>nul
+  exit /b 1
+)
+echo -print-module >> passes.txt
+dxc /T ps_6_0 smoke.hlsl /fcgl > smoke.hl.txt
+if %errorlevel% neq 0 (
+  echo Failed to do a high-level codegen.
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxopt -pf passes.txt -o=smoke.opt.ll smoke.hl.txt >smoke.opt.prn.txt
+if %errorlevel% neq 0 (
+  echo Failed to run the optimizer with default passes.
+  call :cleanup 2>nul
+  exit /b 1
+)
+findstr MODULE-PRINT smoke.opt.prn.txt 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to find the MODULE-PRINT log in the dxcopt output.
+  call :cleanup 2>nul
+  exit /b 1
+)
 
 call :cleanup
 exit /b 0
 
 :cleanup
+del %CD%\*.lld
+del %CD%\NonUniform.cso
+del %CD%\NonUniformNoRootSig.cso
+del %CD%\NonUniformRootSig.cso
+del %CD%\TextVS.cso
+del %CD%\nodebug.cso
+del %CD%\noprivate.cso
+del %CD%\noprivdebugroot.cso
+del %CD%\norootsignature.cso
+del %CD%\passes.txt
 del %CD%\preprocessed.hlsl
+del %CD%\private.cso
+del %CD%\private.txt
+del %CD%\private1.txt
+del %CD%\rootsig.cso
+del %CD%\smoke.cso
+del %CD%\smoke.cso.ll
+del %CD%\smoke.cso.plain.bc
+del %CD%\smoke.hl.txt
 del %CD%\smoke.hlsl.c
 del %CD%\smoke.hlsl.d
 del %CD%\smoke.hlsl.e
 del %CD%\smoke.hlsl.h
 del %CD%\smoke.hlsl.strip
-del %CD%\smoke.cso
-del %CD%\NonUniform.cso
-del %CD%\private.cso
-del %CD%\private.txt
-del %CD%\private1.txt
-del %CD%\noprivate.cso
-del %CD%\nodebug.cso
-del %CD%\rootsig.cso
-del %CD%\NonUniformRootSig.cso
-del %CD%\noprivdebugroot.cso
-del %CD%\norootsignature.cso
-del %CD%\NonUniformNoRootSig.cso
-del %CD%\TextVS.cso
 del %CD%\smoke.ll
-del %CD%\smoke.cso.ll
-del %CD%\*.lld
-del %CD%\smoke.cso.plain.bc
+del %CD%\smoke.opt.ll
+del %CD%\smoke.opt.prn.txt
 del %CD%\smoke.rebuilt-container.cso
 del %CD%\smoke.rebuilt-container2.cso
 

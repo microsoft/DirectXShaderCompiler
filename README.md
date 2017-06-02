@@ -12,44 +12,29 @@ The starting point of the project is a fork of the [LLVM](http://llvm.org/) and 
 
 At the moment, the DirectX HLSL Compiler provides the following components:
 
-- dxc.exe, a command-line tool that can compile shader model 6 HLSL programs
+- dxc.exe, a command-line tool that can compile HLSL programs for shader model 6.0 or higher
 
 - dxcompiler.dll, a DLL providing a componentized compiler, assembler, disassembler, and validator
 
 - various other tools based on the above components
 
-The DirectX Shader Compiler is currently in preview stage but is expected to be finalized in the next few months. The Microsoft Windows SDK releases will include a supported version of the compiler and validator.
+The Microsoft Windows SDK releases include a supported version of the compiler and validator.
 
 The goal of the project is to allow the broader community of shader developers to contribute to the language and representation of shader programs, maintaining the principles of compatibility and supportability for the platform. It's currently in active development across two axes: language evolution (with no impact to DXIL representation), and surfacing hardware capabilities (with impact to DXIL, and thus requiring coordination with GPU implementations).
 
 ## Building Sources
 
-Before you build, you will need to have some additional software installed.
+Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/Microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
 
 * [Git](http://git-scm.com/downloads).
-* [Visual Studio](https://www.visualstudio.com/downloads)
-  * Visual Studio 2015, Update 3. This will install the Windows Development Kit. In the install options, make sure the following options are checked:
-      * Windows 10 SDK (version 14393)
-      * Common Tools for Visual C++ 2015
-  * Visual Studio 2017. Select the following workloads:
-      * Universal Windows Platform Development
-      * Desktop Development with C++
-* [Windows 10 SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk). This is needed to build tests that reference the D3D12 runtime. You may get this as part of installing/updating Visual Studio.
-* TAEF. You can run the script at `utils\hct\hctgettaef.py` from your build environment before you start building to download and unzip them as an external dependency. Alternatively, install the [Windows Driver Kit](https://developer.microsoft.com/en-us/windows/hardware/windows-driver-kit). No need to download and install tests. This is used to build and run tests.
-* [CMake](https://cmake.org/files/v3.4/cmake-3.4.3-win32-x86.exe). Version 3.4.3 and 3.7.2 are the supported versions. You need not change your PATH variable during installation.
+* [Visual Studio 2017](https://www.visualstudio.com/downloads). Select the following workloads: Universal Windows Platform Development and Desktop Development with C++.
 * [Python](https://www.python.org/downloads/). Version 2.7.x is required, 3.x might work but it's not officially supported. You need not change your PATH variable during installation.
 
-To setup the build environment run the `utils\hct\hctstart.cmd` script passing the path to the source and build directories from a regular command prompt window. For example:
+After cloning the project, you can set up a build environment shortcut by double-clicking the `utils\hct\hctshortcut.js` file. This will create a shortcut on your desktop with a default configuration.
 
-```
-git clone https://github.com/Microsoft/DirectXShaderCompiler.git C:\DirectXShaderCompiler
-cd C:\DirectXShaderCompiler
-utils\hct\hctstart.cmd C:\DirectXShaderCompiler C:\DirectXShaderCompiler.bin
-```
+Tests are built using the TAEF framework. Unless you have the Windows Driver Kit installed, you should run the script at `utils\hct\hctgettaef.py` from your build environment before you start building to download and unzip it as an external dependency. You should only need to do this once.
 
-To create a shortcut to the build environment with the default build directory, double-click on the `utils\hct\hctshortcut.js` file.
-
-To build, open the HLSL Console and run this command.
+To build, run this command on the HLSL Console.
 
     hctbuild
 
@@ -58,38 +43,6 @@ You can also clean, build and run tests with this command.
     hctcheckin
 
 To see a list of additional commands available, run `hcthelp`
-
-### Building with Visual Studio 2017
-
-You can build with vs2017 either on the command line or using the new integrated [CMake support](https://blogs.msdn.microsoft.com/vcblog/2016/11/16/cmake-support-in-visual-studio-the-visual-studio-2017-rc-update/).
-
-To build from the command line follow the normal build steps, but pass `-vs2017` as a parameter
-to `hctbuild`.
-
-To build using the integrated cmake support, simply start Visual Studio
-and open the folder where you have the source. From the CMake menu
-select "Build CMakeLists.txt"
-
-By default the binaries will be built in %LOCALAPPDATA%\CMakeBuild\DirectXShaderCompiler\build\{build-flavor}.
-The build location can be changed by editing the `CMakeSettings.json` file.
-
-You can then use the build directory in the `hctstart` script to test the build. For example,
-
-    hctstart C:\source\DirectXShaderCompiler %LOCALAPPDATA%\CMakeBuild\DirectXShaderCompiler\build\x64-Debug
-
-### Building with Ninja
-
-To build with Ninja, please make sure that you have `ninja` and `cl` in your `%PATH%`.
-`ninja` can be installed from [here](https://github.com/ninja-build/ninja/releases);
-`cl` should already be installed together with Visual Studio and can be exported to `%PATH%` via the `vcvars*.bat` script in Visual Studio's VC build directory.
-
-To configure cmake with Ninja generator,
-
-    hctbuild -s -ninja
-
-To build with Ninja, go to the binary directory and run `ninja` directly or
-
-    hctbuild -b -ninja
 
 ## Running Tests
 
@@ -103,9 +56,7 @@ If you use Ninja to build the project, please make sure to supply `-ninja` to `h
 
 ## Running Shaders
 
-To run shaders compiled as DXIL, you will need support from the operating system as well as from the driver for your graphics adapter.
-
-At the moment, the [Windows 10 Insider Preview Build 15007](https://blogs.windows.com/windowsexperience/2017/01/12/announcing-windows-10-insider-preview-build-15007-pc-mobile/#XqlQ5FZfXw5WVhpS.97) is able to run DXIL shaders.
+To run shaders compiled as DXIL, you will need support from the operating system as well as from the driver for your graphics adapter. Windows 10 Creators Update is the first version to support DXIL shaders.
 
 Drivers indicate they can run DXIL by reporting support for Shader Model 6, possibly in experimental mode. To enable support in these cases, the [Developer mode](https://msdn.microsoft.com/windows/uwp/get-started/enable-your-device-for-development) setting must be enabled.
 
@@ -145,4 +96,3 @@ See LICENSE.txt and ThirdPartyNotices.txt for details.
 ## Code of Conduct
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
-

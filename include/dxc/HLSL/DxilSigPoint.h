@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include "llvm/ADT/StringRef.h"
 #include "DxilConstants.h"
 
 namespace hlsl {

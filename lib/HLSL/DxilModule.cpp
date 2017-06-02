@@ -21,6 +21,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -59,6 +60,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_pModule(pModule)
 , m_pOP(std::make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(std::make_unique<DxilTypeSystem>(pModule))
+, m_pViewIdState(std::make_unique<DxilViewIdState>(this))
 , m_pMDHelper(std::make_unique<DxilMDHelper>(pModule, std::make_unique<DxilExtraPropertyHelper>(pModule)))
 , m_pDebugInfoFinder(nullptr)
 , m_pEntryFunc(nullptr)
@@ -67,6 +69,8 @@ DxilModule::DxilModule(Module *pModule)
 , m_pSM(nullptr)
 , m_DxilMajor(DXIL::kDxilMajor)
 , m_DxilMinor(DXIL::kDxilMinor)
+, m_ValMajor(1)
+, m_ValMinor(0)
 , m_InputPrimitive(DXIL::InputPrimitive::Undefined)
 , m_MaxVertexCount(0)
 , m_StreamPrimitiveTopology(DXIL::PrimitiveTopology::Undefined)
@@ -118,6 +122,8 @@ DxilModule::ShaderFlags::ShaderFlags():
 , m_bROVS(false)
 , m_bWaveOps(false)
 , m_bInt64Ops(false)
+, m_bViewID(false)
+, m_bBarycentrics(false)
 , m_align0(0)
 , m_align1(0)
 {}
@@ -146,6 +152,42 @@ const ShaderModel *DxilModule::GetShaderModel() const {
 void DxilModule::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const {
   DxilMajor = m_DxilMajor;
   DxilMinor = m_DxilMinor;
+}
+
+void DxilModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
+  m_ValMajor = ValMajor;
+  m_ValMinor = ValMinor;
+}
+
+bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
+  if (ValMajor > m_ValMajor || (ValMajor == m_ValMajor && ValMinor > m_ValMinor)) {
+    // Module requires higher validator version than previously set
+    SetValidatorVersion(ValMajor, ValMinor);
+    return true;
+  }
+  return false;
+}
+
+void DxilModule::GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
+  ValMajor = m_ValMajor;
+  ValMinor = m_ValMinor;
+}
+
+bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
+  if (!m_pSM)
+    return false;
+  m_pSM->GetMinValidatorVersion(ValMajor, ValMinor);
+  if (ValMajor == 1 && ValMinor == 0 && (m_ShaderFlags.GetFeatureInfo() & hlsl::ShaderFeatureInfo_ViewID))
+    ValMinor = 1;
+  return true;
+}
+
+bool DxilModule::UpgradeToMinValidatorVersion() {
+  unsigned ValMajor = 1, ValMinor = 0;
+  if (GetMinValidatorVersion(ValMajor, ValMinor)) {
+    return UpgradeValidatorVersion(ValMajor, ValMinor);
+  }
+  return false;
 }
 
 Function *DxilModule::GetEntryFunction() {
@@ -212,6 +254,8 @@ uint64_t DxilModule::ShaderFlags::GetFeatureInfo() const {
   Flags |= m_b64UAVs ? hlsl::ShaderFeatureInfo_64UAVs : 0;
   Flags |= m_bLevel9ComparisonFiltering ? hlsl::ShaderFeatureInfo_LEVEL9ComparisonFiltering : 0;
   Flags |= m_bUAVLoadAdditionalFormats ? hlsl::ShaderFeatureInfo_TypedUAVLoadAdditionalFormats : 0;
+  Flags |= m_bViewID ? hlsl::ShaderFeatureInfo_ViewID : 0;
+  Flags |= m_bBarycentrics ? hlsl::ShaderFeatureInfo_Barycentrics : 0;
 
   return Flags;
 }
@@ -259,6 +303,7 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   bool hasMSAD = false;
   bool hasMulticomponentUAVLoads = false;
   bool hasInnerCoverage = false;
+  bool hasViewID = false;
   Type *int16Ty = Type::getInt16Ty(GetCtx());
   Type *int64Ty = Type::getInt64Ty(GetCtx());
 
@@ -362,6 +407,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           case DXIL::OpCode::InnerCoverage:
             hasInnerCoverage = true;
             break;
+          case DXIL::OpCode::ViewID:
+            hasViewID = true;
+            break;
           default:
             // Normal opcodes.
             break;
@@ -380,6 +428,7 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   Flags.SetTiledResources(hasCheckAccessFully);
   Flags.SetEnableMSAD(hasMSAD);
   Flags.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
+  Flags.SetViewID(hasViewID);
 
   const ShaderModel *SM = GetShaderModel();
   if (SM->IsPS()) {
@@ -494,6 +543,8 @@ uint64_t DxilModule::ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetUAVsAtEveryStage(true);
   Flags.SetEnableRawAndStructuredBuffers(true);
   Flags.SetCSRawAndStructuredViaShader4X(true);
+  Flags.SetViewID(true);
+  Flags.SetBarycentrics(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -865,6 +916,10 @@ void DxilModule::StripRootSignatureFromMetadata() {
   }
 }
 
+void DxilModule::UpdateValidatorVersionMetadata() {
+  m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
+}
+
 void DxilModule::ResetInputSignature(DxilSignature *pValue) {
   m_InputSignature.reset(pValue);
 }
@@ -883,6 +938,13 @@ void DxilModule::ResetRootSignature(RootSignatureHandle *pValue) {
 
 DxilTypeSystem &DxilModule::GetTypeSystem() {
   return *m_pTypeSystem;
+}
+
+DxilViewIdState &DxilModule::GetViewIdState() {
+  return *m_pViewIdState;
+}
+const DxilViewIdState &DxilModule::GetViewIdState() const {
+  return *m_pViewIdState;
 }
 
 void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
@@ -935,14 +997,20 @@ vector<GlobalVariable* > &DxilModule::GetLLVMUsed() {
 // DXIL metadata serialization/deserialization.
 void DxilModule::EmitDxilMetadata() {
   m_pMDHelper->EmitDxilVersion(m_DxilMajor, m_DxilMinor);
+  m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
+
+  MDTuple *pMDProperties = EmitDxilShaderProperties();
 
   MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_InputSignature, 
                                                            *m_OutputSignature,
                                                            *m_PatchConstantSignature);
   MDTuple *pMDResources = EmitDxilResources();
-  MDTuple *pMDProperties = EmitDxilShaderProperties();
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
+  if (!m_pSM->IsCS() &&
+      (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
+    m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
+  }
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
@@ -960,6 +1028,7 @@ bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
 
 void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
+  m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedModule;
   m_pMDHelper->LoadDxilShaderModel(loadedModule);
   SetShaderModel(loadedModule);
@@ -976,13 +1045,17 @@ void DxilModule::LoadDxilMetadata() {
   SetEntryFunction(pEntryFunc);
   SetEntryFunctionName(EntryName);
 
+  LoadDxilShaderProperties(*pProperties);
+
   m_pMDHelper->LoadDxilSignatures(*pSignatures, *m_InputSignature,
                                   *m_OutputSignature, *m_PatchConstantSignature);
   LoadDxilResources(*pResources);
-  LoadDxilShaderProperties(*pProperties);
+
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
 
   m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
+
+  m_pMDHelper->LoadDxilViewIdState(*m_pViewIdState.get());
 }
 
 MDTuple *DxilModule::EmitDxilResources() {
@@ -1272,6 +1345,46 @@ hlsl::DxilModule *hlsl::DxilModule::TryGetDxilModule(llvm::Module *pModule) {
     Ctx.diagnose(DxilErrorDiagnosticInfo("load dxil metadata failed - unknown error.\n"));
   }
   return pDxilModule;
+}
+
+// Check if the instruction has fast math flags configured to indicate
+// the instruction is precise.
+// Precise fast math flags means none of the fast math flags are set.
+bool DxilModule::HasPreciseFastMathFlags(const Instruction *inst) {
+  return isa<FPMathOperator>(inst) && !inst->getFastMathFlags().any();
+}
+
+// Set fast math flags configured to indicate the instruction is precise.
+void DxilModule::SetPreciseFastMathFlags(llvm::Instruction *inst) {
+  assert(isa<FPMathOperator>(inst));
+  inst->copyFastMathFlags(FastMathFlags());
+}
+
+// True if fast math flags are preserved across serialization/deserialization
+// of the dxil module.
+//
+// We need to check for this when querying fast math flags for preciseness
+// otherwise we will be overly conservative by reporting instructions precise
+// because their fast math flags were not preserved.
+//
+// Currently we restrict it to the instruction types that have fast math
+// preserved in the bitcode. We can expand this by converting fast math
+// flags to dx.precise metadata during serialization and back to fast
+// math flags during deserialization.
+bool DxilModule::PreservesFastMathFlags(const llvm::Instruction *inst) {
+  return
+    isa<FPMathOperator>(inst) && (isa<BinaryOperator>(inst) || isa<FCmpInst>(inst));
+}
+
+bool DxilModule::IsPrecise(const Instruction *inst) const {
+  if (m_ShaderFlags.GetDisableMathRefactoring())
+    return true;
+  else if (DxilMDHelper::IsMarkedPrecise(inst))
+    return true;
+  else if (PreservesFastMathFlags(inst))
+    return HasPreciseFastMathFlags(inst);
+  else
+    return false;
 }
 
 } // namespace hlsl

@@ -43,7 +43,10 @@ public:
   unsigned PackElements(DXIL::PackingStrategy packing);
 
   // Returns true if all signature elements that should be allocated are allocated
-  bool IsFullyAllocated();
+  bool IsFullyAllocated() const;
+
+  // Returns the number of allocated vectors used to contain signature
+  unsigned NumVectorsUsed(unsigned streamIndex =  0) const;
 
 private:
   DXIL::SigPointKind m_sigPointKind;

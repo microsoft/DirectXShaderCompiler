@@ -15,7 +15,7 @@ We distinguish between DXIL, which is a low-level IR for GPU driver compilers, a
 
 LLVM is quickly becoming a de facto standard in modern compilation technology. The LLVM framework offers several distinct features, such as a vibrant ecosystem, complete compilation framework, modular design, and reasonable documentation. We can leverage these to achieve two important objectives.
 
-First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion the current HLSL IL, called DXBC IL in this document, and DXIL.
+First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion the current HLSL IL, called DXBC IL in this document, to DXIL.
 
 Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL and DXIR to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL verifier to check consistency of generated DXIL.
 
@@ -40,13 +40,13 @@ The following diagram shows how some of these components tie together::
                 |      |             |     |
                 |      |             |     |
    +------------v------+-------------v-----v-------+
-   |              Low|level IR (DXIL)              |
+   |              Low level IR (DXIL)              |
    +------------+----------------------+-----------+
                 |                      |
                 v                      v
         Driver Compiler             Verifier
 
-The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes DXIR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Verifier* element is a public component that verifies DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
+The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes DXIR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Verifier* element is a public component that verifies and signs DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
 
 DXIL does not support the following HLSL features that were present in prior implementations.
 
@@ -109,7 +109,7 @@ For shader models prior to 6.0, only the rules applicable to the DXIL representa
 DXIL version
 ------------
 
-The primary mechanism to evolve HLSL capabilities is through shader models. However, DXIL version is reserved for additional flexibility of future extensions. The only currently defined version is 1.0.
+The primary mechanism to evolve HLSL capabilities is through shader models. However, DXIL version is reserved for additional flexibility of future extensions. There are two currently defined versions: 1.0 and 1.1.
 
 DXIL version has major and minor versions that are specified as named metadata::
 
@@ -313,7 +313,7 @@ Operation           Control Point (Hull) Patch Constant         Domain
 Store Input CP
 Load Input CP       LoadInput            LoadInput
 Store Output CP     StoreOutput
-Load Output CP                           LoadOutputControlPoint LoadOutputControlPoint
+Load Output CP                           LoadOutputControlPoint LoadInput
 Store PC                                 StorePatchConstant
 Load PC                                  LoadPatchConstant      LoadPatchConstant
 Store Output Vertex                                             StoreOutput
@@ -380,11 +380,11 @@ Explicit conversions between types are supported via LLVM instructions.
 Precise qualifier
 -----------------
 
-HLSL precise type qualifier requires that all operations contributing to the value be IEEE compliant with respect to optimizations.
+By default, all floating-point HLSL operations are considered 'fast' or non-precise. HLSL and driver compilers are allowed to refactor such operations. Non-precise LLVM instructions: fadd, fsub, fmul, fdiv, frem, fcmp are marked with 'fast' math flags.
 
-Each relevant instruction that contributes to such a value is annotated with dx.precise metadata that indicates that it is illegal for the driver compiler to perform IEEE-unsafe optimizations.
+HLSL precise type qualifier requires that all operations contributing to the value be IEEE compliant with respect to optimizations. The /Gis compiler switch implicitly declares all variables and values as precise.
 
-The default mode for DXIL is that operations are not precise; i.e., each operation is 'fast' (this is reverse of LLVM IR default mode). There is a way to change the default behavior for the entire shader via AllOperationsPrecise shader property. 
+Precise behavior is represented in LLVM instructions: fadd, fsub, fmul, fdiv, frem, fcmp by not having 'fast' math flags set. Each relevant call instruction that contributes to computation of a precise value is annotated with dx.precise metadata that indicates that it is illegal for the driver compiler to perform IEEE-unsafe optimizations.
 
 Type annotations
 ----------------

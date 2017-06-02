@@ -601,7 +601,7 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface3<IDiaTable, T, IEnumUnknown>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDiaTable, T, IEnumUnknown>(this, iid, ppvObject);
   }
 
   DxcDiaTableBase(IMalloc *pMalloc, DxcDiaSession *pSession, DiaTableKind kind) {

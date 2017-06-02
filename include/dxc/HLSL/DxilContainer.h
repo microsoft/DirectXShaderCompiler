@@ -103,6 +103,8 @@ static const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
 static const uint64_t ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer = 0x2000;
 static const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
 static const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
+static const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
+static const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
 
 static const unsigned ShaderFeatureInfoCount = 16;
 
@@ -142,6 +144,7 @@ enum class DxilProgramSigMinPrecision : uint32_t {
   Any10 = 0xf1
 };
 
+// Corresponds to D3D_NAME and D3D10_SB_NAME
 enum class DxilProgramSigSemantic : uint32_t {
   Undefined = 0,
   Position = 1,
@@ -160,6 +163,7 @@ enum class DxilProgramSigSemantic : uint32_t {
   FinalTriInsideTessfactor = 14,
   FinalLineDetailTessfactor = 15,
   FinalLineDensityTessfactor = 16,
+  Barycentrics = 23,
   Target = 64,
   Depth = 65,
   Coverage = 66,
@@ -167,7 +171,6 @@ enum class DxilProgramSigSemantic : uint32_t {
   DepthLE = 68,
   StencilRef = 69,
   InnerCoverage = 70,
-  Barycentrics = 71
 };
 
 enum class DxilProgramSigCompType : uint32_t {
@@ -422,7 +425,7 @@ public:
 DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
 DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M);
+DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
 
 class DxilContainerWriter : public DxilPartWriter  {
 public:
@@ -433,7 +436,7 @@ public:
 
 DxilContainerWriter *NewDxilContainerWriter();
 
-enum class SerializeDxilFlags {
+enum class SerializeDxilFlags : uint32_t {
   None = 0,                     // No flags defined.
   IncludeDebugInfoPart = 1,     // Include the debug info part in the container.
   IncludeDebugNamePart = 2,     // Include the debug name part in the container.
@@ -443,8 +446,15 @@ inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxi
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));
   return l;
 }
+inline SerializeDxilFlags& operator &=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
+  l = static_cast<SerializeDxilFlags>(static_cast<int>(l) & static_cast<int>(r));
+  return l;
+}
 inline int operator&(SerializeDxilFlags l, SerializeDxilFlags r) {
   return static_cast<int>(l) & static_cast<int>(r);
+}
+inline SerializeDxilFlags operator~(SerializeDxilFlags l) {
+  return static_cast<SerializeDxilFlags>(~static_cast<uint32_t>(l));
 }
 
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,

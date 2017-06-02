@@ -1066,8 +1066,7 @@ class db_dxil(object):
         next_op_idx += 1
 
         # End of DXIL 1.1 opcodes.
-        # Uncomment this when 1.1 is final.
-        #self.set_op_count_for_version(1, 1, next_op_idx)
+        self.set_op_count_for_version(1, 1, next_op_idx)
 
         assert next_op_idx == 139, "next operation index is %d rather than 139 and thus opcodes are broken" % next_op_idx
 
@@ -1265,7 +1264,9 @@ class db_dxil(object):
         add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
         add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
+        add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [])
         add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [])
+        add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [])
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
         add_pass('globalopt', 'GlobalOpt', 'Global Variable Optimizer', [])
         add_pass('deadargelim', 'DAE', 'Dead Argument Elimination', [])
@@ -1334,6 +1335,7 @@ class db_dxil(object):
         add_pass('lowerbitsets', 'LowerBitSets', 'Lower bitset metadata', [
             {'n':'lowerbitsets-avoid-reuse', 'i':'AvoidReuse', 't':'bool', 'd':'Try to avoid reuse of byte array addresses using aliases'}])
         add_pass('red', 'ReducibilityAnalysis', 'Reducibility Analysis', [])
+        add_pass('viewid-state', 'ComputeViewIdState', 'Compute information related to ViewID', [])
         # TODO: turn STATISTICS macros into ETW events
         # assert no duplicate names
         self.pass_idx_args = set()

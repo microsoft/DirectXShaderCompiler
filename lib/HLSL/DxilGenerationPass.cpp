@@ -105,6 +105,9 @@ void InitResource(const DxilResource *pSource, DxilResource *pDest) {
 
 void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   // Subsystems.
+  unsigned ValMajor, ValMinor;
+  H.GetValidatorVersion(ValMajor, ValMinor);
+  M.SetValidatorVersion(ValMajor, ValMinor);
   M.SetShaderModel(H.GetShaderModel());
 
   // Entry function.
@@ -231,6 +234,9 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.ResetOP(H.ReleaseOP());
   // Keep llvm used.
   M.EmitLLVMUsed();
+
+  // Update Validator Version
+  M.UpgradeToMinValidatorVersion();
 }
 
 class DxilGenerationPass : public ModulePass {
@@ -2866,7 +2872,7 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
 
-  void patchSM60(Module &M) {
+  void patchValidation_1_0(Module &M) {
     for (iplist<Function>::iterator F : M.getFunctionList()) {
       for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
            ++BBI) {
@@ -2874,8 +2880,19 @@ public:
         for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;
              ++II) {
           Instruction *I = II;
-          if (I->getMetadata(LLVMContext::MD_noalias)) {
-            I->setMetadata(LLVMContext::MD_noalias, nullptr);
+          if (I->hasMetadataOtherThanDebugLoc()) {
+            SmallVector<std::pair<unsigned, MDNode*>, 2> MDs;
+            I->getAllMetadataOtherThanDebugLoc(MDs);
+            for (auto &MD : MDs) {
+              unsigned kind = MD.first;
+              // Remove Metadata which validation_1_0 not allowed.
+              bool bNeedPatch = kind == LLVMContext::MD_tbaa ||
+                  kind == LLVMContext::MD_prof ||
+                  (kind > LLVMContext::MD_fpmath &&
+                  kind <= LLVMContext::MD_dereferenceable_or_null);
+              if (bNeedPatch)
+                I->setMetadata(kind, nullptr);
+            }
           }
         }
       }
@@ -2886,9 +2903,11 @@ public:
     if (M.HasDxilModule()) {
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
-      bool bIsSM61Plus = M.GetDxilModule().GetShaderModel()->IsSM61Plus();
-      if (!bIsSM61Plus) {
-        patchSM60(M);
+      unsigned ValMajor = 0;
+      unsigned ValMinor = 0;
+      M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
+      if (ValMajor == 1 && ValMinor == 0) {
+        patchValidation_1_0(M);
       }
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (!hlslOP->IsDxilOpFunc(F))
@@ -2996,6 +3015,8 @@ public:
       }
 
       DM.CollectShaderFlags(); // Update flags to reflect any changes.
+                               // Update Validator Version
+      DM.UpgradeToMinValidatorVersion();
       DM.EmitDxilMetadata();
       return true;
     }
@@ -3064,12 +3085,14 @@ static void PropagatePreciseAttributeOnOperand(Value *V, DxilTypeSystem &typeSys
     return;
 
   // Skip inst already marked.
-  if (!I->hasUnsafeAlgebra())
+  if (DxilModule::HasPreciseFastMathFlags(I))
     return;
   // TODO: skip precise on integer type, sample instruction...
 
-  // Clear fast math.
-  I->copyFastMathFlags(FastMathFlags());
+  // Set precise fast math on those instructions that support it.
+  if (DxilModule::PreservesFastMathFlags(I))
+    DxilModule::SetPreciseFastMathFlags(I);
+
   // Fast math not work on call, use metadata.
   if (CallInst *CI = dyn_cast<CallInst>(I))
     HLModule::MarkPreciseAttributeWithMetadata(CI);

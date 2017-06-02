@@ -18,6 +18,12 @@ set TEST_EXEC_REQUIRED=0
 set TEST_CLANG_FILTER= /select: "@Priority<1"
 set TEST_EXEC_FILTER=ExecutionTest::*
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
+
+rem Begin SPIRV change
+set TEST_SPIRV=0
+set TEST_SPIRV_ONLY=0
+rem End SPIRV change
+
 if "%BUILD_CONFIG%"=="" (
   set BUILD_CONFIG=Debug
 )
@@ -37,6 +43,19 @@ if "%NUMBER_OF_PROCESSORS%"=="" (
 
 :opt_loop
 if "%1"=="" (goto :done_opt)
+
+rem Begin SPIRV change
+if "%1"=="spirv" (
+  set TEST_SPIRV=1
+  shift /1
+)
+
+if "%1"=="spirv_only" (
+  set TEST_SPIRV=1
+  set TEST_SPIRV_ONLY=1
+  shift /1
+)
+rem End SPIRV change
 
 if "%1"=="-clean" (
   set TEST_CLEAN=1
@@ -155,6 +174,24 @@ if not exist %TEST_DIR%\. (mkdir %TEST_DIR%)
 echo Copying binaries to test to %TEST_DIR%:
 call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll
 if errorlevel 1 exit /b 1
+
+rem Begin SPIRV change
+if "%TEST_SPIRV%"=="1" (
+  if not exist %BIN_DIR%\clang-spirv-tests.exe (
+    echo clang-spirv-tests.exe has not been built. Make sure you run "hctbuild -spirvtest" first.
+    exit /b 1
+  )
+  echo Running SPIRV tests ...
+  %BIN_DIR%\clang-spirv-tests.exe
+  if errorlevel 1 (
+    echo Failure occured in SPIRV unit tests
+    exit /b 1
+  )
+  if "%TEST_SPIRV_ONLY%"=="1" (
+    exit /b 0
+  )
+)
+rem End SPIRV change
 
 echo Running HLSL tests ...
 
