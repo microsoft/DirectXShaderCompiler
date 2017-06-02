@@ -69,7 +69,12 @@ public:
     , m_pts(m_msf.get())
   {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_ver.Initialize(m_dllSupport);
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  }
+
+  bool SkipDxil_1_1_Test() {
+    return m_ver.SkipDxil_1_1_Test();
   }
   
   IDxcOperationResult *Compile(const char *program, LPCWSTR shaderModel = L"ps_6_0") {
@@ -141,6 +146,7 @@ private:
   }
 
   dxc::DxcDllSupport &m_dllSupport;
+  VersionSupportInfo m_ver;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pCodeBlob;
   CComPtr<IDxcOperationResult> pCompileResult;
@@ -173,6 +179,7 @@ TEST_F(DxilModuleTest, LoadDxilModule_1_0) {
 
 TEST_F(DxilModuleTest, LoadDxilModule_1_1) {
   Compiler c(m_dllSupport);
+  if (c.SkipDxil_1_1_Test()) return;
   c.Compile(
     "float4 main() : SV_Target {\n"
     "  return 0;\n"
