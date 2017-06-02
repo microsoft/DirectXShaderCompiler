@@ -2429,7 +2429,6 @@ public:
     IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
     try {
-      CComPtr<IMalloc> pMalloc;
       CComPtr<AbstractMemoryStream> pOutputStream;
       DxcArgsFileSystem *msfPtr;
       IFT(CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
@@ -2465,7 +2464,7 @@ public:
       }
 
       IFT(msfPtr->RegisterOutputStream(L"output.hlsl", pOutputStream));
-      IFT(msfPtr->CreateStdStreams(pMalloc));
+      IFT(msfPtr->CreateStdStreams(m_pMalloc));
 
       StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
         utf8Source->GetBufferSize());

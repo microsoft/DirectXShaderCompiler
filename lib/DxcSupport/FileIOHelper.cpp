@@ -174,11 +174,10 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) {
 
 class InternalDxcBlobEncoding : public IDxcBlobEncoding {
 private:
-  DXC_MICROCOM_TM_REF_FIELDS()
+  DXC_MICROCOM_TM_REF_FIELDS() // an underlying m_pMalloc that owns this
   LPCVOID m_Buffer = nullptr;
-  IUnknown* m_Owner = nullptr; // IMalloc when MallocFree is true
+  IUnknown* m_Owner = nullptr; // IMalloc when MallocFree is true, owning the buffer
   SIZE_T m_BufferSize;
-  unsigned m_HeapFree : 1;
   unsigned m_EncodingKnown : 1;
   unsigned m_MallocFree : 1;
   UINT32 m_CodePage;
@@ -207,33 +206,20 @@ public:
     if (m_Owner != nullptr) {
       m_Owner->Release();
     }
-    if (m_HeapFree) {
-      CoTaskMemFree((LPVOID)m_Buffer);
-    }
   }
 
   static HRESULT
   CreateFromHeap(LPCVOID buffer, SIZE_T bufferSize, bool encodingKnown,
                  UINT32 codePage,
-                 _COM_Outptr_ InternalDxcBlobEncoding **pEncoding) {
-    *pEncoding = InternalDxcBlobEncoding::Alloc(DxcGetThreadMallocNoRef());
-    if (*pEncoding == nullptr) {
-      return E_OUTOFMEMORY;
-    }
-    (*pEncoding)->m_Buffer = buffer;
-    (*pEncoding)->m_BufferSize = bufferSize;
-    (*pEncoding)->m_HeapFree = 1;
-    (*pEncoding)->m_EncodingKnown = encodingKnown;
-    (*pEncoding)->m_MallocFree = 0;
-    (*pEncoding)->m_CodePage = codePage;
-    (*pEncoding)->AddRef();
-    return S_OK;
+                 _COM_Outptr_ InternalDxcBlobEncoding **ppEncoding) {
+    return CreateFromMalloc(buffer, DxcGetThreadMallocNoRef(), bufferSize,
+                            encodingKnown, codePage, ppEncoding);
   }
 
   static HRESULT
-  CreateFromBlob(_In_ IDxcBlob *pBlob, bool encodingKnown, UINT32 codePage,
+  CreateFromBlob(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc, bool encodingKnown, UINT32 codePage,
                  _COM_Outptr_ InternalDxcBlobEncoding **pEncoding) {
-    *pEncoding = new InternalDxcBlobEncoding(DxcGetThreadMallocNoRef());
+    *pEncoding = InternalDxcBlobEncoding::Alloc(pMalloc);
     if (*pEncoding == nullptr) {
       return E_OUTOFMEMORY;
     }
@@ -241,7 +227,6 @@ public:
     (*pEncoding)->m_Owner = pBlob;
     (*pEncoding)->m_Buffer = pBlob->GetBufferPointer();
     (*pEncoding)->m_BufferSize = pBlob->GetBufferSize();
-    (*pEncoding)->m_HeapFree = 0;
     (*pEncoding)->m_EncodingKnown = encodingKnown;
     (*pEncoding)->m_MallocFree = 0;
     (*pEncoding)->m_CodePage = codePage;
@@ -261,7 +246,6 @@ public:
     (*pEncoding)->m_Owner = pIMalloc;
     (*pEncoding)->m_Buffer = buffer;
     (*pEncoding)->m_BufferSize = bufferSize;
-    (*pEncoding)->m_HeapFree = 0;
     (*pEncoding)->m_EncodingKnown = encodingKnown;
     (*pEncoding)->m_MallocFree = 1;
     (*pEncoding)->m_CodePage = codePage;
@@ -290,12 +274,12 @@ public:
 
   // Relatively dangerous API. This means the buffer should be pinned for as
   // long as this object is alive.
-  void ClearFreeFlag() { m_HeapFree = 0; }
+  void ClearFreeFlag() { m_MallocFree = 0; }
 };
 
 static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
                                      SIZE_T bufferSize,
-                                     CComHeapPtr<WCHAR> &utf16NewCopy,
+                                     CDxcMallocHeapPtr<WCHAR> &utf16NewCopy,
                                      _Out_ UINT32 *pConvertedCharCount) {
   *pConvertedCharCount = 0;
 
@@ -355,7 +339,7 @@ HRESULT DxcCreateBlobFromBlob(
     IFR(pBlobEncoding->GetEncoding(&encodingKnown, &codePage));
   }
   CComPtr<InternalDxcBlobEncoding> pCreated;
-  IFR(InternalDxcBlobEncoding::CreateFromBlob(pBlob, encodingKnown, codePage,
+  IFR(InternalDxcBlobEncoding::CreateFromBlob(pBlob, DxcGetThreadMallocNoRef(), encodingKnown, codePage,
                                               &pCreated));
   pCreated->AdjustPtrAndSize(offset, length);
   *ppResult = pCreated.Detach();
@@ -445,7 +429,7 @@ DxcCreateBlobWithEncodingSet(IDxcBlob *pBlob, UINT32 codePage,
   *pBlobEncoding = nullptr;
 
   InternalDxcBlobEncoding *internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, true, codePage,
+  HRESULT hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, DxcGetThreadMallocNoRef(), true, codePage,
                                                        &internalEncoding);
   if (SUCCEEDED(hr)) {
     *pBlobEncoding = internalEncoding;
@@ -582,7 +566,7 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) {
   if (codePage == CP_UTF8) {
     // Reuse the underlying blob but create an object with the encoding known.
     InternalDxcBlobEncoding* internalEncoding;
-    hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, true, CP_UTF8, &internalEncoding);
+    hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, DxcGetThreadMallocNoRef(), true, CP_UTF8, &internalEncoding);
     if (SUCCEEDED(hr)) {
       *pBlobEncoding = internalEncoding;
     }
@@ -593,7 +577,7 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) {
 
   // Any UTF-16 output must be converted to UTF-16 first, then
   // back to the target code page.
-  CComHeapPtr<WCHAR> utf16NewCopy;
+  CDxcMallocHeapPtr<WCHAR> utf16NewCopy(DxcGetThreadMallocNoRef());
   wchar_t* utf16Chars = nullptr;
   UINT32 utf16CharCount;
   if (codePage == CP_UTF16) {
@@ -610,7 +594,7 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) {
   }
 
   const UINT32 targetCodePage = CP_UTF8;
-  CComHeapPtr<char> finalNewCopy;
+  CDxcTMHeapPtr<char> finalNewCopy;
   int numToConvertFinal = WideCharToMultiByte(
     targetCodePage, 0, utf16Chars, utf16CharCount,
     finalNewCopy, 0, NULL, NULL);
@@ -631,7 +615,8 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) {
   ((LPSTR)finalNewCopy)[numActuallyConvertedFinal] = '\0';
 
   InternalDxcBlobEncoding* internalEncoding;
-  hr = InternalDxcBlobEncoding::CreateFromHeap(finalNewCopy.m_pData,
+  hr = InternalDxcBlobEncoding::CreateFromMalloc(finalNewCopy.m_pData,
+    DxcGetThreadMallocNoRef(),
     numActuallyConvertedFinal, true, targetCodePage, &internalEncoding);
   if (SUCCEEDED(hr)) {
     *pBlobEncoding = internalEncoding;
@@ -667,13 +652,14 @@ DxcGetBlobAsUtf8NullTerm(_In_ IDxcBlob *pBlob,
       }
       
       // We have a non-null-terminated UTF-8 stream. Copy to a new location.
-      CComHeapPtr<char> pCopy;
+      CDxcTMHeapPtr<char> pCopy;
       if (!pCopy.Allocate(blobSize + 1))
         return E_OUTOFMEMORY;
       memcpy(pCopy.m_pData, pChars, blobSize);
       pCopy.m_pData[blobSize] = '\0';
-      IFR(DxcCreateBlobWithEncodingOnHeap(pCopy.m_pData, blobSize + 1, CP_UTF8,
-                                          ppBlobEncoding));
+      IFR(DxcCreateBlobWithEncodingOnMalloc(
+          pCopy.m_pData, DxcGetThreadMallocNoRef(), blobSize + 1, CP_UTF8,
+          ppBlobEncoding));
       pCopy.Detach();
       return S_OK;
     }
@@ -687,7 +673,7 @@ DxcGetBlobAsUtf8NullTerm(_In_ IDxcBlob *pBlob,
 }
 
 _Use_decl_annotations_
-HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) {
+HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobEncoding **pBlobEncoding) {
   *pBlobEncoding = nullptr;
 
   HRESULT hr;
@@ -718,7 +704,7 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) {
   // Reuse the underlying blob but create an object with the encoding known.
   if (codePage == CP_UTF16) {
     InternalDxcBlobEncoding* internalEncoding;
-    hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, true, CP_UTF16, &internalEncoding);
+    hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, pMalloc, true, CP_UTF16, &internalEncoding);
     if (SUCCEEDED(hr)) {
       *pBlobEncoding = internalEncoding;
     }
@@ -726,7 +712,7 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) {
   }
 
   // Convert and create a blob that owns the encoding.
-  CComHeapPtr<WCHAR> utf16NewCopy;
+  CDxcMallocHeapPtr<WCHAR> utf16NewCopy(pMalloc);
   UINT32 utf16CharCount;
   hr = CodePageBufferToUtf16(codePage, pBlob->GetBufferPointer(), blobLen,
                              utf16NewCopy, &utf16CharCount);
@@ -735,8 +721,9 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IDxcBlobEncoding **pBlobEncoding) {
   }
 
   InternalDxcBlobEncoding* internalEncoding;
-  hr = InternalDxcBlobEncoding::CreateFromHeap(utf16NewCopy.m_pData,
-    utf16CharCount * sizeof(WCHAR), true, CP_UTF16, &internalEncoding);
+  hr = InternalDxcBlobEncoding::CreateFromMalloc(
+      utf16NewCopy.m_pData, pMalloc,
+      utf16CharCount * sizeof(WCHAR), true, CP_UTF16, &internalEncoding);
   if (SUCCEEDED(hr)) {
     *pBlobEncoding = internalEncoding;
     utf16NewCopy.Detach();

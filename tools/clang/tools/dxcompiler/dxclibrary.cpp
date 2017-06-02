@@ -124,8 +124,7 @@ public:
 
   __override HRESULT STDMETHODCALLTYPE GetBlobAsUtf16(
     _In_ IDxcBlob *pBlob, _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) {
-    DxcThreadMalloc TM(m_pMalloc);
-    return ::hlsl::DxcGetBlobAsUtf16(pBlob, pBlobEncoding);
+    return ::hlsl::DxcGetBlobAsUtf16(pBlob, m_pMalloc, pBlobEncoding);
   }
 };
 

@@ -102,20 +102,3 @@ IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) {
 IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMallocOrNull, IMalloc **ppPrior) {
   return DxcSwapThreadMalloc(pMallocOrNull ? pMallocOrNull : g_pDefaultMalloc, ppPrior);
 }
-
-class CDxcThreadMallocAllocator {
-public:
-  _Ret_maybenull_ _Post_writable_byte_size_(nBytes) _ATL_DECLSPEC_ALLOCATOR
-  static void *Reallocate(_In_ void *p, _In_ size_t nBytes) throw() {
-    return DxcGetThreadMallocNoRef()->Realloc(p, nBytes);
-  }
-
-  _Ret_maybenull_ _Post_writable_byte_size_(nBytes) _ATL_DECLSPEC_ALLOCATOR
-      static void *Allocate(_In_ size_t nBytes) throw() {
-    return DxcGetThreadMallocNoRef()->Alloc(nBytes);
-  }
-
-  static void Free(_In_ void *p) throw() {
-    return DxcGetThreadMallocNoRef()->Free(p);
-  }
-};

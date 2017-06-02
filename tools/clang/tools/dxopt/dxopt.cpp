@@ -149,6 +149,43 @@ static void PrintPasses(IDxcOptimizer *pOptimizer, bool includeDetails) {
   }
 }
 
+static void ReadFileOpts(LPCWSTR pPassFileName, IDxcBlobEncoding **ppPassOpts, std::vector<LPCWSTR> &passes, LPCWSTR **pOptArgs, UINT32 *pOptArgCount) {
+  *ppPassOpts = nullptr;
+  // If there is no file, there is no work to be done.
+  if (!pPassFileName || !*pPassFileName) {
+    return;
+  }
+
+  CComPtr<IDxcBlob> pPassOptsBlob;
+  CComPtr<IDxcBlobEncoding> pPassOpts;
+  BlobFromFile(pPassFileName, &pPassOptsBlob);
+  IFT(hlsl::DxcGetBlobAsUtf16(pPassOptsBlob, hlsl::GetGlobalHeapMalloc(), &pPassOpts));
+  LPWSTR pCursor = (LPWSTR)pPassOpts->GetBufferPointer();
+  while (*pCursor) {
+    passes.push_back(pCursor);
+    while (*pCursor && *pCursor != L'\n' && *pCursor != L'\r') {
+      ++pCursor;
+    }
+    while (*pCursor && (*pCursor == L'\n' || *pCursor == L'\r')) {
+      *pCursor = L'\0';
+      ++pCursor;
+    }
+  }
+
+  // Remove empty entries and comments.
+  size_t i = passes.size();
+  do {
+    --i;
+    if (wcslen(passes[i]) == 0 || passes[i][0] == L'#') {
+      passes.erase(passes.begin() + i);
+    }
+  } while (i != 0);
+
+  *pOptArgs = passes.data();
+  *pOptArgCount = passes.size();
+  *ppPassOpts = pPassOpts.Detach();
+}
+
 static void PrintHelp() {
   wprintf(L"%s",
     L"Performs optimizations on a bitcode file by running a sequence of passes.\n\n"
