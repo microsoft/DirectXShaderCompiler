@@ -124,6 +124,14 @@ ModulePass *createSROA_Parameter_HLSL();
 void initializeSROA_Parameter_HLSLPass(PassRegistry&);
 //===----------------------------------------------------------------------===//
 //
+// LowerStaticGlobalIntoAlloca. Replace static globals with alloca if only used
+// in one function.
+//
+ModulePass *createLowerStaticGlobalIntoAlloca();
+void initializeLowerStaticGlobalIntoAllocaPass(PassRegistry&);
+
+//===----------------------------------------------------------------------===//
+//
 // DynamicIndexingVectorToArray 
 // Replace vector with array if it has dynamic indexing.
 //

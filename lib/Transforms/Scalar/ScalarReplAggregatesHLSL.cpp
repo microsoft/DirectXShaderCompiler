@@ -3954,24 +3954,6 @@ public:
       }
     }
 
-    // Lower static global into allocas.
-    staticGVs.clear();
-    for (GlobalVariable &GV : M.globals()) {
-      bool isStaticGlobal =
-          HLModule::IsStaticGlobal(&GV) &&
-          GV.getType()->getAddressSpace() == DXIL::kDefaultAddrSpace;
-      bool noInitializer =
-          !GV.hasInitializer() || isa<UndefValue>(GV.getInitializer());
-      if (isStaticGlobal && noInitializer) {
-        staticGVs.emplace_back(&GV);
-      }
-    }
-
-    const DataLayout &DL = M.getDataLayout();
-    for (GlobalVariable *GV : staticGVs) {
-      lowerStaticGlobalIntoAlloca(GV, DL);
-    }
-
     return true;
   }
 
@@ -4007,7 +3989,6 @@ private:
     unsigned startArgIndex, llvm::StringMap<Type *> &semanticTypeMap);
   bool hasDynamicVectorIndexing(Value *V);
   void flattenGlobal(GlobalVariable *GV);
-  void lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL);
   /// DeadInsts - Keep track of instructions we have made dead, so that
   /// we can remove them after we are done working.
   SmallVector<Value *, 32> DeadInsts;
@@ -4146,23 +4127,6 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
     GV->removeDeadConstantUsers();
     GV->eraseFromParent();
   }
-}
-
-void SROA_Parameter_HLSL::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {
-  DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
-  unsigned size = DL.getTypeAllocSize(GV->getType()->getElementType());
-  PointerStatus PS(size);
-  GV->removeDeadConstantUsers();
-  PS.analyzePointer(GV, PS, typeSys, /*bStructElt*/false);
-  // Make sure GV only used in one function.
-  if (PS.HasMultipleAccessingFunctions)
-    return;
-
-  Function *F = const_cast<Function*>(PS.AccessingFunction);
-  IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
-  AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
-  ReplaceConstantWithInst(GV, AI, Builder);
-  GV->eraseFromParent();
 }
 
 static DxilFieldAnnotation &GetEltAnnotation(Type *Ty, unsigned idx, DxilFieldAnnotation &annotation, DxilTypeSystem &dxilTypeSys) {
@@ -6029,6 +5993,87 @@ void SROA_Parameter_HLSL::replaceCall(Function *F, Function *flatF) {
 // Public interface to the SROA_Parameter_HLSL pass
 ModulePass *llvm::createSROA_Parameter_HLSL() {
   return new SROA_Parameter_HLSL();
+}
+
+//===----------------------------------------------------------------------===//
+// Lower static global into Alloca.
+//===----------------------------------------------------------------------===//
+
+namespace {
+class LowerStaticGlobalIntoAlloca : public ModulePass {
+  HLModule *m_pHLModule;
+
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit LowerStaticGlobalIntoAlloca() : ModulePass(ID) {}
+  const char *getPassName() const override { return "Lower static global into Alloca"; }
+
+  bool runOnModule(Module &M) override {
+    m_pHLModule = &M.GetOrCreateHLModule();
+
+    // Lower static global into allocas.
+    std::vector<GlobalVariable *> staticGVs;
+    for (GlobalVariable &GV : M.globals()) {
+      bool isStaticGlobal =
+          HLModule::IsStaticGlobal(&GV) &&
+          GV.getType()->getAddressSpace() == DXIL::kDefaultAddrSpace;
+
+      if (isStaticGlobal &&
+          !GV.getType()->getElementType()->isAggregateType()) {
+        staticGVs.emplace_back(&GV);
+      }
+    }
+    bool bUpdated = false;
+
+    const DataLayout &DL = M.getDataLayout();
+    for (GlobalVariable *GV : staticGVs) {
+      bUpdated |= lowerStaticGlobalIntoAlloca(GV, DL);
+    }
+
+    return bUpdated;
+  }
+
+private:
+  bool lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL);
+};
+}
+
+bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV, const DataLayout &DL) {
+  DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
+  unsigned size = DL.getTypeAllocSize(GV->getType()->getElementType());
+  PointerStatus PS(size);
+  GV->removeDeadConstantUsers();
+  PS.analyzePointer(GV, PS, typeSys, /*bStructElt*/ false);
+  bool NotStored = (PS.StoredType == PointerStatus::NotStored) ||
+                   (PS.StoredType == PointerStatus::InitializerStored);
+  // Make sure GV only used in one function.
+  // Skip GV which don't have store.
+  if (PS.HasMultipleAccessingFunctions || NotStored)
+    return false;
+
+  Function *F = const_cast<Function*>(PS.AccessingFunction);
+  IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+  AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
+
+  // Store initializer is exist.
+  if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
+    Builder.CreateStore(GV->getInitializer(), GV);
+  }
+
+  ReplaceConstantWithInst(GV, AI, Builder);
+  GV->eraseFromParent();
+  return true;
+}
+
+char LowerStaticGlobalIntoAlloca::ID = 0;
+
+INITIALIZE_PASS(LowerStaticGlobalIntoAlloca, "static-global-to-alloca",
+  "Lower static global into Alloca", false,
+  false)
+
+// Public interface to the LowerStaticGlobalIntoAlloca pass
+ModulePass *llvm::createLowerStaticGlobalIntoAlloca() {
+  return new LowerStaticGlobalIntoAlloca();
 }
 
 //===----------------------------------------------------------------------===//
