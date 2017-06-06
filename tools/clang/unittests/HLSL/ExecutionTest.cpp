@@ -2522,6 +2522,16 @@ public:
     return nullptr;
   }
 
+  void clearTableParameter() {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      m_table[i].m_int = 0;
+      m_table[i].m_uint = 0;
+      m_table[i].m_double = 0;
+      m_table[i].m_bool = false;
+      m_table[i].m_str = WEX::Common::String();
+    }
+  }
+
   template <class T1>
   WEX::TestExecution::TestDataArray<T1> *GetDataArray(LPCWSTR name) {
     return nullptr;
@@ -2866,6 +2876,7 @@ static HRESULT ParseDataToVectorUint(PCWSTR str, unsigned int *ptr, size_t count
 }
 
 static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
+  // Flush parameter to zero before parsing data
   for (unsigned int i = 0; i < size; ++i) {
     switch (table[i].m_type) {
     case TableParameter::INT:
@@ -2976,8 +2987,9 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     }
     // Read data from the table
     int tableSize = sizeof(UnaryFPOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(UnaryFPOpParameters, tableSize));
     TableParameterHandler handler(UnaryFPOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(UnaryFPOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -2991,7 +3003,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     shader.Text = Text.m_psz;
 
     unsigned int WarpVersion = handler.GetTableParamByName(L"Warp.Version")->m_uint;
-    if (GetTestParamUseWARP(true) && IsValidWarpDllVersion(WarpVersion)) {
+    if (GetTestParamUseWARP(true) && !IsValidWarpDllVersion(WarpVersion)) {
         return;
     }
 
@@ -3056,8 +3068,10 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     }
     // Read data from the table
     int tableSize = sizeof(BinaryFPOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(BinaryFPOpParameters, tableSize));
     TableParameterHandler handler(BinaryFPOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(BinaryFPOpParameters, tableSize));
+
 
     st::ShaderOpShader shader;
 
@@ -3148,8 +3162,9 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
     // Read data from the table
     
     int tableSize = sizeof(TertiaryFPOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(TertiaryFPOpParameters, tableSize));
     TableParameterHandler handler(TertiaryFPOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(TertiaryFPOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3237,8 +3252,9 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
     // Read data from the table
 
     int tableSize = sizeof(UnaryIntOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(UnaryIntOpParameters, tableSize));
     TableParameterHandler handler(UnaryIntOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(UnaryIntOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3306,8 +3322,9 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
     // Read data from the table
 
     int tableSize = sizeof(UnaryUintOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(UnaryUintOpParameters, tableSize));
     TableParameterHandler handler(UnaryUintOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(UnaryUintOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3374,8 +3391,9 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
     }
     // Read data from the table
     size_t tableSize = sizeof(BinaryIntOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(BinaryIntOpParameters,tableSize));
     TableParameterHandler handler(BinaryIntOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(BinaryIntOpParameters,tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3475,8 +3493,9 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
     }
     // Read data from the table
     size_t tableSize = sizeof(TertiaryIntOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(TertiaryIntOpParameters, tableSize));
     TableParameterHandler handler(TertiaryIntOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(TertiaryIntOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3555,8 +3574,9 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     }
     // Read data from the table
     size_t tableSize = sizeof(BinaryUintOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(BinaryUintOpParameters, tableSize));
     TableParameterHandler handler(BinaryUintOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(BinaryUintOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3655,9 +3675,9 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
     }
     // Read data from the table
     size_t tableSize = sizeof(TertiaryUintOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(TertiaryUintOpParameters, tableSize));
     TableParameterHandler handler(TertiaryUintOpParameters, tableSize);
-    ;
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(TertiaryUintOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3735,8 +3755,9 @@ TEST_F(ExecutionTest, DotTest) {
     }
 
     int tableSize = sizeof(DotOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(DotOpParameters, tableSize));
     TableParameterHandler handler(DotOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(DotOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3827,8 +3848,9 @@ TEST_F(ExecutionTest, Msad4Test) {
         return;
     }
     size_t tableSize = sizeof(Msad4OpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(Msad4OpParameters, tableSize));
     TableParameterHandler handler(Msad4OpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(Msad4OpParameters, tableSize));
 
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
     double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -3928,9 +3950,10 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
     WEX::Logging::Log::Comment(L"Device does not support wave operations.");
     return;
   }
-  VERIFY_SUCCEEDED(ParseTableRow(pParameterList, numParameter));
-  TableParameterHandler handler(pParameterList, numParameter);
 
+  TableParameterHandler handler(pParameterList, numParameter);
+  handler.clearTableParameter();
+  VERIFY_SUCCEEDED(ParseTableRow(pParameterList, numParameter));
 
   unsigned int numInputSet = handler.GetTableParamByName(L"Validation.NumInputSet")->m_uint;
 
