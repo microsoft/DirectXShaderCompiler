@@ -52,6 +52,7 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "dxguid.lib")
+#pragma comment(lib, "version.lib")
 
 // A more recent Windows SDK than currently required is needed for these.
 typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
@@ -474,6 +475,37 @@ static OutType computeExpectedWithShaderOp(const std::vector<InType> &inputs,
     return (OutType) 0;
   }
 };
+
+
+// Checks if the given warp version supports the given operation.
+bool IsValidWarpDllVersion(unsigned int minBuildNumber) {
+    HMODULE pLibrary = LoadLibrary("D3D10Warp.dll");
+    char path[MAX_PATH];
+    DWORD length = GetModuleFileName(pLibrary, path, MAX_PATH);
+
+    if (pLibrary) {
+        if (length) {
+            DWORD dwVerHnd = 0;
+            DWORD dwVersionInfoSize = GetFileVersionInfoSize(path, &dwVerHnd);
+            std::unique_ptr<int[]> VffInfo(new int[dwVersionInfoSize]);
+            if (GetFileVersionInfo(path, NULL, dwVersionInfoSize, VffInfo.get())) {
+                LPVOID versionInfo;
+                UINT size;
+                if (VerQueryValue(VffInfo.get(), "\\", &versionInfo, &size)) {
+                    if (size) {
+                        VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)versionInfo;
+                        unsigned int warpBuildNumber = verInfo->dwFileVersionLS >> 16 & 0xffff;
+                        if (verInfo->dwSignature == 0xFEEF04BD && warpBuildNumber >= minBuildNumber) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 
 class ExecutionTest {
 public:
@@ -2462,7 +2494,7 @@ struct TableParameter {
     TableParameterType m_type;
     bool m_required; // required parameter
     int m_int;
-    unsigned int m_uint;
+    unsigned int m_uint = 0;
     double m_double;
     bool m_bool;
     WEX::Common::String m_str;
@@ -2549,7 +2581,8 @@ static TableParameter UnaryFPOpParameters[] = {
     { L"Validation.Expected", TableParameter::STRING_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
+    { L"Validation.NumInput", TableParameter::UINT, true },
+    { L"Warp.Version", TableParameter::UINT, false }
 };
 
 static TableParameter BinaryFPOpParameters[] = {
@@ -2956,6 +2989,11 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     shader.Target = Target.m_psz;
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
+
+    unsigned int WarpVersion = handler.GetTableParamByName(L"Warp.Version")->m_uint;
+    if (GetTestParamUseWARP(true) && IsValidWarpDllVersion(WarpVersion)) {
+        return;
+    }
 
     WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input =
         &(handler.GetTableParamByName(L"Validation.Input")->m_StringTable);
@@ -4008,28 +4046,50 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
   }
 }
 
+static unsigned int MinWarpVersionForWaveIntrinsics = 16202;
+
 TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
+  if (GetTestParamUseWARP(true) &&
+      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
+    return;
+  }
   WaveIntrinsicsActivePrefixTest<int, int>(
-    WaveIntrinsicsActiveIntParameters,
-    sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter), /*isPrefix*/ false);
+      WaveIntrinsicsActiveIntParameters,
+      sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter),
+      /*isPrefix*/ false);
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsActiveUintTest) {
+  if (GetTestParamUseWARP(true) &&
+      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
+    return;
+  }
   WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
       WaveIntrinsicsActiveUintParameters,
-      sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter), /*isPrefix*/ false);
+      sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter),
+      /*isPrefix*/ false);
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsPrefixIntTest) {
+  if (GetTestParamUseWARP(true) &&
+      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
+    return;
+  }
   WaveIntrinsicsActivePrefixTest<int, int>(
-    WaveIntrinsicsPrefixIntParameters,
-    sizeof(WaveIntrinsicsPrefixIntParameters) / sizeof(TableParameter), /*isPrefix*/ true);
+      WaveIntrinsicsPrefixIntParameters,
+      sizeof(WaveIntrinsicsPrefixIntParameters) / sizeof(TableParameter),
+      /*isPrefix*/ true);
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsPrefixUintTest) {
+  if (GetTestParamUseWARP(true) &&
+      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
+    return;
+  }
   WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
-    WaveIntrinsicsPrefixUintParameters,
-    sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter), /*isPrefix*/ true);
+      WaveIntrinsicsPrefixUintParameters,
+      sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter),
+      /*isPrefix*/ true);
 }
 
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
