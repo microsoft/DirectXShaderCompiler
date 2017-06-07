@@ -2876,7 +2876,6 @@ static HRESULT ParseDataToVectorUint(PCWSTR str, unsigned int *ptr, size_t count
 }
 
 static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
-  // Flush parameter to zero before parsing data
   for (unsigned int i = 0; i < size; ++i) {
     switch (table[i].m_type) {
     case TableParameter::INT:
