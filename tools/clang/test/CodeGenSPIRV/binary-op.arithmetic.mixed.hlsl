@@ -1,5 +1,7 @@
 // Run: %dxc -T vs_6_0 -E main
 
+// TODO: matrix * scalar
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
