@@ -11,7 +11,7 @@ if (${ENABLE_SPIRV_CODEGEN})
       CACHE STRING "Location of SPIRV-Tools source")
 
   if (IS_DIRECTORY ${DXC_SPIRV_HEADERS_DIR})
-    add_subdirectory(${DXC_SPIRV_HEADERS_DIR})
+    add_subdirectory(${DXC_SPIRV_HEADERS_DIR} EXCLUDE_FROM_ALL)
   endif()
   if (NOT DEFINED SPIRV-Headers_SOURCE_DIR)
     message(FATAL_ERROR "SPIRV-Headers was not found - required for SPIR-V codegen")
@@ -22,7 +22,7 @@ if (${ENABLE_SPIRV_CODEGEN})
   if (IS_DIRECTORY ${DXC_SPIRV_TOOLS_DIR})
     # We only need the library from SPIRV-Tools.
     set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip building SPIRV-Tools executables")
-    add_subdirectory(${DXC_SPIRV_TOOLS_DIR})
+    add_subdirectory(${DXC_SPIRV_TOOLS_DIR} EXCLUDE_FROM_ALL)
   endif()
   if (NOT TARGET SPIRV-Tools)
     message(FATAL_ERROR "SPIRV-Tools was not found - required for SPIR-V codegen")
@@ -33,12 +33,6 @@ if (${ENABLE_SPIRV_CODEGEN})
   set(SPIRV_DEP_TARGETS
     SPIRV-Tools
     SPIRV-Tools-opt
-    spirv-tools-build-version
-    spirv-tools-spv-amd-gcn-shader
-    spirv-tools-vimsyntax
-    install-headers
-    SPIRV-Headers-example
-    SPIRV-Headers-example-1.1
   )
 
   # Organize these targets better in Visual Studio
@@ -71,7 +65,7 @@ if (${ENABLE_SPIRV_CODEGEN})
       add_compile_options(/EHs)
       # Don't build/run re2's tests.
       set(RE2_BUILD_TESTING OFF CACHE BOOL "Skip RE2 tests")
-      add_subdirectory(${DXC_RE2_DIR})
+      add_subdirectory(${DXC_RE2_DIR} EXCLUDE_FROM_ALL)
     endif()
 
     if (IS_DIRECTORY ${DXC_EFFCEE_DIR})
@@ -81,7 +75,7 @@ if (${ENABLE_SPIRV_CODEGEN})
       # Don't build/run effcee's tests.
       set(EFFCEE_BUILD_TESTING OFF CACHE BOOL "Skip effcee tests")
       set(EFFCEE_BUILD_SAMPLES OFF CACHE BOOL "Skip building effcee examples")
-      add_subdirectory(${DXC_EFFCEE_DIR})
+      add_subdirectory(${DXC_EFFCEE_DIR} EXCLUDE_FROM_ALL)
     endif()
 
     # Organize these targets better in Visual Studio
