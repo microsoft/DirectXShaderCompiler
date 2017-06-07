@@ -98,9 +98,6 @@ TEST_F(FileTest, BinaryOpScalarBitwise) {
 TEST_F(FileTest, BinaryOpVectorBitwise) {
   runFileTest("binary-op.bitwise.vector.hlsl");
 }
-TEST_F(FileTest, BinaryOpMixedBitwise) {
-  runFileTest("binary-op.bitwise.mixed.hlsl");
-}
 
 // For bitwise assignments
 TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
@@ -109,9 +106,6 @@ TEST_F(FileTest, BinaryOpScalarBitwiseAssign) {
 TEST_F(FileTest, BinaryOpVectorBitwiseAssign) {
   runFileTest("binary-op.bitwise-assign.vector.hlsl");
 }
-TEST_F(FileTest, BinaryOpMixedBitwiseAssign) {
-  runFileTest("binary-op.bitwise-assign.mixed.hlsl");
-}
 
 // For comparison operators
 TEST_F(FileTest, BinaryOpScalarComparison) {
@@ -119,9 +113,6 @@ TEST_F(FileTest, BinaryOpScalarComparison) {
 }
 TEST_F(FileTest, BinaryOpVectorComparison) {
   runFileTest("binary-op.comparison.vector.hlsl");
-}
-TEST_F(FileTest, BinaryOpMixedComparison) {
-  runFileTest("binary-op.comparison.mixed.hlsl");
 }
 
 // For logical binary operators
