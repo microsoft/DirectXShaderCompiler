@@ -480,10 +480,9 @@ static OutType computeExpectedWithShaderOp(const std::vector<InType> &inputs,
 // Checks if the given warp version supports the given operation.
 bool IsValidWarpDllVersion(unsigned int minBuildNumber) {
     HMODULE pLibrary = LoadLibrary("D3D10Warp.dll");
-    char path[MAX_PATH];
-    DWORD length = GetModuleFileName(pLibrary, path, MAX_PATH);
-
     if (pLibrary) {
+        char path[MAX_PATH];
+        DWORD length = GetModuleFileName(pLibrary, path, MAX_PATH);
         if (length) {
             DWORD dwVerHnd = 0;
             DWORD dwVersionInfoSize = GetFileVersionInfoSize(path, &dwVerHnd);
@@ -502,6 +501,7 @@ bool IsValidWarpDllVersion(unsigned int minBuildNumber) {
                 }
             }
         }
+        FreeLibrary(pLibrary);
     }
     return false;
 }
@@ -4068,7 +4068,7 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
   }
 }
 
-static unsigned int MinWarpVersionForWaveIntrinsics = 16202;
+static const unsigned int MinWarpVersionForWaveIntrinsics = 16202;
 
 TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
   if (GetTestParamUseWARP(true) &&
