@@ -2806,25 +2806,29 @@ namespace MainNs
             form.ShowDialog(this);
         }
 
-        private void CheckSettingsForDxcLibrary()
+    private void CheckSettingsForDxcLibrary()
+    {
+      try
+      {
+        if (String.IsNullOrWhiteSpace(this.settingsManager.ExternalLib))
         {
-            if (!String.IsNullOrWhiteSpace(this.settingsManager.ExternalLib))
-            {
-                try
-                {
-                    HlslDxcLib.DxcCreateInstanceFn = HlslDxcLib.LoadDxcCreateInstance(
-                        this.settingsManager.ExternalLib,
-                        this.settingsManager.ExternalFunction);
-                }
-                catch (Exception e)
-                {
-                    HandleException(e);
-                }
-            }
+          HlslDxcLib.DxcCreateInstanceFn = DefaultDxcLib.GetDxcCreateInstanceFn();
         }
+        else
+        {
+          HlslDxcLib.DxcCreateInstanceFn = HlslDxcLib.LoadDxcCreateInstance(
+              this.settingsManager.ExternalLib,
+              this.settingsManager.ExternalFunction);
+        }
+      }
+      catch (Exception e)
+      {
+        HandleException(e);
+      }
     }
+  }
 
-    public static class RichTextBoxExt
+  public static class RichTextBoxExt
     {
         public static void AppendLine(this RichTextBox rtb, string line, Color c)
         {

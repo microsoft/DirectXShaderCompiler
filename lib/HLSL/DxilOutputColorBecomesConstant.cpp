@@ -49,17 +49,19 @@ public:
     float b = 0.f;
     float a = 1.f;
 
+    float color[4] = { r, g, b, a };
+
     DxilModule &DM = M.GetOrCreateDxilModule();
 
     auto pEntrypoint = DM.GetEntryFunction();
 
-    llvm::BasicBlock * pBasicBlock = pEntrypoint->begin();
+    BasicBlock * pBasicBlock = pEntrypoint->begin();
 
     for (auto pInstruction = pBasicBlock->begin(); pInstruction != pBasicBlock->end(); pInstruction++) {
 
       unsigned llvmOpcode = pInstruction->getOpcode();
 
-      if (llvmOpcode == llvm::Instruction::Ret) {
+      if (llvmOpcode == Instruction::Ret) {
         // Emit a new output-constant-color that looks something like this:
         //
         //  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0.000000e+00), !dbg !142; StoreOutput(outputtSigId, rowIndex, colIndex, value)
@@ -67,49 +69,35 @@ public:
         //  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float 0.000000e+00), !dbg !142; StoreOutput(outputtSigId, rowIndex, colIndex, value)
         //  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float 1.000000e+00), !dbg !142; StoreOutput(outputtSigId, rowIndex, colIndex, value)
 
-        llvm::IRBuilder<> Builder(pInstruction);
+        IRBuilder<> Builder(pInstruction);
 
-        // Create a new hlsl operation as a factory for creating a reference to the store-output "global function" and the required float constants
-        hlsl::OP *hlslOP = DM.GetOP();
+        for (unsigned i = 0; i < _countof(color); ++i) {
 
-        llvm::Function *pOutputFunction = hlslOP->GetOpFunc(hlsl::DXIL::OpCode::StoreOutput, Builder.getVoidTy());
+          // Create a new hlsl operation as a factory for creating a reference to the store-output "global function" and the required float constants
+          OP *hlslOP = DM.GetOP();
 
-        std::unique_ptr<OP> hlslOp = std::make_unique<OP>(M.getContext(), & M);
-        llvm::Constant *OpArg = hlslOp->GetU32Const((unsigned)hlsl::DXIL::OpCode::StoreOutput);
+          Function *pOutputFunction = hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Builder.getFloatTy());
 
-        // Prepare the argument array, of which the first two elements remain constant for each of the four pixel-elements we're going to set
-        llvm::SmallVector<llvm::Value *, 4> Args;
-        Args.push_back(OpArg);
-        Args.push_back(Builder.getInt32(0)); //todo: this is probably an index into the output signature... so we'll have to look up the proper index
+          std::unique_ptr<OP> hlslOp = std::make_unique<OP>(M.getContext(), &M);
+          Constant *OpArg = hlslOp->GetU32Const((unsigned)DXIL::OpCode::StoreOutput);
 
-                                                // Emit the RGBA stores in that order, since each one is being sequentially inserted before the "return" instruction
+          // Prepare the argument array, of which the first two elements remain constant for each of the four pixel-elements we're going to set
+          SmallVector<Value *, 5> Args;
+          Args.push_back(OpArg);
+          Args.push_back(Builder.getInt32(0)); //todo: one of these is probably an index into the output signature... so we'll have to look up the proper index
+          Args.push_back(Builder.getInt32(0)); //todo: one of these is probably an index into the output signature... so we'll have to look up the proper index
 
-        llvm::Constant * pFloatConstant = hlslOP->GetFloatConst(r);
-        Args[2] = Builder.getInt32(3);
-        Args[3] = pFloatConstant;
-        llvm::CallInst * callStoreOutput = Builder.CreateCall(pOutputFunction, Args);
-        callStoreOutput->insertBefore(pInstruction);
-
-        pFloatConstant = hlslOP->GetFloatConst(g);
-        Args[2] = Builder.getInt32(2);
-        Args[3] = pFloatConstant;
-        callStoreOutput = Builder.CreateCall(pOutputFunction, Args);
-        callStoreOutput->insertBefore(pInstruction);
-
-        pFloatConstant = hlslOP->GetFloatConst(b);
-        Args[2] = Builder.getInt32(1);
-        Args[3] = pFloatConstant;
-        callStoreOutput = Builder.CreateCall(pOutputFunction, Args);
-        callStoreOutput->insertBefore(pInstruction);
-
-        pFloatConstant = hlslOP->GetFloatConst(a);
-        Args[2] = Builder.getInt32(0);
-        Args[4] = pFloatConstant;
-        callStoreOutput = Builder.CreateCall(pOutputFunction, Args);
-        callStoreOutput->insertBefore(pInstruction);
+          // Emit the RGBA stores in that order, since each one is being sequentially inserted before the "return" instruction
+          Constant * pFloatConstant = hlslOP->GetFloatConst(color[i]);
+          Args.push_back(Builder.getInt8(i));
+          Args.push_back(pFloatConstant);
+          
+          (void) Builder.CreateCall(pOutputFunction, Args);
+        }
+        return true;
       }
     }
-    return true;
+    return false;
   }
 };
 
