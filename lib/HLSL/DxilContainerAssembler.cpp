@@ -487,6 +487,7 @@ public:
 
     // Set DxilRuntimInfo
     PSVRuntimeInfo0* pInfo = m_PSV.GetPSVRuntimeInfo0();
+    PSVRuntimeInfo1* pInfo1 = m_PSV.GetPSVRuntimeInfo1();
     const ShaderModel* SM = m_Module.GetShaderModel();
     pInfo->MinimumExpectedWaveLaneCount = 0;
     pInfo->MaximumExpectedWaveLaneCount = (UINT)-1;
@@ -633,6 +634,14 @@ public:
     DXASSERT_NOMSG(uResIndex == m_PSVInitInfo.ResourceCount);
 
     if (m_PSVInitInfo.PSVVersion > 0) {
+      DXASSERT_NOMSG(pInfo1);
+
+      // Write MaxVertexCount
+      if (SM->IsGS()) {
+        DXASSERT_NOMSG(m_Module.GetMaxVertexCount() <= 1024);
+        pInfo1->MaxVertexCount = (uint16_t)m_Module.GetMaxVertexCount();
+      }
+
       // Write Dxil Signature Elements
       for (unsigned i = 0; i < m_PSV.GetSigInputElements(); i++) {
         PSVSignatureElement0 *pInputElement = m_PSV.GetInputElement0(i);
@@ -662,10 +671,10 @@ public:
           if (!SM->IsGS())
             break;
         }
-        if (m_Module.GetShaderModel()->IsHS()) {
+        if (SM->IsHS()) {
           const uint32_t PCScalars = *(pSrc++);
           pSrc = CopyViewIDState(pSrc, InputScalars, PCScalars, m_PSV.GetViewIDPCOutputMask(), m_PSV.GetInputToPCOutputTable());
-        } else if (m_Module.GetShaderModel()->IsDS()) {
+        } else if (SM->IsDS()) {
           const uint32_t PCScalars = *(pSrc++);
           pSrc = CopyViewIDState(pSrc, PCScalars, OutputScalars[0], PSVComponentMask(), m_PSV.GetPCInputToOutputTable());
         }
