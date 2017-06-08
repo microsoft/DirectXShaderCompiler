@@ -513,7 +513,7 @@ Value *DxilExpandTrigIntrinsics::expandHTan(IRBuilder<> &builder, DxilInst_Htan 
 
 // Tan
 // ----------------------------------------------------------------------------
-// We use the following identity for computing tin(x)
+// We use the following identity for computing tan(x)
 //
 //    tan(x) = sin(x) / cos(x)
 //
