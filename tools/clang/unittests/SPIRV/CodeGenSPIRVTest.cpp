@@ -50,14 +50,26 @@ TEST_F(FileTest, VariableInitializer) { runFileTest("var.init.hlsl"); }
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
   runFileTest("unary-op.prefix-inc.hlsl");
 }
+TEST_F(FileTest, UnaryOpPrefixIncrementMatrix) {
+  runFileTest("unary-op.prefix-inc.matrix.hlsl");
+}
 TEST_F(FileTest, UnaryOpPrefixDecrement) {
   runFileTest("unary-op.prefix-dec.hlsl");
+}
+TEST_F(FileTest, UnaryOpPrefixDecrementMatrix) {
+  runFileTest("unary-op.prefix-dec.matrix.hlsl");
 }
 TEST_F(FileTest, UnaryOpPostfixIncrement) {
   runFileTest("unary-op.postfix-inc.hlsl");
 }
+TEST_F(FileTest, UnaryOpPostfixIncrementMatrix) {
+  runFileTest("unary-op.postfix-inc.matrix.hlsl");
+}
 TEST_F(FileTest, UnaryOpPostfixDecrement) {
   runFileTest("unary-op.postfix-dec.hlsl");
+}
+TEST_F(FileTest, UnaryOpPostfixDecrementMatrix) {
+  runFileTest("unary-op.postfix-dec.matrix.hlsl");
 }
 
 // For unary operators
