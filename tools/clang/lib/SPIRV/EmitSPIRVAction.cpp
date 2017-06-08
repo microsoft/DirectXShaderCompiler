@@ -1550,17 +1550,8 @@ public:
     }
     case CastKind::CK_HLSLVectorSplat: {
       const size_t size = hlsl::GetHLSLVecSize(expr->getType());
-      const uint32_t scalarValue = doExpr(subExpr);
 
-      // Just return the scalar value for vector splat with size 1
-      if (size == 1) {
-        return scalarValue;
-      }
-
-      const uint32_t vecTypeId = typeTranslator.translateType(toType);
-      llvm::SmallVector<uint32_t, 4> elements(size, scalarValue);
-
-      return theBuilder.createCompositeConstruct(vecTypeId, elements);
+      return createVectorSplat(subExpr, size);
     }
     case CastKind::CK_HLSLVectorTruncationCast: {
       const uint32_t toVecTypeId = typeTranslator.translateType(toType);
@@ -1593,11 +1584,31 @@ public:
       return doExpr(subExpr);
     }
     case CastKind::CK_HLSLMatrixSplat: {
-      if (TypeTranslator::is1x1MatrixType(toType))
+      // From scalar to matrix
+      uint32_t rowCount = 0, colCount = 0;
+      hlsl::GetHLSLMatRowColCount(toType, rowCount, colCount);
+
+      // Handle degenerated cases first
+      if (rowCount == 1 && colCount == 1)
         return doExpr(subExpr);
 
-      emitError("matrix splatting not supported yet");
-      return 0;
+      if (colCount == 1)
+        return createVectorSplat(subExpr, rowCount);
+
+      bool isConstVec = false;
+      const uint32_t vecSplat =
+          createVectorSplat(subExpr, colCount, &isConstVec);
+      if (rowCount == 1)
+        return vecSplat;
+
+      const uint32_t matType = typeTranslator.translateType(toType);
+      llvm::SmallVector<uint32_t, 4> vectors(size_t(rowCount), vecSplat);
+
+      if (isConstVec) {
+        return theBuilder.getConstantComposite(matType, vectors);
+      } else {
+        return theBuilder.createCompositeConstruct(matType, vectors);
+      }
     }
     case CastKind::CK_HLSLMatrixToScalarCast: {
       // The underlying should already be a matrix of 1x1.
@@ -1687,6 +1698,44 @@ public:
         result = additionId;
       }
       return result;
+    }
+  }
+
+  /// Generates necessary SPIR-V instructions to create a vector splat out of
+  /// the given scalarExpr. The generated vector will have the same element
+  /// type as scalarExpr and of the given size. If resultIsConstant is not
+  /// nullptr, writes true to it if the generated instruction is a constant.
+  uint32_t createVectorSplat(const Expr *scalarExpr, uint32_t size,
+                             bool *resultIsConstant = nullptr) {
+    bool isConstVal = false;
+    uint32_t scalarVal = 0;
+
+    // Try to evaluate the element as constant first. If successful, then we
+    // can generate constant instructions for this vector splat.
+    Expr::EvalResult evalResult;
+    if (scalarExpr->EvaluateAsRValue(evalResult, astContext) &&
+        !evalResult.HasSideEffects) {
+      isConstVal = true;
+      scalarVal = translateAPValue(evalResult.Val, scalarExpr->getType());
+    } else {
+      scalarVal = doExpr(scalarExpr);
+    }
+
+    if (resultIsConstant)
+      *resultIsConstant = isConstVal;
+
+    // Just return the scalar value for vector splat with size 1
+    if (size == 1)
+      return scalarVal;
+
+    const uint32_t vecType = theBuilder.getVecType(
+        typeTranslator.translateType(scalarExpr->getType()), size);
+    llvm::SmallVector<uint32_t, 4> elements(size_t(size), scalarVal);
+
+    if (isConstVal) {
+      return theBuilder.getConstantComposite(vecType, elements);
+    } else {
+      return theBuilder.createCompositeConstruct(vecType, elements);
     }
   }
 

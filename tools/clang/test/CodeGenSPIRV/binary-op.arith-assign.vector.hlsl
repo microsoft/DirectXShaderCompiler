@@ -1,5 +1,7 @@
 // Run: %dxc -T vs_6_0 -E main
 
+// CHECK: [[v3i4:%\d+]] = OpConstantComposite %v3int %int_4 %int_4 %int_4
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -145,10 +147,9 @@ void main() {
 
     int4 v4i;
 
-// CHECK-NEXT: [[cc0:%\d+]] = OpCompositeConstruct %v3int %int_4 %int_4 %int_4
 // CHECK-NEXT: [[v4i0:%\d+]] = OpLoad %v4int %v4i
 // CHECK-NEXT: [[vs5:%\d+]] = OpVectorShuffle %v3int [[v4i0]] [[v4i0]] 0 1 2
-// CHECK-NEXT: [[mul7:%\d+]] = OpIMul %v3int [[vs5]] [[cc0]]
+// CHECK-NEXT: [[mul7:%\d+]] = OpIMul %v3int [[vs5]] [[v3i4]]
 // CHECK-NEXT: [[v4i1:%\d+]] = OpLoad %v4int %v4i
 // CHECK-NEXT: [[vs6:%\d+]] = OpVectorShuffle %v4int [[v4i1]] [[mul7]] 4 5 6 3
 // CHECK-NEXT: OpStore %v4i [[vs6]]
