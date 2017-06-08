@@ -641,6 +641,7 @@ public:
   TEST_METHOD(CodeGenStaticGlobals2)
   TEST_METHOD(CodeGenStaticGlobals3)
   TEST_METHOD(CodeGenStaticGlobals4)
+  TEST_METHOD(CodeGenStaticMatrix)
   TEST_METHOD(CodeGenStaticResource)
   TEST_METHOD(CodeGenStaticResource2)
   TEST_METHOD(CodeGenStruct_Buf1)
@@ -3318,6 +3319,10 @@ TEST_F(CompilerTest, CodeGenStaticGlobals3) {
 
 TEST_F(CompilerTest, CodeGenStaticGlobals4) {
   CodeGenTest(L"..\\CodeGenHLSL\\staticGlobals4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticMatrix) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\static_matrix.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStaticResource) {
