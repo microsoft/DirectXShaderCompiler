@@ -2544,6 +2544,7 @@ TEST_F(CompilerTest, CodeGenExpandTrig) {
   CodeGenTestCheck(L"expand_trig\\hsin_h.hlsl");
   CodeGenTestCheck(L"expand_trig\\htan.hlsl");
   CodeGenTestCheck(L"expand_trig\\htan_h.hlsl");
+  CodeGenTestCheck(L"expand_trig\\tan.hlsl");
   CodeGenTestCheck(L"expand_trig\\keep_precise.0.hlsl");
   CodeGenTestCheck(L"expand_trig\\keep_precise.1.hlsl");
 }
