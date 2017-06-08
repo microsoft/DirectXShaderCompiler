@@ -1133,56 +1133,60 @@ static unsigned GetNumVertices(DXIL::InputPrimitive inputPrimitive) {
   return InputPrimitiveVertexTab[primitiveIdx];
 }
 
+static void ValidateDxilLoadInput(CallInst *CI, const ShaderModel *pSM,
+                                  ValidationContext &ValCtx) {
+  Value *inputID = CI->getArgOperand(DXIL::OperandIndex::kLoadInputIDOpIdx);
+  DxilSignature &inputSig = ValCtx.DxilMod.GetInputSignature();
+  Value *row = CI->getArgOperand(DXIL::OperandIndex::kLoadInputRowOpIdx);
+  Value *col = CI->getArgOperand(DXIL::OperandIndex::kLoadInputColOpIdx);
+  ValidateSignatureAccess(CI, inputSig, inputID, row, col, ValCtx);
+
+  // Check vertexID in ps/vs. and none array input.
+  Value *vertexID =
+      CI->getArgOperand(DXIL::OperandIndex::kLoadInputVertexIDOpIdx);
+  bool usedVertexID = vertexID && !isa<UndefValue>(vertexID);
+  if (pSM->IsVS() || pSM->IsPS()) {
+    if (usedVertexID) {
+      // use vertexID in VS/PS input.
+      ValCtx.EmitInstrError(CI, ValidationRule::SmOperand);
+      return;
+    }
+  } else {
+    if (ConstantInt *cVertexID = dyn_cast<ConstantInt>(vertexID)) {
+      int immVertexID = cVertexID->getValue().getLimitedValue();
+      if (cVertexID->getValue().isNegative()) {
+        immVertexID = cVertexID->getValue().getSExtValue();
+      }
+      const int low = 0;
+      int high = 0;
+      if (pSM->IsGS()) {
+        DXIL::InputPrimitive inputPrimitive =
+            ValCtx.DxilMod.GetInputPrimitive();
+        high = GetNumVertices(inputPrimitive);
+      } else if (pSM->IsDS()) {
+        high = ValCtx.DxilMod.GetInputControlPointCount();
+      } else if (pSM->IsHS()) {
+        high = ValCtx.DxilMod.GetInputControlPointCount();
+      } else {
+        ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
+                               {"LoadInput", "VS/HS/DS/GS/PS"});
+      }
+      if (immVertexID < low || immVertexID >= high) {
+        std::string range = std::to_string(low) + "~" + std::to_string(high);
+        ValCtx.EmitOperandOutOfRange(CI, "VertexID", range,
+                                     std::to_string(immVertexID));
+      }
+    }
+  }
+}
+
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                                DXIL::OpCode opcode,
                                                const ShaderModel *pSM,
                                                ValidationContext &ValCtx) {
   switch (opcode) {
   case DXIL::OpCode::LoadInput: {
-    Value *inputID = CI->getArgOperand(DXIL::OperandIndex::kLoadInputIDOpIdx);
-    DxilSignature &inputSig = ValCtx.DxilMod.GetInputSignature();
-    Value *row = CI->getArgOperand(DXIL::OperandIndex::kLoadInputRowOpIdx);
-    Value *col = CI->getArgOperand(DXIL::OperandIndex::kLoadInputColOpIdx);
-    ValidateSignatureAccess(CI, inputSig, inputID, row, col, ValCtx);
-
-    // Check vertexID in ps/vs. and none array input.
-    Value *vertexID =
-        CI->getArgOperand(DXIL::OperandIndex::kLoadInputVertexIDOpIdx);
-    bool usedVertexID = vertexID && !isa<UndefValue>(vertexID);
-    if (pSM->IsVS() || pSM->IsPS()) {
-      if (usedVertexID) {
-        // use vertexID in VS/PS input.
-        ValCtx.EmitInstrError(CI, ValidationRule::SmOperand);
-        return;
-      }
-    } else {
-      if (ConstantInt *cVertexID = dyn_cast<ConstantInt>(vertexID)) {
-        int immVertexID = cVertexID->getValue().getLimitedValue();
-        if (cVertexID->getValue().isNegative()) {
-          immVertexID = cVertexID->getValue().getSExtValue();
-        }
-        const int low = 0;
-        int high = 0;
-        if (pSM->IsGS()) {
-          DXIL::InputPrimitive inputPrimitive =
-              ValCtx.DxilMod.GetInputPrimitive();
-          high = GetNumVertices(inputPrimitive);
-        } else if (pSM->IsDS()) {
-          high = ValCtx.DxilMod.GetInputControlPointCount();
-        } else if (pSM->IsHS()) {
-          high = ValCtx.DxilMod.GetInputControlPointCount();
-        } else {
-          ValCtx.EmitFormatError(ValidationRule::SmOpcodeInInvalidFunction,
-                                 {"LoadInput", "VS/HS/DS/GS/PS"});
-        }
-        if (immVertexID < low || immVertexID >= high) {
-          std::string range = std::to_string(low)+"~"+
-                                       std::to_string(high);
-          ValCtx.EmitOperandOutOfRange(CI, "VertexID", range,
-                                       std::to_string(immVertexID));
-        }
-      }
-    }
+    ValidateDxilLoadInput(CI, pSM, ValCtx);
   } break;
   case DXIL::OpCode::DomainLocation: {
     Value *colValue = CI->getArgOperand(DXIL::OperandIndex::kDomainLocationColOpIdx);
@@ -1236,19 +1240,23 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     }
   } break;
   case DXIL::OpCode::LoadOutputControlPoint: {
-    // Only used in patch constant function.
-    Function *func = CI->getParent()->getParent();
-    if (ValCtx.entryFuncCallSet.count(func) > 0) {
-      ValCtx.EmitFormatError(
-          ValidationRule::SmOpcodeInInvalidFunction,
-          {"LoadOutputControlPoint", "PatchConstant function"});
+    if (pSM->IsDS()) {
+      ValidateDxilLoadInput(CI, pSM, ValCtx);
+    } else {
+      // Only used in patch constant function.
+      Function *func = CI->getParent()->getParent();
+      if (ValCtx.entryFuncCallSet.count(func) > 0) {
+        ValCtx.EmitFormatError(
+            ValidationRule::SmOpcodeInInvalidFunction,
+            {"LoadOutputControlPoint", "PatchConstant function"});
+      }
+      Value *outputID =
+          CI->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
+      DxilSignature &outputSig = ValCtx.DxilMod.GetOutputSignature();
+      Value *row = CI->getArgOperand(DXIL::OperandIndex::kStoreOutputRowOpIdx);
+      Value *col = CI->getArgOperand(DXIL::OperandIndex::kStoreOutputColOpIdx);
+      ValidateSignatureAccess(CI, outputSig, outputID, row, col, ValCtx);
     }
-    Value *outputID =
-        CI->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
-    DxilSignature &outputSig = ValCtx.DxilMod.GetOutputSignature();
-    Value *row = CI->getArgOperand(DXIL::OperandIndex::kStoreOutputRowOpIdx);
-    Value *col = CI->getArgOperand(DXIL::OperandIndex::kStoreOutputColOpIdx);
-    ValidateSignatureAccess(CI, outputSig, outputID, row, col, ValCtx);
   } break;
   case DXIL::OpCode::StorePatchConstant: {
     // Only used in patch constant function.
