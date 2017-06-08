@@ -71,6 +71,10 @@ struct PSVRuntimeInfo1 : public PSVRuntimeInfo0
 {
   uint8_t ShaderStage;              // PSVShaderKind
   uint8_t UsesViewID;
+  union {
+    uint16_t MaxVertexCount;          // MaxVertexCount for GS only (max 1024)
+    uint8_t SigPatchConstantVectors;  // Output for HS; Input for DS
+  };
 
   // PSVSignatureElement counts
   uint8_t SigInputElements;
@@ -79,9 +83,7 @@ struct PSVRuntimeInfo1 : public PSVRuntimeInfo0
 
   // Number of packed vectors per signature
   uint8_t SigInputVectors;
-  uint8_t SigPatchConstantVectors;  // Output for HS Input for DS
   uint8_t SigOutputVectors[4];      // Array for GS Stream Out Index
-  uint8_t Reserved;
 };
 
 enum class PSVResourceType
@@ -463,7 +465,7 @@ public:
           if (!IsGS())
             break;
         }
-        if (m_pPSVRuntimeInfo1->ShaderStage == (uint8_t)PSVShaderKind::Hull && m_pPSVRuntimeInfo1->SigPatchConstantVectors) {
+        if (IsHS() && m_pPSVRuntimeInfo1->SigPatchConstantVectors) {
           minsize += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigPatchConstantVectors);
           if (!(size >= minsize)) return false;
           m_pViewIDPCOutputMask = (uint32_t*)pCurBits;
@@ -599,7 +601,9 @@ public:
       m_pPSVRuntimeInfo1->SigPatchConstantElements = initInfo.SigPatchConstantElements;
       m_pPSVRuntimeInfo1->SigInputVectors = initInfo.SigInputVectors;
       memcpy(m_pPSVRuntimeInfo1->SigOutputVectors, initInfo.SigOutputVectors, 4);
-      m_pPSVRuntimeInfo1->SigPatchConstantVectors = initInfo.SigPatchConstantVectors;
+      if (IsHS() || IsDS()) {
+        m_pPSVRuntimeInfo1->SigPatchConstantVectors = initInfo.SigPatchConstantVectors;
+      }
 
       // Note: if original size was unaligned, padding has already been zero initialized
       m_StringTable.Size = PSVALIGN4(initInfo.StringTable.Size);
@@ -795,6 +799,7 @@ namespace hlsl {
   public:
     enum class Result {
       Success = 0,
+      SuccessWithViewIDDependentTessFactor,
       InsufficientSpace,
       InsufficientPCSpace,
       MismatchedSignatures,
@@ -806,6 +811,7 @@ namespace hlsl {
     virtual ~ViewIDValidator() {}
     virtual Result ValidateStage(const DxilPipelineStateValidation &PSV,
                                  bool bFinalStage,
+                                 bool bExpandInputOnly,
                                  unsigned &mismatchElementId) = 0;
   };
 
