@@ -122,6 +122,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeLoopUnswitchPass(Registry);
     initializeLowerBitSetsPass(Registry);
     initializeLowerExpectIntrinsicPass(Registry);
+    initializeLowerStaticGlobalIntoAllocaPass(Registry);
     initializeMergeFunctionsPass(Registry);
     initializeMergedLoadStoreMotionPass(Registry);
     initializeMultiDimArrayToOneDimArrayPass(Registry);
