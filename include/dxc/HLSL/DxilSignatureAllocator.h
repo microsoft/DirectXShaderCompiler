@@ -115,9 +115,10 @@ public:
     void PlaceElement(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned col, unsigned width);
   };
 
-  std::vector<PackedRegister> Registers;
-
   DxilSignatureAllocator(unsigned numRegisters);
+
+  bool GetIgnoreIndexing() const { return m_bIgnoreIndexing; }
+  void SetIgnoreIndexing(bool ignoreIndexing) { m_bIgnoreIndexing  = ignoreIndexing; }
 
   ConflictType DetectRowConflict(const PackElement *SE, unsigned row);
   ConflictType DetectColConflict(const PackElement *SE, unsigned row, unsigned col);
@@ -134,6 +135,9 @@ public:
   // Pack in a prefix-stable way - appended elements do not affect positions of prior elements.
   unsigned PackPrefixStable(std::vector<PackElement*> elements, unsigned startRow, unsigned numRows);
 
+protected:
+  std::vector<PackedRegister> m_Registers;
+  bool m_bIgnoreIndexing;
 };
 
 
