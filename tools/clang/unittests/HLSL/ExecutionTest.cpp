@@ -2492,11 +2492,11 @@ struct TableParameter {
         BOOL_TABLE
     };
     TableParameterType m_type;
-    bool m_required = true; // required parameter
-    int m_int = 0;
-    unsigned int m_uint = 0;
-    double m_double = 0;
-    bool m_bool = false;
+    bool m_required; // required parameter
+    int m_int;
+    unsigned int m_uint;
+    double m_double;
+    bool m_bool;
     WEX::Common::String m_str;
     WEX::TestExecution::TestDataArray<int> m_intTable;
     WEX::TestExecution::TestDataArray<unsigned int> m_uintTable;
