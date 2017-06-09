@@ -640,7 +640,9 @@ if(WITH_POLLY)
   endif()
 endif(WITH_POLLY)
 
-add_subdirectory(external) # SPIRV change
+if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
+  add_subdirectory(external) # SPIRV change
+endif()
 
 if( LLVM_INCLUDE_TOOLS )
   add_subdirectory(tools)
