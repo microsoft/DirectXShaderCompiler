@@ -88,7 +88,7 @@ private:
 #ifdef _HASH_SEQ_DEFINED
       return std::_Hash_seq((const unsigned char *)a, strlen(a));
 #else
-#error Pick a hash function for this platform.
+      return std::_Hash_array_representation((const unsigned char *)a, strlen(a));
 #endif
     }
   };
