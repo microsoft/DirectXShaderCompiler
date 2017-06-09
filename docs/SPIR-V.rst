@@ -320,6 +320,23 @@ Comparison operators
 
 Note that for comparison of (vectors of) floats, SPIR-V has two sets of instructions: ``OpFOrd*``, ``OpFUnord*``. We translate into ``OpFOrd*`` ones.
 
+Boolean math operators
+++++++++++++++++++++++
+
+`Boolean match operators <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509631(v=vs.85).aspx#Boolean_Math_Operators>`_ (``&&``, ``||``, ``?:``) are translated into their corresponding SPIR-V opcodes according to the following table.
+
++--------+----------------------+
+|        | (Vector of) Booleans |
++--------+----------------------+
+| ``&&`` |  ``OpLogicalAnd``    |
++--------+----------------------+
+| ``||`` |  ``OpLogicalOr``     |
++--------+----------------------+
+| ``?:`` |  ``OpSelect``        |
++--------+----------------------+
+
+Please note that "unlike short-circuit evaluation of ``&&``, ``||``, and ``?:`` in C, HLSL expressions never short-circuit an evaluation because they are vector operations. All sides of the expression are always evaluated."
+
 Unary operators
 +++++++++++++++
 
