@@ -227,6 +227,7 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
 
   if (!NoOpt) {
+    MPM.add(createLowerStaticGlobalIntoAlloca());
     // mem2reg
     MPM.add(createPromoteMemoryToRegisterPass());
   }

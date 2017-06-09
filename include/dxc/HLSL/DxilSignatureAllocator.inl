@@ -136,19 +136,21 @@ void DxilSignatureAllocator::PackedRegister::PlaceElement(uint8_t flags, uint8_t
   }
 }
 
-DxilSignatureAllocator::DxilSignatureAllocator(unsigned numRegisters) {
-  Registers.resize(numRegisters);
+DxilSignatureAllocator::DxilSignatureAllocator(unsigned numRegisters)
+  : m_bIgnoreIndexing(false) {
+  m_Registers.resize(numRegisters);
 }
 
 DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectRowConflict(const PackElement *SE, unsigned row) {
   unsigned rows = SE->GetRows();
-  if (rows + row > Registers.size())
+  if (rows + row > m_Registers.size())
     return kConflictFit;
   unsigned cols = SE->GetCols();
   DXIL::InterpolationMode interp = SE->GetInterpolationMode();
   uint8_t flags = GetElementFlags(SE);
   for (unsigned i = 0; i < rows; ++i) {
-    ConflictType conflict = Registers[row + i].DetectRowConflict(flags, GetIndexFlags(i, rows), interp, cols);
+    uint8_t indexFlags = m_bIgnoreIndexing ? 0 : GetIndexFlags(i, rows);
+    ConflictType conflict = m_Registers[row + i].DetectRowConflict(flags, indexFlags, interp, cols);
     if (conflict)
       return conflict;
   }
@@ -160,7 +162,7 @@ DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectColConflict(c
   unsigned cols = SE->GetCols();
   uint8_t flags = GetElementFlags(SE);
   for (unsigned i = 0; i < rows; ++i) {
-    ConflictType conflict = Registers[row + i].DetectColConflict(flags, col, cols);
+    ConflictType conflict = m_Registers[row + i].DetectColConflict(flags, col, cols);
     if (conflict)
       return conflict;
   }
@@ -174,7 +176,8 @@ void DxilSignatureAllocator::PlaceElement(const PackElement *SE, unsigned row, u
   DXIL::InterpolationMode interp = SE->GetInterpolationMode();
   uint8_t flags = GetElementFlags(SE);
   for (unsigned i = 0; i < rows; ++i) {
-    Registers[row + i].PlaceElement(flags, GetIndexFlags(i, rows), interp, col, cols);
+    uint8_t indexFlags = m_bIgnoreIndexing ? 0 : GetIndexFlags(i, rows);
+    m_Registers[row + i].PlaceElement(flags, indexFlags, interp, col, cols);
   }
 }
 
@@ -191,14 +194,14 @@ int cmp(T a, T b) {
 }
 int CmpElements(const DxilSignatureAllocator::PackElement* left, const DxilSignatureAllocator::PackElement* right) {
   unsigned result;
-  if (result = cmp((unsigned)left->GetInterpolationMode(), (unsigned)right->GetInterpolationMode()))
-    return result;
-  if (result = -cmp(left->GetRows(), right->GetRows()))
-    return result;
-  if (result = -cmp(left->GetCols(), right->GetCols()))
-    return result;
-  if (result = cmp(left->GetID(), right->GetID()))
-    return result;
+  result = cmp((unsigned)left->GetInterpolationMode(), (unsigned)right->GetInterpolationMode());
+  if (result) return result;
+  result = -cmp(left->GetRows(), right->GetRows());
+  if (result) return result;
+  result = -cmp(left->GetCols(), right->GetCols());
+  if (result) return result;
+  result = cmp(left->GetID(), right->GetID());
+  if (result) return result;
   return 0;
 }
 

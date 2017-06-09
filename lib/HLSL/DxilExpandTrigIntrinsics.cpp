@@ -89,6 +89,7 @@ private:
   Value *expandHCos(IRBuilder<> &builder, DxilInst_Hcos hcos, DxilModule &DM);
   Value *expandHSin(IRBuilder<> &builder, DxilInst_Hsin hsin, DxilModule &DM);
   Value *expandHTan(IRBuilder<> &builder, DxilInst_Htan htan, DxilModule &DM);
+  Value *expandTan(IRBuilder<> &builder, DxilInst_Tan tan, DxilModule &DM);
 };
 
 // Math constants.
@@ -119,6 +120,7 @@ CallInst *DxilExpandTrigIntrinsics::isExpandableTrigIntrinsicCall(Instruction *I
       case OP::OpCode::Hcos:
       case OP::OpCode::Hsin:
       case OP::OpCode::Htan:
+      case OP::OpCode::Tan:
         return cast<CallInst>(I);
       default: break;
       }
@@ -168,6 +170,7 @@ bool DxilExpandTrigIntrinsics::expandTrigIntrinsics(DxilModule &DM, const Intrin
     case OP::OpCode::Hcos: expansion = expandHCos(builder, intrinsic, DM); break;
     case OP::OpCode::Hsin: expansion = expandHSin(builder, intrinsic, DM); break;
     case OP::OpCode::Htan: expansion = expandHTan(builder, intrinsic, DM); break;
+    case OP::OpCode::Tan: expansion = expandTan(builder, intrinsic, DM); break;
     default:
       assert(false && "unexpected intrinsic");
       break;
@@ -504,6 +507,27 @@ Value *DxilExpandTrigIntrinsics::expandHTan(IRBuilder<> &builder, DxilInst_Htan 
   Value *r4 = builder.CreateFSub(eX, emX, name);
   Value *r5 = builder.CreateFAdd(eX, emX, name);
   Value *r  = builder.CreateFDiv(r4, r5, name);
+
+  return r;
+}
+
+// Tan
+// ----------------------------------------------------------------------------
+// We use the following identity for computing tan(x)
+//
+//    tan(x) = sin(x) / cos(x)
+//
+// No range reduction is needed.
+//
+Value *DxilExpandTrigIntrinsics::expandTan(IRBuilder<> &builder,
+                                           DxilInst_Tan tan, DxilModule &DM) {
+  assert(tan);
+  StringRef name = "tan.x";
+  Value *X = tan.get_value();
+  OP *dxOp = DM.GetOP();
+  Value *sin = emitUnaryFloat(builder, X, dxOp, OP::OpCode::Sin, name);
+  Value *cos = emitUnaryFloat(builder, X, dxOp, OP::OpCode::Cos, name);
+  Value *r = builder.CreateFDiv(sin, cos, name);
 
   return r;
 }
