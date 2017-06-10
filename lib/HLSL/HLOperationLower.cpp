@@ -5713,6 +5713,9 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     HLOpcodeGroup group =
         hlsl::GetHLOpcodeGroupByName(userCall->getCalledFunction());
     unsigned opcode = GetHLOpcode(userCall);
+    // For case element type of structure buffer is not structure type.
+    if (baseOffset == nullptr)
+      baseOffset = OP->GetU32Const(0);
     if (group == HLOpcodeGroup::HLIntrinsic) {
       IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
       switch (IOP) {

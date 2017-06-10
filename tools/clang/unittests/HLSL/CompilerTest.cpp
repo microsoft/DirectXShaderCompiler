@@ -373,6 +373,7 @@ public:
   TEST_METHOD(CodeGenAsUint)
   TEST_METHOD(CodeGenAsUint2)
   TEST_METHOD(CodeGenAtomic)
+  TEST_METHOD(CodeGenAtomic2)
   TEST_METHOD(CodeGenAttributeAtVertex)
   TEST_METHOD(CodeGenBarycentrics)
   TEST_METHOD(CodeGenBarycentrics1)
@@ -2239,6 +2240,10 @@ TEST_F(CompilerTest, CodeGenAsUint2) {
 
 TEST_F(CompilerTest, CodeGenAtomic) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\atomic.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenAtomic2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\atomic2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
