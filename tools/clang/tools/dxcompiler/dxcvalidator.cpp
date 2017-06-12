@@ -29,39 +29,6 @@
 using namespace llvm;
 using namespace hlsl;
 
-class PrintDiagnosticContext {
-private:
-  DiagnosticPrinter &m_Printer;
-  bool m_errorsFound;
-  bool m_warningsFound;
-public:
-  PrintDiagnosticContext(DiagnosticPrinter &printer)
-      : m_Printer(printer), m_errorsFound(false), m_warningsFound(false) {}
-
-  bool HasErrors() const {
-    return m_errorsFound;
-  }
-  bool HasWarnings() const {
-    return m_warningsFound;
-  }
-  void Handle(const DiagnosticInfo &DI) {
-    DI.print(m_Printer);
-    switch (DI.getSeverity()) {
-    case llvm::DiagnosticSeverity::DS_Error:
-      m_errorsFound = true;
-      break;
-    case llvm::DiagnosticSeverity::DS_Warning:
-      m_warningsFound = true;
-      break;
-    }
-    m_Printer << "\n";
-  }
-};
-
-static void PrintDiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
-  reinterpret_cast<PrintDiagnosticContext *>(Context)->Handle(DI);
-}
-
 // Utility class for setting and restoring the diagnostic context so we may capture errors/warnings
 struct DiagRestore {
   LLVMContext &Ctx;
@@ -71,7 +38,8 @@ struct DiagRestore {
   DiagRestore(llvm::LLVMContext &Ctx, void *DiagContext) : Ctx(Ctx) {
     OrigHandler = Ctx.getDiagnosticHandler();
     OrigDiagContext = Ctx.getDiagnosticContext();
-    Ctx.setDiagnosticHandler(PrintDiagnosticHandler, DiagContext);
+    Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                             DiagContext);
   }
   ~DiagRestore() {
     Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext);
