@@ -945,7 +945,8 @@ public:
   }
 
   uint32_t processIntrinsicDot(const CallExpr *callExpr) {
-    const uint32_t returnType =
+    const QualType returnType = callExpr->getType();
+    const uint32_t returnTypeId =
         typeTranslator.translateType(callExpr->getType());
 
     // Get the function parameters. Expect 2 vectors as parameters.
@@ -960,29 +961,25 @@ public:
     const size_t vec1Size = hlsl::GetHLSLVecSize(arg1Type);
     const QualType vec0ComponentType = hlsl::GetHLSLVecElementType(arg0Type);
     const QualType vec1ComponentType = hlsl::GetHLSLVecElementType(arg1Type);
-    assert(callExpr->getType() == vec1ComponentType);
+    assert(returnType == vec1ComponentType);
     assert(vec0ComponentType == vec1ComponentType);
     assert(vec0Size == vec1Size);
     assert(vec0Size >= 1 && vec0Size <= 4);
 
     // According to HLSL reference, the dot function only works on integers
     // and floats.
-    const auto returnTypeBuiltinKind =
-        cast<BuiltinType>(callExpr->getType().getTypePtr())->getKind();
-    assert(returnTypeBuiltinKind == BuiltinType::Float ||
-           returnTypeBuiltinKind == BuiltinType::Int ||
-           returnTypeBuiltinKind == BuiltinType::UInt);
+    assert(returnType->isFloatingType() || returnType->isIntegerType());
 
     // Special case: dot product of two vectors, each of size 1. That is
     // basically the same as regular multiplication of 2 scalars.
     if (vec0Size == 1) {
       const spv::Op spvOp = translateOp(BO_Mul, arg0Type);
-      return theBuilder.createBinaryOp(spvOp, returnType, arg0Id, arg1Id);
+      return theBuilder.createBinaryOp(spvOp, returnTypeId, arg0Id, arg1Id);
     }
 
     // If the vectors are of type Float, we can use OpDot.
-    if (returnTypeBuiltinKind == BuiltinType::Float) {
-      return theBuilder.createBinaryOp(spv::Op::OpDot, returnType, arg0Id,
+    if (returnType->isFloatingType()) {
+      return theBuilder.createBinaryOp(spv::Op::OpDot, returnTypeId, arg0Id,
                                        arg1Id);
     }
     // Vector component type is Integer (signed or unsigned).
@@ -999,18 +996,18 @@ public:
       // Extract members from the two vectors and multiply them.
       for (unsigned int i = 0; i < vec0Size; ++i) {
         const uint32_t vec0member =
-            theBuilder.createCompositeExtract(returnType, arg0Id, {i});
+            theBuilder.createCompositeExtract(returnTypeId, arg0Id, {i});
         const uint32_t vec1member =
-            theBuilder.createCompositeExtract(returnType, arg1Id, {i});
+            theBuilder.createCompositeExtract(returnTypeId, arg1Id, {i});
         const uint32_t multId = theBuilder.createBinaryOp(
-            multSpvOp, returnType, vec0member, vec1member);
+            multSpvOp, returnTypeId, vec0member, vec1member);
         multIds.push_back(multId);
       }
       // Add all the multiplications.
       result = multIds[0];
       for (unsigned int i = 1; i < vec0Size; ++i) {
-        const uint32_t additionId =
-            theBuilder.createBinaryOp(addSpvOp, returnType, result, multIds[i]);
+        const uint32_t additionId = theBuilder.createBinaryOp(
+            addSpvOp, returnTypeId, result, multIds[i]);
         result = additionId;
       }
       return result;
@@ -1069,6 +1066,55 @@ public:
     return 0;
   }
 
+  uint32_t processIntrinsicAllOrAny(const CallExpr *callExpr, spv::Op spvOp) {
+    const uint32_t returnType =
+        typeTranslator.translateType(callExpr->getType());
+
+    // 'all' and 'any' take only 1 parameter.
+    assert(callExpr->getNumArgs() == 1u);
+    const Expr *arg = callExpr->getArg(0);
+    const QualType argType = arg->getType();
+
+    if (hlsl::IsHLSLMatType(argType)) {
+      emitError("'all' and 'any' do not support matrix arguments yet.");
+      return 0;
+    }
+
+    bool isSpirvAcceptableVecType =
+        hlsl::IsHLSLVecType(argType) && hlsl::GetHLSLVecSize(argType) > 1;
+    if (!isSpirvAcceptableVecType) {
+      // For a scalar or vector of 1 scalar, we can simply cast to boolean.
+      return castToBool(arg, callExpr->getType());
+    } else {
+      // First cast the vector to a vector of booleans, then use OpAll
+      uint32_t boolVecId = castToBool(arg, callExpr->getType());
+      return theBuilder.createUnaryOp(spvOp, returnType, boolVecId);
+    }
+  }
+
+  /// Processes the 'asfloat', 'asint', and 'asuint' intrinsic functions.
+  uint32_t processIntrinsicAsType(const CallExpr *callExpr) {
+    const QualType returnType = callExpr->getType();
+    const uint32_t returnTypeId = typeTranslator.translateType(returnType);
+    assert(callExpr->getNumArgs() == 1u);
+    const Expr *arg = callExpr->getArg(0);
+    const QualType argType = arg->getType();
+
+    // asfloat may take a float or a float vector or a float matrix as argument.
+    // These cases would be a no-op.
+    if (returnType.getCanonicalType() == argType.getCanonicalType())
+      return doExpr(arg);
+
+    if (hlsl::IsHLSLMatType(argType)) {
+      emitError("'asfloat', 'asint', and 'asuint' do not support matrix "
+                "arguments yet.");
+      return 0;
+    }
+
+    return theBuilder.createUnaryOp(spv::Op::OpBitcast, returnTypeId,
+                                    doExpr(arg));
+  }
+
   uint32_t processIntrinsicCallExpr(const CallExpr *callExpr) {
     const FunctionDecl *callee = callExpr->getDirectCallee();
     assert(hlsl::IsIntrinsicOp(callee) &&
@@ -1080,10 +1126,16 @@ public:
     hlsl::GetIntrinsicOp(callee, opcode, group);
 
     switch (static_cast<hlsl::IntrinsicOp>(opcode)) {
-    case hlsl::IntrinsicOp::IOP_dot: {
+    case hlsl::IntrinsicOp::IOP_dot:
       return processIntrinsicDot(callExpr);
-      break;
-    }
+    case hlsl::IntrinsicOp::IOP_all:
+      return processIntrinsicAllOrAny(callExpr, spv::Op::OpAll);
+    case hlsl::IntrinsicOp::IOP_any:
+      return processIntrinsicAllOrAny(callExpr, spv::Op::OpAny);
+    case hlsl::IntrinsicOp::IOP_asfloat:
+    case hlsl::IntrinsicOp::IOP_asint:
+    case hlsl::IntrinsicOp::IOP_asuint:
+      return processIntrinsicAsType(callExpr);
     default:
       break;
     }
