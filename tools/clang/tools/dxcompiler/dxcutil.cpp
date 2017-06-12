@@ -97,6 +97,10 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
   CComPtr<IDxcVersionInfo> pVersionInfo;
   if (SUCCEEDED(pValidator.QueryInterface(&pVersionInfo))) {
     IFT(pVersionInfo->GetVersion(pMajor, pMinor));
+  } else {
+    // Default to 1.0
+    *pMajor = 1;
+    *pMinor = 0;
   }
 }
 
