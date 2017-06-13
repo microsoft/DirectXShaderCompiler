@@ -1,4 +1,4 @@
-//===- unittests/SPIRV/UtilsTest.cpp ------ Utils tests -------------------===//
+//===- unittests/SPIRV/StringTest.cpp ---- SPIR-V String tests ------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gmock/gmock.h"
-#include "clang/SPIRV/Utils.h"
+#include "clang/SPIRV/String.h"
 #include "gtest/gtest.h"
 
 namespace {
@@ -16,32 +16,32 @@ namespace {
 using namespace clang::spirv;
 using ::testing::ElementsAre;
 
-TEST(Utils, EncodeEmptyString) {
+TEST(String, EncodeEmptyString) {
   std::string str = "";
-  std::vector<uint32_t> words = utils::encodeSPIRVString(str);
+  std::vector<uint32_t> words = string::encodeSPIRVString(str);
   EXPECT_THAT(words, ElementsAre(0u));
 }
-TEST(Utils, EncodeOneCharString) {
+TEST(String, EncodeOneCharString) {
   std::string str = "m";
-  std::vector<uint32_t> words = utils::encodeSPIRVString(str);
+  std::vector<uint32_t> words = string::encodeSPIRVString(str);
   EXPECT_THAT(words, ElementsAre(109u));
 }
-TEST(Utils, EncodeTwoCharString) {
+TEST(String, EncodeTwoCharString) {
   std::string str = "ma";
-  std::vector<uint32_t> words = utils::encodeSPIRVString(str);
+  std::vector<uint32_t> words = string::encodeSPIRVString(str);
   EXPECT_THAT(words, ElementsAre(24941u));
 }
-TEST(Utils, EncodeThreeCharString) {
+TEST(String, EncodeThreeCharString) {
   std::string str = "mai";
-  std::vector<uint32_t> words = utils::encodeSPIRVString(str);
+  std::vector<uint32_t> words = string::encodeSPIRVString(str);
   EXPECT_THAT(words, ElementsAre(6906221u));
 }
-TEST(Utils, EncodeFourCharString) {
+TEST(String, EncodeFourCharString) {
   std::string str = "main";
-  std::vector<uint32_t> words = utils::encodeSPIRVString(str);
+  std::vector<uint32_t> words = string::encodeSPIRVString(str);
   EXPECT_THAT(words, ElementsAre(1852399981u, 0u));
 }
-TEST(Utils, EncodeString) {
+TEST(String, EncodeString) {
   // Bin  01110100   01110011    01100101    01010100 = unsigned(1,953,719,636)
   // Hex     74         73          65          54
   //          t          s           e           T
@@ -52,10 +52,10 @@ TEST(Utils, EncodeString) {
   // Hex      0          0          67          6E
   //          \0         \0          g           n
   std::string str = "TestString";
-  std::vector<uint32_t> words = utils::encodeSPIRVString(str);
+  std::vector<uint32_t> words = string::encodeSPIRVString(str);
   EXPECT_THAT(words, ElementsAre(1953719636, 1769108563, 26478));
 }
-TEST(Utils, DecodeString) {
+TEST(String, DecodeString) {
   // Bin  01110100   01110011    01100101    01010100 = unsigned(1,953,719,636)
   // Hex     74         73          65          54
   //          t          s           e           T
@@ -66,16 +66,16 @@ TEST(Utils, DecodeString) {
   // Hex      0          0          67          6E
   //          \0         \0          g           n
   std::vector<uint32_t> words = {1953719636, 1769108563, 26478};
-  std::string str = utils::decodeSPIRVString(words);
+  std::string str = string::decodeSPIRVString(words);
   EXPECT_EQ(str, "TestString");
 }
-TEST(Utils, EncodeAndDecodeString) {
+TEST(String, EncodeAndDecodeString) {
   std::string str = "TestString";
   // Convert to vector
-  std::vector<uint32_t> words = utils::encodeSPIRVString(str);
+  std::vector<uint32_t> words = string::encodeSPIRVString(str);
 
   // Convert back to string
-  std::string result = utils::decodeSPIRVString(words);
+  std::string result = string::decodeSPIRVString(words);
 
   EXPECT_EQ(str, result);
 }

@@ -5,7 +5,7 @@ set(LLVM_LINK_COMPONENTS
 add_clang_library(clangSPIRV
   EmitSPIRVAction.cpp
   SPIRVBuilder.cpp
-  Utils.cpp
+  String.cpp
 
   LINK_LIBS
   clangAST

@@ -1,4 +1,4 @@
-//===-- Utils.h - SPIR-V Utils ----------------------------------*- C++ -*-===//
+//===-- String.h - SPIR-V Strings -------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -6,15 +6,15 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_CLANG_SPIRV_UTILS_H
-#define LLVM_CLANG_SPIRV_UTILS_H
+#ifndef LLVM_CLANG_SPIRV_STRING_H
+#define LLVM_CLANG_SPIRV_STRING_H
 
 #include <string>
 #include <vector>
 
 namespace clang {
 namespace spirv {
-namespace utils {
+namespace string {
 
 /// \brief Reinterprets a given string as sequence of words. It follows the
 /// SPIR-V string encoding requirements.
@@ -25,7 +25,7 @@ std::vector<uint32_t> encodeSPIRVString(std::string s);
 /// It follows the SPIR-V string encoding requirements.
 std::string decodeSPIRVString(std::vector<uint32_t> &vec);
 
-} // end namespace utils
+} // end namespace string
 } // end namespace spirv
 } // end namespace clang
 
