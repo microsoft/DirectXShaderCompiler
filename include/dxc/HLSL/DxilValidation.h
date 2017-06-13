@@ -19,6 +19,8 @@ namespace llvm {
 class Module;
 class LLVMContext;
 class raw_ostream;
+class DiagnosticPrinter;
+class DiagnosticInfo;
 }
 
 namespace hlsl {
@@ -269,6 +271,14 @@ HRESULT ValidateLoadModule(_In_reads_bytes_(ILLength) const char *pIL,
                            _In_ llvm::LLVMContext &Ctx,
                            _In_ llvm::raw_ostream &DiagStream);
 
+// Loads module from container, validating load, but not module.
+HRESULT ValidateLoadModuleFromContainer(
+    _In_reads_bytes_(ContainerSize) const void *pContainer,
+    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
+    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
+    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
+    _In_ llvm::raw_ostream &DiagStream);
+
 // Load and validate Dxil module from bitcode.
 HRESULT ValidateDxilBitcode(_In_reads_bytes_(ILLength) const char *pIL,
                             _In_ uint32_t ILLength,
@@ -279,4 +289,20 @@ HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pConta
                               _In_ uint32_t ContainerSize,
                               _In_ llvm::raw_ostream &DiagStream);
 
+class PrintDiagnosticContext {
+private:
+  llvm::DiagnosticPrinter &m_Printer;
+  bool m_errorsFound;
+  bool m_warningsFound;
+
+public:
+  PrintDiagnosticContext(llvm::DiagnosticPrinter &printer);
+
+  bool HasErrors() const;
+  bool HasWarnings() const;
+  void Handle(const llvm::DiagnosticInfo &DI);
+
+  static void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI,
+                                     void *Context);
+};
 }

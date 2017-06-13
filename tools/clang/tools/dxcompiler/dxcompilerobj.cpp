@@ -40,6 +40,8 @@
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxcutil.h"
+
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
 #include "clang/SPIRV/EmitSPIRVAction.h"
@@ -2052,39 +2054,6 @@ public:
   }
 };
 
-// Class to manage lifetime of llvm module and provide some utility
-// functions used for generating compiler output.
-class DxilCompilerLLVMModuleOutput {
-public:
-  DxilCompilerLLVMModuleOutput(std::unique_ptr<llvm::Module> module)
-    : m_llvmModule(std::move(module))
-  { }
-
-  void CloneForDebugInfo() {
-    m_llvmModuleWithDebugInfo.reset(llvm::CloneModule(m_llvmModule.get()));
-  }
-
-  void WrapModuleInDxilContainer(IMalloc *pMalloc,
-                                 AbstractMemoryStream *pModuleBitcode,
-                                 CComPtr<IDxcBlob> &pDxilContainerBlob,
-                                 SerializeDxilFlags Flags) {
-    CComPtr<AbstractMemoryStream> pContainerStream;
-    IFT(CreateMemoryStream(pMalloc, &pContainerStream));
-    SerializeDxilContainerForModule(&m_llvmModule->GetOrCreateDxilModule(),
-                                    pModuleBitcode, pContainerStream, Flags);
-
-    pDxilContainerBlob.Release();
-    IFT(pContainerStream.QueryInterface(&pDxilContainerBlob));
-  }
-
-  llvm::Module *get() { return m_llvmModule.get(); }
-  llvm::Module *getWithDebugInfo() { return m_llvmModuleWithDebugInfo.get(); }
-
-private:
-  std::unique_ptr<llvm::Module> m_llvmModule;
-  std::unique_ptr<llvm::Module> m_llvmModuleWithDebugInfo;
-};
-
 class DxcCompiler : public IDxcCompiler2, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -2295,26 +2264,12 @@ public:
       // validator can be used as a fallback.
       bool produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
       bool needsValidation = produceFullContainer && !opts.DisableValidation;
-      bool internalValidator = false;
-      CComPtr<IDxcValidator> pValidator;
-      CComPtr<IDxcOperationResult> pValResult;
+
       if (needsValidation) {
-        if (DxilLibIsEnabled()) {
-          if (FAILED(DxilLibCreateInstance(CLSID_DxcValidator, &pValidator))) {
-            w << "Unable to create validator from dxil.dll, fallback to built-in.";
-          }
-        }
-        if (pValidator == nullptr) {
-          IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
-          internalValidator = true;
-        }
-        CComPtr<IDxcVersionInfo> pVersionInfo;
-        if (SUCCEEDED(pValidator.QueryInterface(&pVersionInfo))) {
-          UINT32 majorVer, minorVer;
-          IFT(pVersionInfo->GetVersion(&majorVer, &minorVer));
-          compiler.getCodeGenOpts().HLSLValidatorMajorVer = majorVer;
-          compiler.getCodeGenOpts().HLSLValidatorMinorVer = minorVer;
-        }
+        UINT32 majorVer, minorVer;
+        dxcutil::GetValidatorVersion(&majorVer, &minorVer);
+        compiler.getCodeGenOpts().HLSLValidatorMajorVer = majorVer;
+        compiler.getCodeGenOpts().HLSLValidatorMinorVer = minorVer;
       }
 
       if (opts.AstDump) {
@@ -2399,54 +2354,18 @@ public:
         }
 
         // Don't do work to put in a container if an error has occurred
-        if (compileOK) {
+        // Do not create a container when there is only a a high-level representation in the module.
+        if (compileOK && !opts.CodeGenHighLevel) {
           HRESULT valHR = S_OK;
 
-          // Take ownership of the module from the action.
-          DxilCompilerLLVMModuleOutput llvmModule(action.takeModule());
-
-          // If using the internal validator, we'll use the modules directly.
-          // In this case, we'll want to make a clone to avoid SerializeDxilContainerForModule
-          // stripping all the debug info. The debug info will be stripped from the orginal
-          // module, but preserved in the cloned module.
-          if (internalValidator && opts.DebugInfo)
-            llvmModule.CloneForDebugInfo();
-
-          // Do not create a container when there is only a a high-level representation in the module.
-          if (!opts.CodeGenHighLevel)
-            llvmModule.WrapModuleInDxilContainer(pMalloc, pOutputStream, pOutputBlob, SerializeFlags);
-
           if (needsValidation) {
-            // Important: in-place edit is required so the blob is reused and thus
-            // dxil.dll can be released.
-            if (internalValidator) {
-              IFT(RunInternalValidator(
-                pValidator, llvmModule.get(), llvmModule.getWithDebugInfo(), pOutputBlob,
-                DxcValidatorFlags_InPlaceEdit, &pValResult));
-            }
-            else {
-              IFT(pValidator->Validate(
-                pOutputBlob, DxcValidatorFlags_InPlaceEdit, &pValResult));
-            }
-            IFT(pValResult->GetStatus(&valHR));
-            if (FAILED(valHR)) {
-              CComPtr<IDxcBlobEncoding> pErrors;
-              CComPtr<IDxcBlobEncoding> pErrorsUtf8;
-              IFT(pValResult->GetErrorBuffer(&pErrors));
-              IFT(hlsl::DxcGetBlobAsUtf8(pErrors, &pErrorsUtf8));
-              StringRef errRef((const char *)pErrorsUtf8->GetBufferPointer(),
-                pErrorsUtf8->GetBufferSize());
-              DiagnosticsEngine &D = compiler.getDiagnostics();
-              unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Error,
-                "validation errors\r\n%0");
-              D.Report(DiagID) << errRef;
-            }
-            CComPtr<IDxcBlob> pValidatedBlob;
-            IFT(pValResult->GetResult(&pValidatedBlob));
-            if (pValidatedBlob != nullptr) {
-              std::swap(pOutputBlob, pValidatedBlob);
-            }
-            pValidator.Release();
+            valHR = dxcutil::ValidateAndAssembleToContainer(
+                action.takeModule(), pOutputBlob, pMalloc, SerializeFlags,
+                pOutputStream, opts.DebugInfo, compiler.getDiagnostics());
+          } else {
+            dxcutil::AssembleToContainer(action.takeModule(),
+                                                 pOutputBlob, pMalloc,
+                                                 SerializeFlags, pOutputStream);
           }
 
           // Callback after valid DXIL is produced
