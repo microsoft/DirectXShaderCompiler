@@ -950,3 +950,23 @@ function(add_lit_testsuites project directory)
     endforeach()
   endif()
 endfunction()
+
+# HLSL Change Starts
+function(hlsl_update_product_ver RC_INTERNAL_NAME)
+  if (HLSL_ENABLE_FIXED_VER)
+    set_property(SOURCE ${windows_resource_file}
+                 PROPERTY COMPILE_DEFINITIONS
+                 "RC_COMPANY_NAME=\"Microsoft® Corporation\""
+                 "RC_VERSION_FIELD_1=0"
+                 "RC_VERSION_FIELD_2=2017"
+                 "RC_VERSION_FIELD_3=6"
+                 "RC_VERSION_FIELD_4=0"
+                 "RC_FILE_VERSION=\"0.2017.6.0\""
+                 "RC_FILE_DESCRIPTION=\"DirectX Compiler - Out Of Band\""
+                 "RC_INTERNAL_NAME=\"${RC_INTERNAL_NAME}\""
+                 "RC_COPYRIGHT=\"© Microsoft Corporation. All rights reserved.\""
+                 "RC_PRODUCT_NAME=\"Microsoft® DirectX for Windows® - Out Of Band\""
+                 "RC_PRODUCT_VERSION=\"0.2017.6.0\"")
+  endif (HLSL_ENABLE_FIXED_VER)
+endfunction(hlsl_update_product_ver)
+# HLSL Change Ends

@@ -22,6 +22,7 @@ target_link_libraries(dxc
   )
 
 set_target_properties(dxc PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
+hlsl_update_product_ver("dxc")
 
 include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
 

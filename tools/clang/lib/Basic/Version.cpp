@@ -120,6 +120,11 @@ std::string getClangFullVersion() {
 }
 
 std::string getClangToolFullVersion(StringRef ToolName) {
+#ifdef HLSL_FIXED_VER // HLSL Change Starts
+  // We fix a specific version for builds that are released;
+  // this allows tools to pick a known version for a given !llvm.ident value.
+  return std::string(HLSL_FIXED_VER);
+#else
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #ifdef CLANG_VENDOR
@@ -134,6 +139,7 @@ std::string getClangToolFullVersion(StringRef ToolName) {
 #endif
 
   return OS.str();
+#endif // HLSL Change Ends
 }
 
 std::string getClangFullCPPVersion() {
