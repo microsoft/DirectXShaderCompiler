@@ -1454,7 +1454,7 @@ static void PrintStructBufferDefinition(DxilResource *buf, DxilTypeSystem &typeS
     Value *GV = buf->GetGlobalSymbol();
     llvm::Type *Ty = GV->getType()->getPointerElementType();
     // For resource array, use element type.
-    if (Ty->isArrayTy())
+    while (Ty->isArrayTy())
       Ty = Ty->getArrayElementType();
     // Get the struct buffer type like this %class.StructuredBuffer = type {
     // %struct.mat }.
