@@ -235,7 +235,6 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   // Keep llvm used.
   M.EmitLLVMUsed();
 
-  M.CollectShaderFlags();
   M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
   // Update Validator Version
