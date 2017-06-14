@@ -148,6 +148,18 @@ ModuleBuilder::createCompositeExtract(uint32_t resultType, uint32_t composite,
   return resultId;
 }
 
+uint32_t
+ModuleBuilder::createVectorShuffle(uint32_t resultType, uint32_t vector1,
+                                   uint32_t vector2,
+                                   llvm::ArrayRef<uint32_t> selectors) {
+  assert(insertPoint && "null insert point");
+  const uint32_t resultId = theContext.takeNextId();
+  instBuilder.opVectorShuffle(resultType, resultId, vector1, vector2, selectors)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
 uint32_t ModuleBuilder::createLoad(uint32_t resultType, uint32_t pointer) {
   assert(insertPoint && "null insert point");
   const uint32_t resultId = theContext.takeNextId();

@@ -105,6 +105,12 @@ public:
   uint32_t createCompositeExtract(uint32_t resultType, uint32_t composite,
                                   llvm::ArrayRef<uint32_t> indexes);
 
+  /// \brief Creates a vector shuffle instruction of selecting from the two
+  /// vectors using selectors and returns the <result-id> of the result vector.
+  uint32_t createVectorShuffle(uint32_t resultType, uint32_t vector1,
+                               uint32_t vector2,
+                               llvm::ArrayRef<uint32_t> selectors);
+
   /// \brief Creates a load instruction loading the value of the given
   /// <result-type> from the given pointer. Returns the <result-id> for the
   /// loaded value.
