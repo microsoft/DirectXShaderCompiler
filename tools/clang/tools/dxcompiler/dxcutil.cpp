@@ -39,6 +39,7 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ IDxcOperationResult **ppResult);
 
 namespace {
+// AssembleToContainer helper functions.
 
 bool CreateValidator(CComPtr<IDxcValidator> &pValidator) {
   if (DxilLibIsEnabled()) {

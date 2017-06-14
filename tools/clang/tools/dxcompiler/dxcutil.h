@@ -42,4 +42,5 @@ void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
                          CComPtr<IMalloc> &pMalloc,
                          hlsl::SerializeDxilFlags SerializeFlags,
                          CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode);
+HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
 } // namespace dxcutil
