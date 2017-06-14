@@ -50,6 +50,7 @@ set(SOURCES
   dxillib.cpp
   dxcontainerbuilder.cpp
   dxcutil.cpp
+  dxcdisassembler.cpp
   )
 
 set(LIBRARIES

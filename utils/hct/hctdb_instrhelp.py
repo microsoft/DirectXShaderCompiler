@@ -1014,7 +1014,7 @@ if __name__ == "__main__":
             'lib/HLSL/DxilValidation.cpp',
             'tools/clang/lib/Sema/gen_intrin_main_tables_15.h',
             'include/dxc/HlslIntrinsicOp.h',
-            'tools/clang/tools/dxcompiler/dxcompilerobj.cpp',
+            'tools/clang/tools/dxcompiler/dxcdisassembler.cpp',
             'include/dxc/HLSL/DxilSigPoint.inl',
             ]
         for relative_file_path in files:
