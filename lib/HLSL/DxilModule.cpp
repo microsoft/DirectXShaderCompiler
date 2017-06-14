@@ -291,26 +291,38 @@ unsigned DxilModule::GetGlobalFlags() const {
   return Flags;
 }
 
-static bool IsResourceSingleType(llvm::Type *Ty) {
+static bool IsResourceSingleComponent(llvm::Type *Ty) {
   if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
     if (arrType->getArrayNumElements() > 1) {
       return false;
     }
-    return IsResourceSingleType(arrType->getArrayElementType());
+    return IsResourceSingleComponent(arrType->getArrayElementType());
   } else if (llvm::StructType *structType =
                  llvm::dyn_cast<llvm::StructType>(Ty)) {
     if (structType->getStructNumElements() > 1) {
       return false;
     }
-    return IsResourceSingleType(structType->getStructElementType(0));
+    return IsResourceSingleComponent(structType->getStructElementType(0));
   } else if (llvm::VectorType *vectorType =
                  llvm::dyn_cast<llvm::VectorType>(Ty)) {
     if (vectorType->getNumElements() > 1) {
       return false;
     }
-    return IsResourceSingleType(vectorType->getVectorElementType());
+    return IsResourceSingleComponent(vectorType->getVectorElementType());
   }
   return true;
+}
+
+bool DxilModule::ModuleHasMulticomponentUAVLoads() {
+  for (const auto &uav : GetUAVs()) {
+    const DxilResource *res = uav.get();
+    if (res->IsTypedBuffer() || res->IsAnyTexture()) {
+      if (!IsResourceSingleComponent(res->GetRetType())) {
+          return true;
+      }
+    }
+  }
+  return false;
 }
 
 void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
@@ -323,9 +335,10 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   bool hasWaveOps = false;
   bool hasCheckAccessFully = false;
   bool hasMSAD = false;
-  bool hasMulticomponentUAVLoads = false;
   bool hasInnerCoverage = false;
   bool hasViewID = false;
+  bool hasMulticomponentUAVLoads = ModuleHasMulticomponentUAVLoads();
+
   Type *int16Ty = Type::getInt16Ty(GetCtx());
   Type *int64Ty = Type::getInt64Ty(GetCtx());
 
@@ -389,117 +402,6 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           case DXIL::OpCode::Msad:
             hasMSAD = true;
             break;
-          case DXIL::OpCode::BufferLoad: {
-              Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
-              CallInst *handleCall = cast<CallInst>(resHandle);
-
-              if (ConstantInt *resClassArg =
-                  dyn_cast<ConstantInt>(handleCall->getArgOperand(
-                      DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-                  DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
-                      resClassArg->getLimitedValue());
-                  if (resClass == DXIL::ResourceClass::UAV) {
-                    if (ConstantInt *resRangeID =
-                            dyn_cast<ConstantInt>(handleCall->getArgOperand(
-                                DXIL::OperandIndex::kCreateHandleResIDOpIdx))) {
-                      DxilResource &res = GetUAV(resRangeID->getLimitedValue());
-                      if (res.GetKind() == DXIL::ResourceKind::TypedBuffer) {
-                        Value *GV = res.GetGlobalSymbol();
-                        llvm::Type *Ty = GV->getType()->getPointerElementType();
-                        // Check if uav load is multi component load.
-                        if (!IsResourceSingleType(Ty)) {
-                          hasMulticomponentUAVLoads = true;
-                        }
-                      }
-                    }
-                  }
-              }
-              else if (PHINode *resClassPhi = dyn_cast<
-                  PHINode>(handleCall->getArgOperand(
-                      DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-                  unsigned numOperands = resClassPhi->getNumOperands();
-                  for (unsigned i = 0; i < numOperands; i++) {
-                      if (ConstantInt *resClassArg = dyn_cast<ConstantInt>(
-                          resClassPhi->getIncomingValue(i))) {
-                          DXIL::ResourceClass resClass =
-                              static_cast<DXIL::ResourceClass>(
-                                  resClassArg->getLimitedValue());
-                          if (resClass == DXIL::ResourceClass::UAV) {
-                            if (ConstantInt *resRangeID = dyn_cast<ConstantInt>(
-                                    handleCall->getArgOperand(
-                                        DXIL::OperandIndex::
-                                            kCreateHandleResIDOpIdx))) {
-                              DxilResource &res =
-                                  GetUAV(resRangeID->getLimitedValue());
-                              if (res.GetKind() ==
-                                  DXIL::ResourceKind::TypedBuffer) {
-                                Value *GV = res.GetGlobalSymbol();
-                                llvm::Type *Ty =
-                                    GV->getType()->getPointerElementType();
-                                // Check if uav load is multi component load.
-                                if (!IsResourceSingleType(Ty)) {
-                                  hasMulticomponentUAVLoads = true;
-                                  break;
-                                }
-                              }
-                            }
-                          }
-                      }
-                  }
-              }
-          } break;
-          case DXIL::OpCode::TextureLoad: {
-            Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
-            CallInst *handleCall = cast<CallInst>(resHandle);
-
-            if (ConstantInt *resClassArg =
-                    dyn_cast<ConstantInt>(handleCall->getArgOperand(
-                        DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-              DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
-                  resClassArg->getLimitedValue());
-              if (resClass == DXIL::ResourceClass::UAV) {
-                if (ConstantInt *resRangeID =
-                        dyn_cast<ConstantInt>(handleCall->getArgOperand(
-                            DXIL::OperandIndex::kCreateHandleResIDOpIdx))) {
-                  DxilResource &res = GetUAV(resRangeID->getLimitedValue());
-                  Value *GV = res.GetGlobalSymbol();
-                  llvm::Type *Ty = GV->getType()->getPointerElementType();
-                  // Check if uav load is multi component load.
-                  if (!IsResourceSingleType(Ty)) {
-                    hasMulticomponentUAVLoads = true;
-                    break;
-                  }
-                }
-              }
-            } else if (PHINode *resClassPhi = dyn_cast<
-                           PHINode>(handleCall->getArgOperand(
-                           DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-              unsigned numOperands = resClassPhi->getNumOperands();
-              for (unsigned i = 0; i < numOperands; i++) {
-                if (ConstantInt *resClassArg = dyn_cast<ConstantInt>(
-                        resClassPhi->getIncomingValue(i))) {
-                  DXIL::ResourceClass resClass =
-                      static_cast<DXIL::ResourceClass>(
-                          resClassArg->getLimitedValue());
-                  if (resClass == DXIL::ResourceClass::UAV) {
-                    if (ConstantInt *resRangeID =
-                            dyn_cast<ConstantInt>(handleCall->getArgOperand(
-                                DXIL::OperandIndex::kCreateHandleResIDOpIdx))) {
-                      DxilResource &res = GetUAV(resRangeID->getLimitedValue());
-                      Value *GV = res.GetGlobalSymbol();
-                      llvm::Type *Ty = GV->getType()->getPointerElementType();
-                      // Check if uav load is multi component load.
-                      if (!IsResourceSingleType(Ty)) {
-                        hasMulticomponentUAVLoads = true;
-                        break;
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-          } break;
           case DXIL::OpCode::Fma:
             hasDoubleExtension |= isDouble;
             break;
