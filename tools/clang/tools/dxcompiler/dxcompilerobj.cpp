@@ -790,19 +790,9 @@ static void CreateOperationResultFromOutputs(
   CComPtr<IStream> pErrorStream;
   CComPtr<IDxcBlobEncoding> pErrorBlob;
   msfPtr->GetStreamForHandle(StdOutHandle.Handle, &pErrorStream);
-  if (pErrorStream != nullptr) {
-    CComPtr<IDxcBlob> pErrorStreamBlob;
-    IFT(pErrorStream.QueryInterface(&pErrorStreamBlob));
-    IFT(DxcCreateBlobWithEncodingSet(pErrorStreamBlob, CP_UTF8, &pErrorBlob));
-  }
-  if (IsBlobNullOrEmpty(pErrorBlob)) {
-    pErrorBlob.Release();
-    IFT(DxcCreateBlobWithEncodingOnHeapCopy(warnings.c_str(), warnings.size(),
-                                            CP_UTF8, &pErrorBlob));
-  }
 
-  HRESULT status = diags.hasErrorOccurred() ? E_FAIL : S_OK;
-  IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, pErrorBlob, status, ppResult));
+  dxcutil::CreateOperationResultFromOutputs(pResultBlob, pErrorStream, warnings,
+                                            diags.hasErrorOccurred(), ppResult);
 }
 
 static void CreateOperationResultFromOutputs(
@@ -811,9 +801,9 @@ static void CreateOperationResultFromOutputs(
     _COM_Outptr_ IDxcOperationResult **ppResult) {
   CComPtr<IDxcBlob> pResultBlob;
   IFT(pOutputStream->QueryInterface(&pResultBlob));
-  CreateOperationResultFromOutputs(pResultBlob, msfPtr, warnings, diags, ppResult);
+  CreateOperationResultFromOutputs(pResultBlob, msfPtr, warnings, diags,
+                                   ppResult);
 }
-
 
 class HLSLExtensionsCodegenHelperImpl : public HLSLExtensionsCodegenHelper {
 private:
