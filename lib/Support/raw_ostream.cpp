@@ -746,7 +746,19 @@ raw_ostream &llvm::nulls() {
 //===----------------------------------------------------------------------===//
 
 raw_string_ostream::~raw_string_ostream() {
+#if 0 // HLSL Change Starts
   flush();
+#else
+  // C++ and exception in destructors don't play nice. The proper pattern
+  // here is to have the raw_string_ostream's owner flush before destruction
+  // and take appropriate action, like throwing or returning an error value.
+  try {
+    flush();
+  }
+  catch (const std::bad_alloc &) {
+    // Don't std::terminate()
+  }
+#endif // HLSL Change Ends
 }
 
 void raw_string_ostream::write_impl(const char *Ptr, size_t Size) {

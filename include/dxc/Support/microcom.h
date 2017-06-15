@@ -112,7 +112,7 @@ inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
   T(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) { } \
   static T* Alloc(IMalloc *pMalloc) { \
     void *P = pMalloc->Alloc(sizeof(T)); \
-    if (P) new (P)T(pMalloc); \
+    try { if (P) new (P)T(pMalloc); } catch (...) { operator delete(P); throw; } \
     return (T *)P; \
   }
 

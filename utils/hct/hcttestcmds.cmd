@@ -17,7 +17,7 @@ setlocal
 pushd %1
 
 echo Smoke test for dxr command line program ...
-dxr.exe -remove-unused-globals smoke.hlsl -Emain 1> nul
+dxr.exe -remove-unused-globals smoke.hlsl -Emain 1>nul 2>nul
 if %errorlevel% neq  0 (
   echo Failed - %CD%\dxr.exe -remove-unused-globals %CD%\smoke.hlsl -Emain
   call :cleanup 2>nul

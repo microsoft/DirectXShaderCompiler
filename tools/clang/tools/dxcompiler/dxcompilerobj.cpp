@@ -779,15 +779,10 @@ public:
   }
 };
 
-static HRESULT
+static DxcArgsFileSystem *
 CreateDxcArgsFileSystem(_In_ IDxcBlob *pSource, _In_ LPCWSTR pSourceName,
-                        _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-                        _Outptr_ DxcArgsFileSystem **ppResult) throw() {
-  *ppResult = new (std::nothrow) DxcArgsFileSystem(pSource, pSourceName, pIncludeHandler);
-  if (*ppResult == nullptr) {
-    return E_OUTOFMEMORY;
-  }
-  return S_OK;
+                        _In_opt_ IDxcIncludeHandler *pIncludeHandler) {
+  return new DxcArgsFileSystem(pSource, pSourceName, pIncludeHandler);
 }
 
 static void CreateOperationResultFromOutputs(
@@ -2208,11 +2203,9 @@ public:
 
     try {
       CComPtr<IDxcBlob> pOutputBlob;
-      DxcArgsFileSystem *msfPtr;
-      IFT(CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
-      std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
-
-      ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+      std::unique_ptr<DxcArgsFileSystem> msfPtr(
+        CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler));
+      ::llvm::sys::fs::AutoPerThreadSystem pts(msfPtr.get());
       IFTLLVM(pts.error_code());
 
       IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
@@ -2262,6 +2255,7 @@ public:
       std::string warnings;
       raw_string_ostream w(warnings);
       raw_stream_ostream outStream(pOutputStream.p);
+      llvm::LLVMContext llvmContext; // LLVMContext should outlive CompilerInstance
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
           std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
@@ -2331,7 +2325,6 @@ public:
         outStream.flush();
       }
       else if (opts.OptDump) {
-        llvm::LLVMContext llvmContext;
         EmitOptDumpAction action(&llvmContext);
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         action.BeginSourceFile(compiler, file);
@@ -2375,7 +2368,6 @@ public:
 #endif
       // SPIRV change ends
       else {
-        llvm::LLVMContext llvmContext;
         EmitBCAction action(&llvmContext);
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         bool compileOK;
@@ -2481,7 +2473,7 @@ public:
       // Add std err to warnings.
       msfPtr->WriteStdErrToStream(w);
 
-      CreateOperationResultFromOutputs(pOutputBlob, msfPtr, warnings,
+      CreateOperationResultFromOutputs(pOutputBlob, msfPtr.get(), warnings,
                                        compiler.getDiagnostics(), ppResult);
 
       // On success, return values. After assigning ppResult, nothing should fail.
@@ -2529,11 +2521,9 @@ public:
 
     try {
       CComPtr<AbstractMemoryStream> pOutputStream;
-      DxcArgsFileSystem *msfPtr;
-      IFT(CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
-      std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
-
-      ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+      std::unique_ptr<DxcArgsFileSystem> msfPtr(
+        CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler));
+      ::llvm::sys::fs::AutoPerThreadSystem pts(msfPtr.get());
       IFTLLVM(pts.error_code());
 
       IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
@@ -2613,7 +2603,7 @@ public:
       // Add std err to warnings.
       msfPtr->WriteStdErrToStream(w);
 
-      CreateOperationResultFromOutputs(pOutputStream, msfPtr, warnings,
+      CreateOperationResultFromOutputs(pOutputStream, msfPtr.get(), warnings,
         compiler.getDiagnostics(), ppResult);
       hr = S_OK;
     }
@@ -2917,11 +2907,12 @@ public:
 };
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcCompiler> result = DxcCompiler::Alloc(DxcGetThreadMallocNoRef());
-  if (result == nullptr) {
-    *ppv = nullptr;
-    return E_OUTOFMEMORY;
+  *ppv = nullptr;
+  CComPtr<DxcCompiler> result;
+  try {
+    result = DxcCompiler::Alloc(DxcGetThreadMallocNoRef());
+    IFROOM(result.p);
   }
-
+  CATCH_CPP_RETURN_HRESULT();
   return result.p->QueryInterface(riid, ppv);
 }

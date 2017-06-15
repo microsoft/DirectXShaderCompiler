@@ -134,7 +134,7 @@ void ReplaceableMetadataImpl::addRef(void *Ref, OwnerTy Owner) {
 void ReplaceableMetadataImpl::dropRef(void *Ref) {
   bool WasErased = UseMap.erase(Ref);
   (void)WasErased;
-  assert(WasErased && "Expected to drop a reference");
+  // assert(WasErased && "Expected to drop a reference"); // HLSL Change - not while cleaning up OOM
 }
 
 void ReplaceableMetadataImpl::moveRef(void *Ref, void *New,
@@ -283,12 +283,12 @@ void ValueAsMetadata::handleDeletion(Value *V) {
 
   // Remove old entry from the map.
   ValueAsMetadata *MD = I->second;
-  assert(MD && "Expected valid metadata");
-  assert(MD->getValue() == V && "Expected valid mapping");
+  // assert(MD && "Expected valid metadata"); // HLSL Change - MD might be nullptr under OOM
+  // assert(MD->getValue() == V && "Expected valid mapping"); // HLSL Change - MD might be nullptr under OOM
   Store.erase(I);
 
   // Delete the metadata.
-  MD->replaceAllUsesWith(nullptr);
+  if (MD) MD->replaceAllUsesWith(nullptr); // HLSL Change - MD might be nullptr under OOM
   delete MD;
 }
 
@@ -710,8 +710,16 @@ MDTuple *MDTuple::getImpl(LLVMContext &Context, ArrayRef<Metadata *> MDs,
     assert(ShouldCreate && "Expected non-uniqued nodes to always be created");
   }
 
-  return storeImpl(new (MDs.size()) MDTuple(Context, Storage, Hash, MDs),
-                   Storage, Context.pImpl->MDTuples);
+  // HLSL Change - guard with unique_ptr
+  MDTuple *MDTuplePtr(new (MDs.size()) MDTuple(Context, Storage, Hash, MDs));
+  MDTuple *Result;
+  try {
+    Result = storeImpl(MDTuplePtr, Storage, Context.pImpl->MDTuples);
+  } catch (...) {
+    MDTuplePtr->deleteAsSubclass();
+    throw;
+  }
+  return Result;
 }
 
 void MDNode::deleteTemporary(MDNode *N) {

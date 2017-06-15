@@ -354,6 +354,7 @@ void LoopPass::preparePassManager(PMStack &PMS) {
 /// Assign pass manager to manage this pass.
 void LoopPass::assignPassManager(PMStack &PMS,
                                  PassManagerType PreferredType) {
+  std::unique_ptr<LoopPass> thisPtr(this); // HLSL Change
   // Find LPPassManager
   while (!PMS.empty() &&
          PMS.top()->getPassManagerType() > PMT_LoopPassManager)
@@ -384,6 +385,7 @@ void LoopPass::assignPassManager(PMStack &PMS,
     PMS.push(LPPM);
   }
 
+  thisPtr.release(); // HLSL Change
   LPPM->add(this);
 }
 

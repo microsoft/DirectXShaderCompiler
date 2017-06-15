@@ -19,8 +19,11 @@
 
 namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
 
+// C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
+#pragma warning( disable : 4290 )
+
 // operator new and friends.
-void *operator new(std::size_t size) /* throw(std::bad_alloc) */ {
+void *operator new(std::size_t size) throw(std::bad_alloc) {
   void * ptr = DxcGetThreadMallocNoRef()->Alloc(size);
   if (ptr == nullptr)
     throw std::bad_alloc();

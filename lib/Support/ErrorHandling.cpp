@@ -45,18 +45,19 @@ using namespace llvm;
 thread_local static fatal_error_handler_t ErrorHandler = nullptr;
 thread_local static void *ErrorHandlerUserData = nullptr;
 
-static ManagedStatic<sys::Mutex> ErrorHandlerMutex;
+// HLSL Change - no mutex needed, handlers are thread_local
+//static ManagedStatic<sys::Mutex> ErrorHandlerMutex;
 
 void llvm::install_fatal_error_handler(fatal_error_handler_t handler,
                                        void *user_data) {
-  llvm::MutexGuard Lock(*ErrorHandlerMutex);
+  // llvm::MutexGuard Lock(*ErrorHandlerMutex); // HLSL Change - ErrorHandler and user data already thread-local
   assert(!ErrorHandler && "Error handler already registered!\n");
   ErrorHandler = handler;
   ErrorHandlerUserData = user_data;
 }
 
 void llvm::remove_fatal_error_handler() {
-  llvm::MutexGuard Lock(*ErrorHandlerMutex);
+  // llvm::MutexGuard Lock(*ErrorHandlerMutex); // HLSL Change - ErrorHandler and user data already thread-local
   ErrorHandler = nullptr;
   ErrorHandlerUserData = nullptr;
 }
@@ -79,7 +80,7 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
   {
     // Only acquire the mutex while reading the handler, so as not to invoke a
     // user-supplied callback under a lock.
-    llvm::MutexGuard Lock(*ErrorHandlerMutex);
+    // llvm::MutexGuard Lock(*ErrorHandlerMutex); // HLSL Change - ErrorHandler and user data already thread-local
     handler = ErrorHandler;
     handlerData = ErrorHandlerUserData;
   }

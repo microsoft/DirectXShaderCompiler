@@ -582,8 +582,10 @@ AnalysisUsage *PMTopLevelManager::findAnalysisUsage(Pass *P) {
     AnUsage = DMI->second;
   else {
     AnUsage = new AnalysisUsage();
+    std::unique_ptr<AnalysisUsage> AnUsagePtr(AnUsage); // HLSL Change - unique_ptr until added
     P->getAnalysisUsage(*AnUsage);
     AnUsageMap[P] = AnUsage;
+    AnUsagePtr.release(); // HLSL Change
   }
   return AnUsage;
 }
@@ -596,6 +598,8 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   // TODO : Allocate function manager for this pass, other wise required set
   // may be inserted into previous function manager
 
+  std::unique_ptr<Pass> PPtr(P); // take ownership locally until we pass it on
+
   // Give pass a chance to prepare the stage.
   P->preparePassManager(activeStack);
 
@@ -604,7 +608,7 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   // available at this point.
   const PassInfo *PI = findAnalysisPassInfo(P->getPassID());
   if (PI && PI->isAnalysis() && findAnalysisPass(P->getPassID())) {
-    delete P;
+    // delete P; // HLSL Change - let PPtr take care of this
     return;
   }
 
@@ -667,9 +671,10 @@ void PMTopLevelManager::schedulePass(Pass *P) {
     // top level manager. Set up analysis resolver to connect them.
     PMDataManager *DM = getAsPMDataManager();
     AnalysisResolver *AR = new AnalysisResolver(*DM);
-    P->setResolver(AR);
+    P->setResolver(AR); // HLSL Comment - P takes ownership of AR here
     DM->initializeAnalysisImpl(P);
     addImmutablePass(IP);
+    PPtr.release(); // HLSL Change
     DM->recordAvailableAnalysis(IP);
     return;
   }
@@ -681,6 +686,7 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   }
 
   // Add the requested pass to the best available pass manager.
+  PPtr.release(); // HLSL Change - assignPassManager takes ownership
   P->assignPassManager(activeStack, getTopLevelPassManagerType());
 
   if (PI && !PI->isAnalysis() && ShouldPrintAfterPass(PI)) {
@@ -980,10 +986,11 @@ void PMDataManager::freePass(Pass *P, StringRef Msg,
 /// Add pass P into the PassVector. Update
 /// AvailableAnalysis appropriately if ProcessAnalysis is true.
 void PMDataManager::add(Pass *P, bool ProcessAnalysis) {
+  std::unique_ptr<Pass> PPtr(P); // HLSL Change - take ownership of P
   // This manager is going to manage pass P. Set up analysis resolver
   // to connect them.
   AnalysisResolver *AR = new AnalysisResolver(*this);
-  P->setResolver(AR);
+  P->setResolver(AR); // HLSL Note: setResolver takes onwership of AR
 
   // If a FunctionPass F is the last user of ModulePass info M
   // then the F's manager, not F, records itself as a last user of M.
@@ -992,6 +999,7 @@ void PMDataManager::add(Pass *P, bool ProcessAnalysis) {
   if (!ProcessAnalysis) {
     // Add pass
     PassVector.push_back(P);
+    PPtr.release(); // HLSL Change
     return;
   }
 
@@ -1053,6 +1061,7 @@ void PMDataManager::add(Pass *P, bool ProcessAnalysis) {
 
   // Add pass
   PassVector.push_back(P);
+  PPtr.release(); // HLSL Change
 }
 
 
@@ -1379,7 +1388,11 @@ FunctionPassManager::FunctionPassManager(Module *m) : M(m) {
   // FPM is the top level manager.
   FPM->setTopLevelManager(FPM);
 
-  AnalysisResolver *AR = new AnalysisResolver(*FPM);
+  AnalysisResolver *AR = new (std::nothrow)AnalysisResolver(*FPM); // HLSL Change: nothrow and recover
+  if (!AR) {
+    delete FPM;
+    throw std::bad_alloc();
+  }
   FPM->setResolver(AR);
 }
 
@@ -1389,10 +1402,12 @@ FunctionPassManager::~FunctionPassManager() {
 
 void FunctionPassManager::add(Pass *P) {
   // HLSL Change Starts
+  std::unique_ptr<Pass> PPtr(P); // take ownership of P, even on failure paths
   if (TrackPassOS) {
     P->dumpConfig(*TrackPassOS);
     (*TrackPassOS) << '\n';
   }
+  PPtr.release();
   // HLSL Change Ends
   FPM->add(P);
 }
@@ -1735,10 +1750,12 @@ PassManager::~PassManager() {
 
 void PassManager::add(Pass *P) {
   // HLSL Change Starts
+  std::unique_ptr<Pass> PPtr(P); // take ownership of P, even on failure paths
   if (TrackPassOS) {
     P->dumpConfig(*TrackPassOS);
     (*TrackPassOS) << '\n';
   }
+  PPtr.release();
   // HLSL Change Ends
   PM->add(P);
 }
@@ -1847,6 +1864,7 @@ void ModulePass::assignPassManager(PMStack &PMS,
 /// in the PM Stack and add self into that manager.
 void FunctionPass::assignPassManager(PMStack &PMS,
                                      PassManagerType PreferredType) {
+  std::unique_ptr<FunctionPass> thisPtr(this); // HLSL Change
 
   // Find Function Pass Manager
   while (!PMS.empty()) {
@@ -1881,6 +1899,7 @@ void FunctionPass::assignPassManager(PMStack &PMS,
   }
 
   // Assign FPP as the manager of this pass.
+  thisPtr.release();
   FPP->add(this);
 }
 

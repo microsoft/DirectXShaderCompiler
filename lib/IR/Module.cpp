@@ -47,9 +47,12 @@ template class llvm::SymbolTableListTraits<GlobalAlias, Module>;
 
 Module::Module(StringRef MID, LLVMContext &C)
     : Context(C), Materializer(), ModuleID(MID), DL("") {
-  ValSymTab = new ValueSymbolTable();
-  NamedMDSymTab = new StringMap<NamedMDNode *>();
+  // HLSL Change - use unique_ptr to avoid leaks
+  std::unique_ptr<ValueSymbolTable> ValSymTabPtr(new ValueSymbolTable());
+  std::unique_ptr<StringMap<NamedMDNode *> > NamedMDSymTabPtr(new StringMap<NamedMDNode *>());
   Context.addModule(this);
+  ValSymTab = ValSymTabPtr.release();
+  NamedMDSymTab = NamedMDSymTabPtr.release();
 }
 
 Module::~Module() {

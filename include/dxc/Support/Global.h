@@ -42,9 +42,15 @@ HRESULT DxcInitThreadMalloc() throw();
 void DxcCleanupThreadMalloc() throw();
 
 // Used by APIs entry points to set up per-thread/invocation allocator.
+// Setting the IMalloc on the thread increases the reference count,
+// clearing it decreases it.
 void DxcClearThreadMalloc() throw();
 void DxcSetThreadMalloc(IMalloc *pMalloc) throw();
 void DxcSetThreadMallocOrDefault(IMalloc *pMalloc) throw();
+
+// Swapping does not AddRef or Release new or prior. The pattern is to keep both alive,
+// either in TLS, or on the stack to restore later. The returned value is the effective
+// IMalloc also available in TLS.
 IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) throw();
 IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMalloc, IMalloc **ppPrior) throw();
 

@@ -109,11 +109,11 @@ bool Preprocessor::EnterSourceFile(FileID FID, const DirectoryLookup *CurDir,
 ///  and start lexing tokens from it instead of the current buffer.
 void Preprocessor::EnterSourceFileWithLexer(Lexer *TheLexer,
                                             const DirectoryLookup *CurDir) {
-
+  std::unique_ptr<Lexer> LexerGuard(TheLexer); // HLSL Change - guard
   // Add the current lexer to the include stack.
   if (CurPPLexer || CurTokenLexer)
     PushIncludeMacroStack();
-
+  LexerGuard.release(); // HLSL Change
   CurLexer.reset(TheLexer);
   CurPPLexer = TheLexer;
   CurDirLookup = CurDir;

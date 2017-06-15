@@ -181,8 +181,8 @@ void Value::setValueName(ValueName *VN) {
     return;
   }
 
-  HasName = true;
   Ctx.pImpl->ValueNames[this] = VN;
+  HasName = true; // HLSL Change - only set this to true after assignment
 }
 
 StringRef Value::getName() const {
@@ -608,9 +608,9 @@ void ValueHandleBase::AddToUseList() {
 }
 
 void ValueHandleBase::RemoveFromUseList() {
-  assert(V && V->HasValueHandle &&
+  assert(V && (std::current_exception() == nullptr || V->HasValueHandle) && // HLSL Change
          "Pointer doesn't have a use list!");
-
+  if (!V->HasValueHandle) return; // HLSL Change
   // Unlink this from its use list.
   ValueHandleBase **PrevPtr = getPrevPtr();
   assert(*PrevPtr == this && "List invariant broken");

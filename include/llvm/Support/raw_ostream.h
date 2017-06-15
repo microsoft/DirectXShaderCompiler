@@ -91,6 +91,13 @@ public:
   /// tell - Return the current offset with the file.
   uint64_t tell() const { return current_pos() + GetNumBytesInBuffer(); }
 
+  // HLSL Change Starts - needed to clean up properly
+  virtual void close() { flush(); }
+  virtual bool has_error() const { return false; }
+  virtual void clear_error() { }
+  // HLSL Change Ends
+
+
   //===--------------------------------------------------------------------===//
   // Configuration Interface
   //===--------------------------------------------------------------------===//
@@ -427,7 +434,7 @@ public:
   /// output error has been encountered.
   /// This doesn't implicitly flush any pending output.  Also, it doesn't
   /// guarantee to detect all errors unless the stream has been closed.
-  bool has_error() const {
+  bool has_error() const override {
     return Error;
   }
 
@@ -440,7 +447,7 @@ public:
   ///    Unless explicitly silenced."
   ///      - from The Zen of Python, by Tim Peters
   ///
-  void clear_error() {
+  void clear_error() override {
     Error = false;
   }
 };

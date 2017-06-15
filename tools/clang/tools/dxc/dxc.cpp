@@ -62,6 +62,59 @@
 #include <algorithm>
 #include <unordered_map>
 
+struct NoSerializeHeapMalloc : public IMalloc {
+private:
+  HANDLE m_Handle;
+public:
+  void SetHandle(HANDLE Handle) { m_Handle = Handle; }
+  ULONG STDMETHODCALLTYPE AddRef() {
+    return 1;
+  }
+  ULONG STDMETHODCALLTYPE Release() {
+    return 1;
+  }
+  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) {
+    return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
+  }
+  virtual void *STDMETHODCALLTYPE Alloc(
+    _In_  SIZE_T cb) {
+    return HeapAlloc(m_Handle, 0, cb);
+  }
+
+  virtual void *STDMETHODCALLTYPE Realloc(
+    _In_opt_  void *pv,
+    _In_  SIZE_T cb)
+  {
+    return HeapReAlloc(m_Handle, 0, pv, cb);
+  }
+
+  virtual void STDMETHODCALLTYPE Free(
+    _In_opt_  void *pv)
+  {
+    HeapFree(m_Handle, 0, pv);
+  }
+
+
+  virtual SIZE_T STDMETHODCALLTYPE GetSize(
+    /* [annotation][in] */
+    _In_opt_ _Post_writable_byte_size_(return)  void *pv)
+  {
+    return HeapSize(m_Handle, 0, pv);
+  }
+
+  virtual int STDMETHODCALLTYPE DidAlloc(
+    /* [annotation][in] */
+    _In_opt_  void *pv)
+  {
+    return -1; // don't know
+  }
+
+
+  virtual void STDMETHODCALLTYPE HeapMinimize(void)
+  {
+  }
+};
+
 inline bool wcseq(LPCWSTR a, LPCWSTR b) {
   return (a == nullptr && b == nullptr) || (a != nullptr && b != nullptr && wcscmp(a, b) == 0);
 }
@@ -76,6 +129,8 @@ class DxcContext {
 private:
   DxcOpts &m_Opts;
   DxcDllSupport &m_dxcSupport;
+  NoSerializeHeapMalloc m_Malloc;
+  HANDLE m_MallocHeap;
 
   int ActOnBlob(IDxcBlob *pBlob);
   int ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName);
@@ -91,9 +146,25 @@ private:
   void ExtractRootSignature(IDxcBlob *pBlob, IDxcBlob **ppResult);
   int VerifyRootSignature();
 
+  template <typename TInterface>
+  HRESULT CreateInstance(REFCLSID clsid, _Outptr_ TInterface** pResult) {
+    if (m_dxcSupport.HasCreateWithMalloc())
+      return m_dxcSupport.CreateInstance2(&m_Malloc, clsid, pResult);
+    else
+      return m_dxcSupport.CreateInstance(clsid, pResult);
+  }
+
 public:
   DxcContext(DxcOpts &Opts, DxcDllSupport &dxcSupport)
-      : m_Opts(Opts), m_dxcSupport(dxcSupport) {}
+      : m_Opts(Opts), m_dxcSupport(dxcSupport), m_MallocHeap(nullptr) {
+    if (m_dxcSupport.HasCreateWithMalloc()) {
+      m_MallocHeap = HeapCreate(HEAP_NO_SERIALIZE, 1024 * 1024 * 2, 0);
+      if (m_MallocHeap == NULL)
+        IFT_Data(HRESULT_FROM_WIN32(GetLastError()), L"unable to create custom heap");
+      m_Malloc.SetHandle(m_MallocHeap);
+      // We never free the heap because it's tied to the dxc process lifetime
+    }
+  }
 
   int  Compile();
   void Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary, IDxcCompiler *pCompiler, std::vector<LPCWSTR> &args, IDxcOperationResult **pCompileResult);
@@ -204,7 +275,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
     return retVal;
 
   CComPtr<IDxcCompiler> pCompiler;
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
 
   CComPtr<IDxcBlobEncoding> pDisassembleResult;
   IFT(pCompiler->Disassemble(pBlob, &pDisassembleResult));
@@ -233,7 +304,7 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
 
   CComPtr<IDxcContainerBuilder> pContainerBuilder;
   CComPtr<IDxcBlob> pResult;
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerBuilder, &pContainerBuilder));
+  IFT(CreateInstance(CLSID_DxcContainerBuilder, &pContainerBuilder));
   
   // Load original container and update blob for each given option
   IFT(pContainerBuilder->Load(pSource));
@@ -393,7 +464,7 @@ int DxcContext::VerifyRootSignature() {
   // Since dxil container builder will verify on its behalf. 
   // This does unnecessary memory allocation. We can improve this later. 
   CComPtr<IDxcContainerBuilder> pContainerBuilder;
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerBuilder, &pContainerBuilder));
+  IFT(CreateInstance(CLSID_DxcContainerBuilder, &pContainerBuilder));
   IFT(pContainerBuilder->Load(pSource));
   // Try removing root signature if it already exists
   pContainerBuilder->RemovePart(hlsl::DxilFourCC::DFCC_RootSignature);
@@ -627,8 +698,8 @@ int DxcContext::Compile() {
       args.push_back(L"-ast-dump");
 
     CComPtr<IDxcLibrary> pLibrary;
-    IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    IFT(m_dxcSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+    IFT(CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
     ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
     IFTARG(pSource->GetBufferSize() >= 4);
 
@@ -709,11 +780,11 @@ void DxcContext::Preprocess() {
 
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  IFT(CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
 
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
   IFT(pCompiler->Preprocess(pSource, StringRefUtf16(m_Opts.InputFile), args.data(), args.size(), m_Opts.Defines.data(), m_Opts.Defines.size(), pIncludeHandler, &pPreprocessResult));
   WriteOperationErrorsToConsole(pPreprocessResult, m_Opts.OutputWarnings);
 
@@ -819,7 +890,7 @@ HRESULT DxcContext::GetDxcDiaTable(IDxcLibrary *pLibrary, IDxcBlob *pTargetBlob,
   CComPtr<IStream> pSourceStream;
   CComPtr<IDiaSession> pSession;
   CComPtr<IDiaEnumTables> pEnumTables;
-  IFT(m_dxcSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDataSource));
+  IFT(CreateInstance(CLSID_DxcDiaDataSource, &pDataSource));
   IFT(pLibrary->CreateStreamFromBlobReadOnly(pTargetBlob, &pSourceStream));
   IFT(pDataSource->loadDataFromIStream(pSourceStream));
   IFT(pDataSource->openSession(&pSession));

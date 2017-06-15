@@ -124,4 +124,6 @@ public:
   bool SkipIRSensitiveTest();
   // Return true if DXIL 1.1 test should be skipped, and log comment
   bool SkipDxil_1_1_Test();
+  // Return true if out-of-memory test should be skipped, and log comment
+  bool SkipOutOfMemoryTest();
 };

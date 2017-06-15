@@ -85,18 +85,8 @@ IMalloc *DxcSwapThreadMalloc(IMalloc *pMalloc, IMalloc **ppPrior) {
   IMalloc *pPrior = DxcGetThreadMallocNoRef();
   if (ppPrior) {
     *ppPrior = pPrior;
-    if (pPrior) {
-      pPrior->AddRef();
-    }
-  }
-  else {
-    if (pPrior)
-      pPrior->Release();
   }
   DXVERIFY_NOMSG(TlsSetValue(g_ThreadMallocTlsIndex, pMalloc));
-  if (pMalloc) {
-    pMalloc->AddRef();
-  }
   return pMalloc;
 }
 IMalloc *DxcSwapThreadMallocOrDefault(IMalloc *pMallocOrNull, IMalloc **ppPrior) {

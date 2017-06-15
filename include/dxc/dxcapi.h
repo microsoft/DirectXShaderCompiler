@@ -17,6 +17,7 @@
 #define DXC_API_IMPORT __declspec(dllimport)
 #endif
 
+struct IMalloc;
 struct IDxcIncludeHandler;
 
 /// <summary>
@@ -42,6 +43,13 @@ typedef HRESULT (__stdcall *DxcCreateInstanceProc)(
     _Out_ LPVOID*   ppv
 );
 
+typedef HRESULT(__stdcall *DxcCreateInstance2Proc)(
+  _In_ IMalloc    *pMalloc,
+  _In_ REFCLSID   rclsid,
+  _In_ REFIID     riid,
+  _Out_ LPVOID*   ppv
+  );
+
 /// <summary>
 /// Creates a single uninitialized object of the class associated with a specified CLSID.
 /// </summary>
@@ -64,6 +72,13 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(
   _In_ REFIID     riid,
   _Out_ LPVOID*   ppv
   );
+
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(
+  _In_ IMalloc    *pMalloc,
+  _In_ REFCLSID   rclsid,
+  _In_ REFIID     riid,
+  _Out_ LPVOID*   ppv
+);
 
 
 // IDxcBlob is an alias of ID3D10Blob and ID3DBlob

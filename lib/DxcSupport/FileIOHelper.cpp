@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-
+// TODO: consider including an empty blob singleton (possibly UTF-8/16 too). //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -184,14 +184,13 @@ private:
 public:
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)
   ULONG STDMETHODCALLTYPE Release() {
-    // Because blobs are also used by tests and utilities,
-    // we avoid using TLS.
-    ULONG result = InterlockedDecrement(&m_dwRef); \
-      if (result == 0) {
-        CComPtr<IMalloc> pTmp(m_pMalloc);
-        this->~InternalDxcBlobEncoding();
-        pTmp->Free(this);
-      }
+    // Because blobs are also used by tests and utilities, we avoid using TLS.
+    ULONG result = InterlockedDecrement(&m_dwRef);
+    if (result == 0) {
+      CComPtr<IMalloc> pTmp(m_pMalloc);
+      this->~InternalDxcBlobEncoding();
+      pTmp->Free(this);
+    }
     return result;
   }
   DXC_MICROCOM_TM_CTOR(InternalDxcBlobEncoding)
@@ -504,8 +503,8 @@ DxcCreateBlobWithEncodingOnHeapCopy(LPCVOID pText, UINT32 size, UINT32 codePage,
   IDxcBlobEncoding **pBlobEncoding) {
   *pBlobEncoding = nullptr;
 
-  CComHeapPtr<char> heapCopy;
-  if (!heapCopy.AllocateBytes(size)) {
+  CDxcMallocHeapPtr<char> heapCopy(DxcGetThreadMallocNoRef());
+  if (!heapCopy.Allocate(size)) {
     return E_OUTOFMEMORY;
   }
   memcpy(heapCopy.m_pData, pText, size);

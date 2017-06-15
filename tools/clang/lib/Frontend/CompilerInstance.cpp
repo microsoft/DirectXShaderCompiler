@@ -64,6 +64,8 @@ CompilerInstance::CompilerInstance(
 #endif // HLSL Change Ends - no support for modules
 
 CompilerInstance::~CompilerInstance() {
+  // TODO: harden output file cleanup so there are no additional allocations/exceptions
+  clearOutputFiles(/* EraseFiles */ false); // HLSL Change - might happen when destroying under exception
   assert(OutputFiles.empty() && "Still output files in flight?");
 }
 
@@ -310,14 +312,16 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
     PTHMgr = PTHManager::Create(PPOpts.TokenCache, getDiagnostics());
 
   // Create the Preprocessor.
-  HeaderSearch *HeaderInfo = new HeaderSearch(&getHeaderSearchOpts(),
+  std::unique_ptr<HeaderSearch> HeaderInfo ( // HLSL Change - make unique_ptr and free
+                             new HeaderSearch(&getHeaderSearchOpts(),
                                               getSourceManager(),
                                               getDiagnostics(),
                                               getLangOpts(),
-                                              &getTarget());
+                                              &getTarget()));
   PP = new Preprocessor(&getPreprocessorOpts(), getDiagnostics(), getLangOpts(),
-                        getSourceManager(), *HeaderInfo, *this, PTHMgr,
+                        getSourceManager(), *HeaderInfo.get(), *this, PTHMgr,
                         /*OwnsHeaderSearch=*/true, TUKind);
+  HeaderInfo.release(); // HLSL Change - Preprocessor has ownership at this point
   PP->Initialize(getTarget());
 
   // Note that this is different then passing PTHMgr to Preprocessor's ctor.
@@ -459,7 +463,7 @@ IntrusiveRefCntPtr<ASTReader> CompilerInstance::createPCHExternalASTSource(
     // Set the predefines buffer as suggested by the PCH reader. Typically, the
     // predefines buffer will be empty.
     PP.setPredefines(Reader->getSuggestedPredefines());
-    return Reader;
+return Reader;
 
   case ASTReader::Failure:
     // Unrecoverable failure: don't even try to process the input file.
@@ -482,9 +486,9 @@ IntrusiveRefCntPtr<ASTReader> CompilerInstance::createPCHExternalASTSource(
 // Code Completion
 
 static bool EnableCodeCompletion(Preprocessor &PP,
-                                 const std::string &Filename,
-                                 unsigned Line,
-                                 unsigned Column) {
+  const std::string &Filename,
+  unsigned Line,
+  unsigned Column) {
   // Tell the source manager to chop off the given file at a specific
   // line and column.
   const FileEntry *Entry = PP.getFileManager().getFile(Filename);
@@ -504,19 +508,20 @@ void CompilerInstance::createCodeCompletionConsumer() {
   if (!CompletionConsumer) {
     setCodeCompletionConsumer(
       createCodeCompletionConsumer(getPreprocessor(),
-                                   Loc.FileName, Loc.Line, Loc.Column,
-                                   getFrontendOpts().CodeCompleteOpts,
-                                   llvm::outs()));
+        Loc.FileName, Loc.Line, Loc.Column,
+        getFrontendOpts().CodeCompleteOpts,
+        llvm::outs()));
     if (!CompletionConsumer)
       return;
-  } else if (EnableCodeCompletion(getPreprocessor(), Loc.FileName,
-                                  Loc.Line, Loc.Column)) {
+  }
+  else if (EnableCodeCompletion(getPreprocessor(), Loc.FileName,
+    Loc.Line, Loc.Column)) {
     setCodeCompletionConsumer(nullptr);
     return;
   }
 
   if (CompletionConsumer->isOutputBinary() &&
-      llvm::sys::ChangeStdoutToBinary()) {
+    llvm::sys::ChangeStdoutToBinary()) {
     getPreprocessor().getDiagnostics().Report(diag::err_fe_stdout_binary);
     setCodeCompletionConsumer(nullptr);
   }
@@ -525,16 +530,16 @@ void CompilerInstance::createCodeCompletionConsumer() {
 void CompilerInstance::createFrontendTimer() {
   FrontendTimerGroup.reset(new llvm::TimerGroup("Clang front-end time report"));
   FrontendTimer.reset(
-      new llvm::Timer("Clang front-end timer", *FrontendTimerGroup));
+    new llvm::Timer("Clang front-end timer", *FrontendTimerGroup));
 }
 
 CodeCompleteConsumer *
 CompilerInstance::createCodeCompletionConsumer(Preprocessor &PP,
-                                               StringRef Filename,
-                                               unsigned Line,
-                                               unsigned Column,
-                                               const CodeCompleteOptions &Opts,
-                                               raw_ostream &OS) {
+  StringRef Filename,
+  unsigned Line,
+  unsigned Column,
+  const CodeCompleteOptions &Opts,
+  raw_ostream &OS) {
   if (EnableCodeCompletion(PP, Filename, Line, Column))
     return nullptr;
 
@@ -543,9 +548,9 @@ CompilerInstance::createCodeCompletionConsumer(Preprocessor &PP,
 }
 
 void CompilerInstance::createSema(TranslationUnitKind TUKind,
-                                  CodeCompleteConsumer *CompletionConsumer) {
+  CodeCompleteConsumer *CompletionConsumer) {
   TheSema.reset(new Sema(getPreprocessor(), getASTContext(), getASTConsumer(),
-                         TUKind, CompletionConsumer));
+    TUKind, CompletionConsumer));
   if (HlslLangExtensions) HlslLangExtensions->SetupSema(getSema()); // HLSL Change
 }
 
@@ -557,8 +562,16 @@ void CompilerInstance::addOutputFile(OutputFile &&OutFile) {
 }
 
 void CompilerInstance::clearOutputFiles(bool EraseFiles) {
+  bool errorsFound = false; // HLSL Change - track this, but try to clean up everything anyway
   for (OutputFile &OF : OutputFiles) {
     // Manually close the stream before we rename it.
+    // HLSL Change Starts - call explicitly to have it throw on error during regular flow (rather than .dtor)
+    if (OF.OS.get()) {
+      OF.OS->close();
+      errorsFound = errorsFound || OF.OS->has_error();
+      OF.OS->clear_error();
+    }
+    // HLSL Change Ends
     OF.OS.reset();
 
     if (!OF.TempFilename.empty()) {
@@ -584,6 +597,7 @@ void CompilerInstance::clearOutputFiles(bool EraseFiles) {
   }
   OutputFiles.clear();
   NonSeekStream.reset();
+  if (errorsFound) throw std::exception("errors when processing output"); // HLSL Change
 }
 
 raw_pwrite_stream *

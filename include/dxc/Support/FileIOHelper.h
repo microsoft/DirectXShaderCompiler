@@ -163,6 +163,7 @@ DxcCreateBlobWithEncodingOnHeap(_In_bytecount_(size) LPCVOID pText, UINT32 size,
                                 UINT32 codePage,
                                 _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
+// Should rename this 'OnHeap' to be 'OnMalloc', change callers to pass arg. Using TLS.
 HRESULT
 DxcCreateBlobWithEncodingOnHeapCopy(
     _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
