@@ -171,12 +171,12 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   //bool m_bEnableDoublePrecision;
   //bool m_bEnableDoubleExtensions;
   //bool m_bEnableMinPrecision;
-  M.CollectShaderFlags();
+  //M.CollectShaderFlags();
 
   //bool m_bForceEarlyDepthStencil;
   //bool m_bEnableRawAndStructuredBuffers;
   //bool m_bEnableMSAD;
-  M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
+  //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
   // Compute shader.
   if (FnProps != nullptr && FnProps->shaderKind == DXIL::ShaderKind::Compute) {
@@ -234,6 +234,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.ResetOP(H.ReleaseOP());
   // Keep llvm used.
   M.EmitLLVMUsed();
+
+  M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
   // Update Validator Version
   M.UpgradeToMinValidatorVersion();
