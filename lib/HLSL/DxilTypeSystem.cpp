@@ -253,6 +253,55 @@ StructType *DxilTypeSystem::GetNormFloatType(CompType CT, unsigned NumComps) {
   return pStructType;
 }
 
+void DxilTypeSystem::CopyTypeAnnotation(const llvm::Type *Ty,
+                                        DxilTypeSystem &src) {
+  if (isa<PointerType>(Ty))
+    Ty = Ty->getPointerElementType();
+
+  while (isa<ArrayType>(Ty))
+    Ty = Ty->getArrayElementType();
+
+  if (const StructType *ST = dyn_cast<StructType>(Ty)) {
+    // Already exist.
+    if (GetStructAnnotation(ST))
+      return;
+
+    if (DxilStructAnnotation *annot = src.GetStructAnnotation(ST)) {
+      DxilStructAnnotation *dstAnnot = AddStructAnnotation(ST);
+      // Copy the annotation.
+      *dstAnnot = *annot;
+      // Copy field type annotations.
+      for (Type *Ty : ST->elements()) {
+        CopyTypeAnnotation(Ty, src);
+      }
+    }
+  }
+}
+
+void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
+                              const llvm::Function *pSrcFunction,
+                              DxilTypeSystem &src) {
+  DxilFunctionAnnotation *annot = src.AddFunctionAnnotation(pSrcFunction);
+  // Don't have annotation.
+  if (!annot)
+    return;
+  // Already exist.
+  if (GetFunctionAnnotation(pDstFunction))
+    return;
+
+  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotation(pDstFunction);
+
+  // Copy the annotation.
+  *dstAnnot = *annot;
+
+  // Clone ret type annotation.
+  CopyTypeAnnotation(pDstFunction->getReturnType(), src);
+  // Clone param type annotations.
+  for (const Argument &arg : pDstFunction->args()) {
+    CopyTypeAnnotation(arg.getType(), src);
+  }
+}
+
 DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind SK, bool isPC) {
   DXASSERT(Q != DxilParamInputQual::Inout, "Inout not expected for SigPointFromInputQual");
   switch (SK) {

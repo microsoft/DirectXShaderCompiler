@@ -43,6 +43,19 @@ unique_ptr<DxilSignatureElement> DxilSignature::CreateElement() {
   return unique_ptr<DxilSignatureElement>(new DxilSignatureElement(m_sigPointKind));
 }
 
+void DxilSignature::CopySignatureElements(DxilSignature &src) {
+  const bool bSetID = false;
+  for (auto &Elt : src.GetElements()) {
+    std::unique_ptr<DxilSignatureElement> newElt = CreateElement();
+    newElt->Initialize(Elt->GetName(), Elt->GetCompType(),
+                          Elt->GetInterpolationMode()->GetKind(),
+                          Elt->GetRows(), Elt->GetCols(), Elt->GetStartRow(),
+                          Elt->GetStartCol(), Elt->GetID(),
+                          Elt->GetSemanticIndexVec());
+    AppendElement(std::move(newElt), bSetID);
+  }
+}
+
 unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE, bool bSetID) {
   DXASSERT_NOMSG((unsigned)m_Elements.size() < UINT_MAX);
   unsigned Id = (unsigned)m_Elements.size();
@@ -197,6 +210,16 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
   }
 
   return rowsUsed;
+}
+
+//------------------------------------------------------------------------------
+//
+// EntrySingnature methods.
+//
+void DxilEntrySignature::CopySignatures(DxilEntrySignature &src) {
+  InputSignature.CopySignatureElements(src.InputSignature);
+  OutputSignature.CopySignatureElements(src.OutputSignature);
+  PatchConstantSignature.CopySignatureElements(src.PatchConstantSignature);
 }
 
 } // namespace hlsl

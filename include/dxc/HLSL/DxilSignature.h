@@ -32,6 +32,7 @@ public:
   bool IsOutput() const;
 
   virtual std::unique_ptr<DxilSignatureElement> CreateElement();
+  void CopySignatureElements(DxilSignature &src);
 
   unsigned AppendElement(std::unique_ptr<DxilSignatureElement> pSE, bool bSetID = true);
 
@@ -51,6 +52,18 @@ public:
 private:
   DXIL::SigPointKind m_sigPointKind;
   std::vector<std::unique_ptr<DxilSignatureElement> > m_Elements;
+};
+
+struct DxilEntrySignature {
+  DxilEntrySignature(DXIL::ShaderKind shaderKind)
+      : InputSignature(shaderKind, DxilSignature::Kind::Input),
+        OutputSignature(shaderKind, DxilSignature::Kind::Output),
+        PatchConstantSignature(shaderKind, DxilSignature::Kind::PatchConstant) {
+  }
+  void CopySignatures(DxilEntrySignature &src);
+  DxilSignature InputSignature;
+  DxilSignature OutputSignature;
+  DxilSignature PatchConstantSignature;
 };
 
 } // namespace hlsl

@@ -180,6 +180,12 @@ public:
   llvm::StructType *GetSNormF32Type(unsigned NumComps);
   llvm::StructType *GetUNormF32Type(unsigned NumComps);
 
+  // Methods to copy annotation from another DxilTypeSystem.
+  void CopyTypeAnnotation(const llvm::Type *Ty, DxilTypeSystem &src);
+  void CopyFunctionAnnotation(const llvm::Function *pDstFunction,
+                              const llvm::Function *pSrcFunction,
+                              DxilTypeSystem &src);
+
 private:
   llvm::Module *m_pModule;
   StructAnnotationMap m_StructAnnotations;
