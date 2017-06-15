@@ -1,10 +1,9 @@
 // RUN: %dxc -E main -T cs_6_0 -not_use_legacy_cbuf_load  %s | FileCheck %s
 
-// CHECK: Typed UAV Load Additional Formats
 // CHECK: 64-Bit integer
 // CHECK: dx.op.bufferStore.i32
 // CHECK: dx.op.bufferStore.i32
-// CHECK: !{i32 0, i64 1056768
+// CHECK: !{i32 0, i64 1048576
 
 // Note: a change in the internal layout will produce
 // a difference in the serialized flags, eg:

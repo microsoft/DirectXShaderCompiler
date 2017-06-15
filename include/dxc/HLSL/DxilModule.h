@@ -291,6 +291,10 @@ public:
   ShaderFlags m_ShaderFlags;
   void CollectShaderFlags(ShaderFlags &Flags);
 
+  // Check if DxilModule contains multi component UAV Loads.
+  // This funciton must be called after unused resources are removed from DxilModule
+  bool ModuleHasMulticomponentUAVLoads();
+
   // Compute shader.
   unsigned m_NumThreads[3];
 
