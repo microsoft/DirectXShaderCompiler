@@ -43,4 +43,9 @@ void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
                          hlsl::SerializeDxilFlags SerializeFlags,
                          CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
+
+void CreateOperationResultFromOutputs(
+    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
+    const std::string &warnings, bool hasErrorOccurred,
+    _COM_Outptr_ IDxcOperationResult **ppResult);
 } // namespace dxcutil
