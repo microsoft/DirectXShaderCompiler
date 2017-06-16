@@ -182,6 +182,16 @@ DxilStructAnnotation *DxilTypeSystem::GetStructAnnotation(const StructType *pStr
   }
 }
 
+const DxilStructAnnotation *
+DxilTypeSystem::GetStructAnnotation(const StructType *pStructType) const {
+  auto it = m_StructAnnotations.find(pStructType);
+  if (it != m_StructAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
 void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
   DXASSERT_NOMSG(m_StructAnnotations.count(pStructType));
   m_StructAnnotations.remove_if([pStructType](
@@ -203,6 +213,16 @@ DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pF
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::GetFunctionAnnotation(const Function *pFunction) {
+  auto it = m_FunctionAnnotations.find(pFunction);
+  if (it != m_FunctionAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
+const DxilFunctionAnnotation *
+DxilTypeSystem::GetFunctionAnnotation(const Function *pFunction) const {
   auto it = m_FunctionAnnotations.find(pFunction);
   if (it != m_FunctionAnnotations.end()) {
     return it->second.get();
@@ -251,6 +271,58 @@ StructType *DxilTypeSystem::GetNormFloatType(CompType CT, unsigned NumComps) {
     DXASSERT_NOMSG(CT.IsSNorm() || CT.IsUNorm());
   }
   return pStructType;
+}
+
+void DxilTypeSystem::CopyTypeAnnotation(const llvm::Type *Ty,
+                                        const DxilTypeSystem &src) {
+  if (isa<PointerType>(Ty))
+    Ty = Ty->getPointerElementType();
+
+  while (isa<ArrayType>(Ty))
+    Ty = Ty->getArrayElementType();
+
+  // Only struct type has annotation.
+  if (!isa<StructType>(Ty))
+    return;
+
+  const StructType *ST = cast<StructType>(Ty);
+  // Already exist.
+  if (GetStructAnnotation(ST))
+    return;
+
+  if (const DxilStructAnnotation *annot = src.GetStructAnnotation(ST)) {
+    DxilStructAnnotation *dstAnnot = AddStructAnnotation(ST);
+    // Copy the annotation.
+    *dstAnnot = *annot;
+    // Copy field type annotations.
+    for (Type *Ty : ST->elements()) {
+      CopyTypeAnnotation(Ty, src);
+    }
+  }
+}
+
+void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
+                                            const llvm::Function *pSrcFunction,
+                                            const DxilTypeSystem &src) {
+  const DxilFunctionAnnotation *annot = src.GetFunctionAnnotation(pSrcFunction);
+  // Don't have annotation.
+  if (!annot)
+    return;
+  // Already exist.
+  if (GetFunctionAnnotation(pDstFunction))
+    return;
+
+  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotation(pDstFunction);
+
+  // Copy the annotation.
+  *dstAnnot = *annot;
+
+  // Clone ret type annotation.
+  CopyTypeAnnotation(pDstFunction->getReturnType(), src);
+  // Clone param type annotations.
+  for (const Argument &arg : pDstFunction->args()) {
+    CopyTypeAnnotation(arg.getType(), src);
+  }
 }
 
 DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind SK, bool isPC) {

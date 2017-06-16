@@ -26,6 +26,7 @@ public:
 
   DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind);
   DxilSignature(DXIL::SigPointKind sigPointKind);
+  DxilSignature(const DxilSignature &src);
   virtual ~DxilSignature();
 
   bool IsInput() const;
@@ -51,6 +52,18 @@ public:
 private:
   DXIL::SigPointKind m_sigPointKind;
   std::vector<std::unique_ptr<DxilSignatureElement> > m_Elements;
+};
+
+struct DxilEntrySignature {
+  DxilEntrySignature(DXIL::ShaderKind shaderKind)
+      : InputSignature(shaderKind, DxilSignature::Kind::Input),
+        OutputSignature(shaderKind, DxilSignature::Kind::Output),
+        PatchConstantSignature(shaderKind, DxilSignature::Kind::PatchConstant) {
+  }
+  DxilEntrySignature(const DxilEntrySignature &src);
+  DxilSignature InputSignature;
+  DxilSignature OutputSignature;
+  DxilSignature PatchConstantSignature;
 };
 
 } // namespace hlsl
