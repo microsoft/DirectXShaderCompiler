@@ -543,6 +543,12 @@ public:
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
   TEST_METHOD(CodeGenMinprecCast)
+  TEST_METHOD(CodeGenMultiUAVLoad1)
+  TEST_METHOD(CodeGenMultiUAVLoad2)
+  TEST_METHOD(CodeGenMultiUAVLoad3)
+  TEST_METHOD(CodeGenMultiUAVLoad4)
+  TEST_METHOD(CodeGenMultiUAVLoad5)
+  TEST_METHOD(CodeGenMultiUAVLoad6)
   TEST_METHOD(CodeGenMultiStream)
   TEST_METHOD(CodeGenMultiStream2)
   TEST_METHOD(CodeGenNeg1)
@@ -2911,6 +2917,30 @@ TEST_F(CompilerTest, CodeGenMinprec7) {
 
 TEST_F(CompilerTest, CodeGenMinprecCast) {
   CodeGenTest(L"..\\CodeGenHLSL\\minprec_cast.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad4) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad6) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiStream) {
