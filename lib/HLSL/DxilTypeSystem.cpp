@@ -182,6 +182,16 @@ DxilStructAnnotation *DxilTypeSystem::GetStructAnnotation(const StructType *pStr
   }
 }
 
+const DxilStructAnnotation *
+DxilTypeSystem::GetStructAnnotation(const StructType *pStructType) const {
+  auto it = m_StructAnnotations.find(pStructType);
+  if (it != m_StructAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
 void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
   DXASSERT_NOMSG(m_StructAnnotations.count(pStructType));
   m_StructAnnotations.remove_if([pStructType](
@@ -203,6 +213,16 @@ DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pF
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::GetFunctionAnnotation(const Function *pFunction) {
+  auto it = m_FunctionAnnotations.find(pFunction);
+  if (it != m_FunctionAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
+const DxilFunctionAnnotation *
+DxilTypeSystem::GetFunctionAnnotation(const Function *pFunction) const {
   auto it = m_FunctionAnnotations.find(pFunction);
   if (it != m_FunctionAnnotations.end()) {
     return it->second.get();
@@ -254,7 +274,7 @@ StructType *DxilTypeSystem::GetNormFloatType(CompType CT, unsigned NumComps) {
 }
 
 void DxilTypeSystem::CopyTypeAnnotation(const llvm::Type *Ty,
-                                        DxilTypeSystem &src) {
+                                        const DxilTypeSystem &src) {
   if (isa<PointerType>(Ty))
     Ty = Ty->getPointerElementType();
 
@@ -266,7 +286,7 @@ void DxilTypeSystem::CopyTypeAnnotation(const llvm::Type *Ty,
     if (GetStructAnnotation(ST))
       return;
 
-    if (DxilStructAnnotation *annot = src.GetStructAnnotation(ST)) {
+    if (const DxilStructAnnotation *annot = src.GetStructAnnotation(ST)) {
       DxilStructAnnotation *dstAnnot = AddStructAnnotation(ST);
       // Copy the annotation.
       *dstAnnot = *annot;
@@ -279,9 +299,9 @@ void DxilTypeSystem::CopyTypeAnnotation(const llvm::Type *Ty,
 }
 
 void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
-                              const llvm::Function *pSrcFunction,
-                              DxilTypeSystem &src) {
-  DxilFunctionAnnotation *annot = src.AddFunctionAnnotation(pSrcFunction);
+                                            const llvm::Function *pSrcFunction,
+                                            const DxilTypeSystem &src) {
+  const DxilFunctionAnnotation *annot = src.GetFunctionAnnotation(pSrcFunction);
   // Don't have annotation.
   if (!annot)
     return;

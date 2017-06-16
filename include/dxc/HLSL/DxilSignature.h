@@ -26,13 +26,13 @@ public:
 
   DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind);
   DxilSignature(DXIL::SigPointKind sigPointKind);
+  DxilSignature(const DxilSignature &src);
   virtual ~DxilSignature();
 
   bool IsInput() const;
   bool IsOutput() const;
 
   virtual std::unique_ptr<DxilSignatureElement> CreateElement();
-  void CopySignatureElements(DxilSignature &src);
 
   unsigned AppendElement(std::unique_ptr<DxilSignatureElement> pSE, bool bSetID = true);
 
@@ -60,7 +60,7 @@ struct DxilEntrySignature {
         OutputSignature(shaderKind, DxilSignature::Kind::Output),
         PatchConstantSignature(shaderKind, DxilSignature::Kind::PatchConstant) {
   }
-  void CopySignatures(DxilEntrySignature &src);
+  DxilEntrySignature(const DxilEntrySignature &src);
   DxilSignature InputSignature;
   DxilSignature OutputSignature;
   DxilSignature PatchConstantSignature;

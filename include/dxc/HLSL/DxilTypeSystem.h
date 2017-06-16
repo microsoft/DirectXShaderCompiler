@@ -165,12 +165,14 @@ public:
 
   DxilStructAnnotation *AddStructAnnotation(const llvm::StructType *pStructType);
   DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType);
+  const DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType) const;
   void EraseStructAnnotation(const llvm::StructType *pStructType);
 
   StructAnnotationMap &GetStructAnnotationMap();
 
   DxilFunctionAnnotation *AddFunctionAnnotation(const llvm::Function *pFunction);
   DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction);
+  const DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction) const;
   void EraseFunctionAnnotation(const llvm::Function *pFunction);
 
   FunctionAnnotationMap &GetFunctionAnnotationMap();
@@ -181,10 +183,10 @@ public:
   llvm::StructType *GetUNormF32Type(unsigned NumComps);
 
   // Methods to copy annotation from another DxilTypeSystem.
-  void CopyTypeAnnotation(const llvm::Type *Ty, DxilTypeSystem &src);
+  void CopyTypeAnnotation(const llvm::Type *Ty, const DxilTypeSystem &src);
   void CopyFunctionAnnotation(const llvm::Function *pDstFunction,
                               const llvm::Function *pSrcFunction,
-                              DxilTypeSystem &src);
+                              const DxilTypeSystem &src);
 
 private:
   llvm::Module *m_pModule;

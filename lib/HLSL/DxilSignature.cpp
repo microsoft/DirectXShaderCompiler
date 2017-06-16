@@ -28,6 +28,19 @@ DxilSignature::DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind si
 DxilSignature::DxilSignature(DXIL::SigPointKind sigPointKind)
 : m_sigPointKind(sigPointKind) {}
 
+DxilSignature::DxilSignature(const DxilSignature &src)
+    : m_sigPointKind(src.m_sigPointKind) {
+  const bool bSetID = false;
+  for (auto &Elt : src.GetElements()) {
+    std::unique_ptr<DxilSignatureElement> newElt = CreateElement();
+    newElt->Initialize(Elt->GetName(), Elt->GetCompType(),
+                       Elt->GetInterpolationMode()->GetKind(), Elt->GetRows(),
+                       Elt->GetCols(), Elt->GetStartRow(), Elt->GetStartCol(),
+                       Elt->GetID(), Elt->GetSemanticIndexVec());
+    AppendElement(std::move(newElt), bSetID);
+  }
+}
+
 DxilSignature::~DxilSignature() {
 }
 
@@ -41,19 +54,6 @@ bool DxilSignature::IsOutput() const {
 
 unique_ptr<DxilSignatureElement> DxilSignature::CreateElement() {
   return unique_ptr<DxilSignatureElement>(new DxilSignatureElement(m_sigPointKind));
-}
-
-void DxilSignature::CopySignatureElements(DxilSignature &src) {
-  const bool bSetID = false;
-  for (auto &Elt : src.GetElements()) {
-    std::unique_ptr<DxilSignatureElement> newElt = CreateElement();
-    newElt->Initialize(Elt->GetName(), Elt->GetCompType(),
-                          Elt->GetInterpolationMode()->GetKind(),
-                          Elt->GetRows(), Elt->GetCols(), Elt->GetStartRow(),
-                          Elt->GetStartCol(), Elt->GetID(),
-                          Elt->GetSemanticIndexVec());
-    AppendElement(std::move(newElt), bSetID);
-  }
 }
 
 unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE, bool bSetID) {
@@ -216,11 +216,9 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
 //
 // EntrySingnature methods.
 //
-void DxilEntrySignature::CopySignatures(DxilEntrySignature &src) {
-  InputSignature.CopySignatureElements(src.InputSignature);
-  OutputSignature.CopySignatureElements(src.OutputSignature);
-  PatchConstantSignature.CopySignatureElements(src.PatchConstantSignature);
-}
+DxilEntrySignature::DxilEntrySignature(const DxilEntrySignature &src)
+    : InputSignature(src.InputSignature), OutputSignature(src.OutputSignature),
+      PatchConstantSignature(src.PatchConstantSignature) {}
 
 } // namespace hlsl
 
