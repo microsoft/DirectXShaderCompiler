@@ -281,19 +281,22 @@ void DxilTypeSystem::CopyTypeAnnotation(const llvm::Type *Ty,
   while (isa<ArrayType>(Ty))
     Ty = Ty->getArrayElementType();
 
-  if (const StructType *ST = dyn_cast<StructType>(Ty)) {
-    // Already exist.
-    if (GetStructAnnotation(ST))
-      return;
+  // Only struct type has annotation.
+  if (!isa<StructType>(Ty))
+    return;
 
-    if (const DxilStructAnnotation *annot = src.GetStructAnnotation(ST)) {
-      DxilStructAnnotation *dstAnnot = AddStructAnnotation(ST);
-      // Copy the annotation.
-      *dstAnnot = *annot;
-      // Copy field type annotations.
-      for (Type *Ty : ST->elements()) {
-        CopyTypeAnnotation(Ty, src);
-      }
+  const StructType *ST = cast<StructType>(Ty);
+  // Already exist.
+  if (GetStructAnnotation(ST))
+    return;
+
+  if (const DxilStructAnnotation *annot = src.GetStructAnnotation(ST)) {
+    DxilStructAnnotation *dstAnnot = AddStructAnnotation(ST);
+    // Copy the annotation.
+    *dstAnnot = *annot;
+    // Copy field type annotations.
+    for (Type *Ty : ST->elements()) {
+      CopyTypeAnnotation(Ty, src);
     }
   }
 }
