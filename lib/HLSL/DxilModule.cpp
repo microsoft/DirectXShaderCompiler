@@ -337,7 +337,17 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   bool hasMSAD = false;
   bool hasInnerCoverage = false;
   bool hasViewID = false;
-  bool hasMulticomponentUAVLoads = ModuleHasMulticomponentUAVLoads();
+  bool hasMulticomponentUAVLoads = false;
+  bool hasMulticomponentUAVLoadsBackCompat = false;
+
+  // Try to maintain compatibility with a v1.0 validator if that's what we have.
+  {
+    unsigned valMajor, valMinor;
+    GetValidatorVersion(valMajor, valMinor);
+    hasMulticomponentUAVLoadsBackCompat = valMajor <= 1 && valMinor == 0;
+  }
+  if (!hasMulticomponentUAVLoadsBackCompat)
+    hasMulticomponentUAVLoads = ModuleHasMulticomponentUAVLoads();
 
   Type *int16Ty = Type::getInt16Ty(GetCtx());
   Type *int64Ty = Type::getInt64Ty(GetCtx());
@@ -402,6 +412,43 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           case DXIL::OpCode::Msad:
             hasMSAD = true;
             break;
+          case DXIL::OpCode::BufferLoad:
+          case DXIL::OpCode::TextureLoad: {
+            if (hasMulticomponentUAVLoads) continue;
+            if (!hasMulticomponentUAVLoadsBackCompat) continue;
+            // This is the old-style computation (overestimating requirements).
+            Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
+            CallInst *handleCall = cast<CallInst>(resHandle);
+
+            if (ConstantInt *resClassArg =
+              dyn_cast<ConstantInt>(handleCall->getArgOperand(
+                DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
+              DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
+                resClassArg->getLimitedValue());
+              if (resClass == DXIL::ResourceClass::UAV) {
+                // For DXIL, all uav load is multi component load.
+                hasMulticomponentUAVLoads = true;
+              }
+            }
+            else if (PHINode *resClassPhi = dyn_cast<
+              PHINode>(handleCall->getArgOperand(
+                DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
+              unsigned numOperands = resClassPhi->getNumOperands();
+              for (unsigned i = 0; i < numOperands; i++) {
+                if (ConstantInt *resClassArg = dyn_cast<ConstantInt>(
+                  resClassPhi->getIncomingValue(i))) {
+                  DXIL::ResourceClass resClass =
+                    static_cast<DXIL::ResourceClass>(
+                      resClassArg->getLimitedValue());
+                  if (resClass == DXIL::ResourceClass::UAV) {
+                    // For DXIL, all uav load is multi component load.
+                    hasMulticomponentUAVLoads = true;
+                    break;
+                  }
+                }
+              }
+            }
+          } break;
           case DXIL::OpCode::Fma:
             hasDoubleExtension |= isDouble;
             break;

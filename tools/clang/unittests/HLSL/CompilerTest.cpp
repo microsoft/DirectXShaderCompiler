@@ -2955,6 +2955,7 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad1) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad2) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad2.hlsl");
 }
 
@@ -2963,6 +2964,7 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad3) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad4) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad4.hlsl");
 }
 
@@ -2971,6 +2973,7 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad6) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad6.hlsl");
 }
 
@@ -3473,6 +3476,7 @@ TEST_F(CompilerTest, CodeGenUint64_1) {
 }
 
 TEST_F(CompilerTest, CodeGenUint64_2) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\uint64_2.hlsl");
 }
 
