@@ -22,6 +22,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "dxc/Support/dxcapi.impl.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -171,6 +172,28 @@ HRESULT ValidateAndAssembleToContainer(
   pValidator.Release();
 
   return valHR;
+}
+
+void CreateOperationResultFromOutputs(
+    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
+    const std::string &warnings, bool hasErrorOccurred,
+    _COM_Outptr_ IDxcOperationResult **ppResult) {
+  CComPtr<IDxcBlobEncoding> pErrorBlob;
+
+  if (pErrorStream != nullptr) {
+    CComPtr<IDxcBlob> pErrorStreamBlob;
+    IFT(pErrorStream.QueryInterface(&pErrorStreamBlob));
+    IFT(DxcCreateBlobWithEncodingSet(pErrorStreamBlob, CP_UTF8, &pErrorBlob));
+  }
+  if (IsBlobNullOrEmpty(pErrorBlob)) {
+    pErrorBlob.Release();
+    IFT(DxcCreateBlobWithEncodingOnHeapCopy(warnings.c_str(), warnings.size(),
+                                            CP_UTF8, &pErrorBlob));
+  }
+
+  HRESULT status = hasErrorOccurred ? E_FAIL : S_OK;
+  IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, pErrorBlob,
+                                                      status, ppResult));
 }
 
 } // namespace dxcutil
