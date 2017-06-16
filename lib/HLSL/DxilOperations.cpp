@@ -432,8 +432,8 @@ void OP::RefreshCache(llvm::Module *pModule) {
       OpCode OpCode = OP::GetDxilOpFuncCallInst(CI);
       Type *pOverloadType = OP::GetOverloadType(OpCode, &F);
       Function *OpFunc = GetOpFunc(OpCode, pOverloadType);
+      (OpFunc);
       DXASSERT_NOMSG(OpFunc == &F);
-
     }
   }
 }
