@@ -422,11 +422,11 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   Type *Int4Types[4] = { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) }; // HiHi, HiLo, LoHi, LoLo
   m_pInt4Type = GetOrCreateStructType(m_Ctx, Int4Types, "dx.types.fouri32", pModule);
   // Try to find existing intrinsic function.
-  RefreshCache(pModule);
+  RefreshCache();
 }
 
-void OP::RefreshCache(llvm::Module *pModule) {
-  for (Function &F : pModule->functions()) {
+void OP::RefreshCache() {
+  for (Function &F : m_pModule->functions()) {
     if (OP::IsDxilOpFunc(&F) && !F.user_empty()) {
       CallInst *CI = cast<CallInst>(*F.user_begin());
       OpCode OpCode = OP::GetDxilOpFuncCallInst(CI);
