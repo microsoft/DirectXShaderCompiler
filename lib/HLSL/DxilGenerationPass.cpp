@@ -2908,7 +2908,7 @@ public:
       unsigned ValMajor = 0;
       unsigned ValMinor = 0;
       M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
-      if (ValMajor == 1 && ValMinor == 0) {
+      if (ValMajor == 1 && ValMinor <= 1) {
         patchValidation_1_0(M);
       }
       for (iplist<Function>::iterator F : M.getFunctionList()) {
