@@ -78,9 +78,9 @@ bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
   return true;
 }
 
-bool CheckOperationResultMsgs(IDxcOperationResult *pResult, LPCSTR *pErrorMsgs,
-                              size_t errorMsgCount, bool maySucceedAnyway,
-                              bool bRegex) {
+bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
+                              const LPCSTR *pErrorMsgs, size_t errorMsgCount,
+                              bool maySucceedAnyway, bool bRegex) {
   return CheckOperationResultMsgs(
       pResult, llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount),
       maySucceedAnyway, bRegex);
