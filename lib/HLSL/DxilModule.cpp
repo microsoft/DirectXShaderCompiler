@@ -860,11 +860,8 @@ static void CreateResourceLinkConstant(Module &M, DxilResourceBase *pRes,
   GlobalVariable *rangeID = new GlobalVariable(
       M, i32Ty, IsConstantTrue, llvm::GlobalValue::ExternalLinkage, NullInitVal,
       pRes->GetGlobalName() + "_rangeID");
-  GlobalVariable *index = new GlobalVariable(
-      M, i32Ty, IsConstantTrue, llvm::GlobalValue::ExternalLinkage, NullInitVal,
-      pRes->GetGlobalName() + "_index");
 
-  resLinkInfo.emplace_back(DxilModule::ResourceLinkInfo{rangeID, index});
+  resLinkInfo.emplace_back(DxilModule::ResourceLinkInfo{rangeID});
 }
 
 void DxilModule::CreateResourceLinkInfo() {
@@ -1402,7 +1399,6 @@ static MDTuple *CreateResourcesLinkInfo(std::vector<DxilModule::ResourceLinkInfo
   vector<Metadata *> MDVals;
   for (size_t i = 0; i < size; i++) {
     MDVals.emplace_back(ValueAsMetadata::get(LinkInfoList[i].ResRangeID));
-    MDVals.emplace_back(ValueAsMetadata::get(LinkInfoList[i].ResIndex));
   }
   return MDNode::get(Ctx, MDVals);
 }
@@ -1440,13 +1436,11 @@ LoadResourcesLinkInfo(const llvm::MDTuple *pMD,
     return;
   }
   unsigned operandSize = pMD->getNumOperands();
-  IFTBOOL(operandSize == (2 * size), DXC_E_INCORRECT_DXIL_METADATA);
-  for (unsigned i = 0; i < operandSize; i += 2) {
+  IFTBOOL(operandSize == size, DXC_E_INCORRECT_DXIL_METADATA);
+  for (unsigned i = 0; i < operandSize; i++) {
     Constant *rangeID =
         dyn_cast<Constant>(pMDHelper->ValueMDToValue(pMD->getOperand(i)));
-    Constant *index =
-        dyn_cast<Constant>(pMDHelper->ValueMDToValue(pMD->getOperand(i + 1)));
-    LinkInfoList.emplace_back(DxilModule::ResourceLinkInfo{rangeID, index});
+    LinkInfoList.emplace_back(DxilModule::ResourceLinkInfo{rangeID});
   }
 }
 

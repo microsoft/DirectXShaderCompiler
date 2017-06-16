@@ -930,6 +930,8 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
         (DXIL::InputPrimitive)ConstMDToUint32(pProps->getOperand(idx++));
     props->ShaderProps.GS.maxVertexCount =
         ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.GS.instanceCount =
+        ConstMDToUint32(pProps->getOperand(idx++));
     for (size_t i = 0;
          i < _countof(props->ShaderProps.GS.streamPrimitiveTopologies); ++i)
       props->ShaderProps.GS.streamPrimitiveTopologies[i] =
@@ -985,6 +987,7 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
     MDVals[valIdx++] =
         Uint8ToConstMD((uint8_t)props->ShaderProps.GS.inputPrimitive);
     MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.GS.maxVertexCount);
+    MDVals[valIdx++] = Uint32ToConstMD(props->ShaderProps.GS.instanceCount);
     for (size_t i = 0;
          i < _countof(props->ShaderProps.GS.streamPrimitiveTopologies); ++i)
       MDVals[valIdx++] = Uint8ToConstMD(

@@ -1468,6 +1468,7 @@ public:
 
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
+      DxilModule &DM = M.GetDxilModule();
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
       unsigned ValMajor = 0;
@@ -1511,9 +1512,17 @@ public:
         }
       }
       // Remove unused external functions.
+      // For none library profile, remove unused functions except entry and
+      // patchconstant function.
+      Function *EntryFunc = DM.GetEntryFunction();
+      Function *PatchConstantFunc = DM.GetPatchConstantFunction();
+      bool IsLib = DM.GetShaderModel()->IsLib();
+
       std::vector<Function *> deadList;
       for (iplist<Function>::iterator F : M.getFunctionList()) {
-        if (F->isDeclaration()) {
+        if (&(*F) == EntryFunc || &(*F) == PatchConstantFunc)
+          continue;
+        if (F->isDeclaration() || !IsLib) {
           if (F->user_empty())
             deadList.emplace_back(F);
         }
@@ -1563,11 +1572,10 @@ public:
         }
       }
 
-      DxilModule &DM = M.GetDxilModule();
       DenseMap<const Function *, DISubprogram *> FunctionDIs =
           makeSubprogramMap(M);
       // Strip parameters of entry function.
-      if (!DM.GetShaderModel()->IsLib()) {
+      if (!IsLib) {
         if (Function *PatchConstantFunc = DM.GetPatchConstantFunction()) {
           PatchConstantFunc =
               StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
