@@ -460,7 +460,6 @@ void DxilCondenseResources::PatchCreateHandleForLib(DxilModule &DM) {
   Function *createHandle = DM.GetOP()->GetOpFunc(DXIL::OpCode::CreateHandle,
                                                  Type::getVoidTy(DM.GetCtx()));
   DM.CreateResourceLinkInfo();
-  Value *zeroIndex = ConstantInt::get(Type::getInt32Ty(DM.GetCtx()), 0);
   for (User *U : createHandle->users()) {
     CallInst *handle = cast<CallInst>(U);
     DxilInst_CreateHandle createHandle(handle);
@@ -484,20 +483,6 @@ void DxilCondenseResources::PatchCreateHandleForLib(DxilModule &DM) {
     // Update rangeID to linkinfo rangeID.
     handle->setArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx,
                           linkRangeID);
-
-    Value *Index = createHandle.get_index();
-    Value *linkIndex = Builder.CreateLoad(linkInfo.ResIndex);
-
-    if (Index == zeroIndex) {
-      // Update index to linkinfo index.
-      handle->setArgOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx,
-                            linkIndex);
-    } else {
-      // Add linkinfo index to index.
-      Value *newIdx = Builder.CreateAdd(Index, linkIndex);
-      handle->setArgOperand(DXIL::OperandIndex::kCreateHandleResIndexOpIdx,
-                            newIdx);
-    }
   }
 }
 

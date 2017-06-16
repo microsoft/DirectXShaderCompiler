@@ -357,11 +357,10 @@ public:
   void SetShaderProperties(DxilFunctionProps *props);
 
   // Shader resource information only needed before linking.
-  // Use constant as rangeID and index for resource in a library.
-  // When link the library, replace these constants with real rangeID and index.
+  // Use constant as rangeID for resource in a library.
+  // When link the library, replace these constants with real rangeID.
   struct ResourceLinkInfo {
     llvm::Constant *ResRangeID;
-    llvm::Constant *ResIndex;
   };
 
 private:

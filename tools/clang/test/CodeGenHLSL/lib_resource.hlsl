@@ -2,14 +2,12 @@
 
 // Make sure globals for link info exist.
 // CHECK: g_txDiffuse_rangeID
-// CHECK: g_txDiffuse_index
 // CHECK: g_samLinear_rangeID
-// CHECK: g_samLinear_index
 
 // Make sure link info metadata exist.
 // CHECK: dx.resources.link.info
-// CHECK: !{i32* @g_txDiffuse_rangeID, i32* @g_txDiffuse_index}
-// CHECK: !{i32* @g_samLinear_rangeID, i32* @g_samLinear_index}
+// CHECK: !{i32* @g_txDiffuse_rangeID}
+// CHECK: !{i32* @g_samLinear_rangeID}
 
 
 Texture2D    g_txDiffuse;
