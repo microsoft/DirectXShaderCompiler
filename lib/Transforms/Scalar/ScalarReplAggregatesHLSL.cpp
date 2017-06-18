@@ -6734,9 +6734,7 @@ void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
           SI->replaceUsesOfWith(LI, TmpRes);
         } else {
           CallInst *CI = cast<CallInst>(ldU);
-          HLOpcodeGroup group =
-              hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
-          DXASSERT(group == HLOpcodeGroup::HLCreateHandle,
+          DXASSERT(hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction()) == HLOpcodeGroup::HLCreateHandle,
                    "must be createHandle");
           CI->replaceAllUsesWith(Handle);
           CI->eraseFromParent();
