@@ -834,7 +834,7 @@ void GenerateInputOutputUserCall(InputOutputAccessInfo &info, Value *undefVertex
         Value *V = stInst->getValueOperand();
         Type *Ty = V->getType();
         DXASSERT_LOCALVAR(Ty == Ty->getScalarType() && !Ty->isAggregateType(),
-                          "only support scalar here");
+                          Ty, "only support scalar here");
 
         if (ConstantInt *ColIdx = dyn_cast<ConstantInt>(info.vectorIdx)) {
           IRBuilder<> Builder(stInst);

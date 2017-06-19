@@ -99,7 +99,7 @@ Domain shader (DS)   ds_5_0, ds_5_1                        ds_6_0
 Geometry shader (GS) gs_4_0, gs_4_1, gs_5_0, gs_5_1        gs_6_0
 Pixel shader (PS)    ps_4_0, ps_4_1, ps_5_0, ps_5_1        ps_6_0
 Compute shader (CS)  cs_5_0 (cs_4_0 is mapped onto cs_5_0) cs_6_0
-Shader library       no support                            no support
+Shader library       no support                            lib_6_1
 ==================== ===================================== ===========
 
 The DXIL verifier ensures that DXIL conforms to the specified shader model.
