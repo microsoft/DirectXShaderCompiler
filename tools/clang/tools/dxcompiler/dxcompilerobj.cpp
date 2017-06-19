@@ -1061,6 +1061,8 @@ public:
           pUtf8SourceName = opts.InputFile.data();
         }
       }
+      // Set target profile.
+      opts.TargetProfile = pUtf8TargetProfile.m_psz;
 
       IFT(msfPtr->RegisterOutputStream(L"output.bc", pOutputStream));
       IFT(msfPtr->CreateStdStreams(pMalloc));

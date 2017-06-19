@@ -12,8 +12,8 @@
 // CHECK: dx.func.props
 
 // Make sure function props is correct for [numthreads(8,8,1)].
-// CHECK: @entry, i32 5, i32 8, i32 8, i32 1
-// CHECK: @entry2, i32 5, i32 8, i32 8, i32 1
+// CHECK: @entry{{.*}}, i32 5, i32 8, i32 8, i32 1
+// CHECK: @entry{{.*}}, i32 5, i32 8, i32 8, i32 1
 
 [numthreads(8,8,1)]
 void entry( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex )
