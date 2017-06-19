@@ -14,6 +14,7 @@ add_llvm_library(LLVMHLSL
   DxilGenerationPass.cpp
   DxilInterpolationMode.cpp
   DxilLegalizeSampleOffsetPass.cpp
+  DxilLinker.cpp
   DxilMetadataHelper.cpp
   DxilModule.cpp
   DxilOperations.cpp
