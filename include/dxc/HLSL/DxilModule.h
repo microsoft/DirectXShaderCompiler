@@ -19,9 +19,13 @@
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/ComputeViewIdState.h"
+
+
+
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace llvm {
 class LLVMContext;
@@ -38,6 +42,7 @@ namespace hlsl {
 class ShaderModel;
 class OP;
 class RootSignatureHandle;
+struct DxilFunctionProps;
 
 /// Use this class to manipulate DXIL of a shader.
 class DxilModule {
@@ -97,6 +102,11 @@ public:
   const DxilResource &GetUAV(unsigned idx) const;
   const std::vector<std::unique_ptr<DxilResource> > &GetUAVs() const;
 
+  void CreateResourceLinkInfo();
+  struct ResourceLinkInfo;
+  const ResourceLinkInfo &GetResourceLinkInfo(DXIL::ResourceClass resClass,
+                                        unsigned rangeID) const;
+
   void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
   void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
   void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
@@ -112,6 +122,16 @@ public:
   DxilSignature &GetPatchConstantSignature();
   const DxilSignature &GetPatchConstantSignature() const;
   const RootSignatureHandle &GetRootSignature() const;
+  bool HasDxilEntrySignature(llvm::Function *F) const;
+  DxilEntrySignature &GetDxilEntrySignature(llvm::Function *F);
+  // Move DxilEntrySignature of F to NewF.
+  void ReplaceDxilEntrySignature(llvm::Function *F, llvm::Function *NewF);
+
+  // DxilFunctionProps.
+  bool HasDxilFunctionProps(llvm::Function *F) const;
+  DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
+  // Move DxilFunctionProps of F to NewF.
+  void ReplaceDxilFunctionProps(llvm::Function *F, llvm::Function *NewF);
 
   // Remove Root Signature from module metadata
   void StripRootSignatureFromMetadata();
@@ -138,12 +158,16 @@ public:
   static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
 
   // Reset functions used to transfer ownership.
-  void ResetInputSignature(DxilSignature *pValue);
-  void ResetOutputSignature(DxilSignature *pValue);
-  void ResetPatchConstantSignature(DxilSignature *pValue);
+  void ResetEntrySignature(DxilEntrySignature *pValue);
   void ResetRootSignature(RootSignatureHandle *pValue);
   void ResetTypeSystem(DxilTypeSystem *pValue);
   void ResetOP(hlsl::OP *hlslOP);
+  void ResetFunctionPropsMap(
+      std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
+          &&propsMap);
+  void ResetEntrySignatureMap(
+      std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
+          &&SigMap);
 
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -330,11 +354,18 @@ public:
   float GetMaxTessellationFactor() const;
   void SetMaxTessellationFactor(float MaxTessellationFactor);
 
+  void SetShaderProperties(DxilFunctionProps *props);
+
+  // Shader resource information only needed before linking.
+  // Use constant as rangeID for resource in a library.
+  // When link the library, replace these constants with real rangeID.
+  struct ResourceLinkInfo {
+    llvm::Constant *ResRangeID;
+  };
+
 private:
   // Signatures.
-  std::unique_ptr<DxilSignature> m_InputSignature;
-  std::unique_ptr<DxilSignature> m_OutputSignature;
-  std::unique_ptr<DxilSignature> m_PatchConstantSignature;
+  std::unique_ptr<DxilEntrySignature> m_EntrySignature;
   std::unique_ptr<RootSignatureHandle> m_RootSignature;
 
   // Shader resources.
@@ -342,6 +373,12 @@ private:
   std::vector<std::unique_ptr<DxilResource> > m_UAVs;
   std::vector<std::unique_ptr<DxilCBuffer> > m_CBuffers;
   std::vector<std::unique_ptr<DxilSampler> > m_Samplers;
+
+  // Save resource link for library, when link replace it with real resource ID.
+  std::vector<ResourceLinkInfo> m_SRVsLinkInfo;
+  std::vector<ResourceLinkInfo> m_UAVsLinkInfo;
+  std::vector<ResourceLinkInfo> m_CBuffersLinkInfo;
+  std::vector<ResourceLinkInfo> m_SamplersLinkInfo;
 
   // Geometry shader.
   DXIL::InputPrimitive m_InputPrimitive;
@@ -383,12 +420,21 @@ private:
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
 
+  // Function properties for shader functions.
+  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
+      m_DxilFunctionPropsMap;
+  // EntrySig for shader functions.
+  std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
+      m_DxilEntrySignatureMap;
+
   // ViewId state.
   std::unique_ptr<DxilViewIdState> m_pViewIdState;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();
   void LoadDxilResources(const llvm::MDOperand &MDO);
+  void EmitDxilResourcesLinkInfo();
+  void LoadDxilResourcesLinkInfo();
   llvm::MDTuple *EmitDxilShaderProperties();
   void LoadDxilShaderProperties(const llvm::MDOperand &MDO);
 
