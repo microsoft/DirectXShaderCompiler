@@ -51,6 +51,7 @@ set(SOURCES
   dxcontainerbuilder.cpp
   dxcutil.cpp
   dxcdisassembler.cpp
+  dxclinker.cpp
   )
 
 set(LIBRARIES

@@ -28,6 +28,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -95,6 +96,7 @@ private:
   std::unordered_map<llvm::Type *, MDNode*> resMetadataMap;
 
   bool  m_bDebugInfo;
+  bool  m_bIsLib;
 
   HLCBuffer &GetGlobalCBuffer() {
     return *static_cast<HLCBuffer*>(&(m_pHLModule->GetCBuffer(globalCBIndex)));
@@ -112,7 +114,12 @@ private:
   
   // Map to save patch constant functions
   StringMap<Function *> patchConstantFunctionMap;
+  std::unordered_map<Function *, std::unique_ptr<DxilFunctionProps>>
+      patchConstantFunctionPropsMap;
   bool IsPatchConstantFunction(const Function *F);
+
+  // Map to save entry functions.
+  StringMap<Function *> entryFunctionMap;
 
   // List for functions with clip plane.
   std::vector<Function *> clipPlaneFuncList;
@@ -306,6 +313,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     Diags.Report(DiagID) << CGM.getCodeGenOpts().HLSLProfile;
     return;
   }
+  m_bIsLib = SM->IsLib();
   // TODO: add AllResourceBound.
   if (CGM.getCodeGenOpts().HLSLAvoidControlFlow && !CGM.getCodeGenOpts().HLSLAllResourcesBound) {
     if (SM->IsSM51Plus()) {
@@ -394,6 +402,7 @@ void CGMSHLSLRuntime::CheckParameterAnnotation(
     SourceLocation SLoc, DxilParamInputQual paramQual, llvm::StringRef semFullName,
     bool isPatchConstantFunction) {
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
+
   DXIL::SigPointKind sigPoint = SigPointFromInputQual(
     paramQual, SM->GetKind(), isPatchConstantFunction);
 
@@ -1050,12 +1059,56 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (isEntry)
     EntryFunc = F;
 
-  std::unique_ptr<HLFunctionProps> funcProps =
-      llvm::make_unique<HLFunctionProps>();
+  DiagnosticsEngine &Diags = CGM.getDiags();
+
+  std::unique_ptr<DxilFunctionProps> funcProps =
+      llvm::make_unique<DxilFunctionProps>();
+  funcProps->shaderKind = DXIL::ShaderKind::Invalid;
+  bool isCS = false;
+  bool isGS = false;
+  bool isHS = false;
+  bool isDS = false;
+  bool isVS = false;
+  bool isPS = false;
+  if (const HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>()) {
+    // Stage is already validate in HandleDeclAttributeForHLSL.
+    // Here just check first letter.
+    switch (Attr->getStage()[0]) {
+    case 'c':
+      isCS = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Compute;
+      break;
+    case 'v':
+      isVS = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Vertex;
+      break;
+    case 'h':
+      isHS = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Hull;
+      break;
+    case 'd':
+      isDS = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Domain;
+      break;
+    case 'g':
+      isGS = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Geometry;
+      break;
+    case 'p':
+      isPS = true;
+      funcProps->shaderKind = DXIL::ShaderKind::Pixel;
+      break;
+    default: {
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error, "Invalid profile for shader attribute");
+      Diags.Report(Attr->getLocation(), DiagID);
+    } break;
+    }
+  }
 
   // Save patch constant function to patchConstantFunctionMap.
   bool isPatchConstantFunction = false;
-  if (CGM.getContext().IsPatchConstantFunctionDecl(FD)) {
+  if (!isEntry && CGM.getContext().IsPatchConstantFunctionDecl(FD)) {
     isPatchConstantFunction = true;
     if (patchConstantFunctionMap.count(FD->getName()) == 0)
       patchConstantFunctionMap[FD->getName()] = F;
@@ -1084,16 +1137,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             GetHLSLInputPatchCount(parmDecl->getType());
       }
     }
+    funcProps->shaderKind = DXIL::ShaderKind::Hull;
   }
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
+  if (isEntry) {
+    funcProps->shaderKind = SM->GetKind();
+  }
 
-  // TODO: how to know VS/PS?
-  funcProps->shaderKind = DXIL::ShaderKind::Invalid;
-
-  DiagnosticsEngine &Diags = CGM.getDiags();
   // Geometry shader.
-  bool isGS = false;
   if (const HLSLMaxVertexCountAttr *Attr =
           FD->getAttr<HLSLMaxVertexCountAttr>()) {
     isGS = true;
@@ -1126,7 +1178,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Computer shader.
-  bool isCS = false;
   if (const HLSLNumThreadsAttr *Attr = FD->getAttr<HLSLNumThreadsAttr>()) {
     isCS = true;
     funcProps->shaderKind = DXIL::ShaderKind::Compute;
@@ -1144,7 +1195,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Hull shader.
-  bool isHS = false;
   if (const HLSLPatchConstantFuncAttr *Attr =
           FD->getAttr<HLSLPatchConstantFuncAttr>()) {
     if (isEntry && !SM->IsHS()) {
@@ -1162,7 +1212,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (patchConstantFunctionMap.count(funcName) == 1) {
       Function *patchConstFunc = patchConstantFunctionMap[funcName];
       funcProps->ShaderProps.HS.patchConstantFunc = patchConstFunc;
-      DXASSERT_NOMSG(m_pHLModule->HasHLFunctionProps(patchConstFunc));
+      DXASSERT_NOMSG(patchConstantFunctionPropsMap.count(patchConstFunc));
       // Check no inout parameter for patch constant function.
       DxilFunctionAnnotation *patchConstFuncAnnotation =
           m_pHLModule->GetFunctionAnnotation(patchConstFunc);
@@ -1250,7 +1300,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Hull or domain shader.
-  bool isDS = false;
   if (const HLSLDomainAttr *Attr = FD->getAttr<HLSLDomainAttr>()) {
     if (isEntry && !SM->IsHS() && !SM->IsDS()) {
       unsigned DiagID =
@@ -1272,7 +1321,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Vertex shader.
-  bool isVS = false;
   if (const HLSLClipPlanesAttr *Attr = FD->getAttr<HLSLClipPlanesAttr>()) {
     if (isEntry && !SM->IsVS()) {
       unsigned DiagID = Diags.getCustomDiagID(
@@ -1288,7 +1336,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Pixel shader.
-  bool isPS = false;
   if (const HLSLEarlyDepthStencilAttr *Attr =
           FD->getAttr<HLSLEarlyDepthStencilAttr>()) {
     if (isEntry && !SM->IsPS()) {
@@ -1594,9 +1641,9 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (isHS) {
     // Check
     Function *patchConstFunc = funcProps->ShaderProps.HS.patchConstantFunc;
-    if (m_pHLModule->HasHLFunctionProps(patchConstFunc)) {
-      HLFunctionProps &patchProps =
-          m_pHLModule->GetHLFunctionProps(patchConstFunc);
+    if (patchConstantFunctionPropsMap.count(patchConstFunc)) {
+      DxilFunctionProps &patchProps =
+          *patchConstantFunctionPropsMap[patchConstFunc];
       if (patchProps.ShaderProps.HS.outputControlPoints != 0 &&
           patchProps.ShaderProps.HS.outputControlPoints !=
               funcProps->ShaderProps.HS.outputControlPoints) {
@@ -1623,14 +1670,28 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Only add functionProps when exist.
-  if (profileAttributes || isPatchConstantFunction)
-    m_pHLModule->AddHLFunctionProps(F, funcProps);
+  if (profileAttributes || isEntry)
+    m_pHLModule->AddDxilFunctionProps(F, funcProps);
+  if (isPatchConstantFunction)
+    patchConstantFunctionPropsMap[F] = std::move(funcProps);
+
+  // Save F to entry map.
+  if (profileAttributes) {
+    if (entryFunctionMap.count(FD->getName())) {
+      DiagnosticsEngine &Diags = CGM.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "redefinition of %0");
+      Diags.Report(FD->getLocStart(), DiagID) << FD->getName();
+    }
+    entryFunctionMap[FD->getNameAsString()] = F;
+  }
 }
 
 void CGMSHLSLRuntime::EmitHLSLFunctionProlog(Function *F, const FunctionDecl *FD) {
   // Support clip plane need debug info which not available when create function attribute.
   if (const HLSLClipPlanesAttr *Attr = FD->getAttr<HLSLClipPlanesAttr>()) {
-    HLFunctionProps &funcProps = m_pHLModule->GetHLFunctionProps(F);
+    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
     // Initialize to null.
     memset(funcProps.ShaderProps.VS.clipPlanes, 0, sizeof(funcProps.ShaderProps.VS.clipPlanes));
     // Create global for each clip plane, and use the clip plane val as init val.
@@ -3766,19 +3827,70 @@ static void SimpleTransformForHLDXIR(llvm::Module *pM) {
     I->eraseFromParent();
 }
 
-void CGMSHLSLRuntime::FinishCodeGen() {
-  SetEntryFunction();
+// Clone shader entry function to be called by other functions.
+// The original function will be used as shader entry.
+static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
+                             HLModule &HLM) {
+  // Use mangled name for cloned one.
+  Function *F = Function::Create(ShaderF->getFunctionType(),
+                                 GlobalValue::LinkageTypes::ExternalLinkage,
+                                 "", HLM.GetModule());
+  F->takeName(ShaderF);
+  // Set to name before mangled.
+  ShaderF->setName(EntryName);
 
-  // If at this point we haven't determined the entry function it's an error.
-  if (m_pHLModule->GetEntryFunction() == nullptr) {
-    assert(CGM.getDiags().hasErrorOccurred() &&
-           "else SetEntryFunction should have reported this condition");
-    return;
+  SmallVector<ReturnInst *, 2> Returns;
+  ValueToValueMapTy vmap;
+  // Map params.
+  auto entryParamIt = F->arg_begin();
+  for (Argument &param : ShaderF->args()) {
+    vmap[&param] = (entryParamIt++);
+  }
+
+  llvm::CloneFunctionInto(F, ShaderF, vmap, /*ModuleLevelChagnes*/ false,
+                          Returns);
+
+  // Copy function annotation.
+  DxilFunctionAnnotation *shaderAnnot = HLM.GetFunctionAnnotation(ShaderF);
+  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotation(F);
+
+  DxilParameterAnnotation &retAnnot = shaderAnnot->GetRetTypeAnnotation();
+  DxilParameterAnnotation &cloneRetAnnot = annot->GetRetTypeAnnotation();
+  cloneRetAnnot = retAnnot;
+  // Clear semantic for cloned one.
+  cloneRetAnnot.SetSemanticString("");
+  cloneRetAnnot.SetSemanticIndexVec({});
+  for (unsigned i = 0; i < shaderAnnot->GetNumParameters(); i++) {
+    DxilParameterAnnotation &cloneParamAnnot = annot->GetParameterAnnotation(i);
+    DxilParameterAnnotation &paramAnnot =
+        shaderAnnot->GetParameterAnnotation(i);
+    cloneParamAnnot = paramAnnot;
+    // Clear semantic for cloned one.
+    cloneParamAnnot.SetSemanticString("");
+    cloneParamAnnot.SetSemanticIndexVec({});
+  }
+}
+
+void CGMSHLSLRuntime::FinishCodeGen() {
+  // Library don't have entry.
+  if (!m_bIsLib) {
+    SetEntryFunction();
+
+    // If at this point we haven't determined the entry function it's an error.
+    if (m_pHLModule->GetEntryFunction() == nullptr) {
+      assert(CGM.getDiags().hasErrorOccurred() &&
+             "else SetEntryFunction should have reported this condition");
+      return;
+    }
+  } else {
+    for (auto &it : entryFunctionMap) {
+      CloneShaderEntry(it.second, it.getKey(), *m_pHLModule);
+    }
   }
 
   // Create copy for clip plane.
   for (Function *F : clipPlaneFuncList) {
-    HLFunctionProps &props = m_pHLModule->GetHLFunctionProps(F);
+    DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(F);
     IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
     for (unsigned i = 0; i < DXIL::kNumClipPlanes; i++) {
@@ -3807,54 +3919,58 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Create Global variable and type annotation for each CBuffer.
   ConstructCBuffer(m_pHLModule, CBufferType, m_ConstVarAnnotationMap);
 
-  // add global call to entry func
-  auto AddGlobalCall = [&](StringRef globalName, Instruction *InsertPt) {
-    GlobalVariable *GV = TheModule.getGlobalVariable(globalName);
-    if (GV) {
-      if (ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer())) {
+  if (!m_bIsLib) {
+    // add global call to entry func
+    auto AddGlobalCall = [&](StringRef globalName, Instruction *InsertPt) {
+      GlobalVariable *GV = TheModule.getGlobalVariable(globalName);
+      if (GV) {
+        if (ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer())) {
 
-        IRBuilder<> Builder(InsertPt);
-        for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e;
-             ++i) {
-          if (isa<ConstantAggregateZero>(*i))
-            continue;
-          ConstantStruct *CS = cast<ConstantStruct>(*i);
-          if (isa<ConstantPointerNull>(CS->getOperand(1)))
-            continue;
+          IRBuilder<> Builder(InsertPt);
+          for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e;
+               ++i) {
+            if (isa<ConstantAggregateZero>(*i))
+              continue;
+            ConstantStruct *CS = cast<ConstantStruct>(*i);
+            if (isa<ConstantPointerNull>(CS->getOperand(1)))
+              continue;
 
-          // Must have a function or null ptr.
-          if (!isa<Function>(CS->getOperand(1)))
-            continue;
-          Function *Ctor = cast<Function>(CS->getOperand(1));
-          assert(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0 &&
-                 "function type must be void (void)");
-          Builder.CreateCall(Ctor);
+            // Must have a function or null ptr.
+            if (!isa<Function>(CS->getOperand(1)))
+              continue;
+            Function *Ctor = cast<Function>(CS->getOperand(1));
+            assert(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0 &&
+                   "function type must be void (void)");
+            Builder.CreateCall(Ctor);
+          }
+          // remove the GV
+          GV->eraseFromParent();
         }
-        // remove the GV
-        GV->eraseFromParent();
       }
-    }
-  };
-  // need this for "llvm.global_dtors"?
-  AddGlobalCall("llvm.global_ctors",
-                EntryFunc->getEntryBlock().getFirstInsertionPt());
-
+    };
+    // need this for "llvm.global_dtors"?
+    AddGlobalCall("llvm.global_ctors",
+                  EntryFunc->getEntryBlock().getFirstInsertionPt());
+  }
   // translate opcode into parameter for intrinsic functions
   AddOpcodeParamForIntrinsics(*m_pHLModule, m_IntrinsicMap, resMetadataMap);
 
   // Pin entry point and constant buffers, mark everything else internal.
   for (Function &f : m_pHLModule->GetModule()->functions()) {
-    if (&f == m_pHLModule->GetEntryFunction() || IsPatchConstantFunction(&f) ||
-        f.isDeclaration()) {
-      f.setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
-    } else {
-      f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+    if (!m_bIsLib) {
+      if (&f == m_pHLModule->GetEntryFunction() ||
+          IsPatchConstantFunction(&f) || f.isDeclaration()) {
+        f.setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
+      } else {
+        f.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+      }
     }
     // Skip no inline functions.
     if (f.hasFnAttribute(llvm::Attribute::NoInline))
       continue;
-    // Always inline.
-    f.addFnAttr(llvm::Attribute::AlwaysInline);
+    // Always inline for used functions.
+    if (!f.user_empty())
+      f.addFnAttr(llvm::Attribute::AlwaysInline);
   }
 
   // Do simple transform to make later lower pass easier.

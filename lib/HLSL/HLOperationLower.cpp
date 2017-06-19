@@ -35,7 +35,7 @@ struct HLOperationLowerHelper {
   llvm::Type *i1Ty;
   Type *i8Ty;
   DxilTypeSystem &dxilTypeSys;
-  HLFunctionProps *functionProps;
+  DxilFunctionProps *functionProps;
   bool bLegacyCBufferLoad;
   DataLayout legacyDataLayout;
   HLOperationLowerHelper(HLModule &HLM);
@@ -51,7 +51,9 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
   i1Ty = Type::getInt1Ty(Ctx);
   i8Ty = Type::getInt8Ty(Ctx);
   Function *EntryFunc = HLM.GetEntryFunction();
-  functionProps = &HLM.GetHLFunctionProps(EntryFunc);
+  functionProps = nullptr;
+  if (HLM.HasDxilFunctionProps(EntryFunc))
+    functionProps = &HLM.GetDxilFunctionProps(EntryFunc);
   bLegacyCBufferLoad = HLM.GetHLOptions().bLegacyCBufferLoad;
 }
 
