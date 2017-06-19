@@ -2997,6 +2997,13 @@ public:
       return false;
     }
 
+    // Currently template instantiation is blocked when a fatal error is
+    // detected. So no faulting-in types at this point, instead we simply
+    // back out.
+    if (this->m_sema->Diags.hasFatalErrorOccurred()) {
+      return false;
+    }
+
     StringRef nameIdentifier = idInfo->getName();
     HLSLScalarType parsedType;
     int rowCount;
