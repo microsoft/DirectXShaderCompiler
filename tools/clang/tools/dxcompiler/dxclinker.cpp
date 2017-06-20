@@ -34,6 +34,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
 
 using namespace hlsl;
 using namespace llvm;
@@ -207,8 +208,12 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       if (pM) {
         const IntrusiveRefCntPtr<clang::DiagnosticIDs> Diags(
             new clang::DiagnosticIDs);
-        clang::DiagnosticOptions *DiagOpts = nullptr;
-        clang::DiagnosticsEngine Diag(Diags, DiagOpts);
+        IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
+            new clang::DiagnosticOptions();
+        // Construct our diagnostic client.
+        clang::TextDiagnosticPrinter *DiagClient =
+            new clang::TextDiagnosticPrinter(DiagStream, &*DiagOpts);
+        clang::DiagnosticsEngine Diag(Diags, &*DiagOpts, DiagClient);
 
         raw_stream_ostream outStream(pOutputStream.p);
         // Create bitcode of M.
