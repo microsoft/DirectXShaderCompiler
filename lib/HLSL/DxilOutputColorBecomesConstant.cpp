@@ -44,9 +44,9 @@ public:
   bool runOnModule(Module &M) override {
 
     //todo: make these parameters to the pass
-    float r = 0.f;
-    float g = 1.f;
-    float b = 0.f;
+    float r = 0.2f;
+    float g = 0.4f;
+    float b = 0.6f;
     float a = 1.f;
 
     float color[4] = { r, g, b, a };
@@ -91,7 +91,7 @@ public:
           Constant * pFloatConstant = hlslOP->GetFloatConst(color[i]);
           Args.push_back(Builder.getInt8(i));
           Args.push_back(pFloatConstant);
-          
+
           (void) Builder.CreateCall(pOutputFunction, Args);
         }
         return true;
