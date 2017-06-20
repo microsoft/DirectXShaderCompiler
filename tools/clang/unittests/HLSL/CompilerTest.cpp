@@ -361,6 +361,8 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
 
+  TEST_METHOD(PixConstantColor)
+
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
   TEST_METHOD(CodeGenAllLit)
@@ -2215,6 +2217,10 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   LPCSTR pErrorMsg = "Unknown HLSL version";
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
+
+TEST_F(CompilerTest, PixConstantColor) {
+  CodeGenTestCheck(L"pix\\constantcolor.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
