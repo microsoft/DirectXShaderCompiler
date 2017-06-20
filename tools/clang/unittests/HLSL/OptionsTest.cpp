@@ -141,6 +141,12 @@ TEST_F(OptionsTest, ReadOptionsConflict) {
       L"hlsl.hlsl"};
   MainArgsArr controlFlowArr(controlFlowArgs);
   ReadOptsTest(controlFlowArr, DxrFlags, "Cannot specify /Gfa and /Gfp together, use /? to get usage information");
+
+  const wchar_t *libArgs[] = {
+      L"exe.exe",   L"/E",        L"main",    L"/T",           L"lib_6_1",
+      L"hlsl.hlsl"};
+  MainArgsArr libArr(libArgs);
+  ReadOptsTest(libArr, DxrFlags, "cannot specify entry point for a library");
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenHelpThenShortcut) {

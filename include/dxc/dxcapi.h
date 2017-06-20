@@ -182,6 +182,31 @@ IDxcCompiler2 : public IDxcCompiler {
   ) = 0;
 };
 
+struct __declspec(uuid("F1B5BE2A-62DD-4327-A1C2-42AC1E1E78E6"))
+IDxcLinker : public IUnknown {
+public:
+  // Register a library with name to ref it later.
+  virtual HRESULT RegisterLibrary(
+      _In_opt_ LPCWSTR pLibName,         // Name of the library.
+      _In_ IDxcBlob *pLib                // Library blob.
+  ) = 0;
+
+  // Links the shader and produces a shader blob that the Direct3D runtime can
+  // use.
+  virtual HRESULT STDMETHODCALLTYPE Link(
+      _In_opt_ LPCWSTR pEntryName, // Entry point name
+      _In_ LPCWSTR pTargetProfile, // shader profile to link
+      _In_count_(libCount)
+          const LPCWSTR *pLibNames, // Array of library names to link
+      UINT32 libCount,              // Number of libraries to link
+      _In_count_(argCount)
+          const LPCWSTR *pArguments, // Array of pointers to arguments
+      _In_ UINT32 argCount,          // Number of arguments
+      _COM_Outptr_ IDxcOperationResult *
+          *ppResult // Linker output status, buffer, and errors
+  ) = 0;
+};
+
 static const UINT32 DxcValidatorFlags_Default = 0;
 static const UINT32 DxcValidatorFlags_InPlaceEdit = 1;  // Validator is allowed to update shader blob in-place.
 static const UINT32 DxcValidatorFlags_RootSignatureOnly = 2;
@@ -260,6 +285,14 @@ __declspec(selectany) extern const CLSID CLSID_DxcCompiler = {
   0xe6ce,
   0x47f3,
   { 0xb5, 0xbf, 0xf0, 0x66, 0x4f, 0x39, 0xc1, 0xb0 }
+};
+
+// {EF6A8087-B0EA-4D56-9E45-D07E1A8B7806}
+__declspec(selectany) extern const GUID CLSID_DxcLinker = {
+    0xef6a8087,
+    0xb0ea,
+    0x4d56,
+    {0x9e, 0x45, 0xd0, 0x7e, 0x1a, 0x8b, 0x78, 0x6}
 };
 
 // {CD1F6B73-2AB0-484D-8EDC-EBE7A43CA09F}

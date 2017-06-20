@@ -2997,6 +2997,13 @@ public:
       return false;
     }
 
+    // Currently template instantiation is blocked when a fatal error is
+    // detected. So no faulting-in types at this point, instead we simply
+    // back out.
+    if (this->m_sema->Diags.hasFatalErrorOccurred()) {
+      return false;
+    }
+
     StringRef nameIdentifier = idInfo->getName();
     HLSLScalarType parsedType;
     int rowCount;
@@ -8802,6 +8809,11 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (self->getDiagnostics().hasErrorOccurred()) {
     return;
   }
+  // Don't check entry function for library.
+  if (self->getLangOpts().IsHLSLLibrary) {
+    // TODO: validate no recursion start from every function.
+    return;
+  }
 
   // TODO: make these error 'real' errors rather than on-the-fly things
   // Validate that the entry point is available.
@@ -10046,6 +10058,13 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLPatchConstantFuncAttr(A.getRange(), S.Context,
       ValidateAttributeStringArg(S, A, nullptr), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLShader:
+    declAttr = ::new (S.Context) HLSLShaderAttr(
+        A.getRange(), S.Context,
+        ValidateAttributeStringArg(S, A,
+                                   "compute,vertex,pixel,hull,domain,geometry"),
+        A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_HLSLMaxVertexCount:
 	  declAttr = ::new (S.Context) HLSLMaxVertexCountAttr(A.getRange(), S.Context,
 		  ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
@@ -11042,6 +11061,15 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     HLSLPatchConstantFuncAttr *ACast = static_cast<HLSLPatchConstantFuncAttr*>(noconst);
     Indent(Indentation, Out);
     Out << "[patchconstantfunc(\"" << ACast->getFunctionName() << "\")]\n";
+    break;
+  }
+
+  case clang::attr::HLSLShader:
+  {
+    Attr * noconst = const_cast<Attr*>(A);
+    HLSLShaderAttr *ACast = static_cast<HLSLShaderAttr*>(noconst);
+    Indent(Indentation, Out);
+    Out << "[shader(\"" << ACast->getStage() << "\")]\n";
     break;
   }
   

@@ -25,6 +25,9 @@
 namespace clang {
 
 std::string getClangRepositoryPath() {
+#ifdef HLSL_FIXED_VER // HLSL Change Starts
+  return std::string();
+#else
 #if defined(CLANG_REPOSITORY_STRING)
   return CLANG_REPOSITORY_STRING;
 #else
@@ -52,9 +55,13 @@ std::string getClangRepositoryPath() {
 
   return URL;
 #endif
+#endif // HLSL Change Ends
 }
 
 std::string getLLVMRepositoryPath() {
+#ifdef HLSL_FIXED_VER // HLSL Change Starts
+  return std::string();
+#else
 #ifdef LLVM_REPOSITORY
   StringRef URL(LLVM_REPOSITORY);
 #else
@@ -69,25 +76,37 @@ std::string getLLVMRepositoryPath() {
     URL = URL.substr(Start);
 
   return URL;
+#endif // HLSL Change Ends
 }
 
 std::string getClangRevision() {
+#ifdef HLSL_FIXED_VER // HLSL Change Starts
+  return std::string();
+#else
 #ifdef SVN_REVISION
   return SVN_REVISION;
 #else
   return "";
 #endif
+#endif // HLSL Change Ends
 }
 
 std::string getLLVMRevision() {
+#ifdef HLSL_FIXED_VER // HLSL Change Starts
+  return std::string();
+#else
 #ifdef LLVM_REVISION
   return LLVM_REVISION;
 #else
   return "";
 #endif
+#endif // HLSL Change Ends
 }
 
 std::string getClangFullRepositoryVersion() {
+#ifdef HLSL_FIXED_VER // HLSL Change Starts
+  return std::string();
+#else
   std::string buf;
   llvm::raw_string_ostream OS(buf);
   std::string Path = getClangRepositoryPath();
@@ -113,6 +132,7 @@ std::string getClangFullRepositoryVersion() {
     OS << LLVMRev << ')';
   }
   return OS.str();
+#endif
 }
 
 std::string getClangFullVersion() {
@@ -120,6 +140,11 @@ std::string getClangFullVersion() {
 }
 
 std::string getClangToolFullVersion(StringRef ToolName) {
+#ifdef HLSL_FIXED_VER // HLSL Change Starts
+  // We fix a specific version for builds that are released;
+  // this allows tools to pick a known version for a given !llvm.ident value.
+  return std::string(HLSL_FIXED_VER);
+#else
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #ifdef CLANG_VENDOR
@@ -134,9 +159,15 @@ std::string getClangToolFullVersion(StringRef ToolName) {
 #endif
 
   return OS.str();
+#endif // HLSL Change Ends
 }
 
 std::string getClangFullCPPVersion() {
+#ifdef HLSL_FIXED_VER // HLSL Change Starts
+  // We fix a specific version for builds that are released;
+  // this allows tools to pick a known version for a given !llvm.ident value.
+  return std::string(HLSL_FIXED_VER);
+#else
   // The version string we report in __VERSION__ is just a compacted version of
   // the one we report on the command line.
   std::string buf;
@@ -146,6 +177,7 @@ std::string getClangFullCPPVersion() {
 #endif
   OS << "Clang " CLANG_VERSION_STRING " " << getClangFullRepositoryVersion();
   return OS.str();
+#endif // HLSL Change Ends
 }
 
 } // end namespace clang

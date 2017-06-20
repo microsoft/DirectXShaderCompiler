@@ -35,19 +35,6 @@ using std::unique_ptr;
 
 namespace hlsl {
 
-static void
-CreateSignatures(const ShaderModel *pSM,
-                 std::unique_ptr<DxilSignature> &InputSignature,
-                 std::unique_ptr<DxilSignature> &OutputSignature,
-                 std::unique_ptr<DxilSignature> &PatchConstantSignature,
-                 std::unique_ptr<RootSignatureHandle> &RootSignature) {
-  DXIL::ShaderKind shaderKind = pSM->GetKind();
-  InputSignature = llvm::make_unique<DxilSignature>(shaderKind, DxilSignature::Kind::Input);
-  OutputSignature = llvm::make_unique<DxilSignature>(shaderKind, DxilSignature::Kind::Output);
-  PatchConstantSignature = llvm::make_unique<DxilSignature>(shaderKind, DxilSignature::Kind::PatchConstant);
-  RootSignature = llvm::make_unique<RootSignatureHandle>();
-}
-
 //------------------------------------------------------------------------------
 //
 //  HLModule methods.
@@ -96,7 +83,7 @@ void HLModule::SetShaderModel(const ShaderModel *pSM) {
   m_pSM = pSM;
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
-  CreateSignatures(m_pSM, m_InputSignature, m_OutputSignature, m_PatchConstantSignature, m_RootSignature);
+  m_RootSignature = llvm::make_unique<RootSignatureHandle>();
 }
 
 const ShaderModel *HLModule::GetShaderModel() const {
@@ -222,7 +209,7 @@ const vector<unique_ptr<HLResource> > &HLModule::GetUAVs() const {
 
 void HLModule::RemoveFunction(llvm::Function *F) {
   DXASSERT_NOMSG(F != nullptr);
-  m_HLFunctionPropsMap.erase(F);
+  m_DxilFunctionPropsMap.erase(F);
   if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
     m_pTypeSystem.get()->EraseFunctionAnnotation(F);
   m_pOP->RemoveFunction(F);
@@ -293,36 +280,12 @@ void HLModule::AddGroupSharedVariable(GlobalVariable *GV) {
   m_TGSMVariables.emplace_back(GV);
 }
 
-DxilSignature &HLModule::GetInputSignature() {
-  return *m_InputSignature;
-}
-
-DxilSignature &HLModule::GetOutputSignature() {
-  return *m_OutputSignature;
-}
-
-DxilSignature &HLModule::GetPatchConstantSignature() {
-  return *m_PatchConstantSignature;
-}
-
 RootSignatureHandle &HLModule::GetRootSignature() {
   return *m_RootSignature;
 }
 
 DxilTypeSystem &HLModule::GetTypeSystem() {
   return *m_pTypeSystem;
-}
-
-DxilSignature *HLModule::ReleaseInputSignature() {
-  return m_InputSignature.release();
-}
-
-DxilSignature *HLModule::ReleaseOutputSignature() {
-  return m_OutputSignature.release();
-}
-
-DxilSignature *HLModule::ReleasePatchConstantSignature() {
-  return m_PatchConstantSignature.release();
 }
 
 DxilTypeSystem *HLModule::ReleaseTypeSystem() {
@@ -335,6 +298,11 @@ hlsl::OP *HLModule::ReleaseOP() {
 
 RootSignatureHandle *HLModule::ReleaseRootSignature() {
   return m_RootSignature.release();
+}
+
+std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>> &&
+HLModule::ReleaseFunctionPropsMap() {
+  return std::move(m_DxilFunctionPropsMap);
 }
 
 void HLModule::EmitLLVMUsed() {
@@ -361,15 +329,17 @@ vector<GlobalVariable* > &HLModule::GetLLVMUsed() {
   return m_LLVMUsed;
 }
 
-bool HLModule::HasHLFunctionProps(llvm::Function *F) {
-  return m_HLFunctionPropsMap.find(F) != m_HLFunctionPropsMap.end();
+bool HLModule::HasDxilFunctionProps(llvm::Function *F) {
+  return m_DxilFunctionPropsMap.find(F) != m_DxilFunctionPropsMap.end();
 }
-HLFunctionProps &HLModule::GetHLFunctionProps(llvm::Function *F)  {
-  return *m_HLFunctionPropsMap[F];
+DxilFunctionProps &HLModule::GetDxilFunctionProps(llvm::Function *F)  {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
+  return *m_DxilFunctionPropsMap[F];
 }
-void HLModule::AddHLFunctionProps(llvm::Function *F, std::unique_ptr<HLFunctionProps> &info) {
-  DXASSERT(m_HLFunctionPropsMap.count(F) == 0, "F already in map, info will be overwritten");
-  m_HLFunctionPropsMap[F] = std::move(info);
+void HLModule::AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info) {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) == 0, "F already in map, info will be overwritten");
+  DXASSERT_NOMSG(info->shaderKind != DXIL::ShaderKind::Invalid);
+  m_DxilFunctionPropsMap[F] = std::move(info);
 }
 
 DxilFunctionAnnotation *HLModule::GetFunctionAnnotation(llvm::Function *F) {
@@ -424,59 +394,23 @@ void HLModule::EmitHLMetadata() {
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->EmitDxilShaderModel(m_pSM);
 
-  MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_InputSignature, 
-                                                           *m_OutputSignature,
-                                                           *m_PatchConstantSignature);
   MDTuple *pMDResources = EmitHLResources();
   MDTuple *pMDProperties = EmitHLShaderProperties();
 
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   EmitLLVMUsed();
-
-  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
+  MDTuple *const pNullMDSig = nullptr;
+  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pNullMDSig, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
   Entries.emplace_back(pEntry);
   m_pMDHelper->EmitDxilEntryPoints(Entries);
 
   {
     NamedMDNode * fnProps = m_pModule->getOrInsertNamedMetadata(kHLDxilFunctionPropertiesMDName);
-    for (auto && pair : m_HLFunctionPropsMap) {
-      const hlsl::HLFunctionProps * props = pair.second.get();
-      Metadata *MDVals[30];
-      std::fill(MDVals, MDVals + _countof(MDVals), nullptr);
-      unsigned valIdx = 0;
-      MDVals[valIdx++] = ValueAsMetadata::get(pair.first);
-      switch (m_pSM->GetKind()) {
-      case DXIL::ShaderKind::Compute:
-        MDVals[valIdx++] = m_pMDHelper->Uint32ToConstMD(props->ShaderProps.CS.numThreads[0]);
-        MDVals[valIdx++] = m_pMDHelper->Uint32ToConstMD(props->ShaderProps.CS.numThreads[1]);
-        MDVals[valIdx++] = m_pMDHelper->Uint32ToConstMD(props->ShaderProps.CS.numThreads[2]);
-        break;
-      case DXIL::ShaderKind::Geometry:
-        MDVals[valIdx++] = m_pMDHelper->Uint8ToConstMD((uint8_t)props->ShaderProps.GS.inputPrimitive);
-        MDVals[valIdx++] = m_pMDHelper->Uint32ToConstMD(props->ShaderProps.GS.maxVertexCount);
-        for (size_t i = 0; i < _countof(props->ShaderProps.GS.streamPrimitiveTopologies); ++i)
-          MDVals[valIdx++] = m_pMDHelper->Uint8ToConstMD((uint8_t)props->ShaderProps.GS.streamPrimitiveTopologies[i]);
-        break;
-      case DXIL::ShaderKind::Hull:
-        MDVals[valIdx++] = ValueAsMetadata::get(props->ShaderProps.HS.patchConstantFunc);
-        MDVals[valIdx++] = m_pMDHelper->Uint8ToConstMD((uint8_t)props->ShaderProps.HS.domain);
-        MDVals[valIdx++] = m_pMDHelper->Uint8ToConstMD((uint8_t)props->ShaderProps.HS.partition);
-        MDVals[valIdx++] = m_pMDHelper->Uint8ToConstMD((uint8_t)props->ShaderProps.HS.outputPrimitive);
-        MDVals[valIdx++] = m_pMDHelper->Uint32ToConstMD(props->ShaderProps.HS.inputControlPoints);
-        MDVals[valIdx++] = m_pMDHelper->Uint32ToConstMD(props->ShaderProps.HS.outputControlPoints);
-        MDVals[valIdx++] = m_pMDHelper->FloatToConstMD(props->ShaderProps.HS.maxTessFactor);
-        break;
-      case DXIL::ShaderKind::Domain:
-        MDVals[valIdx++] = m_pMDHelper->Uint8ToConstMD((uint8_t)props->ShaderProps.DS.domain);
-        MDVals[valIdx++] = m_pMDHelper->Uint32ToConstMD(props->ShaderProps.DS.inputControlPoints);
-        break;
-      case DXIL::ShaderKind::Pixel:
-         MDVals[valIdx++] = m_pMDHelper->BoolToConstMD(props->ShaderProps.PS.EarlyDepthStencil);
-        break;
-      }
-
-      fnProps->addOperand(MDTuple::get(m_Ctx, ArrayRef<llvm::Metadata *>(MDVals, valIdx)));
+    for (auto && pair : m_DxilFunctionPropsMap) {
+      const hlsl::DxilFunctionProps * props = pair.second.get();
+      MDTuple *pProps = m_pMDHelper->EmitDxilFunctionProps(props, pair.first);
+      fnProps->addOperand(pProps);
     }
 
     NamedMDNode * options = m_pModule->getOrInsertNamedMetadata(kHLDxilOptionsMDName);
@@ -496,7 +430,7 @@ void HLModule::LoadHLMetadata() {
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   m_pMDHelper->LoadDxilShaderModel(m_pSM);
-  CreateSignatures(m_pSM, m_InputSignature, m_OutputSignature, m_PatchConstantSignature, m_RootSignature);
+  m_RootSignature = llvm::make_unique<RootSignatureHandle>();
 
   const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
 
@@ -508,8 +442,6 @@ void HLModule::LoadHLMetadata() {
   SetEntryFunction(pEntryFunc);
   SetEntryFunctionName(EntryName);
 
-  m_pMDHelper->LoadDxilSignatures(*pSignatures, *m_InputSignature, 
-                                  *m_OutputSignature, *m_PatchConstantSignature);
   LoadHLResources(*pResources);
   LoadHLShaderProperties(*pProperties);
 
@@ -521,40 +453,12 @@ void HLModule::LoadHLMetadata() {
     while (propIdx < fnProps->getNumOperands()) {
       MDTuple *pProps = dyn_cast<MDTuple>(fnProps->getOperand(propIdx++));
 
-      std::unique_ptr<hlsl::HLFunctionProps> props = llvm::make_unique<hlsl::HLFunctionProps>();
-      unsigned idx = 0;
-      Function *F = dyn_cast<Function>(dyn_cast<ValueAsMetadata>(pProps->getOperand(idx++))->getValue());
-      switch (m_pSM->GetKind()) {
-      case DXIL::ShaderKind::Compute:
-        props->ShaderProps.CS.numThreads[0] = GetIntAt(pProps, idx++);
-        props->ShaderProps.CS.numThreads[1] = GetIntAt(pProps, idx++);
-        props->ShaderProps.CS.numThreads[2] = GetIntAt(pProps, idx++);
-        break;
-      case DXIL::ShaderKind::Geometry:
-        props->ShaderProps.GS.inputPrimitive = (DXIL::InputPrimitive)GetIntAt(pProps, idx++);
-        props->ShaderProps.GS.maxVertexCount = GetIntAt(pProps, idx++);
-        for (size_t i = 0; i < _countof(props->ShaderProps.GS.streamPrimitiveTopologies); ++i)
-          props->ShaderProps.GS.streamPrimitiveTopologies[i] = (DXIL::PrimitiveTopology)GetIntAt(pProps, idx++);
-        break;
-      case DXIL::ShaderKind::Hull:
-        props->ShaderProps.HS.patchConstantFunc = dyn_cast<Function>(dyn_cast<ValueAsMetadata>(pProps->getOperand(idx++))->getValue());
-        props->ShaderProps.HS.domain = (DXIL::TessellatorDomain)GetIntAt(pProps, idx++);
-        props->ShaderProps.HS.partition = (DXIL::TessellatorPartitioning)GetIntAt(pProps, idx++);
-        props->ShaderProps.HS.outputPrimitive = (DXIL::TessellatorOutputPrimitive)GetIntAt(pProps, idx++);
-        props->ShaderProps.HS.inputControlPoints = GetIntAt(pProps, idx++);
-        props->ShaderProps.HS.outputControlPoints = GetIntAt(pProps, idx++);
-        props->ShaderProps.HS.maxTessFactor = GetFloatAt(pProps, idx++);
-        break;
-      case DXIL::ShaderKind::Domain:
-        props->ShaderProps.DS.domain = (DXIL::TessellatorDomain)GetIntAt(pProps, idx++);
-        props->ShaderProps.DS.inputControlPoints = GetIntAt(pProps, idx++);
-        break;
-      case DXIL::ShaderKind::Pixel:
-        props->ShaderProps.PS.EarlyDepthStencil = GetIntAt(pProps, idx++);
-        break;
-      }
+      std::unique_ptr<hlsl::DxilFunctionProps> props =
+          llvm::make_unique<hlsl::DxilFunctionProps>();
 
-      m_HLFunctionPropsMap[F] = std::move(props);
+      Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
+
+      m_DxilFunctionPropsMap[F] = std::move(props);
     }
 
     const NamedMDNode * options = m_pModule->getOrInsertNamedMetadata(kHLDxilOptionsMDName);

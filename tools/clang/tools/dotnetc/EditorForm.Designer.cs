@@ -69,12 +69,15 @@ namespace MainNs
             this.viewToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoUpdateToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.bitstreamToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.ColorMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.errorListToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.renderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.outputToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.buildToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.compileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exportCompiledObjectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
@@ -106,8 +109,6 @@ namespace MainNs
             this.OutputTabControl = new System.Windows.Forms.TabControl();
             this.RenderLogTabPage = new System.Windows.Forms.TabPage();
             this.RenderLogBox = new System.Windows.Forms.TextBox();
-            this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.TheStatusStrip.SuspendLayout();
             this.TheMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -370,6 +371,7 @@ namespace MainNs
             this.viewToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.autoUpdateToolStripMenuItem,
             this.bitstreamToolStripMenuItem,
+            this.ColorMenuItem,
             this.errorListToolStripMenuItem,
             this.renderToolStripMenuItem,
             this.outputToolStripMenuItem});
@@ -390,6 +392,13 @@ namespace MainNs
             this.bitstreamToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.bitstreamToolStripMenuItem.Text = "&Bitstream";
             this.bitstreamToolStripMenuItem.Click += new System.EventHandler(this.bitstreamToolStripMenuItem_Click);
+            // 
+            // ColorMenuItem
+            // 
+            this.ColorMenuItem.Name = "ColorMenuItem";
+            this.ColorMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.ColorMenuItem.Text = "&Color";
+            this.ColorMenuItem.Click += new System.EventHandler(this.colorToolStripMenuItem_Click);
             // 
             // errorListToolStripMenuItem
             // 
@@ -436,6 +445,21 @@ namespace MainNs
             this.exportCompiledObjectToolStripMenuItem.Text = "&Export Compiled Object";
             this.exportCompiledObjectToolStripMenuItem.Click += new System.EventHandler(this.exportCompiledObjectToolStripMenuItem_Click);
             // 
+            // toolsToolStripMenuItem
+            // 
+            this.toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.optionsToolStripMenuItem});
+            this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
+            this.toolsToolStripMenuItem.Size = new System.Drawing.Size(47, 22);
+            this.toolsToolStripMenuItem.Text = "&Tools";
+            // 
+            // optionsToolStripMenuItem
+            // 
+            this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
+            this.optionsToolStripMenuItem.Size = new System.Drawing.Size(125, 22);
+            this.optionsToolStripMenuItem.Text = "&Options...";
+            this.optionsToolStripMenuItem.Click += new System.EventHandler(this.optionsToolStripMenuItem_Click);
+            // 
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -447,7 +471,7 @@ namespace MainNs
             // aboutToolStripMenuItem
             // 
             this.aboutToolStripMenuItem.Name = "aboutToolStripMenuItem";
-            this.aboutToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.aboutToolStripMenuItem.Size = new System.Drawing.Size(116, 22);
             this.aboutToolStripMenuItem.Text = "&About...";
             this.aboutToolStripMenuItem.Click += new System.EventHandler(this.aboutToolStripMenuItem_Click);
             // 
@@ -455,7 +479,7 @@ namespace MainNs
             // 
             this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.splitContainer1.Location = new System.Drawing.Point(0, 0);
-            this.splitContainer1.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.splitContainer1.Margin = new System.Windows.Forms.Padding(2);
             this.splitContainer1.Name = "splitContainer1";
             // 
             // splitContainer1.Panel1
@@ -475,7 +499,7 @@ namespace MainNs
             this.CodeBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.CodeBox.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.CodeBox.Location = new System.Drawing.Point(0, 0);
-            this.CodeBox.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.CodeBox.Margin = new System.Windows.Forms.Padding(2);
             this.CodeBox.Name = "CodeBox";
             this.CodeBox.Size = new System.Drawing.Size(285, 502);
             this.CodeBox.TabIndex = 0;
@@ -491,7 +515,7 @@ namespace MainNs
             this.AnalysisTabControl.Controls.Add(this.OptimizerTabPage);
             this.AnalysisTabControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.AnalysisTabControl.Location = new System.Drawing.Point(0, 0);
-            this.AnalysisTabControl.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.AnalysisTabControl.Margin = new System.Windows.Forms.Padding(2);
             this.AnalysisTabControl.Name = "AnalysisTabControl";
             this.AnalysisTabControl.SelectedIndex = 0;
             this.AnalysisTabControl.Size = new System.Drawing.Size(496, 502);
@@ -502,9 +526,9 @@ namespace MainNs
             // 
             this.DisassemblyTabPage.Controls.Add(this.DisassemblyTextBox);
             this.DisassemblyTabPage.Location = new System.Drawing.Point(4, 22);
-            this.DisassemblyTabPage.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.DisassemblyTabPage.Margin = new System.Windows.Forms.Padding(2);
             this.DisassemblyTabPage.Name = "DisassemblyTabPage";
-            this.DisassemblyTabPage.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.DisassemblyTabPage.Padding = new System.Windows.Forms.Padding(2);
             this.DisassemblyTabPage.Size = new System.Drawing.Size(488, 476);
             this.DisassemblyTabPage.TabIndex = 0;
             this.DisassemblyTabPage.Text = "Disassembly";
@@ -514,7 +538,7 @@ namespace MainNs
             // 
             this.DisassemblyTextBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.DisassemblyTextBox.Location = new System.Drawing.Point(2, 2);
-            this.DisassemblyTextBox.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.DisassemblyTextBox.Margin = new System.Windows.Forms.Padding(2);
             this.DisassemblyTextBox.Name = "DisassemblyTextBox";
             this.DisassemblyTextBox.ReadOnly = true;
             this.DisassemblyTextBox.Size = new System.Drawing.Size(484, 472);
@@ -527,10 +551,10 @@ namespace MainNs
             // 
             this.ASTTabPage.Controls.Add(this.ASTDumpBox);
             this.ASTTabPage.Location = new System.Drawing.Point(4, 22);
-            this.ASTTabPage.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.ASTTabPage.Margin = new System.Windows.Forms.Padding(2);
             this.ASTTabPage.Name = "ASTTabPage";
-            this.ASTTabPage.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
-            this.ASTTabPage.Size = new System.Drawing.Size(488, 503);
+            this.ASTTabPage.Padding = new System.Windows.Forms.Padding(2);
+            this.ASTTabPage.Size = new System.Drawing.Size(488, 476);
             this.ASTTabPage.TabIndex = 1;
             this.ASTTabPage.Text = "AST";
             this.ASTTabPage.UseVisualStyleBackColor = true;
@@ -539,10 +563,10 @@ namespace MainNs
             // 
             this.ASTDumpBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.ASTDumpBox.Location = new System.Drawing.Point(2, 2);
-            this.ASTDumpBox.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.ASTDumpBox.Margin = new System.Windows.Forms.Padding(2);
             this.ASTDumpBox.Name = "ASTDumpBox";
             this.ASTDumpBox.ReadOnly = true;
-            this.ASTDumpBox.Size = new System.Drawing.Size(484, 499);
+            this.ASTDumpBox.Size = new System.Drawing.Size(484, 472);
             this.ASTDumpBox.TabIndex = 0;
             this.ASTDumpBox.Text = "";
             // 
@@ -560,10 +584,10 @@ namespace MainNs
             this.OptimizerTabPage.Controls.Add(this.label1);
             this.OptimizerTabPage.Controls.Add(this.AvailablePassesBox);
             this.OptimizerTabPage.Location = new System.Drawing.Point(4, 22);
-            this.OptimizerTabPage.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.OptimizerTabPage.Margin = new System.Windows.Forms.Padding(2);
             this.OptimizerTabPage.Name = "OptimizerTabPage";
-            this.OptimizerTabPage.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
-            this.OptimizerTabPage.Size = new System.Drawing.Size(488, 503);
+            this.OptimizerTabPage.Padding = new System.Windows.Forms.Padding(2);
+            this.OptimizerTabPage.Size = new System.Drawing.Size(488, 476);
             this.OptimizerTabPage.TabIndex = 2;
             this.OptimizerTabPage.Text = "Optimizer";
             this.OptimizerTabPage.UseVisualStyleBackColor = true;
@@ -572,7 +596,7 @@ namespace MainNs
             // 
             this.PrintAllPassesBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.PrintAllPassesBox.AutoSize = true;
-            this.PrintAllPassesBox.Location = new System.Drawing.Point(7, 428);
+            this.PrintAllPassesBox.Location = new System.Drawing.Point(7, 401);
             this.PrintAllPassesBox.Name = "PrintAllPassesBox";
             this.PrintAllPassesBox.Size = new System.Drawing.Size(96, 17);
             this.PrintAllPassesBox.TabIndex = 10;
@@ -582,8 +606,8 @@ namespace MainNs
             // ResetDefaultPassesButton
             // 
             this.ResetDefaultPassesButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.ResetDefaultPassesButton.Location = new System.Drawing.Point(284, 431);
-            this.ResetDefaultPassesButton.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.ResetDefaultPassesButton.Location = new System.Drawing.Point(284, 404);
+            this.ResetDefaultPassesButton.Margin = new System.Windows.Forms.Padding(2);
             this.ResetDefaultPassesButton.Name = "ResetDefaultPassesButton";
             this.ResetDefaultPassesButton.Size = new System.Drawing.Size(146, 25);
             this.ResetDefaultPassesButton.TabIndex = 9;
@@ -595,7 +619,7 @@ namespace MainNs
             // 
             this.AnalyzeCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.AnalyzeCheckBox.AutoSize = true;
-            this.AnalyzeCheckBox.Location = new System.Drawing.Point(7, 407);
+            this.AnalyzeCheckBox.Location = new System.Drawing.Point(7, 380);
             this.AnalyzeCheckBox.Name = "AnalyzeCheckBox";
             this.AnalyzeCheckBox.Size = new System.Drawing.Size(99, 17);
             this.AnalyzeCheckBox.TabIndex = 8;
@@ -605,8 +629,8 @@ namespace MainNs
             // AddPrintModuleButton
             // 
             this.AddPrintModuleButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.AddPrintModuleButton.Location = new System.Drawing.Point(7, 450);
-            this.AddPrintModuleButton.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.AddPrintModuleButton.Location = new System.Drawing.Point(7, 423);
+            this.AddPrintModuleButton.Margin = new System.Windows.Forms.Padding(2);
             this.AddPrintModuleButton.Name = "AddPrintModuleButton";
             this.AddPrintModuleButton.Size = new System.Drawing.Size(146, 25);
             this.AddPrintModuleButton.TabIndex = 7;
@@ -617,8 +641,8 @@ namespace MainNs
             // RunPassesButton
             // 
             this.RunPassesButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.RunPassesButton.Location = new System.Drawing.Point(284, 458);
-            this.RunPassesButton.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.RunPassesButton.Location = new System.Drawing.Point(284, 431);
+            this.RunPassesButton.Margin = new System.Windows.Forms.Padding(2);
             this.RunPassesButton.Name = "RunPassesButton";
             this.RunPassesButton.Size = new System.Drawing.Size(146, 25);
             this.RunPassesButton.TabIndex = 6;
@@ -629,8 +653,8 @@ namespace MainNs
             // SelectPassDownButton
             // 
             this.SelectPassDownButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.SelectPassDownButton.Location = new System.Drawing.Point(357, 400);
-            this.SelectPassDownButton.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SelectPassDownButton.Location = new System.Drawing.Point(357, 373);
+            this.SelectPassDownButton.Margin = new System.Windows.Forms.Padding(2);
             this.SelectPassDownButton.Name = "SelectPassDownButton";
             this.SelectPassDownButton.Size = new System.Drawing.Size(73, 25);
             this.SelectPassDownButton.TabIndex = 5;
@@ -641,8 +665,8 @@ namespace MainNs
             // SelectPassUpButton
             // 
             this.SelectPassUpButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.SelectPassUpButton.Location = new System.Drawing.Point(284, 400);
-            this.SelectPassUpButton.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SelectPassUpButton.Location = new System.Drawing.Point(284, 373);
+            this.SelectPassUpButton.Margin = new System.Windows.Forms.Padding(2);
             this.SelectPassUpButton.Name = "SelectPassUpButton";
             this.SelectPassUpButton.Size = new System.Drawing.Size(69, 25);
             this.SelectPassUpButton.TabIndex = 4;
@@ -657,9 +681,9 @@ namespace MainNs
             this.SelectedPassesBox.ContextMenuStrip = this.PassesContextMenu;
             this.SelectedPassesBox.FormattingEnabled = true;
             this.SelectedPassesBox.Location = new System.Drawing.Point(284, 30);
-            this.SelectedPassesBox.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.SelectedPassesBox.Margin = new System.Windows.Forms.Padding(2);
             this.SelectedPassesBox.Name = "SelectedPassesBox";
-            this.SelectedPassesBox.Size = new System.Drawing.Size(207, 329);
+            this.SelectedPassesBox.Size = new System.Drawing.Size(207, 290);
             this.SelectedPassesBox.TabIndex = 3;
             this.SelectedPassesBox.DoubleClick += new System.EventHandler(this.SelectedPassesBox_DoubleClick);
             this.SelectedPassesBox.KeyUp += new System.Windows.Forms.KeyEventHandler(this.SelectedPassesBox_KeyUp);
@@ -729,10 +753,10 @@ namespace MainNs
             | System.Windows.Forms.AnchorStyles.Right)));
             this.AvailablePassesBox.FormattingEnabled = true;
             this.AvailablePassesBox.Location = new System.Drawing.Point(7, 30);
-            this.AvailablePassesBox.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.AvailablePassesBox.Margin = new System.Windows.Forms.Padding(2);
             this.AvailablePassesBox.Name = "AvailablePassesBox";
             this.AvailablePassesBox.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
-            this.AvailablePassesBox.Size = new System.Drawing.Size(273, 329);
+            this.AvailablePassesBox.Size = new System.Drawing.Size(273, 290);
             this.AvailablePassesBox.TabIndex = 0;
             this.AvailablePassesBox.DoubleClick += new System.EventHandler(this.AvailablePassesBox_DoubleClick);
             // 
@@ -741,7 +765,7 @@ namespace MainNs
             this.TopSplitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.TopSplitContainer.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
             this.TopSplitContainer.Location = new System.Drawing.Point(0, 24);
-            this.TopSplitContainer.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.TopSplitContainer.Margin = new System.Windows.Forms.Padding(2);
             this.TopSplitContainer.Name = "TopSplitContainer";
             this.TopSplitContainer.Orientation = System.Windows.Forms.Orientation.Horizontal;
             // 
@@ -754,7 +778,7 @@ namespace MainNs
             this.TopSplitContainer.Panel2.Controls.Add(this.OutputTabControl);
             this.TopSplitContainer.Panel2Collapsed = true;
             this.TopSplitContainer.Size = new System.Drawing.Size(784, 502);
-            this.TopSplitContainer.SplitterDistance = 800;
+            this.TopSplitContainer.SplitterDistance = 477;
             this.TopSplitContainer.SplitterWidth = 2;
             this.TopSplitContainer.TabIndex = 3;
             // 
@@ -763,19 +787,19 @@ namespace MainNs
             this.OutputTabControl.Controls.Add(this.RenderLogTabPage);
             this.OutputTabControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.OutputTabControl.Location = new System.Drawing.Point(0, 0);
-            this.OutputTabControl.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.OutputTabControl.Margin = new System.Windows.Forms.Padding(2);
             this.OutputTabControl.Name = "OutputTabControl";
             this.OutputTabControl.SelectedIndex = 0;
-            this.OutputTabControl.Size = new System.Drawing.Size(75, 24);
+            this.OutputTabControl.Size = new System.Drawing.Size(150, 46);
             this.OutputTabControl.TabIndex = 0;
             // 
             // RenderLogTabPage
             // 
             this.RenderLogTabPage.Controls.Add(this.RenderLogBox);
             this.RenderLogTabPage.Location = new System.Drawing.Point(4, 20);
-            this.RenderLogTabPage.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.RenderLogTabPage.Margin = new System.Windows.Forms.Padding(2);
             this.RenderLogTabPage.Name = "RenderLogTabPage";
-            this.RenderLogTabPage.Padding = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.RenderLogTabPage.Padding = new System.Windows.Forms.Padding(2);
             this.RenderLogTabPage.Size = new System.Drawing.Size(776, 86);
             this.RenderLogTabPage.TabIndex = 0;
             this.RenderLogTabPage.Text = "Render Log";
@@ -785,28 +809,13 @@ namespace MainNs
             // 
             this.RenderLogBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.RenderLogBox.Location = new System.Drawing.Point(2, 2);
-            this.RenderLogBox.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.RenderLogBox.Margin = new System.Windows.Forms.Padding(2);
             this.RenderLogBox.Multiline = true;
             this.RenderLogBox.Name = "RenderLogBox";
             this.RenderLogBox.ScrollBars = System.Windows.Forms.ScrollBars.Both;
             this.RenderLogBox.Size = new System.Drawing.Size(772, 82);
             this.RenderLogBox.TabIndex = 0;
             this.RenderLogBox.WordWrap = false;
-            // 
-            // toolsToolStripMenuItem
-            // 
-            this.toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.optionsToolStripMenuItem});
-            this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
-            this.toolsToolStripMenuItem.Size = new System.Drawing.Size(47, 22);
-            this.toolsToolStripMenuItem.Text = "&Tools";
-            // 
-            // optionsToolStripMenuItem
-            // 
-            this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
-            this.optionsToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.optionsToolStripMenuItem.Text = "&Options...";
-            this.optionsToolStripMenuItem.Click += new System.EventHandler(this.optionsToolStripMenuItem_Click);
             // 
             // EditorForm
             // 
@@ -817,7 +826,7 @@ namespace MainNs
             this.Controls.Add(this.TheStatusStrip);
             this.Controls.Add(this.TheMenuStrip);
             this.MainMenuStrip = this.TheMenuStrip;
-            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "EditorForm";
             this.Text = "DirectX Compiler Editor";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.EditorForm_FormClosing);
@@ -922,5 +931,6 @@ namespace MainNs
         private System.Windows.Forms.CheckBox PrintAllPassesBox;
         private System.Windows.Forms.ToolStripMenuItem toolsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem ColorMenuItem;
     }
 }

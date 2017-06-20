@@ -2,6 +2,7 @@
 <Data>
     <Table Id="UnaryFloatOpTable">
       <ParameterTypes>
+        <ParameterType Name="Warp.Version">unsigned int</ParameterType>
         <ParameterType Name="Validation.Type">String</ParameterType>
         <ParameterType Name="Validation.Tolerance">double</ParameterType>
         <ParameterType Name="Validation.Input" Array="true">String</ParameterType>
@@ -235,6 +236,7 @@
       </Row>
 
       <Row Name="Htan">
+        <Parameter Name="Warp.Version">16202</Parameter>
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
         <Parameter Name="Validation.NumInput">9</Parameter>
@@ -375,6 +377,7 @@
       </Row>
 
       <Row Name="atan">
+        <Parameter Name="Warp.Version">16202</Parameter>
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0.0008</Parameter>
         <Parameter Name="Validation.NumInput">8</Parameter>
@@ -1020,6 +1023,7 @@
            ]]></Parameter>
       </Row>
       <Row Name="IsFinite">
+        <Parameter Name="Warp.Version">16202</Parameter>
         <Parameter Name="Validation.Type">Epsilon</Parameter>
         <Parameter Name="Validation.Tolerance">0</Parameter>
         <Parameter Name="Validation.NumInput">8</Parameter>

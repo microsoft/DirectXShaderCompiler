@@ -2309,9 +2309,10 @@ void HLMatrixLowerPass::runOnFunction(Function &F) {
         if (group == HLOpcodeGroup::HLMatLoadStore) {
           HLMatLoadStoreOpcode opcode =
               static_cast<HLMatLoadStoreOpcode>(hlsl::GetHLOpcode(CI));
-          DXASSERT(opcode == HLMatLoadStoreOpcode::ColMatStore ||
-                       opcode == HLMatLoadStoreOpcode::RowMatStore,
-                   "Must MatStore here, load will go IsMatrixType path");
+          DXASSERT_LOCALVAR(opcode,
+                            opcode == HLMatLoadStoreOpcode::ColMatStore ||
+                            opcode == HLMatLoadStoreOpcode::RowMatStore,
+                            "Must MatStore here, load will go IsMatrixType path");
           // Lower it here to make sure it is ready before replace.
           lowerToVec(&I);
         }

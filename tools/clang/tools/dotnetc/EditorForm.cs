@@ -779,10 +779,16 @@ namespace MainNs
             get { return (library ?? (library = HlslDxcLib.CreateDxcLibrary())); }
         }
 
+        internal bool ShowCodeColor
+        {
+            get { return ColorMenuItem.Checked; }
+            set { ColorMenuItem.Checked = value; }
+        }
+
         internal bool ShowReferences
         {
-            // TODO: provide UI to change this
-            get { return false; }
+            get { return ColorMenuItem.Checked; }
+            set { ColorMenuItem.Checked = value; }
         }
 
         internal IDxcTranslationUnit GetTU()
@@ -798,7 +804,8 @@ namespace MainNs
                 {
                     new TrivialDxcUnsavedFile("hlsl.hlsl", this.CodeBox.Text)
                 };
-                this.lastTU = this.lastIndex.ParseTranslationUnit("hlsl.hlsl", new string[] { }, 0,
+                HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+                this.lastTU = this.lastIndex.ParseTranslationUnit("hlsl.hlsl", fileVars.Arguments, fileVars.Arguments.Length,
                     unsavedFiles, (uint)unsavedFiles.Length, (uint)DxcTranslationUnitFlags.DxcTranslationUnitFlags_UseCallerThread);
             }
             return this.lastTU;
@@ -829,7 +836,7 @@ namespace MainNs
 
         private void CodeBox_SelectionChanged(object sender, System.EventArgs e)
         {
-            if (!this.ShowReferences)
+            if (!this.ShowReferences && !this.ShowCodeColor)
             {
                 return;
             }
@@ -843,30 +850,64 @@ namespace MainNs
             RichTextBox rtb = this.CodeBox;
             SelectionHighlightData data = SelectionHighlightData.FromRtb(rtb);
             int start = this.CodeBox.SelectionStart;
-            if (rtb.SelectionLength > 0)
+
+            if (this.ShowReferences && rtb.SelectionLength > 0)
             {
                 return;
             }
 
+
+            var doc = GetTextDocument(rtb);
             var mainFile = tu.GetFile(tu.GetFileName());
-            var loc = tu.GetLocationForOffset(mainFile, (uint)start);
-            var locCursor = tu.GetCursorForLocation(loc);
-            uint resultLength;
-            IDxcCursor[] cursors;
-            locCursor.FindReferencesInFile(mainFile, 0, 100, out resultLength, out cursors);
 
             using (new RichTextBoxEditAction(rtb))
             {
                 data.ClearFromRtb(rtb);
-                for (int i = 0; i < cursors.Length; ++i)
+                if (this.ShowCodeColor)
                 {
-                    uint startOffset, endOffset;
-                    GetRangeOffsets(cursors[i].GetExtent(), out startOffset, out endOffset);
-                    data.Add((int)startOffset, (int)(endOffset - startOffset));
+                    // Basic tokenization.
+                    IDxcToken[] tokens;
+                    uint tokenCount;
+                    IDxcSourceRange range = this.isense.GetRange(
+                        tu.GetLocationForOffset(mainFile, 0),
+                        tu.GetLocationForOffset(mainFile, (uint)this.CodeBox.TextLength));
+                    tu.Tokenize(range, out tokens, out tokenCount);
+                    if (tokens != null)
+                    {
+                        foreach (var t in tokens)
+                        {
+                            switch (t.GetKind())
+                            {
+                                case DxcTokenKind.Keyword:
+                                    uint line, col, offset, endOffset;
+                                    IDxcFile file;
+                                    t.GetLocation().GetSpellingLocation(out file, out line, out col, out offset);
+                                    t.GetExtent().GetEnd().GetSpellingLocation(out file, out line, out col, out endOffset);
+                                    SetStartLengthColor(doc, (int)offset, (int)(endOffset - offset), Color.Blue);
+                                    break;
+                            }
+                        }
+                    }
                 }
-                data.ApplyToRtb(rtb, Color.LightGray);
+
+                if (this.ShowReferences)
+                {
+                    var loc = tu.GetLocationForOffset(mainFile, (uint)start);
+                    var locCursor = tu.GetCursorForLocation(loc);
+                    uint resultLength;
+                    IDxcCursor[] cursors;
+                    locCursor.FindReferencesInFile(mainFile, 0, 100, out resultLength, out cursors);
+
+                    for (int i = 0; i < cursors.Length; ++i)
+                    {
+                        uint startOffset, endOffset;
+                        GetRangeOffsets(cursors[i].GetExtent(), out startOffset, out endOffset);
+                        data.Add((int)startOffset, (int)(endOffset - startOffset));
+                    }
+                    data.ApplyToRtb(rtb, Color.LightGray);
+                    this.TheStatusStripLabel.Text = locCursor.GetCursorKind().ToString();
+                }
             }
-            this.TheStatusStripLabel.Text = locCursor.GetCursorKind().ToString();
         }
 
         private static void GetRangeOffsets(IDxcSourceRange range, out uint start, out uint end)
@@ -885,7 +926,6 @@ namespace MainNs
             if (this.DocKind == DocumentKind.CompiledObject)
                 return;
 
-            // TODO: consider colorizing as well
             if (e != null)
                 this.DocModified = true;
             this.InvalidateTU();
@@ -2806,29 +2846,35 @@ namespace MainNs
             form.ShowDialog(this);
         }
 
-    private void CheckSettingsForDxcLibrary()
-    {
-      try
-      {
-        if (String.IsNullOrWhiteSpace(this.settingsManager.ExternalLib))
+        private void CheckSettingsForDxcLibrary()
         {
-          HlslDxcLib.DxcCreateInstanceFn = DefaultDxcLib.GetDxcCreateInstanceFn();
+            try
+            {
+                if (String.IsNullOrWhiteSpace(this.settingsManager.ExternalLib))
+                {
+                    HlslDxcLib.DxcCreateInstanceFn = DefaultDxcLib.GetDxcCreateInstanceFn();
+                }
+                else
+                {
+                    HlslDxcLib.DxcCreateInstanceFn = HlslDxcLib.LoadDxcCreateInstance(
+                        this.settingsManager.ExternalLib,
+                        this.settingsManager.ExternalFunction);
+                }
+            }
+            catch (Exception e)
+            {
+                HandleException(e);
+            }
         }
-        else
-        {
-          HlslDxcLib.DxcCreateInstanceFn = HlslDxcLib.LoadDxcCreateInstance(
-              this.settingsManager.ExternalLib,
-              this.settingsManager.ExternalFunction);
-        }
-      }
-      catch (Exception e)
-      {
-        HandleException(e);
-      }
-    }
-  }
 
-  public static class RichTextBoxExt
+        private void colorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            this.ColorMenuItem.Checked = !this.ColorMenuItem.Checked;
+            CodeBox_SelectionChanged(sender, e);
+        }
+    }
+
+    public static class RichTextBoxExt
     {
         public static void AppendLine(this RichTextBox rtb, string line, Color c)
         {
