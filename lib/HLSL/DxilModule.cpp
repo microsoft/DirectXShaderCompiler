@@ -313,16 +313,25 @@ static bool IsResourceSingleComponent(llvm::Type *Ty) {
   return true;
 }
 
-bool DxilModule::ModuleHasMulticomponentUAVLoads() {
-  for (const auto &uav : GetUAVs()) {
-    const DxilResource *res = uav.get();
-    if (res->IsTypedBuffer() || res->IsAnyTexture()) {
-      if (!IsResourceSingleComponent(res->GetRetType())) {
-          return true;
-      }
+// Given a CreateHandle call, returns arbitrary ConstantInt rangeID
+// Note: HLSL is currently assuming that rangeID is a constant value, but this code is assuming
+// that it can be either constant, phi node, or select instruction
+static ConstantInt *GetArbitraryConstantRangeID(CallInst *handleCall) {
+  Value *rangeID =
+      handleCall->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
+  ConstantInt *ConstantRangeID = dyn_cast<ConstantInt>(rangeID);
+  while (ConstantRangeID == nullptr) {
+    if (ConstantInt *CI = dyn_cast<ConstantInt>(rangeID)) {
+      ConstantRangeID = CI;
+    } else if (PHINode *PN = dyn_cast<PHINode>(rangeID)) {
+      rangeID = PN->getIncomingValue(0);
+    } else if (SelectInst *SI = dyn_cast<SelectInst>(rangeID)) {
+      rangeID = SI->getTrueValue();
+    } else {
+      return nullptr;
     }
   }
-  return false;
+  return ConstantRangeID;
 }
 
 void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
@@ -346,8 +355,6 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
     GetValidatorVersion(valMajor, valMinor);
     hasMulticomponentUAVLoadsBackCompat = valMajor <= 1 && valMinor == 0;
   }
-  if (!hasMulticomponentUAVLoadsBackCompat)
-    hasMulticomponentUAVLoads = ModuleHasMulticomponentUAVLoads();
 
   Type *int16Ty = Type::getInt16Ty(GetCtx());
   Type *int64Ty = Type::getInt64Ty(GetCtx());
@@ -415,7 +422,6 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           case DXIL::OpCode::BufferLoad:
           case DXIL::OpCode::TextureLoad: {
             if (hasMulticomponentUAVLoads) continue;
-            if (!hasMulticomponentUAVLoadsBackCompat) continue;
             // This is the old-style computation (overestimating requirements).
             Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
             CallInst *handleCall = cast<CallInst>(resHandle);
@@ -426,27 +432,24 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
               DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
                 resClassArg->getLimitedValue());
               if (resClass == DXIL::ResourceClass::UAV) {
-                // For DXIL, all uav load is multi component load.
-                hasMulticomponentUAVLoads = true;
-              }
-            }
-            else if (PHINode *resClassPhi = dyn_cast<
-              PHINode>(handleCall->getArgOperand(
-                DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-              unsigned numOperands = resClassPhi->getNumOperands();
-              for (unsigned i = 0; i < numOperands; i++) {
-                if (ConstantInt *resClassArg = dyn_cast<ConstantInt>(
-                  resClassPhi->getIncomingValue(i))) {
-                  DXIL::ResourceClass resClass =
-                    static_cast<DXIL::ResourceClass>(
-                      resClassArg->getLimitedValue());
-                  if (resClass == DXIL::ResourceClass::UAV) {
-                    // For DXIL, all uav load is multi component load.
-                    hasMulticomponentUAVLoads = true;
-                    break;
+                // Validator 1.0 assumes that all uav load is multi component load.
+                if (hasMulticomponentUAVLoadsBackCompat) {
+                  hasMulticomponentUAVLoads = true;
+                  continue;
+                }
+                else {
+                  ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
+                  if (rangeID) {
+                      DxilResource resource = GetUAV(rangeID->getLimitedValue());
+                      if (!IsResourceSingleComponent(resource.GetRetType())) {
+                          hasMulticomponentUAVLoads = true;
+                      }
                   }
                 }
               }
+            }
+            else {
+                DXASSERT(false, "Resource class must be constant.");
             }
           } break;
           case DXIL::OpCode::Fma:
@@ -841,12 +844,12 @@ static void CollectUsedResource(Value *resID,
   } else if (SelectInst *SI = dyn_cast<SelectInst>(resID)) {
     CollectUsedResource(SI->getTrueValue(), usedResID);
     CollectUsedResource(SI->getFalseValue(), usedResID);
-  } else {
-    PHINode *Phi = cast<PHINode>(resID);
+  } else if (PHINode *Phi = dyn_cast<PHINode>(resID)) {
     for (Use &U : Phi->incoming_values()) {
       CollectUsedResource(U.get(), usedResID);
     }
   }
+  // TODO: resID could be other types of instructions depending on the compiler optimization.
 }
 
 static void ConvertUsedResource(std::unordered_set<unsigned> &immResID,
