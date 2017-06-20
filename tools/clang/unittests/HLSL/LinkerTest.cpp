@@ -133,7 +133,7 @@ TEST_F(LinkerTest, RunLinkResource) {
   LPCWSTR libResName = L"res";
   RegisterDxcModule(libResName, pResLib, pLinker);
 
-  Link(L"entry", L"cs_6_1", pLinker, {libResName, libName}, {});
+  Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {});
 }
 
 TEST_F(LinkerTest, RunLinkAllProfiles) {
@@ -146,18 +146,18 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
   CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib);
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
-  Link(L"vs_main", L"vs_6_1", pLinker, {libName}, {});
-  Link(L"hs_main", L"hs_6_1", pLinker, {libName}, {});
-  Link(L"ds_main", L"ds_6_1", pLinker, {libName}, {});
-  Link(L"gs_main", L"gs_6_1", pLinker, {libName}, {});
-  Link(L"ps_main", L"ps_6_1", pLinker, {libName}, {});
+  Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {});
+  Link(L"hs_main", L"hs_6_0", pLinker, {libName}, {});
+  Link(L"ds_main", L"ds_6_0", pLinker, {libName}, {});
+  Link(L"gs_main", L"gs_6_0", pLinker, {libName}, {});
+  Link(L"ps_main", L"ps_6_0", pLinker, {libName}, {});
 
   CComPtr<IDxcBlob> pResLib;
   CompileLib(L"..\\CodeGenHLSL\\lib_resource2.hlsl", &pResLib);
 
   LPCWSTR libResName = L"res";
   RegisterDxcModule(libResName, pResLib, pLinker);
-  Link(L"cs_main", L"cs_6_1", pLinker, {libName, libResName}, {});
+  Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {});
 }
 
 TEST_F(LinkerTest, RunLinkFailNoDefine) {
@@ -169,7 +169,7 @@ TEST_F(LinkerTest, RunLinkFailNoDefine) {
   LPCWSTR libName = L"entry";
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
-  LinkCheckMsg(L"entry", L"cs_6_1", pLinker, {libName},
+  LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName},
                {"Cannot find definition of function"});
 }
 
@@ -185,7 +185,7 @@ TEST_F(LinkerTest, RunLinkFailReDefine) {
   LPCWSTR libName2 = L"entry2";
   RegisterDxcModule(libName2, pEntryLib, pLinker);
 
-  LinkCheckMsg(L"entry", L"cs_6_1", pLinker, {libName, libName2},
+  LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName, libName2},
                {"Definition already exists for function"});
 }
 
@@ -198,7 +198,7 @@ TEST_F(LinkerTest, RunLinkGlobalInit) {
   LPCWSTR libName = L"entry";
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
-  Link(L"test", L"ps_6_1", pLinker, {libName},
+  Link(L"test", L"ps_6_0", pLinker, {libName},
        // Make sure cbuffer load is generated.
        {"dx.op.cbufferLoad"});
 }
@@ -226,7 +226,7 @@ TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
   LPCWSTR libName2 = L"lib1";
   RegisterDxcModule(libName2, pLib1, pLinker);
 
-  LinkCheckMsg(L"entry", L"cs_6_1", pLinker, {libName, libName1, libName2},
+  LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName, libName1, libName2},
                {"Definition already exists for global variable", "Resource already exists"});
 }
 
@@ -239,7 +239,7 @@ TEST_F(LinkerTest, RunLinkFailProfileMismatch) {
   LPCWSTR libName = L"entry";
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
-  LinkCheckMsg(L"test", L"cs_6_1", pLinker, {libName},
+  LinkCheckMsg(L"test", L"cs_6_0", pLinker, {libName},
                {"Profile mismatch between entry function and target profile"});
 }
 
@@ -252,6 +252,6 @@ TEST_F(LinkerTest, RunLinkFailEntryNoProps) {
   LPCWSTR libName = L"entry";
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
-  LinkCheckMsg(L"\01?update@@YAXXZ", L"cs_6_1", pLinker, {libName},
+  LinkCheckMsg(L"\01?update@@YAXXZ", L"cs_6_0", pLinker, {libName},
                {"Cannot find function property for entry function"});
 }
