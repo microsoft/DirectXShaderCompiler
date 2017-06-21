@@ -29,6 +29,11 @@ IDxcRewriter : public IUnknown {
                                                      _In_ UINT32 defineCount,
                                                      _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
 
+  virtual HRESULT STDMETHODCALLTYPE RewriteNoFunctionBody(_In_ IDxcBlobEncoding *pSource,
+                                                     _In_count_(defineCount) DxcDefine *pDefines,
+                                                     _In_ UINT32 defineCount,
+                                                     _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
+
 };
 
 __declspec(selectany)

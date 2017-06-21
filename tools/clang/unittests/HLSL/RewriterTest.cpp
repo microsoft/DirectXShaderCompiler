@@ -73,6 +73,7 @@ public:
   TEST_METHOD(RunNonUnicode);
   TEST_METHOD(RunEffect);
   TEST_METHOD(RunSemanticDefines);
+  TEST_METHOD(RunNoFunctionBody);
 
   dxc::DxcDllSupport m_dllSupport;
 
@@ -417,4 +418,31 @@ TEST_F(RewriterTest, RunSemanticDefines) {
   VERIFY_SUCCEEDED(CreateRewriterWithSemanticDefines(&pRewriter, {L"SD_*"}));
   CheckVerifies(pRewriter, hlsl_test::GetPathToHlslDataFile(L"rewriter\\semantic-defines.hlsl").c_str(),
                            hlsl_test::GetPathToHlslDataFile(L"rewriter\\correct_rewrites\\semantic-defines_gold.hlsl").c_str());
+}
+
+TEST_F(RewriterTest, RunNoFunctionBody) {
+  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\vector-assignments_noerr.hlsl")
+          .c_str());
+
+  const int myDefinesCount = 3;
+  DxcDefine myDefines[myDefinesCount] = {
+      {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+  // Run rewrite no function body on the source code
+  VERIFY_SUCCEEDED(pRewriter->RewriteNoFunctionBody(
+      source.BlobEncoding, myDefines, myDefinesCount, &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  // Function decl only.
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
+                        "// Rewrite unchanged result:\nfloat pick_one(float2 "
+                        "f2);\nvoid main();\n") == 0);
 }

@@ -349,10 +349,11 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
 }
 
 static
-HRESULT DoUnparse(_In_ DxcLangExtensionsHelper *pHelper,
+HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pFileName,
                _In_ ASTUnit::RemappedFile *pRemap,
                _In_ LPCSTR pDefines,
+               _In_ bool bSkipFunctionBody,
                _Outptr_result_z_ LPSTR *pWarnings,
                _Outptr_result_z_ LPSTR *pResult) {
   if (pWarnings != nullptr) *pWarnings = nullptr;
@@ -370,7 +371,7 @@ HRESULT DoUnparse(_In_ DxcLangExtensionsHelper *pHelper,
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
-  ParseAST(compiler.getSema(), false, false);
+  ParseAST(compiler.getSema(), false, bSkipFunctionBody);
 
   ASTContext& C = compiler.getASTContext();
   TranslationUnitDecl *tu = C.getTranslationUnitDecl();
@@ -478,9 +479,53 @@ public:
 
       LPSTR errors = nullptr;
       LPSTR rewrite = nullptr;
-      HRESULT status = DoUnparse(
-          &m_langExtensionsHelper, fakeName, pRemap.get(),
-          defineCount > 0 ? definesStr.c_str() : nullptr, &errors, &rewrite);
+      HRESULT status =
+          DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(),
+                          defineCount > 0 ? definesStr.c_str() : nullptr,
+                          /*bSkipFunctionBody*/ false, &errors, &rewrite);
+
+      return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
+                                                       ppResult);
+    }
+    CATCH_CPP_RETURN_HRESULT();
+
+  }
+
+  __override HRESULT STDMETHODCALLTYPE
+  RewriteNoFunctionBody(_In_ IDxcBlobEncoding *pSource,
+                   _In_count_(defineCount) DxcDefine *pDefines,
+                   _In_ UINT32 defineCount,
+                   _COM_Outptr_ IDxcOperationResult **ppResult) {
+    if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
+      return E_POINTER;
+
+    *ppResult = nullptr;
+
+    CComPtr<IDxcBlobEncoding> utf8Source;
+    IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+
+    LPCSTR fakeName = "input.hlsl";
+
+    try {
+      ::llvm::sys::fs::MSFileSystem* msfPtr;
+      IFT(CreateMSFileSystemForDisk(&msfPtr));
+      std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+      ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+      IFTLLVM(pts.error_code());
+
+      StringRef Data((LPCSTR)utf8Source->GetBufferPointer(), utf8Source->GetBufferSize());
+      std::unique_ptr<llvm::MemoryBuffer> pBuffer(llvm::MemoryBuffer::getMemBufferCopy(Data, fakeName));
+      std::unique_ptr<ASTUnit::RemappedFile> pRemap(new ASTUnit::RemappedFile(fakeName, pBuffer.release()));
+
+      std::string definesStr = DefinesToString(pDefines, defineCount);
+
+      LPSTR errors = nullptr;
+      LPSTR rewrite = nullptr;
+      HRESULT status =
+          DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(),
+                          defineCount > 0 ? definesStr.c_str() : nullptr,
+                          /*bSkipFunctionBody*/ true, &errors, &rewrite);
 
       return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
                                                        ppResult);
