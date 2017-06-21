@@ -9363,6 +9363,10 @@ static bool HLSLCheckForModifiableLValue(
       DiagnoseConstAssignment(S, LHS, Loc);
       return true;
     }
+    if (!LHS->isLValue()) {
+      S.Diag(Loc, diag::err_typecheck_expression_not_modifiable_lvalue);
+      return true;
+    }
     return false;
 }
 
