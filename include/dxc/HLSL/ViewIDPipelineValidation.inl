@@ -97,16 +97,14 @@ static void AddViewIDElements(ElementVec &outElements,
             continue;
           if (adding) {
             uint32_t componentIndex = (E.GetStartRow() + row) * 4 + E.GetStartCol() + col;
-            DxilSignatureAllocator::DummyElement NE(numElements);
+            DxilSignatureAllocator::DummyElement NE(E.id);
             NE.kind = E.kind;
             NE.interpolation = E.interpolation;
-            NE.interpretation = E.interpretation;
+            // All elements interpreted as Arbitrary for packing purposes
+            NE.interpretation = DXIL::SemanticInterpretationKind::Arb;
             NE.rows = bDynIndex ? E.GetRows() : 1;
             for (uint32_t indexedRow = 0; indexedRow < NE.rows; indexedRow++) {
               if (mask.Get(componentIndex + (4 * indexedRow))) {
-                if (E.GetKind() == DXIL::SemanticKind::ClipDistance || E.GetKind() == DXIL::SemanticKind::CullDistance) {
-                  NE.kind = DXIL::SemanticKind::Arbitrary;
-                }
                 NE.rows *= viewIDCount;
                 break;
               }
@@ -294,7 +292,7 @@ public:
 
       // Verify fit
       if (!CheckFit(viewIDSig))
-        return Result::InsufficientSpace;
+        return Result::InsufficientInputSpace;
 
       if (bExpandInputOnly) {
         ClearPriorState();
@@ -362,7 +360,7 @@ public:
 
         // Verify fit
         if (!CheckFit(viewIDSig))
-          return Result::InsufficientSpace;
+          return Result::InsufficientInputSpace;
       }
 
       {
@@ -423,7 +421,7 @@ public:
 
       // Verify fit
       if (!CheckFit(viewIDSig))
-        return Result::InsufficientSpace;
+        return Result::InsufficientInputSpace;
 
       if (bExpandInputOnly) {
         ClearPriorState();
@@ -452,9 +450,9 @@ public:
 
           // Verify fit
           if (!CheckMaxVertexCount(viewIDSig, PSV.GetPSVRuntimeInfo1()->MaxVertexCount))
-            return Result::InsufficientSpace;
+            return Result::InsufficientOutputSpace;
           if (!CheckFit(viewIDSig))
-            return Result::InsufficientSpace;
+            return Result::InsufficientOutputSpace;
         }
 
         // Capture this mask for the next stage
@@ -490,7 +488,7 @@ public:
 
       // Verify fit
       if (!CheckFit(viewIDSig))
-        return Result::InsufficientSpace;
+        return Result::InsufficientInputSpace;
 
       // Final stage, so clear output state.
       m_PriorOutputMask = ComponentMask();
@@ -512,7 +510,7 @@ public:
 
       // Verify fit
       if (!CheckFit(viewIDSig))
-        return Result::InsufficientSpace;
+        return Result::InsufficientOutputSpace;
     }
 
     return Result::Success;
