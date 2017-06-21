@@ -3005,6 +3005,7 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad4) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad5.hlsl");
 }
 
