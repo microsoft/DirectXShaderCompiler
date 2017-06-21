@@ -25,8 +25,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_SPIRV_BLOCKREADABLEORDER_H
-#define LLVM_CLANG_SPIRV_BLOCKREADABLEORDER_H
+#ifndef LLVM_CLANG_LIB_SPIRV_BLOCKREADABLEORDER_H
+#define LLVM_CLANG_LIB_SPIRV_BLOCKREADABLEORDER_H
 
 #include "clang/SPIRV/Structure.h"
 #include "llvm/ADT/DenseSet.h"

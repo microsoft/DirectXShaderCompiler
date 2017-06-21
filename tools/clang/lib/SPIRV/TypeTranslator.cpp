@@ -7,7 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/TypeTranslator.h"
+#include "TypeTranslator.h"
+
 #include "clang/AST/HlslTypes.h"
 
 namespace clang {

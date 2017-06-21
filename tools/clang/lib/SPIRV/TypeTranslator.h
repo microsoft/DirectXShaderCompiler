@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_SPIRV_TYPETRANSLATOR_H
-#define LLVM_CLANG_SPIRV_TYPETRANSLATOR_H
+#ifndef LLVM_CLANG_LIB_SPIRV_TYPETRANSLATOR_H
+#define LLVM_CLANG_LIB_SPIRV_TYPETRANSLATOR_H
 
 #include "clang/AST/Type.h"
 #include "clang/Basic/Diagnostic.h"
