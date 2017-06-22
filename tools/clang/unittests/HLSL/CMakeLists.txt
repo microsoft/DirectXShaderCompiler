@@ -40,6 +40,7 @@ add_clang_library(clang-hlsl-tests SHARED
   SystemValueTest.cpp
   ValidationTest.cpp
   VerifierTest.cpp
+  ViewIDValidationTest.cpp
   clang-hlsl-tests.rc
   )
 set_target_properties(clang-hlsl-tests PROPERTIES FOLDER "Clang tests")
