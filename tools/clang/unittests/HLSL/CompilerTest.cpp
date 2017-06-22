@@ -149,7 +149,7 @@ bool VersionSupportInfo::SkipDxil_1_1_Test() {
   return false;
 }
 bool VersionSupportInfo::SkipOutOfMemoryTest() {
-  if (!m_CompilerPreservesBBNames) { // same detection logic at the moment
+  if (m_CompilerPreservesBBNames) { // same detection logic at the moment
     WEX::Logging::Log::Comment(L"Test skipped due to out-of-memory robustness requirement.");
     return true;
   }

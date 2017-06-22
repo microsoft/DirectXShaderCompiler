@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Provides helper class for dxcompiler.                                     //
+// Provides helper code for dxcompiler.                                      //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -13,8 +13,8 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
-#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/dxcapi.h"
 #include "dxcutil.h"
 #include "dxillib.h"
@@ -108,7 +108,7 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
 
 void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
                          CComPtr<IDxcBlob> &pOutputBlob,
-                         CComPtr<IMalloc> &pMalloc,
+                         IMalloc *pMalloc,
                          SerializeDxilFlags SerializeFlags,
                          CComPtr<AbstractMemoryStream> &pOutputStream) {
   // Take ownership of the module from the action.
@@ -120,7 +120,7 @@ void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
 
 HRESULT ValidateAndAssembleToContainer(
     std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputBlob,
-    CComPtr<IMalloc> &pMalloc, SerializeDxilFlags SerializeFlags,
+    IMalloc *pMalloc, SerializeDxilFlags SerializeFlags,
     CComPtr<AbstractMemoryStream> &pOutputStream, bool bDebugInfo,
     clang::DiagnosticsEngine &Diag) {
   HRESULT valHR = S_OK;
