@@ -4,7 +4,10 @@ set(LLVM_LINK_COMPONENTS
 
 add_clang_library(clangSPIRV
   EmitSPIRVAction.cpp
+  InstBuilderAuto.cpp
+  InstBuilderManual.cpp
   SPIRVBuilder.cpp
+  String.cpp
 
   LINK_LIBS
   clangAST
@@ -12,3 +15,5 @@ add_clang_library(clangSPIRV
   clangFrontend
   clangLex
   )
+
+target_include_directories(clangSPIRV PUBLIC ${SPIRV_HEADER_INCLUDE_DIR})

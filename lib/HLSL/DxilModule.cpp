@@ -14,6 +14,7 @@
 #include "dxc/HLSL/DxilSignatureElement.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilRootSignature.h"
+#include "dxc/HLSL/DxilFunctionProps.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -139,9 +140,7 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM) {
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   DXIL::ShaderKind shaderKind = pSM->GetKind();
-  m_InputSignature.reset(new DxilSignature(shaderKind, DXIL::SignatureKind::Input));
-  m_OutputSignature.reset(new DxilSignature(shaderKind, DXIL::SignatureKind::Output));
-  m_PatchConstantSignature.reset(new DxilSignature(shaderKind, DXIL::SignatureKind::PatchConstant));
+  m_EntrySignature = llvm::make_unique<DxilEntrySignature>(shaderKind);
   m_RootSignature.reset(new RootSignatureHandle());
 }
 
@@ -313,16 +312,25 @@ static bool IsResourceSingleComponent(llvm::Type *Ty) {
   return true;
 }
 
-bool DxilModule::ModuleHasMulticomponentUAVLoads() {
-  for (const auto &uav : GetUAVs()) {
-    const DxilResource *res = uav.get();
-    if (res->IsTypedBuffer() || res->IsAnyTexture()) {
-      if (!IsResourceSingleComponent(res->GetRetType())) {
-          return true;
-      }
+// Given a CreateHandle call, returns arbitrary ConstantInt rangeID
+// Note: HLSL is currently assuming that rangeID is a constant value, but this code is assuming
+// that it can be either constant, phi node, or select instruction
+static ConstantInt *GetArbitraryConstantRangeID(CallInst *handleCall) {
+  Value *rangeID =
+      handleCall->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
+  ConstantInt *ConstantRangeID = dyn_cast<ConstantInt>(rangeID);
+  while (ConstantRangeID == nullptr) {
+    if (ConstantInt *CI = dyn_cast<ConstantInt>(rangeID)) {
+      ConstantRangeID = CI;
+    } else if (PHINode *PN = dyn_cast<PHINode>(rangeID)) {
+      rangeID = PN->getIncomingValue(0);
+    } else if (SelectInst *SI = dyn_cast<SelectInst>(rangeID)) {
+      rangeID = SI->getTrueValue();
+    } else {
+      return nullptr;
     }
   }
-  return false;
+  return ConstantRangeID;
 }
 
 void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
@@ -346,8 +354,6 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
     GetValidatorVersion(valMajor, valMinor);
     hasMulticomponentUAVLoadsBackCompat = valMajor <= 1 && valMinor == 0;
   }
-  if (!hasMulticomponentUAVLoadsBackCompat)
-    hasMulticomponentUAVLoads = ModuleHasMulticomponentUAVLoads();
 
   Type *int16Ty = Type::getInt16Ty(GetCtx());
   Type *int64Ty = Type::getInt64Ty(GetCtx());
@@ -415,7 +421,6 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           case DXIL::OpCode::BufferLoad:
           case DXIL::OpCode::TextureLoad: {
             if (hasMulticomponentUAVLoads) continue;
-            if (!hasMulticomponentUAVLoadsBackCompat) continue;
             // This is the old-style computation (overestimating requirements).
             Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
             CallInst *handleCall = cast<CallInst>(resHandle);
@@ -426,27 +431,24 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
               DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
                 resClassArg->getLimitedValue());
               if (resClass == DXIL::ResourceClass::UAV) {
-                // For DXIL, all uav load is multi component load.
-                hasMulticomponentUAVLoads = true;
-              }
-            }
-            else if (PHINode *resClassPhi = dyn_cast<
-              PHINode>(handleCall->getArgOperand(
-                DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-              unsigned numOperands = resClassPhi->getNumOperands();
-              for (unsigned i = 0; i < numOperands; i++) {
-                if (ConstantInt *resClassArg = dyn_cast<ConstantInt>(
-                  resClassPhi->getIncomingValue(i))) {
-                  DXIL::ResourceClass resClass =
-                    static_cast<DXIL::ResourceClass>(
-                      resClassArg->getLimitedValue());
-                  if (resClass == DXIL::ResourceClass::UAV) {
-                    // For DXIL, all uav load is multi component load.
-                    hasMulticomponentUAVLoads = true;
-                    break;
+                // Validator 1.0 assumes that all uav load is multi component load.
+                if (hasMulticomponentUAVLoadsBackCompat) {
+                  hasMulticomponentUAVLoads = true;
+                  continue;
+                }
+                else {
+                  ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
+                  if (rangeID) {
+                      DxilResource resource = GetUAV(rangeID->getLimitedValue());
+                      if (!IsResourceSingleComponent(resource.GetRetType())) {
+                          hasMulticomponentUAVLoads = true;
+                      }
                   }
                 }
               }
+            }
+            else {
+                DXASSERT(false, "Resource class must be constant.");
             }
           } break;
           case DXIL::OpCode::Fma:
@@ -729,6 +731,58 @@ void DxilModule::SetMaxTessellationFactor(float MaxTessellationFactor) {
   m_MaxTessellationFactor = MaxTessellationFactor;
 }
 
+void DxilModule::SetShaderProperties(DxilFunctionProps *props) {
+  if (!props)
+    return;
+  switch (props->shaderKind) {
+  case DXIL::ShaderKind::Pixel: {
+    auto &PS = props->ShaderProps.PS;
+    m_ShaderFlags.SetForceEarlyDepthStencil(PS.EarlyDepthStencil);
+  } break;
+  case DXIL::ShaderKind::Compute: {
+    auto &CS = props->ShaderProps.CS;
+    for (size_t i = 0; i < _countof(m_NumThreads); ++i)
+      m_NumThreads[i] = CS.numThreads[i];
+  } break;
+  case DXIL::ShaderKind::Domain: {
+    auto &DS = props->ShaderProps.DS;
+    SetTessellatorDomain(DS.domain);
+    SetInputControlPointCount(DS.inputControlPoints);
+  } break;
+  case DXIL::ShaderKind::Hull: {
+    auto &HS = props->ShaderProps.HS;
+    SetPatchConstantFunction(HS.patchConstantFunc);
+    SetTessellatorDomain(HS.domain);
+    SetTessellatorPartitioning(HS.partition);
+    SetTessellatorOutputPrimitive(HS.outputPrimitive);
+    SetInputControlPointCount(HS.inputControlPoints);
+    SetOutputControlPointCount(HS.outputControlPoints);
+    SetMaxTessellationFactor(HS.maxTessFactor);
+  } break;
+  case DXIL::ShaderKind::Vertex:
+    break;
+  default: {
+    DXASSERT(props->shaderKind == DXIL::ShaderKind::Geometry,
+             "else invalid shader kind");
+    auto &GS = props->ShaderProps.GS;
+    SetInputPrimitive(GS.inputPrimitive);
+    SetMaxVertexCount(GS.maxVertexCount);
+    for (size_t i = 0; i < _countof(GS.streamPrimitiveTopologies); ++i) {
+      if (GS.streamPrimitiveTopologies[i] !=
+          DXIL::PrimitiveTopology::Undefined) {
+        SetStreamActive(i, true);
+        DXASSERT_NOMSG(GetStreamPrimitiveTopology() ==
+                           DXIL::PrimitiveTopology::Undefined ||
+                       GetStreamPrimitiveTopology() ==
+                           GS.streamPrimitiveTopologies[i]);
+        SetStreamPrimitiveTopology(GS.streamPrimitiveTopologies[i]);
+      }
+    }
+    SetGSInstanceCount(GS.instanceCount);
+  } break;
+  }
+}
+
 template<typename T> unsigned 
 DxilModule::AddResource(vector<unique_ptr<T> > &Vec, unique_ptr<T> pRes) {
   DXASSERT_NOMSG((unsigned)Vec.size() < UINT_MAX);
@@ -801,6 +855,55 @@ const vector<unique_ptr<DxilResource> > &DxilModule::GetUAVs() const {
   return m_UAVs;
 }
 
+static void CreateResourceLinkConstant(Module &M, DxilResourceBase *pRes,
+    std::vector<DxilModule::ResourceLinkInfo> &resLinkInfo) {
+  Type *i32Ty = Type::getInt32Ty(M.getContext());
+  const bool IsConstantTrue = true;
+  Constant *NullInitVal = nullptr;
+  GlobalVariable *rangeID = new GlobalVariable(
+      M, i32Ty, IsConstantTrue, llvm::GlobalValue::ExternalLinkage, NullInitVal,
+      pRes->GetGlobalName() + "_rangeID");
+
+  resLinkInfo.emplace_back(DxilModule::ResourceLinkInfo{rangeID});
+}
+
+void DxilModule::CreateResourceLinkInfo() {
+  DXASSERT(GetShaderModel()->IsLib(), "only for library profile");
+  DXASSERT(m_SRVsLinkInfo.empty() && m_UAVsLinkInfo.empty() &&
+               m_CBuffersLinkInfo.empty() && m_SamplersLinkInfo.empty(),
+           "else resource link info was already created");
+  Module &M = *m_pModule;
+  for (auto &SRV : m_SRVs) {
+    CreateResourceLinkConstant(M, SRV.get(), m_SRVsLinkInfo);
+  }
+  for (auto &UAV : m_UAVs) {
+    CreateResourceLinkConstant(M, UAV.get(), m_UAVsLinkInfo);
+  }
+  for (auto &CBuffer : m_CBuffers) {
+    CreateResourceLinkConstant(M, CBuffer.get(), m_CBuffersLinkInfo);
+  }
+  for (auto &Sampler : m_Samplers) {
+    CreateResourceLinkConstant(M, Sampler.get(), m_SamplersLinkInfo);
+  }
+}
+
+const DxilModule::ResourceLinkInfo &
+DxilModule::GetResourceLinkInfo(DXIL::ResourceClass resClass,
+                                unsigned rangeID) const {
+  switch (resClass) {
+  case DXIL::ResourceClass::UAV:
+    return m_UAVsLinkInfo[rangeID];
+  case DXIL::ResourceClass::CBuffer:
+    return m_CBuffersLinkInfo[rangeID];
+  case DXIL::ResourceClass::Sampler:
+    return m_SamplersLinkInfo[rangeID];
+  default:
+    DXASSERT(DXIL::ResourceClass::SRV == resClass,
+             "else invalid resource class");
+    return m_SRVsLinkInfo[rangeID];
+  }
+}
+
 void DxilModule::LoadDxilResourceBaseFromMDNode(MDNode *MD, DxilResourceBase &R) {
   return m_pMDHelper->LoadDxilResourceBaseFromMDNode(MD, R);
 }
@@ -841,12 +944,12 @@ static void CollectUsedResource(Value *resID,
   } else if (SelectInst *SI = dyn_cast<SelectInst>(resID)) {
     CollectUsedResource(SI->getTrueValue(), usedResID);
     CollectUsedResource(SI->getFalseValue(), usedResID);
-  } else {
-    PHINode *Phi = cast<PHINode>(resID);
+  } else if (PHINode *Phi = dyn_cast<PHINode>(resID)) {
     for (Use &U : Phi->incoming_values()) {
       CollectUsedResource(U.get(), usedResID);
     }
   }
+  // TODO: resID could be other types of instructions depending on the compiler optimization.
 }
 
 static void ConvertUsedResource(std::unordered_set<unsigned> &immResID,
@@ -860,6 +963,8 @@ static void ConvertUsedResource(std::unordered_set<unsigned> &immResID,
 
 void DxilModule::RemoveFunction(llvm::Function *F) {
   DXASSERT_NOMSG(F != nullptr);
+  m_DxilFunctionPropsMap.erase(F);
+  m_DxilEntrySignatureMap.erase(F);
   if (m_pTypeSystem.get()->GetFunctionAnnotation(F))
     m_pTypeSystem.get()->EraseFunctionAnnotation(F);
   m_pOP->RemoveFunction(F);
@@ -930,31 +1035,63 @@ void DxilModule::RemoveUnusedResources() {
 }
 
 DxilSignature &DxilModule::GetInputSignature() {
-  return *m_InputSignature;
+  return m_EntrySignature->InputSignature;
 }
 
 const DxilSignature &DxilModule::GetInputSignature() const {
-  return *m_InputSignature;
+  return m_EntrySignature->InputSignature;
 }
 
 DxilSignature &DxilModule::GetOutputSignature() {
-  return *m_OutputSignature;
+  return m_EntrySignature->OutputSignature;
 }
 
 const DxilSignature &DxilModule::GetOutputSignature() const {
-  return *m_OutputSignature;
+  return m_EntrySignature->OutputSignature;
 }
 
 DxilSignature &DxilModule::GetPatchConstantSignature() {
-  return *m_PatchConstantSignature;
+  return m_EntrySignature->PatchConstantSignature;
 }
 
 const DxilSignature &DxilModule::GetPatchConstantSignature() const {
-  return *m_PatchConstantSignature;
+  return m_EntrySignature->PatchConstantSignature;
 }
 
 const RootSignatureHandle &DxilModule::GetRootSignature() const {
   return *m_RootSignature;
+}
+
+bool DxilModule::HasDxilEntrySignature(llvm::Function *F) const {
+  return m_DxilEntrySignatureMap.find(F) != m_DxilEntrySignatureMap.end();
+}
+DxilEntrySignature &DxilModule::GetDxilEntrySignature(llvm::Function *F) {
+  DXASSERT(m_DxilEntrySignatureMap.count(F) != 0, "cannot find F in map");
+  return *m_DxilEntrySignatureMap[F];
+}
+void DxilModule::ReplaceDxilEntrySignature(llvm::Function *F,
+                                           llvm::Function *NewF) {
+  DXASSERT(m_DxilEntrySignatureMap.count(F) != 0, "cannot find F in map");
+  std::unique_ptr<DxilEntrySignature> Sig =
+      std::move(m_DxilEntrySignatureMap[F]);
+  m_DxilEntrySignatureMap.erase(F);
+  m_DxilEntrySignatureMap[NewF] = std::move(Sig);
+}
+
+bool DxilModule::HasDxilFunctionProps(llvm::Function *F) const {
+  return m_DxilFunctionPropsMap.find(F) != m_DxilFunctionPropsMap.end();
+}
+DxilFunctionProps &DxilModule::GetDxilFunctionProps(llvm::Function *F) {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
+  return *m_DxilFunctionPropsMap[F];
+}
+void DxilModule::ReplaceDxilFunctionProps(llvm::Function *F,
+                                          llvm::Function *NewF) {
+  DXASSERT(m_DxilFunctionPropsMap.count(F) != 0, "cannot find F in map");
+  std::unique_ptr<DxilFunctionProps> props =
+      std::move(m_DxilFunctionPropsMap[F]);
+  m_DxilFunctionPropsMap.erase(F);
+  m_DxilFunctionPropsMap[NewF] = std::move(props);
 }
 
 void DxilModule::StripRootSignatureFromMetadata() {
@@ -968,16 +1105,8 @@ void DxilModule::UpdateValidatorVersionMetadata() {
   m_pMDHelper->EmitValidatorVersion(m_ValMajor, m_ValMinor);
 }
 
-void DxilModule::ResetInputSignature(DxilSignature *pValue) {
-  m_InputSignature.reset(pValue);
-}
-
-void DxilModule::ResetOutputSignature(DxilSignature *pValue) {
-  m_OutputSignature.reset(pValue);
-}
-
-void DxilModule::ResetPatchConstantSignature(DxilSignature *pValue) {
-  m_PatchConstantSignature.reset(pValue);
+void DxilModule::ResetEntrySignature(DxilEntrySignature *pValue) {
+  m_EntrySignature.reset(pValue);
 }
 
 void DxilModule::ResetRootSignature(RootSignatureHandle *pValue) {
@@ -999,8 +1128,18 @@ void DxilModule::ResetTypeSystem(DxilTypeSystem *pValue) {
   m_pTypeSystem.reset(pValue);
 }
 
-void DxilModule::ResetOP(hlsl::OP *hlslOP) {
-  m_pOP.reset(hlslOP);
+void DxilModule::ResetOP(hlsl::OP *hlslOP) { m_pOP.reset(hlslOP); }
+
+void DxilModule::ResetFunctionPropsMap(
+    std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>
+        &&propsMap) {
+  m_DxilFunctionPropsMap = std::move(propsMap);
+}
+
+void DxilModule::ResetEntrySignatureMap(
+    std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
+        &&SigMap) {
+  m_DxilEntrySignatureMap = std::move(SigMap);
 }
 
 void DxilModule::EmitLLVMUsed() {
@@ -1050,9 +1189,7 @@ void DxilModule::EmitDxilMetadata() {
 
   MDTuple *pMDProperties = EmitDxilShaderProperties();
 
-  MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_InputSignature, 
-                                                           *m_OutputSignature,
-                                                           *m_PatchConstantSignature);
+  MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_EntrySignature);
   MDTuple *pMDResources = EmitDxilResources();
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   if (!m_pSM->IsCS() &&
@@ -1068,6 +1205,26 @@ void DxilModule::EmitDxilMetadata() {
   if (!m_RootSignature->IsEmpty()) {
     m_pMDHelper->EmitRootSignature(*m_RootSignature.get());
   }
+  if (m_pSM->IsLib()) {
+    EmitDxilResourcesLinkInfo();
+    NamedMDNode *fnProps = m_pModule->getOrInsertNamedMetadata(
+        DxilMDHelper::kDxilFunctionPropertiesMDName);
+    for (auto &&pair : m_DxilFunctionPropsMap) {
+      const hlsl::DxilFunctionProps *props = pair.second.get();
+      MDTuple *pProps = m_pMDHelper->EmitDxilFunctionProps(props, pair.first);
+      fnProps->addOperand(pProps);
+    }
+
+    NamedMDNode *entrySigs = m_pModule->getOrInsertNamedMetadata(
+        DxilMDHelper::kDxilEntrySignaturesMDName);
+    for (auto &&pair : m_DxilEntrySignatureMap) {
+      Function *F = pair.first;
+      DxilEntrySignature *Sig = pair.second.get();
+      MDTuple *pSig = m_pMDHelper->EmitDxilSignatures(*Sig);
+      entrySigs->addOperand(
+          MDTuple::get(m_Ctx, {ValueAsMetadata::get(F), pSig}));
+    }
+  }
 }
 
 bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
@@ -1080,7 +1237,7 @@ void DxilModule::LoadDxilMetadata() {
   const ShaderModel *loadedModule;
   m_pMDHelper->LoadDxilShaderModel(loadedModule);
   SetShaderModel(loadedModule);
-  DXASSERT(m_InputSignature != nullptr, "else SetShaderModel didn't create input signature");
+  DXASSERT(m_EntrySignature != nullptr, "else SetShaderModel didn't create entry signature");
 
   const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
   IFTBOOL(pEntries->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
@@ -1095,8 +1252,7 @@ void DxilModule::LoadDxilMetadata() {
 
   LoadDxilShaderProperties(*pProperties);
 
-  m_pMDHelper->LoadDxilSignatures(*pSignatures, *m_InputSignature,
-                                  *m_OutputSignature, *m_PatchConstantSignature);
+  m_pMDHelper->LoadDxilSignatures(*pSignatures, *m_EntrySignature);
   LoadDxilResources(*pResources);
 
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
@@ -1104,6 +1260,45 @@ void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
 
   m_pMDHelper->LoadDxilViewIdState(*m_pViewIdState.get());
+
+  if (loadedModule->IsLib()) {
+    LoadDxilResourcesLinkInfo();
+    NamedMDNode *fnProps = m_pModule->getNamedMetadata(
+        DxilMDHelper::kDxilFunctionPropertiesMDName);
+    size_t propIdx = 0;
+    while (propIdx < fnProps->getNumOperands()) {
+      MDTuple *pProps = dyn_cast<MDTuple>(fnProps->getOperand(propIdx++));
+
+      std::unique_ptr<hlsl::DxilFunctionProps> props =
+          llvm::make_unique<hlsl::DxilFunctionProps>();
+
+      Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
+
+      m_DxilFunctionPropsMap[F] = std::move(props);
+    }
+
+    NamedMDNode *entrySigs = m_pModule->getOrInsertNamedMetadata(
+        DxilMDHelper::kDxilEntrySignaturesMDName);
+    size_t sigIdx = 0;
+    while (sigIdx < entrySigs->getNumOperands()) {
+      MDTuple *pSig = dyn_cast<MDTuple>(entrySigs->getOperand(sigIdx++));
+
+      unsigned idx = 0;
+      Function *F = dyn_cast<Function>(
+          dyn_cast<ValueAsMetadata>(pSig->getOperand(idx++))->getValue());
+      // Entry must have props.
+      IFTBOOL(m_DxilFunctionPropsMap.count(F), DXC_E_INCORRECT_DXIL_METADATA);
+
+      DXIL::ShaderKind shaderKind = m_DxilFunctionPropsMap[F]->shaderKind;
+
+      std::unique_ptr<hlsl::DxilEntrySignature> Sig =
+          llvm::make_unique<hlsl::DxilEntrySignature>(shaderKind);
+
+      m_pMDHelper->LoadDxilSignatures(pSig->getOperand(idx), *Sig);
+
+      m_DxilEntrySignatureMap[F] = std::move(Sig);
+    }
+  }
 }
 
 MDTuple *DxilModule::EmitDxilResources() {
@@ -1196,6 +1391,82 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
       AddSampler(std::move(pSampler));
     }
   }
+}
+
+static MDTuple *CreateResourcesLinkInfo(std::vector<DxilModule::ResourceLinkInfo> &LinkInfoList,
+                                    unsigned size, LLVMContext &Ctx) {
+  DXASSERT(size == LinkInfoList.size(), "link info size must match resource size");
+  if (LinkInfoList.empty())
+    return nullptr;
+
+  vector<Metadata *> MDVals;
+  for (size_t i = 0; i < size; i++) {
+    MDVals.emplace_back(ValueAsMetadata::get(LinkInfoList[i].ResRangeID));
+  }
+  return MDNode::get(Ctx, MDVals);
+}
+
+void DxilModule::EmitDxilResourcesLinkInfo() {
+  // Emit SRV base records.
+  MDTuple *pTupleSRVs =
+      CreateResourcesLinkInfo(m_SRVsLinkInfo, m_SRVs.size(), m_Ctx);
+
+  // Emit UAV base records.
+  MDTuple *pTupleUAVs =
+      CreateResourcesLinkInfo(m_UAVsLinkInfo, m_UAVs.size(), m_Ctx);
+
+  // Emit CBuffer base records.
+  MDTuple *pTupleCBuffers =
+      CreateResourcesLinkInfo(m_CBuffersLinkInfo, m_CBuffers.size(), m_Ctx);
+
+  // Emit Sampler records.
+  MDTuple *pTupleSamplers =
+      CreateResourcesLinkInfo(m_SamplersLinkInfo, m_Samplers.size(), m_Ctx);
+
+  if (pTupleSRVs != nullptr || pTupleUAVs != nullptr ||
+      pTupleCBuffers != nullptr || pTupleSamplers != nullptr) {
+    m_pMDHelper->EmitDxilResourceLinkInfoTuple(pTupleSRVs, pTupleUAVs,
+                                               pTupleCBuffers, pTupleSamplers);
+  }
+}
+
+static void
+LoadResourcesLinkInfo(const llvm::MDTuple *pMD,
+                      std::vector<DxilModule::ResourceLinkInfo> &LinkInfoList,
+                      unsigned size, DxilMDHelper *pMDHelper) {
+  if (!pMD) {
+    IFTBOOL(size == 0, DXC_E_INCORRECT_DXIL_METADATA);
+    return;
+  }
+  unsigned operandSize = pMD->getNumOperands();
+  IFTBOOL(operandSize == size, DXC_E_INCORRECT_DXIL_METADATA);
+  for (unsigned i = 0; i < operandSize; i++) {
+    Constant *rangeID =
+        dyn_cast<Constant>(pMDHelper->ValueMDToValue(pMD->getOperand(i)));
+    LinkInfoList.emplace_back(DxilModule::ResourceLinkInfo{rangeID});
+  }
+}
+
+void DxilModule::LoadDxilResourcesLinkInfo() {
+  const llvm::MDTuple *pSRVs, *pUAVs, *pCBuffers, *pSamplers;
+  m_pMDHelper->LoadDxilResourceLinkInfoTuple(pSRVs, pUAVs, pCBuffers,
+                                             pSamplers);
+
+  // Load SRV base records.
+  LoadResourcesLinkInfo(pSRVs, m_SRVsLinkInfo, m_SRVs.size(),
+                        m_pMDHelper.get());
+
+  // Load UAV base records.
+  LoadResourcesLinkInfo(pUAVs, m_UAVsLinkInfo, m_UAVs.size(),
+                        m_pMDHelper.get());
+
+  // Load CBuffer records.
+  LoadResourcesLinkInfo(pCBuffers, m_CBuffersLinkInfo, m_CBuffers.size(),
+                        m_pMDHelper.get());
+
+  // Load Sampler records.
+  LoadResourcesLinkInfo(pSamplers, m_SamplersLinkInfo, m_Samplers.size(),
+                        m_pMDHelper.get());
 }
 
 MDTuple *DxilModule::EmitDxilShaderProperties() {

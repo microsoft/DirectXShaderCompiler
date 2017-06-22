@@ -14,6 +14,7 @@ add_llvm_library(LLVMHLSL
   DxilGenerationPass.cpp
   DxilInterpolationMode.cpp
   DxilLegalizeSampleOffsetPass.cpp
+  DxilLinker.cpp
   DxilMetadataHelper.cpp
   DxilModule.cpp
   DxilOperations.cpp
@@ -35,6 +36,7 @@ add_llvm_library(LLVMHLSL
   HLOperationLower.cpp
   HLOperationLowerExtension.cpp
   HLResource.cpp
+  HLSignatureLower.cpp
   ReducibilityAnalysis.cpp
   WaveSensitivityAnalysis.cpp
 

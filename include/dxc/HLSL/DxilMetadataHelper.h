@@ -35,6 +35,7 @@ namespace hlsl {
 
 class ShaderModel;
 class DxilSignature;
+struct DxilEntrySignature;
 class DxilSignatureElement;
 class DxilModule;
 class DxilResourceBase;
@@ -48,7 +49,7 @@ class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
 class RootSignatureHandle;
 class DxilViewIdState;
-
+struct DxilFunctionProps;
 
 /// Use this class to manipulate DXIL-spcific metadata.
 // In our code, only DxilModule and HLModule should use this class.
@@ -79,6 +80,10 @@ public:
 
   // ViewId state.
   static const char kDxilViewIdStateMDName[];
+
+  // Function props.
+  static const char kDxilFunctionPropertiesMDName[];
+  static const char kDxilEntrySignaturesMDName[];
 
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
@@ -114,6 +119,7 @@ public:
 
   // Resources.
   static const char kDxilResourcesMDName[];
+  static const char kDxilResourcesLinkInfoMDName[];
   static const unsigned kDxilNumResourceFields              = 4;
   static const unsigned kDxilResourceSRVs                   = 0;
   static const unsigned kDxilResourceUAVs                   = 1;
@@ -277,9 +283,9 @@ public:
                          const llvm::MDOperand *&pProperties);
 
   // Signatures.
-  llvm::MDTuple *EmitDxilSignatures(const DxilSignature &InputSig, const DxilSignature &OutputSig, const DxilSignature &PCSig);
-  void LoadDxilSignatures(const llvm::MDOperand &MDO, DxilSignature &InputSig, 
-                          DxilSignature &OutputSig, DxilSignature &PCSig);
+  llvm::MDTuple *EmitDxilSignatures(const DxilEntrySignature &EntrySig);
+  void LoadDxilSignatures(const llvm::MDOperand &MDO,
+                          DxilEntrySignature &EntrySig);
   llvm::MDTuple *EmitSignatureMetadata(const DxilSignature &Sig);
   void EmitRootSignature(RootSignatureHandle &RootSig);
   void LoadSignatureMetadata(const llvm::MDOperand &MDO, DxilSignature &Sig);
@@ -292,6 +298,13 @@ public:
                                        llvm::MDTuple *pCBuffers, llvm::MDTuple *pSamplers);
   void GetDxilResources(const llvm::MDOperand &MDO, const llvm::MDTuple *&pSRVs, const llvm::MDTuple *&pUAVs, 
                         const llvm::MDTuple *&pCBuffers, const llvm::MDTuple *&pSamplers);
+  void EmitDxilResourceLinkInfoTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs,
+                                 llvm::MDTuple *pCBuffers,
+                                 llvm::MDTuple *pSamplers);
+  void LoadDxilResourceLinkInfoTuple(const llvm::MDTuple *&pSRVs,
+                                 const llvm::MDTuple *&pUAVs,
+                                 const llvm::MDTuple *&pCBuffers,
+                                 const llvm::MDTuple *&pSamplers);
   void EmitDxilResourceBase(const DxilResourceBase &R, llvm::Metadata *ppMDVals[]);
   void LoadDxilResourceBase(const llvm::MDOperand &MDO, DxilResourceBase &R);
   llvm::MDTuple *EmitDxilSRV(const DxilResource &SRV);
@@ -319,6 +332,12 @@ public:
   void LoadDxilFunctionAnnotation(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
   llvm::Metadata *EmitDxilParamAnnotation(const DxilParameterAnnotation &PA);
   void LoadDxilParamAnnotation(const llvm::MDOperand &MDO, DxilParameterAnnotation &PA);
+
+  // Function props.
+  llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
+                                       llvm::Function *F);
+  llvm::Function *LoadDxilFunctionProps(llvm::MDTuple *pProps,
+                                        hlsl::DxilFunctionProps *props);
 
   // ViewId state.
   void EmitDxilViewIdState(DxilViewIdState &ViewIdState);

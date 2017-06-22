@@ -35,6 +35,35 @@ void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob) {
   VERIFY_SUCCEEDED(pResult->GetResult(ppBlob));
 }
 
+static bool CheckMsgs(llvm::StringRef text, llvm::ArrayRef<LPCSTR> pMsgs,
+                      bool bRegex) {
+  const char *pStart = !text.empty() ? text.begin() : nullptr;
+  const char *pEnd = !text.empty() ? text.end() : nullptr;
+  for (auto pMsg : pMsgs) {
+    if (bRegex) {
+      llvm::Regex RE(pMsg);
+      std::string reErrors;
+      VERIFY_IS_TRUE(RE.isValid(reErrors));
+      VERIFY_IS_TRUE(RE.match(text));
+    } else {
+      const char *pMatch = std::search(pStart, pEnd, pMsg, pMsg + strlen(pMsg));
+      if (pEnd == pMatch) {
+        WEX::Logging::Log::Comment(WEX::Common::String().Format(
+            L"Unable to find '%S' in text:\r\n%.*S", pMsg, (pEnd - pStart),
+            pStart));
+      }
+      VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
+    }
+  }
+  return true;
+}
+
+bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
+               size_t errorMsgCount, bool bRegex) {
+  return CheckMsgs(llvm::StringRef(pText, TextCount),
+                   llvm::ArrayRef<LPCSTR>(pErrorMsgs, errorMsgCount), bRegex);
+}
+
 static
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
                               llvm::ArrayRef<LPCSTR> pErrorMsgs,
@@ -57,23 +86,9 @@ bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
     if (SUCCEEDED(status) && maySucceedAnyway) {
       return false;
     }
-    for (auto pErrorMsg : pErrorMsgs) {
-      if (bRegex) {
-        llvm::Regex RE(pErrorMsg);
-        std::string reErrors;
-        VERIFY_IS_TRUE(RE.isValid(reErrors));
-        VERIFY_IS_TRUE(RE.match(llvm::StringRef((const char *)text->GetBufferPointer(), text->GetBufferSize())));
-      }
-      else {
-        const char *pMatch = std::search(pStart, pEnd, pErrorMsg, pErrorMsg + strlen(pErrorMsg));
-        if (pEnd == pMatch) {
-          WEX::Logging::Log::Comment(WEX::Common::String().Format(
-            L"Unable to find '%S' in text:\r\n%.*S", pErrorMsg, (pEnd - pStart),
-            pStart));
-        }
-        VERIFY_ARE_NOT_EQUAL(pEnd, pMatch);
-      }
-    }
+    CheckMsgs(llvm::StringRef((const char *)text->GetBufferPointer(),
+                              text->GetBufferSize()),
+              pErrorMsgs, bRegex);
   }
   return true;
 }
@@ -617,8 +632,8 @@ TEST_F(ValidationTest, WhenUnknownBlocksThenFail) {
 TEST_F(ValidationTest, WhenZeroInputPatchCountWithInputThenFail) {
 	RewriteAssemblyCheckMsg(
 		L"..\\CodeGenHLSL\\SimpleHs1.hlsl", "hs_6_0",
-		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z.flat\", i32 3, i32 3",
-		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z.flat\", i32 0, i32 3",
+		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z\", i32 3, i32 3",
+		"void ()* @\"\\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$02@@@Z\", i32 0, i32 3",
 		"When HS input control point count is 0, no input signature should exist");
 }
 
