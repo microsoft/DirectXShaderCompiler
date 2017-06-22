@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
-// CHECK: Typed UAV Load Additional Formats
+// CHECK-NOT: Typed UAV Load Additional Formats
 
 RWBuffer<int> buf[5][1];
 RWBuffer<int2> buf_2[3];
