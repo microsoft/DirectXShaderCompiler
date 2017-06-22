@@ -53,51 +53,62 @@ public:
 
     DxilModule &DM = M.GetOrCreateDxilModule();
 
+    const hlsl::DxilSignature & outputSignature = DM.GetOutputSignature();
+
+    const std::vector<std::unique_ptr<DxilSignatureElement> > & outputSigElements = outputSignature.GetElements();
+
+    int startRow = 0;
+    int startColumn = 0;
+    bool targetFound = false;
+    for (const auto & el : outputSigElements)
+    {
+      if (el->GetKind() == hlsl::DXIL::SemanticKind::Target)
+      {
+        targetFound = true;
+        startRow = el->GetStartRow();
+        startColumn = el->GetStartCol();
+      }
+    }
+
+    if (!targetFound)
+    {
+      return false;
+    }
+
     auto pEntrypoint = DM.GetEntryFunction();
 
     BasicBlock * pBasicBlock = pEntrypoint->begin();
 
-    for (auto pInstruction = pBasicBlock->begin(); pInstruction != pBasicBlock->end(); pInstruction++) {
+    IRBuilder<> Builder(pBasicBlock->begin());
 
-      unsigned llvmOpcode = pInstruction->getOpcode();
+    OP *hlslOP = DM.GetOP();
+    Function *pOutputFunction = hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Builder.getFloatTy());
 
-      if (llvmOpcode == Instruction::Ret) {
-        // Emit a new output-constant-color that looks something like this:
-        //
-        //  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0.000000e+00), !dbg !142; StoreOutput(outputtSigId, rowIndex, colIndex, value)
-        //  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float 1.000000e+00), !dbg !142; StoreOutput(outputtSigId, rowIndex, colIndex, value)
-        //  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float 0.000000e+00), !dbg !142; StoreOutput(outputtSigId, rowIndex, colIndex, value)
-        //  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float 1.000000e+00), !dbg !142; StoreOutput(outputtSigId, rowIndex, colIndex, value)
+    auto uses = pOutputFunction->uses();
 
-        IRBuilder<> Builder(pInstruction);
+    for (Use &use : uses) {
+      iterator_range<Value::user_iterator> users = use->users();
+      for (User * user : users) {
+        if (isa<Instruction>(user)){
+          auto instruction = cast<Instruction>(user);
 
-        for (unsigned i = 0; i < _countof(color); ++i) {
+          Value * pOutputRowOperand = instruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputRowOpIdx);
+          ConstantInt * pOutputRow = cast<ConstantInt>(pOutputRowOperand);
+          APInt outputRow = pOutputRow->getValue();
+          outputRow;
 
-          // Create a new hlsl operation as a factory for creating a reference to the store-output "global function" and the required float constants
-          OP *hlslOP = DM.GetOP();
+          Value * pOutputColumnOperand = instruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputColOpIdx);
+          ConstantInt * pOutputColumn = cast<ConstantInt>(pOutputColumnOperand);
+          APInt outputColumn = pOutputColumn->getValue();
 
-          Function *pOutputFunction = hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Builder.getFloatTy());
+          Constant * pFloatConstant = hlslOP->GetFloatConst(color[*outputColumn.getRawData()]);
 
-          std::unique_ptr<OP> hlslOp = std::make_unique<OP>(M.getContext(), &M);
-          Constant *OpArg = hlslOp->GetU32Const((unsigned)DXIL::OpCode::StoreOutput);
-
-          // Prepare the argument array, of which the first two elements remain constant for each of the four pixel-elements we're going to set
-          SmallVector<Value *, 5> Args;
-          Args.push_back(OpArg);
-          Args.push_back(Builder.getInt32(0)); //todo: one of these is probably an index into the output signature... so we'll have to look up the proper index
-          Args.push_back(Builder.getInt32(0)); //todo: one of these is probably an index into the output signature... so we'll have to look up the proper index
-
-          // Emit the RGBA stores in that order, since each one is being sequentially inserted before the "return" instruction
-          Constant * pFloatConstant = hlslOP->GetFloatConst(color[i]);
-          Args.push_back(Builder.getInt8(i));
-          Args.push_back(pFloatConstant);
-
-          (void) Builder.CreateCall(pOutputFunction, Args);
+          instruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pFloatConstant);
         }
-        return true;
       }
     }
-    return false;
+
+    return true;
   }
 };
 
