@@ -208,6 +208,20 @@ uint32_t ModuleBuilder::createSelect(uint32_t resultType, uint32_t condition,
   return id;
 }
 
+void ModuleBuilder::createSwitch(
+    uint32_t mergeLabel, uint32_t selector, uint32_t defaultLabel,
+    llvm::ArrayRef<std::pair<uint32_t, uint32_t>> target) {
+  assert(insertPoint && "null insert point");
+  // Create the OpSelectioMerege.
+  instBuilder.opSelectionMerge(mergeLabel, spv::SelectionControlMask::MaskNone)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+
+  // Create the OpSwitch.
+  instBuilder.opSwitch(selector, defaultLabel, target).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
 void ModuleBuilder::createBranch(uint32_t targetLabel) {
   assert(insertPoint && "null insert point");
 
