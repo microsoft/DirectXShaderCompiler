@@ -35,19 +35,40 @@ using namespace hlsl;
 
 class DxilOutputColorBecomesConstant : public ModulePass {
 
+  float r = 2.2f;
+  float g = 0.4f;
+  float b = 0.6f;
+  float a = 1.f;
+
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilOutputColorBecomesConstant() : ModulePass(ID) {}
 
   const char *getPassName() const override { return "DXIL Constant Color Mod"; }
 
-  bool runOnModule(Module &M) override {
+  virtual void applyOptions(PassOptions O) override {
+    for (const auto & option : O)
+    {
+      if (0 == option.first.compare("constant-red"))
+      {
+        r = atof(option.second.data());
+      }
+      else if (0 == option.first.compare("constant-green"))
+      {
+        g = atof(option.second.data());
+      }
+      else if (0 == option.first.compare("constant-blue"))
+      {
+        b = atof(option.second.data());
+      }
+      else if (0 == option.first.compare("constant-alpha"))
+      {
+        a = atof(option.second.data());
+      }
+    }
+  }
 
-    //todo: make these parameters to the pass
-    float r = 2.2f;
-    float g = 0.4f;
-    float b = 0.6f;
-    float a = 1.f;
+  bool runOnModule(Module &M) override {
 
     float color[4] = { r, g, b, a };
 

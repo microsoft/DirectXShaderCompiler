@@ -169,6 +169,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
+  static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "constant-red", "constant-green", "constant-blue", "constant-alpha" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
   static const LPCSTR Float2IntArgs[] = { "float2int-max-integer-bw" };
   static const LPCSTR GVNArgs[] = { "noloads", "enable-pre", "enable-load-pre", "max-recurse-depth" };
@@ -198,6 +199,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "argpromotion") == 0) return ArrayRef<LPCSTR>(ArgPromotionArgs, _countof(ArgPromotionArgs));
   if (strcmp(passName, "simplifycfg") == 0) return ArrayRef<LPCSTR>(CFGSimplifyPassArgs, _countof(CFGSimplifyPassArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
+  if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
   if (strcmp(passName, "float2int") == 0) return ArrayRef<LPCSTR>(Float2IntArgs, _countof(Float2IntArgs));
   if (strcmp(passName, "gvn") == 0) return ArrayRef<LPCSTR>(GVNArgs, _countof(GVNArgs));
@@ -234,6 +236,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "None" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "None", "None", "Control the number of bonus instructions (default = 1)" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
+  static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
   static const LPCSTR Float2IntArgs[] = { "Max integer bitwidth to consider in float2int" };
   static const LPCSTR GVNArgs[] = { "None", "None", "None", "Max recurse depth" };
@@ -263,6 +266,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "argpromotion") == 0) return ArrayRef<LPCSTR>(ArgPromotionArgs, _countof(ArgPromotionArgs));
   if (strcmp(passName, "simplifycfg") == 0) return ArrayRef<LPCSTR>(CFGSimplifyPassArgs, _countof(CFGSimplifyPassArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
+  if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
   if (strcmp(passName, "float2int") == 0) return ArrayRef<LPCSTR>(Float2IntArgs, _countof(Float2IntArgs));
   if (strcmp(passName, "gvn") == 0) return ArrayRef<LPCSTR>(GVNArgs, _countof(GVNArgs));
@@ -314,6 +318,10 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("TLIImpl")
     ||  S.equals("Threshold")
     ||  S.equals("bonus-inst-threshold")
+    ||  S.equals("constant-alpha")
+    ||  S.equals("constant-blue")
+    ||  S.equals("constant-green")
+    ||  S.equals("constant-red")
     ||  S.equals("disable-licm-promotion")
     ||  S.equals("enable-load-pre")
     ||  S.equals("enable-pre")
