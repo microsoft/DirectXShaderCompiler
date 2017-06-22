@@ -8,6 +8,7 @@ add_clang_library(clangSPIRV
   InstBuilderManual.cpp
   SPIRVBuilder.cpp
   String.cpp
+  Structure.cpp
 
   LINK_LIBS
   clangAST
