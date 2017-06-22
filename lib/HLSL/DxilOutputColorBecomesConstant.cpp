@@ -44,7 +44,7 @@ public:
   bool runOnModule(Module &M) override {
 
     //todo: make these parameters to the pass
-    float r = 0.2f;
+    float r = 2.2f;
     float g = 0.4f;
     float b = 0.6f;
     float a = 1.f;
@@ -84,6 +84,15 @@ public:
     OP *hlslOP = DM.GetOP();
     Function *pOutputFunction = hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Builder.getFloatTy());
 
+    if (pOutputFunction->getNumUses() == 0)
+    {
+      pOutputFunction = hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Builder.getInt32Ty());
+      if (pOutputFunction->getNumUses() == 0)
+      {
+        return false;
+      }
+    }
+
     auto uses = pOutputFunction->uses();
 
     for (Use &use : uses) {
@@ -101,9 +110,18 @@ public:
           ConstantInt * pOutputColumn = cast<ConstantInt>(pOutputColumnOperand);
           APInt outputColumn = pOutputColumn->getValue();
 
-          Constant * pFloatConstant = hlslOP->GetFloatConst(color[*outputColumn.getRawData()]);
+          Value * pOutputValueOperand = instruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx);
 
-          instruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pFloatConstant);
+          if (isa<ConstantFP>(pOutputValueOperand))
+          {
+            Constant * pFloatConstant = hlslOP->GetFloatConst(color[*outputColumn.getRawData()]);
+            instruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pFloatConstant);
+          }
+          else if (isa<ConstantInt>(pOutputValueOperand))
+          {
+            Constant * pIntegerConstant = hlslOP->GetI32Const(static_cast<int>(color[*outputColumn.getRawData()]));
+            instruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
+          }
         }
       }
     }
