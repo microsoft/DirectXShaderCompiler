@@ -49,6 +49,9 @@ set(SOURCES
   DXCompiler.def
   dxillib.cpp
   dxcontainerbuilder.cpp
+  dxcutil.cpp
+  dxcdisassembler.cpp
+  dxclinker.cpp
   )
 
 set(LIBRARIES
@@ -97,23 +100,4 @@ set_target_properties(dxcompiler
   VERSION ${LIBCLANG_LIBRARY_VERSION}
   DEFINE_SYMBOL _CINDEX_LIB_)
 
-# This will likely go to a more common location to be reused from other targets.
-function(hlsl_update_product_ver)
-  if (HLSL_ENABLE_FIXED_VER)
-    set_property(SOURCE ${windows_resource_file}
-                 PROPERTY COMPILE_DEFINITIONS
-                 "RC_COMPANY_NAME=\"Microsoft® Corporation\""
-                 "RC_VERSION_FIELD_1=0"
-                 "RC_VERSION_FIELD_2=2"
-                 "RC_VERSION_FIELD_3=0"
-                 "RC_VERSION_FIELD_4=0"
-                 "RC_FILE_VERSION=\"0.2.0.0\""
-                 "RC_FILE_DESCRIPTION=\"DirectX Compiler\""
-                 "RC_INTERNAL_NAME=\"dxcompiler\""
-                 "RC_COPYRIGHT=\"© Microsoft Corporation. All rights reserved.\""
-                 "RC_PRODUCT_NAME=\"Microsoft® DirectX for Windows®\""
-                 "RC_PRODUCT_VERSION=\"0.2.0.0\"")
-  endif (HLSL_ENABLE_FIXED_VER)
-endfunction(hlsl_update_product_ver)
-
-hlsl_update_product_ver()
+hlsl_update_product_ver("dxcompiler")

@@ -381,6 +381,7 @@ public:
   TEST_METHOD(CodeGenAsUint)
   TEST_METHOD(CodeGenAsUint2)
   TEST_METHOD(CodeGenAtomic)
+  TEST_METHOD(CodeGenAtomic2)
   TEST_METHOD(CodeGenAttributeAtVertex)
   TEST_METHOD(CodeGenBarycentrics)
   TEST_METHOD(CodeGenBarycentrics1)
@@ -508,6 +509,13 @@ public:
   TEST_METHOD(CodeGenIntrinsic5)
   TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
+  TEST_METHOD(CodeGenLibCsEntry)
+  TEST_METHOD(CodeGenLibCsEntry2)
+  TEST_METHOD(CodeGenLibCsEntry3)
+  TEST_METHOD(CodeGenLibEntries)
+  TEST_METHOD(CodeGenLibEntries2)
+  TEST_METHOD(CodeGenLibResource)
+  TEST_METHOD(CodeGenLibUnusedFunc)
   TEST_METHOD(CodeGenLitInParen)
   TEST_METHOD(CodeGenLiteralShift)
   TEST_METHOD(CodeGenLiveness1)
@@ -552,6 +560,12 @@ public:
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
   TEST_METHOD(CodeGenMinprecCast)
+  TEST_METHOD(CodeGenMultiUAVLoad1)
+  TEST_METHOD(CodeGenMultiUAVLoad2)
+  TEST_METHOD(CodeGenMultiUAVLoad3)
+  TEST_METHOD(CodeGenMultiUAVLoad4)
+  TEST_METHOD(CodeGenMultiUAVLoad5)
+  TEST_METHOD(CodeGenMultiUAVLoad6)
   TEST_METHOD(CodeGenMultiStream)
   TEST_METHOD(CodeGenMultiStream2)
   TEST_METHOD(CodeGenNeg1)
@@ -609,6 +623,7 @@ public:
   TEST_METHOD(CodeGenSelectObj5)
   TEST_METHOD(CodeGenSelfCopy)
   TEST_METHOD(CodeGenSelMat)
+  TEST_METHOD(CodeGenShaderAttr)
   TEST_METHOD(CodeGenShare_Mem_Dbg)
   TEST_METHOD(CodeGenShare_Mem_Phi)
   TEST_METHOD(CodeGenShare_Mem1)
@@ -2478,6 +2493,10 @@ TEST_F(CompilerTest, CodeGenAtomic) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\atomic.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenAtomic2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\atomic2.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
   if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
@@ -2988,6 +3007,34 @@ TEST_F(CompilerTest, CodeGenLegacyStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\legacy_struct.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenLibCsEntry) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_cs_entry.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibCsEntry2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_cs_entry2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibCsEntry3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_cs_entry3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibEntries) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_entries.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibEntries2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_entries2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibResource) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_resource.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibUnusedFunc) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_unused_func.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenLitInParen) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\lit_in_paren.hlsl");
 }
@@ -3165,6 +3212,33 @@ TEST_F(CompilerTest, CodeGenMinprec7) {
 
 TEST_F(CompilerTest, CodeGenMinprecCast) {
   CodeGenTest(L"..\\CodeGenHLSL\\minprec_cast.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad1) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad2) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad3) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad3.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad4) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad4.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad6) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiStream) {
@@ -3399,6 +3473,10 @@ TEST_F(CompilerTest, CodeGenSelfCopy) {
 
 TEST_F(CompilerTest, CodeGenSelMat) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selMat.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenShaderAttr) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\shader_attr.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenShare_Mem_Dbg) {
@@ -3666,6 +3744,7 @@ TEST_F(CompilerTest, CodeGenUint64_1) {
 }
 
 TEST_F(CompilerTest, CodeGenUint64_2) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\uint64_2.hlsl");
 }
 

@@ -844,6 +844,12 @@ def HLSLGloballyCoherent : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLShader : InheritableAttr {
+  let Spellings = [CXX11<"", "shader", 2017>];
+  let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geomery
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 def C11NoReturn : InheritableAttr {

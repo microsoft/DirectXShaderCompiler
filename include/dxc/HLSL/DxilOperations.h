@@ -38,6 +38,8 @@ public:
   OP() = delete;
   OP(llvm::LLVMContext &Ctx, llvm::Module *pModule);
 
+  void RefreshCache();
+
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
   llvm::ArrayRef<llvm::Function *> GetOpFuncList(OpCode OpCode) const;
   void RemoveFunction(llvm::Function *F);
@@ -108,7 +110,6 @@ private:
   };
   OpCodeCacheItem m_OpCodeClassCache[(unsigned)OpCodeClass::NumOpClasses];
   std::unordered_map<const llvm::Function *, OpCodeClass> m_FunctionToOpClass;
-  void RefreshCache(llvm::Module *pModule);
   void UpdateCache(OpCodeClass opClass, unsigned typeSlot, llvm::Function *F);
 private:
   // Static properties.

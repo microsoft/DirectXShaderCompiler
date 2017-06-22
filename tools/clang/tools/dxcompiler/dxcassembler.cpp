@@ -18,6 +18,7 @@
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxillib.h"
+#include "dxcutil.h"
 
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IRReader/IRReader.h"
@@ -105,48 +106,33 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       return S_OK;
     }
 
-    DxilModule program(M.get());
+    // Upgrade Validator Version if necessary.
     try {
-      program.LoadDxilMetadata();
-    }
-    catch (hlsl::Exception &e) {
-      CComPtr<IDxcBlobEncoding> pErrorBlob;
-      IFT(DxcCreateBlobWithEncodingOnHeapCopy(e.msg.c_str(), e.msg.size(), CP_UTF8, &pErrorBlob));
-      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlob, e.hr, ppResult));
-      return S_OK;
-    }
+      DxilModule &program = M->GetOrCreateDxilModule();
 
-    // Upgrade Validator Version if necessary:
-    {
-      CComPtr<IDxcValidator> pValidator;
-      if (DxilLibIsEnabled()) {
-        DxilLibCreateInstance(CLSID_DxcValidator, &pValidator);
-      }
-      if (pValidator == nullptr) {
-        CreateDxcValidator(IID_PPV_ARGS(&pValidator));
-      }
-      CComPtr<IDxcVersionInfo> pVersionInfo;
-      if (pValidator && SUCCEEDED(pValidator.QueryInterface(&pVersionInfo))) {
+      {
         UINT32 majorVer, minorVer;
-        IFT(pVersionInfo->GetVersion(&majorVer, &minorVer));
+        dxcutil::GetValidatorVersion(&majorVer, &minorVer);
         if (program.UpgradeValidatorVersion(majorVer, minorVer)) {
           program.UpdateValidatorVersionMetadata();
         }
       }
+    } catch (hlsl::Exception &e) {
+      CComPtr<IDxcBlobEncoding> pErrorBlob;
+      IFT(DxcCreateBlobWithEncodingOnHeapCopy(e.msg.c_str(), e.msg.size(),
+                                              CP_UTF8, &pErrorBlob));
+      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlob,
+                                                          e.hr, ppResult));
+      return S_OK;
     }
-
+    // Create bitcode of M.
     WriteBitcodeToFile(M.get(), outStream);
     outStream.flush();
 
-    CComPtr<AbstractMemoryStream> pFinalStream;
-    IFT(CreateMemoryStream(TM.p, &pFinalStream));
-
-    SerializeDxilContainerForModule(&M->GetOrCreateDxilModule(), pOutputStream,
-                                    pFinalStream,
-                                    SerializeDxilFlags::IncludeDebugNamePart);
-
     CComPtr<IDxcBlob> pResultBlob;
-    IFT(pFinalStream->QueryInterface(&pResultBlob));
+    dxcutil::AssembleToContainer(std::move(M), pResultBlob,
+                                         TM.p, SerializeDxilFlags::IncludeDebugNamePart,
+                                         pOutputStream);
 
     IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, nullptr, S_OK, ppResult));
   }

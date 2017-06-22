@@ -28,6 +28,19 @@ DxilSignature::DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind si
 DxilSignature::DxilSignature(DXIL::SigPointKind sigPointKind)
 : m_sigPointKind(sigPointKind) {}
 
+DxilSignature::DxilSignature(const DxilSignature &src)
+    : m_sigPointKind(src.m_sigPointKind) {
+  const bool bSetID = false;
+  for (auto &Elt : src.GetElements()) {
+    std::unique_ptr<DxilSignatureElement> newElt = CreateElement();
+    newElt->Initialize(Elt->GetName(), Elt->GetCompType(),
+                       Elt->GetInterpolationMode()->GetKind(), Elt->GetRows(),
+                       Elt->GetCols(), Elt->GetStartRow(), Elt->GetStartCol(),
+                       Elt->GetID(), Elt->GetSemanticIndexVec());
+    AppendElement(std::move(newElt), bSetID);
+  }
+}
+
 DxilSignature::~DxilSignature() {
 }
 
@@ -198,6 +211,14 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
 
   return rowsUsed;
 }
+
+//------------------------------------------------------------------------------
+//
+// EntrySingnature methods.
+//
+DxilEntrySignature::DxilEntrySignature(const DxilEntrySignature &src)
+    : InputSignature(src.InputSignature), OutputSignature(src.OutputSignature),
+      PatchConstantSignature(src.PatchConstantSignature) {}
 
 } // namespace hlsl
 

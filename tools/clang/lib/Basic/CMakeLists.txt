@@ -30,6 +30,12 @@ set(version_inc "${CMAKE_CURRENT_BINARY_DIR}/SVNVersion.inc")
 
 set(get_svn_script "${LLVM_MAIN_SRC_DIR}/cmake/modules/GetSVN.cmake")
 
+# HLSL Change Starts
+if (HLSL_ENABLE_FIXED_VER)
+  add_definitions(/DHLSL_FIXED_VER="dxcoob 2017.6")
+endif (HLSL_ENABLE_FIXED_VER)
+# HLSL Change Ends
+
 if(DEFINED llvm_vc AND DEFINED clang_vc)
   # Create custom target to generate the VC revision include.
   add_custom_command(OUTPUT "${version_inc}"

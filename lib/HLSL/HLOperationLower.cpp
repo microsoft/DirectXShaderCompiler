@@ -35,7 +35,7 @@ struct HLOperationLowerHelper {
   llvm::Type *i1Ty;
   Type *i8Ty;
   DxilTypeSystem &dxilTypeSys;
-  HLFunctionProps *functionProps;
+  DxilFunctionProps *functionProps;
   bool bLegacyCBufferLoad;
   DataLayout legacyDataLayout;
   HLOperationLowerHelper(HLModule &HLM);
@@ -51,7 +51,9 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
   i1Ty = Type::getInt1Ty(Ctx);
   i8Ty = Type::getInt8Ty(Ctx);
   Function *EntryFunc = HLM.GetEntryFunction();
-  functionProps = &HLM.GetHLFunctionProps(EntryFunc);
+  functionProps = nullptr;
+  if (HLM.HasDxilFunctionProps(EntryFunc))
+    functionProps = &HLM.GetDxilFunctionProps(EntryFunc);
   bLegacyCBufferLoad = HLM.GetHLOptions().bLegacyCBufferLoad;
 }
 
@@ -280,7 +282,7 @@ private:
   Value *CreateResourceForCbPtr(GetElementPtrInst *CbPtr, GlobalVariable *CbGV,
                                 MDNode *MD) {
     Type *CbTy = CbPtr->getPointerOperandType();
-    DXASSERT_NOMSG(CbTy == CbGV->getType());
+    DXASSERT_LOCALVAR(CbTy, CbTy == CbGV->getType(), "else arg not point to var");
 
     gep_type_iterator GEPIt = gep_type_begin(CbPtr), E = gep_type_end(CbPtr);
     unsigned i = 0;
@@ -5713,6 +5715,9 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     HLOpcodeGroup group =
         hlsl::GetHLOpcodeGroupByName(userCall->getCalledFunction());
     unsigned opcode = GetHLOpcode(userCall);
+    // For case element type of structure buffer is not structure type.
+    if (baseOffset == nullptr)
+      baseOffset = OP->GetU32Const(0);
     if (group == HLOpcodeGroup::HLIntrinsic) {
       IntrinsicOp IOP = static_cast<IntrinsicOp>(opcode);
       switch (IOP) {

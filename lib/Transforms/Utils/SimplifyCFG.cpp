@@ -1335,7 +1335,7 @@ static bool SinkThenElseCodeToEnd(BranchInst *BI1) {
     // HLSL Change Begin.
     // Don't sink struct type which will generate struct PhiNode to make sure
     // struct type value only used by Extract/InsertValue.
-    if (DifferentOp1->getType()->isStructTy())
+    if (DifferentOp1 && DifferentOp1->getType()->isStructTy())
       return Changed;
     // HLSL Change End.
 

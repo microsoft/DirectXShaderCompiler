@@ -3886,6 +3886,8 @@ public:
     // Remove flattened functions.
     for (auto Iter : funcMap) {
       Function *F = Iter.first;
+      Function *flatF = Iter.second;
+      flatF->takeName(F);
       F->eraseFromParent();
     }
 
@@ -4630,6 +4632,8 @@ void SROA_Parameter_HLSL::replaceCastArgument(Value *&NewArg, Value *OldArg,
         elts[i] = Elt;
       }
     }
+    // Don't need elts anymore.
+    vectorEltsMap.erase(NewArg);
   } else if (!NewTy->isPointerTy()) {
     // Ptr param is cast to non-ptr param.
     // Must be in param.
@@ -4733,7 +4737,8 @@ void SROA_Parameter_HLSL::replaceCastParameter(
         OldParam->replaceAllUsesWith(Vec);
       }
     }
-
+    // Don't need elts anymore.
+    vectorEltsMap.erase(NewParam);
   } else if (!NewTy->isPointerTy()) {
     // Ptr param is cast to non-ptr param.
     // Must be in param.
@@ -4840,7 +4845,7 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
         V = Builder.CreateExtractElement(OldV, (uint64_t)0);
         vectorEltsMap[V].emplace_back(V);
         for (unsigned i = 1; i < vecSize; i++) {
-          Value *Elt = Builder.CreateExtractElement(OldV, (uint64_t)0);
+          Value *Elt = Builder.CreateExtractElement(OldV, i);
           vectorEltsMap[V].emplace_back(Elt);
         }
       }
@@ -4978,9 +4983,11 @@ void SROA_Parameter_HLSL::flattenArgument(
 
   Function *Entry = m_pHLModule->GetEntryFunction();
   bool hasShaderInputOutput = F == Entry;
-
-  if (m_pHLModule->HasHLFunctionProps(Entry)) {
-    HLFunctionProps &funcProps = m_pHLModule->GetHLFunctionProps(Entry);
+  if (m_pHLModule->HasDxilFunctionProps(F)) {
+    hasShaderInputOutput = true;
+  }
+  if (m_pHLModule->HasDxilFunctionProps(Entry)) {
+    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(Entry);
     if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
       Function *patchConstantFunc = funcProps.ShaderProps.HS.patchConstantFunc;
       hasShaderInputOutput |= F == patchConstantFunc;
@@ -5531,12 +5538,21 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   if (F->getReturnType()->isVoidTy() && F->getArgumentList().empty()) {
     return;
   }
+  // Clear maps for cast.
+  castParamMap.clear();
+  vectorEltsMap.clear();
 
   DxilFunctionAnnotation *funcAnnotation = m_pHLModule->GetFunctionAnnotation(F);
   DXASSERT(funcAnnotation, "must find annotation for function");
 
   std::deque<Value *> WorkList;
-  
+
+  LLVMContext &Ctx = m_pHLModule->GetCtx();
+  std::unique_ptr<BasicBlock> TmpBlockForFuncDecl;
+  if (F->isDeclaration()) {
+    TmpBlockForFuncDecl.reset(BasicBlock::Create(Ctx));
+  }
+
   std::vector<Value *> FlatParamList;
   std::vector<DxilParameterAnnotation> FlatParamAnnotationList;
   const bool bForParamTrue = true;
@@ -5545,7 +5561,13 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     // merge GEP use for arg.
     HLModule::MergeGepUse(&Arg);
     // Insert point may be removed. So recreate builder every time.
-    IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+    IRBuilder<> Builder(Ctx);
+    if (!F->isDeclaration()) {
+      Builder.SetInsertPoint(F->getEntryBlock().getFirstInsertionPt());
+    } else {
+      Builder.SetInsertPoint(TmpBlockForFuncDecl.get());
+    }
+
     DxilParameterAnnotation &paramAnnotation =
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
@@ -5558,8 +5580,12 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
-    Instruction *InsertPt = F->getEntryBlock().getFirstInsertionPt();
-    IRBuilder<> Builder(InsertPt);
+    IRBuilder<> Builder(Ctx);
+    if (!F->isDeclaration()) {
+      Builder.SetInsertPoint(F->getEntryBlock().getFirstInsertionPt());
+    } else {
+      Builder.SetInsertPoint(TmpBlockForFuncDecl.get());
+    }
     Value *retValAddr = Builder.CreateAlloca(retType);
     DxilParameterAnnotation &retAnnotation =
         funcAnnotation->GetRetTypeAnnotation();
@@ -5640,8 +5666,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   }
 
   unsigned extraParamSize = 0;
-  if (m_pHLModule->HasHLFunctionProps(F)) {
-    HLFunctionProps &funcProps = m_pHLModule->GetHLFunctionProps(F);
+  if (m_pHLModule->HasDxilFunctionProps(F)) {
+    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
     if (funcProps.shaderKind == ShaderModel::Kind::Vertex) {
       auto &VS = funcProps.ShaderProps.VS;
       Type *outFloatTy = Type::getFloatPtrTy(F->getContext());
@@ -5698,12 +5724,12 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   }
   DXASSERT(flatF->arg_size() == (extraParamSize + FlatParamAnnotationList.size()), "parameter count mismatch");
   // ShaderProps.
-  if (m_pHLModule->HasHLFunctionProps(F)) {
-    HLFunctionProps &funcProps = m_pHLModule->GetHLFunctionProps(F);
-    std::unique_ptr<HLFunctionProps> flatFuncProps = std::make_unique<HLFunctionProps>();
+  if (m_pHLModule->HasDxilFunctionProps(F)) {
+    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
+    std::unique_ptr<DxilFunctionProps> flatFuncProps = std::make_unique<DxilFunctionProps>();
     flatFuncProps->shaderKind = funcProps.shaderKind;
     flatFuncProps->ShaderProps = funcProps.ShaderProps;
-    m_pHLModule->AddHLFunctionProps(flatF, flatFuncProps);
+    m_pHLModule->AddDxilFunctionProps(flatF, flatFuncProps);
     if (funcProps.shaderKind == ShaderModel::Kind::Vertex) {
       auto &VS = funcProps.ShaderProps.VS;
       unsigned clipArgIndex = FlatParamAnnotationList.size();
@@ -5722,55 +5748,61 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     }
   }
 
-  // Move function body into flatF.
-  moveFunctionBody(F, flatF);
+  if (!F->isDeclaration()) {
+    // Move function body into flatF.
+    moveFunctionBody(F, flatF);
 
-  // Replace old parameters with flatF Arguments.
-  auto argIter = flatF->arg_begin();
-  auto flatArgIter = FlatParamList.begin();
-  LLVMContext &Context = F->getContext();
+    // Replace old parameters with flatF Arguments.
+    auto argIter = flatF->arg_begin();
+    auto flatArgIter = FlatParamList.begin();
+    LLVMContext &Context = F->getContext();
 
-  // Parameter cast come from begining of entry block.
-  IRBuilder<> Builder(flatF->getEntryBlock().getFirstInsertionPt());
+    // Parameter cast come from begining of entry block.
+    IRBuilder<> Builder(flatF->getEntryBlock().getFirstInsertionPt());
 
-  while (argIter != flatF->arg_end()) {
-    Argument *Arg = argIter++;
-    if (flatArgIter == FlatParamList.end()) {
-      DXASSERT(extraParamSize>0, "parameter count mismatch");
-      break;
+    while (argIter != flatF->arg_end()) {
+      Argument *Arg = argIter++;
+      if (flatArgIter == FlatParamList.end()) {
+        DXASSERT(extraParamSize > 0, "parameter count mismatch");
+        break;
+      }
+      Value *flatArg = *(flatArgIter++);
+
+      if (castParamMap.count(flatArg)) {
+        replaceCastParameter(flatArg, castParamMap[flatArg].first, *flatF, Arg,
+                             castParamMap[flatArg].second, Builder);
+      }
+
+      flatArg->replaceAllUsesWith(Arg);
+      // Update arg debug info.
+      DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(flatArg);
+      if (DDI) {
+        Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(Arg));
+        DDI->setArgOperand(0, VMD);
+      }
+
+      HLModule::MergeGepUse(Arg);
+      // Flatten store of array parameter.
+      if (Arg->getType()->isPointerTy()) {
+        Type *Ty = Arg->getType()->getPointerElementType();
+        if (Ty->isArrayTy())
+          SplitArrayCopy(
+              Arg, typeSys,
+              &flatFuncAnnotation->GetParameterAnnotation(Arg->getArgNo()));
+      }
     }
-    Value *flatArg = *(flatArgIter++);
-
-    if (castParamMap.count(flatArg)) {
-      replaceCastParameter(flatArg, castParamMap[flatArg].first, *flatF, Arg,
-                           castParamMap[flatArg].second, Builder);
-    }
-
-    flatArg->replaceAllUsesWith(Arg);
-    // Update arg debug info.
-    DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(flatArg);
-    if (DDI) {
-      Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(Arg));
-      DDI->setArgOperand(0, VMD);
-    }
-
-    HLModule::MergeGepUse(Arg);
-    // Flatten store of array parameter.
-    if (Arg->getType()->isPointerTy()) {
-      Type *Ty = Arg->getType()->getPointerElementType();
-      if (Ty->isArrayTy())
-        SplitArrayCopy(
-            Arg, typeSys,
-            &flatFuncAnnotation->GetParameterAnnotation(Arg->getArgNo()));
-    }
+    // Support store to input and load from output.
+    LegalizeDxilInputOutputs(flatF, flatFuncAnnotation, typeSys);
   }
-  // Support store to input and load from output.
-  LegalizeDxilInputOutputs(flatF, flatFuncAnnotation, typeSys);
 }
 
 void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *flatF, CallInst *CI) {
   DxilFunctionAnnotation *funcAnnotation = m_pHLModule->GetFunctionAnnotation(F);
   DXASSERT(funcAnnotation, "must find annotation for function");
+
+  // Clear maps for cast.
+  castParamMap.clear();
+  vectorEltsMap.clear();
 
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
 
@@ -5955,6 +5987,8 @@ void SROA_Parameter_HLSL::createFlattenedFunctionCall(Function *F, Function *fla
         for (Value *elt : elts) {
           FlatParamList[++i] = elt;
         }
+        // Don't need elts anymore.
+        vectorEltsMap.erase(flatArg);
       }
     }
   }
@@ -5972,8 +6006,8 @@ void SROA_Parameter_HLSL::replaceCall(Function *F, Function *flatF) {
     m_pHLModule->SetEntryFunction(flatF);
   }
   // Update patch constant function.
-  if (m_pHLModule->HasHLFunctionProps(flatF)) {
-    HLFunctionProps &funcProps = m_pHLModule->GetHLFunctionProps(flatF);
+  if (m_pHLModule->HasDxilFunctionProps(flatF)) {
+    DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(flatF);
     if (funcProps.shaderKind == DXIL::ShaderKind::Hull) {
       Function *oldPatchConstantFunc =
           funcProps.ShaderProps.HS.patchConstantFunc;
@@ -6734,9 +6768,7 @@ void ResourceToHandle::ReplaceResourceWithHandle(Value *ResPtr,
           SI->replaceUsesOfWith(LI, TmpRes);
         } else {
           CallInst *CI = cast<CallInst>(ldU);
-          HLOpcodeGroup group =
-              hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
-          DXASSERT(group == HLOpcodeGroup::HLCreateHandle,
+          DXASSERT(hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction()) == HLOpcodeGroup::HLCreateHandle,
                    "must be createHandle");
           CI->replaceAllUsesWith(Handle);
           CI->eraseFromParent();

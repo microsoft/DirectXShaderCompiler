@@ -101,8 +101,10 @@ inline std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
 std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob);
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
-                              LPCSTR *pErrorMsgs, size_t errorMsgCount,
+                              const LPCSTR *pErrorMsgs, size_t errorMsgCount,
                               bool maySucceedAnyway, bool bRegex);
+bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
+               size_t errorMsgCount, bool bRegex);
 std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob);

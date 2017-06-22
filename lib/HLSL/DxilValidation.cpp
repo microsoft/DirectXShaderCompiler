@@ -252,39 +252,6 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
 
 namespace {
 
-class PrintDiagnosticContext {
-private:
-  DiagnosticPrinter &m_Printer;
-  bool m_errorsFound;
-  bool m_warningsFound;
-public:
-  PrintDiagnosticContext(DiagnosticPrinter &printer)
-      : m_Printer(printer), m_errorsFound(false), m_warningsFound(false) {}
-
-  bool HasErrors() const {
-    return m_errorsFound;
-  }
-  bool HasWarnings() const {
-    return m_warningsFound;
-  }
-  void Handle(const DiagnosticInfo &DI) {
-    DI.print(m_Printer);
-    switch (DI.getSeverity()) {
-    case llvm::DiagnosticSeverity::DS_Error:
-      m_errorsFound = true;
-      break;
-    case llvm::DiagnosticSeverity::DS_Warning:
-      m_warningsFound = true;
-      break;
-    }
-    m_Printer << "\n";
-  }
-};
-
-static void PrintDiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
-  reinterpret_cast<PrintDiagnosticContext *>(Context)->Handle(DI);
-}
-
 // Utility class for setting and restoring the diagnostic context so we may capture errors/warnings
 struct DiagRestore {
   LLVMContext &Ctx;
@@ -294,7 +261,8 @@ struct DiagRestore {
   DiagRestore(llvm::LLVMContext &Ctx, void *DiagContext) : Ctx(Ctx) {
     OrigHandler = Ctx.getDiagnosticHandler();
     OrigDiagContext = Ctx.getDiagnosticContext();
-    Ctx.setDiagnosticHandler(PrintDiagnosticHandler, DiagContext);
+    Ctx.setDiagnosticHandler(
+        hlsl::PrintDiagnosticContext::PrintDiagnosticHandler, DiagContext);
   }
   ~DiagRestore() {
     Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext);
@@ -332,6 +300,29 @@ static inline DiagnosticPrinter &operator<<(DiagnosticPrinter &OS, Type &T) {
 } // anon namespace
 
 namespace hlsl {
+
+// PrintDiagnosticContext methods.
+PrintDiagnosticContext::PrintDiagnosticContext(DiagnosticPrinter &printer)
+    : m_Printer(printer), m_errorsFound(false), m_warningsFound(false) {}
+
+bool PrintDiagnosticContext::HasErrors() const { return m_errorsFound; }
+bool PrintDiagnosticContext::HasWarnings() const { return m_warningsFound; }
+void PrintDiagnosticContext::Handle(const DiagnosticInfo &DI) {
+  DI.print(m_Printer);
+  switch (DI.getSeverity()) {
+  case llvm::DiagnosticSeverity::DS_Error:
+    m_errorsFound = true;
+    break;
+  case llvm::DiagnosticSeverity::DS_Warning:
+    m_warningsFound = true;
+    break;
+  }
+  m_Printer << "\n";
+}
+
+void PrintDiagnosticContext::PrintDiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
+  reinterpret_cast<hlsl::PrintDiagnosticContext *>(Context)->Handle(DI);
+}
 
 struct PSExecutionInfo {
   bool SuperSampling = false;
@@ -4497,7 +4488,8 @@ HRESULT ValidateDxilBitcode(
 
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
-  Ctx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagContext, true);
+  Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                           &DiagContext, true);
 
   HRESULT hr;
   if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pModule, Ctx, DiagStream)))
@@ -4541,44 +4533,65 @@ HRESULT ValidateDxilBitcode(
 }
 
 _Use_decl_annotations_
-HRESULT ValidateDxilContainer(const void *pContainer,
-                              uint32_t ContainerSize,
-                              llvm::raw_ostream &DiagStream) {
-
-  LLVMContext Ctx, DbgCtx;
-  std::unique_ptr<llvm::Module> pModule, pDebugModule;
-
+HRESULT ValidateLoadModuleFromContainer(
+    _In_reads_bytes_(ILLength) const void *pContainer,
+    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
+    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
+    _In_ llvm::LLVMContext &Ctx, LLVMContext &DbgCtx,
+    _In_ llvm::raw_ostream &DiagStream) {
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
-  Ctx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagContext, true);
-  DbgCtx.setDiagnosticHandler(PrintDiagnosticHandler, &DiagContext, true);
+  DiagRestore DR(Ctx, &DiagContext);
+  DiagRestore DR2(DbgCtx, &DiagContext);
 
-  HRESULT hr;
   const DxilPartHeader *pPart = nullptr;
   IFR(FindDxilPart(pContainer, ContainerSize, DFCC_DXIL, &pPart));
 
   const char *pIL = nullptr;
   uint32_t ILLength = 0;
   GetDxilProgramBitcode(
-    reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart)),
-    &pIL, &ILLength);
+      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart)), &pIL,
+      &ILLength);
 
   IFR(ValidateLoadModule(pIL, ILLength, pModule, Ctx, DiagStream));
 
+  HRESULT hr;
   const DxilPartHeader *pDbgPart = nullptr;
-  if (FAILED(hr = FindDxilPart(pContainer, ContainerSize, DFCC_ShaderDebugInfoDXIL, &pDbgPart)) &&
+  if (FAILED(hr = FindDxilPart(pContainer, ContainerSize,
+                               DFCC_ShaderDebugInfoDXIL, &pDbgPart)) &&
       hr != DXC_E_CONTAINER_MISSING_DXIL) {
     return hr;
   }
 
   if (pDbgPart) {
     GetDxilProgramBitcode(
-      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pDbgPart)),
-      &pIL, &ILLength);
-    if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pDebugModule, DbgCtx, DiagStream))) {
+        reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pDbgPart)),
+        &pIL, &ILLength);
+    if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pDebugModule, DbgCtx,
+                                       DiagStream))) {
       return hr;
     }
   }
+
+  return S_OK;
+}
+
+_Use_decl_annotations_
+HRESULT ValidateDxilContainer(const void *pContainer,
+                              uint32_t ContainerSize,
+                              llvm::raw_ostream &DiagStream) {
+  LLVMContext Ctx, DbgCtx;
+  std::unique_ptr<llvm::Module> pModule, pDebugModule;
+
+  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+  PrintDiagnosticContext DiagContext(DiagPrinter);
+  Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                           &DiagContext, true);
+  DbgCtx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                              &DiagContext, true);
+
+  IFR(ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule, pDebugModule,
+      Ctx, DbgCtx, DiagStream));
 
   // Validate DXIL Module
   IFR(ValidateDxilModule(pModule.get(), pDebugModule.get()));

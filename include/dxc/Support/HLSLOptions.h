@@ -153,6 +153,7 @@ public:
   bool DisassembleByteOffset; //OPT_No
   bool DisaseembleHex; //OPT_Lx
   bool IsRootSignatureProfile();
+  bool IsLibraryProfile();
 };
 
 /// Use this class to capture, convert and handle the lifetime for the

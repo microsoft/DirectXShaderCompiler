@@ -8,13 +8,16 @@ environment:
   HLSL_BLD_DIR: c:\projects\DirectXShaderCompiler.bin
 install:
 - ps: c:\projects\DirectXShaderCompiler\utils\appveyor\appveyor_setup.ps1
+- git clone --depth=1 https://github.com/google/googletest.git          %HLSL_SRC_DIR%\external\googletest
+- git clone --depth=1 https://github.com/KhronosGroup/SPIRV-Headers.git %HLSL_SRC_DIR%\external\SPIRV-Headers
+- git clone --depth=1 https://github.com/KhronosGroup/SPIRV-Tools.git   %HLSL_SRC_DIR%\external\SPIRV-Tools
 build_script:
 - cmd: >-
     cd %HLSL_SRC_DIR%
 
     call utils\hct\hctstart %HLSL_SRC_DIR% %HLSL_BLD_DIR%
 
-    call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -vs2017
+    call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -vs2017 -spirvtest
 test_script:
 - cmd: >-
     cd %HLSL_SRC_DIR%
@@ -22,6 +25,9 @@ test_script:
     call utils\hct\hctstart %HLSL_SRC_DIR% %HLSL_BLD_DIR%
 
     powershell utils\appveyor\appveyor_test.ps1
+# Running SPIR-V tests
+- cmd: >-
+    %HLSL_BLD_DIR%\%CONFIGURATION%\bin\clang-spirv-tests.exe
 
 notifications:
 - provider: GitHubPullRequest
