@@ -17,6 +17,7 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -25,14 +26,20 @@ namespace {
 class SPIRVEmitter : public ASTConsumer,
                      public RecursiveASTVisitor<SPIRVEmitter> {
 public:
-  explicit SPIRVEmitter(raw_ostream *Out) : OutStream(*Out) {}
+  explicit SPIRVEmitter(raw_ostream *Out)
+      : OutStream(*Out), TheContext(), Builder(&TheContext) {}
 
   void HandleTranslationUnit(ASTContext &Context) override {
-    OutStream << "SPIR-V";
+    Builder.beginModule();
+    Builder.endModule();
+    std::vector<uint32_t> M = Builder.takeModule();
+    OutStream.write(reinterpret_cast<const char *>(M.data()), M.size() * 4);
   }
 
 private:
   raw_ostream &OutStream;
+  spirv::SPIRVContext TheContext;
+  spirv::ModuleBuilder Builder;
 };
 }
 
