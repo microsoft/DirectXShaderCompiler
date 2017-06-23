@@ -402,7 +402,7 @@ class db_dxil(object):
         next_op_idx += 1
         self.add_dxil_op("StoreOutput", next_op_idx, "StoreOutput", "stores the value to shader output", "hfwi", "", [ # note, cannot store bit even though load supports it
             retvoid_param,
-            db_dxil_param(2, "u32", "outputtSigId", "output signature element ID"),
+            db_dxil_param(2, "u32", "outputSigId", "output signature element ID"),
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store")])

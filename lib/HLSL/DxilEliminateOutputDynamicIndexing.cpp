@@ -82,7 +82,7 @@ public:
     return true;
   }
   // Accessors
-  llvm::Value *get_outputtSigId() const {
+  llvm::Value *get_outputSigId() const {
     return Instr->getOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
   }
   llvm::Value *get_rowIndex() const {
@@ -113,7 +113,7 @@ bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
       DxilOutputStore store(CI);
       // Save dynamic indeed sigID.
       if (!isa<ConstantInt>(store.get_rowIndex())) {
-        Value *sigID = store.get_outputtSigId();
+        Value *sigID = store.get_outputSigId();
         dynamicSigSet[sigID] = store.get_value()->getType();
       }
     }
@@ -156,7 +156,7 @@ void DxilEliminateOutputDynamicIndexing::ReplaceDynamicOutput(
   for (auto it = F->user_begin(); it != F->user_end();) {
     CallInst *CI = cast<CallInst>(*(it++));
     DxilOutputStore store(CI);
-    if (sigID == store.get_outputtSigId()) {
+    if (sigID == store.get_outputSigId()) {
       uint64_t col = store.get_colIndex();
       Value *tmpSigElt = tmpSigElts[col];
       IRBuilder<> Builder(CI);

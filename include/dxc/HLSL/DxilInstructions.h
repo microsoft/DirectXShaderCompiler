@@ -800,7 +800,7 @@ struct DxilInst_StoreOutput {
     return true;
   }
   // Accessors
-  llvm::Value *get_outputtSigId() const { return Instr->getOperand(1); }
+  llvm::Value *get_outputSigId() const { return Instr->getOperand(1); }
   llvm::Value *get_rowIndex() const { return Instr->getOperand(2); }
   llvm::Value *get_colIndex() const { return Instr->getOperand(3); }
   llvm::Value *get_value() const { return Instr->getOperand(4); }
