@@ -63,7 +63,7 @@ public:
   TEST_METHOD(RunVectorAssignments);
   TEST_METHOD(RunVectorSyntaxMix);
   TEST_METHOD(RunVectorSyntax);
-  //TEST_METHOD(RunIncludes);  // TODO: Includes have not been implemented yet; uncomment when they have
+  TEST_METHOD(RunIncludes);
   TEST_METHOD(RunStructMethods);
   TEST_METHOD(RunPredefines);
   TEST_METHOD(RunUTF16OneByte);
@@ -74,8 +74,10 @@ public:
   TEST_METHOD(RunEffect);
   TEST_METHOD(RunSemanticDefines);
   TEST_METHOD(RunNoFunctionBody);
+  TEST_METHOD(RunNoFunctionBodyInclude);
 
   dxc::DxcDllSupport m_dllSupport;
+  CComPtr<IDxcIncludeHandler> m_pIncludeHandler;
 
   struct VerifyResult {
     std::string warnings; // warnings from first compilation
@@ -128,6 +130,10 @@ public:
   HRESULT CreateRewriter(IDxcRewriter** pRewriter) {
     if (!m_dllSupport.IsEnabled()) {
       VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+
+      CComPtr<IDxcLibrary> library;
+      VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
+      VERIFY_SUCCEEDED(library->CreateIncludeHandler(&m_pIncludeHandler));
     }
     return m_dllSupport.CreateInstance(CLSID_DxcRewriter, pRewriter);
   }
@@ -163,29 +169,7 @@ public:
     }
   };
 
-  // Note: Previous versions of this file included a RewriteCompareRewrite method here that rewrote twice and compared  
-  // to check for stable output.  It has now been replaced by a new test that checks against a gold baseline.
-
-  void RewriteCompareGold(LPCWSTR path, LPCWSTR goldPath,
-                          _COM_Outptr_ IDxcOperationResult **ppResult,
-                          _In_ IDxcRewriter *rewriter) {
-    // Get the source text from a file
-    FileWithBlob source(m_dllSupport, path);
-
-    const int myDefinesCount = 3;
-    DxcDefine myDefines[myDefinesCount] = { 
-      { L"myDefine", L"2" }, 
-      { L"myDefine3", L"1994" }, 
-      { L"myDefine4", nullptr }
-    };
-
-    // Run rewrite unchanged on the source code
-    VERIFY_SUCCEEDED(rewriter->RewriteUnchanged(source.BlobEncoding, myDefines, myDefinesCount, ppResult));
-
-    CComPtr<IDxcBlob> pRewriteResult;
-    IFT((*ppResult)->GetResult(&pRewriteResult));
-    std::string firstPass = BlobToUtf8(pRewriteResult);
-
+  bool CompareGold(std::string &firstPass, LPCWSTR goldPath) {
     HANDLE goldHandle = CreateFileW(goldPath, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
     VERIFY_ARE_NOT_EQUAL(goldHandle, INVALID_HANDLE_VALUE);
     CHandle checkedGoldHandle(goldHandle);
@@ -212,8 +196,31 @@ public:
       //  }
       //  atChar++;
       //}
-      
-    if (firstPass.compare(gold) == 0) {
+    return firstPass.compare(gold) == 0;
+  }
+
+  // Note: Previous versions of this file included a RewriteCompareRewrite method here that rewrote twice and compared  
+  // to check for stable output.  It has now been replaced by a new test that checks against a gold baseline.
+
+  void RewriteCompareGold(LPCWSTR path, LPCWSTR goldPath,
+                          _COM_Outptr_ IDxcOperationResult **ppResult,
+                          _In_ IDxcRewriter *rewriter) {
+    // Get the source text from a file
+    FileWithBlob source(m_dllSupport, path);
+
+    const int myDefinesCount = 3;
+    DxcDefine myDefines[myDefinesCount] = {
+        {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+    // Run rewrite unchanged on the source code
+    VERIFY_SUCCEEDED(rewriter->RewriteUnchanged(source.BlobEncoding, myDefines,
+                                                myDefinesCount, ppResult));
+
+    CComPtr<IDxcBlob> pRewriteResult;
+    IFT((*ppResult)->GetResult(&pRewriteResult));
+    std::string firstPass = BlobToUtf8(pRewriteResult);
+
+    if (CompareGold(firstPass, goldPath)) {
       return;
     }
 
@@ -241,6 +248,34 @@ public:
           L"output. To see the differences, run:\n"
           L"diff " << goldPath << L" " << PrintName << L"\n";
     ::WEX::Logging::Log::Error(ss.str().c_str());
+  }
+
+  bool RewriteCompareGoldInclude(LPCWSTR path, LPCWSTR goldPath,
+                                 bool bSkipFunctionBody) {
+    CComPtr<IDxcRewriter> pRewriter;
+    VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+    CComPtr<IDxcOperationResult> pRewriteResult;
+
+    std::wstring fileName = GetPathToHlslDataFile(path);
+
+    // Get the source text from a file
+    FileWithBlob source(m_dllSupport, fileName.c_str());
+
+    const int myDefinesCount = 3;
+    DxcDefine myDefines[myDefinesCount] = {
+        {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+    // Run rewrite no function body on the source code
+    VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+        source.BlobEncoding, fileName.c_str(), myDefines, myDefinesCount,
+        m_pIncludeHandler, bSkipFunctionBody, &pRewriteResult));
+
+    CComPtr<IDxcBlob> result;
+    VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+
+    std::string rewriteText = BlobToUtf8(result);
+
+    return CompareGold(rewriteText, GetPathToHlslDataFile(goldPath).c_str());
   }
 };
 
@@ -304,10 +339,19 @@ TEST_F(RewriterTest, RunVectorSyntax) {
     CheckVerifiesHLSL(L"rewriter\\vector-syntax_noerr.hlsl", L"rewriter\\correct_rewrites\\vector-syntax_gold.hlsl");
 }
 
-// TODO: Includes have not been implemented yet; uncomment when they have
-//TEST_F(RewriterTest, RunIncludes) {
-//  CheckVerifiesHLSL(L"rewriter\\includes.hlsl", L"rewriter\\correct_rewrites\\includes_gold.hlsl");
-//}
+TEST_F(RewriterTest, RunIncludes) {
+  VERIFY_IS_TRUE(RewriteCompareGoldInclude(
+      L"rewriter\\includes.hlsl",
+      L"rewriter\\correct_rewrites\\includes_gold.hlsl",
+      /*bSkipFunctionBody*/ false));
+}
+
+TEST_F(RewriterTest, RunNoFunctionBodyInclude) {
+  VERIFY_IS_TRUE(RewriteCompareGoldInclude(
+      L"rewriter\\includes.hlsl",
+      L"rewriter\\correct_rewrites\\includes_gold_nobody.hlsl",
+      /*bSkipFunctionBody*/ true));
+}
 
 TEST_F(RewriterTest, RunStructMethods) {
   CheckVerifiesHLSL(L"rewriter\\struct-methods.hlsl", L"rewriter\\correct_rewrites\\struct-methods_gold.hlsl");
@@ -436,8 +480,10 @@ TEST_F(RewriterTest, RunNoFunctionBody) {
       {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
 
   // Run rewrite no function body on the source code
-  VERIFY_SUCCEEDED(pRewriter->RewriteNoFunctionBody(
-      source.BlobEncoding, myDefines, myDefinesCount, &pRewriteResult));
+  VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+      source.BlobEncoding, L"vector-assignments_noerr.hlsl", myDefines,
+      myDefinesCount, /*pIncludeHandler*/ nullptr, /*bSkipFunctionBody*/ true,
+      &pRewriteResult));
 
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));

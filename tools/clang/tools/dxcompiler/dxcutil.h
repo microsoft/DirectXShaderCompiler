@@ -23,12 +23,13 @@ class DiagnosticsEngine;
 namespace llvm {
 class Module;
 class raw_string_ostream;
-}
+} // namespace llvm
 
 namespace hlsl {
 enum class SerializeDxilFlags : uint32_t;
 class AbstractMemoryStream;
 }
+
 
 namespace dxcutil {
 HRESULT ValidateAndAssembleToContainer(
@@ -48,4 +49,7 @@ void CreateOperationResultFromOutputs(
     IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
     const std::string &warnings, bool hasErrorOccurred,
     _COM_Outptr_ IDxcOperationResult **ppResult);
+
+bool IsAbsoluteOrCurDirRelative(const char *T);
+
 } // namespace dxcutil

@@ -29,9 +29,14 @@ IDxcRewriter : public IUnknown {
                                                      _In_ UINT32 defineCount,
                                                      _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
 
-  virtual HRESULT STDMETHODCALLTYPE RewriteNoFunctionBody(_In_ IDxcBlobEncoding *pSource,
+  virtual HRESULT STDMETHODCALLTYPE RewriteUnchangedWithInclude(_In_ IDxcBlobEncoding *pSource,
+                                                     // Optional file name for pSource. Used in errors and include handlers.
+                                                     _In_opt_ LPCWSTR pSourceName,
                                                      _In_count_(defineCount) DxcDefine *pDefines,
                                                      _In_ UINT32 defineCount,
+                                                     // user-provided interface to handle #include directives (optional)
+                                                     _In_opt_ IDxcIncludeHandler *pIncludeHandler,
+                                                     bool  bSkipFunctionBody,
                                                      _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
 
 };
