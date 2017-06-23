@@ -23,6 +23,7 @@ class DiagnosticsEngine;
 namespace llvm {
 class Module;
 class raw_string_ostream;
+class Twine;
 } // namespace llvm
 
 namespace hlsl {
@@ -50,6 +51,6 @@ void CreateOperationResultFromOutputs(
     const std::string &warnings, bool hasErrorOccurred,
     _COM_Outptr_ IDxcOperationResult **ppResult);
 
-bool IsAbsoluteOrCurDirRelative(const char *T);
+bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
 
 } // namespace dxcutil

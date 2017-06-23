@@ -198,8 +198,7 @@ void CreateOperationResultFromOutputs(
                                                       status, ppResult));
 }
 
-bool IsAbsoluteOrCurDirRelative(const char *cT) {
-  const Twine T = cT;
+bool IsAbsoluteOrCurDirRelative(const Twine &T) {
   if (llvm::sys::path::is_absolute(T)) {
     return true;
   }

@@ -251,7 +251,7 @@ public:
   }
 
   bool RewriteCompareGoldInclude(LPCWSTR path, LPCWSTR goldPath,
-                                 bool bSkipFunctionBody) {
+                                 unsigned rewriteOption) {
     CComPtr<IDxcRewriter> pRewriter;
     VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
     CComPtr<IDxcOperationResult> pRewriteResult;
@@ -268,7 +268,7 @@ public:
     // Run rewrite no function body on the source code
     VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
         source.BlobEncoding, fileName.c_str(), myDefines, myDefinesCount,
-        m_pIncludeHandler, bSkipFunctionBody, &pRewriteResult));
+        m_pIncludeHandler, rewriteOption, &pRewriteResult));
 
     CComPtr<IDxcBlob> result;
     VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
@@ -343,14 +343,14 @@ TEST_F(RewriterTest, RunIncludes) {
   VERIFY_IS_TRUE(RewriteCompareGoldInclude(
       L"rewriter\\includes.hlsl",
       L"rewriter\\correct_rewrites\\includes_gold.hlsl",
-      /*bSkipFunctionBody*/ false));
+      RewirterOptionMask::Default));
 }
 
 TEST_F(RewriterTest, RunNoFunctionBodyInclude) {
   VERIFY_IS_TRUE(RewriteCompareGoldInclude(
       L"rewriter\\includes.hlsl",
       L"rewriter\\correct_rewrites\\includes_gold_nobody.hlsl",
-      /*bSkipFunctionBody*/ true));
+      RewirterOptionMask::SkipFunctionBody));
 }
 
 TEST_F(RewriterTest, RunStructMethods) {
@@ -482,7 +482,7 @@ TEST_F(RewriterTest, RunNoFunctionBody) {
   // Run rewrite no function body on the source code
   VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
       source.BlobEncoding, L"vector-assignments_noerr.hlsl", myDefines,
-      myDefinesCount, /*pIncludeHandler*/ nullptr, /*bSkipFunctionBody*/ true,
+      myDefinesCount, /*pIncludeHandler*/ nullptr, RewirterOptionMask::SkipFunctionBody,
       &pRewriteResult));
 
   CComPtr<IDxcBlob> result;

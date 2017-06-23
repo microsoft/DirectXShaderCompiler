@@ -501,7 +501,7 @@ public:
       _In_ UINT32 defineCount,
       // user-provided interface to handle #include directives (optional)
       _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-      bool  bSkipFunctionBody,
+      _In_ UINT32 rewriteOption,
       _COM_Outptr_ IDxcOperationResult **ppResult) {
     if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
       return E_POINTER;
@@ -530,6 +530,8 @@ public:
 
       LPSTR errors = nullptr;
       LPSTR rewrite = nullptr;
+      bool bSkipFunctionBody =
+          rewriteOption & RewirterOptionMask::SkipFunctionBody;
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(),
                           defineCount > 0 ? definesStr.c_str() : nullptr,

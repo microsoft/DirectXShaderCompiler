@@ -14,6 +14,12 @@
 
 #include <dxc/dxcapi.h>
 
+enum RewirterOptionMask {
+  Default = 0,
+  SkipFunctionBody = 1,
+
+};
+
 struct __declspec(uuid("c012115b-8893-4eb9-9c5a-111456ea1c45"))
 IDxcRewriter : public IUnknown {
 
@@ -36,7 +42,7 @@ IDxcRewriter : public IUnknown {
                                                      _In_ UINT32 defineCount,
                                                      // user-provided interface to handle #include directives (optional)
                                                      _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-                                                     bool  bSkipFunctionBody,
+                                                     _In_ UINT32  rewriteOption,
                                                      _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
 
 };
