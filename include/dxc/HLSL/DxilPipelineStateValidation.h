@@ -800,7 +800,8 @@ namespace hlsl {
     enum class Result {
       Success = 0,
       SuccessWithViewIDDependentTessFactor,
-      InsufficientSpace,
+      InsufficientInputSpace,
+      InsufficientOutputSpace,
       InsufficientPCSpace,
       MismatchedSignatures,
       MismatchedPCSignatures,
