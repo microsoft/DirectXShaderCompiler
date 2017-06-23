@@ -43,6 +43,9 @@ public:
 
   bool runOnModule(Module &M) override {
 
+    // This pass finds all users of the "StoreOutput" function, and replaces their source operands with a constant
+    // value. 
+
     //todo: make these parameters to the pass
     float r = 2.2f;
     float g = 0.4f;
@@ -53,82 +56,72 @@ public:
 
     DxilModule &DM = M.GetOrCreateDxilModule();
 
-    const hlsl::DxilSignature & outputSignature = DM.GetOutputSignature();
+    LLVMContext & Ctx = M.getContext();
 
-    const std::vector<std::unique_ptr<DxilSignatureElement> > & outputSigElements = outputSignature.GetElements();
+    OP *HlslOP = DM.GetOP();
 
-    int startRow = 0;
-    int startColumn = 0;
-    bool targetFound = false;
-    for (const auto & el : outputSigElements)
+    // The StoreOutput function can store either a float or an integer, in order to be compatible with the particular output
+    // render-target resource view.
+    Function *OutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getFloatTy(Ctx));
+
+    if (OutputFunction->getNumUses() == 0)
     {
-      if (el->GetKind() == hlsl::DXIL::SemanticKind::Target)
+      OutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
+      if (OutputFunction->getNumUses() == 0)
       {
-        targetFound = true;
-        startRow = el->GetStartRow();
-        startColumn = el->GetStartCol();
-      }
-    }
-
-    if (!targetFound)
-    {
-      return false;
-    }
-
-    auto pEntrypoint = DM.GetEntryFunction();
-
-    BasicBlock * pBasicBlock = pEntrypoint->begin();
-
-    IRBuilder<> Builder(pBasicBlock->begin());
-
-    OP *hlslOP = DM.GetOP();
-    Function *pOutputFunction = hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Builder.getFloatTy());
-
-    if (pOutputFunction->getNumUses() == 0)
-    {
-      pOutputFunction = hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Builder.getInt32Ty());
-      if (pOutputFunction->getNumUses() == 0)
-      {
+        // Returning false, indicating that the shader was not modified, since there were no calls to StoreOutput
         return false;
       }
     }
 
-    auto uses = pOutputFunction->uses();
+    const hlsl::DxilSignature & OutputSignature = DM.GetOutputSignature();
 
-    for (Use &use : uses) {
-      iterator_range<Value::user_iterator> users = use->users();
-      for (User * user : users) {
-        if (isa<Instruction>(user)){
-          auto instruction = cast<Instruction>(user);
+    auto OutputFunctionUses = OutputFunction->uses();
 
-          Value * pOutputRowOperand = instruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputRowOpIdx);
-          ConstantInt * pOutputRow = cast<ConstantInt>(pOutputRowOperand);
-          APInt outputRow = pOutputRow->getValue();
-          outputRow;
+    for (Use &FunctionUse : OutputFunctionUses) {
+      iterator_range<Value::user_iterator> FunctionUsers = FunctionUse->users();
+      for (User * FunctionUser : FunctionUsers) {
+        if (isa<Instruction>(FunctionUser)) {
+          auto CallInstruction = cast<CallInst>(FunctionUser);
 
-          Value * pOutputColumnOperand = instruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputColOpIdx);
-          ConstantInt * pOutputColumn = cast<ConstantInt>(pOutputColumnOperand);
-          APInt outputColumn = pOutputColumn->getValue();
+          // Check if the instruction writes to a render target (as opposed to a system-value, such as RenderTargetArrayIndex)
+          Value *OutputID = CallInstruction->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
+          unsigned SignatureElementIndex = cast<ConstantInt>(OutputID)->getLimitedValue();
+          const DxilSignatureElement &SignatureElement = OutputSignature.GetElement(SignatureElementIndex);
 
-          Value * pOutputValueOperand = instruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx);
-
-          if (isa<ConstantFP>(pOutputValueOperand))
+          if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Target)
           {
-            Constant * pFloatConstant = hlslOP->GetFloatConst(color[*outputColumn.getRawData()]);
-            instruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pFloatConstant);
-          }
-          else if (isa<ConstantInt>(pOutputValueOperand))
-          {
-            Constant * pIntegerConstant = hlslOP->GetI32Const(static_cast<int>(color[*outputColumn.getRawData()]));
-            instruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
+            DxilInst_StoreOutput StoreOutputInstruction(CallInstruction);
+
+            // The output column is the channel (red, green, blue or alpha) within the output pixel
+            Value * OutputColumnOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputColOpIdx);
+            ConstantInt * OutputColumnConstant = cast<ConstantInt>(OutputColumnOperand);
+            APInt OutputColumn = OutputColumnConstant->getValue();
+
+            Value * OutputValueOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx);
+
+            // Replace the source operand with the appropriate constant literal value
+            if (isa<ConstantFP>(OutputValueOperand))
+            {
+              Constant * FloatConstant = HlslOP->GetFloatConst(color[*OutputColumn.getRawData()]);
+              CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, FloatConstant);
+            }
+            else if (isa<ConstantInt>(OutputValueOperand))
+            {
+              Constant * pIntegerConstant = HlslOP->GetI32Const(static_cast<int>(color[*OutputColumn.getRawData()]));
+              CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
+            }
           }
         }
       }
     }
 
+    // Returning true, indicating that the shader was modified
     return true;
   }
 };
+
+
 
 char DxilOutputColorBecomesConstant::ID = 0;
 
