@@ -361,8 +361,9 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
 
-    TEST_METHOD(PixConstantColor)
-    TEST_METHOD(PixConstantColorInt)
+  TEST_METHOD(PixConstantColor)
+  TEST_METHOD(PixConstantColorInt)
+  TEST_METHOD(PixConstantColorMRTUAV)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -2226,6 +2227,10 @@ TEST_F(CompilerTest, PixConstantColor) {
 
 TEST_F(CompilerTest, PixConstantColorInt) {
   CodeGenTestCheck(L"pix\\constantcolorint.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColorMRTUAV) {
+  CodeGenTestCheck(L"pix\\constantcolorMRT.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
