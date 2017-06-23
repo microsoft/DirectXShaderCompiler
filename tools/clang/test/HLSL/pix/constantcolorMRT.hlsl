@@ -15,7 +15,7 @@ struct RTOut
   float4 c : SV_Target1;
 };
 
-[RootSignature("UAV(u0)")]
+[RootSignature("")]
 RTOut main()  {
   RTOut rtOut;
   rtOut.i = 8;

@@ -35,10 +35,17 @@ using namespace hlsl;
 
 class DxilOutputColorBecomesConstant : public ModulePass {
 
-  float r = 2.2f;
-  float g = 0.4f;
-  float b = 0.6f;
-  float a = 1.f;
+  enum VisualizerInstrumentationMode
+  {
+    PRESERVE_ORIGINAL_INSTRUCTIONS,
+    REMOVE_DISCARDS_AND_OPTIONALLY_OTHER_INSTRUCTIONS
+  };
+
+  float Red = 2.2f;
+  float Green = 0.4f;
+  float Blue = 0.6f;
+  float Alpha = 1.f;
+  VisualizerInstrumentationMode Mode;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -51,26 +58,33 @@ public:
     {
       if (0 == option.first.compare("constant-red"))
       {
-        r = atof(option.second.data());
+        Red = atof(option.second.data());
       }
       else if (0 == option.first.compare("constant-green"))
       {
-        g = atof(option.second.data());
+        Green = atof(option.second.data());
       }
       else if (0 == option.first.compare("constant-blue"))
       {
-        b = atof(option.second.data());
+        Blue = atof(option.second.data());
       }
       else if (0 == option.first.compare("constant-alpha"))
       {
-        a = atof(option.second.data());
+        Alpha = atof(option.second.data());
+      }
+      else if (0 == option.first.compare("mod-mode"))
+      {
+        Mode = static_cast<VisualizerInstrumentationMode>(atoi(option.second.data()));
       }
     }
   }
 
   bool runOnModule(Module &M) override {
 
-    float color[4] = { r, g, b, a };
+    // This pass finds all users of the "StoreOutput" function, and replaces their source operands with a constant
+    // value. 
+
+    float color[4] = { Red, Green, Blue, Alpha };
 
     DxilModule &DM = M.GetOrCreateDxilModule();
 
@@ -108,7 +122,7 @@ public:
           const DxilSignatureElement &SignatureElement = OutputSignature.GetElement(SignatureElementIndex);
 
           if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Target)
-    {
+          {
             DxilInst_StoreOutput StoreOutputInstruction(CallInstruction);
 
             // The output column is the channel (red, green, blue or alpha) within the output pixel
@@ -120,18 +134,18 @@ public:
 
             // Replace the source operand with the appropriate constant literal value
             if (isa<ConstantFP>(OutputValueOperand))
-          {
+            {
               Constant * FloatConstant = HlslOP->GetFloatConst(color[*OutputColumn.getRawData()]);
               CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, FloatConstant);
-          }
+            }
             else if (isa<ConstantInt>(OutputValueOperand))
-          {
+            {
               Constant * pIntegerConstant = HlslOP->GetI32Const(static_cast<int>(color[*OutputColumn.getRawData()]));
               CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
+            }
           }
         }
       }
-    }
     }
 
     // Returning true, indicating that the shader was modified

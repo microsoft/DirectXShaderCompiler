@@ -169,7 +169,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
-  static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "constant-red", "constant-green", "constant-blue", "constant-alpha" };
+  static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
   static const LPCSTR Float2IntArgs[] = { "float2int-max-integer-bw" };
   static const LPCSTR GVNArgs[] = { "noloads", "enable-pre", "enable-load-pre", "max-recurse-depth" };
@@ -236,7 +236,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "None" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "None", "None", "Control the number of bonus instructions (default = 1)" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
-  static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None" };
+  static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
   static const LPCSTR Float2IntArgs[] = { "Max integer bitwidth to consider in float2int" };
   static const LPCSTR GVNArgs[] = { "None", "None", "None", "Max recurse depth" };
@@ -339,6 +339,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("max-reroll-increment")
     ||  S.equals("maxElements")
     ||  S.equals("mergefunc-sanity")
+    ||  S.equals("mod-mode")
     ||  S.equals("no-discriminators")
     ||  S.equals("noloads")
     ||  S.equals("pragma-unroll-threshold")
