@@ -365,6 +365,7 @@ public:
   TEST_METHOD(PixConstantColorInt)
   TEST_METHOD(PixConstantColorMRT)
   TEST_METHOD(PixConstantColorUAVs)
+  TEST_METHOD(PixConstantColorOtherSIVs)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -2236,6 +2237,10 @@ TEST_F(CompilerTest, PixConstantColorMRT) {
 
 TEST_F(CompilerTest, PixConstantColorUAVs) {
   CodeGenTestCheck(L"pix\\constantcolorUAVs.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColorOtherSIVs) {
+  CodeGenTestCheck(L"pix\\constantcolorOtherSIVs.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
