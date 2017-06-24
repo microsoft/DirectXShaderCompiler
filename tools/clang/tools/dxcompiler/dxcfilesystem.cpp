@@ -355,7 +355,7 @@ public:
     return GetStreamForHandle(StdOutHandle.Handle, ppResultStream);
   }
 
-  void SetupForCompilerInstance(clang::CompilerInstance &compiler) {
+  void SetupForCompilerInstance(clang::CompilerInstance &compiler) override {
     DXASSERT(m_searchEntries.size() == 0, "else compiler instance being set twice");
     // Turn these into UTF-16 to avoid converting later, and ensure they
     // are fully-qualified or relative to the current directory.

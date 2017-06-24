@@ -9,9 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/RecursiveASTVisitor.h"
+//#include "clang/AST/ASTConsumer.h"
+//#include "clang/AST/ASTContext.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
@@ -20,12 +19,8 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/HLSLMacroExpander.h"
-#include "clang/Parse/ParseAST.h"
-#include "clang/Rewrite/Core/Rewriter.h"
-#include "clang/Sema/SemaConsumer.h"
 #include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
-#include "llvm/Support/Host.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "clang/Frontend/FrontendActions.h"
@@ -46,20 +41,12 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
-#include "dxc/HLSL/DxilShaderModel.h"
-#include "dxc/HLSL/DxilModule.h"
-#include "dxc/HLSL/DxilResource.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
-#include "dxc/HLSL/DxilConstants.h"
-#include "dxc/HLSL/DxilOperations.h"
 
 #include "dxc/dxcapi.internal.h"
 
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MSFileSystem.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
