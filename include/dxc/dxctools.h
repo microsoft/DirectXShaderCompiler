@@ -14,6 +14,12 @@
 
 #include <dxc/dxcapi.h>
 
+enum RewirterOptionMask {
+  Default = 0,
+  SkipFunctionBody = 1,
+
+};
+
 struct __declspec(uuid("c012115b-8893-4eb9-9c5a-111456ea1c45"))
 IDxcRewriter : public IUnknown {
 
@@ -27,6 +33,16 @@ IDxcRewriter : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE RewriteUnchanged(_In_ IDxcBlobEncoding *pSource,
                                                      _In_count_(defineCount) DxcDefine *pDefines,
                                                      _In_ UINT32 defineCount,
+                                                     _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE RewriteUnchangedWithInclude(_In_ IDxcBlobEncoding *pSource,
+                                                     // Optional file name for pSource. Used in errors and include handlers.
+                                                     _In_opt_ LPCWSTR pSourceName,
+                                                     _In_count_(defineCount) DxcDefine *pDefines,
+                                                     _In_ UINT32 defineCount,
+                                                     // user-provided interface to handle #include directives (optional)
+                                                     _In_opt_ IDxcIncludeHandler *pIncludeHandler,
+                                                     _In_ UINT32  rewriteOption,
                                                      _COM_Outptr_ IDxcOperationResult **ppResult) = 0;
 
 };

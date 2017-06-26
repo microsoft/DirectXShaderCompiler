@@ -601,6 +601,7 @@ public:
   TEST_METHOD(CodeGenRedundantinput1)
   TEST_METHOD(CodeGenRes64bit)
   TEST_METHOD(CodeGenRovs)
+  TEST_METHOD(CodeGenRValAssign)
   TEST_METHOD(CodeGenRValSubscript)
   TEST_METHOD(CodeGenSample1)
   TEST_METHOD(CodeGenSample2)
@@ -3233,6 +3234,7 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad4) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
+  if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad5.hlsl");
 }
 
@@ -3385,6 +3387,10 @@ TEST_F(CompilerTest, CodeGenRes64bit) {
 
 TEST_F(CompilerTest, CodeGenRovs) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\rovs.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenRValAssign) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\rval_assign.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenRValSubscript) {

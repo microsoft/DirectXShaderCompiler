@@ -269,16 +269,23 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
        m_Opts.ExtractPrivateFile.empty() &&
        m_Opts.VerifyRootSignatureSource.empty() && !m_Opts.ExtractRootSignature);
 
-  bool isRootSigProfile = m_Opts.IsRootSignatureProfile();
-
-  if (!needDisassembly || isRootSigProfile)
+  if (!needDisassembly)
     return retVal;
 
-  CComPtr<IDxcCompiler> pCompiler;
-  IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
-
   CComPtr<IDxcBlobEncoding> pDisassembleResult;
-  IFT(pCompiler->Disassemble(pBlob, &pDisassembleResult));
+
+  if (m_Opts.IsRootSignatureProfile()) {
+      //keep the same behavior as fxc, people may want to embed the root signatures in their code bases.
+      CComPtr<IDxcLibrary> pLibrary;
+      IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+      std::string Message = "Disassembly failed";
+      IFT(pLibrary->CreateBlobWithEncodingOnHeapCopy((LPBYTE)&Message[0], Message.size(), CP_ACP, &pDisassembleResult));
+  } else {
+      CComPtr<IDxcCompiler> pCompiler;
+      IFT(CreateInstance(CLSID_DxcCompiler, &pCompiler));
+      IFT(pCompiler->Disassemble(pBlob, &pDisassembleResult));
+  }
+  
   if (!m_Opts.OutputHeader.empty()) {
     llvm::Twine varName = m_Opts.VariableName.empty()
                               ? llvm::Twine("g_", m_Opts.EntryPoint)

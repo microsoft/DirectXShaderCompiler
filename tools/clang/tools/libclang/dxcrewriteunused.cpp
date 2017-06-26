@@ -40,6 +40,7 @@
 #include "dxc/dxctools.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
+#include "dxc/Support/dxcfilesystem.h"
 
 #define CP_UTF16 1200
 
@@ -117,6 +118,8 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
   compiler.createFileManager();
   compiler.createSourceManager(compiler.getFileManager());
   compiler.setTarget(TargetInfo::CreateTargetInfo(compiler.getDiagnostics(), targetOptions));
+  // Not use builtin includes.
+  compiler.getHeaderSearchOpts().UseBuiltinIncludes = false;
 
   PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
   if (rewrite != nullptr) {
@@ -349,10 +352,11 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
 }
 
 static
-HRESULT DoUnparse(_In_ DxcLangExtensionsHelper *pHelper,
+HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pFileName,
                _In_ ASTUnit::RemappedFile *pRemap,
                _In_ LPCSTR pDefines,
+               _In_ bool bSkipFunctionBody,
                _Outptr_result_z_ LPSTR *pWarnings,
                _Outptr_result_z_ LPSTR *pResult) {
   if (pWarnings != nullptr) *pWarnings = nullptr;
@@ -370,7 +374,7 @@ HRESULT DoUnparse(_In_ DxcLangExtensionsHelper *pHelper,
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
-  ParseAST(compiler.getSema(), false, false);
+  ParseAST(compiler.getSema(), false, bSkipFunctionBody);
 
   ASTContext& C = compiler.getASTContext();
   TranslationUnitDecl *tu = C.getTranslationUnitDecl();
@@ -424,7 +428,7 @@ public:
     LPCSTR fakeName = "input.hlsl";
 
     try {
-      ::llvm::sys::fs::MSFileSystem *msfPtr;
+      ::llvm::sys::fs::MSFileSystem* msfPtr;
       IFT(CreateMSFileSystemForDisk(&msfPtr));
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
@@ -482,9 +486,60 @@ public:
 
       LPSTR errors = nullptr;
       LPSTR rewrite = nullptr;
-      HRESULT status = DoUnparse(
-          &m_langExtensionsHelper, fakeName, pRemap.get(),
-          defineCount > 0 ? definesStr.c_str() : nullptr, &errors, &rewrite);
+      HRESULT status =
+          DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(),
+                          defineCount > 0 ? definesStr.c_str() : nullptr,
+                          /*bSkipFunctionBody*/ false, &errors, &rewrite);
+
+      return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
+                                                       ppResult);
+    }
+    CATCH_CPP_RETURN_HRESULT();
+
+  }
+
+  __override HRESULT STDMETHODCALLTYPE RewriteUnchangedWithInclude(
+      _In_ IDxcBlobEncoding *pSource,
+      // Optional file name for pSource. Used in errors and include handlers.
+      _In_opt_ LPCWSTR pSourceName, _In_count_(defineCount) DxcDefine *pDefines,
+      _In_ UINT32 defineCount,
+      // user-provided interface to handle #include directives (optional)
+      _In_opt_ IDxcIncludeHandler *pIncludeHandler,
+      _In_ UINT32 rewriteOption,
+      _COM_Outptr_ IDxcOperationResult **ppResult) {
+    if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
+      return E_POINTER;
+
+    *ppResult = nullptr;
+
+    CComPtr<IDxcBlobEncoding> utf8Source;
+    IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+
+    CW2A utf8SourceName(pSourceName, CP_UTF8);
+    LPCSTR fName = utf8SourceName.m_psz;
+
+    try {
+      dxcutil::DxcArgsFileSystem *msfPtr;
+      IFT(dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
+      std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+      ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+      IFTLLVM(pts.error_code());
+
+      StringRef Data((LPCSTR)utf8Source->GetBufferPointer(), utf8Source->GetBufferSize());
+      std::unique_ptr<llvm::MemoryBuffer> pBuffer(llvm::MemoryBuffer::getMemBufferCopy(Data, fName));
+      std::unique_ptr<ASTUnit::RemappedFile> pRemap(new ASTUnit::RemappedFile(fName, pBuffer.release()));
+
+      std::string definesStr = DefinesToString(pDefines, defineCount);
+
+      LPSTR errors = nullptr;
+      LPSTR rewrite = nullptr;
+      bool bSkipFunctionBody =
+          rewriteOption & RewirterOptionMask::SkipFunctionBody;
+      HRESULT status =
+          DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(),
+                          defineCount > 0 ? definesStr.c_str() : nullptr,
+                          bSkipFunctionBody, &errors, &rewrite);
 
       return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
                                                        ppResult);
