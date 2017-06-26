@@ -154,13 +154,13 @@ entry:
   call fastcc void @"\01?test_inout@@YAXAAV?$vector@M$03@@V1@@Z"(<4 x float>* nonnull dereferenceable(16) %16, <4 x float> %15)
   %17 = load <4 x float>, <4 x float>* %16, align 4
   %18 = extractelement <4 x float> %17, i64 0
-  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %18)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %18)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   %19 = extractelement <4 x float> %17, i64 1
-  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %19)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float %19)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   %20 = extractelement <4 x float> %17, i64 2
-  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %20)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %20)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   %21 = extractelement <4 x float> %17, i64 3
-  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float %21)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float %21)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   ret void
 }
 

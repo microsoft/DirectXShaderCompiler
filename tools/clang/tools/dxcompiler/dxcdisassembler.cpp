@@ -826,7 +826,7 @@ static const char *OpCodeSignatures[] = {
   "(regIndex,index,component)",  // MinPrecXRegLoad
   "(regIndex,index,component,value)",  // MinPrecXRegStore
   "(inputSigId,rowIndex,colIndex,gsVertexAxis)",  // LoadInput
-  "(outputtSigId,rowIndex,colIndex,value)",  // StoreOutput
+  "(outputSigId,rowIndex,colIndex,value)",  // StoreOutput
   "(value)",  // FAbs
   "(value)",  // Saturate
   "(value)",  // IsNaN
