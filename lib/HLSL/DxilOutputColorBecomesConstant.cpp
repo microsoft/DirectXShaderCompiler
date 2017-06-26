@@ -40,46 +40,8 @@ class DxilOutputColorBecomesConstant : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilOutputColorBecomesConstant() : ModulePass(ID) {}
-
   const char *getPassName() const override { return "DXIL Constant Color Mod"; }
-
-  bool runOnModule(Module &M) override {
-
-    // This pass finds all users of the "StoreOutput" function, and replaces their source operands with a constant
-    // value. 
-
-    //todo: make these parameters to the pass
-    float r = 2.2f;
-    float g = 0.4f;
-    float b = 0.6f;
-    float a = 1.f;
-
-    float color[4] = { r, g, b, a };
-
-    DxilModule &DM = M.GetOrCreateDxilModule();
-
-    LLVMContext & Ctx = M.getContext();
-
-    OP *HlslOP = DM.GetOP();
-
-    const hlsl::DxilSignature & OutputSignature = DM.GetOutputSignature();
-
-    bool Modified = false;
-
-    // The StoreOutput function can store either a float or an integer, in order to be compatible with the particular output
-    // render-target resource view.
-    Function * FloatOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getFloatTy(Ctx));
-    if (FloatOutputFunction->getNumUses() != 0) {
-      Modified = convertTarget0ToConstantValue(FloatOutputFunction, OutputSignature, HlslOP, color);
-    }
-
-    Function * IntOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
-    if (IntOutputFunction->getNumUses() != 0) {
-      Modified = convertTarget0ToConstantValue(IntOutputFunction, OutputSignature, HlslOP, color);
-    }
-
-    return Modified;
-  }
+  bool runOnModule(Module &M) override;
 };
 
 bool DxilOutputColorBecomesConstant::convertTarget0ToConstantValue(
@@ -102,7 +64,9 @@ bool DxilOutputColorBecomesConstant::convertTarget0ToConstantValue(
         unsigned SignatureElementIndex = cast<ConstantInt>(OutputID)->getLimitedValue();
         const DxilSignatureElement &SignatureElement = OutputSignature.GetElement(SignatureElementIndex);
 
-        if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Target)
+        // We only modify the output color for RTV0
+        if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Target &&
+          SignatureElement.GetSemanticStartIndex() == 0)
         {
           DxilInst_StoreOutput StoreOutputInstruction(CallInstruction);
 
@@ -130,6 +94,44 @@ bool DxilOutputColorBecomesConstant::convertTarget0ToConstantValue(
       }
     }
   }
+  return Modified;
+}
+
+bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
+{
+  // This pass finds all users of the "StoreOutput" function, and replaces their source operands with a constant
+  // value. 
+
+  //todo: make these parameters to the pass
+  float r = 2.2f;
+  float g = 0.4f;
+  float b = 0.6f;
+  float a = 1.f;
+
+  float color[4] = { r, g, b, a };
+
+  DxilModule &DM = M.GetOrCreateDxilModule();
+
+  LLVMContext & Ctx = M.getContext();
+
+  OP *HlslOP = DM.GetOP();
+
+  const hlsl::DxilSignature & OutputSignature = DM.GetOutputSignature();
+
+  bool Modified = false;
+
+  // The StoreOutput function can store either a float or an integer, depending on the intended output
+  // render-target resource view.
+  Function * FloatOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getFloatTy(Ctx));
+  if (FloatOutputFunction->getNumUses() != 0) {
+    Modified = convertTarget0ToConstantValue(FloatOutputFunction, OutputSignature, HlslOP, color);
+  }
+
+  Function * IntOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
+  if (IntOutputFunction->getNumUses() != 0) {
+    Modified = convertTarget0ToConstantValue(IntOutputFunction, OutputSignature, HlslOP, color);
+  }
+
   return Modified;
 }
 
