@@ -35,6 +35,8 @@ using namespace hlsl;
 
 class DxilOutputColorBecomesConstant : public ModulePass {
 
+  bool convertTarget0ToConstantValue(Function * OutputFunction, const hlsl::DxilSignature &OutputSignature, OP * HlslOP, float * color);
+
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilOutputColorBecomesConstant() : ModulePass(ID) {}
@@ -60,68 +62,76 @@ public:
 
     OP *HlslOP = DM.GetOP();
 
-    // The StoreOutput function can store either a float or an integer, in order to be compatible with the particular output
-    // render-target resource view.
-    Function *OutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getFloatTy(Ctx));
-
-    if (OutputFunction->getNumUses() == 0)
-    {
-      OutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
-      if (OutputFunction->getNumUses() == 0)
-      {
-        // Returning false, indicating that the shader was not modified, since there were no calls to StoreOutput
-        return false;
-      }
-    }
-
     const hlsl::DxilSignature & OutputSignature = DM.GetOutputSignature();
 
-    auto OutputFunctionUses = OutputFunction->uses();
+    bool Modified = false;
 
-    for (Use &FunctionUse : OutputFunctionUses) {
-      iterator_range<Value::user_iterator> FunctionUsers = FunctionUse->users();
-      for (User * FunctionUser : FunctionUsers) {
-        if (isa<Instruction>(FunctionUser)) {
-          auto CallInstruction = cast<CallInst>(FunctionUser);
+    // The StoreOutput function can store either a float or an integer, in order to be compatible with the particular output
+    // render-target resource view.
+    Function * FloatOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getFloatTy(Ctx));
+    if (FloatOutputFunction->getNumUses() != 0) {
+      Modified = convertTarget0ToConstantValue(FloatOutputFunction, OutputSignature, HlslOP, color);
+    }
 
-          // Check if the instruction writes to a render target (as opposed to a system-value, such as RenderTargetArrayIndex)
-          Value *OutputID = CallInstruction->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
-          unsigned SignatureElementIndex = cast<ConstantInt>(OutputID)->getLimitedValue();
-          const DxilSignatureElement &SignatureElement = OutputSignature.GetElement(SignatureElementIndex);
+    Function * IntOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
+    if (IntOutputFunction->getNumUses() != 0) {
+      Modified = convertTarget0ToConstantValue(IntOutputFunction, OutputSignature, HlslOP, color);
+    }
 
-          if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Target)
+    return Modified;
+  }
+};
+
+bool DxilOutputColorBecomesConstant::convertTarget0ToConstantValue(
+  Function * OutputFunction, 
+  const hlsl::DxilSignature &OutputSignature, 
+  OP * HlslOP, 
+  float * color) {
+
+  bool Modified = false;
+  auto OutputFunctionUses = OutputFunction->uses();
+
+  for (Use &FunctionUse : OutputFunctionUses) {
+    iterator_range<Value::user_iterator> FunctionUsers = FunctionUse->users();
+    for (User * FunctionUser : FunctionUsers) {
+      if (isa<Instruction>(FunctionUser)) {
+        auto CallInstruction = cast<CallInst>(FunctionUser);
+
+        // Check if the instruction writes to a render target (as opposed to a system-value, such as RenderTargetArrayIndex)
+        Value *OutputID = CallInstruction->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
+        unsigned SignatureElementIndex = cast<ConstantInt>(OutputID)->getLimitedValue();
+        const DxilSignatureElement &SignatureElement = OutputSignature.GetElement(SignatureElementIndex);
+
+        if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Target)
+        {
+          DxilInst_StoreOutput StoreOutputInstruction(CallInstruction);
+
+          // The output column is the channel (red, green, blue or alpha) within the output pixel
+          Value * OutputColumnOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputColOpIdx);
+          ConstantInt * OutputColumnConstant = cast<ConstantInt>(OutputColumnOperand);
+          APInt OutputColumn = OutputColumnConstant->getValue();
+
+          Value * OutputValueOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx);
+
+          // Replace the source operand with the appropriate constant literal value
+          if (OutputValueOperand->getType()->isFloatingPointTy())
           {
-            DxilInst_StoreOutput StoreOutputInstruction(CallInstruction);
-
-            // The output column is the channel (red, green, blue or alpha) within the output pixel
-            Value * OutputColumnOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputColOpIdx);
-            ConstantInt * OutputColumnConstant = cast<ConstantInt>(OutputColumnOperand);
-            APInt OutputColumn = OutputColumnConstant->getValue();
-
-            Value * OutputValueOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx);
-
-            // Replace the source operand with the appropriate constant literal value
-            if (isa<ConstantFP>(OutputValueOperand))
-            {
-              Constant * FloatConstant = HlslOP->GetFloatConst(color[*OutputColumn.getRawData()]);
-              CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, FloatConstant);
-            }
-            else if (isa<ConstantInt>(OutputValueOperand))
-            {
-              Constant * pIntegerConstant = HlslOP->GetI32Const(static_cast<int>(color[*OutputColumn.getRawData()]));
-              CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
-            }
+            Modified = true;
+            Constant * FloatConstant = HlslOP->GetFloatConst(color[*OutputColumn.getRawData()]);
+            CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, FloatConstant);
+          }
+          else if (OutputValueOperand->getType()->isIntegerTy())
+          {
+            Modified = true;
+            Constant * pIntegerConstant = HlslOP->GetI32Const(static_cast<int>(color[*OutputColumn.getRawData()]));
+            CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
           }
         }
       }
     }
-
-    // Returning true, indicating that the shader was modified
-    return true;
   }
-};
-
-
+  return Modified;
+}
 
 char DxilOutputColorBecomesConstant::ID = 0;
 
