@@ -2872,6 +2872,27 @@ namespace MainNs
             this.ColorMenuItem.Checked = !this.ColorMenuItem.Checked;
             CodeBox_SelectionChanged(sender, e);
         }
+
+        private void rewriterToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            IDxcRewriter rewriter = HlslDxcLib.CreateDxcRewriter();
+            IDxcBlobEncoding code = CreateBlobForCodeText();
+            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchanged(code, null, 0);
+            IDxcBlobEncoding rewriteBlob = rewriterResult.GetRewrite();
+            string rewriteText = GetStringFromBlob(rewriteBlob);
+            RewriterOutputTextBox.Text = rewriteText;
+        }
+
+        private void rewriteNobodyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            IDxcRewriter rewriter = HlslDxcLib.CreateDxcRewriter();
+            IDxcBlobEncoding code = CreateBlobForCodeText();
+            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchangedWithInclude(code, "input.hlsl",null, 0, null, 1);
+            IDxcBlobEncoding rewriteBlob = rewriterResult.GetRewrite();
+            string rewriteText = GetStringFromBlob(rewriteBlob);
+            RewriterOutputTextBox.Text = rewriteText;
+            AnalysisTabControl.SelectTab(RewriterOutputTabPage);
+        }
     }
 
     public static class RichTextBoxExt

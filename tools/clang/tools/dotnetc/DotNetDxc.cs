@@ -265,15 +265,19 @@ namespace DotNetDxc
     interface IDxcRewriter
     {
         IDxcRewriteResult RemoveUnusedGlobals(
-            ref DXCEncodedText pSource,
+            IDxcBlobEncoding pSource,
             [MarshalAs(UnmanagedType.LPWStr)]string pEntryPoint,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct)] DXCDefine[] pDefines,
             uint defineCount);
         IDxcRewriteResult RewriteUnchanged(
-            ref DXCEncodedText pSource,
+            IDxcBlobEncoding pSource,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct)] DXCDefine[] pDefines,
             uint defineCount);
 
+        IDxcRewriteResult RewriteUnchangedWithInclude(IDxcBlobEncoding pSource,
+             [MarshalAs(UnmanagedType.LPWStr)] string pName,
+            [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct)] DXCDefine[] pDefines,
+            uint defineCount, IDxcIncludeHandler includeHandler, uint rewriteOption);
     }
 
     [ComImport]
@@ -282,8 +286,8 @@ namespace DotNetDxc
     interface IDxcRewriteResult
     {
         uint GetStatus();
-        void GetRewrite(ref DXCEncodedText rewrite);
-        void GetErrorBuffer(ref DXCEncodedText errorBuff);
+        IDxcBlobEncoding GetRewrite();
+        IDxcBlobEncoding GetErrorBuffer();
     }
 
     [StructLayout(LayoutKind.Sequential)]
