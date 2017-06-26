@@ -53,65 +53,36 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilOutputColorBecomesConstant() : ModulePass(ID) {}
   const char *getPassName() const override { return "DXIL Constant Color Mod"; }
+  void applyOptions(PassOptions O) override;
+  bool runOnModule(Module &M) override;
+};
 
-  virtual void applyOptions(PassOptions O) override {
-    for (const auto & option : O)
+void DxilOutputColorBecomesConstant::applyOptions(PassOptions O)
+{
+  for (const auto & option : O)
+  {
+    if (0 == option.first.compare("constant-red"))
     {
-      if (0 == option.first.compare("constant-red"))
-      {
-        Red = atof(option.second.data());
-      }
-      else if (0 == option.first.compare("constant-green"))
-      {
-        Green = atof(option.second.data());
-      }
-      else if (0 == option.first.compare("constant-blue"))
-      {
-        Blue = atof(option.second.data());
-      }
-      else if (0 == option.first.compare("constant-alpha"))
-      {
-        Alpha = atof(option.second.data());
-      }
-      else if (0 == option.first.compare("mod-mode"))
-      {
-        Mode = static_cast<VisualizerInstrumentationMode>(atoi(option.second.data()));
-      }
+      Red = atof(option.second.data());
+    }
+    else if (0 == option.first.compare("constant-green"))
+    {
+      Green = atof(option.second.data());
+    }
+    else if (0 == option.first.compare("constant-blue"))
+    {
+      Blue = atof(option.second.data());
+    }
+    else if (0 == option.first.compare("constant-alpha"))
+    {
+      Alpha = atof(option.second.data());
+    }
+    else if (0 == option.first.compare("mod-mode"))
+    {
+      Mode = static_cast<VisualizerInstrumentationMode>(atoi(option.second.data()));
     }
   }
-
-  bool runOnModule(Module &M) override {
-
-    // This pass finds all users of the "StoreOutput" function, and replaces their source operands with a constant
-    // value. 
-
-    float color[4] = { Red, Green, Blue, Alpha };
-
-    DxilModule &DM = M.GetOrCreateDxilModule();
-
-    LLVMContext & Ctx = M.getContext();
-
-    OP *HlslOP = DM.GetOP();
-
-    const hlsl::DxilSignature & OutputSignature = DM.GetOutputSignature();
-
-    bool Modified = false;
-
-    // The StoreOutput function can store either a float or an integer, in order to be compatible with the particular output
-    // render-target resource view.
-    Function * FloatOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getFloatTy(Ctx));
-    if (FloatOutputFunction->getNumUses() != 0) {
-      Modified = convertTarget0ToConstantValue(FloatOutputFunction, OutputSignature, HlslOP, color);
-    }
-
-    Function * IntOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
-    if (IntOutputFunction->getNumUses() != 0) {
-      Modified = convertTarget0ToConstantValue(IntOutputFunction, OutputSignature, HlslOP, color);
-      }
-
-    return Modified;
-    }
-};
+}
 
 bool DxilOutputColorBecomesConstant::convertTarget0ToConstantValue(
   Function * OutputFunction, 
@@ -171,13 +142,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
   // This pass finds all users of the "StoreOutput" function, and replaces their source operands with a constant
   // value. 
 
-  //todo: make these parameters to the pass
-  float r = 2.2f;
-  float g = 0.4f;
-  float b = 0.6f;
-  float a = 1.f;
-
-  float color[4] = { r, g, b, a };
+  float color[4] = { Red, Green, Blue, Alpha };
 
   DxilModule &DM = M.GetOrCreateDxilModule();
 
