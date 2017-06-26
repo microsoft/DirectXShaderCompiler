@@ -36,6 +36,7 @@ using namespace hlsl;
 class DxilOutputColorBecomesConstant : public ModulePass {
 
   enum VisualizerInstrumentationMode
+  bool convertTarget0ToConstantValue(Function * OutputFunction, const hlsl::DxilSignature &OutputSignature, OP * HlslOP, float * color);
   {
     PRESERVE_ORIGINAL_INSTRUCTIONS,
     REMOVE_DISCARDS_AND_OPTIONALLY_OTHER_INSTRUCTIONS
@@ -92,22 +93,33 @@ public:
 
     OP *HlslOP = DM.GetOP();
 
-    // The StoreOutput function can store either a float or an integer, in order to be compatible with the particular output
-    // render-target resource view.
-    Function *OutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getFloatTy(Ctx));
-
-    if (OutputFunction->getNumUses() == 0)
-    {
-      OutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
-      if (OutputFunction->getNumUses() == 0)
-      {
-        // Returning false, indicating that the shader was not modified, since there were no calls to StoreOutput
-        return false;
-      }
-    }
-
     const hlsl::DxilSignature & OutputSignature = DM.GetOutputSignature();
 
+    bool Modified = false;
+
+    // The StoreOutput function can store either a float or an integer, in order to be compatible with the particular output
+    // render-target resource view.
+    Function * FloatOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getFloatTy(Ctx));
+    if (FloatOutputFunction->getNumUses() != 0) {
+      Modified = convertTarget0ToConstantValue(FloatOutputFunction, OutputSignature, HlslOP, color);
+    }
+
+    Function * IntOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
+    if (IntOutputFunction->getNumUses() != 0) {
+      Modified = convertTarget0ToConstantValue(IntOutputFunction, OutputSignature, HlslOP, color);
+      }
+
+    return Modified;
+    }
+};
+
+bool DxilOutputColorBecomesConstant::convertTarget0ToConstantValue(
+  Function * OutputFunction, 
+  const hlsl::DxilSignature &OutputSignature, 
+  OP * HlslOP, 
+  float * color) {
+
+  bool Modified = false;
     auto OutputFunctionUses = OutputFunction->uses();
 
     for (Use &FunctionUse : OutputFunctionUses) {
@@ -133,13 +145,15 @@ public:
             Value * OutputValueOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx);
 
             // Replace the source operand with the appropriate constant literal value
-            if (isa<ConstantFP>(OutputValueOperand))
+          if (OutputValueOperand->getType()->isFloatingPointTy())
             {
+            Modified = true;
               Constant * FloatConstant = HlslOP->GetFloatConst(color[*OutputColumn.getRawData()]);
               CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, FloatConstant);
             }
-            else if (isa<ConstantInt>(OutputValueOperand))
+          else if (OutputValueOperand->getType()->isIntegerTy())
             {
+            Modified = true;
               Constant * pIntegerConstant = HlslOP->GetI32Const(static_cast<int>(color[*OutputColumn.getRawData()]));
               CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
             }
@@ -147,13 +161,8 @@ public:
         }
       }
     }
-
-    // Returning true, indicating that the shader was modified
-    return true;
-  }
-};
-
-
+  return Modified;
+}
 
 char DxilOutputColorBecomesConstant::ID = 0;
 
