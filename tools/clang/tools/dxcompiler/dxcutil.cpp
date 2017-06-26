@@ -24,6 +24,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "dxc/Support/dxcapi.impl.h"
 
+#include "llvm/Support/Path.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -194,6 +196,20 @@ void CreateOperationResultFromOutputs(
   HRESULT status = hasErrorOccurred ? E_FAIL : S_OK;
   IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, pErrorBlob,
                                                       status, ppResult));
+}
+
+bool IsAbsoluteOrCurDirRelative(const Twine &T) {
+  if (llvm::sys::path::is_absolute(T)) {
+    return true;
+  }
+  if (T.isSingleStringRef()) {
+    StringRef r = T.getSingleStringRef();
+    if (r.size() < 2) return false;
+    const char *pData = r.data();
+    return pData[0] == '.' && (pData[1] == '\\' || pData[1] == '/');
+  }
+  DXASSERT(false, "twine kind not supported");
+  return false;
 }
 
 } // namespace dxcutil
