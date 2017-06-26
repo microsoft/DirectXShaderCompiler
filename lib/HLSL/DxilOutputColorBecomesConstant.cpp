@@ -36,7 +36,6 @@ using namespace hlsl;
 class DxilOutputColorBecomesConstant : public ModulePass {
 
   enum VisualizerInstrumentationMode
-  bool convertTarget0ToConstantValue(Function * OutputFunction, const hlsl::DxilSignature &OutputSignature, OP * HlslOP, float * color);
   {
     PRESERVE_ORIGINAL_INSTRUCTIONS,
     REMOVE_DISCARDS_AND_OPTIONALLY_OTHER_INSTRUCTIONS
@@ -47,6 +46,8 @@ class DxilOutputColorBecomesConstant : public ModulePass {
   float Blue = 0.6f;
   float Alpha = 1.f;
   VisualizerInstrumentationMode Mode;
+
+  bool convertTarget0ToConstantValue(Function * OutputFunction, const hlsl::DxilSignature &OutputSignature, OP * HlslOP, float * color);
 
 public:
   static char ID; // Pass identification, replacement for typeid
