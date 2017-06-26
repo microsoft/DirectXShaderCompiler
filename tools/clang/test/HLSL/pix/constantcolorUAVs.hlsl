@@ -6,7 +6,7 @@
 // CHECK: call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle %uav0_UAV_2d, i32 0, i32 0, i32 undef, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, i8 15)
 
 // Added override output color:
-// CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0x40019999A0000000)
+// CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 1.000000e+00)
 
 RWTexture2D<float4> uav0 : register(u0);
 RWStructuredBuffer<float> floatRWUAV: register(u1);

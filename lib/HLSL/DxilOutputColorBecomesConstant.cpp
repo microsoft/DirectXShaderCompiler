@@ -41,9 +41,9 @@ class DxilOutputColorBecomesConstant : public ModulePass {
     REMOVE_DISCARDS_AND_OPTIONALLY_OTHER_INSTRUCTIONS
   };
 
-  float Red = 2.2f;
-  float Green = 0.4f;
-  float Blue = 0.6f;
+  float Red = 1.f;
+  float Green = 1.f;
+  float Blue = 1.f;
   float Alpha = 1.f;
   VisualizerInstrumentationMode Mode;
 
@@ -108,8 +108,6 @@ bool DxilOutputColorBecomesConstant::convertTarget0ToConstantValue(
         if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Target &&
           SignatureElement.GetSemanticStartIndex() == 0)
           {
-            DxilInst_StoreOutput StoreOutputInstruction(CallInstruction);
-
             // The output column is the channel (red, green, blue or alpha) within the output pixel
             Value * OutputColumnOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputColOpIdx);
             ConstantInt * OutputColumnConstant = cast<ConstantInt>(OutputColumnOperand);
