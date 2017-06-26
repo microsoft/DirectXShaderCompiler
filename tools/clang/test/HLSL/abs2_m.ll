@@ -61,10 +61,10 @@ entry:
   %add.i1 = add i32 %3, %.i1
   %add.i2 = add i32 %4, %.i1
   %add.i3 = add i32 %5, %.i1
-  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 %add.i0)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
-  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 1, i32 %add.i1)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
-  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 2, i32 %add.i2)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
-  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 3, i32 %add.i3)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
+  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 %add.i0)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 1, i32 %add.i1)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 2, i32 %add.i2)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 3, i32 %add.i3)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   ret void
 }
 
