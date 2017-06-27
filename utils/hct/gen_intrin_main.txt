@@ -177,7 +177,6 @@ numeric<c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c> a, in col_maj
 numeric<r, c> [[rn]] mul(in $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric b) : mul_ms;
 numeric<r> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric<c> b) : mul_mv;
 numeric<r, c2> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_mm;
-$match<0, 1> float_like [[rn]] noise(in float_like<c> x);
 $type1 [[rn]] normalize(in float_like<c> x);
 $type1 [[rn]] pow(in float_like<> x, in $type1 y);
 // void printf(in string Format, ...);
