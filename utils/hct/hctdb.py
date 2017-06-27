@@ -1264,7 +1264,7 @@ class db_dxil(object):
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
         add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
         add_pass('hlsl-dxil-constantColor', 'DxilOutputColorBecomesConstant', 'DXIL Constant Color Mod', [
-            {'n':'mod-mode','t':'int','c':1}, 
+            {'n':'mod-mode','t':'int','c':1},
             {'n':'constant-red','t':'float','c':1},
             {'n':'constant-green','t':'float','c':1},
             {'n':'constant-blue','t':'float','c':1},
