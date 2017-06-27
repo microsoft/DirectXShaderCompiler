@@ -512,6 +512,8 @@ public:
 
     *ppResult = nullptr;
 
+    DxcThreadMalloc TM(m_pMalloc);
+
     CComPtr<IDxcBlobEncoding> utf8Source;
     IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
@@ -519,8 +521,7 @@ public:
     LPCSTR fName = utf8SourceName.m_psz;
 
     try {
-      dxcutil::DxcArgsFileSystem *msfPtr;
-      IFT(dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
+      dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());

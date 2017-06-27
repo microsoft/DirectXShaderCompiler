@@ -9,8 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-//#include "clang/AST/ASTConsumer.h"
-//#include "clang/AST/ASTContext.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
@@ -317,8 +315,8 @@ public:
 
     try {
       CComPtr<IDxcBlob> pOutputBlob;
-      dxcutil::DxcArgsFileSystem *msfPtr;
-      IFT(dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
+      dxcutil::DxcArgsFileSystem *msfPtr =
+        dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
@@ -544,7 +542,7 @@ public:
       // Add std err to warnings.
       msfPtr->WriteStdErrToStream(w);
 
-      CreateOperationResultFromOutputs(pOutputBlob, msfPtr.get(), warnings,
+      CreateOperationResultFromOutputs(pOutputBlob, msfPtr, warnings,
                                        compiler.getDiagnostics(), ppResult);
 
       // On success, return values. After assigning ppResult, nothing should fail.
@@ -592,8 +590,7 @@ public:
 
     try {
       CComPtr<AbstractMemoryStream> pOutputStream;
-      dxcutil::DxcArgsFileSystem *msfPtr;
-      IFT(dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
+      dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
@@ -676,7 +673,7 @@ public:
       // Add std err to warnings.
       msfPtr->WriteStdErrToStream(w);
 
-      CreateOperationResultFromOutputs(pOutputStream, msfPtr.get(), warnings,
+      CreateOperationResultFromOutputs(pOutputStream, msfPtr, warnings,
         compiler.getDiagnostics(), ppResult);
       hr = S_OK;
     }

@@ -2061,7 +2061,7 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
   }
 }
 
-static const UINT CaptureStacks = 0; // Set to 1 to enable captures
+static const UINT CaptureStacks = 1; // Set to 1 to enable captures
 static const UINT StackFrameCount = 12;
 static const UINT StackFrameCountForRefs = 4;
 
@@ -2250,7 +2250,7 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
 
   // Now, fail each allocation and make sure we get an error.
   for (ULONG i = 0; i <= allocCount; ++i) {
-    //LogCommentFmt(L"alloc fail %u", i);
+    LogCommentFmt(L"alloc fail %u", i);
     bool isLast = i == allocCount;
     InstrMalloc.ResetCounts();
     InstrMalloc.ResetHeap();
