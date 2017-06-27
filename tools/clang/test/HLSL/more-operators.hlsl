@@ -477,3 +477,21 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     // Note that this would work in C/C++.
     (floats, ints) = 1; // expected-error {{expression is not assignable}} fxc-error {{X3025: l-value specifies const object}} fxc-warning {{X3081: comma expression used where a vector constructor may have been intended}}
 };
+
+Texture2D tex12[12];
+SamplerState samp;
+
+float4 DoSample(Texture2D tex[], float2 coord) {    // expected-error {{variable has incomplete type 'Texture2D []'}}
+  return tex[3].Sample(samp, -dot(coord, -foo));    // expected-error {{use of undeclared identifier 'foo'}}
+}
+
+float3 fn(float a, float b)
+{
+    float3 bar = (float3(2,3,4) * foo) ? a : b;     // expected-error {{use of undeclared identifier 'foo'}}
+    return bar < 1 ? float3(foo) : bar;             // expected-error {{use of undeclared identifier 'foo'}}
+}
+
+float4 main2(float2 coord : TEXCOORD) : SV_Target
+{
+  return DoSample(tex12, fn(coord.x, coord.y).xy);  // expected-error {{argument type 'Texture2D []' is incomplete}}
+}
