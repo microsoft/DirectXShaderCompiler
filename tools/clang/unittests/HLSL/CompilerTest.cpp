@@ -617,6 +617,7 @@ public:
   TEST_METHOD(CodeGenSelfCopy)
   TEST_METHOD(CodeGenSelMat)
   TEST_METHOD(CodeGenShaderAttr)
+  TEST_METHOD(CodeGenShared)
   TEST_METHOD(CodeGenShare_Mem_Dbg)
   TEST_METHOD(CodeGenShare_Mem_Phi)
   TEST_METHOD(CodeGenShare_Mem1)
@@ -3255,6 +3256,10 @@ TEST_F(CompilerTest, CodeGenSelMat) {
 
 TEST_F(CompilerTest, CodeGenShaderAttr) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\shader_attr.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenShared) {
+  CodeGenTest(L"..\\CodeGenHLSL\\shared.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenShare_Mem_Dbg) {
