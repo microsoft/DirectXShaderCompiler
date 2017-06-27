@@ -7856,6 +7856,9 @@ QualType HLSLExternalSource::CheckUnaryOpForHLSL(
 {
   InputExpr = m_sema->CorrectDelayedTyposInExpr(InputExpr);
 
+  if (InputExpr.isInvalid())
+    return QualType();
+
   // Reject unsupported operators * and &
   switch (Opc) {
   case UO_AddrOf:
