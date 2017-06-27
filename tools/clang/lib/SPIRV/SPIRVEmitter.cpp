@@ -104,24 +104,6 @@ bool isFloatOrVecMatOfFloatType(QualType type) {
           hlsl::GetHLSLMatElementType(type)->isFloatingType());
 }
 
-bool isCompoundAssignment(BinaryOperatorKind opcode) {
-  switch (opcode) {
-  case BO_AddAssign:
-  case BO_SubAssign:
-  case BO_MulAssign:
-  case BO_DivAssign:
-  case BO_RemAssign:
-  case BO_AndAssign:
-  case BO_OrAssign:
-  case BO_XorAssign:
-  case BO_ShlAssign:
-  case BO_ShrAssign:
-    return true;
-  default:
-    return false;
-  }
-}
-
 bool isSpirvMatrixOp(spv::Op opcode) {
   switch (opcode) {
   case spv::Op::OpMatrixTimesMatrix:
@@ -210,9 +192,7 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
   } else if (const auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
     doReturnStmt(retStmt);
   } else if (const auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
-    for (auto *decl : declStmt->decls()) {
-      doDecl(decl);
-    }
+    doDeclStmt(declStmt);
   } else if (const auto *ifStmt = dyn_cast<IfStmt>(stmt)) {
     doIfStmt(ifStmt);
   } else if (const auto *switchStmt = dyn_cast<SwitchStmt>(stmt)) {
@@ -697,6 +677,9 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
   //         |   +-------+   |                  |     +-------+
   //         +-> | merge | <-+                  +---> | merge |
   //             +-------+                            +-------+
+
+  if (const auto *declStmt = ifStmt->getConditionVariableDeclStmt())
+    doDeclStmt(declStmt);
 
   // First emit the instruction for evaluating the condition.
   const uint32_t condition = doExpr(ifStmt->getCond());
@@ -1531,7 +1514,7 @@ uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
                             : mandateGenOpcode;
 
   uint32_t rhsVal, lhsPtr, lhsVal;
-  if (isCompoundAssignment(opcode)) {
+  if (BinaryOperator::isCompoundAssignmentOp(opcode)) {
     // Evalute rhs before lhs
     rhsVal = doExpr(rhs);
     lhsVal = lhsPtr = doExpr(lhs);
@@ -2021,7 +2004,7 @@ uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   const spv::Op spvOp = translateOp(opcode, lhsType);
 
   uint32_t rhsVal, lhsPtr, lhsVal;
-  if (isCompoundAssignment(opcode)) {
+  if (BinaryOperator::isCompoundAssignmentOp(opcode)) {
     // Evalute rhs before lhs
     rhsVal = doExpr(rhs);
     lhsPtr = doExpr(lhs);
@@ -2728,7 +2711,7 @@ void SPIRVEmitter::processSwitchStmtUsingSpirvOpSwitch(
   // For example: handle 'int a = b' in the following:
   // switch (int a = b) {...}
   if (const auto *condVarDeclStmt = switchStmt->getConditionVariableDeclStmt())
-    doStmt(condVarDeclStmt);
+    doDeclStmt(condVarDeclStmt);
 
   const uint32_t selector = doExpr(switchStmt->getCond());
 
@@ -2765,7 +2748,7 @@ void SPIRVEmitter::processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt) {
   // For example: handle 'int a = b' in the following:
   // switch (int a = b) {...}
   if (const auto *condVarDeclStmt = switchStmt->getConditionVariableDeclStmt())
-    doStmt(condVarDeclStmt);
+    doDeclStmt(condVarDeclStmt);
 
   // Figure out the indexes of CaseStmts (and DefaultStmt if it exists) in
   // the flattened switch AST.
@@ -2813,6 +2796,8 @@ void SPIRVEmitter::processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt) {
       bo->setType(astContext.getLogicalOperationType());
       curIf->setCond(bo);
       curIf->setThen(cs);
+      // No conditional variable associated with this faux if statement.
+      curIf->setConditionVariable(astContext, nullptr);
       // Each If statement is the "else" of the previous if statement.
       if (prevIfStmt)
         prevIfStmt->setElse(curIf);
