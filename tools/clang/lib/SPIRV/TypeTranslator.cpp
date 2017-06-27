@@ -14,6 +14,11 @@ namespace clang {
 namespace spirv {
 
 uint32_t TypeTranslator::translateType(QualType type) {
+  // Try to translate the canonical type first
+  const auto canonicalType = type.getCanonicalType();
+  if (canonicalType != type)
+    return translateType(canonicalType);
+
   const auto *typePtr = type.getTypePtr();
 
   // Primitive types
