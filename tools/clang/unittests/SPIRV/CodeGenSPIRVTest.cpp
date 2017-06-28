@@ -200,6 +200,10 @@ TEST_F(FileTest, SwitchStmtUsingIfStmt) {
 TEST_F(FileTest, ForStmtPlainAssign) { runFileTest("for-stmt.plain.hlsl"); }
 TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("for-stmt.nested.hlsl"); }
 
+// For while statements
+TEST_F(FileTest, WhileStmtPlain) { runFileTest("while-stmt.plain.hlsl"); }
+TEST_F(FileTest, WhileStmtNested) { runFileTest("while-stmt.nested.hlsl"); }
+
 // For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
 TEST_F(FileTest, ControlFlowLogicalAnd) { runFileTest("cf.logical-and.hlsl"); }

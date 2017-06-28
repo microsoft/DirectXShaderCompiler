@@ -188,8 +188,10 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
     processCaseStmtOrDefaultStmt(stmt);
   } else if (const auto *breakStmt = dyn_cast<BreakStmt>(stmt)) {
     doBreakStmt(breakStmt);
+  } else if (const auto *whileStmt = dyn_cast<WhileStmt>(stmt)) {
+    doWhileStmt(whileStmt, attrs);
   } else if (const auto *forStmt = dyn_cast<ForStmt>(stmt)) {
-    doForStmt(forStmt);
+    doForStmt(forStmt, attrs);
   } else if (const auto *nullStmt = dyn_cast<NullStmt>(stmt)) {
     // For the null statement ";". We don't need to do anything.
   } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
@@ -414,7 +416,115 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   }
 }
 
-void SPIRVEmitter::doForStmt(const ForStmt *forStmt) {
+spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Attr &attr) {
+  switch (attr.getKind()) {
+  case attr::HLSLLoop:
+  case attr::HLSLFastOpt:
+    return spv::LoopControlMask::DontUnroll;
+  case attr::HLSLUnroll:
+    return spv::LoopControlMask::Unroll;
+  case attr::HLSLAllowUAVCondition:
+    emitWarning("Unsupported allow_uav_condition attribute ignored.");
+    break;
+  default:
+    emitError("Found unknown loop attribute.");
+  }
+  return spv::LoopControlMask::MaskNone;
+}
+
+void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
+                               llvm::ArrayRef<const Attr *> attrs) {
+  // While loops are composed of:
+  //   while (<check>)  { <body> }
+  //
+  // SPIR-V requires loops to have a merge basic block as well as a continue
+  // basic block. Even though while loops do not have an explicit continue
+  // block as in for-loops, we still do need to create a continue block.
+  //
+  // Since SPIR-V requires structured control flow, we need two more basic
+  // blocks, <header> and <merge>. <header> is the block before control flow
+  // diverges, and <merge> is the block where control flow subsequently
+  // converges. The <check> block can take the responsibility of the <header>
+  // block. The final CFG should normally be like the following. Exceptions
+  // will occur with non-local exits like loop breaks or early returns.
+  //
+  //            +----------+
+  //            |  header  | <------------------+
+  //            | (check)  |                    |
+  //            +----------+                    |
+  //                 |                          |
+  //         +-------+-------+                  |
+  //         | false         | true             |
+  //         |               v                  |
+  //         |            +------+     +------------------+
+  //         |            | body | --> | continue (no-op) |
+  //         v            +------+     +------------------+
+  //     +-------+
+  //     | merge |
+  //     +-------+
+  //
+  // For more details, see "2.11. Structured Control Flow" in the SPIR-V spec.
+
+  const spv::LoopControlMask loopControl =
+      attrs.empty() ? spv::LoopControlMask::MaskNone
+                    : translateLoopAttribute(*attrs.front());
+
+  // Create basic blocks
+  const uint32_t checkBB = theBuilder.createBasicBlock("while.check");
+  const uint32_t bodyBB = theBuilder.createBasicBlock("while.body");
+  const uint32_t continueBB = theBuilder.createBasicBlock("while.continue");
+  const uint32_t mergeBB = theBuilder.createBasicBlock("while.merge");
+
+  // Process the <check> block
+  theBuilder.createBranch(checkBB);
+  theBuilder.addSuccessor(checkBB);
+  theBuilder.setInsertPoint(checkBB);
+
+  // If we have:
+  // while (int a = foo()) {...}
+  // we should evaluate 'a' by calling 'foo()' every single time the check has
+  // to occur.
+  if (const auto *condVarDecl = whileStmt->getConditionVariableDeclStmt())
+    doStmt(condVarDecl);
+
+  uint32_t condition = 0;
+  if (const Expr *check = whileStmt->getCond()) {
+    condition = doExpr(check);
+  } else {
+    condition = theBuilder.getConstantBool(true);
+  }
+  theBuilder.createConditionalBranch(condition, bodyBB,
+                                     /*false branch*/ mergeBB,
+                                     /*merge*/ mergeBB, continueBB,
+                                     spv::SelectionControlMask::MaskNone,
+                                     loopControl);
+  theBuilder.addSuccessor(bodyBB);
+  theBuilder.addSuccessor(mergeBB);
+  // The current basic block has OpLoopMerge instruction. We need to set its
+  // continue and merge target.
+  theBuilder.setContinueTarget(continueBB);
+  theBuilder.setMergeTarget(mergeBB);
+
+  // Process the <body> block
+  theBuilder.setInsertPoint(bodyBB);
+  if (const Stmt *body = whileStmt->getBody()) {
+    doStmt(body);
+  }
+  theBuilder.createBranch(continueBB);
+  theBuilder.addSuccessor(continueBB);
+
+  // Process the <continue> block. While loops do not have an explicit
+  // continue block. The continue block just branches to the <check> block.
+  theBuilder.setInsertPoint(continueBB);
+  theBuilder.createBranch(checkBB);
+  theBuilder.addSuccessor(checkBB);
+
+  // Set insertion point to the <merge> block for subsequent statements
+  theBuilder.setInsertPoint(mergeBB);
+}
+
+void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
+                             llvm::ArrayRef<const Attr *> attrs) {
   // for loops are composed of:
   //   for (<init>; <check>; <continue>) <body>
   //
@@ -448,6 +558,9 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt) {
   //     +-------+
   //
   // For more details, see "2.11. Structured Control Flow" in the SPIR-V spec.
+  const spv::LoopControlMask loopControl =
+      attrs.empty() ? spv::LoopControlMask::MaskNone
+                    : translateLoopAttribute(*attrs.front());
 
   // Create basic blocks
   const uint32_t checkBB = theBuilder.createBasicBlock("for.check");
@@ -472,7 +585,9 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt) {
   }
   theBuilder.createConditionalBranch(condition, bodyBB,
                                      /*false branch*/ mergeBB,
-                                     /*merge*/ mergeBB, continueBB);
+                                     /*merge*/ mergeBB, continueBB,
+                                     spv::SelectionControlMask::MaskNone,
+                                     loopControl);
   theBuilder.addSuccessor(bodyBB);
   theBuilder.addSuccessor(mergeBB);
   // The current basic block has OpLoopMerge instruction. We need to set its

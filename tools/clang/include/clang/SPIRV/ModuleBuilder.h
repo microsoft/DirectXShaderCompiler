@@ -157,10 +157,15 @@ public:
   // will be created if mergeLabel is not 0 and continueLabel is 0.
   // An OpLoopMerge instruction will also be created if both continueLabel
   // and mergeLabel are not 0. For other cases, mergeLabel and continueLabel
-  // will be ignored.
-  void createConditionalBranch(uint32_t condition, uint32_t trueLabel,
-                               uint32_t falseLabel, uint32_t mergeLabel = 0,
-                               uint32_t continueLabel = 0);
+  // will be ignored. If selection control mask and/or loop control mask are
+  // provided, they will be applied to the corresponding SPIR-V instruction.
+  // Otherwise, MaskNone will be used.
+  void createConditionalBranch(
+      uint32_t condition, uint32_t trueLabel, uint32_t falseLabel,
+      uint32_t mergeLabel = 0, uint32_t continueLabel = 0,
+      spv::SelectionControlMask selectionControl =
+          spv::SelectionControlMask::MaskNone,
+      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone);
 
   /// \brief Creates a return instruction.
   void createReturn();

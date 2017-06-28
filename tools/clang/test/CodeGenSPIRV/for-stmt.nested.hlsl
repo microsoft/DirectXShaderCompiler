@@ -13,9 +13,9 @@ void main() {
 // CHECK-LABEL: %for_check = OpLabel
 // CHECK-NEXT: [[i0:%\d+]] = OpLoad %int %i
 // CHECK-NEXT: [[lt0:%\d+]] = OpSLessThan %bool [[i0]] %int_10
-// CHECK-NEXT: OpLoopMerge %for_merge %for_continue None
+// CHECK-NEXT: OpLoopMerge %for_merge %for_continue Unroll
 // CHECK-NEXT: OpBranchConditional [[lt0]] %for_body %for_merge
-    for (int i = 0; i < 10; ++i) {
+    [unroll] for (int i = 0; i < 10; ++i) {
 // CHECK-LABEL: %for_body = OpLabel
 // CHECK-NEXT: [[val0:%\d+]] = OpLoad %int %val
 // CHECK-NEXT: [[i1:%\d+]] = OpLoad %int %i
@@ -27,18 +27,18 @@ void main() {
 // CHECK-LABEL: %for_check_0 = OpLabel
 // CHECK-NEXT: [[j0:%\d+]] = OpLoad %int %j
 // CHECK-NEXT: [[lt1:%\d+]] = OpSLessThan %bool [[j0]] %int_10
-// CHECK-NEXT: OpLoopMerge %for_merge_0 %for_continue_0 None
+// CHECK-NEXT: OpLoopMerge %for_merge_0 %for_continue_0 DontUnroll
 // CHECK-NEXT: OpBranchConditional [[lt1]] %for_body_0 %for_merge_0
-        for (int j = 0; j < 10; ++j) {
+        [loop] for (int j = 0; j < 10; ++j) {
 // CHECK-LABEL: %for_body_0 = OpLabel
 // CHECK-NEXT: OpBranch %for_check_1
 
 // CHECK-LABEL: %for_check_1 = OpLabel
 // CHECK-NEXT: [[k0:%\d+]] = OpLoad %int %k
 // CHECK-NEXT: [[lt2:%\d+]] = OpSLessThan %bool [[k0]] %int_10
-// CHECK-NEXT: OpLoopMerge %for_merge_1 %for_continue_1 None
+// CHECK-NEXT: OpLoopMerge %for_merge_1 %for_continue_1 DontUnroll
 // CHECK-NEXT: OpBranchConditional [[lt2]] %for_body_1 %for_merge_1
-            for (int k = 0; k < 10; ++k) {
+            [fastopt] for (int k = 0; k < 10; ++k) {
 // CHECK-LABEL: %for_body_1 = OpLabel
 // CHECK-NEXT: [[val1:%\d+]] = OpLoad %int %val
 // CHECK-NEXT: [[k1:%\d+]] = OpLoad %int %k

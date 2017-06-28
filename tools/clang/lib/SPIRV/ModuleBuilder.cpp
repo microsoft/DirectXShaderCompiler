@@ -241,24 +241,19 @@ void ModuleBuilder::createBranch(uint32_t targetLabel) {
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
-void ModuleBuilder::createConditionalBranch(uint32_t condition,
-                                            uint32_t trueLabel,
-                                            uint32_t falseLabel,
-                                            uint32_t mergeLabel,
-                                            uint32_t continueLabel) {
+void ModuleBuilder::createConditionalBranch(
+    uint32_t condition, uint32_t trueLabel, uint32_t falseLabel,
+    uint32_t mergeLabel, uint32_t continueLabel,
+    spv::SelectionControlMask selectionControl,
+    spv::LoopControlMask loopControl) {
   assert(insertPoint && "null insert point");
 
   if (mergeLabel) {
     if (continueLabel) {
-      instBuilder
-          .opLoopMerge(mergeLabel, continueLabel,
-                       spv::LoopControlMask::MaskNone)
-          .x();
+      instBuilder.opLoopMerge(mergeLabel, continueLabel, loopControl).x();
       insertPoint->appendInstruction(std::move(constructSite));
     } else {
-      instBuilder
-          .opSelectionMerge(mergeLabel, spv::SelectionControlMask::MaskNone)
-          .x();
+      instBuilder.opSelectionMerge(mergeLabel, selectionControl).x();
       insertPoint->appendInstruction(std::move(constructSite));
     }
   }
