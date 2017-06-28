@@ -49,15 +49,17 @@ uint32_t TypeTranslator::translateType(QualType type) {
   // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
   // We handle them via HLSL type inspection functions.
 
-  if (hlsl::IsHLSLVecType(type)) {
-    const auto elemType = hlsl::GetHLSLVecElementType(type);
-    const auto elemCount = hlsl::GetHLSLVecSize(type);
-    // In SPIR-V, vectors must have two or more elements. So translate vectors
-    // of size 1 into the underlying primitive types directly.
-    if (elemCount == 1) {
-      return translateType(elemType);
+  {
+    QualType elemType = {};
+    uint32_t elemCount = {};
+    if (TypeTranslator::isVectorType(type, &elemType, &elemCount)) {
+      // In SPIR-V, vectors must have two or more elements. So translate vectors
+      // of size 1 into the underlying primitive types directly.
+      if (elemCount == 1) {
+        return translateType(elemType);
+      }
+      return theBuilder.getVecType(translateType(elemType), elemCount);
     }
-    return theBuilder.getVecType(translateType(elemType), elemCount);
   }
 
   if (hlsl::IsHLSLMatType(type)) {
@@ -110,6 +112,27 @@ uint32_t TypeTranslator::translateType(QualType type) {
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
   return 0;
+}
+
+bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
+                                  uint32_t *count) {
+  if (hlsl::IsHLSLVecType(type)) {
+    if (elemType)
+      *elemType = hlsl::GetHLSLVecElementType(type);
+    if (count)
+      *count = hlsl::GetHLSLVecSize(type);
+    return true;
+  }
+
+  if (const auto *extVecType = dyn_cast<ExtVectorType>(type.getTypePtr())) {
+    if (elemType)
+      *elemType = extVecType->getElementType();
+    if (count)
+      *count = extVecType->getNumElements();
+    return true;
+  }
+
+  return false;
 }
 
 bool TypeTranslator::is1x1MatrixType(QualType type) {

@@ -16,6 +16,8 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "llvm/ADT/StringExtras.h"
 
+#include "InitListHandler.h"
+
 namespace clang {
 namespace spirv {
 
@@ -23,34 +25,53 @@ namespace {
 
 // TODO: Maybe we should move these type probing functions to TypeTranslator.
 
+/// Returns true if the two types are the same scalar or vector type.
+bool isSameScalarOrVecType(QualType type1, QualType type2) {
+  if (type1->isBuiltinType())
+    return type1.getCanonicalType() == type2.getCanonicalType();
+
+  QualType elemType1 = {}, elemType2 = {};
+  uint32_t count1 = {}, count2 = {};
+  if (TypeTranslator::isVectorType(type1, &elemType1, &count1) &&
+      TypeTranslator::isVectorType(type2, &elemType2, &count2))
+    return count1 == count2 &&
+           elemType1.getCanonicalType() == elemType2.getCanonicalType();
+
+  return false;
+}
+
 /// Returns true if the given type is a bool or vector of bool type.
 bool isBoolOrVecOfBoolType(QualType type) {
+  QualType elemType = {};
   return type->isBooleanType() ||
-         (hlsl::IsHLSLVecType(type) &&
-          hlsl::GetHLSLVecElementType(type)->isBooleanType());
+         (TypeTranslator::isVectorType(type, &elemType, nullptr) &&
+          elemType->isBooleanType());
 }
 
 /// Returns true if the given type is a signed integer or vector of signed
 /// integer type.
 bool isSintOrVecOfSintType(QualType type) {
+  QualType elemType = {};
   return type->isSignedIntegerType() ||
-         (hlsl::IsHLSLVecType(type) &&
-          hlsl::GetHLSLVecElementType(type)->isSignedIntegerType());
+         (TypeTranslator::isVectorType(type, &elemType, nullptr) &&
+          elemType->isSignedIntegerType());
 }
 
 /// Returns true if the given type is an unsigned integer or vector of unsigned
 /// integer type.
 bool isUintOrVecOfUintType(QualType type) {
+  QualType elemType = {};
   return type->isUnsignedIntegerType() ||
-         (hlsl::IsHLSLVecType(type) &&
-          hlsl::GetHLSLVecElementType(type)->isUnsignedIntegerType());
+         (TypeTranslator::isVectorType(type, &elemType, nullptr) &&
+          elemType->isUnsignedIntegerType());
 }
 
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type) {
+  QualType elemType = {};
   return type->isFloatingType() ||
-         (hlsl::IsHLSLVecType(type) &&
-          hlsl::GetHLSLVecElementType(type)->isFloatingType());
+         (TypeTranslator::isVectorType(type, &elemType, nullptr) &&
+          elemType->isFloatingType());
 }
 
 /// Returns true if the given type is a bool or vector/matrix of bool type.
@@ -297,6 +318,25 @@ uint32_t SPIRVEmitter::loadIfGLValue(const Expr *expr) {
   }
 
   return result;
+}
+
+uint32_t SPIRVEmitter::castToType(uint32_t value, QualType fromType,
+                                  QualType toType) {
+  if (isFloatOrVecOfFloatType(toType))
+    return castToFloat(value, fromType, toType);
+
+  // Order matters here. Bool (vector) values will also be considered as uint
+  // (vector) values. So given a bool (vector) argument, isUintOrVecOfUintType()
+  // will also return true. We need to check bool before uint. The opposite is
+  // not true.
+  if (isBoolOrVecOfBoolType(toType))
+    return castToBool(value, fromType, toType);
+
+  if (isSintOrVecOfSintType(toType) || isUintOrVecOfUintType(toType))
+    return castToInt(value, fromType, toType);
+
+  emitError("casting to type %0 unimplemented") << toType;
+  return 0;
 }
 
 void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
@@ -783,7 +823,7 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return translateAPInt(intValue, toType);
     }
 
-    return castToInt(subExpr, toType);
+    return castToInt(doExpr(subExpr), subExpr->getType(), toType);
   }
   case CastKind::CK_FloatingCast:
   case CastKind::CK_IntegralToFloating:
@@ -797,7 +837,7 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return translateAPFloat(evalResult.Val.getFloat(), toType);
     }
 
-    return castToFloat(subExpr, toType);
+    return castToFloat(doExpr(subExpr), subExpr->getType(), toType);
   }
   case CastKind::CK_IntegralToBoolean:
   case CastKind::CK_FloatingToBoolean:
@@ -810,7 +850,7 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
       return theBuilder.getConstantBool(boolVal);
     }
 
-    return castToBool(subExpr, toType);
+    return castToBool(doExpr(subExpr), subExpr->getType(), toType);
   }
   case CastKind::CK_HLSLVectorSplat: {
     const size_t size = hlsl::GetHLSLVecSize(expr->getType());
@@ -1129,67 +1169,7 @@ uint32_t SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
     return translateAPValue(evalResult.Val, expr->getType());
   }
 
-  const QualType type = expr->getType();
-
-  // InitListExpr is tricky to handle. It can have initializers of different
-  // types, and each initializer can itself be of a composite type.
-  // The front end parsing only gurantees the total number of elements in
-  // the initializers are the same as the one of the InitListExpr's type.
-
-  // For builtin types, we can assume the front end parsing has injected
-  // the necessary ImplicitCastExpr for type casting. So we just need to
-  // return the result of processing the only initializer.
-  if (type->isBuiltinType()) {
-    assert(expr->getNumInits() == 1);
-    return doExpr(expr->getInit(0));
-  }
-
-  // For composite types, we need to type cast the initializers if necessary.
-
-  const auto initCount = expr->getNumInits();
-  const uint32_t resultType = typeTranslator.translateType(type);
-
-  // For InitListExpr of vector type and having one initializer, we can avoid
-  // composite extraction and construction.
-  if (initCount == 1 && hlsl::IsHLSLVecType(type)) {
-    const Expr *init = expr->getInit(0);
-
-    // If the initializer already have the correct type, we don't need to
-    // type cast.
-    if (init->getType() == type) {
-      return doExpr(init);
-    }
-
-    // For the rest, we can do type cast as a whole.
-
-    const auto targetElemType = hlsl::GetHLSLVecElementType(type);
-    if (targetElemType->isBooleanType()) {
-      return castToBool(init, type);
-    } else if (targetElemType->isIntegerType()) {
-      return castToInt(init, type);
-    } else if (targetElemType->isFloatingType()) {
-      return castToFloat(init, type);
-    } else {
-      emitError("unimplemented vector InitList cases");
-      expr->dump();
-      return 0;
-    }
-  }
-
-  // Cases needing composite extraction and construction
-
-  std::vector<uint32_t> constituents;
-  for (size_t i = 0; i < initCount; ++i) {
-    const Expr *init = expr->getInit(i);
-    if (!init->getType()->isBuiltinType()) {
-      emitError("unimplemented InitList initializer type");
-      init->dump();
-      return 0;
-    }
-    constituents.push_back(doExpr(init));
-  }
-
-  return theBuilder.createCompositeConstruct(resultType, constituents);
+  return InitListHandler(*this).process(expr);
 }
 
 uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
@@ -1872,37 +1852,38 @@ uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   return 0;
 }
 
-uint32_t SPIRVEmitter::castToBool(const Expr *expr, QualType toBoolType) {
-  // Converting to bool means comparing with value zero.
-
-  const uint32_t fromVal = doExpr(expr);
-
-  if (isBoolOrVecOfBoolType(expr->getType()))
+uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
+                                  QualType toBoolType) {
+  // Semantic analysis should already checked the size
+  if (isBoolOrVecOfBoolType(fromType))
     return fromVal;
 
-  const spv::Op spvOp = translateOp(BO_NE, expr->getType());
+  // Converting to bool means comparing with value zero.
+  const spv::Op spvOp = translateOp(BO_NE, fromType);
   const uint32_t boolType = typeTranslator.translateType(toBoolType);
-  const uint32_t zeroVal = getValueZero(expr->getType());
+  const uint32_t zeroVal = getValueZero(fromType);
 
   return theBuilder.createBinaryOp(spvOp, boolType, fromVal, zeroVal);
 }
 
-uint32_t SPIRVEmitter::castToInt(const Expr *expr, QualType toIntType) {
-  const QualType fromType = expr->getType();
-  const uint32_t intType = typeTranslator.translateType(toIntType);
-  const uint32_t fromVal = doExpr(expr);
+uint32_t SPIRVEmitter::castToInt(const uint32_t fromVal, QualType fromType,
+                                 QualType toIntType) {
+  if (isSameScalarOrVecType(fromType, toIntType))
+    return fromVal;
 
+  const uint32_t intType = typeTranslator.translateType(toIntType);
   if (isBoolOrVecOfBoolType(fromType)) {
     const uint32_t one = getValueOne(toIntType);
     const uint32_t zero = getValueZero(toIntType);
     return theBuilder.createSelect(intType, fromVal, one, zero);
-  } else if (isSintOrVecOfSintType(fromType) ||
-             isUintOrVecOfUintType(fromType)) {
-    if (fromType == toIntType)
-      return fromVal;
+  }
+
+  if (isSintOrVecOfSintType(fromType) || isUintOrVecOfUintType(fromType)) {
     // TODO: handle different bitwidths
     return theBuilder.createUnaryOp(spv::Op::OpBitcast, intType, fromVal);
-  } else if (isFloatOrVecOfFloatType(fromType)) {
+  }
+
+  if (isFloatOrVecOfFloatType(fromType)) {
     if (isSintOrVecOfSintType(toIntType)) {
       return theBuilder.createUnaryOp(spv::Op::OpConvertFToS, intType, fromVal);
     } else if (isUintOrVecOfUintType(toIntType)) {
@@ -1914,14 +1895,15 @@ uint32_t SPIRVEmitter::castToInt(const Expr *expr, QualType toIntType) {
     emitError("unimplemented casting to integer");
   }
 
-  expr->dump();
   return 0;
 }
 
-uint32_t SPIRVEmitter::castToFloat(const Expr *expr, QualType toFloatType) {
-  const QualType fromType = expr->getType();
+uint32_t SPIRVEmitter::castToFloat(const uint32_t fromVal, QualType fromType,
+                                   QualType toFloatType) {
+  if (isSameScalarOrVecType(fromType, toFloatType))
+    return fromVal;
+
   const uint32_t floatType = typeTranslator.translateType(toFloatType);
-  const uint32_t fromVal = doExpr(expr);
 
   if (isBoolOrVecOfBoolType(fromType)) {
     const uint32_t one = getValueOne(toFloatType);
@@ -1938,11 +1920,11 @@ uint32_t SPIRVEmitter::castToFloat(const Expr *expr, QualType toFloatType) {
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
-    return fromVal;
+    emitError("casting between different fp bitwidth unimplemented");
+    return 0;
   }
 
   emitError("unimplemented casting to floating point");
-  expr->dump();
   return 0;
 }
 
@@ -2064,10 +2046,11 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
       hlsl::IsHLSLVecType(argType) && hlsl::GetHLSLVecSize(argType) > 1;
   if (!isSpirvAcceptableVecType) {
     // For a scalar or vector of 1 scalar, we can simply cast to boolean.
-    return castToBool(arg, callExpr->getType());
+    return castToBool(doExpr(arg), arg->getType(), callExpr->getType());
   } else {
     // First cast the vector to a vector of booleans, then use OpAll
-    uint32_t boolVecId = castToBool(arg, callExpr->getType());
+    uint32_t boolVecId =
+        castToBool(doExpr(arg), arg->getType(), callExpr->getType());
     return theBuilder.createUnaryOp(spvOp, returnType, boolVecId);
   }
 }
@@ -2107,23 +2090,30 @@ uint32_t SPIRVEmitter::getValueZero(QualType type) {
     return theBuilder.getConstantFloat32(0.0);
   }
 
-  if (hlsl::IsHLSLVecType(type)) {
-    const QualType elemType = hlsl::GetHLSLVecElementType(type);
-    const uint32_t elemZeroId = getValueZero(elemType);
-
-    const size_t size = hlsl::GetHLSLVecSize(type);
-    if (size == 1)
-      return elemZeroId;
-
-    llvm::SmallVector<uint32_t, 4> elements(size, elemZeroId);
-
-    const uint32_t vecTypeId = typeTranslator.translateType(type);
-    return theBuilder.getConstantComposite(vecTypeId, elements);
+  {
+    QualType elemType = {};
+    uint32_t size = {};
+    if (TypeTranslator::isVectorType(type, &elemType, &size)) {
+      return getVecValueZero(elemType, size);
+    }
   }
 
   emitError("getting value 0 for type '%0' unimplemented")
       << type.getAsString();
   return 0;
+}
+
+uint32_t SPIRVEmitter::getVecValueZero(QualType elemType, uint32_t size) {
+  const uint32_t elemZeroId = getValueZero(elemType);
+
+  if (size == 1)
+    return elemZeroId;
+
+  llvm::SmallVector<uint32_t, 4> elements(size_t(size), elemZeroId);
+  const uint32_t vecType =
+      theBuilder.getVecType(typeTranslator.translateType(elemType), size);
+
+  return theBuilder.getConstantComposite(vecType, elements);
 }
 
 uint32_t SPIRVEmitter::getValueOne(QualType type) {
@@ -2139,10 +2129,12 @@ uint32_t SPIRVEmitter::getValueOne(QualType type) {
     return theBuilder.getConstantFloat32(1.0);
   }
 
-  if (hlsl::IsHLSLVecType(type)) {
-    const QualType elemType = hlsl::GetHLSLVecElementType(type);
-    const auto size = hlsl::GetHLSLVecSize(type);
-    return getVecValueOne(elemType, size);
+  {
+    QualType elemType = {};
+    uint32_t size = {};
+    if (TypeTranslator::isVectorType(type, &elemType, &size)) {
+      return getVecValueOne(elemType, size);
+    }
   }
 
   emitError("getting value 1 for type '%0' unimplemented") << type;

@@ -37,6 +37,11 @@ public:
   /// on will be generated.
   uint32_t translateType(QualType type);
 
+  /// \breif Returns true if the given type is a vector type (either
+  /// ExtVectorType or HLSL vector type) and writes the element type and count
+  /// into *elementType and *count respectively if they are not nullptr.
+  static bool isVectorType(QualType type, QualType *elemType, uint32_t *count);
+
   /// \brief Returns true if the givne type is a 1x1 matrix type.
   static bool is1x1MatrixType(QualType type);
 
