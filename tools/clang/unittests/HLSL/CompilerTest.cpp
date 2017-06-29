@@ -366,6 +366,7 @@ public:
   TEST_METHOD(PixConstantColorMRT)
   TEST_METHOD(PixConstantColorUAVs)
   TEST_METHOD(PixConstantColorOtherSIVs)
+  TEST_METHOD(PixCompileThenCheckforDepthTest)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -984,6 +985,8 @@ public:
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
+
+  void GetDxilBlobPart(_In_ IDxcBlob * pProgram,_Out_ IDxcBlob **ppTargetBlob);
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
@@ -2242,6 +2245,80 @@ TEST_F(CompilerTest, PixConstantColorUAVs) {
 
 TEST_F(CompilerTest, PixConstantColorOtherSIVs) {
   CodeGenTestCheck(L"pix\\constantcolorOtherSIVs.hlsl");
+}
+
+void CompilerTest::GetDxilBlobPart(_In_ IDxcBlob * pProgram, _Out_ IDxcBlob **ppTargetBlob) {
+
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  const hlsl::DxilContainerHeader *pContainer = hlsl::IsDxilContainerLike(
+    pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_NOT_NULL(pContainer);
+  hlsl::DxilPartIterator partIter =
+    std::find_if(hlsl::begin(pContainer), hlsl::end(pContainer),
+      hlsl::DxilPartIsType(hlsl::DFCC_DXIL));
+  const hlsl::DxilProgramHeader *pProgramHeader =
+    (const hlsl::DxilProgramHeader *)hlsl::GetDxilPartData(*partIter);
+  uint32_t bitcodeLength;
+  const char *pBitcode;
+  CComPtr<IDxcBlob> pProgramPdb;
+  hlsl::GetDxilProgramBitcode(pProgramHeader, &pBitcode, &bitcodeLength);
+  VERIFY_SUCCEEDED(pLib->CreateBlobFromBlob(
+    pProgram, pBitcode - (char *)pProgram->GetBufferPointer(), bitcodeLength,
+    ppTargetBlob));
+}
+
+TEST_F(CompilerTest, PixCompileThenCheckforDepthTest) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+
+  const char * Cases[] = {
+    "float main() : SV_Depth  { return 1.0; } ",
+    "float main() : SV_DepthGreaterEqual { return 1.0; } ",
+    "float main() : SV_DepthLessEqual { return 1.0; } ",
+    "uint main() : SV_StencilRef { return 1; } ",
+  };
+
+  for(int i = 0; i < _countof(Cases); ++i)
+  {
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+
+    LPCWSTR Target = L"ps_6_0";
+    CreateBlobFromText(Cases[i], &pSource);
+
+    // Get the passes for this optimization level.
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+      Target, nullptr, 0, nullptr, 0, nullptr, &pResult));
+    VerifyOperationSucceeded(pResult);
+    CComPtr<IDxcBlob> pResultBlob;
+    VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
+
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes"); // the default, but good to be explicit
+    Options.push_back(L"-hlsl-dxil-constantColor");
+
+    CComPtr<IDxcBlob> pDxilPart;
+    GetDxilBlobPart(pResultBlob, &pDxilPart);
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pMessages;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      pDxilPart,
+      Options.data(),
+      Options.size(), 
+      &pOptimizedModule,
+      &pMessages));
+
+    VERIFY_IS_TRUE(pMessages != nullptr);
+    VERIFY_IS_TRUE(pMessages->GetBufferPointer() != nullptr);
+    VERIFY_IS_TRUE(pMessages->GetBufferSize() != 0);
+    const char DSMessage[] = "DxilOutputColorBecomesConstant:DepthOrStencilWritesPresent";
+    auto pReturnedMessage = static_cast<const char *>(pMessages->GetBufferPointer());
+    VERIFY_IS_TRUE(0 == strncmp(pReturnedMessage, DSMessage, _countof(DSMessage)-1));
+  }
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
