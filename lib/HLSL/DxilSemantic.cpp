@@ -76,13 +76,8 @@ const Semantic *Semantic::GetArbitrary() {
 }
 
 bool Semantic::HasSVPrefix(llvm::StringRef Name) {
-  if (Name.size() >= 3)
-    if (Name[0] == 'S' || Name[0] == 's')
-      if (Name[1] == 'V' || Name[1] == 'v')
-        if (Name[2] == '_')
-          return true;
-
-  return false;
+  return Name.size() >= 3 && (Name[0] == 'S' || Name[0] == 's') &&
+      (Name[1] == 'V' || Name[1] == 'v') && Name[2] == '_';
 }
 
 void Semantic::DecomposeNameAndIndex(llvm::StringRef FullName, llvm::StringRef *pName, unsigned *pIndex) {
