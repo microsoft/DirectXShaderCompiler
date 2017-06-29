@@ -361,6 +361,7 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
 
+  TEST_METHOD(PixRemoveDiscards)
   TEST_METHOD(PixConstantColor)
   TEST_METHOD(PixConstantColorInt)
   TEST_METHOD(PixConstantColorMRT)
@@ -2222,6 +2223,10 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   LPCSTR pErrorMsg = "Unknown HLSL version";
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
+
+TEST_F(CompilerTest, PixRemoveDiscards) {
+  CodeGenTestCheck(L"pix\\removeDiscards.hlsl");
 }
 
 TEST_F(CompilerTest, PixConstantColor) {
