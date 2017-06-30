@@ -1,12 +1,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilRemoveDiscards.cpp                                                //
+// DxilRemoveDiscards.cpp                                                    //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Provides a pass to stomp a pixel shader's output color to a given         //
-// constant value                                                            //
+// Provides a pass to remove all instances of the discard instruction        //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -41,12 +40,11 @@ bool DxilRemoveDiscards::runOnModule(Module &M)
 
   bool Modified = false;
 
-  for (auto FI = DiscardFunctionUses.begin(), FE = DiscardFunctionUses.end(); FI != FE; ) {
+  for (auto FI = DiscardFunctionUses.begin(); FI != DiscardFunctionUses.end(); ) {
     auto & FunctionUse = *FI++;
     auto FunctionUser = FunctionUse.getUser();
     auto instruction = cast<Instruction>(FunctionUser);
-    instruction->removeFromParent();
-    delete instruction;
+    instruction->eraseFromParent();
     Modified = true;
   }
 

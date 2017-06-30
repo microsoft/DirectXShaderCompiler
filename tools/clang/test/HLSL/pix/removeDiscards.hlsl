@@ -1,9 +1,10 @@
 // RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-remove-discards | %FileCheck %s
 
 // Check that the discard within the if/then was removed:
-// CHECK: if.then:                                          ; preds = %entry
-// CHECK:   br label %if.end
-// CHECK: if.end:
+//     CHECK: if.then:                                          ; preds = %entry
+// CHECK-NOT:   call void @dx.op.discard(i32 82, i1 true)
+//     CHECK:   br label %if.end
+//     CHECK: if.end:
 
 struct RTOut
 {
