@@ -29,7 +29,6 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <memory>
 #include <unordered_set>
-
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
