@@ -768,6 +768,7 @@ public:
   TEST_METHOD(CodeGenResourceInTB2)
   TEST_METHOD(CodeGenResourceInTBV)
   TEST_METHOD(CodeGenResourceInTBV2)
+  TEST_METHOD(CodeGenResourceArrayParam)
   TEST_METHOD(CodeGenResPhi)
   TEST_METHOD(CodeGenResPhi2)
   TEST_METHOD(CodeGenRootSigEntry)
@@ -3859,6 +3860,10 @@ TEST_F(CompilerTest, CodeGenResourceInTB2) {
 
 TEST_F(CompilerTest, CodeGenResourceInTBV2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\resource-in-tbv2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenResourceArrayParam) {
+  CodeGenTest(L"..\\CodeGenHLSL\\resource-array-param.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenResPhi) {

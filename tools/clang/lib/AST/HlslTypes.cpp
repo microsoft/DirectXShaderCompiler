@@ -339,7 +339,7 @@ bool IsHLSLStreamOutputType(QualType type) {
   }
   return false;
 }
-bool IsHLSLResouceType(clang::QualType type) {
+bool IsHLSLResourceType(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
     if (name == "Texture1D" || name == "RWTexture1D")
@@ -402,7 +402,7 @@ bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
   if (type->isIncompleteArrayType()) {
     const IncompleteArrayType *IAT = context.getAsIncompleteArrayType(type);
     QualType EltTy = IAT->getElementType();
-    if (IsHLSLResouceType(EltTy))
+    if (IsHLSLResourceType(EltTy))
       return true;
   }
   return false;
