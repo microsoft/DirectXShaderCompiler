@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "dxc/HLSL/DxilShaderModel.h"
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -234,14 +235,14 @@ private:
                             QualType targetType);
 
 private:
-  spv::ExecutionModel getSpirvShaderStageFromHlslProfile(const char *profile);
+  static spv::ExecutionModel
+  getSpirvShaderStage(const hlsl::ShaderModel &model);
 
-  void AddRequiredCapabilitiesForExecutionModel(spv::ExecutionModel em);
+  void AddRequiredCapabilitiesForShaderModel();
 
   /// \brief Adds the execution mode for the given entry point based on the
-  /// execution model.
-  void AddExecutionModeForEntryPoint(spv::ExecutionModel execModel,
-                                     uint32_t entryPointId);
+  /// shader model.
+  void AddExecutionModeForEntryPoint(uint32_t entryPointId);
 
 private:
   /// \brief Returns true iff *all* the case values in the given switch
@@ -351,7 +352,7 @@ private:
   /// Entry function name and shader stage. Both of them are derived from the
   /// command line and should be const.
   const llvm::StringRef entryFunctionName;
-  const spv::ExecutionModel shaderStage;
+  const hlsl::ShaderModel &shaderModel;
 
   SPIRVContext theContext;
   ModuleBuilder theBuilder;

@@ -107,17 +107,18 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
       diags(ci.getDiagnostics()),
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
-      shaderStage(getSpirvShaderStageFromHlslProfile(
+      shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), theBuilder(&theContext),
-      declIdMapper(shaderStage, theBuilder, diags),
+      declIdMapper(shaderModel, theBuilder, diags),
       typeTranslator(theBuilder, diags), entryFunctionId(0),
-      curFunction(nullptr) {}
+      curFunction(nullptr) {
+  if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
+    emitError("unknown shader module: %0") << shaderModel.GetName();
+}
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
-  const spv::ExecutionModel em = getSpirvShaderStageFromHlslProfile(
-      theCompilerInstance.getCodeGenOpts().HLSLProfile.c_str());
-  AddRequiredCapabilitiesForExecutionModel(em);
+  AddRequiredCapabilitiesForShaderModel();
 
   // Addressing and memory model are required in a valid SPIR-V module.
   theBuilder.setAddressingModel(spv::AddressingModel::Logical);
@@ -141,10 +142,11 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
     doDecl(workQueue[i]);
   }
 
-  theBuilder.addEntryPoint(shaderStage, entryFunctionId, entryFunctionName,
+  theBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunctionId,
+                           entryFunctionName,
                            declIdMapper.collectStageVariables());
 
-  AddExecutionModeForEntryPoint(shaderStage, entryFunctionId);
+  AddExecutionModeForEntryPoint(entryFunctionId);
 
   // Add Location decorations to stage input/output variables.
   declIdMapper.finalizeStageIOLocations();
@@ -163,7 +165,7 @@ void SPIRVEmitter::doDecl(const Decl *decl) {
   } else {
     // TODO: Implement handling of other Decl types.
     emitWarning("Decl type '%0' is not supported yet.")
-        << std::string(decl->getDeclKindName());
+        << decl->getDeclKindName();
   }
 }
 
@@ -2261,9 +2263,7 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
 }
 
 spv::ExecutionModel
-SPIRVEmitter::getSpirvShaderStageFromHlslProfile(const char *profile) {
-  assert(profile && "nullptr passed as HLSL profile.");
-
+SPIRVEmitter::getSpirvShaderStage(const hlsl::ShaderModel &model) {
   // DXIL Models are:
   // Profile (DXIL Model) : HLSL Shader Kind : SPIR-V Shader Stage
   // vs_<version>         : Vertex Shader    : Vertex Shader
@@ -2272,32 +2272,30 @@ SPIRVEmitter::getSpirvShaderStageFromHlslProfile(const char *profile) {
   // gs_<version>         : Geometry Shader  : Geometry Shader
   // ps_<version>         : Pixel Shader     : Fragment Shader
   // cs_<version>         : Compute Shader   : Compute Shader
-  switch (profile[0]) {
-  case 'v':
+  switch (model.GetKind()) {
+  case hlsl::ShaderModel::Kind::Vertex:
     return spv::ExecutionModel::Vertex;
-  case 'h':
+  case hlsl::ShaderModel::Kind::Hull:
     return spv::ExecutionModel::TessellationControl;
-  case 'd':
+  case hlsl::ShaderModel::Kind::Domain:
     return spv::ExecutionModel::TessellationEvaluation;
-  case 'g':
+  case hlsl::ShaderModel::Kind::Geometry:
     return spv::ExecutionModel::Geometry;
-  case 'p':
+  case hlsl::ShaderModel::Kind::Pixel:
     return spv::ExecutionModel::Fragment;
-  case 'c':
+  case hlsl::ShaderModel::Kind::Compute:
     return spv::ExecutionModel::GLCompute;
   default:
-    emitError("Unknown HLSL Profile: %0") << profile;
-    return spv::ExecutionModel::Fragment;
+    break;
   }
+  llvm_unreachable("unknown shader model");
 }
 
-void SPIRVEmitter::AddRequiredCapabilitiesForExecutionModel(
-    spv::ExecutionModel em) {
-  if (em == spv::ExecutionModel::TessellationControl ||
-      em == spv::ExecutionModel::TessellationEvaluation) {
+void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
+  if (shaderModel.IsHS() || shaderModel.IsDS()) {
     theBuilder.requireCapability(spv::Capability::Tessellation);
     emitError("Tasselation shaders are currently not supported.");
-  } else if (em == spv::ExecutionModel::Geometry) {
+  } else if (shaderModel.IsGS()) {
     theBuilder.requireCapability(spv::Capability::Geometry);
     emitError("Geometry shaders are currently not supported.");
   } else {
@@ -2305,9 +2303,8 @@ void SPIRVEmitter::AddRequiredCapabilitiesForExecutionModel(
   }
 }
 
-void SPIRVEmitter::AddExecutionModeForEntryPoint(spv::ExecutionModel execModel,
-                                                 uint32_t entryPointId) {
-  if (execModel == spv::ExecutionModel::Fragment) {
+void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
+  if (shaderModel.IsPS()) {
     // TODO: Implement the logic to determine the proper Execution Mode for
     // fragment shaders. Currently using OriginUpperLeft as default.
     theBuilder.addExecutionMode(entryPointId,

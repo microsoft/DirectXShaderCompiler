@@ -139,8 +139,7 @@ void DeclResultIdMapper::createStageVariables(const DeclaratorDecl *decl,
       stageVars.insert(varId);
     } else {
       // Handle output builtin variables first
-      if (shaderStage == spv::ExecutionModel::Vertex &&
-          kind == StageVarKind::Position) {
+      if (shaderModel.IsVS() && kind == StageVarKind::Position) {
         const uint32_t varId =
             theBuilder.addStageBuiltinVariable(typeId, spv::BuiltIn::Position);
 
