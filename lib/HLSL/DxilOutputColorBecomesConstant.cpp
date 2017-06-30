@@ -149,6 +149,17 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
   OP *HlslOP = DM.GetOP();
 
   const hlsl::DxilSignature & OutputSignature = DM.GetOutputSignature();
+ 
+  std::unique_ptr<DxilCBuffer> pCBuf = llvm::make_unique<DxilCBuffer>();
+  pCBuf->SetGlobalName("PIX_ConstantColorCBName");
+  //pCBuf->SetGlobalSymbol("PIX_ConstantColorCBSymbol");
+  pCBuf->SetID(0);
+  pCBuf->SetSpaceID((unsigned int)-2);
+  pCBuf->SetLowerBound(0);
+  pCBuf->SetRangeSize(4);
+  pCBuf->SetSize(4);
+
+  ID = DM.AddCBuffer(std::move(pCBuf));
 
   bool Modified = false;
 
