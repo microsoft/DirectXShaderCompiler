@@ -481,7 +481,7 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
 Texture2D tex12[12];
 SamplerState samp;
 
-float4 DoSample(Texture2D tex[], float2 coord) {    // expected-error {{variable has incomplete type 'Texture2D []'}}
+float4 DoSample(Texture2D tex[12], float2 coord) {
   return tex[3].Sample(samp, -dot(coord, -foo));    // expected-error {{use of undeclared identifier 'foo'}}
 }
 
@@ -493,5 +493,5 @@ float3 fn(float a, float b)
 
 float4 main2(float2 coord : TEXCOORD) : SV_Target
 {
-  return DoSample(tex12, fn(coord.x, coord.y).xy);  // expected-error {{argument type 'Texture2D []' is incomplete}}
+  return DoSample(tex12, fn(coord.x, coord.y).xy);
 }
