@@ -30,6 +30,8 @@
 #include <memory>
 #include <unordered_set>
 
+#include "llvm/Support/FormattedStream.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -46,6 +48,7 @@ class DxilOutputColorBecomesConstant : public ModulePass {
   float Blue = 1.f;
   float Alpha = 1.f;
   VisualizerInstrumentationMode Mode;
+  bool ContainsDepthStencilWrites = false;
 
   bool convertTarget0ToConstantValue(Function * OutputFunction, const hlsl::DxilSignature &OutputSignature, OP * HlslOP, float * color);
 
@@ -91,47 +94,53 @@ bool DxilOutputColorBecomesConstant::convertTarget0ToConstantValue(
   float * color) {
 
   bool Modified = false;
-    auto OutputFunctionUses = OutputFunction->uses();
+  auto OutputFunctionUses = OutputFunction->uses();
 
-    for (Use &FunctionUse : OutputFunctionUses) {
-      iterator_range<Value::user_iterator> FunctionUsers = FunctionUse->users();
-      for (User * FunctionUser : FunctionUsers) {
-        if (isa<Instruction>(FunctionUser)) {
-          auto CallInstruction = cast<CallInst>(FunctionUser);
+  for (Use &FunctionUse : OutputFunctionUses) {
+    iterator_range<Value::user_iterator> FunctionUsers = FunctionUse->users();
+    for (User * FunctionUser : FunctionUsers) {
+      if (isa<Instruction>(FunctionUser)) {
+        auto CallInstruction = cast<CallInst>(FunctionUser);
 
-          // Check if the instruction writes to a render target (as opposed to a system-value, such as RenderTargetArrayIndex)
-          Value *OutputID = CallInstruction->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
-          unsigned SignatureElementIndex = cast<ConstantInt>(OutputID)->getLimitedValue();
-          const DxilSignatureElement &SignatureElement = OutputSignature.GetElement(SignatureElementIndex);
+        // Check if the instruction writes to a render target (as opposed to a system-value, such as RenderTargetArrayIndex)
+        Value *OutputID = CallInstruction->getArgOperand(DXIL::OperandIndex::kStoreOutputIDOpIdx);
+        unsigned SignatureElementIndex = cast<ConstantInt>(OutputID)->getLimitedValue();
+        const DxilSignatureElement &SignatureElement = OutputSignature.GetElement(SignatureElementIndex);
 
-        // We only modify the output color for RTV0
+        if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Depth ||
+          SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::DepthLessEqual ||
+          SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::DepthGreaterEqual ||
+          SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::StencilRef) {
+
+          ContainsDepthStencilWrites = true;
+        }
+
+      // We only modify the output color for RTV0
         if (SignatureElement.GetSemantic()->GetKind() == DXIL::SemanticKind::Target &&
-          SignatureElement.GetSemanticStartIndex() == 0)
-          {
-            // The output column is the channel (red, green, blue or alpha) within the output pixel
-            Value * OutputColumnOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputColOpIdx);
-            ConstantInt * OutputColumnConstant = cast<ConstantInt>(OutputColumnOperand);
-            APInt OutputColumn = OutputColumnConstant->getValue();
+            SignatureElement.GetSemanticStartIndex() == 0) {
 
-            Value * OutputValueOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx);
+          // The output column is the channel (red, green, blue or alpha) within the output pixel
+          Value * OutputColumnOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputColOpIdx);
+          ConstantInt * OutputColumnConstant = cast<ConstantInt>(OutputColumnOperand);
+          APInt OutputColumn = OutputColumnConstant->getValue();
 
-            // Replace the source operand with the appropriate constant literal value
-          if (OutputValueOperand->getType()->isFloatingPointTy())
-            {
+          Value * OutputValueOperand = CallInstruction->getOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx);
+
+          // Replace the source operand with the appropriate constant literal value
+          if (OutputValueOperand->getType()->isFloatingPointTy()){
             Modified = true;
-              Constant * FloatConstant = HlslOP->GetFloatConst(color[*OutputColumn.getRawData()]);
-              CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, FloatConstant);
-            }
-          else if (OutputValueOperand->getType()->isIntegerTy())
-            {
+            Constant * FloatConstant = HlslOP->GetFloatConst(color[*OutputColumn.getRawData()]);
+            CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, FloatConstant);
+          }
+          else if (OutputValueOperand->getType()->isIntegerTy()){
             Modified = true;
-              Constant * pIntegerConstant = HlslOP->GetI32Const(static_cast<int>(color[*OutputColumn.getRawData()]));
-              CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
-            }
+            Constant * pIntegerConstant = HlslOP->GetI32Const(static_cast<int>(color[*OutputColumn.getRawData()]));
+            CallInstruction->setOperand(hlsl::DXIL::OperandIndex::kStoreOutputValOpIdx, pIntegerConstant);
           }
         }
       }
     }
+  }
   return Modified;
 }
 
@@ -162,6 +171,14 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
   Function * IntOutputFunction = HlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, Type::getInt32Ty(Ctx));
   if (IntOutputFunction->getNumUses() != 0) {
     Modified = convertTarget0ToConstantValue(IntOutputFunction, OutputSignature, HlslOP, color);
+  }
+
+  if (OSOverride != nullptr) {
+    if (ContainsDepthStencilWrites) {
+      formatted_raw_ostream FOS(*OSOverride);
+      FOS << "DxilOutputColorBecomesConstant:DepthOrStencilWritesPresent\n";
+      M.print(FOS, nullptr);
+    }
   }
 
   return Modified;
