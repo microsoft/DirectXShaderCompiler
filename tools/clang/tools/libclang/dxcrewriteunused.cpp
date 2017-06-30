@@ -351,16 +351,41 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
   return S_OK;
 }
 
+static void RemoveStaticDecls(DeclContext &Ctx) {
+  for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ) {
+    auto cur = it++;
+    if (VarDecl *VD = dyn_cast<VarDecl>(*cur)) {
+      if (VD->getStorageClass() == SC_Static || VD->isInAnonymousNamespace()) {
+        Ctx.removeDecl(VD);
+      }
+    }
+    if (FunctionDecl *FD = dyn_cast<FunctionDecl>(*cur)) {
+      if (isa<CXXMethodDecl>(FD))
+        continue;
+      if (FD->getStorageClass() == SC_Static || FD->isInAnonymousNamespace()) {
+        Ctx.removeDecl(FD);
+      }
+    }
+
+    if (DeclContext *DC = dyn_cast<DeclContext>(*cur)) {
+      RemoveStaticDecls(*DC);
+    }
+  }
+}
+
 static
 HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pFileName,
                _In_ ASTUnit::RemappedFile *pRemap,
                _In_ LPCSTR pDefines,
-               _In_ bool bSkipFunctionBody,
+               _In_ UINT32 rewriteOption,
                _Outptr_result_z_ LPSTR *pWarnings,
                _Outptr_result_z_ LPSTR *pResult) {
   if (pWarnings != nullptr) *pWarnings = nullptr;
   if (pResult != nullptr) *pResult = nullptr;
+
+  bool bSkipFunctionBody = rewriteOption & RewirterOptionMask::SkipFunctionBody;
+  bool bSkipStatic = rewriteOption & RewirterOptionMask::SkipStatic;
 
   std::string s, warnings;
   raw_string_ostream o(s);
@@ -378,6 +403,11 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
 
   ASTContext& C = compiler.getASTContext();
   TranslationUnitDecl *tu = C.getTranslationUnitDecl();
+
+  if (bSkipStatic && bSkipFunctionBody) {
+    // Remove static functions and globals.
+    RemoveStaticDecls(*tu);
+  }
 
   o << "// Rewrite unchanged result:\n";
   PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
@@ -485,7 +515,7 @@ public:
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(),
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          /*bSkipFunctionBody*/ false, &errors, &rewrite);
+                          RewirterOptionMask::Default, &errors, &rewrite);
 
       return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
                                                        ppResult);
@@ -530,12 +560,10 @@ public:
 
       LPSTR errors = nullptr;
       LPSTR rewrite = nullptr;
-      bool bSkipFunctionBody =
-          rewriteOption & RewirterOptionMask::SkipFunctionBody;
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(),
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          bSkipFunctionBody, &errors, &rewrite);
+                          rewriteOption, &errors, &rewrite);
 
       return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
                                                        ppResult);

@@ -139,7 +139,6 @@ import hctdb_instrhelp
   IOP_modf,
   IOP_msad4,
   IOP_mul,
-  IOP_noise,
   IOP_normalize,
   IOP_pow,
   IOP_radians,
