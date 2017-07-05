@@ -313,18 +313,8 @@ uint32_t ModuleBuilder::addStageIOVariable(uint32_t type,
 }
 
 uint32_t ModuleBuilder::addStageBuiltinVariable(uint32_t type,
+                                                spv::StorageClass sc,
                                                 spv::BuiltIn builtin) {
-  spv::StorageClass sc = spv::StorageClass::Input;
-  switch (builtin) {
-  case spv::BuiltIn::Position:
-  case spv::BuiltIn::PointSize:
-  case spv::BuiltIn::FragDepth:
-    // TODO: add the rest output builtins
-    sc = spv::StorageClass::Output;
-    break;
-  default:
-    break;
-  }
   const uint32_t pointerType = getPointerType(type, sc);
   const uint32_t varId = theContext.takeNextId();
   instBuilder.opVariable(pointerType, varId, sc, llvm::None).x();

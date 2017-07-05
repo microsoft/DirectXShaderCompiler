@@ -30,9 +30,8 @@ namespace spirv {
 /// (builtin/input/output) variable.
 class StageVar {
 public:
-  StageVar(const hlsl::SigPoint *sig, const hlsl::Semantic *sema, uint32_t type)
-      : sigPoint(sig), semantic(sema), typeId(type), valueId(0),
-        isBuiltin(false), location(llvm::None) {}
+  inline StageVar(const hlsl::SigPoint *sig, const hlsl::Semantic *sema,
+                  uint32_t type);
 
   const hlsl::SigPoint *getSigPoint() const { return sigPoint; }
   const hlsl::Semantic *getSemantic() const { return semantic; }
@@ -44,6 +43,9 @@ public:
 
   bool isSpirvBuitin() const { return isBuiltin; }
   void setIsSpirvBuiltin() { isBuiltin = true; }
+
+  spv::StorageClass getStorageClass() const { return storageClass; }
+  void setStorageClass(spv::StorageClass sc) { storageClass = sc; }
 
   bool hasLocation() const { return location.hasValue(); }
   void setLocation(uint32_t loc) { location = llvm::Optional<uint32_t>(loc); }
@@ -60,9 +62,16 @@ private:
   uint32_t valueId;
   /// Indicates whether this stage variable should be a SPIR-V builtin.
   bool isBuiltin;
+  /// SPIR-V storage class this stage variable belongs to.
+  spv::StorageClass storageClass;
   /// Location assignment if input/output variable.
   llvm::Optional<uint32_t> location;
 };
+
+StageVar::StageVar(const hlsl::SigPoint *sig, const hlsl::Semantic *sema,
+                   uint32_t type)
+    : sigPoint(sig), semantic(sema), typeId(type), valueId(0), isBuiltin(false),
+      storageClass(spv::StorageClass::Max), location(llvm::None) {}
 
 /// \brief The class containing mappings from Clang frontend Decls to their
 /// corresponding SPIR-V <result-id>s.
@@ -104,8 +113,16 @@ public:
   /// instruction. The given decl will be treated as normal decl.
   void registerDeclResultId(const NamedDecl *symbol, uint32_t resultId);
 
-  /// \brief Returns true if the given <result-id> is for a stage variable.
-  bool isStageVariable(uint32_t varId) const;
+public:
+  /// The struct containing SPIR-V information of a AST Decl.
+  struct DeclSpirvInfo {
+    uint32_t resultId;
+    spv::StorageClass storageClass;
+  };
+
+  /// \brief Returns the SPIR-V information for the given decl.
+  /// Returns nullptr if no such decl was previously registered.
+  const DeclSpirvInfo *getDeclSpirvInfo(const NamedDecl *decl) const;
 
   /// \brief Returns the <result-id> for the given decl.
   ///
@@ -121,9 +138,10 @@ public:
   /// if it is not a registered remapped decl.
   uint32_t getRemappedDeclResultId(const NamedDecl *decl) const;
 
-  /// \brief Returns the <result-id> for the given normal decl. Returns zero if
-  /// it is not a registered normal decl.
-  uint32_t getNormalDeclResultId(const NamedDecl *decl) const;
+  /// Returns the storage class for the given expression. The expression is
+  /// expected to be an lvalue. Otherwise this method may panic.
+  spv::StorageClass resolveStorageClass(const Expr *expr) const;
+  spv::StorageClass resolveStorageClass(const Decl *decl) const;
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this
   /// mapper.
@@ -156,8 +174,8 @@ private:
   bool createStageVariables(const DeclaratorDecl *decl, bool forReturnValue);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
-  /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin
-  /// accordingly.
+  /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
+  /// its storage class accordingly.
   uint32_t createSpirvStageVar(StageVar *);
 
   /// \brief Returns the stage variable's semantic for the given Decl.
@@ -170,9 +188,9 @@ private:
   DiagnosticsEngine &diags;
 
   /// Mapping of all remapped decls to their <result-id>s.
-  llvm::DenseMap<const NamedDecl *, uint32_t> remappedDecls;
+  llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> remappedDecls;
   /// Mapping of all normal decls to their <result-id>s.
-  llvm::DenseMap<const NamedDecl *, uint32_t> normalDecls;
+  llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> normalDecls;
   /// Vector of all defined stage variables.
   llvm::SmallVector<StageVar, 8> stageVars;
 };

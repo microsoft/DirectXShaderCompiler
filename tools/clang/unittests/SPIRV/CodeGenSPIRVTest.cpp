@@ -250,16 +250,22 @@ TEST_F(FileTest, IntrinsicsAbs) { runFileTest("intrinsics.abs.hlsl"); }
 TEST_F(FileTest, IntrinsicsCeil) { runFileTest("intrinsics.ceil.hlsl"); }
 TEST_F(FileTest, IntrinsicsDegrees) { runFileTest("intrinsics.degrees.hlsl"); }
 TEST_F(FileTest, IntrinsicsRadians) { runFileTest("intrinsics.radians.hlsl"); }
-TEST_F(FileTest, IntrinsicsDeterminant) { runFileTest("intrinsics.determinant.hlsl"); }
+TEST_F(FileTest, IntrinsicsDeterminant) {
+  runFileTest("intrinsics.determinant.hlsl");
+}
 TEST_F(FileTest, IntrinsicsExp) { runFileTest("intrinsics.exp.hlsl"); }
 TEST_F(FileTest, IntrinsicsExp2) { runFileTest("intrinsics.exp2.hlsl"); }
 TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog) { runFileTest("intrinsics.log.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog2) { runFileTest("intrinsics.log2.hlsl"); }
-TEST_F(FileTest, IntrinsicsNormalize) { runFileTest("intrinsics.normalize.hlsl"); }
+TEST_F(FileTest, IntrinsicsNormalize) {
+  runFileTest("intrinsics.normalize.hlsl");
+}
 TEST_F(FileTest, IntrinsicsRsqrt) { runFileTest("intrinsics.rsqrt.hlsl"); }
-TEST_F(FileTest, IntrinsicsFloatSign) { runFileTest("intrinsics.floatsign.hlsl"); }
+TEST_F(FileTest, IntrinsicsFloatSign) {
+  runFileTest("intrinsics.floatsign.hlsl");
+}
 TEST_F(FileTest, IntrinsicsIntSign) { runFileTest("intrinsics.intsign.hlsl"); }
 TEST_F(FileTest, IntrinsicsSqrt) { runFileTest("intrinsics.sqrt.hlsl"); }
 TEST_F(FileTest, IntrinsicsTrunc) { runFileTest("intrinsics.trunc.hlsl"); }
@@ -274,5 +280,8 @@ TEST_F(FileTest, IntrinsicsTanh) { runFileTest("intrinsics.tanh.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsin) { runFileTest("intrinsics.asin.hlsl"); }
 TEST_F(FileTest, IntrinsicsAcos) { runFileTest("intrinsics.acos.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
+
+// SPIR-V specific
+TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
 } // namespace
