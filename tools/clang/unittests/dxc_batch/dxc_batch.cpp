@@ -9,32 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-//
-// Some unimplemented flags as compared to fxc:
-//
-// /compress    - Compress DX10 shader bytecode from files.
-// /decompress  - Decompress DX10 shader bytecode from first file.
-// /Fx <file>   - Output assembly code and hex listing file.
-// /Fl <file>   - Output a library.
-// /Gch         - Compile as a child effect for fx_4_x profiles.
-// /Gdp         - Disable effect performance mode.
-// /Gec         - Enable backwards compatibility mode.
-// /Ges         - Enable strict mode.
-// /Gpp         - Force partial precision.
-// /Lx          - Output hexadecimal literals
-// /Op          - Disable preshaders
-//
-// Unimplemented but on roadmap:
-//
-// /matchUAVs   - Match template shader UAV slot allocations in the current
-// shader /mergeUAVs   - Merge UAV slot allocations of template shader and the
-// current shader /Ni          - Output instruction numbers in assembly listings
-// /No          - Output instruction byte offset in assembly listings
-// /Qstrip_reflect
-// /res_may_alias
-// /shtemplate
-// /verifyrootsignature
-//
+// dxc_batch is a fork of dxc showing how to build multiple shaders while
+// sharing library-fied intermediates
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"

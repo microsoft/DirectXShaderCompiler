@@ -384,8 +384,8 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   if (pWarnings != nullptr) *pWarnings = nullptr;
   if (pResult != nullptr) *pResult = nullptr;
 
-  bool bSkipFunctionBody = rewriteOption & RewirterOptionMask::SkipFunctionBody;
-  bool bSkipStatic = rewriteOption & RewirterOptionMask::SkipStatic;
+  bool bSkipFunctionBody = rewriteOption & RewriterOptionMask::SkipFunctionBody;
+  bool bSkipStatic = rewriteOption & RewriterOptionMask::SkipStatic;
 
   std::string s, warnings;
   raw_string_ostream o(s);
@@ -515,7 +515,7 @@ public:
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(),
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          RewirterOptionMask::Default, &errors, &rewrite);
+                          RewriterOptionMask::Default, &errors, &rewrite);
 
       return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
                                                        ppResult);

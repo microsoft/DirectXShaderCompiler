@@ -68,14 +68,14 @@ public:
   ) {
     // Read file.
     CComPtr<IDxcBlob> pIncludeSource;
-    m_pIncludeHandler->LoadSource(pFilename, &pIncludeSource);
+    IFT(m_pIncludeHandler->LoadSource(pFilename, &pIncludeSource));
     // Preprocess the header to remove function body and static function/global.
     if (SUCCEEDED(Preprocess(pIncludeSource, pFilename))) {
       return hlsl::DxcCreateBlobOnHeapCopy(m_curHeaderContent.data(),
                                            m_curHeaderContent.size(),
                                            ppIncludeSource);
     } else {
-      m_pIncludeHandler->LoadSource(pFilename, ppIncludeSource);
+      IFT(m_pIncludeHandler->LoadSource(pFilename, ppIncludeSource));
       return E_FAIL;
     }
   }
@@ -126,18 +126,17 @@ HRESULT IncludeToLibPreprocessor::Preprocess(IDxcBlob *pSource,
   m_dllSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter);
 
   CComPtr<IDxcOperationResult> pRewriteResult;
-  pRewriter->RewriteUnchangedWithInclude(
+  IFT(pRewriter->RewriteUnchangedWithInclude(
       pEncodingIncludeSource, pFilename, m_defines.data(), m_defines.size(),
       this,
-      RewirterOptionMask::SkipFunctionBody | RewirterOptionMask::SkipStatic,
-      &pRewriteResult);
+      RewriterOptionMask::SkipFunctionBody | RewriterOptionMask::SkipStatic,
+      &pRewriteResult));
 
   HRESULT status;
   if (!SUCCEEDED(pRewriteResult->GetStatus(&status)) || !SUCCEEDED(status)) {
     return E_FAIL;
   };
   // Append existing header.
-  // How to remove static function/global in header?
   std::string includeSource =
       m_curHeaderContent + std::string((char *)pSource->GetBufferPointer(),
                                        pSource->GetBufferSize());
@@ -145,7 +144,7 @@ HRESULT IncludeToLibPreprocessor::Preprocess(IDxcBlob *pSource,
 
   // Save the content of processed header.
   CComPtr<IDxcBlob> result;
-  pRewriteResult->GetResult(&result);
+  IFT(pRewriteResult->GetResult(&result));
   // Update m_curHeaderContent.
   m_curHeaderContent = std::string((char *)(result)->GetBufferPointer(),
                                    (result)->GetBufferSize());
@@ -390,8 +389,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       CComPtr<IDxcBlob> pSource;
       IFT(DxcCreateBlobOnHeap(header.data(), header.size(), &pSource));
       size_t hash;
-      if (libCache.GetLibBlob(pSource, compilerInput, hash, &pOutputBlob)) {
-      } else {
+      if (!libCache.GetLibBlob(pSource, compilerInput, hash, &pOutputBlob)) {
+        // Cannot find existing blob, create from pSource.
         IDxcBlob **ppCode = &pOutputBlob;
 
         auto compileFn = [&]() {
