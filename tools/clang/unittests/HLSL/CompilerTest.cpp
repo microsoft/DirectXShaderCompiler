@@ -542,6 +542,7 @@ public:
   TEST_METHOD(CodeGenMinprec5)
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
+  TEST_METHOD(CodeGenModf)
   TEST_METHOD(CodeGenMinprecCast)
   TEST_METHOD(CodeGenMultiUAVLoad1)
   TEST_METHOD(CodeGenMultiUAVLoad2)
@@ -2914,6 +2915,10 @@ TEST_F(CompilerTest, CodeGenMinprec6) {
 
 TEST_F(CompilerTest, CodeGenMinprec7) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\minprec7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenModf) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\modf.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMinprecCast) {
