@@ -344,14 +344,14 @@ TEST_F(RewriterTest, RunIncludes) {
   VERIFY_IS_TRUE(RewriteCompareGoldInclude(
       L"rewriter\\includes.hlsl",
       L"rewriter\\correct_rewrites\\includes_gold.hlsl",
-      RewirterOptionMask::Default));
+      RewriterOptionMask::Default));
 }
 
 TEST_F(RewriterTest, RunNoFunctionBodyInclude) {
   VERIFY_IS_TRUE(RewriteCompareGoldInclude(
       L"rewriter\\includes.hlsl",
       L"rewriter\\correct_rewrites\\includes_gold_nobody.hlsl",
-      RewirterOptionMask::SkipFunctionBody));
+      RewriterOptionMask::SkipFunctionBody));
 }
 
 TEST_F(RewriterTest, RunStructMethods) {
@@ -483,7 +483,7 @@ TEST_F(RewriterTest, RunNoFunctionBody) {
   // Run rewrite no function body on the source code
   VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
       source.BlobEncoding, L"vector-assignments_noerr.hlsl", myDefines,
-      myDefinesCount, /*pIncludeHandler*/ nullptr, RewirterOptionMask::SkipFunctionBody,
+      myDefinesCount, /*pIncludeHandler*/ nullptr, RewriterOptionMask::SkipFunctionBody,
       &pRewriteResult));
 
   CComPtr<IDxcBlob> result;
@@ -513,7 +513,7 @@ TEST_F(RewriterTest, RunNoStatic) {
   VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
       source.BlobEncoding, L"attributes_noerr.hlsl", myDefines, myDefinesCount,
       /*pIncludeHandler*/ nullptr,
-      RewirterOptionMask::SkipFunctionBody | RewirterOptionMask::SkipStatic,
+      RewriterOptionMask::SkipFunctionBody | RewriterOptionMask::SkipStatic,
       &pRewriteResult));
 
   CComPtr<IDxcBlob> result;

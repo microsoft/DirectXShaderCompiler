@@ -361,6 +361,7 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
 
+  TEST_METHOD(PixRemoveDiscards)
   TEST_METHOD(PixConstantColor)
   TEST_METHOD(PixConstantColorInt)
   TEST_METHOD(PixConstantColorMRT)
@@ -557,6 +558,7 @@ public:
   TEST_METHOD(CodeGenMinprec5)
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
+  TEST_METHOD(CodeGenModf)
   TEST_METHOD(CodeGenMinprecCast)
   TEST_METHOD(CodeGenMultiUAVLoad1)
   TEST_METHOD(CodeGenMultiUAVLoad2)
@@ -2225,6 +2227,10 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
+TEST_F(CompilerTest, PixRemoveDiscards) {
+  CodeGenTestCheck(L"pix\\removeDiscards.hlsl");
+}
+
 TEST_F(CompilerTest, PixConstantColor) {
   CodeGenTestCheck(L"pix\\constantcolor.hlsl");
 }
@@ -3008,6 +3014,10 @@ TEST_F(CompilerTest, CodeGenMinprec6) {
 
 TEST_F(CompilerTest, CodeGenMinprec7) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\minprec7.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenModf) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\modf.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMinprecCast) {
