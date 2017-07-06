@@ -34,15 +34,14 @@ HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 class DxcAssembler : public IDxcAssembler {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)      
+  DXC_MICROCOM_TM_REF_FIELDS()      
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcAssembler)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDxcAssembler>(this, iid, ppvObject);
   }
-
-  DxcAssembler() : m_dwRef(0) { }
 
   // Assemble dxil in ll or llvm bitcode to dxbc container.
   __override HRESULT STDMETHODCALLTYPE AssembleToContainer(
@@ -61,6 +60,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
 
   *ppResult = nullptr;
   HRESULT hr = S_OK;
+  DxcThreadMalloc TM(m_pMalloc);
   try {
     // Setup input buffer.
     // The ir parsing requires the buffer to be null terminated. We deal with
@@ -89,11 +89,8 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     std::unique_ptr<Module> M =
         parseIR(memBuf->getMemBufferRef(), Err, Context);
 
-    CComPtr<IMalloc> pMalloc;
-    IFT(CoGetMalloc(1, &pMalloc));
-
     CComPtr<AbstractMemoryStream> pOutputStream;
-    IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+    IFT(CreateMemoryStream(TM.p, &pOutputStream));
     raw_stream_ostream outStream(pOutputStream.p);
 
     // Check for success.
@@ -134,7 +131,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
 
     CComPtr<IDxcBlob> pResultBlob;
     dxcutil::AssembleToContainer(std::move(M), pResultBlob,
-                                         pMalloc, SerializeDxilFlags::IncludeDebugNamePart,
+                                         TM.p, SerializeDxilFlags::IncludeDebugNamePart,
                                          pOutputStream);
 
     IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, nullptr, S_OK, ppResult));
@@ -145,7 +142,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
 }
 
 HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv) {
-  CComPtr<DxcAssembler> result = new (std::nothrow) DxcAssembler();
+  CComPtr<DxcAssembler> result = DxcAssembler::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;
     return E_OUTOFMEMORY;

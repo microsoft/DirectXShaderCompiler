@@ -7204,8 +7204,8 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
   const llvm::Triple &Triple = getTarget().getTriple();
   switch (Triple.getArch()) {
   default:
-    return *(TheTargetCodeGenInfo = new DefaultTargetCodeGenInfo(Types));
-
+    TheTargetCodeGenInfo.reset(new DefaultTargetCodeGenInfo(Types)); break; // HLSL Change - reset
+#if 0 // HLSL Change Starts
   case llvm::Triple::le32:
     return *(TheTargetCodeGenInfo = new PNaClTargetCodeGenInfo(Types));
   case llvm::Triple::mips:
@@ -7334,10 +7334,13 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
     return *(TheTargetCodeGenInfo = new SparcV9TargetCodeGenInfo(Types));
   case llvm::Triple::xcore:
     return *(TheTargetCodeGenInfo = new XCoreTargetCodeGenInfo(Types));
+#endif // HLSL Change Ends
   // HLSL Change Begins
   case llvm::Triple::dxil:
   case llvm::Triple::dxil64:
-    return *(TheTargetCodeGenInfo = new MSDXILTargetCodeGenInfo(Types));
+    TheTargetCodeGenInfo.reset(new MSDXILTargetCodeGenInfo(Types));
+    break;
   // HLSL Change Ends
   }
+  return *(TheTargetCodeGenInfo.get());
 }

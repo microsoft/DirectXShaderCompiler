@@ -44,11 +44,16 @@ using namespace llvm;
 // as non-transformable. If we see an instruction that converts from the 
 // integer domain to FP domain (uitofp,sitofp), we terminate our walk.
 
+#if 0 // HLSL Change Starts - option pending
 /// The largest integer type worth dealing with.
 static cl::opt<unsigned>
 MaxIntegerBW("float2int-max-integer-bw", cl::init(64), cl::Hidden,
              cl::desc("Max integer bitwidth to consider in float2int"
                       "(default=64)"));
+
+#else
+static const unsigned MaxIntegerBW = 64;
+#endif // HLSL Change Ends
 
 namespace {
   struct Float2Int : public FunctionPass {

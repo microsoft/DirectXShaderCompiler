@@ -176,10 +176,24 @@ RealFileSystem::openFileForRead(const Twine &Name) {
   return std::move(Result);
 }
 
+#if 0 // HLSL Change Starts
+
 IntrusiveRefCntPtr<FileSystem> vfs::getRealFileSystem() {
   static IntrusiveRefCntPtr<FileSystem> FS = new RealFileSystem();
   return FS;
 }
+
+#else 
+
+static RealFileSystem g_RealFileSystem;
+
+IntrusiveRefCntPtr<FileSystem> vfs::getRealFileSystem() {
+  g_RealFileSystem.Retain(); // never let go - TODO: guard against refcount wraparound
+  IntrusiveRefCntPtr<FileSystem> Result(&g_RealFileSystem);
+  return Result;
+}
+
+#endif // HLSL Change Ends
 
 namespace {
 class RealFSDirIter : public clang::vfs::detail::DirIterImpl {

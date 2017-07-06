@@ -16,6 +16,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <map>
 #include <cassert>
 #include <sstream>
 #include <algorithm>
@@ -93,13 +94,14 @@ void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outpt
 
 // VersionSupportInfo Implementation
 VersionSupportInfo::VersionSupportInfo() :
-  m_CompilerPreservesBBNames(false),
+  m_CompilerIsDebugBuild(false),
   m_InternalValidator(false),
   m_DxilMajor(0),
   m_DxilMinor(0),
   m_ValMajor(0),
   m_ValMinor(0)
 {}
+
 void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
   VERIFY_IS_TRUE(dllSupport.IsEnabled());
 
@@ -114,7 +116,7 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
   if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pVersionInfo))) {
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_DxilMajor, &m_DxilMinor));
     VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+    m_CompilerIsDebugBuild = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
     pVersionInfo.Release();
   }
 
@@ -126,7 +128,7 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
       m_InternalValidator = (VersionFlags & DxcVersionInfoFlags_Internal) ? true : false;
     } else {
       // With old compiler, validator is the only way to get this
-      m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+      m_CompilerIsDebugBuild = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
     }
   } else {
     // If create instance of IDxcVersionInfo on validator failed, we have an old validator from dxil.dll
@@ -134,8 +136,9 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
   }
 }
 bool VersionSupportInfo::SkipIRSensitiveTest() {
-  if (!m_CompilerPreservesBBNames) {
-    WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirment.");
+  // Only debug builds preserve BB names.
+  if (!m_CompilerIsDebugBuild) {
+    WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirement.");
     return true;
   }
   return false;
@@ -147,7 +150,13 @@ bool VersionSupportInfo::SkipDxil_1_1_Test() {
   }
   return false;
 }
-
+bool VersionSupportInfo::SkipOutOfMemoryTest() {
+  if (m_CompilerIsDebugBuild) { // same detection logic at the moment
+    WEX::Logging::Log::Comment(L"Test skipped due to out-of-memory robustness requirement.");
+    return true;
+  }
+  return false;
+}
 
 // Aligned to SymTagEnum.
 const char *SymTagEnumText[] =
@@ -350,6 +359,7 @@ public:
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
 
+  TEST_METHOD(CompileWhenNoMemThenOOM)
   TEST_METHOD(CompileWhenShaderModelMismatchAttributeThenFail)
   TEST_METHOD(CompileBadHlslThenFail)
   TEST_METHOD(CompileLegacyShaderModelThenFail)
@@ -2059,6 +2069,226 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
     pResult.Release();
     VERIFY_SUCCEEDED(pValidator->Validate(pAssembledBlob, DxcValidatorFlags_Default, &pResult));
     VerifyOperationSucceeded(pResult);
+  }
+}
+
+static const UINT CaptureStacks = 1; // Set to 1 to enable captures
+static const UINT StackFrameCount = 12;
+static const UINT StackFrameCountForRefs = 4;
+
+struct InstrumentedHeapMalloc : public IMalloc {
+private:
+  HANDLE m_Handle;        // Heap handle.
+  ULONG m_RefCount = 0;   // Reference count. Used for reference leaks, not for lifetime.
+  ULONG m_AllocCount = 0; // Total # of alloc and realloc requests.
+  ULONG m_AllocSize = 0;  // Total # of alloc and realloc bytes.
+  ULONG m_Size = 0;       // Current # of alloc'ed bytes.
+  ULONG m_FailAlloc = 0;  // If nonzero, the alloc/realloc call to fail.
+  // Each allocation also tracks the following information:
+  // - allocation callstack
+  // - deallocation callstack
+  // - prior/next blocks in a list of allocated blocks
+  LIST_ENTRY AllocList;
+  struct PtrData {
+    LIST_ENTRY Entry;
+    PVOID AllocFrames[CaptureStacks ? StackFrameCount * CaptureStacks : 1];
+    PVOID FreeFrames[CaptureStacks ? StackFrameCount * CaptureStacks : 1];
+    UINT64 AllocAtCount;
+    DWORD AllocFrameCount;
+    DWORD FreeFrameCount;
+    SIZE_T Size;
+    PtrData *Self;
+  };
+  PtrData *DataFromPtr(void *p) {
+    if (p == nullptr) return nullptr;
+    PtrData *R = ((PtrData *)p) - 1;
+    if (R != R->Self) {
+      VERIFY_FAIL(); // p is invalid or underrun
+    }
+    return R;
+  }
+public:
+  InstrumentedHeapMalloc() : m_Handle(nullptr) {
+    ResetCounts();
+  }
+  ~InstrumentedHeapMalloc() {
+    if (m_Handle)
+      HeapDestroy(m_Handle);
+  }
+  void ResetHeap() {
+    if (m_Handle) {
+      HeapDestroy(m_Handle);
+      m_Handle = nullptr;
+    }
+    m_Handle = HeapCreate(HEAP_NO_SERIALIZE, 0, 0);
+  }
+  ULONG GetRefCount() const { return m_RefCount; }
+  ULONG GetAllocCount() const { return m_AllocCount; }
+  ULONG GetAllocSize() const { return m_AllocSize; }
+  ULONG GetSize() const { return m_Size; }
+
+  void ResetCounts() {
+    m_RefCount = m_AllocCount = m_AllocSize = m_Size = 0;
+    AllocList.Blink = AllocList.Flink = &AllocList;
+  }
+  void SetFailAlloc(ULONG index) {
+    m_FailAlloc = index;
+  }
+
+  ULONG STDMETHODCALLTYPE AddRef() {
+    return ++m_RefCount;
+  }
+  ULONG STDMETHODCALLTYPE Release() {
+    if (m_RefCount == 0) VERIFY_FAIL();
+    return --m_RefCount;
+  }
+  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) {
+    return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
+  }
+  virtual void *STDMETHODCALLTYPE Alloc(_In_ SIZE_T cb) {
+    ++m_AllocCount;
+    if (m_FailAlloc && m_AllocCount >= m_FailAlloc) {
+      return nullptr; // breakpoint for i failure - m_FailAlloc == 1+VAL
+    }
+    m_AllocSize += cb;
+    m_Size += cb;
+    PtrData *P = (PtrData *)HeapAlloc(m_Handle, HEAP_ZERO_MEMORY, sizeof(PtrData) + cb);
+    P->Entry.Flink = AllocList.Flink;
+    P->Entry.Blink = &AllocList;
+    AllocList.Flink->Blink = &(P->Entry);
+    AllocList.Flink = &(P->Entry);
+    // breakpoint for i failure on NN alloc - m_FailAlloc == 1+VAL && m_AllocCount == NN
+    // breakpoint for happy path for NN alloc - m_AllocCount == NN
+    P->AllocAtCount = m_AllocCount;
+    if (CaptureStacks)
+      P->AllocFrameCount = CaptureStackBackTrace(1, StackFrameCount, P->AllocFrames, nullptr);
+    P->Size = cb;
+    P->Self = P;
+    return P + 1;
+  }
+
+  virtual void *STDMETHODCALLTYPE Realloc(_In_opt_ void *pv, _In_ SIZE_T cb) {
+    void *R = Alloc(cb);
+    if (!R)
+      return nullptr;
+    Free(pv);
+    return R;
+  }
+
+  virtual void STDMETHODCALLTYPE Free(_In_opt_ void *pv) {
+    if (!pv)
+      return;
+    PtrData *P = DataFromPtr(pv);
+    if (P->FreeFrameCount)
+      VERIFY_FAIL(); // double-free detected
+    m_Size -= P->Size;
+    P->Entry.Flink->Blink = P->Entry.Blink;
+    P->Entry.Blink->Flink = P->Entry.Flink;
+    if (CaptureStacks)
+      P->FreeFrameCount =
+          CaptureStackBackTrace(1, StackFrameCount, P->FreeFrames, nullptr);
+  }
+
+  virtual SIZE_T STDMETHODCALLTYPE GetSize(
+    /* [annotation][in] */
+    _In_opt_ _Post_writable_byte_size_(return)  void *pv)
+  {
+    if (pv == nullptr) return 0;
+    return DataFromPtr(pv)->Size;
+  }
+
+  virtual int STDMETHODCALLTYPE DidAlloc(
+      _In_opt_ void *pv) {
+    return -1; // don't know
+  }
+
+  virtual void STDMETHODCALLTYPE HeapMinimize(void) {}
+};
+
+TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  CreateBlobFromText(EmptyCompute, &pSource);
+
+  InstrumentedHeapMalloc InstrMalloc;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  ULONG allocCount = 0;
+  ULONG allocSize = 0;
+  ULONG initialRefCount;
+
+  InstrMalloc.ResetHeap();
+
+  VERIFY_IS_TRUE(m_dllSupport.HasCreateWithMalloc());
+
+  // Verify a simple object creation.
+  initialRefCount = InstrMalloc.GetRefCount();
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance2(&InstrMalloc, CLSID_DxcCompiler, &pCompiler));
+  pCompiler.Release();
+  VERIFY_IS_TRUE(0 == InstrMalloc.GetSize());
+  VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
+  InstrMalloc.ResetCounts();
+  InstrMalloc.ResetHeap();
+
+  // First time, run to completion and capture stats.
+  initialRefCount = InstrMalloc.GetRefCount();
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance2(&InstrMalloc, CLSID_DxcCompiler, &pCompiler));
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"cs_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
+  allocCount = InstrMalloc.GetAllocCount();
+  allocSize = InstrMalloc.GetAllocSize();
+  pCompiler.Release();
+  pResult.Release();
+
+  VERIFY_IS_TRUE(allocSize > allocCount);
+
+  // Ensure that after all resources are released, there are no outstanding
+  // allocations or references.
+  //
+  // First leak is in ((InstrumentedHeapMalloc::PtrData *)InstrMalloc.AllocList.Flink)
+  VERIFY_IS_TRUE(0 == InstrMalloc.GetSize());
+  VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
+
+  // In Debug, for the typical configuration, debug iterators will be used;
+  // this causes a problem where std::string is specified as noexcept, and yet
+  // a sentinel is allocated that may fail and throw.
+  // Skip the failure tests in Debug, run them in Release.
+  // To run this in Debug without debug iterators, add the following line to the root CMakeLists.txt
+  // add_definitions(/D_ITERATOR_DEBUG_LEVEL=0) 
+
+  if (m_ver.SkipOutOfMemoryTest()) return;
+
+  // Now, fail each allocation and make sure we get an error.
+  for (ULONG i = 0; i <= allocCount; ++i) {
+    LogCommentFmt(L"alloc fail %u", i);
+    bool isLast = i == allocCount;
+    InstrMalloc.ResetCounts();
+    InstrMalloc.ResetHeap();
+    InstrMalloc.SetFailAlloc(i + 1);
+    HRESULT hrOp = m_dllSupport.CreateInstance2(&InstrMalloc, CLSID_DxcCompiler, &pCompiler);
+    if (SUCCEEDED(hrOp)) {
+      hrOp = pCompiler->Compile(pSource, L"source.hlsl", L"main", L"cs_6_0",
+                                nullptr, 0, nullptr, 0, nullptr, &pResult);
+      if (SUCCEEDED(hrOp)) {
+        pResult->GetStatus(&hrOp);
+      }
+    }
+    if (FAILED(hrOp)) {
+      // This is true in *almost* every case. When the OOM happens during stream
+      // handling, there is no specific error set; by the time it's detected,
+      // it propagates as E_FAIL.
+      //VERIFY_ARE_EQUAL(hrOp, E_OUTOFMEMORY);
+      VERIFY_IS_TRUE(hrOp == E_OUTOFMEMORY || hrOp == E_FAIL);
+    }
+    if (isLast)
+      VERIFY_SUCCEEDED(hrOp);
+    else
+      VERIFY_FAILED(hrOp);
+    pCompiler.Release();
+    pResult.Release();
+    VERIFY_IS_TRUE(0 == InstrMalloc.GetSize()); // breakpoint for i failure - i == val
+    VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
   }
 }
 

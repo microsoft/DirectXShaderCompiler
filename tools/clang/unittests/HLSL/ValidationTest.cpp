@@ -19,6 +19,7 @@
 #include "dxc/HLSL/DxilContainer.h"
 
 #include <atlbase.h>
+#include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
 
 #include "WexTestClass.h"

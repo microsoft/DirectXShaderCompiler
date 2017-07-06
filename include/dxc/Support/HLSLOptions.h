@@ -52,6 +52,8 @@ enum ID {
   };
 
 const llvm::opt::OptTable *getHlslOptTable();
+std::error_code initHlslOptTable();
+void cleanupHlslOptTable();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Helper classes to deal with options.

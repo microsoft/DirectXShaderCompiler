@@ -31,8 +31,12 @@ using namespace llvm;
 
 #define DEBUG_TYPE "cgscc-passmgr"
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned> 
 MaxIterations("max-cg-scc-iterations", cl::ReallyHidden, cl::init(4));
+#else
+static const unsigned MaxIterations = 4;
+#endif
 
 STATISTIC(MaxSCCIterations, "Maximum CGSCCPassMgr iterations on one SCC");
 
@@ -546,6 +550,7 @@ void CallGraphSCC::ReplaceNode(CallGraphNode *Old, CallGraphNode *New) {
 /// Assign pass manager to manage this pass.
 void CallGraphSCCPass::assignPassManager(PMStack &PMS,
                                          PassManagerType PreferredType) {
+  std::unique_ptr<CallGraphSCCPass> thisPtr(this); // HLSL Change
   // Find CGPassManager 
   while (!PMS.empty() &&
          PMS.top()->getPassManagerType() > PMT_CallGraphPassManager)
@@ -577,6 +582,7 @@ void CallGraphSCCPass::assignPassManager(PMStack &PMS,
     PMS.push(CGP);
   }
 
+  thisPtr.release();
   CGP->add(this);
 }
 

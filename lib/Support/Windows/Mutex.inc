@@ -24,15 +24,16 @@ using namespace sys;
 
 MutexImpl::MutexImpl(bool /*recursive*/)
 {
-  data_ = new CRITICAL_SECTION;
+  C_ASSERT(sizeof(data_) == sizeof(CRITICAL_SECTION));
+  // data_ = new CRITICAL_SECTION; // HLSL Change
   InitializeCriticalSection((LPCRITICAL_SECTION)data_);
 }
 
 MutexImpl::~MutexImpl()
 {
   DeleteCriticalSection((LPCRITICAL_SECTION)data_);
-  delete (LPCRITICAL_SECTION)data_;
-  data_ = 0;
+  // delete (LPCRITICAL_SECTION)data_; // HLSL Change
+  // data_ = 0; // HLSL Change
 }
 
 bool

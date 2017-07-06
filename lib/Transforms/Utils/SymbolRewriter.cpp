@@ -75,9 +75,11 @@
 using namespace llvm;
 using namespace SymbolRewriter;
 
+#if 0 // HLSL Change Starts - option pending
 static cl::list<std::string> RewriteMapFiles("rewrite-map-file",
                                              cl::desc("Symbol Rewrite Map"),
                                              cl::value_desc("filename"));
+#endif // HLSL Change Ends
 
 static void rewriteComdat(Module &M, GlobalObject *GO,
                           const std::string &Source,
@@ -532,7 +534,7 @@ bool RewriteSymbols::runOnModule(Module &M) {
 }
 
 void RewriteSymbols::loadAndParseMapFiles() {
-  const std::vector<std::string> MapFiles(RewriteMapFiles);
+  const std::vector<std::string> MapFiles; // HLSL Change - do not init from a global RewriteMapFiles
   SymbolRewriter::RewriteMapParser parser;
 
   for (const auto &MapFile : MapFiles)

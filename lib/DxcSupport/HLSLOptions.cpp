@@ -46,10 +46,23 @@ namespace {
 
 }
 
-static HlslOptTable g_HlslOptTable;
+static HlslOptTable *g_HlslOptTable;
+
+std::error_code hlsl::options::initHlslOptTable() {
+  DXASSERT(g_HlslOptTable == nullptr, "else double-init");
+  g_HlslOptTable = new (std::nothrow) HlslOptTable();
+  if (g_HlslOptTable == nullptr)
+    return std::error_code(E_OUTOFMEMORY, std::system_category());
+  return std::error_code();
+}
+
+void hlsl::options::cleanupHlslOptTable() {
+  delete g_HlslOptTable;
+  g_HlslOptTable = nullptr;
+}
 
 const OptTable * hlsl::options::getHlslOptTable() {
-  return &g_HlslOptTable;
+  return g_HlslOptTable;
 }
 
 void DxcDefines::push_back(llvm::StringRef value) {

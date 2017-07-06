@@ -234,7 +234,7 @@ void Option::setArgStr(const char *S) {
 }
 
 // Initialise the general option category.
-OptionCategory llvm::cl::GeneralCategory("General options");
+OptionCategory *llvm::cl::GeneralCategory; // HLSL Change - GeneralCategory is now a pointer
 
 void OptionCategory::registerCategory() {
   GlobalParser->registerCategory(this);
@@ -817,7 +817,7 @@ void cl::ParseCommandLineOptions(int argc, const char *const *argv,
 void CommandLineParser::ParseCommandLineOptions(int argc,
                                                 const char *const *argv,
                                                 const char *Overview) {
-  assert(hasOptions() && "No options specified!");
+  // assert(hasOptions() && "No options specified!"); // HLSL Change - it's valid to have no options for the DLL build
 
   // Expand response files.
   SmallVector<const char *, 20> newArgv(argv, argv + argc);
@@ -1657,6 +1657,8 @@ static HelpPrinterWrapper WrappedNormalPrinter(UncategorizedNormalPrinter,
 static HelpPrinterWrapper WrappedHiddenPrinter(UncategorizedHiddenPrinter,
                                                CategorizedHiddenPrinter);
 
+#if 0 // HLSL Change Starts
+
 // Define a category for generic options that all tools should have.
 static cl::OptionCategory GenericCategory("Generic Options");
 
@@ -1713,6 +1715,13 @@ void HelpPrinterWrapper::operator=(bool Value) {
   } else
     UncategorizedPrinter = true; // Invoke uncategorized printer
 }
+#else
+static const bool PrintOptions = false;
+static const bool PrintAllOptions = false;
+
+void HelpPrinterWrapper::operator=(bool Value) {
+}
+#endif // HLSL Change Ends
 
 // Print the value of each option.
 void cl::PrintOptionValues() { GlobalParser->printOptionValues(); }
@@ -1795,10 +1804,14 @@ public:
 // Define the --version option that prints out the LLVM version for the tool
 static VersionPrinter VersionPrinterInstance;
 
+#if 0 // HLSL Change Starts
 static cl::opt<VersionPrinter, true, parser<bool>>
     VersOp("version", cl::desc("Display the version of this program"),
            cl::location(VersionPrinterInstance), cl::ValueDisallowed,
            cl::cat(GenericCategory));
+#else
+static const OptionCategory *GenericCategory;
+#endif // HLSL Change Ends
 
 // Utility function for printing the help message.
 void cl::PrintHelpMessage(bool Hidden, bool Categorized) {
@@ -1838,7 +1851,7 @@ StringMap<Option *> &cl::getRegisteredOptions() {
 void cl::HideUnrelatedOptions(cl::OptionCategory &Category) {
   for (auto &I : GlobalParser->OptionsMap) {
     if (I.second->Category != &Category &&
-        I.second->Category != &GenericCategory)
+        I.second->Category != GenericCategory) // HLSL Change - use pointer
       I.second->setHiddenFlag(cl::ReallyHidden);
   }
 }
@@ -1849,7 +1862,7 @@ void cl::HideUnrelatedOptions(ArrayRef<const cl::OptionCategory *> Categories) {
   for (auto &I : GlobalParser->OptionsMap) {
     if (std::find(CategoriesBegin, CategoriesEnd, I.second->Category) ==
             CategoriesEnd &&
-        I.second->Category != &GenericCategory)
+        I.second->Category != GenericCategory) // HLSL Change - use pointer
       I.second->setHiddenFlag(cl::ReallyHidden);
   }
 }

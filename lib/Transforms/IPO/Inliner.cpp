@@ -46,6 +46,7 @@ STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 // if those would be more profitable and blocked inline steps.
 STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
 
+#if 0 // HLSL Change Starts
 static cl::opt<int>
 InlineLimit("inline-threshold", cl::Hidden, cl::init(225), cl::ZeroOrMore,
         cl::desc("Control the amount of inlining to perform (default = 225)"));
@@ -60,6 +61,19 @@ HintThreshold("inlinehint-threshold", cl::Hidden, cl::init(325),
 static cl::opt<int>
 ColdThreshold("inlinecold-threshold", cl::Hidden, cl::init(225),
               cl::desc("Threshold for inlining functions with cold attribute"));
+#else
+struct NullOpt {
+  NullOpt(int val) : _val(val) {}
+  int _val;
+  int getNumOccurrences() const { return 0; }
+  operator int() const {
+    return _val;
+  }
+};
+static const NullOpt InlineLimit(225);
+static const NullOpt HintThreshold(325);
+static const NullOpt ColdThreshold(225);
+#endif // HLSL Change Ends
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
 const int OptSizeThreshold = 75;

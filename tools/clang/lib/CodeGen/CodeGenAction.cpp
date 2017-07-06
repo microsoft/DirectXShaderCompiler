@@ -74,6 +74,14 @@ namespace clang {
       llvm::TimePassesIsEnabled = TimePasses;
     }
 
+    // HLSL Change Starts - avoid double free
+    ~BackendConsumer() {
+      if (TheModule.get() && Gen.get()) {
+        Gen->ReleaseModule();
+      }
+    }
+    // HLSL Change Ends - avoid double free
+
     std::unique_ptr<llvm::Module> takeModule() { return std::move(TheModule); }
     llvm::Module *takeLinkModule() { return LinkModule.release(); }
 

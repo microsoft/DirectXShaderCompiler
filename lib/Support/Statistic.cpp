@@ -39,11 +39,14 @@ namespace llvm { extern raw_ostream *CreateInfoOutputFile(); }
 /// -stats - Command line option to cause transformations to emit stats about
 /// what they did.
 ///
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool>
 Enabled(
     "stats",
     cl::desc("Enable statistics output from program (available with Asserts)"));
-
+#else
+static const bool Enabled = false;
+#endif // HLSL Change Ends
 
 namespace {
 /// StatisticInfo - This class is used in a ManagedStatic so that it is created
@@ -90,7 +93,7 @@ StatisticInfo::~StatisticInfo() {
 }
 
 void llvm::EnableStatistics() {
-  Enabled.setValue(true);
+  //Enabled.setValue(true); // HLSL Change
 }
 
 bool llvm::AreStatisticsEnabled() {

@@ -43,6 +43,7 @@
 #include <algorithm>
 using namespace llvm;
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool>
 EnableNoAliasConversion("enable-noalias-to-md-conversion", cl::init(true),
   cl::Hidden,
@@ -52,6 +53,10 @@ static cl::opt<bool>
 PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(true), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
+#else
+static const bool EnableNoAliasConversion = true;
+static const bool PreserveAlignmentAssumptions = true;
+#endif // HLSL Change Ends
 
 bool llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
                           bool InsertLifetime) {

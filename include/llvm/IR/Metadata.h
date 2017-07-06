@@ -755,8 +755,9 @@ protected:
   void operator delete(void *Mem);
 
   /// \brief Required by std, but never called.
-  void operator delete(void *, unsigned) {
-    llvm_unreachable("Constructor throws?");
+  void operator delete(void *Mem, unsigned) {
+    //llvm_unreachable("Constructor throws?"); // HLSL Change - why, yes; yes it does (under OOM)
+    MDNode::operator delete(Mem);
   }
 
   /// \brief Required by std, but never called.
@@ -903,7 +904,9 @@ private:
   /// \pre \a isTemporary().
   void makeDistinct();
 
+public: // HLSL Change - make deleteAsSubclass accessible
   void deleteAsSubclass();
+private:
   MDNode *uniquify();
   void eraseFromStore();
 

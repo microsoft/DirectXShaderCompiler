@@ -34,12 +34,17 @@ using namespace llvm;
 STATISTIC(ExpectIntrinsicsHandled,
           "Number of 'expect' intrinsic instructions handled");
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<uint32_t>
 LikelyBranchWeight("likely-branch-weight", cl::Hidden, cl::init(64),
                    cl::desc("Weight of the branch likely to be taken (default = 64)"));
 static cl::opt<uint32_t>
 UnlikelyBranchWeight("unlikely-branch-weight", cl::Hidden, cl::init(4),
                    cl::desc("Weight of the branch unlikely to be taken (default = 4)"));
+#else
+static const uint32_t LikelyBranchWeight = 64;
+static const uint32_t UnlikelyBranchWeight = 4;
+#endif
 
 static bool handleSwitchExpect(SwitchInst &SI) {
   CallInst *CI = dyn_cast<CallInst>(SI.getCondition());
@@ -51,13 +56,18 @@ static bool handleSwitchExpect(SwitchInst &SI) {
     return false;
 
   Value *ArgValue = CI->getArgOperand(0);
-  ConstantInt *ExpectedValue = dyn_cast<ConstantInt>(CI->getArgOperand(1));
+  ConstantInt *ExpectedValue = dyn_cast<ConstantInt>(CI->getArgOperand(1)); 
   if (!ExpectedValue)
     return false;
 
   SwitchInst::CaseIt Case = SI.findCaseValue(ExpectedValue);
   unsigned n = SI.getNumCases(); // +1 for default case.
+#if 0 // HLSL Change - help the compiler pick the right constructor overload
   SmallVector<uint32_t, 16> Weights(n + 1, UnlikelyBranchWeight);
+#else
+  SmallVector<uint32_t, 16> Weights;
+  Weights.assign(n + 1, UnlikelyBranchWeight);
+#endif
 
   if (Case == SI.case_default())
     Weights[0] = LikelyBranchWeight;

@@ -12,8 +12,8 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/Support/ErrorCodes.h"
-#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -44,6 +44,9 @@ HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 class DxcLinker : public IDxcLinker, public IDxcContainerEvent {
 public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcLinker)
+
   // Register a library with name to ref it later.
   __override HRESULT RegisterLibrary(
       _In_opt_ LPCWSTR pLibName, // Name of the library.
@@ -65,10 +68,9 @@ public:
           *ppResult // Linker output status, buffer, and errors
   );
 
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-
   __override HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
       IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) {
+    DxcThreadMalloc TM(m_pMalloc);
     DXASSERT(m_pDxcContainerEventsHandler == nullptr,
              "else events handler is already registered");
     *pCookie = 1; // Only one EventsHandler supported
@@ -77,6 +79,7 @@ public:
   };
   __override HRESULT STDMETHODCALLTYPE
   UnRegisterDxilContainerEventHandler(UINT64 cookie) {
+    DxcThreadMalloc TM(m_pMalloc);
     DXASSERT(m_pDxcContainerEventsHandler != nullptr,
              "else unregister should not have been called");
     m_pDxcContainerEventsHandler.Release();
@@ -87,7 +90,7 @@ public:
     return DoBasicQueryInterface<IDxcLinker>(this, riid, ppvObject);
   }
 
-  DxcLinker() : m_dwRef(0), m_pLinker(nullptr) {
+  void Initialize() {
     m_pLinker.reset(DxilLinker::CreateLinker(m_Ctx));
   }
 
@@ -97,10 +100,8 @@ public:
   }
 
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
-
+  DXC_MICROCOM_TM_REF_FIELDS()
   LLVMContext m_Ctx;
-
   std::unique_ptr<DxilLinker> m_pLinker;
   CComPtr<IDxcContainerEventsHandler> m_pDxcContainerEventsHandler;
 };
@@ -109,6 +110,8 @@ HRESULT
 DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
                            _In_ IDxcBlob *pBlob       // Library to add.
 ) {
+  DXASSERT(m_pLinker.get(), "else Initialize() not called or failed silently");
+  DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
   CW2A pUtf8LibName(pLibName, CP_UTF8);
   // Already exist lib with same name.
@@ -153,6 +156,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     _COM_Outptr_ IDxcOperationResult *
         *ppResult // Linker output status, buffer, and errors
 ) {
+  DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
   CW2A pUtf8EntryPoint(pEntryName, CP_UTF8);
   CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
@@ -253,10 +257,13 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 }
 
 HRESULT CreateDxcLinker(_In_ REFIID riid, _Out_ LPVOID *ppv) {
-  CComPtr<IDxcLinker> Result = new (std::nothrow) DxcLinker();
-  if (Result == nullptr) {
-    *ppv = nullptr;
-    return E_OUTOFMEMORY;
+  *ppv = nullptr;
+  CComPtr<DxcLinker> result;
+  try {
+    result = DxcLinker::Alloc(DxcGetThreadMallocNoRef());
+    IFROOM(result.p);
+    result->Initialize();
   }
-  return Result->QueryInterface(riid, ppv);
+  CATCH_CPP_RETURN_HRESULT();
+  return result.p->QueryInterface(riid, ppv);
 }
