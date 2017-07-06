@@ -423,17 +423,28 @@ HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, UINT32 *pCodePage,
 
 _Use_decl_annotations_
 HRESULT
-DxcCreateBlobWithEncodingSet(IDxcBlob *pBlob, UINT32 codePage,
-                             IDxcBlobEncoding **pBlobEncoding) {
-  *pBlobEncoding = nullptr;
+DxcCreateBlobWithEncodingSet(IMalloc *pMalloc, IDxcBlob *pBlob, UINT32 codePage,
+                             IDxcBlobEncoding **ppBlobEncoding) {
+  DXASSERT_NOMSG(pMalloc != nullptr);
+  DXASSERT_NOMSG(pBlob != nullptr);
+  DXASSERT_NOMSG(ppBlobEncoding != nullptr);
+  *ppBlobEncoding = nullptr;
 
   InternalDxcBlobEncoding *internalEncoding;
-  HRESULT hr = InternalDxcBlobEncoding::CreateFromBlob(pBlob, DxcGetThreadMallocNoRef(), true, codePage,
-                                                       &internalEncoding);
+  HRESULT hr = InternalDxcBlobEncoding::CreateFromBlob(
+      pBlob, pMalloc, true, codePage, &internalEncoding);
   if (SUCCEEDED(hr)) {
-    *pBlobEncoding = internalEncoding;
+    *ppBlobEncoding = internalEncoding;
   }
   return hr;
+}
+
+_Use_decl_annotations_
+HRESULT
+DxcCreateBlobWithEncodingSet(IDxcBlob *pBlob, UINT32 codePage,
+                             IDxcBlobEncoding **ppBlobEncoding) {
+  return DxcCreateBlobWithEncodingSet(DxcGetThreadMallocNoRef(), pBlob,
+                                      codePage, ppBlobEncoding);
 }
 
 _Use_decl_annotations_
@@ -530,6 +541,23 @@ DxcCreateBlobWithEncodingOnMalloc(LPCVOID pText, IMalloc *pIMalloc, UINT32 size,
     *pBlobEncoding = internalEncoding;
   }
   return hr;
+}
+
+_Use_decl_annotations_
+HRESULT
+DxcCreateBlobWithEncodingOnMallocCopy(IMalloc *pIMalloc, LPCVOID pText, UINT32 size, UINT32 codePage,
+  IDxcBlobEncoding **ppBlobEncoding) {
+  *ppBlobEncoding = nullptr;
+  void *pData = pIMalloc->Alloc(size);
+  if (pData == nullptr)
+    return E_OUTOFMEMORY;
+  memcpy(pData, pText, size);
+  HRESULT hr = DxcCreateBlobWithEncodingOnMalloc(pData, pIMalloc, size, codePage, ppBlobEncoding);
+  if (FAILED(hr)) {
+    pIMalloc->Free(pData);
+    return hr;
+  }
+  return S_OK;
 }
 
 

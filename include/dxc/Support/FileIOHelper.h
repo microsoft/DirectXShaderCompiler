@@ -147,7 +147,11 @@ DxcCreateBlobOnHeapCopy(_In_bytecount_(size) LPCVOID pData, UINT32 size,
 // Given a blob, creates a new instance with a specific code page set.
 HRESULT
 DxcCreateBlobWithEncodingSet(_In_ IDxcBlob *pBlob, UINT32 codePage,
-                             _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+                             _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw();
+HRESULT
+DxcCreateBlobWithEncodingSet(
+    _In_ IMalloc *pMalloc, _In_ IDxcBlob *pBlob, UINT32 codePage,
+    _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw();
 
 HRESULT DxcCreateBlobWithEncodingFromPinned(
     _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
@@ -172,6 +176,11 @@ DxcCreateBlobWithEncodingOnHeapCopy(
 HRESULT
 DxcCreateBlobWithEncodingOnMalloc(
   _In_bytecount_(size) LPCVOID pText, IMalloc *pIMalloc, UINT32 size, UINT32 codePage,
+  _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
+
+HRESULT
+DxcCreateBlobWithEncodingOnMallocCopy(
+  _In_ IMalloc *pIMalloc, _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
   _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
 HRESULT DxcGetBlobAsUtf8(_In_ IDxcBlob *pBlob,

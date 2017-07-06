@@ -829,10 +829,16 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
 }
 
 int __cdecl wmain(int argc, const wchar_t **argv_) {
-  const char *pStage = "Operation";
+  const char *pStage = "Initialization";
   int retVal = 0;
   try {
     auto t_start = std::chrono::high_resolution_clock::now();
+
+    std::error_code ec = hlsl::options::initHlslOptTable();
+    if (ec) {
+      fprintf(stderr, "%s failed - %s.\n", pStage, ec.message().c_str());
+      return ec.value();
+    }
 
     pStage = "Argument processing";
     const char *kMultiThreadArg = "-multi-thread";

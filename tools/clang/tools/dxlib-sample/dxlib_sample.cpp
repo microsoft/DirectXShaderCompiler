@@ -10,8 +10,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
@@ -119,7 +119,8 @@ void IncludeToLibPreprocessor::SetupDefines(const DxcDefine *pDefines,
 HRESULT IncludeToLibPreprocessor::Preprocess(IDxcBlob *pSource,
                                              LPCWSTR pFilename) {
   CComPtr<IDxcBlobEncoding> pEncodingIncludeSource;
-  DxcCreateBlobWithEncodingSet(pSource, CP_UTF8, &pEncodingIncludeSource);
+  IFR(DxcCreateBlobWithEncodingSet(GetGlobalHeapMalloc(), pSource, CP_UTF8,
+                                   &pEncodingIncludeSource));
 
   // Create header with no function body.
   CComPtr<IDxcRewriter> pRewriter;
@@ -376,6 +377,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     CompileInput compilerInput{defines, arguments};
 
     EmptyIncludeHandler emptyIncludeHandler;
+    emptyIncludeHandler.AddRef(); // On stack - don't try to delete on last Release().
     EmptyIncludeHandler *pEmptyIncludeHandler = &emptyIncludeHandler;
     LibCacheManager &libCache = GetLibCacheManager();
     LLVMContext llvmContext;
@@ -386,8 +388,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     std::vector<LPCWSTR> hashList;
     for (const auto &header : headers) {
       CComPtr<IDxcBlob> pOutputBlob;
-      CComPtr<IDxcBlob> pSource;
-      IFT(DxcCreateBlobOnHeap(header.data(), header.size(), &pSource));
+      CComPtr<IDxcBlobEncoding> pSource;
+      IFT(DxcCreateBlobWithEncodingOnMallocCopy(GetGlobalHeapMalloc(), header.data(), header.size(), CP_UTF8, &pSource));
       size_t hash;
       if (!libCache.GetLibBlob(pSource, compilerInput, hash, &pOutputBlob)) {
         // Cannot find existing blob, create from pSource.
@@ -435,7 +437,6 @@ HRESULT WINAPI DxilD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
   IFR(CreateLibrary(&library));
   IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
-
   HRESULT hr;
   try {
     CA2W pFileName(pSourceName);
