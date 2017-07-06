@@ -56,6 +56,7 @@ public:
   TEST_METHOD(RunMatrixSyntax);
   TEST_METHOD(RunPackReg);
   TEST_METHOD(RunScalarAssignments);
+  TEST_METHOD(RunShared);
   TEST_METHOD(RunStructAssignments);
   TEST_METHOD(RunTemplateChecks);
   TEST_METHOD(RunTypemodsSyntax);
@@ -310,6 +311,10 @@ TEST_F(RewriterTest, RunPackReg) {
 
 TEST_F(RewriterTest, RunScalarAssignments) {
     CheckVerifiesHLSL(L"rewriter\\scalar-assignments_noerr.hlsl", L"rewriter\\correct_rewrites\\scalar-assignments_gold.hlsl");
+}
+
+TEST_F(RewriterTest, RunShared) {
+    CheckVerifiesHLSL(L"rewriter\\shared.hlsl", L"rewriter\\correct_rewrites\\shared.hlsl");
 }
 
 TEST_F(RewriterTest, RunStructAssignments) {
