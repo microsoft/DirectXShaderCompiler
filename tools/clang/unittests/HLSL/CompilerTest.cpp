@@ -371,6 +371,13 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
 
+  TEST_METHOD(PixRemoveDiscards)
+  TEST_METHOD(PixConstantColor)
+  TEST_METHOD(PixConstantColorInt)
+  TEST_METHOD(PixConstantColorMRT)
+  TEST_METHOD(PixConstantColorUAVs)
+  TEST_METHOD(PixConstantColorOtherSIVs)
+
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
   TEST_METHOD(CodeGenAllLit)
@@ -561,6 +568,7 @@ public:
   TEST_METHOD(CodeGenMinprec5)
   TEST_METHOD(CodeGenMinprec6)
   TEST_METHOD(CodeGenMinprec7)
+  TEST_METHOD(CodeGenModf)
   TEST_METHOD(CodeGenMinprecCast)
   TEST_METHOD(CodeGenMultiUAVLoad1)
   TEST_METHOD(CodeGenMultiUAVLoad2)
@@ -573,6 +581,7 @@ public:
   TEST_METHOD(CodeGenNeg1)
   TEST_METHOD(CodeGenNeg2)
   TEST_METHOD(CodeGenNegabs1)
+  TEST_METHOD(CodeGenNoise)
   TEST_METHOD(CodeGenNonUniform)
   TEST_METHOD(CodeGenOptForNoOpt)
   TEST_METHOD(CodeGenOptForNoOpt2)
@@ -2448,6 +2457,30 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
+TEST_F(CompilerTest, PixRemoveDiscards) {
+  CodeGenTestCheck(L"pix\\removeDiscards.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColor) {
+  CodeGenTestCheck(L"pix\\constantcolor.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColorInt) {
+  CodeGenTestCheck(L"pix\\constantcolorint.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColorMRT) {
+  CodeGenTestCheck(L"pix\\constantcolorMRT.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColorUAVs) {
+  CodeGenTestCheck(L"pix\\constantcolorUAVs.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColorOtherSIVs) {
+  CodeGenTestCheck(L"pix\\constantcolorOtherSIVs.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenAbs1) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\abs1.hlsl");
 }
@@ -3213,6 +3246,10 @@ TEST_F(CompilerTest, CodeGenMinprec7) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\minprec7.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenModf) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\modf.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenMinprecCast) {
   CodeGenTest(L"..\\CodeGenHLSL\\minprec_cast.hlsl");
 }
@@ -3263,6 +3300,10 @@ TEST_F(CompilerTest, CodeGenNeg2) {
 
 TEST_F(CompilerTest, CodeGenNegabs1) {
   CodeGenTest(L"..\\CodeGenHLSL\\negabs1.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenNoise) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\noise.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenNonUniform) {

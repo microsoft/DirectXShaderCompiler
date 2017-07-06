@@ -129,8 +129,6 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
 
     raw_stream_ostream DiagStream(pDiagStream);
 
-    llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
-
     IFR(ValidateLoadModuleFromContainer(
         pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
         pDebugModule, m_Ctx, m_Ctx, DiagStream));

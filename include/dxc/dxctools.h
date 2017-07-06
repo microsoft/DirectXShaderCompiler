@@ -14,10 +14,10 @@
 
 #include <dxc/dxcapi.h>
 
-enum RewirterOptionMask {
+enum RewriterOptionMask {
   Default = 0,
   SkipFunctionBody = 1,
-
+  SkipStatic = 2,
 };
 
 struct __declspec(uuid("c012115b-8893-4eb9-9c5a-111456ea1c45"))

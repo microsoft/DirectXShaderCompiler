@@ -298,7 +298,7 @@ void DxilViewIdState::AnalyzeFunctions(EntryInfo &Entry) {
           IFTBOOL(GetUnsignedVal(LI.get_colIndex(), &col), DXC_E_GENERAL_INTERNAL_ERROR);
         } else if (DxilInst_StoreOutput SO = DxilInst_StoreOutput(CI)) {
           pDynIdxElems = &m_OutSigDynIdxElems;
-          IFTBOOL(GetUnsignedVal(SO.get_outputtSigId(), &id), DXC_E_GENERAL_INTERNAL_ERROR);
+          IFTBOOL(GetUnsignedVal(SO.get_outputSigId(), &id), DXC_E_GENERAL_INTERNAL_ERROR);
           GetUnsignedVal(SO.get_rowIndex(), (uint32_t*)&row);
           IFTBOOL(GetUnsignedVal(SO.get_colIndex(), &col), DXC_E_GENERAL_INTERNAL_ERROR);
           Entry.Outputs.emplace(CI);
@@ -371,7 +371,7 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
     if (DxilInst_StoreOutput SO = DxilInst_StoreOutput(CI)) {
       pDxilSig = &m_pModule->GetOutputSignature();
       pContributingValue = SO.get_value();
-      GetUnsignedVal(SO.get_outputtSigId(), &id);
+      GetUnsignedVal(SO.get_outputSigId(), &id);
       GetUnsignedVal(SO.get_colIndex(), &col);
       GetUnsignedVal(SO.get_rowIndex(), (uint32_t*)&startRow);
     } else if (DxilInst_StorePatchConstant SPC = DxilInst_StorePatchConstant(CI)) {

@@ -402,7 +402,7 @@ class db_dxil(object):
         next_op_idx += 1
         self.add_dxil_op("StoreOutput", next_op_idx, "StoreOutput", "stores the value to shader output", "hfwi", "", [ # note, cannot store bit even though load supports it
             retvoid_param,
-            db_dxil_param(2, "u32", "outputtSigId", "output signature element ID"),
+            db_dxil_param(2, "u32", "outputSigId", "output signature element ID"),
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store")])
@@ -1263,6 +1263,13 @@ class db_dxil(object):
         add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
         add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
+        add_pass('hlsl-dxil-constantColor', 'DxilOutputColorBecomesConstant', 'DXIL Constant Color Mod', [
+            {'n':'mod-mode','t':'int','c':1},
+            {'n':'constant-red','t':'float','c':1},
+            {'n':'constant-green','t':'float','c':1},
+            {'n':'constant-blue','t':'float','c':1},
+            {'n':'constant-alpha','t':'float','c':1}])
+        add_pass('hlsl-dxil-remove-discards', 'DxilRemoveDiscards', 'HLSL DXIL Remove all discard instructions', [])
         add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
         add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [])

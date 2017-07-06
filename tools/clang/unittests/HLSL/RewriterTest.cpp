@@ -75,6 +75,7 @@ public:
   TEST_METHOD(RunSemanticDefines);
   TEST_METHOD(RunNoFunctionBody);
   TEST_METHOD(RunNoFunctionBodyInclude);
+  TEST_METHOD(RunNoStatic);
 
   dxc::DxcDllSupport m_dllSupport;
   CComPtr<IDxcIncludeHandler> m_pIncludeHandler;
@@ -343,14 +344,14 @@ TEST_F(RewriterTest, RunIncludes) {
   VERIFY_IS_TRUE(RewriteCompareGoldInclude(
       L"rewriter\\includes.hlsl",
       L"rewriter\\correct_rewrites\\includes_gold.hlsl",
-      RewirterOptionMask::Default));
+      RewriterOptionMask::Default));
 }
 
 TEST_F(RewriterTest, RunNoFunctionBodyInclude) {
   VERIFY_IS_TRUE(RewriteCompareGoldInclude(
       L"rewriter\\includes.hlsl",
       L"rewriter\\correct_rewrites\\includes_gold_nobody.hlsl",
-      RewirterOptionMask::SkipFunctionBody));
+      RewriterOptionMask::SkipFunctionBody));
 }
 
 TEST_F(RewriterTest, RunStructMethods) {
@@ -482,7 +483,7 @@ TEST_F(RewriterTest, RunNoFunctionBody) {
   // Run rewrite no function body on the source code
   VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
       source.BlobEncoding, L"vector-assignments_noerr.hlsl", myDefines,
-      myDefinesCount, /*pIncludeHandler*/ nullptr, RewirterOptionMask::SkipFunctionBody,
+      myDefinesCount, /*pIncludeHandler*/ nullptr, RewriterOptionMask::SkipFunctionBody,
       &pRewriteResult));
 
   CComPtr<IDxcBlob> result;
@@ -491,4 +492,33 @@ TEST_F(RewriterTest, RunNoFunctionBody) {
   VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
                         "// Rewrite unchanged result:\nfloat pick_one(float2 "
                         "f2);\nvoid main();\n") == 0);
+}
+
+TEST_F(RewriterTest, RunNoStatic) {
+  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\attributes_noerr.hlsl")
+          .c_str());
+
+  const int myDefinesCount = 3;
+  DxcDefine myDefines[myDefinesCount] = {
+      {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+  // Run rewrite no function body on the source code
+  VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+      source.BlobEncoding, L"attributes_noerr.hlsl", myDefines, myDefinesCount,
+      /*pIncludeHandler*/ nullptr,
+      RewriterOptionMask::SkipFunctionBody | RewriterOptionMask::SkipStatic,
+      &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  std::string strResult = BlobToUtf8(result);
+  // No static.
+  VERIFY_IS_TRUE(strResult.find("static") == std::string::npos);
 }

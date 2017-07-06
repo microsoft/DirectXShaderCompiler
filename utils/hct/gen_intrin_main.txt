@@ -166,7 +166,7 @@ $type1 [[rn]] log2(in float_like<> x);
 $type1 [[rn,unsigned_op=umad]] mad(in numeric<> a, in $type1 b, in $type1 c);
 $type1 [[rn,unsigned_op=umax]] max(in numeric<> a, in $type1 b);
 $type1 [[rn,unsigned_op=umin]] min(in numeric<> a, in $type1 b);
-$type1 [[rn]] modf(in float_like<> x, out $type1 ip);
+$type1 [[]] modf(in float_like<> x, out $type1 ip);
 uint<4> [[rn]] msad4(in uint reference, in uint<2> source, in uint<4> accum);
 numeric [[rn]] mul(in $match<1, 0> numeric a, in $match<2, 0> numeric b) : mul_ss;
 numeric<c2> [[rn]] mul(in $match<1, 0> numeric a, in $match<2, 0> numeric<c2> b) : mul_sv;
@@ -177,20 +177,19 @@ numeric<c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c> a, in col_maj
 numeric<r, c> [[rn]] mul(in $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric b) : mul_ms;
 numeric<r> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric<c> b) : mul_mv;
 numeric<r, c2> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_mm;
-$match<0, 1> float_like [[rn]] noise(in float_like<c> x);
 $type1 [[rn]] normalize(in float_like<c> x);
 $type1 [[rn]] pow(in float_like<> x, in $type1 y);
 // void printf(in string Format, ...);
-void [[rn]] Process2DQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqavg;
-void [[rn]] Process2DQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmax;
-void [[rn]] Process2DQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmin;
-void [[rn]] ProcessIsolineTessFactors(in float<1> RawDetailFactor, in float<1> RawDensityFactor, out float<1> RoundedDetailFactorr, out float<1> RoundedDensityFactor) : ptf_i;
-void [[rn]] ProcessQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qavg;
-void [[rn]] ProcessQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qmax;
-void [[rn]] ProcessQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qmin;
-void [[rn]] ProcessTriTessFactorsAvg(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tmin;
-void [[rn]] ProcessTriTessFactorsMax(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tmax;
-void [[rn]] ProcessTriTessFactorsMin(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tavg;
+void [[]] Process2DQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqavg;
+void [[]] Process2DQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmax;
+void [[]] Process2DQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<2> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_2dqmin;
+void [[]] ProcessIsolineTessFactors(in float<1> RawDetailFactor, in float<1> RawDensityFactor, out float<1> RoundedDetailFactorr, out float<1> RoundedDensityFactor) : ptf_i;
+void [[]] ProcessQuadTessFactorsAvg(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qavg;
+void [[]] ProcessQuadTessFactorsMax(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qmax;
+void [[]] ProcessQuadTessFactorsMin(in float<4> RawEdgeFactors, in float<1> InsideScale, out float<4> RoundedEdgeFactors, out float<2> RoundedInsideFactors, out float<2> UnroundedInsideFactors) : ptf_qmin;
+void [[]] ProcessTriTessFactorsAvg(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tmin;
+void [[]] ProcessTriTessFactorsMax(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tmax;
+void [[]] ProcessTriTessFactorsMin(in float<3> RawEdgeFactors, in float<1> InsideScale, out float<3> RoundedEdgeFactors, out float<1> RoundedInsideFactor, out float<1> UnroundedInsideFactor) : ptf_tavg;
 $type1 [[rn]] radians(in float_like<> x);
 $type1 [[rn]] rcp(in any_float<> x) : rcp_approx;
 $type1 [[rn]] reflect(in float_like<c> i, in $type1 n);
@@ -306,7 +305,7 @@ $unspec [[]] SampleLevel(in sampler s, in float_like<1> x, in float lod, in int<
 $unspec [[ro]] SampleBias(in sampler s, in float_like<1> x, in float bias, in int<1> o, in float clamp) : tex1d_t_bias_o_cl;
 $unspec [[]] SampleBias(in sampler s, in float_like<1> x, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_bias_o_cl_s;
 $unspec [[]] SampleGrad(in sampler s, in float_like<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp) : tex1d_t_dd_o_cl;
-$unspec [[ro]] SampleGrad(in sampler s, in float_like<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_o_cl_s;
+$unspec [[]] SampleGrad(in sampler s, in float_like<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_o_cl_s;
 } namespace
 
 namespace Texture1DArrayMethods {
@@ -434,7 +433,7 @@ void [[]] GetDimensions(out float_like width, out $type1 height, out $type2 samp
 float_like<2> [[ro]] GetSamplePosition(in int s) : samplepos;
 $unspec [[]] Load(in int<2> x, in int s) : texture2d_ms;
 $unspec [[]] Load(in int<2> x, in int s, in int<2> o) : texture2d_ms_o;
-$unspec [[ro]] Load(in int<2> x, in int s, in int<2> o, out uint_only status) : texture2d_ms_o_s;
+$unspec [[]] Load(in int<2> x, in int s, in int<2> o, out uint_only status) : texture2d_ms_o_s;
 
 } namespace
 
@@ -632,7 +631,7 @@ $unspec [[ro]] Sample(in sampler s, in float_like<4> x, in float clamp) : texcub
 $unspec [[]] Sample(in sampler s, in float_like<4> x, in float clamp, out uint_only status) : texcube_t_array_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float_like<4> x, in float compareValue, in float clamp) : texcube_t_comp_array_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float_like<4> x, in float compareValue, in float clamp, out uint_only status) : texcube_t_comp_array_cl_s;
-float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float_like<4> x, in float compareValue, out uint_only status) : texcube_t_comp_array_s;
+float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float_like<4> x, in float compareValue, out uint_only status) : texcube_t_comp_array_s;
 $unspec [[]] SampleLevel(in sampler s, in float_like<4> x, in float lod, out uint_only status) : texcube_t_lod_array_s;
 $unspec [[ro]] SampleBias(in sampler s, in float_like<4> x, in float bias, in float clamp) : texcube_t_bias_array_cl;
 $unspec [[]] SampleBias(in sampler s, in float_like<4> x, in float bias, in float clamp, out uint_only status) : texcube_t_bias_array_cl_s;

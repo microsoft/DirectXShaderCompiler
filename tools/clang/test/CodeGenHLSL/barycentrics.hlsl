@@ -1,8 +1,8 @@
 // RUN: %dxc -E main -T ps_6_1 %s | FileCheck %s
 
-// CHECK: SV_Barycentric
+// CHECK: !"SV_Barycentrics"
 
-float4 main(float3 bary : SV_Barycentric) : SV_Target
+float4 main(float3 bary : SV_Barycentrics) : SV_Target
 {
   float4 vcolor0 = float4(1,0,0,1);
   float4 vcolor1 = float4(0,1,0,1);

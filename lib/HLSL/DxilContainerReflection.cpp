@@ -1747,7 +1747,7 @@ void DxilShaderReflection::MarkUsedSignatureElements() {
       pSig = &m_pDxilModule->GetInputSignature();
     }
     else if (SO) {
-      if (!GetUnsignedVal(SO.get_outputtSigId(), &sigId)) continue;
+      if (!GetUnsignedVal(SO.get_outputSigId(), &sigId)) continue;
       if (!GetUnsignedVal(SO.get_colIndex(), &col)) continue;
       if (!GetUnsignedVal(SO.get_rowIndex(), &row)) continue;
       pDescs = &m_OutputSignature;
