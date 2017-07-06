@@ -31,4 +31,5 @@ add_subdirectory(dxopt)
 add_subdirectory(dxr)
 add_subdirectory(dxv)
 add_subdirectory(dotnetc)
+add_subdirectory(dxlib-sample)
 # HLSL Change Ends

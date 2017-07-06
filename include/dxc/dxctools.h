@@ -14,7 +14,7 @@
 
 #include <dxc/dxcapi.h>
 
-enum RewirterOptionMask {
+enum RewriterOptionMask {
   Default = 0,
   SkipFunctionBody = 1,
   SkipStatic = 2,
