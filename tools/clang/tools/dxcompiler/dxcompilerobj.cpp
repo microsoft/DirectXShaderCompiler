@@ -197,7 +197,7 @@ public:
 
 class DxcCompiler : public IDxcCompiler2, public IDxcLangExtensions, public IDxcContainerEvent, public IDxcVersionInfo {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
   CComPtr<IDxcContainerEventsHandler> m_pDxcContainerEventsHandler;
 
@@ -238,7 +238,8 @@ private:
     finished = false;
   }
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcCompiler)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
   __override HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) {
@@ -309,20 +310,19 @@ public:
     CComPtr<AbstractMemoryStream> pOutputStream;
     CHeapPtr<wchar_t> DebugBlobName;
     DxcEtw_DXCompilerCompile_Start();
+    DxcThreadMalloc TM(m_pMalloc);
     IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
     try {
-      CComPtr<IMalloc> pMalloc;
       CComPtr<IDxcBlob> pOutputBlob;
-      dxcutil::DxcArgsFileSystem *msfPtr;
-      IFT(dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
+      dxcutil::DxcArgsFileSystem *msfPtr =
+        dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      IFT(CoGetMalloc(1, &pMalloc));
-      IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+      IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       int argCountInt;
@@ -355,7 +355,7 @@ public:
       opts.TargetProfile = pUtf8TargetProfile.m_psz;
 
       IFT(msfPtr->RegisterOutputStream(L"output.bc", pOutputStream));
-      IFT(msfPtr->CreateStdStreams(pMalloc));
+      IFT(msfPtr->CreateStdStreams(m_pMalloc));
 
       StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
                      utf8Source->GetBufferSize());
@@ -371,6 +371,7 @@ public:
       std::string warnings;
       raw_string_ostream w(warnings);
       raw_stream_ostream outStream(pOutputStream.p);
+      llvm::LLVMContext llvmContext; // LLVMContext should outlive CompilerInstance
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
           std::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
@@ -429,7 +430,6 @@ public:
         outStream.flush();
       }
       else if (opts.OptDump) {
-        llvm::LLVMContext llvmContext;
         EmitOptDumpAction action(&llvmContext);
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         action.BeginSourceFile(compiler, file);
@@ -452,7 +452,7 @@ public:
           auto rootSigHandle = action.takeRootSigHandle();
 
           CComPtr<AbstractMemoryStream> pContainerStream;
-          IFT(CreateMemoryStream(pMalloc, &pContainerStream));
+          IFT(CreateMemoryStream(m_pMalloc, &pContainerStream));
           SerializeDxilContainerForRootSignature(rootSigHandle.get(),
                                                  pContainerStream);
 
@@ -473,7 +473,6 @@ public:
 #endif
       // SPIRV change ends
       else {
-        llvm::LLVMContext llvmContext;
         EmitBCAction action(&llvmContext);
         FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
         bool compileOK;
@@ -506,11 +505,11 @@ public:
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(
-                action.takeModule(), pOutputBlob, pMalloc, SerializeFlags,
+                action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
                 pOutputStream, opts.DebugInfo, compiler.getDiagnostics());
           } else {
             dxcutil::AssembleToContainer(action.takeModule(),
-                                                 pOutputBlob, pMalloc,
+                                                 pOutputBlob, m_pMalloc,
                                                  SerializeFlags, pOutputStream);
           }
 
@@ -585,21 +584,19 @@ public:
 
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerPreprocess_Start();
+    DxcThreadMalloc TM(m_pMalloc);
     CComPtr<IDxcBlobEncoding> utf8Source;
     IFC(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
     try {
-      CComPtr<IMalloc> pMalloc;
       CComPtr<AbstractMemoryStream> pOutputStream;
-      dxcutil::DxcArgsFileSystem *msfPtr;
-      IFT(dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
+      dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      IFT(CoGetMalloc(1, &pMalloc));
-      IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+      IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
 
       const llvm::opt::OptTable *table = ::options::getHlslOptTable();
       int argCountInt;
@@ -626,7 +623,7 @@ public:
       }
 
       IFT(msfPtr->RegisterOutputStream(L"output.hlsl", pOutputStream));
-      IFT(msfPtr->CreateStdStreams(pMalloc));
+      IFT(msfPtr->CreateStdStreams(m_pMalloc));
 
       StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
         utf8Source->GetBufferSize());
@@ -698,6 +695,7 @@ public:
 
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerDisassemble_Start();
+    DxcThreadMalloc TM(m_pMalloc); 
     try {
       ::llvm::sys::fs::MSFileSystem *msfPtr;
       IFT(CreateMSFileSystemForDisk(&msfPtr));
@@ -859,11 +857,12 @@ public:
 };
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcCompiler> result = new (std::nothrow) DxcCompiler();
-  if (result == nullptr) {
-    *ppv = nullptr;
-    return E_OUTOFMEMORY;
+  *ppv = nullptr;
+  CComPtr<DxcCompiler> result;
+  try {
+    result = DxcCompiler::Alloc(DxcGetThreadMallocNoRef());
+    IFROOM(result.p);
   }
-
+  CATCH_CPP_RETURN_HRESULT();
   return result.p->QueryInterface(riid, ppv);
 }

@@ -42,9 +42,8 @@ public:
   virtual HRESULT RegisterOutputStream(LPCWSTR pName, IStream *pStream) = 0;
 };
 
-HRESULT
+DxcArgsFileSystem *
 CreateDxcArgsFileSystem(_In_ IDxcBlob *pSource, _In_ LPCWSTR pSourceName,
-                        _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-                        _Outptr_ DxcArgsFileSystem **ppResult) throw();
+                        _In_opt_ IDxcIncludeHandler *pIncludeHandler);
 
 } // namespace dxcutil

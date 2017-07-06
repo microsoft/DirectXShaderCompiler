@@ -95,7 +95,9 @@ void RootSignatureHandle::Deserialize() {
 void RootSignatureHandle::LoadSerialized(const uint8_t *pData,
                                          unsigned length) {
   DXASSERT_NOMSG(IsEmpty());
-  IFT(DxcCreateBlobOnHeapCopy(pData, length, &m_pSerialized));
+  IDxcBlobEncoding *pCreated;
+  IFT(DxcCreateBlobWithEncodingOnHeapCopy(pData, length, CP_UTF8, &pCreated));
+  m_pSerialized = pCreated;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1345,11 +1347,11 @@ void SerializeRootSignatureTemplate(_In_ const T_ROOT_SIGNATURE_DESC* pRootSigna
   memcpy(pSS, pRS->pStaticSamplers, StaticSamplerSize);
 
   // Create the result blob.
-  CComHeapPtr<char> bytes;
+  CDxcMallocHeapPtr<char> bytes(DxcGetThreadMallocNoRef());
   CComPtr<IDxcBlob> pBlob;
   unsigned cb = Serializer.GetSize();
   DXASSERT_NOMSG((cb & 0x3) == 0);
-  IFTBOOL(bytes.AllocateBytes(cb), E_OUTOFMEMORY);
+  IFTBOOL(bytes.Allocate(cb), E_OUTOFMEMORY);
   IFT(Serializer.Compact(bytes.m_pData, cb));
   IFT(DxcCreateBlobOnHeap(bytes.m_pData, cb, ppBlob));
   bytes.Detach(); // Ownership transfered to ppBlob.

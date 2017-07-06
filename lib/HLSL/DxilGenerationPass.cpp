@@ -103,6 +103,8 @@ void InitResource(const DxilResource *pSource, DxilResource *pDest) {
 }
 
 void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *pSig, bool HasDebugInfo) {
+  std::unique_ptr<DxilEntrySignature> pSigPtr(pSig);
+
   // Subsystems.
   unsigned ValMajor, ValMinor;
   H.GetValidatorVersion(ValMajor, ValMinor);
@@ -158,7 +160,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   }
 
   // Signatures.
-  M.ResetEntrySignature(pSig);
+  M.ResetEntrySignature(pSigPtr.release());
   M.ResetRootSignature(H.ReleaseRootSignature());
 
   // Shader properties.

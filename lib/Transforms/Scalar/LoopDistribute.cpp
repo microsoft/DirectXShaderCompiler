@@ -42,6 +42,7 @@
 
 using namespace llvm;
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool>
     LDistVerify("loop-distribute-verify", cl::Hidden,
                 cl::desc("Turn on DominatorTree and LoopInfo verification "
@@ -53,6 +54,10 @@ static cl::opt<bool> DistributeNonIfConvertible(
     cl::desc("Whether to distribute into a loop that may not be "
              "if-convertible by the loop vectorizer"),
     cl::init(false));
+#else
+static const bool LDistVerify = false;
+static const bool DistributeNonIfConvertible = false;
+#endif
 
 STATISTIC(NumLoopsDistributed, "Number of loops distributed");
 

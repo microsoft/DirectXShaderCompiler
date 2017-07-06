@@ -27,6 +27,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "loop-accesses"
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned, true>
 VectorizationFactor("force-vector-width", cl::Hidden,
                     cl::desc("Sets the SIMD width. Zero is autoselect."),
@@ -64,9 +65,17 @@ static cl::opt<unsigned> MaxInterestingDependence(
     cl::desc("Maximum number of interesting dependences collected by "
              "loop-access analysis (default = 100)"),
     cl::init(100));
+#else
+unsigned VectorizerParams::VectorizationInterleave;
+unsigned VectorizerParams::VectorizationFactor;
+unsigned VectorizerParams::RuntimeMemoryCheckThreshold = 8;
+static const unsigned MemoryCheckMergeThreshold = 100;
+const unsigned VectorizerParams::MaxVectorWidth = 64;
+static const unsigned MaxInterestingDependence = 100;
+#endif // HLSL Change Ends
 
 bool VectorizerParams::isInterleaveForced() {
-  return ::VectorizationInterleave.getNumOccurrences() > 0;
+  return false; // HLSL Change - instead of return ::VectorizationInterleave.getNumOccurrences() > 0;
 }
 
 void LoopAccessReport::emitAnalysis(const LoopAccessReport &Message,

@@ -52,6 +52,7 @@ using namespace sampleprof;
 
 #define DEBUG_TYPE "sample-profile"
 
+#if 0 // HLSL Change Start
 // Command line option to specify the file to read samples from. This is
 // mainly used for debugging.
 static cl::opt<std::string> SampleProfileFile(
@@ -61,6 +62,10 @@ static cl::opt<unsigned> SampleProfileMaxPropagateIterations(
     "sample-profile-max-propagate-iterations", cl::init(100),
     cl::desc("Maximum number of iterations to go through when propagating "
              "sample block/edge weights through the CFG."));
+#else
+static const char SampleProfileFile[] = "";
+static const unsigned SampleProfileMaxPropagateIterations = 100;
+#endif // HLSL Change Ends
 
 namespace {
 typedef DenseMap<BasicBlock *, unsigned> BlockWeightMap;

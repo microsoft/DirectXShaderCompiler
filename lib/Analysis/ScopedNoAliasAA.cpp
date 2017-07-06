@@ -46,8 +46,12 @@ using namespace llvm;
 // A handy option for disabling scoped no-alias functionality. The same effect
 // can also be achieved by stripping the associated metadata tags from IR, but
 // this option is sometimes more convenient.
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool>
 EnableScopedNoAlias("enable-scoped-noalias", cl::init(true));
+#else
+static const bool EnableScopedNoAlias = true;
+#endif // HLSL Change Ends
 
 namespace {
 /// AliasScopeNode - This is a simple wrapper around an MDNode which provides

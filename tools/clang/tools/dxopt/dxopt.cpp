@@ -164,7 +164,7 @@ static void ReadFileOpts(LPCWSTR pPassFileName, IDxcBlobEncoding **ppPassOpts, s
   CComPtr<IDxcBlob> pPassOptsBlob;
   CComPtr<IDxcBlobEncoding> pPassOpts;
   BlobFromFile(pPassFileName, &pPassOptsBlob);
-  IFT(hlsl::DxcGetBlobAsUtf16(pPassOptsBlob, &pPassOpts));
+  IFT(hlsl::DxcGetBlobAsUtf16(pPassOptsBlob, hlsl::GetGlobalHeapMalloc(), &pPassOpts));
   LPWSTR pCursor = (LPWSTR)pPassOpts->GetBufferPointer();
   while (*pCursor) {
     passes.push_back(pCursor);

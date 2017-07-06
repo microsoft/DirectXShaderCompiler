@@ -136,6 +136,15 @@ void User::operator delete(void *Usr) {
   }
 }
 
+// HLSL Change Starts
+void User::operator delete(void *Usr, unsigned NumUserOperands) {
+  // Fun fact: during construction Obj->NumUserOperands is overwritten
+  Use *Storage = static_cast<Use *>(Usr) - NumUserOperands;
+  Use::zap(Storage, Storage + NumUserOperands, /* Delete */ false);
+  ::operator delete(Storage);
+}
+// HLSL Change Ends
+
 //===----------------------------------------------------------------------===//
 //                             Operator Class
 //===----------------------------------------------------------------------===//

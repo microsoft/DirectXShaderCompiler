@@ -221,21 +221,27 @@ public:
 // Note that QueryInterface still needs to return the vtable.
 #define DXC_LANGEXTENSIONS_HELPER_IMPL(_helper_field_) \
   __override HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(_In_ IDxcIntrinsicTable *pTable) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterIntrinsicTable(pTable); \
   } \
   __override HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterSemanticDefine(name); \
   } \
   __override HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterSemanticDefineExclusion(name); \
   } \
   __override HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterDefine(name); \
   } \
   __override HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).SetSemanticDefineValidator(pValidator); \
   } \
   __override HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).SetSemanticDefineMetaDataName(name); \
   } \
 

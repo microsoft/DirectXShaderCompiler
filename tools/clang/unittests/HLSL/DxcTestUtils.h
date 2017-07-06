@@ -113,8 +113,9 @@ void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outpt
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 
 class VersionSupportInfo {
+private:
+  bool m_CompilerIsDebugBuild;
 public:
-  bool m_CompilerPreservesBBNames;
   bool m_InternalValidator;
   unsigned m_DxilMajor, m_DxilMinor;
   unsigned m_ValMajor, m_ValMinor;
@@ -126,4 +127,6 @@ public:
   bool SkipIRSensitiveTest();
   // Return true if DXIL 1.1 test should be skipped, and log comment
   bool SkipDxil_1_1_Test();
+  // Return true if out-of-memory test should be skipped, and log comment
+  bool SkipOutOfMemoryTest();
 };

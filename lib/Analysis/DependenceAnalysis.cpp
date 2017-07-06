@@ -107,9 +107,13 @@ STATISTIC(BanerjeeApplications, "Banerjee applications");
 STATISTIC(BanerjeeIndependence, "Banerjee independence");
 STATISTIC(BanerjeeSuccesses, "Banerjee successes");
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool>
 Delinearize("da-delinearize", cl::init(false), cl::Hidden, cl::ZeroOrMore,
             cl::desc("Try to delinearize array references."));
+#else
+static const bool Delinearize = false;
+#endif // HLSL Change Ends
 
 //===----------------------------------------------------------------------===//
 // basics

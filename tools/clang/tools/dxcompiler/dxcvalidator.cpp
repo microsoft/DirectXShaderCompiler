@@ -48,7 +48,7 @@ struct DiagRestore {
 
 class DxcValidator : public IDxcValidator, public IDxcVersionInfo {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
 
   HRESULT RunValidation(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
@@ -62,8 +62,8 @@ private:
     _In_ AbstractMemoryStream *pDiagStream);
 
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  DxcValidator() : m_dwRef(0) {}
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcValidator)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
@@ -96,6 +96,7 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
   _In_ UINT32 Flags,                            // Validation flags.
   _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
 ) {
+  DxcThreadMalloc TM(m_pMalloc);
   if (pShader == nullptr || ppResult == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
     return E_INVALIDARG;
   if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
@@ -114,11 +115,10 @@ HRESULT DxcValidator::ValidateWithOptModules(
   HRESULT hr = S_OK;
   HRESULT validationStatus = S_OK;
   DxcEtw_DxcValidation_Start();
+  DxcThreadMalloc TM(m_pMalloc);
   try {
-    CComPtr<IMalloc> pMalloc;
     CComPtr<AbstractMemoryStream> pDiagStream;
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pDiagStream));
+    IFT(CreateMemoryStream(m_pMalloc, &pDiagStream));
 
     // Run validation may throw, but that indicates an inability to validate,
     // not that the validation failed (eg out of memory).
@@ -260,7 +260,7 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
 }
 
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcValidator> result = new (std::nothrow) DxcValidator();
+  CComPtr<DxcValidator> result = DxcValidator::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;
     return E_OUTOFMEMORY;

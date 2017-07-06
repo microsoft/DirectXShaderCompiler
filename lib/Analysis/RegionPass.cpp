@@ -241,6 +241,7 @@ void RegionPass::preparePassManager(PMStack &PMS) {
 /// Assign pass manager to manage this pass.
 void RegionPass::assignPassManager(PMStack &PMS,
                                  PassManagerType PreferredType) {
+  std::unique_ptr<RegionPass> thisPtr(this); // HLSL Change
   // Find RGPassManager
   while (!PMS.empty() &&
          PMS.top()->getPassManagerType() > PMT_RegionPassManager)
@@ -272,6 +273,7 @@ void RegionPass::assignPassManager(PMStack &PMS,
     PMS.push(RGPM);
   }
 
+  thisPtr.release(); // HLSL Change
   RGPM->add(this);
 }
 
