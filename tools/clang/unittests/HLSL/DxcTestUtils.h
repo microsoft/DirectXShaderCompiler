@@ -113,8 +113,9 @@ void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outpt
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 
 class VersionSupportInfo {
+private:
+  bool m_CompilerIsDebugBuild;
 public:
-  bool m_CompilerPreservesBBNames;
   bool m_InternalValidator;
   unsigned m_DxilMajor, m_DxilMinor;
   unsigned m_ValMajor, m_ValMinor;

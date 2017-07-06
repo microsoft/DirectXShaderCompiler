@@ -463,7 +463,7 @@ IntrusiveRefCntPtr<ASTReader> CompilerInstance::createPCHExternalASTSource(
     // Set the predefines buffer as suggested by the PCH reader. Typically, the
     // predefines buffer will be empty.
     PP.setPredefines(Reader->getSuggestedPredefines());
-return Reader;
+    return Reader;
 
   case ASTReader::Failure:
     // Unrecoverable failure: don't even try to process the input file.
@@ -486,9 +486,9 @@ return Reader;
 // Code Completion
 
 static bool EnableCodeCompletion(Preprocessor &PP,
-  const std::string &Filename,
-  unsigned Line,
-  unsigned Column) {
+                                 const std::string &Filename,
+                                 unsigned Line,
+                                 unsigned Column) {
   // Tell the source manager to chop off the given file at a specific
   // line and column.
   const FileEntry *Entry = PP.getFileManager().getFile(Filename);
@@ -508,20 +508,19 @@ void CompilerInstance::createCodeCompletionConsumer() {
   if (!CompletionConsumer) {
     setCodeCompletionConsumer(
       createCodeCompletionConsumer(getPreprocessor(),
-        Loc.FileName, Loc.Line, Loc.Column,
-        getFrontendOpts().CodeCompleteOpts,
-        llvm::outs()));
+                                   Loc.FileName, Loc.Line, Loc.Column,
+                                   getFrontendOpts().CodeCompleteOpts,
+                                   llvm::outs()));
     if (!CompletionConsumer)
       return;
-  }
-  else if (EnableCodeCompletion(getPreprocessor(), Loc.FileName,
-    Loc.Line, Loc.Column)) {
+  } else if (EnableCodeCompletion(getPreprocessor(), Loc.FileName,
+                                  Loc.Line, Loc.Column)) {
     setCodeCompletionConsumer(nullptr);
     return;
   }
 
   if (CompletionConsumer->isOutputBinary() &&
-    llvm::sys::ChangeStdoutToBinary()) {
+      llvm::sys::ChangeStdoutToBinary()) {
     getPreprocessor().getDiagnostics().Report(diag::err_fe_stdout_binary);
     setCodeCompletionConsumer(nullptr);
   }
@@ -530,16 +529,16 @@ void CompilerInstance::createCodeCompletionConsumer() {
 void CompilerInstance::createFrontendTimer() {
   FrontendTimerGroup.reset(new llvm::TimerGroup("Clang front-end time report"));
   FrontendTimer.reset(
-    new llvm::Timer("Clang front-end timer", *FrontendTimerGroup));
+      new llvm::Timer("Clang front-end timer", *FrontendTimerGroup));
 }
 
 CodeCompleteConsumer *
 CompilerInstance::createCodeCompletionConsumer(Preprocessor &PP,
-  StringRef Filename,
-  unsigned Line,
-  unsigned Column,
-  const CodeCompleteOptions &Opts,
-  raw_ostream &OS) {
+                                               StringRef Filename,
+                                               unsigned Line,
+                                               unsigned Column,
+                                               const CodeCompleteOptions &Opts,
+                                               raw_ostream &OS) {
   if (EnableCodeCompletion(PP, Filename, Line, Column))
     return nullptr;
 
@@ -548,9 +547,9 @@ CompilerInstance::createCodeCompletionConsumer(Preprocessor &PP,
 }
 
 void CompilerInstance::createSema(TranslationUnitKind TUKind,
-  CodeCompleteConsumer *CompletionConsumer) {
+                                  CodeCompleteConsumer *CompletionConsumer) {
   TheSema.reset(new Sema(getPreprocessor(), getASTContext(), getASTConsumer(),
-    TUKind, CompletionConsumer));
+                         TUKind, CompletionConsumer));
   if (HlslLangExtensions) HlslLangExtensions->SetupSema(getSema()); // HLSL Change
 }
 

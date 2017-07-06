@@ -710,7 +710,7 @@ MDTuple *MDTuple::getImpl(LLVMContext &Context, ArrayRef<Metadata *> MDs,
     assert(ShouldCreate && "Expected non-uniqued nodes to always be created");
   }
 
-  // HLSL Change - guard with unique_ptr
+  // HLSL Change - guard with try/catch
   MDTuple *MDTuplePtr(new (MDs.size()) MDTuple(Context, Storage, Hash, MDs));
   MDTuple *Result;
   try {

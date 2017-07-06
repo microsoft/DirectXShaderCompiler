@@ -44,9 +44,9 @@ static bool VerifyLoopInfo = true;
 static bool VerifyLoopInfo = false;
 #endif
 #if 0 // HLSL Change Starts - option pending
-static cl::opt<bool, true>
+static cl::opt<bool,true>
 VerifyLoopInfoX("verify-loop-info", cl::location(VerifyLoopInfo),
-  cl::desc("Verify loop info (time consuming)"));
+                cl::desc("Verify loop info (time consuming)"));
 #else
 #endif // HLSL Change Ends
 

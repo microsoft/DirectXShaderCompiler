@@ -60,19 +60,19 @@ using namespace PatternMatch;
 #if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned>
 PHINodeFoldingThreshold("phi-node-folding-threshold", cl::Hidden, cl::init(2),
-  cl::desc("Control the amount of phi node folding to perform (default = 2)"));
+   cl::desc("Control the amount of phi node folding to perform (default = 2)"));
 
 static cl::opt<bool>
 DupRet("simplifycfg-dup-ret", cl::Hidden, cl::init(false),
-  cl::desc("Duplicate return instructions into unconditional branches"));
+       cl::desc("Duplicate return instructions into unconditional branches"));
 
 static cl::opt<bool>
 SinkCommon("simplifycfg-sink-common", cl::Hidden, cl::init(true),
-  cl::desc("Sink common instructions down to the end block"));
+           cl::desc("Sink common instructions down to the end block"));
 
 static cl::opt<bool> HoistCondStores(
-  "simplifycfg-hoist-cond-stores", cl::Hidden, cl::init(true),
-  cl::desc("Hoist conditional stores if an unconditional store precedes"));
+    "simplifycfg-hoist-cond-stores", cl::Hidden, cl::init(true),
+    cl::desc("Hoist conditional stores if an unconditional store precedes"));
 #else
 static const unsigned PHINodeFoldingThreshold = 2;
 static const bool DupRet = false;

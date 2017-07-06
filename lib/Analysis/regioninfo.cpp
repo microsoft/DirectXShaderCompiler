@@ -38,7 +38,7 @@ STATISTIC(numSimpleRegions, "The # of simple regions");
 // Always verify if expensive checking is enabled.
 
 #if 0 // HLSL Change Starts - option pending
-static cl::opt<bool, true>
+static cl::opt<bool,true>
 VerifyRegionInfoX(
   "verify-region-info",
   cl::location(RegionInfoBase<RegionTraits<Function>>::VerifyRegionInfo),
@@ -50,11 +50,11 @@ static cl::opt<Region::PrintStyle, true> printStyleX("print-region-style",
   cl::Hidden,
   cl::desc("style of printing regions"),
   cl::values(
-    clEnumValN(Region::PrintNone, "none", "print no details"),
+    clEnumValN(Region::PrintNone, "none",  "print no details"),
     clEnumValN(Region::PrintBB, "bb",
-      "print regions in detail with block_iterator"),
+               "print regions in detail with block_iterator"),
     clEnumValN(Region::PrintRN, "rn",
-      "print regions in detail with element_iterator"),
+               "print regions in detail with element_iterator"),
     clEnumValEnd));
 #else
 #endif // HLSL Change Ends

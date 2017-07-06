@@ -94,13 +94,14 @@ void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outpt
 
 // VersionSupportInfo Implementation
 VersionSupportInfo::VersionSupportInfo() :
-  m_CompilerPreservesBBNames(false),
+  m_CompilerIsDebugBuild(false),
   m_InternalValidator(false),
   m_DxilMajor(0),
   m_DxilMinor(0),
   m_ValMajor(0),
   m_ValMinor(0)
 {}
+
 void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
   VERIFY_IS_TRUE(dllSupport.IsEnabled());
 
@@ -115,7 +116,7 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
   if (SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pVersionInfo))) {
     VERIFY_SUCCEEDED(pVersionInfo->GetVersion(&m_DxilMajor, &m_DxilMinor));
     VERIFY_SUCCEEDED(pVersionInfo->GetFlags(&VersionFlags));
-    m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+    m_CompilerIsDebugBuild = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
     pVersionInfo.Release();
   }
 
@@ -127,7 +128,7 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
       m_InternalValidator = (VersionFlags & DxcVersionInfoFlags_Internal) ? true : false;
     } else {
       // With old compiler, validator is the only way to get this
-      m_CompilerPreservesBBNames = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
+      m_CompilerIsDebugBuild = (VersionFlags & DxcVersionInfoFlags_Debug) ? true : false;
     }
   } else {
     // If create instance of IDxcVersionInfo on validator failed, we have an old validator from dxil.dll
@@ -135,7 +136,8 @@ void VersionSupportInfo::Initialize(dxc::DxcDllSupport &dllSupport) {
   }
 }
 bool VersionSupportInfo::SkipIRSensitiveTest() {
-  if (!m_CompilerPreservesBBNames) {
+  // Only debug builds preserve BB names.
+  if (!m_CompilerIsDebugBuild) {
     WEX::Logging::Log::Comment(L"Test skipped due to name preservation requirement.");
     return true;
   }
@@ -149,7 +151,7 @@ bool VersionSupportInfo::SkipDxil_1_1_Test() {
   return false;
 }
 bool VersionSupportInfo::SkipOutOfMemoryTest() {
-  if (m_CompilerPreservesBBNames) { // same detection logic at the moment
+  if (m_CompilerIsDebugBuild) { // same detection logic at the moment
     WEX::Logging::Log::Comment(L"Test skipped due to out-of-memory robustness requirement.");
     return true;
   }
