@@ -817,7 +817,7 @@ void cl::ParseCommandLineOptions(int argc, const char *const *argv,
 void CommandLineParser::ParseCommandLineOptions(int argc,
                                                 const char *const *argv,
                                                 const char *Overview) {
-  assert(hasOptions() && "No options specified!");
+  // assert(hasOptions() && "No options specified!"); // HLSL Change - it's valid to have no options for the DLL build
 
   // Expand response files.
   SmallVector<const char *, 20> newArgv(argv, argv + argc);
