@@ -1,0 +1,14 @@
+// Comments 1
+// Comments 2
+// Run: %dxc -T ps_6_0 -E main
+void main()
+{
+
+}
+
+// CHECK-WHOLE-SPIR-V:
+// ; SPIR-V
+// ; Version: 1.0
+// ; Generator: Google spiregg; 0
+// ; Bound: 1
+// ; Schema: 0

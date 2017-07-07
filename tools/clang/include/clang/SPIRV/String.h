@@ -23,7 +23,7 @@ std::vector<uint32_t> encodeSPIRVString(std::string s);
 /// \brief Reinterprets the given vector of 32-bit words as a string.
 /// Expectes that the words represent a NULL-terminated string.
 /// It follows the SPIR-V string encoding requirements.
-std::string decodeSPIRVString(std::vector<uint32_t> &vec);
+std::string decodeSPIRVString(const std::vector<uint32_t> &vec);
 
 } // end namespace string
 } // end namespace spirv
