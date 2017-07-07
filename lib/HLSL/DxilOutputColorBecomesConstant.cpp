@@ -160,13 +160,13 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
   switch (Mode)
   {
     case FromLiteralConstant: {
-      if (!FloatOutputFunction->user_empty()) {
+      if (hasFloatOutputs) {
         ReplacementColors[0] = HlslOP->GetFloatConst(Red);
         ReplacementColors[1] = HlslOP->GetFloatConst(Green);
         ReplacementColors[2] = HlslOP->GetFloatConst(Blue);
         ReplacementColors[3] = HlslOP->GetFloatConst(Alpha);
       }
-      if (!IntOutputFunction->user_empty()) {
+      if (hasIntOutputs) {
         ReplacementColors[0] = HlslOP->GetI32Const(static_cast<int>(Red));
         ReplacementColors[1] = HlslOP->GetI32Const(static_cast<int>(Green));
         ReplacementColors[2] = HlslOP->GetI32Const(static_cast<int>(Blue));
@@ -190,7 +190,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
 
       // Insert the Buffer load instruction:
       auto ConstantValueName = "PIX_Constant_Color_Value";
-      Function *CBLoad = HlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, Type::getFloatTy(Ctx));
+      Function *CBLoad = HlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, hasFloatOutputs ? Type::getFloatTy(Ctx) : Type::getInt32Ty(Ctx));
       Constant *OpArg = HlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoadLegacy);
       Value * ResourceHandle = callCreateHandle;
       Constant *RowIndex = HlslOP->GetU32Const(0);
@@ -202,8 +202,6 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
       ReplacementColors[1] = Builder.CreateExtractValue(loadLegacy, 1, PIX_CONSTANT_VALUE "1");
       ReplacementColors[2] = Builder.CreateExtractValue(loadLegacy, 2, PIX_CONSTANT_VALUE "2");
       ReplacementColors[3] = Builder.CreateExtractValue(loadLegacy, 3, PIX_CONSTANT_VALUE "3");
-
-      //todo: cast to int for the int case ?
     }
     break;
     default:
