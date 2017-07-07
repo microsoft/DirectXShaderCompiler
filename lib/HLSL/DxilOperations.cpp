@@ -236,8 +236,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::LegacyDoubleToUInt32,    "LegacyDoubleToUInt32",     OCC::LegacyDoubleToUInt32,     "legacyDoubleToUInt32",        true, false, false, false, false, false, false, false, false, Attribute::ReadNone, },
 
   // Wave                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
-  {  OC::WaveAllBitCount,         "WaveAllBitCount",          OCC::WaveAllOp,                "waveAllOp",                   true, false, false, false, false, false, false, false, false, Attribute::None,     },
-  {  OC::WavePrefixBitCount,      "WavePrefixBitCount",       OCC::WavePrefixOp,             "wavePrefixOp",                true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::WaveAllBitCount,         "WaveAllBitCount",          OCC::WaveBitCount,             "waveBitCount",                true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::WavePrefixBitCount,      "WavePrefixBitCount",       OCC::WaveBitCount,             "waveBitCount",                true, false, false, false, false, false, false, false, false, Attribute::None,     },
 
   // Pixel shader                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::AttributeAtVertex,       "AttributeAtVertex",        OCC::AttributeAtVertex,        "attributeAtVertex",          false,  true,  true, false, false, false, false, false, false, Attribute::ReadNone, },

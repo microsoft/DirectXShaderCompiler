@@ -557,6 +557,7 @@ public:
   TEST_METHOD(CodeGenNegabs1)
   TEST_METHOD(CodeGenNoise)
   TEST_METHOD(CodeGenNonUniform)
+  TEST_METHOD(CodeGenOpClass)
   TEST_METHOD(CodeGenOptForNoOpt)
   TEST_METHOD(CodeGenOptForNoOpt2)
   TEST_METHOD(CodeGenOptionGis)
@@ -2979,6 +2980,10 @@ TEST_F(CompilerTest, CodeGenNoise) {
 
 TEST_F(CompilerTest, CodeGenNonUniform) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\NonUniform.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenOpClass) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\OpClass.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenOptForNoOpt) {

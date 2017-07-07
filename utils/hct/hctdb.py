@@ -1041,11 +1041,11 @@ class db_dxil(object):
             db_dxil_param(2, "d", "value", "double value to convert")])
         next_op_idx += 1
 
-        self.add_dxil_op("WaveAllBitCount", next_op_idx, "WaveAllOp", "returns the count of bits set to 1 across the wave", "v", "", [
+        self.add_dxil_op("WaveAllBitCount", next_op_idx, "WaveBitCount", "returns the count of bits set to 1 across the wave", "v", "", [
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
-        self.add_dxil_op("WavePrefixBitCount", next_op_idx, "WavePrefixOp", "returns the count of bits set to 1 on prior lanes", "v", "", [
+        self.add_dxil_op("WavePrefixBitCount", next_op_idx, "WaveBitCount", "returns the count of bits set to 1 on prior lanes", "v", "", [
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
