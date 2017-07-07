@@ -135,6 +135,11 @@ HRESULT IncludeToLibPreprocessor::Preprocess(IDxcBlob *pSource,
 
   HRESULT status;
   if (!SUCCEEDED(pRewriteResult->GetStatus(&status)) || !SUCCEEDED(status)) {
+    CComPtr<IDxcBlobEncoding> pErr;
+    IFT(pRewriteResult->GetErrorBuffer(&pErr));
+    std::string errString =
+        std::string((char *)pErr->GetBufferPointer(), pErr->GetBufferSize());
+    IFTMSG(E_FAIL, errString);
     return E_FAIL;
   };
   // Append existing header.

@@ -21,11 +21,15 @@ float2x2 LoadInputMat(uint x, uint y) {
   return mats.Load(x).f2x2 + mats2.Load(y);
 }
 
+cbuffer B {
+  float b;
+}
+
 groupshared column_major float2x2 dataC[8*8];
 
 float2x2 RotateMat(float2x2 m, uint x, uint y) {
     dataC[x%(8*8)] = m;
     GroupMemoryBarrierWithGroupSync();
     float2x2 f2x2 = dataC[8*8-1-y%(8*8)];
-    return f2x2;
+    return f2x2 + b;
 }
