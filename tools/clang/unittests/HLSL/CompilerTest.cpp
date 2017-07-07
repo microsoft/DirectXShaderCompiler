@@ -361,6 +361,7 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
 
+  TEST_METHOD(PixMSAAToSample0)
   TEST_METHOD(PixRemoveDiscards)
   TEST_METHOD(PixConstantColor)
   TEST_METHOD(PixConstantColorInt)
@@ -2225,6 +2226,10 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   LPCSTR pErrorMsg = "Unknown HLSL version";
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
+
+TEST_F(CompilerTest, PixMSAAToSample0) {
+  CodeGenTestCheck(L"pix\\msaaLoad.hlsl");
 }
 
 TEST_F(CompilerTest, PixRemoveDiscards) {
