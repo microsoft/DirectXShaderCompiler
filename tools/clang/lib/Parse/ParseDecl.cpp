@@ -2661,8 +2661,11 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     Diag(Tok.getLocation(), diag::warn_hlsl_effect_state_block);
     ConsumeBrace();
     SkipUntil(tok::r_brace); // skip until '}'
+    // Braces could have been used to initialize an array.
+    // In this case we require users to use braces with the equal sign.
+    // Otherwise, the array will be treated as an uninitialized declaration.
+    Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
     // HLSL Change Ends
-
   } else {
     Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
   }
