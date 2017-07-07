@@ -1831,6 +1831,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   }
 }
 
+// This test is assuming that the adapter implements WaveReadLaneFirst correctly
 TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -2073,7 +2074,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
     LogCommentFmt(L"%u pixels were processed by a single thread. %u invocations were for shared pixels.",
       singlePixelCount, multiPixelCount);
 
-    // Multiple threads may have tried to shade the same pixel.
+    // Multiple threads may have tried to shade the same pixel. (Is this true even if we have only one triangle?)
     // Where every pixel is distinct, it's very straightforward to validate.
     {
       auto cur = firstIdGroups.begin(), end = firstIdGroups.end();
@@ -2094,21 +2095,40 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
           };
           std::map<uint32_t, QuadData> quads;
           for (auto i = cur; i != groupEnd; ++i) {
-            uint32_t quadId = (*i).second->id0;
-            auto match = quads.find(quadId);
-            if (match == quads.end()) {
+            // assuming that it is a simple wave, idGroups has a unique id for each entry.
+            uint32_t laneId = (*i).second->id;
+            uint32_t laneIds[4] = {(*i).second->id0, (*i).second->id1,
+                                   (*i).second->id2, (*i).second->id3};
+            // Since this is a simple wave, each lane has an unique id and
+            // therefore should not have any ids in there.
+            VERIFY_IS_TRUE(quads.find(laneId) == quads.end());
+            // check if QuadReadLaneAt is returning same values in a single quad.
+            bool newQuad = true;
+            for (unsigned quadIndex = 0; quadIndex < 4; ++quadIndex) {
+              auto match = quads.find(laneIds[quadIndex]);
+              if (match != quads.end()) {
+                (*match).second.data[(*match).second.count++] = (*i).second;
+                newQuad = false;
+                break;
+              }
+              auto quadMemberData = idGroups.find(laneIds[quadIndex]);
+              if (quadMemberData != idGroups.end()) {
+                VERIFY_IS_TRUE((*quadMemberData).second->id0 == laneIds[0]);
+                VERIFY_IS_TRUE((*quadMemberData).second->id1 == laneIds[1]);
+                VERIFY_IS_TRUE((*quadMemberData).second->id2 == laneIds[2]);
+                VERIFY_IS_TRUE((*quadMemberData).second->id3 == laneIds[3]);
+              }
+            }
+            if (newQuad) {
               QuadData qdata;
               qdata.count = 1;
               qdata.data[0] = (*i).second;
-              quads.insert(std::make_pair(quadId, qdata));
-            }
-            else {
-              VERIFY_IS_TRUE((*match).second.count < 4);
-              (*match).second.data[(*match).second.count++] = (*i).second;
+              quads.insert(std::make_pair(laneId, qdata));
             }
           }
           for (auto quadPair : quads) {
             unsigned count = quadPair.second.count;
+            // There could be only one pixel data on the edge of the triangle
             if (count < 2) continue;
             PerPixelData **data = quadPair.second.data;
             bool isTop[4];
