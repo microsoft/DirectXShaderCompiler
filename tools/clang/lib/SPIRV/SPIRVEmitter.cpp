@@ -900,7 +900,7 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   }
   case CastKind::CK_HLSLVectorToMatrixCast: {
     // The target type should already be a 1xN matrix type.
-    assert(TypeTranslator::is1xNMatrixType(toType));
+    assert(TypeTranslator::is1xNMatrix(toType));
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLMatrixSplat: {
@@ -931,12 +931,12 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   }
   case CastKind::CK_HLSLMatrixToScalarCast: {
     // The underlying should already be a matrix of 1x1.
-    assert(TypeTranslator::is1x1MatrixType(subExpr->getType()));
+    assert(TypeTranslator::is1x1Matrix(subExpr->getType()));
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLMatrixToVectorCast: {
     // The underlying should already be a matrix of 1xN.
-    assert(TypeTranslator::is1xNMatrixType(subExpr->getType()));
+    assert(TypeTranslator::is1xNMatrix(subExpr->getType()));
     return doExpr(subExpr);
   }
   case CastKind::CK_FunctionToPointerDecay:
@@ -1212,7 +1212,7 @@ uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
                              : getValueOne(subType);
     uint32_t incValue = 0;
     if (TypeTranslator::isSpirvAcceptableMatrixType(subType)) {
-      // For matrices, we can only incremnt/decrement each vector of it.
+      // For matrices, we can only increment/decrement each vector of it.
       const auto actOnEachVec = [this, spvOp, one](
           uint32_t /*index*/, uint32_t vecType, uint32_t lhsVec) {
         return theBuilder.createBinaryOp(spvOp, vecType, lhsVec, one);
@@ -1695,8 +1695,7 @@ uint32_t SPIRVEmitter::tryToGenFloatMatrixScale(const BinaryOperator *expr) {
   const QualType rhsType = rhs->getType();
 
   const auto selectOpcode = [](const QualType ty) {
-    return TypeTranslator::isMx1MatrixType(ty) ||
-                   TypeTranslator::is1xNMatrixType(ty)
+    return TypeTranslator::isMx1Matrix(ty) || TypeTranslator::is1xNMatrix(ty)
                ? spv::Op::OpVectorTimesScalar
                : spv::Op::OpMatrixTimesScalar;
   };
@@ -1956,6 +1955,13 @@ uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
   if (isBoolOrVecOfBoolType(fromType))
     return fromVal;
 
+  // Handle 1x1 bool matrix, Mx1 bool matrix, and 1xN bool matrix.
+  {
+    if (typeTranslator.is1x1OrMx1Or1xNMatrix(fromType) &&
+        hlsl::GetHLSLMatElementType(fromType)->isBooleanType())
+      return fromVal;
+  }
+
   // Converting to bool means comparing with value zero.
   const spv::Op spvOp = translateOp(BO_NE, fromType);
   const uint32_t boolType = typeTranslator.translateType(toBoolType);
@@ -2128,29 +2134,81 @@ uint32_t SPIRVEmitter::processIntrinsicDot(const CallExpr *callExpr) {
 
 uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
                                                 spv::Op spvOp) {
-  const uint32_t returnType = typeTranslator.translateType(callExpr->getType());
-
   // 'all' and 'any' take only 1 parameter.
   assert(callExpr->getNumArgs() == 1u);
+  const QualType returnType = callExpr->getType();
+  const uint32_t returnTypeId = typeTranslator.translateType(returnType);
   const Expr *arg = callExpr->getArg(0);
   const QualType argType = arg->getType();
 
-  if (hlsl::IsHLSLMatType(argType)) {
-    emitError("'all' and 'any' do not support matrix arguments yet.");
-    return 0;
+  // Handle scalars, vectors of size 1, and 1x1 matrices as arguments.
+  // Optimization: can directly cast them to boolean. No need for OpAny/OpAll.
+  {
+    if (argType->isBooleanType() || argType->isFloatingType() ||
+        argType->isIntegerType() || TypeTranslator::isVec1Type(argType) ||
+        TypeTranslator::is1x1Matrix(argType))
+      return castToBool(doExpr(arg), argType, returnType);
   }
 
-  bool isSpirvAcceptableVecType =
-      hlsl::IsHLSLVecType(argType) && hlsl::GetHLSLVecSize(argType) > 1;
-  if (!isSpirvAcceptableVecType) {
-    // For a scalar or vector of 1 scalar, we can simply cast to boolean.
-    return castToBool(doExpr(arg), arg->getType(), callExpr->getType());
-  } else {
-    // First cast the vector to a vector of booleans, then use OpAll
-    uint32_t boolVecId =
-        castToBool(doExpr(arg), arg->getType(), callExpr->getType());
-    return theBuilder.createUnaryOp(spvOp, returnType, boolVecId);
+  // Handle vectors larger than 1, Mx1 matrices, and 1xN matrices as arguments.
+  // Cast the vector to a boolean vector, then run OpAny/OpAll on it.
+  {
+    QualType elemType = {};
+    uint32_t size = 0;
+    if (TypeTranslator::isVectorType(argType, &elemType, &size) ||
+        TypeTranslator::isMx1Or1xNMatrix(argType, &elemType, &size)) {
+      const QualType castToBoolType =
+          astContext.getExtVectorType(returnType, size);
+      uint32_t castedToBoolId =
+          castToBool(doExpr(arg), argType, castToBoolType);
+      return theBuilder.createUnaryOp(spvOp, returnTypeId, castedToBoolId);
+    }
   }
+
+  // Handle MxN matrices as arguments.
+  {
+    QualType elemType = {};
+    uint32_t matRowCount = 0, matColCount = 0;
+    if (TypeTranslator::isMxNMatrix(argType, &elemType, &matRowCount,
+                                    &matColCount)) {
+      if (!elemType->isFloatingType()) {
+        emitError("'all' and 'any' currently do not take non-floating point "
+                  "matrices as argument.");
+        return 0;
+      }
+
+      uint32_t matrixId = doExpr(arg);
+      const uint32_t vecType = typeTranslator.getComponentVectorType(argType);
+      llvm::SmallVector<uint32_t, 4> rowResults;
+      for (uint32_t i = 0; i < matRowCount; ++i) {
+        // Extract the row which is a float vector of size matColCount.
+        const uint32_t rowFloatVec =
+            theBuilder.createCompositeExtract(vecType, matrixId, {i});
+        // Cast the float vector to boolean vector.
+        const auto rowFloatQualType =
+            astContext.getExtVectorType(elemType, matColCount);
+        const auto rowBoolQualType =
+            astContext.getExtVectorType(returnType, matColCount);
+        const uint32_t rowBoolVec =
+            castToBool(rowFloatVec, rowFloatQualType, rowBoolQualType);
+        // Perform OpAny/OpAll on the boolean vector.
+        rowResults.push_back(
+            theBuilder.createUnaryOp(spvOp, returnTypeId, rowBoolVec));
+      }
+      // Create a new vector that is the concatenation of results of all rows.
+      uint32_t boolId = theBuilder.getBoolType();
+      uint32_t vecOfBoolsId = theBuilder.getVecType(boolId, matRowCount);
+      const uint32_t rowResultsId =
+          theBuilder.createCompositeConstruct(vecOfBoolsId, rowResults);
+
+      // Run OpAny/OpAll on the newly-created vector.
+      return theBuilder.createUnaryOp(spvOp, returnTypeId, rowResultsId);
+    }
+  }
+
+  // All types should be handled already.
+  llvm_unreachable("Unknown argument type passed to all()/any().");
+  return 0;
 }
 
 uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
@@ -2165,9 +2223,11 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   if (returnType.getCanonicalType() == argType.getCanonicalType())
     return doExpr(arg);
 
-  if (hlsl::IsHLSLMatType(argType)) {
-    emitError("'asfloat', 'asint', and 'asuint' do not support matrix "
-              "arguments yet.");
+  // SPIR-V does not support non-floating point matrices. So 'asint' and
+  // 'asuint' for MxN matrices are currently not supported.
+  if (TypeTranslator::isMxNMatrix(argType)) {
+    emitError("SPIR-V does not support non-floating point matrices. Thus, "
+              "'asint' and 'asuint' currently do not take matrix arguments.");
     return 0;
   }
 
@@ -2194,6 +2254,18 @@ uint32_t SPIRVEmitter::getValueZero(QualType type) {
     if (TypeTranslator::isVectorType(type, &elemType, &size)) {
       return getVecValueZero(elemType, size);
     }
+  }
+
+  // 1x1, Mx1, and 1xN Matrices
+  {
+    QualType elemType = {};
+    uint32_t size = {};
+    if (TypeTranslator::is1x1Matrix(type, &elemType))
+      return getValueZero(elemType);
+    if (TypeTranslator::isMx1Or1xNMatrix(type, &elemType, &size))
+      return getVecValueZero(elemType, size);
+
+    // TODO: Handle getValueZero for MxN matrices.
   }
 
   emitError("getting value 0 for type '%0' unimplemented")

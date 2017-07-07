@@ -42,14 +42,44 @@ public:
   /// into *elementType and *count respectively if they are not nullptr.
   static bool isVectorType(QualType type, QualType *elemType, uint32_t *count);
 
-  /// \brief Returns true if the givne type is a 1x1 matrix type.
-  static bool is1x1MatrixType(QualType type);
+  /// \brief Returns true if the given type is a vector type of size 1.
+  /// If elemType is not nullptr, writes the element type to *elemType.
+  static bool isVec1Type(QualType type, QualType *elemType = nullptr);
 
-  /// \brief Returns true if the givne type is a 1xN (N > 1) matrix type.
-  static bool is1xNMatrixType(QualType type);
+  /// \brief Returns true if the given type is a 1x1 matrix type.
+  /// If elemType is not nullptr, writes the element type to *elemType.
+  static bool is1x1Matrix(QualType type, QualType *elemType = nullptr);
 
-  /// \brief Returns true if the givne type is a Mx1 (M > 1) matrix type.
-  static bool isMx1MatrixType(QualType type);
+  /// \brief Returns true if the given type is a 1xN (N > 1) matrix type.
+  /// If elemType is not nullptr, writes the element type to *elemType.
+  /// If count is not nullptr, writes the value of N into *count.
+  static bool is1xNMatrix(QualType type, QualType *elemType = nullptr,
+                          uint32_t *count = nullptr);
+
+  /// \brief Returns true if the given type is a Mx1 (M > 1) matrix type.
+  /// If elemType is not nullptr, writes the element type to *elemType.
+  /// If count is not nullptr, writes the value of M into *count.
+  static bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
+                          uint32_t *count = nullptr);
+
+  /// \brief Returns true if the given type is a Mx1 (M > 1), or 1xN (N > 1)
+  /// matrix type. If elemType is not nullptr, writes the matrix element type to
+  /// *elemType. If count is not nullptr, writes the size (M or N) into *count.
+  static bool isMx1Or1xNMatrix(QualType type, QualType *elemType = nullptr,
+                               uint32_t *count = nullptr);
+
+  /// \brief Returns true if the given type is a 1x1, or Mx1 (M > 1), or
+  /// 1xN (N > 1) matrix type.
+  static bool is1x1OrMx1Or1xNMatrix(QualType type);
+
+  /// \brief returns true if the given type is a matrix with more than 1 row and
+  /// more than 1 column.
+  /// If elemType is not nullptr, writes the element type to *elemType.
+  /// If rowCount is not nullptr, writes the number of rows (M) into *rowCount.
+  /// If colCount is not nullptr, writes the number of cols (N) into *colCount.
+  static bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
+                          uint32_t *rowCount = nullptr,
+                          uint32_t *colCount = nullptr);
 
   /// \brief Returns true if the given type is a SPIR-V acceptable matrix type,
   /// i.e., with floating point elements and greater than 1 row and column
