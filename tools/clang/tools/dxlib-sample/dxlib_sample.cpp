@@ -231,20 +231,23 @@ private:
   std::shared_mutex m_mutex;
 };
 
+static hash_code CombineWStr(hash_code hash, LPCWSTR Arg) {
+  CW2A pUtf8Arg(Arg, CP_UTF8);
+  unsigned length = strlen(pUtf8Arg.m_psz);
+  return hash_combine(hash, StringRef(pUtf8Arg.m_psz, length));
+}
+
 hash_code LibCacheManager::GetHash(IDxcBlob *pSource, CompileInput &compiler) {
   hash_code libHash = hash_value(
       StringRef((char *)pSource->GetBufferPointer(), pSource->GetBufferSize()));
   // Combine compile input.
   for (auto &Arg : compiler.arguments) {
-    CW2A pUtf8Arg(Arg, CP_UTF8);
-    libHash = hash_combine(libHash, pUtf8Arg.m_psz);
+    libHash = CombineWStr(libHash, Arg);
   }
   for (auto &Define : compiler.defines) {
-    CW2A pUtf8Name(Define.Name, CP_UTF8);
-    libHash = hash_combine(libHash, pUtf8Name.m_psz);
+    libHash = CombineWStr(libHash, Define.Name);
     if (Define.Value) {
-      CW2A pUtf8Value(Define.Value, CP_UTF8);
-      libHash = hash_combine(libHash, pUtf8Value.m_psz);
+      libHash = CombineWStr(libHash, Define.Value);
     }
   }
   return libHash;
