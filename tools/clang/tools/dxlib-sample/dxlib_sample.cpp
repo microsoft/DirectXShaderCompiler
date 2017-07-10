@@ -19,6 +19,7 @@
 #include "dxc/dxctools.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "llvm/Support/Path.h"
+#include <cwchar>
 
 using namespace hlsl;
 using namespace llvm;
@@ -232,9 +233,8 @@ private:
 };
 
 static hash_code CombineWStr(hash_code hash, LPCWSTR Arg) {
-  CW2A pUtf8Arg(Arg, CP_UTF8);
-  unsigned length = strlen(pUtf8Arg.m_psz);
-  return hash_combine(hash, StringRef(pUtf8Arg.m_psz, length));
+  unsigned length = std::wcslen(Arg)*2;
+  return hash_combine(hash, StringRef((char*)(Arg), length));
 }
 
 hash_code LibCacheManager::GetHash(IDxcBlob *pSource, CompileInput &compiler) {
