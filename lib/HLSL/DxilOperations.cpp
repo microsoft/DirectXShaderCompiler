@@ -360,6 +360,8 @@ StructType *OP::GetOriginalDxilOpType(llvm::StructType *ST, llvm::Module &M) {
   size_t DotPos = Name.rfind('.');
   StructType *OriginalST = M.getTypeByName(Name.substr(0, DotPos));
   DXASSERT(OriginalST, "else name collison without original type");
+  DXASSERT(ST->isLayoutIdentical(OriginalST),
+           "else invalid layout for dxil types");
   return OriginalST;
 }
 
