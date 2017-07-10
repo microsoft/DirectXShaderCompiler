@@ -19,6 +19,7 @@
 #include "dxc/dxctools.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "llvm/Support/Path.h"
+#include <cwchar>
 
 using namespace hlsl;
 using namespace llvm;
@@ -135,6 +136,11 @@ HRESULT IncludeToLibPreprocessor::Preprocess(IDxcBlob *pSource,
 
   HRESULT status;
   if (!SUCCEEDED(pRewriteResult->GetStatus(&status)) || !SUCCEEDED(status)) {
+    CComPtr<IDxcBlobEncoding> pErr;
+    IFT(pRewriteResult->GetErrorBuffer(&pErr));
+    std::string errString =
+        std::string((char *)pErr->GetBufferPointer(), pErr->GetBufferSize());
+    IFTMSG(E_FAIL, errString);
     return E_FAIL;
   };
   // Append existing header.
@@ -226,20 +232,22 @@ private:
   std::shared_mutex m_mutex;
 };
 
+static hash_code CombineWStr(hash_code hash, LPCWSTR Arg) {
+  unsigned length = std::wcslen(Arg)*2;
+  return hash_combine(hash, StringRef((char*)(Arg), length));
+}
+
 hash_code LibCacheManager::GetHash(IDxcBlob *pSource, CompileInput &compiler) {
   hash_code libHash = hash_value(
       StringRef((char *)pSource->GetBufferPointer(), pSource->GetBufferSize()));
   // Combine compile input.
   for (auto &Arg : compiler.arguments) {
-    CW2A pUtf8Arg(Arg, CP_UTF8);
-    libHash = hash_combine(libHash, pUtf8Arg.m_psz);
+    libHash = CombineWStr(libHash, Arg);
   }
   for (auto &Define : compiler.defines) {
-    CW2A pUtf8Name(Define.Name, CP_UTF8);
-    libHash = hash_combine(libHash, pUtf8Name.m_psz);
+    libHash = CombineWStr(libHash, Define.Name);
     if (Define.Value) {
-      CW2A pUtf8Value(Define.Value, CP_UTF8);
-      libHash = hash_combine(libHash, pUtf8Value.m_psz);
+      libHash = CombineWStr(libHash, Define.Value);
     }
   }
   return libHash;

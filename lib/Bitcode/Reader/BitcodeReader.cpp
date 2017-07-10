@@ -34,6 +34,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <deque>
+#include "dxc/HLSL/DxilOperations.h"   // HLSL Change
 using namespace llvm;
 
 namespace {
@@ -1483,6 +1484,9 @@ std::error_code BitcodeReader::parseTypeTableBody() {
         TypeList[NumRecords] = nullptr;
       } else  // Otherwise, create a new struct.
         Res = createIdentifiedStructType(Context, TypeName);
+      // HLSL Change Begin - avoid name collision for dxil types.
+      bool bNameCollision = Res->getName().size() > TypeName.size();
+      // HLSL Change End.
       TypeName.clear();
 
       SmallVector<Type*, 8> EltTys;
@@ -1495,6 +1499,13 @@ std::error_code BitcodeReader::parseTypeTableBody() {
       if (EltTys.size() != Record.size()-1)
         return error("Invalid record");
       Res->setBody(EltTys, Record[0]);
+      // HLSL Change Begin - avoid name collision for dxil types.
+      if (bNameCollision) {
+        if (hlsl::OP::IsDupDxilOpType(Res)) {
+          Res = hlsl::OP::GetOriginalDxilOpType(Res, *TheModule);
+        }
+      }
+      // HLSL Change End.
       ResultTy = Res;
       break;
     }
