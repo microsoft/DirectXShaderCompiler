@@ -252,6 +252,7 @@ const char *OP::m_OverloadTypeName[kNumTypeOverloads] = {
 };
 
 const char *OP::m_NamePrefix = "dx.op.";
+const char *OP::m_TypePrefix = "dx.types.";
 
 // Keep sync with DXIL::AtomicBinOpCode
 static const char *AtomicBinOpCodeName[] = {
@@ -338,6 +339,30 @@ bool OP::IsDxilOpFunc(const llvm::Function *F) {
   if (!F->hasName())
     return false;
   return IsDxilOpFuncName(F->getName());
+}
+
+bool OP::IsDupDxilOpType(llvm::StructType *ST) {
+  if (!ST->hasName())
+    return false;
+  StringRef Name = ST->getName();
+  if (!Name.startswith(m_TypePrefix))
+    return false;
+  size_t DotPos = Name.rfind('.');
+  if (DotPos == 0 || DotPos == StringRef::npos || Name.back() == '.' ||
+      !isdigit(static_cast<unsigned char>(Name[DotPos + 1])))
+    return false;
+  return true;
+}
+
+StructType *OP::GetOriginalDxilOpType(llvm::StructType *ST, llvm::Module &M) {
+  DXASSERT(IsDupDxilOpType(ST), "else should not call GetOriginalDxilOpType");
+  StringRef Name = ST->getName();
+  size_t DotPos = Name.rfind('.');
+  StructType *OriginalST = M.getTypeByName(Name.substr(0, DotPos));
+  DXASSERT(OriginalST, "else name collison without original type");
+  DXASSERT(ST->isLayoutIdentical(OriginalST),
+           "else invalid layout for dxil types");
+  return OriginalST;
 }
 
 bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I) {
