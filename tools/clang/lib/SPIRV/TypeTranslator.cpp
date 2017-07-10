@@ -63,7 +63,17 @@ uint32_t TypeTranslator::translateType(QualType type) {
   }
 
   if (hlsl::IsHLSLMatType(type)) {
+    uint32_t elemCount = 0;
     const auto elemTy = hlsl::GetHLSLMatElementType(type);
+
+    // 1x1 matrix is a scalar
+    if (is1x1Matrix(type))
+      return translateType(elemTy);
+
+    // Mx1 matrix or 1xN matrix is a vector.
+    if (isMx1Or1xNMatrix(type, nullptr, &elemCount))
+      return theBuilder.getVecType(translateType(elemTy), elemCount);
+
     // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
     // Validation Rules":
     //   Matrix types can only be parameterized with floating-point types.

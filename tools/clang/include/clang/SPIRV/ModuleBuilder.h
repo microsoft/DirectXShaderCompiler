@@ -172,6 +172,12 @@ public:
   /// \brief Creates a return value instruction.
   void createReturnValue(uint32_t value);
 
+  /// \brief Creates an OpExtInst instruction with the given instruction set id,
+  /// instruction number, and operands. Returns the <result-id> of the
+  /// instruction.
+  uint32_t createExtInst(uint32_t resultType, uint32_t setId, uint32_t instId,
+                         llvm::ArrayRef<uint32_t> operands);
+
   // === SPIR-V Module Structure ===
 
   inline void requireCapability(spv::Capability);
@@ -188,6 +194,11 @@ public:
   /// \brief Adds an execution mode to the module under construction.
   void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
                         const std::vector<uint32_t> &params);
+
+  /// \brief If not added already, adds an OpExtInstImport (import of extended
+  /// instruction set) of the GLSL instruction set. Returns the <result-id> for
+  /// the imported GLSL instruction set.
+  uint32_t getGLSLExtInstSet();
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
@@ -251,6 +262,7 @@ private:
   /// The constructed instruction will appear in constructSite.
   InstBuilder instBuilder;
   std::vector<uint32_t> constructSite; ///< InstBuilder construction site.
+  uint32_t glslExtSetId; ///< The <result-id> of GLSL extended instruction set.
 };
 
 SPIRVContext *ModuleBuilder::getSPIRVContext() { return &theContext; }

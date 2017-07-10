@@ -18,7 +18,7 @@ namespace spirv {
 
 ModuleBuilder::ModuleBuilder(SPIRVContext *C)
     : theContext(*C), theModule(), theFunction(nullptr), insertPoint(nullptr),
-      instBuilder(nullptr) {
+      instBuilder(nullptr), glslExtSetId(0) {
   instBuilder.setConsumer([this](std::vector<uint32_t> &&words) {
     this->constructSite = std::move(words);
   });
@@ -274,6 +274,16 @@ void ModuleBuilder::createReturnValue(uint32_t value) {
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
+uint32_t ModuleBuilder::createExtInst(uint32_t resultType, uint32_t setId,
+                                      uint32_t instId,
+                                      llvm::ArrayRef<uint32_t> operands) {
+  assert(insertPoint && "null insert point");
+  uint32_t resultId = theContext.takeNextId();
+  instBuilder.opExtInst(resultType, resultId, setId, instId, operands).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
                                      spv::ExecutionMode em,
                                      const std::vector<uint32_t> &params) {
@@ -283,6 +293,14 @@ void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
   }
   instBuilder.x();
   theModule.addExecutionMode(std::move(constructSite));
+}
+
+uint32_t ModuleBuilder::getGLSLExtInstSet() {
+  if (glslExtSetId == 0) {
+    glslExtSetId = theContext.takeNextId();
+    theModule.addExtInstSet(glslExtSetId, "GLSL.std.450");
+  }
+  return glslExtSetId;
 }
 
 uint32_t ModuleBuilder::addStageIOVariable(uint32_t type,

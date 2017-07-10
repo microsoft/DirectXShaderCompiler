@@ -212,14 +212,6 @@ struct Header {
   const uint32_t reserved;
 };
 
-/// \brief The struct representing an extended instruction set.
-struct ExtInstSet {
-  inline ExtInstSet(uint32_t id, std::string name);
-
-  const uint32_t resultId;
-  const std::string setName;
-};
-
 /// \brief The struct representing an entry point.
 struct EntryPoint {
   inline EntryPoint(spv::ExecutionModel, uint32_t id, std::string name,
@@ -289,7 +281,7 @@ public:
 
   inline void addCapability(spv::Capability);
   inline void addExtension(std::string extension);
-  inline void addExtInstSet(uint32_t setId, std::string extInstSet);
+  inline void addExtInstSet(uint32_t setId, llvm::StringRef extInstSet);
   inline void setAddressingModel(spv::AddressingModel);
   inline void setMemoryModel(spv::MemoryModel);
   inline void addEntryPoint(spv::ExecutionModel, uint32_t targetId,
@@ -304,6 +296,10 @@ public:
   inline void addConstant(const Constant *constant, uint32_t resultId);
   inline void addVariable(Instruction &&);
   inline void addFunction(std::unique_ptr<Function>);
+
+  /// \brief Returns the <result-id> of the given extended instruction set.
+  /// Returns 0 if the given set has not been imported.
+  inline uint32_t getExtInstSetId(llvm::StringRef setName);
 
 private:
   /// \brief Collects all the Integer type definitions in this module and
@@ -322,7 +318,7 @@ private:
   Header header; ///< SPIR-V module header.
   std::vector<spv::Capability> capabilities;
   std::vector<std::string> extensions;
-  std::vector<ExtInstSet> extInstSets;
+  llvm::MapVector<const char *, uint32_t> extInstSets;
   // Addressing and memory model must exist for a valid SPIR-V module.
   // We make them optional here just to provide extra flexibility of
   // the representation.
@@ -410,9 +406,6 @@ void Function::addBasicBlock(std::unique_ptr<BasicBlock> block) {
 
 // === Module components inline implementations ===
 
-ExtInstSet::ExtInstSet(uint32_t id, std::string name)
-    : resultId(id), setName(name) {}
-
 EntryPoint::EntryPoint(spv::ExecutionModel em, uint32_t id, std::string name,
                        const std::vector<uint32_t> &interface)
     : executionModel(em), targetId(id), targetName(std::move(name)),
@@ -442,8 +435,15 @@ void SPIRVModule::addExtension(std::string ext) {
   extensions.push_back(std::move(ext));
 }
 
-void SPIRVModule::addExtInstSet(uint32_t setId, std::string extInstSet) {
-  extInstSets.emplace_back(setId, extInstSet);
+uint32_t SPIRVModule::getExtInstSetId(llvm::StringRef setName) {
+  const auto &iter = extInstSets.find(setName.data());
+  if (iter != extInstSets.end())
+    return iter->second;
+  return 0;
+}
+
+void SPIRVModule::addExtInstSet(uint32_t setId, llvm::StringRef extInstSet) {
+  extInstSets.insert(std::make_pair(extInstSet.data(), setId));
 }
 
 void SPIRVModule::setAddressingModel(spv::AddressingModel am) {

@@ -1054,7 +1054,8 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   }
   case CastKind::CK_HLSLMatrixToVectorCast: {
     // The underlying should already be a matrix of 1xN.
-    assert(TypeTranslator::is1xNMatrix(subExpr->getType()));
+    assert(TypeTranslator::is1xNMatrix(subExpr->getType()) ||
+           TypeTranslator::isMx1Matrix(subExpr->getType()));
     return doExpr(subExpr);
   }
   case CastKind::CK_FunctionToPointerDecay:
@@ -2045,8 +2046,9 @@ uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_DivAssign:
   case BO_RemAssign: {
     const uint32_t vecType = typeTranslator.getComponentVectorType(lhsType);
-    const auto actOnEachVec = [this, spvOp, rhsVal](
-        uint32_t index, uint32_t vecType, uint32_t lhsVec) {
+    const auto actOnEachVec = [this, spvOp, rhsVal](uint32_t index,
+                                                    uint32_t vecType,
+                                                    uint32_t lhsVec) {
       // For each vector of lhs, we need to load the corresponding vector of
       // rhs and do the operation on them.
       const uint32_t rhsVec =
@@ -2155,11 +2157,29 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   assert(hlsl::IsIntrinsicOp(callee) &&
          "doIntrinsicCallExpr was called for a non-intrinsic function.");
 
+  const bool isFloatArg =
+      isFloatOrVecMatOfFloatType(callExpr->getArg(0)->getType());
+  GLSLstd450 glslOpcode = GLSLstd450Bad;
+  bool actOnEachVecInMat = false;
+
+#define INTRINSIC_OP_CASE(intrinsicOp, glslOp, doEachVec)                      \
+  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
+    glslOpcode = GLSLstd450::GLSLstd450##glslOp;                               \
+    actOnEachVecInMat = doEachVec;                                             \
+  } break
+
+#define INTRINSIC_OP_CASE_INT_FLOAT(intrinsicOp, glslIntOp, glslFloatOp,       \
+                                    doEachVec)                                 \
+  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
+    glslOpcode = isFloatArg ? GLSLstd450::GLSLstd450##glslFloatOp              \
+                            : GLSLstd450::GLSLstd450##glslIntOp;               \
+    actOnEachVecInMat = doEachVec;                                             \
+  } break
+
   // Figure out which intrinsic function to translate.
   llvm::StringRef group;
   uint32_t opcode = static_cast<uint32_t>(hlsl::IntrinsicOp::Num_Intrinsics);
   hlsl::GetIntrinsicOp(callee, opcode, group);
-
   switch (static_cast<hlsl::IntrinsicOp>(opcode)) {
   case hlsl::IntrinsicOp::IOP_dot:
     return processIntrinsicDot(callExpr);
@@ -2171,13 +2191,49 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_asint:
   case hlsl::IntrinsicOp::IOP_asuint:
     return processIntrinsicAsType(callExpr);
+  case hlsl::IntrinsicOp::IOP_sign: {
+    if (isFloatArg)
+      return processIntrinsicFloatSign(callExpr);
+    else
+      return processIntrinsicUsingGLSLInst(callExpr,
+                                           GLSLstd450::GLSLstd450SSign,
+                                           /*actPerRowForMatrices*/ true);
+  }
+    INTRINSIC_OP_CASE(round, Round, true);
+    INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
+    INTRINSIC_OP_CASE(acos, Acos, true);
+    INTRINSIC_OP_CASE(asin, Asin, true);
+    INTRINSIC_OP_CASE(atan, Atan, true);
+    INTRINSIC_OP_CASE(ceil, Ceil, true);
+    INTRINSIC_OP_CASE(cos, Cos, true);
+    INTRINSIC_OP_CASE(cosh, Cosh, true);
+    INTRINSIC_OP_CASE(degrees, Degrees, true);
+    INTRINSIC_OP_CASE(radians, Radians, true);
+    INTRINSIC_OP_CASE(determinant, Determinant, false);
+    INTRINSIC_OP_CASE(exp, Exp, true);
+    INTRINSIC_OP_CASE(exp2, Exp2, true);
+    INTRINSIC_OP_CASE(floor, Floor, true);
+    INTRINSIC_OP_CASE(length, Length, false);
+    INTRINSIC_OP_CASE(log, Log, true);
+    INTRINSIC_OP_CASE(log2, Log2, true);
+    INTRINSIC_OP_CASE(normalize, Normalize, false);
+    INTRINSIC_OP_CASE(rsqrt, InverseSqrt, true);
+    INTRINSIC_OP_CASE(sin, Sin, true);
+    INTRINSIC_OP_CASE(sinh, Sinh, true);
+    INTRINSIC_OP_CASE(tan, Tan, true);
+    INTRINSIC_OP_CASE(tanh, Tanh, true);
+    INTRINSIC_OP_CASE(sqrt, Sqrt, true);
+    INTRINSIC_OP_CASE(trunc, Trunc, true);
   default:
-    break;
+    emitError("Intrinsic function '%0' not yet implemented.")
+        << callee->getName();
+    return 0;
   }
 
-  emitError("Intrinsic function '%0' not yet implemented.")
-      << callee->getName();
-  return 0;
+#undef INTRINSIC_OP_CASE
+#undef INTRINSIC_OP_CASE_INT_FLOAT
+
+  return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, actOnEachVecInMat);
 }
 
 uint32_t SPIRVEmitter::processIntrinsicDot(const CallExpr *callExpr) {
@@ -2351,6 +2407,66 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
 
   return theBuilder.createUnaryOp(spv::Op::OpBitcast, returnTypeId,
                                   doExpr(arg));
+}
+
+uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
+  // Import the GLSL.std.450 extended instruction set.
+  const uint32_t glslInstSetId = theBuilder.getGLSLExtInstSet();
+  const Expr *arg = callExpr->getArg(0);
+  const QualType returnType = callExpr->getType();
+  const QualType argType = arg->getType();
+  assert(isFloatOrVecMatOfFloatType(argType));
+  const uint32_t argTypeId = typeTranslator.translateType(argType);
+  const uint32_t argId = doExpr(arg);
+  uint32_t floatSignResultId = 0;
+
+  // For matrices, we can perform the instruction on each vector of the matrix.
+  if (TypeTranslator::isSpirvAcceptableMatrixType(argType)) {
+    const auto actOnEachVec = [this, glslInstSetId](uint32_t /*index*/,
+                                                    uint32_t vecType,
+                                                    uint32_t curRowId) {
+      return theBuilder.createExtInst(vecType, glslInstSetId,
+                                      GLSLstd450::GLSLstd450FSign, {curRowId});
+    };
+    floatSignResultId = processEachVectorInMatrix(arg, argId, actOnEachVec);
+  } else {
+    floatSignResultId = theBuilder.createExtInst(
+        argTypeId, glslInstSetId, GLSLstd450::GLSLstd450FSign, {argId});
+  }
+
+  return castToInt(floatSignResultId, arg->getType(), returnType);
+}
+
+uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
+    const CallExpr *callExpr, GLSLstd450 opcode, bool actPerRowForMatrices) {
+  // Import the GLSL.std.450 extended instruction set.
+  const uint32_t glslInstSetId = theBuilder.getGLSLExtInstSet();
+
+  if (callExpr->getNumArgs() == 1u) {
+    const uint32_t returnType =
+        typeTranslator.translateType(callExpr->getType());
+    const Expr *arg = callExpr->getArg(0);
+    const uint32_t argId = doExpr(arg);
+
+    // If the instruction does not operate on matrices, we can perform the
+    // instruction on each vector of the matrix.
+    if (actPerRowForMatrices &&
+        TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
+      const auto actOnEachVec = [this, glslInstSetId,
+                                 opcode](uint32_t /*index*/, uint32_t vecType,
+                                         uint32_t curRowId) {
+        return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
+                                        {curRowId});
+      };
+      return processEachVectorInMatrix(arg, argId, actOnEachVec);
+    }
+
+    return theBuilder.createExtInst(returnType, glslInstSetId, opcode, {argId});
+  }
+
+  emitError("Unsupported intrinsic function %0.")
+      << cast<DeclRefExpr>(callExpr->getCallee())->getNameInfo().getAsString();
+  return 0;
 }
 
 uint32_t SPIRVEmitter::getValueZero(QualType type) {

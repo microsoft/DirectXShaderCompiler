@@ -460,7 +460,75 @@ Intrinsic functions
 
 The following intrinsic HLSL functions are currently supported:
 
-- `dot` : performs dot product of two vectors, each containing floats or integers. If the two parameters are vectors of floats, we use SPIR-V's OpDot instruction to perform the translation. If the two parameters are vectors of integers, we multiply corresponding vector elementes using OpIMul and accumulate the results using OpIAdd to compute the dot product.
+- ``dot`` : performs dot product of two vectors, each containing floats or integers. If the two parameters are vectors of floats, we use SPIR-V's OpDot instruction to perform the translation. If the two parameters are vectors of integers, we multiply corresponding vector elementes using OpIMul and accumulate the results using OpIAdd to compute the dot product.
+
+- ``all``: returns true if all components of the given scalar, vector, or matrix are true. Performs conversions to boolean where necessary. Uses SPIR-V ``OpAll`` for scalar arguments and vector arguments. For matrix arguments, performs ``OpAll`` on each row, and then again on the vector containing the results of all rows.
+
+- ``any``: returns true if any component of the given scalar, vector, or matrix is true. Performs conversions to boolean where necessary. Uses SPIR-V ``OpAny`` for scalar arguments and vector arguments. For matrix arguments, performs ``OpAny`` on each row, and then again on the vector containing the results of all rows.
+
+- ``asfloat``: converts the component type of a scalar/vector/matrix from float, uint, or int into float. Uses ``OpBitcast``. This method currently does not support taking non-float matrix arguments.
+
+- ``asint``: converts the component type of a scalar/vector/matrix from float or uint into int. Uses ``OpBitcast``. This method currently does not support conversion into integer matrices.
+
+- ``asuint``: converts the component type of a scalar/vector/matrix from float or int into uint. Uses ``OpBitcast``. This method currently does not support conversion into unsigned integer matrices.
+
+- Using SPIR-V Extended Instructions for GLSL: the following intrinsic HLSL functions are translated using their equivalent instruction in the GLSL extended instruction set.
+
++-----------------------------+-----------------------------------------------------+
+|   HLSL intrinsic function   |               GLSL Extended Instruction             |
++-----------------------------+-----------------------------------------------------+
+|        ``abs``              |   ``SAbs`` for ints, and ``FAbs`` for floats        |
++-----------------------------+-----------------------------------------------------+
+|        ``acos``             |                       ``Acos``                      |
++-----------------------------+-----------------------------------------------------+
+|        ``asin``             |                       ``Asin``                      |
++-----------------------------+-----------------------------------------------------+
+|        ``atan``             |                       ``Atan``                      |
++-----------------------------+-----------------------------------------------------+
+|        ``ceil``             |                       ``Ceil``                      |
++-----------------------------+-----------------------------------------------------+
+|        ``cos``              |                       ``Cos``                       |
++-----------------------------+-----------------------------------------------------+
+|        ``cosh``             |                       ``Cosh``                      |
++-----------------------------+-----------------------------------------------------+
+|       ``degrees``           |                      ``Degrees``                    |
++-----------------------------+-----------------------------------------------------+
+|       ``radians``           |                      ``Radian``                     |
++-----------------------------+-----------------------------------------------------+
+|    ``determinant``          |                   ``Determinant``                   |
++-----------------------------+-----------------------------------------------------+
+|        ``exp``              |                       ``Exp``                       |
++-----------------------------+-----------------------------------------------------+
+|        ``exp2``             |                       ``exp2``                      |
++-----------------------------+-----------------------------------------------------+
+|        ``floor``            |                       ``Floor``                     |
++-----------------------------+-----------------------------------------------------+
+|      ``length``             |                     ``Length``                      |
++-----------------------------+-----------------------------------------------------+
+|        ``log``              |                       ``Log``                       |
++-----------------------------+-----------------------------------------------------+
+|        ``log2``             |                       ``Log2``                      |
++-----------------------------+-----------------------------------------------------+
+|     ``normalize``           |                   ``Normalize``                     |
++-----------------------------+-----------------------------------------------------+
+|        ``round``            |                      ``Round``                      |
++-----------------------------+-----------------------------------------------------+
+|       ``rsqrt``             |                  ``InverseSqrt``                    |
++-----------------------------+-----------------------------------------------------+
+|       ``sign``              |   ``SSign`` for ints, and ``FSign`` for floats      |
++-----------------------------+-----------------------------------------------------+
+|        ``sin``              |                       ``Sin``                       |
++-----------------------------+-----------------------------------------------------+
+|        ``sinh``             |                       ``Sinh``                      |
++-----------------------------+-----------------------------------------------------+
+|        ``tan``              |                       ``Tan``                       |
++-----------------------------+-----------------------------------------------------+
+|        ``tanh``             |                       ``Tanh``                      |
++-----------------------------+-----------------------------------------------------+
+|        ``sqrt``             |                       ``Sqrt``                      |
++-----------------------------+-----------------------------------------------------+
+|       ``trunc``             |                      ``Trunc``                      |
++-----------------------------+-----------------------------------------------------+
 
 Logistics
 =========
