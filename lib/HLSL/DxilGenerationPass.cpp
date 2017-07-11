@@ -1879,8 +1879,10 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
     // the entry node
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-        if (HandleTy == HLModule::GetArrayEltTy(AI->getAllocatedType()))
+        if (HandleTy == HLModule::GetArrayEltTy(AI->getAllocatedType())) {
+          DXASSERT(isAllocaPromotable(AI), "otherwise, non-promotable resource array alloca found");
           Allocas.push_back(AI);
+        }
       }
     if (Allocas.empty())
       break;
