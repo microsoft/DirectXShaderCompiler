@@ -234,8 +234,15 @@ void ModuleBuilder::createSwitch(
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
-void ModuleBuilder::createBranch(uint32_t targetLabel) {
+void ModuleBuilder::createBranch(uint32_t targetLabel, uint32_t mergeBB,
+                                 uint32_t continueBB,
+                                 spv::LoopControlMask loopControl) {
   assert(insertPoint && "null insert point");
+
+  if (mergeBB && continueBB) {
+    instBuilder.opLoopMerge(mergeBB, continueBB, loopControl).x();
+    insertPoint->appendInstruction(std::move(constructSite));
+  }
 
   instBuilder.opBranch(targetLabel).x();
   insertPoint->appendInstruction(std::move(constructSite));

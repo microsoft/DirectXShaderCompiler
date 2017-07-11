@@ -80,6 +80,7 @@ private:
   void doSwitchStmt(const SwitchStmt *stmt,
                     llvm::ArrayRef<const Attr *> attrs = {});
   void doWhileStmt(const WhileStmt *, llvm::ArrayRef<const Attr *> attrs = {});
+  void doDoStmt(const DoStmt *, llvm::ArrayRef<const Attr *> attrs = {});
 
   uint32_t doBinaryOperator(const BinaryOperator *expr);
   uint32_t doCallExpr(const CallExpr *callExpr);

@@ -203,6 +203,8 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
     processCaseStmtOrDefaultStmt(stmt);
   } else if (const auto *breakStmt = dyn_cast<BreakStmt>(stmt)) {
     doBreakStmt(breakStmt);
+  } else if (const auto *theDoStmt = dyn_cast<DoStmt>(stmt)) {
+    doDoStmt(theDoStmt, attrs);
   } else if (const auto *whileStmt = dyn_cast<WhileStmt>(stmt)) {
     doWhileStmt(whileStmt, attrs);
   } else if (const auto *forStmt = dyn_cast<ForStmt>(stmt)) {
@@ -467,6 +469,93 @@ spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Attr &attr) {
     emitError("Found unknown loop attribute.");
   }
   return spv::LoopControlMask::MaskNone;
+}
+
+void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
+                            llvm::ArrayRef<const Attr *> attrs) {
+  // do-while loops are composed of:
+  //
+  // do {
+  //   <body>
+  // } while(<check>);
+  //
+  // SPIR-V requires loops to have a merge basic block as well as a continue
+  // basic block. Even though do-while loops do not have an explicit continue
+  // block as in for-loops, we still do need to create a continue block.
+  //
+  // Since SPIR-V requires structured control flow, we need two more basic
+  // blocks, <header> and <merge>. <header> is the block before control flow
+  // diverges, and <merge> is the block where control flow subsequently
+  // converges. The <check> can be performed in the <continue> basic block.
+  // The final CFG should normally be like the following. Exceptions
+  // will occur with non-local exits like loop breaks or early returns.
+  //
+  //            +----------+
+  //            |  header  | <-----------------------------------+
+  //            +----------+                                     |
+  //                 |                                           |  (true)
+  //                 v                                           |
+  //             +------+       +--------------------+           |
+  //             | body | ----> | continue (<check>) |-----------+
+  //             +------+       +--------------------+
+  //                                     |
+  //                                     | (false)
+  //             +-------+               |
+  //             | merge | <-------------+
+  //             +-------+
+  //
+  // For more details, see "2.11. Structured Control Flow" in the SPIR-V spec.
+
+  const spv::LoopControlMask loopControl =
+      attrs.empty() ? spv::LoopControlMask::MaskNone
+                    : translateLoopAttribute(*attrs.front());
+
+  // Create basic blocks
+  const uint32_t headerBB = theBuilder.createBasicBlock("do_while.header");
+  const uint32_t bodyBB = theBuilder.createBasicBlock("do_while.body");
+  const uint32_t continueBB = theBuilder.createBasicBlock("do_while.continue");
+  const uint32_t mergeBB = theBuilder.createBasicBlock("do_while.merge");
+
+  // Branch from the current insert point to the header block.
+  theBuilder.createBranch(headerBB);
+  theBuilder.addSuccessor(headerBB);
+
+  // Process the <header> block
+  // The header block must always branch to the body.
+  theBuilder.setInsertPoint(headerBB);
+  theBuilder.createBranch(bodyBB, mergeBB, continueBB, loopControl);
+  theBuilder.addSuccessor(bodyBB);
+  // The current basic block has OpLoopMerge instruction. We need to set its
+  // continue and merge target.
+  theBuilder.setContinueTarget(continueBB);
+  theBuilder.setMergeTarget(mergeBB);
+
+  // Process the <body> block
+  theBuilder.setInsertPoint(bodyBB);
+  if (const Stmt *body = theDoStmt->getBody()) {
+    doStmt(body);
+  }
+  theBuilder.createBranch(continueBB);
+  theBuilder.addSuccessor(continueBB);
+
+  // Process the <continue> block. The check for whether the loop should
+  // continue lies in the continue block.
+  // *NOTE*: There's a SPIR-V rule that when a conditional branch is to occur in
+  // a continue block of a loop, there should be no OpSelectionMerge. Only an
+  // OpBranchConditional must be specified.
+  theBuilder.setInsertPoint(continueBB);
+  uint32_t condition = 0;
+  if (const Expr *check = theDoStmt->getCond()) {
+    condition = doExpr(check);
+  } else {
+    condition = theBuilder.getConstantBool(true);
+  }
+  theBuilder.createConditionalBranch(condition, headerBB, mergeBB);
+  theBuilder.addSuccessor(headerBB);
+  theBuilder.addSuccessor(mergeBB);
+
+  // Set insertion point to the <merge> block for subsequent statements
+  theBuilder.setInsertPoint(mergeBB);
 }
 
 void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
