@@ -4338,4 +4338,3 @@ extern "C" {
     return hr;
   }
 }
->>>>>>> b5c0178e... WaveIntrinsicsInPS test fix (#409)
