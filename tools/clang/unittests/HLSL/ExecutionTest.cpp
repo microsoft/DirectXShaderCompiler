@@ -52,6 +52,7 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "dxguid.lib")
+#pragma comment(lib, "version.lib")
 
 // A more recent Windows SDK than currently required is needed for these.
 typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
@@ -475,6 +476,37 @@ static OutType computeExpectedWithShaderOp(const std::vector<InType> &inputs,
   }
 };
 
+
+// Checks if the given warp version supports the given operation.
+bool IsValidWarpDllVersion(unsigned int minBuildNumber) {
+    HMODULE pLibrary = LoadLibrary("D3D10Warp.dll");
+    if (pLibrary) {
+        char path[MAX_PATH];
+        DWORD length = GetModuleFileName(pLibrary, path, MAX_PATH);
+        if (length) {
+            DWORD dwVerHnd = 0;
+            DWORD dwVersionInfoSize = GetFileVersionInfoSize(path, &dwVerHnd);
+            std::unique_ptr<int[]> VffInfo(new int[dwVersionInfoSize]);
+            if (GetFileVersionInfo(path, NULL, dwVersionInfoSize, VffInfo.get())) {
+                LPVOID versionInfo;
+                UINT size;
+                if (VerQueryValue(VffInfo.get(), "\\", &versionInfo, &size)) {
+                    if (size) {
+                        VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)versionInfo;
+                        unsigned int warpBuildNumber = verInfo->dwFileVersionLS >> 16 & 0xffff;
+                        if (verInfo->dwSignature == 0xFEEF04BD && warpBuildNumber >= minBuildNumber) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        FreeLibrary(pLibrary);
+    }
+    return false;
+}
+
+
 class ExecutionTest {
 public:
   // By default, ignore these tests, which require a recent build to run properly.
@@ -499,22 +531,18 @@ public:
   // TODO: Change the priority to 0 once there is a driver that fixes the issue with WaveActive operations
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveIntTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveUintTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveUintTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsPrefixIntTest)
   TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsPrefixIntTable")
-  TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(WaveIntrinsicsPrefixUintTest)
   TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsPrefixUintTable")
-  TEST_METHOD_PROPERTY(L"Priority", L"2")
   END_TEST_METHOD()
   // TAEF data-driven tests.
   BEGIN_TEST_METHOD(UnaryFloatOpTest)
@@ -1803,6 +1831,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   }
 }
 
+// This test is assuming that the adapter implements WaveReadLaneFirst correctly
 TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
@@ -2045,7 +2074,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
     LogCommentFmt(L"%u pixels were processed by a single thread. %u invocations were for shared pixels.",
       singlePixelCount, multiPixelCount);
 
-    // Multiple threads may have tried to shade the same pixel.
+    // Multiple threads may have tried to shade the same pixel. (Is this true even if we have only one triangle?)
     // Where every pixel is distinct, it's very straightforward to validate.
     {
       auto cur = firstIdGroups.begin(), end = firstIdGroups.end();
@@ -2066,21 +2095,40 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
           };
           std::map<uint32_t, QuadData> quads;
           for (auto i = cur; i != groupEnd; ++i) {
-            uint32_t quadId = (*i).second->id0;
-            auto match = quads.find(quadId);
-            if (match == quads.end()) {
+            // assuming that it is a simple wave, idGroups has a unique id for each entry.
+            uint32_t laneId = (*i).second->id;
+            uint32_t laneIds[4] = {(*i).second->id0, (*i).second->id1,
+                                   (*i).second->id2, (*i).second->id3};
+            // Since this is a simple wave, each lane has an unique id and
+            // therefore should not have any ids in there.
+            VERIFY_IS_TRUE(quads.find(laneId) == quads.end());
+            // check if QuadReadLaneAt is returning same values in a single quad.
+            bool newQuad = true;
+            for (unsigned quadIndex = 0; quadIndex < 4; ++quadIndex) {
+              auto match = quads.find(laneIds[quadIndex]);
+              if (match != quads.end()) {
+                (*match).second.data[(*match).second.count++] = (*i).second;
+                newQuad = false;
+                break;
+              }
+              auto quadMemberData = idGroups.find(laneIds[quadIndex]);
+              if (quadMemberData != idGroups.end()) {
+                VERIFY_IS_TRUE((*quadMemberData).second->id0 == laneIds[0]);
+                VERIFY_IS_TRUE((*quadMemberData).second->id1 == laneIds[1]);
+                VERIFY_IS_TRUE((*quadMemberData).second->id2 == laneIds[2]);
+                VERIFY_IS_TRUE((*quadMemberData).second->id3 == laneIds[3]);
+              }
+            }
+            if (newQuad) {
               QuadData qdata;
               qdata.count = 1;
               qdata.data[0] = (*i).second;
-              quads.insert(std::make_pair(quadId, qdata));
-            }
-            else {
-              VERIFY_IS_TRUE((*match).second.count < 4);
-              (*match).second.data[(*match).second.count++] = (*i).second;
+              quads.insert(std::make_pair(laneId, qdata));
             }
           }
           for (auto quadPair : quads) {
             unsigned count = quadPair.second.count;
+            // There could be only one pixel data on the edge of the triangle
             if (count < 2) continue;
             PerPixelData **data = quadPair.second.data;
             bool isTop[4];
@@ -2494,6 +2542,16 @@ public:
     return nullptr;
   }
 
+  void clearTableParameter() {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      m_table[i].m_int = 0;
+      m_table[i].m_uint = 0;
+      m_table[i].m_double = 0;
+      m_table[i].m_bool = false;
+      m_table[i].m_str = WEX::Common::String();
+    }
+  }
+
   template <class T1>
   WEX::TestExecution::TestDataArray<T1> *GetDataArray(LPCWSTR name) {
     return nullptr;
@@ -2553,7 +2611,8 @@ static TableParameter UnaryFPOpParameters[] = {
     { L"Validation.Expected", TableParameter::STRING_TABLE, true },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
-    { L"Validation.NumInput", TableParameter::UINT, true }
+    { L"Validation.NumInput", TableParameter::UINT, true },
+    { L"Warp.Version", TableParameter::UINT, false }
 };
 
 static TableParameter BinaryFPOpParameters[] = {
@@ -2947,8 +3006,9 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     }
     // Read data from the table
     int tableSize = sizeof(UnaryFPOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(UnaryFPOpParameters, tableSize));
     TableParameterHandler handler(UnaryFPOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(UnaryFPOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -2960,6 +3020,11 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     shader.Target = Target.m_psz;
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
+
+    unsigned int WarpVersion = handler.GetTableParamByName(L"Warp.Version")->m_uint;
+    if (GetTestParamUseWARP(true) && !IsValidWarpDllVersion(WarpVersion)) {
+        return;
+    }
 
     WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input =
         &(handler.GetTableParamByName(L"Validation.Input")->m_StringTable);
@@ -3022,8 +3087,10 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     }
     // Read data from the table
     int tableSize = sizeof(BinaryFPOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(BinaryFPOpParameters, tableSize));
     TableParameterHandler handler(BinaryFPOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(BinaryFPOpParameters, tableSize));
+
 
     st::ShaderOpShader shader;
 
@@ -3114,8 +3181,9 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
     // Read data from the table
     
     int tableSize = sizeof(TertiaryFPOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(TertiaryFPOpParameters, tableSize));
     TableParameterHandler handler(TertiaryFPOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(TertiaryFPOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3203,8 +3271,9 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
     // Read data from the table
 
     int tableSize = sizeof(UnaryIntOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(UnaryIntOpParameters, tableSize));
     TableParameterHandler handler(UnaryIntOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(UnaryIntOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3272,8 +3341,9 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
     // Read data from the table
 
     int tableSize = sizeof(UnaryUintOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(UnaryUintOpParameters, tableSize));
     TableParameterHandler handler(UnaryUintOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(UnaryUintOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3340,8 +3410,9 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
     }
     // Read data from the table
     size_t tableSize = sizeof(BinaryIntOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(BinaryIntOpParameters,tableSize));
     TableParameterHandler handler(BinaryIntOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(BinaryIntOpParameters,tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3441,8 +3512,9 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
     }
     // Read data from the table
     size_t tableSize = sizeof(TertiaryIntOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(TertiaryIntOpParameters, tableSize));
     TableParameterHandler handler(TertiaryIntOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(TertiaryIntOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3521,8 +3593,9 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     }
     // Read data from the table
     size_t tableSize = sizeof(BinaryUintOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(BinaryUintOpParameters, tableSize));
     TableParameterHandler handler(BinaryUintOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(BinaryUintOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3621,9 +3694,9 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
     }
     // Read data from the table
     size_t tableSize = sizeof(TertiaryUintOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(TertiaryUintOpParameters, tableSize));
     TableParameterHandler handler(TertiaryUintOpParameters, tableSize);
-    ;
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(TertiaryUintOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3701,8 +3774,9 @@ TEST_F(ExecutionTest, DotTest) {
     }
 
     int tableSize = sizeof(DotOpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(DotOpParameters, tableSize));
     TableParameterHandler handler(DotOpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(DotOpParameters, tableSize));
 
     st::ShaderOpShader shader;
 
@@ -3793,8 +3867,9 @@ TEST_F(ExecutionTest, Msad4Test) {
         return;
     }
     size_t tableSize = sizeof(Msad4OpParameters) / sizeof(TableParameter);
-    VERIFY_SUCCEEDED(ParseTableRow(Msad4OpParameters, tableSize));
     TableParameterHandler handler(Msad4OpParameters, tableSize);
+    handler.clearTableParameter();
+    VERIFY_SUCCEEDED(ParseTableRow(Msad4OpParameters, tableSize));
 
     CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
     double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
@@ -3894,9 +3969,10 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
     WEX::Logging::Log::Comment(L"Device does not support wave operations.");
     return;
   }
-  VERIFY_SUCCEEDED(ParseTableRow(pParameterList, numParameter));
-  TableParameterHandler handler(pParameterList, numParameter);
 
+  TableParameterHandler handler(pParameterList, numParameter);
+  handler.clearTableParameter();
+  VERIFY_SUCCEEDED(ParseTableRow(pParameterList, numParameter));
 
   unsigned int numInputSet = handler.GetTableParamByName(L"Validation.NumInputSet")->m_uint;
 
@@ -4012,28 +4088,50 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
   }
 }
 
+static const unsigned int MinWarpVersionForWaveIntrinsics = 16202;
+
 TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
+  if (GetTestParamUseWARP(true) &&
+      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
+    return;
+  }
   WaveIntrinsicsActivePrefixTest<int, int>(
-    WaveIntrinsicsActiveIntParameters,
-    sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter), /*isPrefix*/ false);
+      WaveIntrinsicsActiveIntParameters,
+      sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter),
+      /*isPrefix*/ false);
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsActiveUintTest) {
+  if (GetTestParamUseWARP(true) &&
+      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
+    return;
+  }
   WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
       WaveIntrinsicsActiveUintParameters,
-      sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter), /*isPrefix*/ false);
+      sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter),
+      /*isPrefix*/ false);
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsPrefixIntTest) {
+  if (GetTestParamUseWARP(true) &&
+      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
+    return;
+  }
   WaveIntrinsicsActivePrefixTest<int, int>(
-    WaveIntrinsicsPrefixIntParameters,
-    sizeof(WaveIntrinsicsPrefixIntParameters) / sizeof(TableParameter), /*isPrefix*/ true);
+      WaveIntrinsicsPrefixIntParameters,
+      sizeof(WaveIntrinsicsPrefixIntParameters) / sizeof(TableParameter),
+      /*isPrefix*/ true);
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsPrefixUintTest) {
+  if (GetTestParamUseWARP(true) &&
+      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
+    return;
+  }
   WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
-    WaveIntrinsicsPrefixUintParameters,
-    sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter), /*isPrefix*/ true);
+      WaveIntrinsicsPrefixUintParameters,
+      sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter),
+      /*isPrefix*/ true);
 }
 
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
