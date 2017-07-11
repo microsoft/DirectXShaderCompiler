@@ -3554,7 +3554,8 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
         PS.memcpySet.insert(MI);
         bool bFullCopy = false;
         if (ConstantInt *Length = dyn_cast<ConstantInt>(MC->getLength())) {
-          bFullCopy = PS.Size == Length->getLimitedValue();
+          bFullCopy = PS.Size == Length->getLimitedValue()
+            || PS.Size == 0 || Length->getLimitedValue() == 0;  // handle unbounded arrays
         }
         if (MC->getRawDest() == V) {
           if (bFullCopy &&
@@ -3689,6 +3690,21 @@ static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder)
   }
 }
 
+static void ReplaceUnboundedArrayUses(Value *V, Value *Src, IRBuilder<> &Builder) {
+  for (auto it = V->user_begin(); it != V->user_end(); ) {
+    User *U = *(it++);
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
+      SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
+      Value *NewGEP = Builder.CreateGEP(Src, idxList);
+      GEP->replaceAllUsesWith(NewGEP);
+    } else if (BitCastInst *BC = dyn_cast<BitCastInst>(U)) {
+      BC->setOperand(0, Src);
+    } else {
+      DXASSERT(false, "otherwise unbounded array used in unexpected instruction");
+    }
+  }
+}
+
 static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
   if (Constant *C = dyn_cast<Constant>(V)) {
     if (isa<Constant>(Src)) {
@@ -3699,7 +3715,18 @@ static void ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC) {
       ReplaceConstantWithInst(C, Src, Builder);
     }
   } else {
-    V->replaceAllUsesWith(Src);
+    Type* TyV = V->getType()->getPointerElementType();
+    Type* TySrc = Src->getType()->getPointerElementType();
+    if (TyV == TySrc) {
+      V->replaceAllUsesWith(Src);
+    } else {
+      DXASSERT((TyV->isArrayTy() && TySrc->isArrayTy()) &&
+               (TyV->getArrayNumElements() == 0 ||
+                TySrc->getArrayNumElements() == 0),
+               "otherwise mismatched types in memcpy are not unbounded array");
+      IRBuilder<> Builder(MC);
+      ReplaceUnboundedArrayUses(V, Src, Builder);
+    }
   }
   Value *RawDest = MC->getOperand(0);
   Value *RawSrc = MC->getOperand(1);
