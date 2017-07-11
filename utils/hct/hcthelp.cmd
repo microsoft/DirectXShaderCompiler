@@ -13,5 +13,7 @@ echo   hcttodo      - enumerates TODO comments
 echo   hcttools     - changes the directory to console tools
 echo   hctvs        - launches Visual Studio with the built solution
 echo.
-echo Set the HCT_EXTRAS environment variable to allow scripts to be hooked in.
+echo Environment variables overrides
+echo   BUILD_ARCH - default build architecture, one of Win32, x64, arm, currently '%BUILD_ARCH%'
+echo   HCT_EXTRAS - allows scripts to be hooked in, currently '%HCT_EXTRAS%'
 echo.
