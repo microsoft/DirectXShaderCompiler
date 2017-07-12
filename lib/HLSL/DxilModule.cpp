@@ -440,8 +440,10 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
                   ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
                   if (rangeID) {
                       DxilResource resource = GetUAV(rangeID->getLimitedValue());
-                      if (!IsResourceSingleComponent(resource.GetRetType())) {
-                          hasMulticomponentUAVLoads = true;
+                      if ((resource.IsTypedBuffer() ||
+                           resource.IsAnyTexture()) &&
+                          !IsResourceSingleComponent(resource.GetRetType())) {
+                        hasMulticomponentUAVLoads = true;
                       }
                   }
                 }
