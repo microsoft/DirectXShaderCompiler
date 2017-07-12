@@ -16,7 +16,8 @@ g_db_hlsl = None
 def get_db_hlsl():
     global g_db_hlsl
     if g_db_hlsl is None:
-      with open("gen_intrin_main.txt", "r") as f:
+      thisdir = os.path.dirname(os.path.realpath(__file__))
+      with open(os.path.join(thisdir, "gen_intrin_main.txt"), "r") as f:
         g_db_hlsl = db_hlsl(f)
     return g_db_hlsl
 
