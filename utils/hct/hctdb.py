@@ -3,6 +3,7 @@
 ###############################################################################
 # DXIL information.                                                           #
 ###############################################################################
+import os
 
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
@@ -1118,7 +1119,8 @@ class db_dxil(object):
         inst_starter = "* Inst: "
         block_starter = "* BLOCK-BEGIN"
         block_end = "* BLOCK-END"
-        with open("hctdb_inst_docs.txt") as ops_file:
+        thisdir = os.path.dirname(os.path.realpath(__file__))
+        with open(os.path.join(thisdir, "hctdb_inst_docs.txt")) as ops_file:
             inst_name = ""
             inst_doc = ""
             inst_remarks = ""
