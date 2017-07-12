@@ -373,6 +373,23 @@ static void RemoveStaticDecls(DeclContext &Ctx) {
   }
 }
 
+static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
+  for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ) {
+    auto cur = it++;
+    if (VarDecl *VD = dyn_cast<VarDecl>(*cur)) {
+      bool isInternal = VD->getStorageClass() == SC_Static || VD->isInAnonymousNamespace();
+      if (!isInternal) {
+        VD->setStorageClass(StorageClass::SC_Extern);
+      }
+    }
+
+    if (DeclContext *DC = dyn_cast<DeclContext>(*cur)) {
+      GlobalVariableAsExternByDefault(*DC);
+    }
+  }
+}
+
+
 static
 HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pFileName,
@@ -386,6 +403,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
 
   bool bSkipFunctionBody = rewriteOption & RewriterOptionMask::SkipFunctionBody;
   bool bSkipStatic = rewriteOption & RewriterOptionMask::SkipStatic;
+  bool bGlobalExternByDefault = rewriteOption & RewriterOptionMask::GlobalExternByDefault;
 
   std::string s, warnings;
   raw_string_ostream o(s);
@@ -407,6 +425,10 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   if (bSkipStatic && bSkipFunctionBody) {
     // Remove static functions and globals.
     RemoveStaticDecls(*tu);
+  }
+
+  if (bGlobalExternByDefault) {
+    GlobalVariableAsExternByDefault(*tu);
   }
 
   o << "// Rewrite unchanged result:\n";
