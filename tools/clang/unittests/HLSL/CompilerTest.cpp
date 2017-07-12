@@ -576,6 +576,7 @@ public:
   TEST_METHOD(CodeGenMultiUAVLoad4)
   TEST_METHOD(CodeGenMultiUAVLoad5)
   TEST_METHOD(CodeGenMultiUAVLoad6)
+  TEST_METHOD(CodeGenMultiUAVLoad7)
   TEST_METHOD(CodeGenMultiStream)
   TEST_METHOD(CodeGenMultiStream2)
   TEST_METHOD(CodeGenNeg1)
@@ -3281,6 +3282,11 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
 TEST_F(CompilerTest, CodeGenMultiUAVLoad6) {
   if (m_ver.SkipDxil_1_1_Test()) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad6.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenMultiUAVLoad7) {
+    if (m_ver.SkipDxil_1_1_Test()) return;
+    CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad7.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiStream) {
