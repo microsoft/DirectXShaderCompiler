@@ -90,6 +90,7 @@ private:
   uint32_t doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
   uint32_t doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr);
   uint32_t doInitListExpr(const InitListExpr *expr);
+  uint32_t doMemberExpr(const MemberExpr *expr);
   uint32_t doUnaryOperator(const UnaryOperator *expr);
 
 private:
