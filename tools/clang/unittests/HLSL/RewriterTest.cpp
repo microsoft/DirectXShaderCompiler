@@ -560,5 +560,14 @@ TEST_F(RewriterTest, RunForceExtern) {  CComPtr<IDxcRewriter> pRewriter;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
   // Function decl only.
   VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
-                        "// Rewrite unchanged result:\nextern const float a;\nfloat4 main() : SV_Target;\n") == 0);
+      "// Rewrite unchanged result:\n\
+extern const float a;\n\
+namespace b {\n\
+  extern const float c;\n\
+  namespace d {\n\
+    extern const float e;\n\
+  }\n\
+}\n\
+static int f;\n\
+float4 main() : SV_Target;\n") == 0);
 }

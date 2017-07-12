@@ -382,8 +382,8 @@ static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
         VD->setStorageClass(StorageClass::SC_Extern);
       }
     }
-
-    if (DeclContext *DC = dyn_cast<DeclContext>(*cur)) {
+    // Only iterate on namespaces.
+    if (NamespaceDecl *DC = dyn_cast<NamespaceDecl>(*cur)) {
       GlobalVariableAsExternByDefault(*DC);
     }
   }
