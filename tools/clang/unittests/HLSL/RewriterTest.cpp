@@ -49,6 +49,7 @@ public:
   END_TEST_CLASS()
 
   TEST_METHOD(RunAttributes);
+  TEST_METHOD(RunAnonymousStruct);
   TEST_METHOD(RunCppErrors);
   TEST_METHOD(RunIndexingOperator);
   TEST_METHOD(RunIntrinsicExamples);
@@ -283,6 +284,10 @@ public:
 
 TEST_F(RewriterTest, RunAttributes) {
     CheckVerifiesHLSL(L"rewriter\\attributes_noerr.hlsl", L"rewriter\\correct_rewrites\\attributes_gold.hlsl");
+}
+
+TEST_F(RewriterTest, RunAnonymousStruct) {
+    CheckVerifiesHLSL(L"rewriter\\anonymous_struct.hlsl", L"rewriter\\correct_rewrites\\anonymous_struct_gold.hlsl");
 }
 
 TEST_F(RewriterTest, RunCppErrors) {

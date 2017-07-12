@@ -81,9 +81,9 @@ struct my_struct_type_init {
 };
 const struct my_struct_type_init my_struct_type_init_one = { 1 };
 const struct my_struct_type_init my_struct_type_init_two = { 2 };
-struct {
+const struct {
   int my_anon_struct_field;
-} const my_anon_struct_type;
+} my_anon_struct_type;
 void fn_my_struct_type_decl() {
   my_struct_type_decl local_var;
 }
