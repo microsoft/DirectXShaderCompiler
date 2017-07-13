@@ -195,7 +195,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
       auto ConstantBufferName = "PIX_Constant_Color_CB_Handle";
       Function *createHandle = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
       Constant *CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-      Constant *CBVArg = HlslOP->GetI8Const(2); // "2" implies CB (todo: must be a named value for this somewhere)
+      Constant *CBVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::CBuffer)); 
       Constant *MetaDataArg = HlslOP->GetU32Const(0); // position of the metadata record in the corresponding metadata list
       Constant *IndexArg = HlslOP->GetU32Const(0); // 
       Constant *FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
