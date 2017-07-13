@@ -175,6 +175,19 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
     }
     break;
     case FromConstantBuffer: {
+
+      // Setup a constant buffer with a single float4 in it:
+      SmallVector<llvm::Type*, 4> Elements { Type::getFloatTy(Ctx), Type::getFloatTy(Ctx) , Type::getFloatTy(Ctx) , Type::getFloatTy(Ctx) };
+      llvm::StructType *CBStructTy = llvm::StructType::create(Elements, "PIX_ConstantColorCB_Type");
+      std::unique_ptr<DxilCBuffer> pCBuf = llvm::make_unique<DxilCBuffer>();
+      pCBuf->SetGlobalName("PIX_ConstantColorCBName");
+      pCBuf->SetGlobalSymbol(UndefValue::get(CBStructTy));
+      pCBuf->SetID(0);
+      pCBuf->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
+      pCBuf->SetLowerBound(0);
+      pCBuf->SetRangeSize(1);
+      pCBuf->SetSize(4);
+
       Instruction * entryPointInstruction = &*(DM.GetEntryFunction()->begin()->begin());
       IRBuilder<> Builder(entryPointInstruction);
 
@@ -187,6 +200,12 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
       Constant *IndexArg = HlslOP->GetU32Const(0); // 
       Constant *FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
       CallInst *callCreateHandle = Builder.CreateCall(createHandle, { CreateHandleOpcodeArg, CBVArg, MetaDataArg, IndexArg, FalseArg }, ConstantBufferName);
+
+      pCBuf->SetHandle(callCreateHandle);
+
+      ID = DM.AddCBuffer(std::move(pCBuf));
+      DM.ReEmitDxilResources();
+
 
       // Insert the Buffer load instruction:
       auto ConstantValueName = "PIX_Constant_Color_Value";
@@ -202,6 +221,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
       ReplacementColors[1] = Builder.CreateExtractValue(loadLegacy, 1, PIX_CONSTANT_VALUE "1");
       ReplacementColors[2] = Builder.CreateExtractValue(loadLegacy, 2, PIX_CONSTANT_VALUE "2");
       ReplacementColors[3] = Builder.CreateExtractValue(loadLegacy, 3, PIX_CONSTANT_VALUE "3");
+
     }
     break;
     default:
