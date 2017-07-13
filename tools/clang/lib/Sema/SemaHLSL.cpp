@@ -3225,6 +3225,8 @@ public:
       case BuiltinType::UInt: return AR_BASIC_UINT32;
       case BuiltinType::Short: return AR_BASIC_MIN16INT;    // rather than AR_BASIC_INT16
       case BuiltinType::UShort: return AR_BASIC_MIN16UINT;  // rather than AR_BASIC_UINT16
+      case BuiltinType::Long: return AR_BASIC_INT32;
+      case BuiltinType::ULong: return AR_BASIC_UINT32;
       case BuiltinType::LongLong: return AR_BASIC_INT64;
       case BuiltinType::ULongLong: return AR_BASIC_UINT64;
       case BuiltinType::Min12Int: return AR_BASIC_MIN12INT;

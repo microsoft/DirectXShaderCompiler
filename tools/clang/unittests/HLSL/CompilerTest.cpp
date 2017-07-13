@@ -803,6 +803,7 @@ public:
   TEST_METHOD(CodeGenRootSigDefine10)
   TEST_METHOD(CodeGenRootSigDefine11)
   TEST_METHOD(CodeGenCBufferStructArray)
+  TEST_METHOD(CodeGenPatchLength)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
@@ -4198,6 +4199,9 @@ TEST_F(CompilerTest, CodeGenCBufferStructArray) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer-structarray.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenPatchLength) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\PatchLength1.hlsl");
+}
 
 // Dx11 Sample
 
