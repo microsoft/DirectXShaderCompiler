@@ -12,9 +12,11 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/DxilInstructions.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/Constants.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -49,12 +51,21 @@ bool DxilReduceMSAAToSingleSample::runOnModule(Module &M)
       auto & FunctionUse = *FI++;
       auto FunctionUser = FunctionUse.getUser();
       auto instruction = cast<Instruction>(FunctionUser);
-      //todo: how to detect MS vs single-sample? MIP level and sample index are in the same field!
-
-      //todo: no apparent constant definition for the mip-level/sample-index operand index (the "3"):
-      // https://github.com/Microsoft/DirectXShaderCompiler/blob/master/docs/DXIL.rst#textureload
-      instruction->setOperand(3, HlslOP->GetI32Const(0));
-      Modified = true;
+      DxilInst_TextureLoad LoadInstruction(instruction);
+      auto TextureHandle = LoadInstruction.get_srv();
+      auto TextureHandleInst = cast<CallInst>(TextureHandle);
+      DxilInst_CreateHandle createHandle(TextureHandleInst);
+      // Dynamic rangeId is not supported 
+      if (isa<ConstantInt>(createHandle.get_rangeId())){
+        unsigned rangeId = cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
+        auto Resource = DM.GetSRV(rangeId);
+        if (Resource.GetKind() == DXIL::ResourceKind::Texture2DMS || Resource.GetKind() == DXIL::ResourceKind::Texture2DMSArray) {
+          //todo: no apparent constant definition for the mip-level/sample-index operand index (the "2"):
+          // https://github.com/Microsoft/DirectXShaderCompiler/blob/master/docs/DXIL.rst#textureload
+          instruction->setOperand(2, HlslOP->GetI32Const(0));
+          Modified = true;
+        }
+      }
     }
   }
 
