@@ -41,6 +41,7 @@ using namespace llvm;
 
 STATISTIC(NumRerolledLoops, "Number of rerolled loops");
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned>
 MaxInc("max-reroll-increment", cl::init(2048), cl::Hidden,
   cl::desc("The maximum increment for loop rerolling"));
@@ -50,6 +51,10 @@ NumToleratedFailedMatches("reroll-num-tolerated-failed-matches", cl::init(400),
                           cl::Hidden,
                           cl::desc("The maximum number of failures to tolerate"
                                    " during fuzzy matching. (default: 400)"));
+#else
+static const unsigned MaxInc = 2048;
+static const unsigned NumToleratedFailedMatches = 400;
+#endif // HLSL Change Ends
 
 // This loop re-rolling transformation aims to transform loops like this:
 //

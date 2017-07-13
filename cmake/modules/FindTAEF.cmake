@@ -51,7 +51,7 @@ set(TAEF_INCLUDE_DIRS ${TAEF_INCLUDE_DIR})
 
 # Prefer the version that supports both x86 and x64, else prefer latest.
 if(EXISTS "${CMAKE_SOURCE_DIR}/external/taef/build/Binaries/amd64/te.exe")
-  set(TAEF_BIN_DIR "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF")
+  set(TAEF_BIN_DIR "${CMAKE_SOURCE_DIR}/external/taef/build/Binaries")
 elseif(EXISTS "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF/x86/te.exe"
    AND EXISTS "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF/x64/te.exe")
   set(TAEF_BIN_DIR "${WINDOWS_KIT_10_PATH}/Testing/Runtimes/TAEF")

@@ -64,6 +64,8 @@ CompilerInstance::CompilerInstance(
 #endif // HLSL Change Ends - no support for modules
 
 CompilerInstance::~CompilerInstance() {
+  // TODO: harden output file cleanup so there are no additional allocations/exceptions
+  clearOutputFiles(/* EraseFiles */ false); // HLSL Change - might happen when destroying under exception
   assert(OutputFiles.empty() && "Still output files in flight?");
 }
 
@@ -310,14 +312,16 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
     PTHMgr = PTHManager::Create(PPOpts.TokenCache, getDiagnostics());
 
   // Create the Preprocessor.
-  HeaderSearch *HeaderInfo = new HeaderSearch(&getHeaderSearchOpts(),
+  std::unique_ptr<HeaderSearch> HeaderInfo ( // HLSL Change - make unique_ptr and free
+                             new HeaderSearch(&getHeaderSearchOpts(),
                                               getSourceManager(),
                                               getDiagnostics(),
                                               getLangOpts(),
-                                              &getTarget());
+                                              &getTarget()));
   PP = new Preprocessor(&getPreprocessorOpts(), getDiagnostics(), getLangOpts(),
-                        getSourceManager(), *HeaderInfo, *this, PTHMgr,
+                        getSourceManager(), *HeaderInfo.get(), *this, PTHMgr,
                         /*OwnsHeaderSearch=*/true, TUKind);
+  HeaderInfo.release(); // HLSL Change - Preprocessor has ownership at this point
   PP->Initialize(getTarget());
 
   // Note that this is different then passing PTHMgr to Preprocessor's ctor.
@@ -557,8 +561,16 @@ void CompilerInstance::addOutputFile(OutputFile &&OutFile) {
 }
 
 void CompilerInstance::clearOutputFiles(bool EraseFiles) {
+  bool errorsFound = false; // HLSL Change - track this, but try to clean up everything anyway
   for (OutputFile &OF : OutputFiles) {
     // Manually close the stream before we rename it.
+    // HLSL Change Starts - call explicitly to have it throw on error during regular flow (rather than .dtor)
+    if (OF.OS.get()) {
+      OF.OS->close();
+      errorsFound = errorsFound || OF.OS->has_error();
+      OF.OS->clear_error();
+    }
+    // HLSL Change Ends
     OF.OS.reset();
 
     if (!OF.TempFilename.empty()) {
@@ -584,6 +596,7 @@ void CompilerInstance::clearOutputFiles(bool EraseFiles) {
   }
   OutputFiles.clear();
   NonSeekStream.reset();
+  if (errorsFound) throw std::exception("errors when processing output"); // HLSL Change
 }
 
 raw_pwrite_stream *

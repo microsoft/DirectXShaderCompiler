@@ -85,9 +85,9 @@ LLVMContextImpl::~LLVMContextImpl() {
 
   // Also drop references that come from the Value bridges.
   for (auto &Pair : ValuesAsMetadata)
-    Pair.second->dropUsers();
+    if (Pair.second) Pair.second->dropUsers(); // HLSL Change - if alloc failed, entry might not be populated
   for (auto &Pair : MetadataAsValues)
-    Pair.second->dropUse();
+    if (Pair.second) Pair.second->dropUse(); // HLSL Change - if alloc failed, entry might not be populated
 
   // Destroy MDNodes.
   for (MDNode *I : DistinctMDNodes)

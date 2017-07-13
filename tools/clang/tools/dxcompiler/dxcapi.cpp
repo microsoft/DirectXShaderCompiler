@@ -15,6 +15,7 @@
 
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
+#include "dxc/Support/Global.h"
 #include "dxcetw.h"
 #include "dxillib.h"
 #include <memory>
@@ -46,25 +47,11 @@ HRESULT CreateDxcContainerReflection(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   }
 }
 
-/// <summary>
-/// Creates a single uninitialized object of the class associated with a specified CLSID.
-/// </summary>
-/// <param name="rclsid">The CLSID associated with the data and code that will be used to create the object.</param>
-/// <param name="riid">A reference to the identifier of the interface to be used to communicate with the object.</param>
-/// <param name="ppv">Address of pointer variable that receives the interface pointer requested in riid. Upon successful return, *ppv contains the requested interface pointer. Upon failure, *ppv contains NULL.</param>
-/// <remarks>
-/// While this function is similar to CoCreateInstance, there is no COM involvement.  
-/// </remarks>
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateInstance(_In_ REFCLSID   rclsid,
+static HRESULT ThreadMallocDxcCreateInstance(
+  _In_ REFCLSID   rclsid,
                   _In_ REFIID     riid,
                   _Out_ LPVOID   *ppv) {
-  if (ppv == nullptr) {
-    return E_POINTER;
-  }
-
   HRESULT hr = S_OK;
-  DxcEtw_DXCompilerCreateInstance_Start();
   *ppv = nullptr;
   if (IsEqualCLSID(rclsid, CLSID_DxcIntelliSense)) {
     hr = CreateDxcIntelliSense(riid, ppv);
@@ -106,7 +93,40 @@ DxcCreateInstance(_In_ REFCLSID   rclsid,
   else {
     hr = REGDB_E_CLASSNOTREG;
   }
+  return hr;
+}
 
+DXC_API_IMPORT HRESULT __stdcall
+DxcCreateInstance(
+  _In_ REFCLSID   rclsid,
+  _In_ REFIID     riid,
+  _Out_ LPVOID   *ppv) {
+  if (ppv == nullptr) {
+    return E_POINTER;
+  }
+
+  HRESULT hr = S_OK;
+  DxcEtw_DXCompilerCreateInstance_Start();
+  DxcThreadMalloc TM(nullptr);
+  hr = ThreadMallocDxcCreateInstance(rclsid, riid, ppv);
+  DxcEtw_DXCompilerCreateInstance_Stop(hr);
+  return hr;
+}
+
+DXC_API_IMPORT HRESULT __stdcall
+DxcCreateInstance2(
+  _In_ IMalloc    *pMalloc,
+  _In_ REFCLSID   rclsid,
+  _In_ REFIID     riid,
+  _Out_ LPVOID   *ppv) {
+  if (ppv == nullptr) {
+    return E_POINTER;
+  }
+
+  HRESULT hr = S_OK;
+  DxcEtw_DXCompilerCreateInstance_Start();
+  DxcThreadMalloc TM(pMalloc);
+  hr = ThreadMallocDxcCreateInstance(rclsid, riid, ppv);
   DxcEtw_DXCompilerCreateInstance_Stop(hr);
   return hr;
 }

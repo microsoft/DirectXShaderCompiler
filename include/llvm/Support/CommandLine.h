@@ -169,7 +169,7 @@ public:
 };
 
 // The general Option Category (used as default category).
-extern OptionCategory GeneralCategory;
+extern OptionCategory *GeneralCategory; // HLSL Change - GeneralCategory is now a pointer
 
 //===----------------------------------------------------------------------===//
 // Option Base class
@@ -251,7 +251,7 @@ protected:
       : NumOccurrences(0), Occurrences(OccurrencesFlag), Value(0),
         HiddenFlag(Hidden), Formatting(NormalFormatting), Misc(0), Position(0),
         AdditionalVals(0), ArgStr(""), HelpStr(""), ValueStr(""),
-        Category(&GeneralCategory), FullyInitialized(false) {}
+        Category(GeneralCategory), FullyInitialized(false) {} // HLSL Change - not GeneralCategory
 
   inline void setNumAdditionalVals(unsigned n) { AdditionalVals = n; }
 

@@ -28,14 +28,15 @@ class DxcSourceLocation;
 class DxcSourceRange;
 class DxcTranslationUnit;
 class DxcToken;
+struct IMalloc;
 
 class DxcCursor : public IDxcCursor
 {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CXCursor m_cursor;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
   {
     return DoBasicQueryInterface<IDxcCursor>(this, iid, ppvObject);
@@ -81,10 +82,10 @@ public:
 class DxcDiagnostic : public IDxcDiagnostic
 {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CXDiagnostic m_diagnostic;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
   {
     return DoBasicQueryInterface<IDxcDiagnostic>(this, iid, ppvObject);
@@ -112,10 +113,10 @@ public:
 class DxcFile : public IDxcFile
 {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CXFile m_file;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
   {
     return DoBasicQueryInterface<IDxcFile>(this, iid, ppvObject);
@@ -134,13 +135,13 @@ public:
 class DxcInclusion : public IDxcInclusion
 {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CXFile m_file;
   _Field_size_(m_locationLength)
   CXSourceLocation *m_locations;
   unsigned m_locationLength;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
   {
     return DoBasicQueryInterface<IDxcInclusion>(this, iid, ppvObject);
@@ -159,12 +160,12 @@ public:
 class DxcIndex : public IDxcIndex
 {
 private:
-    DXC_MICROCOM_REF_FIELD(m_dwRef)
+    DXC_MICROCOM_TM_REF_FIELDS()
     CXIndex m_index;
     DxcGlobalOptions m_options;
     hlsl::DxcLangExtensionsHelper m_langHelper;
 public:
-    DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+    DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
     {
       return DoBasicQueryInterface<IDxcIndex>(this, iid, ppvObject);
@@ -189,11 +190,11 @@ public:
 
 class DxcIntelliSense : public IDxcIntelliSense, public IDxcLangExtensions {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef);
+  DXC_MICROCOM_TM_REF_FIELDS();
   hlsl::DxcLangExtensionsHelper m_langHelper;
 
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef);
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL();
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langHelper);
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
@@ -201,7 +202,7 @@ public:
         this, iid, ppvObject);
   }
 
-  DxcIntelliSense();
+  DxcIntelliSense(IMalloc *pMalloc);
 
     __override HRESULT STDMETHODCALLTYPE CreateIndex(_Outptr_result_nullonfailure_ IDxcIndex** index);
     __override HRESULT STDMETHODCALLTYPE GetNullLocation(_Outptr_result_nullonfailure_ IDxcSourceLocation** location);
@@ -221,10 +222,10 @@ public:
 class DxcSourceLocation : public IDxcSourceLocation
 {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CXSourceLocation m_location;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
   {
     return DoBasicQueryInterface<IDxcSourceLocation>(this, iid, ppvObject);
@@ -248,10 +249,10 @@ public:
 class DxcSourceRange : public IDxcSourceRange
 {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CXSourceRange m_range;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
   {
     return DoBasicQueryInterface<IDxcSourceRange>(this, iid, ppvObject);
@@ -272,11 +273,11 @@ public:
 class DxcToken : public IDxcToken
 {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CXToken m_token;
   CXTranslationUnit m_tu;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
   {
     return DoBasicQueryInterface<IDxcToken>(this, iid, ppvObject);
@@ -296,10 +297,10 @@ public:
 class DxcTranslationUnit : public IDxcTranslationUnit
 {
 private:
-    DXC_MICROCOM_REF_FIELD(m_dwRef)
+    DXC_MICROCOM_TM_REF_FIELDS()
     CXTranslationUnit m_tu;
 public:
-    DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+    DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
     {
       return DoBasicQueryInterface<IDxcTranslationUnit>(this, iid, ppvObject);
@@ -342,10 +343,10 @@ public:
 class DxcType : public IDxcType
 {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CXType m_type;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject)
   {
     return DoBasicQueryInterface<IDxcType>(this, iid, ppvObject);

@@ -373,6 +373,23 @@ static void RemoveStaticDecls(DeclContext &Ctx) {
   }
 }
 
+static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
+  for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ) {
+    auto cur = it++;
+    if (VarDecl *VD = dyn_cast<VarDecl>(*cur)) {
+      bool isInternal = VD->getStorageClass() == SC_Static || VD->isInAnonymousNamespace();
+      if (!isInternal) {
+        VD->setStorageClass(StorageClass::SC_Extern);
+      }
+    }
+    // Only iterate on namespaces.
+    if (NamespaceDecl *DC = dyn_cast<NamespaceDecl>(*cur)) {
+      GlobalVariableAsExternByDefault(*DC);
+    }
+  }
+}
+
+
 static
 HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pFileName,
@@ -386,6 +403,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
 
   bool bSkipFunctionBody = rewriteOption & RewriterOptionMask::SkipFunctionBody;
   bool bSkipStatic = rewriteOption & RewriterOptionMask::SkipStatic;
+  bool bGlobalExternByDefault = rewriteOption & RewriterOptionMask::GlobalExternByDefault;
 
   std::string s, warnings;
   raw_string_ostream o(s);
@@ -409,6 +427,10 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
     RemoveStaticDecls(*tu);
   }
 
+  if (bGlobalExternByDefault) {
+    GlobalVariableAsExternByDefault(*tu);
+  }
+
   o << "// Rewrite unchanged result:\n";
   PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
   p.Indentation = 1;
@@ -427,11 +449,11 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
 
 class DxcRewriter : public IDxcRewriter, public IDxcLangExtensions {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
 public:
-
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcRewriter)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
@@ -449,6 +471,8 @@ public:
       return E_INVALIDARG;
 
     *ppResult = nullptr;
+
+    DxcThreadMalloc TM(m_pMalloc);
 
     CComPtr<IDxcBlobEncoding> utf8Source;
     IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
@@ -490,6 +514,8 @@ public:
       return E_POINTER;
 
     *ppResult = nullptr;
+
+    DxcThreadMalloc TM(m_pMalloc);
 
     CComPtr<IDxcBlobEncoding> utf8Source;
     IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
@@ -538,6 +564,8 @@ public:
 
     *ppResult = nullptr;
 
+    DxcThreadMalloc TM(m_pMalloc);
+
     CComPtr<IDxcBlobEncoding> utf8Source;
     IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
@@ -545,8 +573,7 @@ public:
     LPCSTR fName = utf8SourceName.m_psz;
 
     try {
-      dxcutil::DxcArgsFileSystem *msfPtr;
-      IFT(dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler, &msfPtr));
+      dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
@@ -589,11 +616,7 @@ public:
 };
 
 HRESULT CreateDxcRewriter(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcRewriter> isense = new (std::nothrow) DxcRewriter();
-  if (isense == nullptr) {
-    *ppv = nullptr;
-    return E_OUTOFMEMORY;
-  }
-
+  CComPtr<DxcRewriter> isense = DxcRewriter::Alloc(DxcGetThreadMallocNoRef());
+  IFROOM(isense.p);
   return isense.p->QueryInterface(riid, ppv);
 }

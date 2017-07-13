@@ -78,7 +78,11 @@
 #include <cstdarg>
 using namespace llvm;
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool> VerifyDebugInfo("verify-debug-info", cl::init(true));
+#else
+static const bool VerifyDebugInfo = true;
+#endif // HLSL Change Ends
 
 namespace {
 struct VerifierSupport {

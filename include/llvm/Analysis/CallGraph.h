@@ -103,6 +103,7 @@ class CallGraph {
   /// functions that it calls.
   void addToCallGraph(Function *F);
 
+  void reset(); // HLSL Change
 public:
   CallGraph(Module &M);
   ~CallGraph();

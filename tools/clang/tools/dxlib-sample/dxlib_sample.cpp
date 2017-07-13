@@ -10,8 +10,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
@@ -19,6 +19,7 @@
 #include "dxc/dxctools.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "llvm/Support/Path.h"
+#include <cwchar>
 
 using namespace hlsl;
 using namespace llvm;
@@ -119,7 +120,8 @@ void IncludeToLibPreprocessor::SetupDefines(const DxcDefine *pDefines,
 HRESULT IncludeToLibPreprocessor::Preprocess(IDxcBlob *pSource,
                                              LPCWSTR pFilename) {
   CComPtr<IDxcBlobEncoding> pEncodingIncludeSource;
-  DxcCreateBlobWithEncodingSet(pSource, CP_UTF8, &pEncodingIncludeSource);
+  IFR(DxcCreateBlobWithEncodingSet(GetGlobalHeapMalloc(), pSource, CP_UTF8,
+                                   &pEncodingIncludeSource));
 
   // Create header with no function body.
   CComPtr<IDxcRewriter> pRewriter;
@@ -134,6 +136,11 @@ HRESULT IncludeToLibPreprocessor::Preprocess(IDxcBlob *pSource,
 
   HRESULT status;
   if (!SUCCEEDED(pRewriteResult->GetStatus(&status)) || !SUCCEEDED(status)) {
+    CComPtr<IDxcBlobEncoding> pErr;
+    IFT(pRewriteResult->GetErrorBuffer(&pErr));
+    std::string errString =
+        std::string((char *)pErr->GetBufferPointer(), pErr->GetBufferSize());
+    IFTMSG(E_FAIL, errString);
     return E_FAIL;
   };
   // Append existing header.
@@ -225,20 +232,22 @@ private:
   std::shared_mutex m_mutex;
 };
 
+static hash_code CombineWStr(hash_code hash, LPCWSTR Arg) {
+  unsigned length = std::wcslen(Arg)*2;
+  return hash_combine(hash, StringRef((char*)(Arg), length));
+}
+
 hash_code LibCacheManager::GetHash(IDxcBlob *pSource, CompileInput &compiler) {
   hash_code libHash = hash_value(
       StringRef((char *)pSource->GetBufferPointer(), pSource->GetBufferSize()));
   // Combine compile input.
   for (auto &Arg : compiler.arguments) {
-    CW2A pUtf8Arg(Arg, CP_UTF8);
-    libHash = hash_combine(libHash, pUtf8Arg.m_psz);
+    libHash = CombineWStr(libHash, Arg);
   }
   for (auto &Define : compiler.defines) {
-    CW2A pUtf8Name(Define.Name, CP_UTF8);
-    libHash = hash_combine(libHash, pUtf8Name.m_psz);
+    libHash = CombineWStr(libHash, Define.Name);
     if (Define.Value) {
-      CW2A pUtf8Value(Define.Value, CP_UTF8);
-      libHash = hash_combine(libHash, pUtf8Value.m_psz);
+      libHash = CombineWStr(libHash, Define.Value);
     }
   }
   return libHash;
@@ -376,6 +385,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     CompileInput compilerInput{defines, arguments};
 
     EmptyIncludeHandler emptyIncludeHandler;
+    emptyIncludeHandler.AddRef(); // On stack - don't try to delete on last Release().
     EmptyIncludeHandler *pEmptyIncludeHandler = &emptyIncludeHandler;
     LibCacheManager &libCache = GetLibCacheManager();
     LLVMContext llvmContext;
@@ -386,8 +396,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     std::vector<LPCWSTR> hashList;
     for (const auto &header : headers) {
       CComPtr<IDxcBlob> pOutputBlob;
-      CComPtr<IDxcBlob> pSource;
-      IFT(DxcCreateBlobOnHeap(header.data(), header.size(), &pSource));
+      CComPtr<IDxcBlobEncoding> pSource;
+      IFT(DxcCreateBlobWithEncodingOnMallocCopy(GetGlobalHeapMalloc(), header.data(), header.size(), CP_UTF8, &pSource));
       size_t hash;
       if (!libCache.GetLibBlob(pSource, compilerInput, hash, &pOutputBlob)) {
         // Cannot find existing blob, create from pSource.
@@ -435,7 +445,6 @@ HRESULT WINAPI DxilD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
   IFR(CreateLibrary(&library));
   IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
-
   HRESULT hr;
   try {
     CA2W pFileName(pSourceName);

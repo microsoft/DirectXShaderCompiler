@@ -15,6 +15,7 @@ namespace llvm {
 class LLVMContext;
 class Module;
 class Type;
+class StructType;
 class Function;
 class Constant;
 class Value;
@@ -86,6 +87,9 @@ public:
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);
   static bool IsDxilOpWave(OpCode C);
   static bool IsDxilOpGradient(OpCode C);
+  static bool IsDupDxilOpType(llvm::StructType *ST);
+  static llvm::StructType *GetOriginalDxilOpType(llvm::StructType *ST,
+                                                 llvm::Module &M);
 
 private:
   // Per-module properties.
@@ -125,6 +129,7 @@ private:
 
   static const char *m_OverloadTypeName[kNumTypeOverloads];
   static const char *m_NamePrefix;
+  static const char *m_TypePrefix;
   static unsigned GetTypeSlot(llvm::Type *pType);
   static const char *GetOverloadTypeName(unsigned TypeSlot);
 };

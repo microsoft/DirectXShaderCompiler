@@ -384,19 +384,19 @@ static HRESULT Utf8ToUtf16CoTaskMalloc(LPCSTR pValue, LPWSTR *ppResult) {
 
 class DxcOptimizerPass : public IDxcOptimizerPass {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   LPCSTR m_pOptionName;
   LPCSTR m_pDescription;
   ArrayRef<LPCSTR> m_pArgNames;
   ArrayRef<LPCSTR> m_pArgDescriptions;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcOptimizerPass)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDxcOptimizerPass>(this, iid, ppvObject);
   }
 
-  DxcOptimizerPass() : m_dwRef(0) { }
   HRESULT Initialize(LPCSTR pOptionName, LPCSTR pDescription, ArrayRef<LPCSTR> pArgNames, ArrayRef<LPCSTR> pArgDescriptions) {
     DXASSERT(pArgNames.size() == pArgDescriptions.size(), "else lookup tables are out of alignment");
     m_pOptionName = pOptionName;
@@ -405,10 +405,10 @@ public:
     m_pArgDescriptions = pArgDescriptions;
     return S_OK;
   }
-  static HRESULT Create(LPCSTR pOptionName, LPCSTR pDescription, ArrayRef<LPCSTR> pArgNames, ArrayRef<LPCSTR> pArgDescriptions, IDxcOptimizerPass **ppResult) {
+  static HRESULT Create(IMalloc *pMalloc, LPCSTR pOptionName, LPCSTR pDescription, ArrayRef<LPCSTR> pArgNames, ArrayRef<LPCSTR> pArgDescriptions, IDxcOptimizerPass **ppResult) {
     CComPtr<DxcOptimizerPass> result;
     *ppResult = nullptr;
-    result = new (std::nothrow)DxcOptimizerPass();
+    result = DxcOptimizerPass::Alloc(pMalloc);
     IFROOM(result);
     IFR(result->Initialize(pOptionName, pDescription, pArgNames, pArgDescriptions));
     *ppResult = result.Detach();
@@ -442,17 +442,17 @@ public:
 
 class DxcOptimizer : public IDxcOptimizer {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   PassRegistry *m_registry;
   std::vector<const PassInfo *> m_passes;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcOptimizer)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDxcOptimizer>(this, iid, ppvObject);
   }
 
-  DxcOptimizer() : m_dwRef(0) { }
   HRESULT Initialize();
   const PassInfo *getPassByID(llvm::AnalysisID PassID);
   const PassInfo *getPassByName(const char *pName);
@@ -520,7 +520,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
   if (index >= m_passes.size())
     return E_INVALIDARG;
   return DxcOptimizerPass::Create(
-      m_passes[index]->getPassArgument(), m_passes[index]->getPassName(),
+      m_pMalloc, m_passes[index]->getPassArgument(),
+      m_passes[index]->getPassName(),
       GetPassArgNames(m_passes[index]->getPassArgument()),
       GetPassArgDescriptions(m_passes[index]->getPassArgument()), ppResult);
 }
@@ -535,6 +536,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     return E_POINTER;
   if (optionCount > 0 && ppOptions == nullptr)
     return E_POINTER;
+
+  DxcThreadMalloc TM(m_pMalloc);
 
   // Setup input buffer.
   // The ir parsing requires the buffer to be null terminated. We deal with
@@ -560,12 +563,10 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
   legacy::PassManagerBase *pPassManager = &ModulePasses;
 
   try {
-    CComPtr<IMalloc> pMalloc;
     CComPtr<AbstractMemoryStream> pOutputStream;
     CComPtr<IDxcBlob> pOutputBlob;
 
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+    IFT(CreateMemoryStream(m_pMalloc, &pOutputStream));
     IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
     raw_stream_ostream outStream(pOutputStream.p);
@@ -746,7 +747,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     }
     if (ppOutputModule != nullptr) {
       CComPtr<AbstractMemoryStream> pProgramStream;
-      IFT(CreateMemoryStream(pMalloc, &pProgramStream));
+      IFT(CreateMemoryStream(m_pMalloc, &pProgramStream));
       {
         raw_stream_ostream outStream(pProgramStream.p);
         WriteBitcodeToFile(M.get(), outStream, true);
@@ -760,7 +761,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
 }
 
 HRESULT CreateDxcOptimizer(_In_ REFIID riid, _Out_ LPVOID *ppv) {
-  CComPtr<DxcOptimizer> result = new (std::nothrow) DxcOptimizer();
+  CComPtr<DxcOptimizer> result = DxcOptimizer::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;
     return E_OUTOFMEMORY;

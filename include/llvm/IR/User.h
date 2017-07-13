@@ -77,9 +77,8 @@ public:
   /// \brief Free memory allocated for User and Use objects.
   void operator delete(void *Usr);
   /// \brief Placement delete - required by std, but never called.
-  void operator delete(void*, unsigned) {
-    llvm_unreachable("Constructor throws?");
-  }
+  void operator delete(void*, unsigned);
+    // llvm_unreachable("Constructor throws?"); - HLSL Change: it does on OOM
   /// \brief Placement delete - required by std, but never called.
   void operator delete(void*, unsigned, bool) {
     llvm_unreachable("Constructor throws?");

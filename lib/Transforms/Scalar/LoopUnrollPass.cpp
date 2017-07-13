@@ -37,6 +37,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "loop-unroll"
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned>
     UnrollThreshold("unroll-threshold", cl::init(150), cl::Hidden,
                     cl::desc("The baseline cost threshold for loop unrolling"));
@@ -75,6 +76,25 @@ static cl::opt<unsigned>
 PragmaUnrollThreshold("pragma-unroll-threshold", cl::init(16 * 1024), cl::Hidden,
   cl::desc("Unrolled size limit for loops with an unroll(full) or "
            "unroll_count pragma."));
+#else
+template <typename T>
+struct NullOpt {
+  NullOpt(T val) : _val(val) {}
+  T _val;
+  unsigned getNumOccurrences() const { return 0; }
+  operator T() const {
+    return _val;
+  }
+};
+static const NullOpt<unsigned> UnrollThreshold = 150;
+static const NullOpt<unsigned> UnrollPercentDynamicCostSavedThreshold = 20;
+static const NullOpt<unsigned> UnrollDynamicCostSavingsDiscount = 2000;
+static const NullOpt<unsigned> UnrollMaxIterationsCountToAnalyze = 0;
+static const NullOpt<unsigned> UnrollCount = 0;
+static const NullOpt<bool> UnrollAllowPartial = false;
+static const NullOpt<bool> UnrollRuntime = false;
+static const NullOpt<unsigned> PragmaUnrollThreshold = 16 * 1024;
+#endif // HLSL Change Ends
 
 namespace {
   class LoopUnroll : public LoopPass {

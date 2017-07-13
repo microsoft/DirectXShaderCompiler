@@ -41,6 +41,7 @@ using namespace llvm::PatternMatch;
 
 const unsigned MaxDepth = 6;
 
+#if 0 // HLSL Change Starts - option pending
 /// Enable an experimental feature to leverage information about dominating
 /// conditions to compute known bits.  The individual options below control how
 /// hard we search.  The defaults are choosen to be fairly aggressive.  If you
@@ -52,7 +53,7 @@ static cl::opt<bool> EnableDomConditions("value-tracking-dom-conditions",
 // This is expensive, so we only do it for the top level query value.
 // (TODO: evaluate cost vs profit, consider higher thresholds)
 static cl::opt<unsigned> DomConditionsMaxDepth("dom-conditions-max-depth",
-                                               cl::Hidden, cl::init(1));
+                                         cl::Hidden, cl::init(1));
 
 /// How many dominating blocks should be scanned looking for dominating
 /// conditions?
@@ -68,6 +69,13 @@ static cl::opt<unsigned> DomConditionsMaxUses("dom-conditions-max-uses",
 // If true, don't consider only compares whose only use is a branch.
 static cl::opt<bool> DomConditionsSingleCmpUse("dom-conditions-single-cmp-use",
                                                cl::Hidden, cl::init(false));
+#else
+static const bool EnableDomConditions = false;
+static const unsigned DomConditionsMaxDepth = 1;
+static const unsigned DomConditionsMaxDomBlocks = 2000;
+static const unsigned DomConditionsMaxUses = 2000;
+static const bool DomConditionsSingleCmpUse = false;
+#endif // HLSL Change Ends
 
 /// Returns the bitwidth of the given scalar or pointer type (if unknown returns
 /// 0). For vector types, returns the element type's bitwidth.

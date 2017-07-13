@@ -77,6 +77,7 @@ STATISTIC(NumLoadsSpeculated, "Number of loads speculated to allow promotion");
 STATISTIC(NumDeleted, "Number of instructions deleted");
 STATISTIC(NumVectorized, "Number of vectorized aggregates");
 
+#if 0 // HLSL Change Starts - option pending
 /// Hidden option to force the pass to not use DomTree and mem2reg, instead
 /// forming SSA values through the SSAUpdater infrastructure.
 static cl::opt<bool> ForceSSAUpdater("force-ssa-updater", cl::init(false),
@@ -91,6 +92,11 @@ static cl::opt<bool> SROARandomShuffleSlices("sroa-random-shuffle-slices",
 /// GEPs.
 static cl::opt<bool> SROAStrictInbounds("sroa-strict-inbounds", cl::init(false),
                                         cl::Hidden);
+#else
+static const bool ForceSSAUpdater = false;
+static const bool SROARandomShuffleSlices = false;
+static const bool SROAStrictInbounds = false;
+#endif // HLSL Change Ends
 
 namespace {
 /// \brief A custom IRBuilder inserter which prefixes all names if they are

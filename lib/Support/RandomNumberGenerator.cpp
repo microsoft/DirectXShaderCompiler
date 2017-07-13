@@ -26,9 +26,13 @@ using namespace llvm;
 // http://llvm.org/bugs/show_bug.cgi?id=19665
 //
 // Do not change to cl::opt<uint64_t> since this silently breaks argument parsing.
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned long long>
 Seed("rng-seed", cl::value_desc("seed"),
      cl::desc("Seed for the random number generator"), cl::init(0));
+#else
+static const unsigned long long Seed = 0; // will go boom in the constructor, can't be set yet
+#endif // HLSL Change Ends
 
 RandomNumberGenerator::RandomNumberGenerator(StringRef Salt) {
   DEBUG(

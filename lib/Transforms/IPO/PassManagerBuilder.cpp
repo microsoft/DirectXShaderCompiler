@@ -55,12 +55,6 @@ static cl::opt<bool> ExtraVectorizerPasses(
     "extra-vectorizer-passes", cl::init(false), cl::Hidden,
     cl::desc("Run cleanup optimization passes after vectorization."));
 
-#else
-
-// Don't declare the 'false' counterparts - simply avoid altogether.
-
-#endif // HLSL Change - don't build vectorization passes
-
 static cl::opt<bool> UseNewSROA("use-new-sroa",
   cl::init(true), cl::Hidden,
   cl::desc("Enable the new, experimental SROA pass"));
@@ -99,6 +93,21 @@ static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
 
+#else
+
+// Don't declare the 'false' counterparts - simply avoid altogether.
+
+static const bool UseNewSROA = true;
+static const bool RunLoopRerolling = false;
+static const bool RunFloat2Int = true;
+static const bool RunLoadCombine = false;
+static const bool RunSLPAfterLoopVectorization = true;
+static const bool UseCFLAA = false;
+static const bool EnableMLSM = true;
+static const bool EnableLoopInterchange = false;
+static const bool EnableLoopDistribute = false;
+#endif // HLSL Change - don't build vectorization passes
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -127,15 +136,19 @@ PassManagerBuilder::~PassManagerBuilder() {
   delete Inliner;
 }
 
+#if 0 // HLSL Change Starts - no global extensions
 /// Set of global extensions, automatically added as part of the standard set.
 static ManagedStatic<SmallVector<std::pair<PassManagerBuilder::ExtensionPointTy,
    PassManagerBuilder::ExtensionFn>, 8> > GlobalExtensions;
+#endif // HLSL Change Ends
 
+#if 0 // HLSL Change Starts - no global extensions
 void PassManagerBuilder::addGlobalExtension(
     PassManagerBuilder::ExtensionPointTy Ty,
     PassManagerBuilder::ExtensionFn Fn) {
   GlobalExtensions->push_back(std::make_pair(Ty, Fn));
 }
+#endif // HLSL Change Ends
 
 void PassManagerBuilder::addExtension(ExtensionPointTy Ty, ExtensionFn Fn) {
   Extensions.push_back(std::make_pair(Ty, Fn));
@@ -143,12 +156,14 @@ void PassManagerBuilder::addExtension(ExtensionPointTy Ty, ExtensionFn Fn) {
 
 void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
                                            legacy::PassManagerBase &PM) const {
+#if 0 // HLSL Change Starts - no global extensions
   for (unsigned i = 0, e = GlobalExtensions->size(); i != e; ++i)
     if ((*GlobalExtensions)[i].first == ETy)
       (*GlobalExtensions)[i].second(*this, PM);
   for (unsigned i = 0, e = Extensions.size(); i != e; ++i)
     if (Extensions[i].first == ETy)
       Extensions[i].second(*this, PM);
+#endif // HLSL Change Ends
 }
 
 void PassManagerBuilder::addInitialAliasAnalysisPasses(
@@ -268,7 +283,7 @@ void PassManagerBuilder::populateModulePassManager(
     // builds. The function merging pass is 
     if (MergeFunctions)
       MPM.add(createMergeFunctionsPass());
-    else if (!GlobalExtensions->empty() || !Extensions.empty())
+    else if (!Extensions.empty()) // HLSL Change - GlobalExtensions not considered
       MPM.add(createBarrierNoopPass());
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);

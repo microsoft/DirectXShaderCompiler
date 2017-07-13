@@ -52,7 +52,7 @@ public:
   // Allow use of this class as the value itself.
   operator unsigned() const { return Value; }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_STATS)
+#if (!defined(NDEBUG) || defined(LLVM_ENABLE_STATS)) && 0 // HLSL Change - always disable, shouldn't do process-wide alloc in compile
    const Statistic &operator=(unsigned Val) {
     Value = Val;
     return init();

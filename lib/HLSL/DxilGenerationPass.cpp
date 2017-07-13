@@ -103,6 +103,8 @@ void InitResource(const DxilResource *pSource, DxilResource *pDest) {
 }
 
 void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *pSig, bool HasDebugInfo) {
+  std::unique_ptr<DxilEntrySignature> pSigPtr(pSig);
+
   // Subsystems.
   unsigned ValMajor, ValMinor;
   H.GetValidatorVersion(ValMajor, ValMinor);
@@ -158,7 +160,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   }
 
   // Signatures.
-  M.ResetEntrySignature(pSig);
+  M.ResetEntrySignature(pSigPtr.release());
   M.ResetRootSignature(H.ReleaseRootSignature());
 
   // Shader properties.
@@ -1877,8 +1879,10 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
     // the entry node
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-        if (HandleTy == HLModule::GetArrayEltTy(AI->getAllocatedType()))
+        if (HandleTy == HLModule::GetArrayEltTy(AI->getAllocatedType())) {
+          DXASSERT(isAllocaPromotable(AI), "otherwise, non-promotable resource array alloca found");
           Allocas.push_back(AI);
+        }
       }
     if (Allocas.empty())
       break;
