@@ -65,6 +65,7 @@ STATISTIC(NumGVNSimpl,  "Number of instructions simplified");
 STATISTIC(NumGVNEqProp, "Number of equalities propagated");
 STATISTIC(NumPRELoad,   "Number of loads PRE'd");
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool> EnablePRE("enable-pre",
                                cl::init(true), cl::Hidden);
 static cl::opt<bool> EnableLoadPRE("enable-load-pre", cl::init(true));
@@ -73,6 +74,11 @@ static cl::opt<bool> EnableLoadPRE("enable-load-pre", cl::init(true));
 static cl::opt<uint32_t>
 MaxRecurseDepth("max-recurse-depth", cl::Hidden, cl::init(1000), cl::ZeroOrMore,
                 cl::desc("Max recurse depth (default = 1000)"));
+#else
+static const bool EnablePRE = true;
+static const bool EnableLoadPRE = true;
+static const uint32_t MaxRecurseDepth = 1000;
+#endif // HLSL Change Ends
 
 //===----------------------------------------------------------------------===//
 //                         ValueTable Class

@@ -59,6 +59,8 @@ STATISTIC(NumLFTR        , "Number of loop exit tests replaced");
 STATISTIC(NumElimExt     , "Number of IV sign/zero extends eliminated");
 STATISTIC(NumElimIV      , "Number of congruent IVs eliminated");
 
+#if 0 // HLSL Change Starts - option pending
+
 // Trip count verification can be enabled by default under NDEBUG if we
 // implement a strong expression equivalence checker in SCEV. Until then, we
 // use the verify-indvars flag, which may assert in some cases.
@@ -80,6 +82,12 @@ static cl::opt<ReplaceExitVal> ReplaceExitValue(
                clEnumValN(AlwaysRepl, "always",
                           "always replace exit value whenever possible"),
                clEnumValEnd));
+#else
+static const bool VerifyIndvars = false;
+static const bool ReduceLiveIVs = false;
+enum ReplaceExitVal { NeverRepl, OnlyCheapRepl, AlwaysRepl };
+static const ReplaceExitVal ReplaceExitValue = OnlyCheapRepl;
+#endif
 
 namespace {
 struct RewritePhi;

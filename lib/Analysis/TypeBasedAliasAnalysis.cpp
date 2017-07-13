@@ -135,7 +135,11 @@ using namespace llvm;
 // A handy option for disabling TBAA functionality. The same effect can also be
 // achieved by stripping the !tbaa tags from IR, but this option is sometimes
 // more convenient.
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool> EnableTBAA("enable-tbaa", cl::init(true));
+#else
+static const bool EnableTBAA = true;
+#endif // HLSL Change Ends
 
 namespace {
   /// TBAANode - This is a simple wrapper around an MDNode which provides a

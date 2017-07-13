@@ -8230,6 +8230,7 @@ bool Sema::CheckParmsForFunctionDef(ParmVarDecl *const *P,
     //
     // This is also C++ [dcl.fct]p6.
     if (!Param->isInvalidDecl() &&
+        !(getLangOpts().HLSL && Param->getType()->isIncompleteArrayType()) &&  // HLSL Change: allow incomplete array type
         RequireCompleteType(Param->getLocation(), Param->getType(),
                             diag::err_typecheck_decl_incomplete_type)) {
       Param->setInvalidDecl();

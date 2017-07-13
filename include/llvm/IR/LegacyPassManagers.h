@@ -143,7 +143,7 @@ public:
 /// suitable manager.
 class PMStack {
 public:
-  typedef std::vector<PMDataManager *>::const_reverse_iterator iterator;
+  typedef llvm::SmallVector<PMDataManager *, 2>::const_reverse_iterator iterator; // HLSL Change - SmallVector rather than vector
   iterator begin() const { return S.rbegin(); }
   iterator end() const { return S.rend(); }
 
@@ -155,7 +155,7 @@ public:
   void dump() const;
 
 private:
-  std::vector<PMDataManager *> S;
+  llvm::SmallVector<PMDataManager *, 2> S; // HLSL Change - SmallVector rather than vector
 };
 
 

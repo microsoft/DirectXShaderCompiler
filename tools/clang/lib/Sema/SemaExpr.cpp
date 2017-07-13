@@ -4552,7 +4552,8 @@ bool Sema::GatherArgumentsForCall(SourceLocation CallLoc, FunctionDecl *FDecl,
     if (ArgIx < Args.size()) {
       Arg = Args[ArgIx++];
 
-      if (RequireCompleteType(Arg->getLocStart(),
+      if (!(getLangOpts().HLSL && ProtoArgType->isIncompleteArrayType()) && // HLSL Change: allow incomplete array
+          RequireCompleteType(Arg->getLocStart(),
                               ProtoArgType,
                               diag::err_call_incomplete_argument, Arg))
         return true;

@@ -49,13 +49,16 @@ public:
   END_TEST_CLASS()
 
   TEST_METHOD(RunAttributes);
+  TEST_METHOD(RunAnonymousStruct);
   TEST_METHOD(RunCppErrors);
+  TEST_METHOD(RunForceExtern);
   TEST_METHOD(RunIndexingOperator);
   TEST_METHOD(RunIntrinsicExamples);
   TEST_METHOD(RunMatrixAssignments);
   TEST_METHOD(RunMatrixSyntax);
   TEST_METHOD(RunPackReg);
   TEST_METHOD(RunScalarAssignments);
+  TEST_METHOD(RunShared);
   TEST_METHOD(RunStructAssignments);
   TEST_METHOD(RunTemplateChecks);
   TEST_METHOD(RunTypemodsSyntax);
@@ -284,6 +287,10 @@ TEST_F(RewriterTest, RunAttributes) {
     CheckVerifiesHLSL(L"rewriter\\attributes_noerr.hlsl", L"rewriter\\correct_rewrites\\attributes_gold.hlsl");
 }
 
+TEST_F(RewriterTest, RunAnonymousStruct) {
+    CheckVerifiesHLSL(L"rewriter\\anonymous_struct.hlsl", L"rewriter\\correct_rewrites\\anonymous_struct_gold.hlsl");
+}
+
 TEST_F(RewriterTest, RunCppErrors) {
     CheckVerifiesHLSL(L"rewriter\\cpp-errors_noerr.hlsl", L"rewriter\\correct_rewrites\\cpp-errors_gold.hlsl");
 }
@@ -310,6 +317,10 @@ TEST_F(RewriterTest, RunPackReg) {
 
 TEST_F(RewriterTest, RunScalarAssignments) {
     CheckVerifiesHLSL(L"rewriter\\scalar-assignments_noerr.hlsl", L"rewriter\\correct_rewrites\\scalar-assignments_gold.hlsl");
+}
+
+TEST_F(RewriterTest, RunShared) {
+    CheckVerifiesHLSL(L"rewriter\\shared.hlsl", L"rewriter\\correct_rewrites\\shared.hlsl");
 }
 
 TEST_F(RewriterTest, RunStructAssignments) {
@@ -521,4 +532,42 @@ TEST_F(RewriterTest, RunNoStatic) {
   std::string strResult = BlobToUtf8(result);
   // No static.
   VERIFY_IS_TRUE(strResult.find("static") == std::string::npos);
+}
+
+TEST_F(RewriterTest, RunForceExtern) {  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\force_extern.hlsl")
+          .c_str());
+
+  const int myDefinesCount = 3;
+  DxcDefine myDefines[myDefinesCount] = {
+      {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+  // Run rewrite no function body on the source code
+  VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+      source.BlobEncoding, L"vector-assignments_noerr.hlsl", myDefines,
+      myDefinesCount, /*pIncludeHandler*/ nullptr,
+      RewriterOptionMask::SkipFunctionBody |
+          RewriterOptionMask::GlobalExternByDefault,
+      &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  // Function decl only.
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
+      "// Rewrite unchanged result:\n\
+extern const float a;\n\
+namespace b {\n\
+  extern const float c;\n\
+  namespace d {\n\
+    extern const float e;\n\
+  }\n\
+}\n\
+static int f;\n\
+float4 main() : SV_Target;\n") == 0);
 }

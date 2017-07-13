@@ -32,6 +32,7 @@
 #include <atlbase.h> // atlbase.h needs to come before strsafe.h
 #include <strsafe.h>
 #include <intsafe.h>
+#include <ObjIdl.h>
 
 /// Swap two ComPtr classes.
 template <class T> void swap(CComHeapPtr<T> &a, CComHeapPtr<T> &b) {

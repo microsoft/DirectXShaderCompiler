@@ -16,7 +16,8 @@ g_db_hlsl = None
 def get_db_hlsl():
     global g_db_hlsl
     if g_db_hlsl is None:
-      with open("gen_intrin_main.txt", "r") as f:
+      thisdir = os.path.dirname(os.path.realpath(__file__))
+      with open(os.path.join(thisdir, "gen_intrin_main.txt"), "r") as f:
         g_db_hlsl = db_hlsl(f)
     return g_db_hlsl
 
@@ -763,7 +764,7 @@ def get_instrs_rst():
 
 def get_init_passes():
     "Create a series of statements to initialize passes in a registry."
-    db = db_dxil()
+    db = get_db_dxil()
     result = ""
     for p in sorted(db.passes, key=lambda p : p.type_name):
         result += "initialize%sPass(Registry);\n" % p.type_name
@@ -771,7 +772,7 @@ def get_init_passes():
 
 def get_pass_arg_names():
     "Return an ArrayRef of argument names based on passName"
-    db = db_dxil()
+    db = get_db_dxil()
     decl_result = ""
     check_result = ""
     for p in sorted(db.passes, key=lambda p : p.type_name):
@@ -787,7 +788,7 @@ def get_pass_arg_names():
 
 def get_pass_arg_descs():
     "Return an ArrayRef of argument descriptions based on passName"
-    db = db_dxil()
+    db = get_db_dxil()
     decl_result = ""
     check_result = ""
     for p in sorted(db.passes, key=lambda p : p.type_name):
@@ -803,7 +804,7 @@ def get_pass_arg_descs():
 
 def get_is_pass_option_name():
     "Create a return expression to check whether a value 'S' is a pass option name."
-    db = db_dxil()
+    db = get_db_dxil()
     prefix = ""
     result = "return "
     for k in sorted(db.pass_idx_args):
@@ -813,7 +814,7 @@ def get_is_pass_option_name():
 
 def get_opcodes_rst():
     "Create an rst table of opcodes"
-    db = db_dxil()
+    db = get_db_dxil()
     instrs = [i for i in db.instr if i.is_allowed and i.is_dxil_op]
     instrs = sorted(instrs, key=lambda v : v.dxil_opid)
     rows = []
@@ -833,7 +834,7 @@ def get_opcodes_rst():
 
 def get_valrules_rst():
     "Create an rst table of validation rules instructions."
-    db = db_dxil()
+    db = get_db_dxil()
     rules = [i for i in db.val_rules if not i.is_disabled]
     rules = sorted(rules, key=lambda v : v.name)
     rows = []

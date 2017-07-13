@@ -17,6 +17,10 @@
 // Make sure function props is correct for [numthreads(8,8,1)].
 // CHECK: @entry, i32 5, i32 8, i32 8, i32 1
 
+cbuffer A {
+  float a;
+}
+
 void StoreOutputMat(float2x2  m, uint gidx);
 float2x2 LoadInputMat(uint x, uint y);
 float2x2 RotateMat(float2x2 m, uint x, uint y);
@@ -26,7 +30,7 @@ void entry( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid 
 {
     float2x2 f2x2 = LoadInputMat(gid.x, gid.y);
 
-    f2x2 = RotateMat(f2x2, tid.x, tid.y);
+    f2x2 = RotateMat(f2x2, tid.x, tid.y) + a;
 
     StoreOutputMat(f2x2, gidx);
 }

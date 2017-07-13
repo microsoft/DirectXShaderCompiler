@@ -27,7 +27,7 @@ test_script:
     powershell utils\appveyor\appveyor_test.ps1
 # Running SPIR-V tests
 - cmd: >-
-    %HLSL_BLD_DIR%\%CONFIGURATION%\bin\clang-spirv-tests.exe
+    %HLSL_BLD_DIR%\%CONFIGURATION%\bin\clang-spirv-tests.exe --spirv-test-root %HLSL_SRC_DIR%\tools\clang\test\CodeGenSPIRV
 
 notifications:
 - provider: GitHubPullRequest

@@ -13,8 +13,8 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
-#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/dxcapi.h"
 #include "llvm/Support/raw_ostream.h"
 #include "dxcutil.h"
@@ -411,24 +411,27 @@ public:
     _In_      DWORD dwCreationDisposition,
     _In_      DWORD dwFlagsAndAttributes) throw() {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::CreateFileW %S\n", lpFileName);
-    std::wstring FileNameStore;
-    MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
+    DWORD findError;
+    {
+      std::wstring FileNameStore; // The destructor might release and set LastError to success.
+      MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
 
-    // Check for a match to the output file.
-    if (m_pOutputStreamName != nullptr &&
+      // Check for a match to the output file.
+      if (m_pOutputStreamName != nullptr &&
         0 == wcscmp(lpFileName, m_pOutputStreamName)) {
-      return OutputHandle.Handle;
-    }
+        return OutputHandle.Handle;
+      }
 
-    HANDLE dirHandle = TryFindDirHandle(lpFileName);
-    if (dirHandle != INVALID_HANDLE_VALUE) {
-      return dirHandle;
-    }
+      HANDLE dirHandle = TryFindDirHandle(lpFileName);
+      if (dirHandle != INVALID_HANDLE_VALUE) {
+        return dirHandle;
+      }
 
-    size_t includedIndex;
-    DWORD findError = TryFindOrOpen(lpFileName, includedIndex);
-    if (findError == ERROR_SUCCESS) {
-      return IncludedFileIndexToHandle(includedIndex);
+      size_t includedIndex;
+      findError = TryFindOrOpen(lpFileName, includedIndex);
+      if (findError == ERROR_SUCCESS) {
+        return IncludedFileIndexToHandle(includedIndex);
+      }
     }
 
     SetLastError(findError);
@@ -709,17 +712,11 @@ public:
 
 namespace dxcutil {
 
-HRESULT
+DxcArgsFileSystem *
 CreateDxcArgsFileSystem(
     _In_ IDxcBlob *pSource, _In_ LPCWSTR pSourceName,
-    _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-    _Outptr_ DxcArgsFileSystem **ppResult) throw() {
-  *ppResult = new (std::nothrow)
-      DxcArgsFileSystemImpl(pSource, pSourceName, pIncludeHandler);
-  if (*ppResult == nullptr) {
-    return E_OUTOFMEMORY;
-  }
-  return S_OK;
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler) {
+  return new DxcArgsFileSystemImpl(pSource, pSourceName, pIncludeHandler);
 }
 
 } // namespace dxcutil

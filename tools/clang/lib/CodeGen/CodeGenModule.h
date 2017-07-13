@@ -293,7 +293,7 @@ private:
 
   CodeGenTBAA *TBAA;
   
-  mutable const TargetCodeGenInfo *TheTargetCodeGenInfo;
+  mutable std::unique_ptr<TargetCodeGenInfo> TheTargetCodeGenInfo; // HLSL Change - unique_ptr rather than const *
   
   // This should not be moved earlier, since its initialization depends on some
   // of the previous reference members being already initialized and also checks

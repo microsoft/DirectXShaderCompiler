@@ -52,6 +52,8 @@ struct PassRemarksOpt {
   };
 };
 
+#if 0
+// These should all be specific to a pipline, not global to the process.
 static PassRemarksOpt PassRemarksOptLoc;
 static PassRemarksOpt PassRemarksMissedOptLoc;
 static PassRemarksOpt PassRemarksAnalysisOptLoc;
@@ -85,6 +87,21 @@ PassRemarksAnalysis(
     cl::Hidden, cl::location(PassRemarksAnalysisOptLoc), cl::ValueRequired,
     cl::ZeroOrMore);
 }
+#else
+struct PassRemarksOptNull {
+  Regex *Pattern = nullptr;
+  void operator=(const std::string &Val) {
+  }
+};
+static PassRemarksOptNull PassRemarksOptLoc;
+static PassRemarksOptNull PassRemarksMissedOptLoc;
+static PassRemarksOptNull PassRemarksAnalysisOptLoc;
+
+static PassRemarksOptNull PassRemarks;
+static PassRemarksOptNull PassRemarksMissed;
+static PassRemarksOptNull PassRemarksAnalysis;
+}
+#endif
 
 int llvm::getNextAvailablePluginDiagnosticKind() {
   static std::atomic<int> PluginKindID(DK_FirstPluginKind);

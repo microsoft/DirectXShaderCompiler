@@ -897,7 +897,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(ST);
 
     return ConstructStructAnnotation(annotation, RD, dxilTypeSys);
-  } else if (IsHLSLResouceType(Ty)) {
+  } else if (IsHLSLResourceType(Ty)) {
     // Save result type info.
     AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
     // Resource don't count for cbuffer size.
@@ -5528,7 +5528,14 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
     return;
+  } else if (HLModule::IsHLSLObjectType(HLModule::GetArrayEltTy(SrcPtrTy)) &&
+             HLModule::IsHLSLObjectType(HLModule::GetArrayEltTy(DestPtrTy))) {
+    unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+    unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
+    CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);
+    return;
   }
+
   // It is possiable to implement EmitHLSLAggregateCopy, EmitHLSLAggregateStore
   // the same way. But split value to scalar will generate many instruction when
   // src type is same as dest type.

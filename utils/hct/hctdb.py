@@ -3,6 +3,7 @@
 ###############################################################################
 # DXIL information.                                                           #
 ###############################################################################
+import os
 
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
@@ -1045,6 +1046,9 @@ class db_dxil(object):
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
         next_op_idx += 1
+        # WavePrefixBitCount has different signature compare to WavePrefixOp, set its opclass to WavePrefixOp is not correct.
+        # It works now because WavePrefixOp and WavePrefixBitCount don't interfere on overload types.
+        # Keep it unchanged for back-compat.
         self.add_dxil_op("WavePrefixBitCount", next_op_idx, "WavePrefixOp", "returns the count of bits set to 1 on prior lanes", "v", "", [
             db_dxil_param(0, "i32", "", "operation result"),
             db_dxil_param(2, "i1", "value", "input value")])
@@ -1115,7 +1119,8 @@ class db_dxil(object):
         inst_starter = "* Inst: "
         block_starter = "* BLOCK-BEGIN"
         block_end = "* BLOCK-END"
-        with open("hctdb_inst_docs.txt") as ops_file:
+        thisdir = os.path.dirname(os.path.realpath(__file__))
+        with open(os.path.join(thisdir, "hctdb_inst_docs.txt")) as ops_file:
             inst_name = ""
             inst_doc = ""
             inst_remarks = ""

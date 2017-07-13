@@ -41,6 +41,7 @@ static std::string &getLibSupportInfoOutputFilename() {
 static ManagedStatic<sys::SmartMutex<true> > TimerLock;
 
 namespace {
+#if 0 // HLSL Change Starts - option pending
   static cl::opt<bool>
   TrackSpace("track-memory", cl::desc("Enable -time-passes memory "
                                       "tracking (this may be slow)"),
@@ -50,6 +51,10 @@ namespace {
   InfoOutputFilename("info-output-file", cl::value_desc("filename"),
                      cl::desc("File to append -stats and -timer output to"),
                    cl::Hidden, cl::location(getLibSupportInfoOutputFilename()));
+#else
+  static const bool TrackSpace = false;
+  static const char InfoOutputFilename[] = "";
+#endif // HLSL Change Ends
 }
 
 // CreateInfoOutputFile - Return a file stream to print our output on.
@@ -77,10 +82,10 @@ raw_ostream *llvm::CreateInfoOutputFile() {
 }
 
 #define DefaultTimerGroupName "Miscellaneous Ungrouped Timers"
-static TimerGroup DefaultTimerGroup(DefaultTimerGroupName); // HLSL Change - global init
+// static TimerGroup DefaultTimerGroup(DefaultTimerGroupName); // HLSL Change - global init
 static TimerGroup *getDefaultTimerGroup() {
 #if 1 // HLSL Change Starts - global with special clean-up and init
-  return &DefaultTimerGroup;
+  return nullptr; // rather than alloc-on-demand or &DefaultTimerGroup;
 #else
   TimerGroup *tmp = DefaultTimerGroup;
   sys::MemoryFence();
@@ -107,6 +112,7 @@ void Timer::init(StringRef N) {
   Name.assign(N.begin(), N.end());
   Started = false;
   TG = getDefaultTimerGroup();
+  if (!TG) return; // HLSL Change
   TG->addTimer(*this);
 }
 
@@ -277,12 +283,6 @@ TimerGroup::~TimerGroup() {
   // print the timing data.
   while (FirstTimer)
     removeTimer(*FirstTimer);
-
-  // HLSL Change Starts - don't bother cleaning up global
-  if (this == &DefaultTimerGroup) {
-    return;
-  }
-  // HLSL Change Ends
   
   // Remove the group from the TimerGroupList.
   sys::SmartScopedLock<true> L(*TimerLock);
@@ -346,7 +346,7 @@ void TimerGroup::PrintQueuedTimers(raw_ostream &OS) {
   // If this is not an collection of ungrouped times, print the total time.
   // Ungrouped timers don't really make sense to add up.  We still print the
   // TOTAL line to make the percentages make sense.
-  if (this != &DefaultTimerGroup)
+  if (this == getDefaultTimerGroup()) // HLSL Change
     OS << format("  Total Execution Time: %5.4f seconds (%5.4f wall clock)\n",
                  Total.getProcessTime(), Total.getWallTime());
   OS << '\n';

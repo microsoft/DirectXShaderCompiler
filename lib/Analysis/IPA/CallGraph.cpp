@@ -22,30 +22,46 @@ using namespace llvm;
 //
 
 CallGraph::CallGraph(Module &M)
-    : M(M), Root(nullptr), ExternalCallingNode(getOrInsertFunction(nullptr)),
-      CallsExternalNode(new CallGraphNode(nullptr)) {
-  // Add every function to the call graph.
-  for (Function &F : M)
-    addToCallGraph(&F);
+    : M(M), Root(nullptr), ExternalCallingNode(nullptr), // HLSL Change - no allocation here
+      CallsExternalNode(nullptr) {
+  try { // HLSL change - guard and reset
+    ExternalCallingNode = getOrInsertFunction(nullptr);
+    CallsExternalNode = new CallGraphNode(nullptr);
+    // Add every function to the call graph.
+    for (Function &F : M)
+      addToCallGraph(&F);
 
-  // If we didn't find a main function, use the external call graph node
-  if (!Root)
-    Root = ExternalCallingNode;
+    // If we didn't find a main function, use the external call graph node
+    if (!Root)
+      Root = ExternalCallingNode;
+  } catch (...) {
+    reset();
+    throw;
+  }
 }
 
-CallGraph::~CallGraph() {
+// HLSL Change Starts
+CallGraph::~CallGraph() { reset(); }
+void CallGraph::reset() {
+  // This function cleans up the CallGraph, called from the destructor or
+  // an under-construction instance.
+// HLSL Change Ends
   // CallsExternalNode is not in the function map, delete it explicitly.
-  CallsExternalNode->allReferencesDropped();
+  if (CallsExternalNode) // HLSL Change - guard
+    CallsExternalNode->allReferencesDropped();
   delete CallsExternalNode;
+  CallsExternalNode = nullptr;
 
 // Reset all node's use counts to zero before deleting them to prevent an
 // assertion from firing.
 #ifndef NDEBUG
   for (auto &I : FunctionMap)
-    I.second->allReferencesDropped();
+    if (I.second) // HLSL Change - this guard needed when slot is alloc'ed but not populated
+      I.second->allReferencesDropped();
 #endif
   for (auto &I : FunctionMap)
     delete I.second;
+  FunctionMap.clear();
 }
 
 void CallGraph::addToCallGraph(Function *F) {

@@ -36,6 +36,7 @@
 using namespace llvm;
 using namespace PatternMatch;
 
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<bool>
     ColdErrorCalls("error-reporting-is-cold", cl::init(true), cl::Hidden,
                    cl::desc("Treat error-reporting calls as cold"));
@@ -45,7 +46,10 @@ static cl::opt<bool>
                          cl::init(false),
                          cl::desc("Enable unsafe double to float "
                                   "shrinking for math lib calls"));
-
+#else
+static const bool ColdErrorCalls = true;
+static const bool EnableUnsafeFPShrink = false;
+#endif // HLSL Change Ends
 
 //===----------------------------------------------------------------------===//
 // Helper Functions
@@ -1966,7 +1970,7 @@ Value *LibCallSimplifier::optimizeCall(CallInst *CI) {
   bool isCallingConvC = CI->getCallingConv() == llvm::CallingConv::C;
 
   // Command-line parameter overrides function attribute.
-  if (EnableUnsafeFPShrink.getNumOccurrences() > 0)
+  if (false) // HLSL Change - EnableUnsafeFPShrink.getNumOccurrences() > 0)
     UnsafeFPShrink = EnableUnsafeFPShrink;
   else if (Callee->hasFnAttribute("unsafe-fp-math")) {
     // FIXME: This is the same problem as described in optimizeSqrt().
