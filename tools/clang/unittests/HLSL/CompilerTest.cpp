@@ -2238,6 +2238,11 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
     L"cs_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
   allocCount = InstrMalloc.GetAllocCount();
   allocSize = InstrMalloc.GetAllocSize();
+
+  HRESULT hrWithMemory;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrWithMemory));
+  VERIFY_SUCCEEDED(hrWithMemory);
+
   pCompiler.Release();
   pResult.Release();
 
@@ -2261,7 +2266,7 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
 
   // Now, fail each allocation and make sure we get an error.
   for (ULONG i = 0; i <= allocCount; ++i) {
-    LogCommentFmt(L"alloc fail %u", i);
+    // LogCommentFmt(L"alloc fail %u", i);
     bool isLast = i == allocCount;
     InstrMalloc.ResetCounts();
     InstrMalloc.ResetHeap();
