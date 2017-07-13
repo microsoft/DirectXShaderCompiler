@@ -32,13 +32,13 @@ public:
 
 bool DxilReduceMSAAToSingleSample::runOnModule(Module &M)
 {
-  // This pass removes all instances of the discard instruction within the shader.
   DxilModule &DM = M.GetOrCreateDxilModule();
 
   LLVMContext & Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
-  auto TextureLoadOverloads = std::vector<Type*>{ /*todo: what's fp16 type? */ Type::getFloatTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx) };
+  // FP16 type doesn't have its own identity, and is covered by float type... 
+  auto TextureLoadOverloads = std::vector<Type*>{ Type::getFloatTy(Ctx), Type::getInt16Ty(Ctx), Type::getInt32Ty(Ctx) };
 
   bool Modified = false;
 
