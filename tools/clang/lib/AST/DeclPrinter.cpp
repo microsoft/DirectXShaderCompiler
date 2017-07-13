@@ -165,6 +165,35 @@ void Decl::printGroup(Decl** Begin, unsigned NumDecls,
   TagDecl* TD = dyn_cast<TagDecl>(*Begin);
   if (TD)
     ++Begin;
+  // HLSL Change Begin - anonymous struct need to have static.
+  //static const struct {
+  //  float a;
+  //  SamplerState s;
+  //} A = {1.2, ss};
+  // will be rewrite to
+  // struct {
+  //  float a;
+  //  SamplerState s;
+  //} static const  A = {1.2, ss};
+  // without this change.
+  bool bAnonymous = false;
+  if (TD && TD->getName().empty()) {
+    bAnonymous = true;
+  }
+
+  if (bAnonymous && Begin) {
+    if (VarDecl *VD = dyn_cast<VarDecl>(*Begin)) {
+      if (!Policy.SuppressSpecifiers) {
+        StorageClass SC = VD->getStorageClass();
+        if (SC != SC_None)
+          Out << VarDecl::getStorageClassSpecifierString(SC) << " ";
+        if (VD->getType().hasQualifiers())
+          VD->getType().getQualifiers().print(Out, Policy,
+                                              /*appendSpaceIfNonEmpty*/ true);
+      }
+    }
+  }
+  // HLSL Change End
 
   PrintingPolicy SubPolicy(Policy);
   if (TD && TD->isCompleteDefinition()) {
@@ -176,7 +205,7 @@ void Decl::printGroup(Decl** Begin, unsigned NumDecls,
   bool isFirst = true;
   for ( ; Begin != End; ++Begin) {
     if (isFirst) {
-      SubPolicy.SuppressSpecifiers = false;
+      SubPolicy.SuppressSpecifiers = bAnonymous; // HLSL Change.
       isFirst = false;
     } else {
       if (!isFirst) Out << ", ";
