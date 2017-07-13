@@ -2877,17 +2877,18 @@ namespace MainNs
         {
             IDxcRewriter rewriter = HlslDxcLib.CreateDxcRewriter();
             IDxcBlobEncoding code = CreateBlobForCodeText();
-            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchanged(code, null, 0);
+            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchangedWithInclude(code, "input.hlsl", null, 0, library.CreateIncludeHandler(), 0);
             IDxcBlobEncoding rewriteBlob = rewriterResult.GetRewrite();
             string rewriteText = GetStringFromBlob(rewriteBlob);
             RewriterOutputTextBox.Text = rewriteText;
+            AnalysisTabControl.SelectTab(RewriterOutputTabPage);
         }
 
         private void rewriteNobodyToolStripMenuItem_Click(object sender, EventArgs e)
         {
             IDxcRewriter rewriter = HlslDxcLib.CreateDxcRewriter();
             IDxcBlobEncoding code = CreateBlobForCodeText();
-            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchangedWithInclude(code, "input.hlsl",null, 0, null, 1);
+            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchangedWithInclude(code, "input.hlsl",null, 0, library.CreateIncludeHandler(), 1);
             IDxcBlobEncoding rewriteBlob = rewriterResult.GetRewrite();
             string rewriteText = GetStringFromBlob(rewriteBlob);
             RewriterOutputTextBox.Text = rewriteText;
