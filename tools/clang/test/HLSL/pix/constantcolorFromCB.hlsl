@@ -3,8 +3,8 @@
 // Check that the CB return type has been added:
 // CHECK: %dx.types.CBufRet.f32 = type { float, float, float, float }
 
-// Look for call to create handle:
-// CHECK: %PIX_Constant_Color_CB_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 0, i32 0, i1 false)
+// Look for call to create handle at index 1: --------------------------------------------------------V
+// CHECK: %PIX_Constant_Color_CB_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 1, i32 0, i1 false)
 
 // Look for callto read from CB:
 // CHECK: %PIX_Constant_Color_Value = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %PIX_Constant_Color_CB_Handle, i32 0)
@@ -21,7 +21,12 @@
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float %PIX_Constant_Color_Value2)
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float %PIX_Constant_Color_Value3)
 
-[RootSignature("")]
+cbuffer Constants : register(b0)
+{
+  float4 color;
+}
+
+[RootSignature("CBV(b0, space=0, visibility=SHADER_VISIBILITY_PIXEL)")]
 float4 main() : SV_Target {
-    return float4(0,0,0,0);
+  return color;
 }

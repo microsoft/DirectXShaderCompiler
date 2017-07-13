@@ -147,13 +147,13 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
     hasIntOutputs = true;
   });
 
-    if (!hasFloatOutputs && !hasIntOutputs)
+  if (!hasFloatOutputs && !hasIntOutputs)
   {
     return false;
   }
 
   // Otherwise, we assume the shader outputs only one or the other (because the 0th RTV can't have a mixed type)
-  assert(hasFloatOutputs || hasIntOutputs);
+  DXASSERT(!hasFloatOutputs || !hasIntOutputs, "Only one or the other type of output: float or int");
 
   std::array<llvm::Value *, 4> ReplacementColors;
 
@@ -188,6 +188,8 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
       pCBuf->SetRangeSize(1);
       pCBuf->SetSize(4);
 
+      ID = DM.AddCBuffer(std::move(pCBuf));
+
       Instruction * entryPointInstruction = &*(DM.GetEntryFunction()->begin()->begin());
       IRBuilder<> Builder(entryPointInstruction);
 
@@ -196,32 +198,27 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
       Function *createHandle = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
       Constant *CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
       Constant *CBVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::CBuffer)); 
-      Constant *MetaDataArg = HlslOP->GetU32Const(0); // position of the metadata record in the corresponding metadata list
+      Constant *MetaDataArg = HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
       Constant *IndexArg = HlslOP->GetU32Const(0); // 
       Constant *FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
       CallInst *callCreateHandle = Builder.CreateCall(createHandle, { CreateHandleOpcodeArg, CBVArg, MetaDataArg, IndexArg, FalseArg }, ConstantBufferName);
 
-      pCBuf->SetHandle(callCreateHandle);
-
-      ID = DM.AddCBuffer(std::move(pCBuf));
       DM.ReEmitDxilResources();
 
+#define PIX_CONSTANT_VALUE "PIX_Constant_Color_Value"
 
       // Insert the Buffer load instruction:
-      auto ConstantValueName = "PIX_Constant_Color_Value";
       Function *CBLoad = HlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, hasFloatOutputs ? Type::getFloatTy(Ctx) : Type::getInt32Ty(Ctx));
       Constant *OpArg = HlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoadLegacy);
       Value * ResourceHandle = callCreateHandle;
       Constant *RowIndex = HlslOP->GetU32Const(0);
-      CallInst *loadLegacy = Builder.CreateCall(CBLoad, { OpArg, ResourceHandle, RowIndex }, ConstantValueName);
+      CallInst *loadLegacy = Builder.CreateCall(CBLoad, { OpArg, ResourceHandle, RowIndex }, PIX_CONSTANT_VALUE);
 
       // Now extract four color values:
-  #define PIX_CONSTANT_VALUE "PIX_Constant_Color_Value"
       ReplacementColors[0] = Builder.CreateExtractValue(loadLegacy, 0, PIX_CONSTANT_VALUE "0");
       ReplacementColors[1] = Builder.CreateExtractValue(loadLegacy, 1, PIX_CONSTANT_VALUE "1");
       ReplacementColors[2] = Builder.CreateExtractValue(loadLegacy, 2, PIX_CONSTANT_VALUE "2");
       ReplacementColors[3] = Builder.CreateExtractValue(loadLegacy, 3, PIX_CONSTANT_VALUE "3");
-
     }
     break;
     default:
@@ -233,7 +230,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
 
   // The StoreOutput function can store either a float or an integer, depending on the intended output
   // render-target resource view.
-  if (!FloatOutputFunction->user_empty()) {
+  if (hasFloatOutputs) {
     visitOutputInstructionCallers(FloatOutputFunction, OutputSignature, HlslOP, 
       [&ReplacementColors, &Modified](CallInst * CallInstruction) {
       Modified = true;
@@ -245,7 +242,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M)
     });
   }
 
-  if (!IntOutputFunction->user_empty()) {
+  if (hasIntOutputs) {
     visitOutputInstructionCallers(IntOutputFunction, OutputSignature, HlslOP, 
     [&ReplacementColors, &Modified](CallInst * CallInstruction) {
       Modified = true;
