@@ -204,6 +204,17 @@ void DxilMDHelper::EmitDxilEntryPoints(vector<MDNode *> &MDEntries) {
   }
 }
 
+void DxilMDHelper::UpdateDxilEntryPoints(vector<MDNode *> &MDEntries) {
+  DXASSERT(MDEntries.size() == 1, "only one entry point is supported for now");
+  NamedMDNode *pEntryPointsNamedMD =
+      m_pModule->getNamedMetadata(kDxilEntryPointsMDName);
+  IFTBOOL(pEntryPointsNamedMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+
+  for (size_t i = 0; i < MDEntries.size(); i++) {
+    pEntryPointsNamedMD->setOperand(i, MDEntries[i]);
+  }
+}
+
 const NamedMDNode *DxilMDHelper::GetDxilEntryPoints() {
   NamedMDNode *pEntryPointsNamedMD = m_pModule->getNamedMetadata(kDxilEntryPointsMDName);
   IFTBOOL(pEntryPointsNamedMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
@@ -439,12 +450,34 @@ MDTuple *DxilMDHelper::EmitDxilResourceTuple(MDTuple *pSRVs, MDTuple *pUAVs,
   MDVals[kDxilResourceSamplers] = pSamplers;
   MDTuple *pTupleMD = MDNode::get(m_Ctx, MDVals);
 
+  return pTupleMD;
+}
+
+void DxilMDHelper::EmitDxilResources(llvm::MDTuple *pDxilResourceTuple) {
   NamedMDNode *pResourcesNamedMD = m_pModule->getNamedMetadata(kDxilResourcesMDName);
   IFTBOOL(pResourcesNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   pResourcesNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilResourcesMDName);
-  pResourcesNamedMD->addOperand(pTupleMD);
+  pResourcesNamedMD->addOperand(pDxilResourceTuple);
+}
 
-  return pTupleMD;
+void DxilMDHelper::UpdateDxilResources(llvm::MDTuple *pDxilResourceTuple) {
+  NamedMDNode *pResourcesNamedMD =
+      m_pModule->getNamedMetadata(kDxilResourcesMDName);
+  if (!pResourcesNamedMD) {
+    pResourcesNamedMD =
+        m_pModule->getOrInsertNamedMetadata(kDxilResourcesMDName);
+  }
+  if (pDxilResourceTuple) {
+    if (pResourcesNamedMD->getNumOperands() != 0) {
+      pResourcesNamedMD->setOperand(0, pDxilResourceTuple);
+    }
+    else {
+      pResourcesNamedMD->addOperand(pDxilResourceTuple);
+    }
+
+  } else {
+    m_pModule->eraseNamedMetadata(pResourcesNamedMD);
+  }
 }
 
 void DxilMDHelper::EmitDxilResourceLinkInfoTuple(MDTuple *pSRVs, MDTuple *pUAVs,
