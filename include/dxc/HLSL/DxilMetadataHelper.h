@@ -275,6 +275,7 @@ public:
 
   // Entry points.
   void EmitDxilEntryPoints(std::vector<llvm::MDNode *> &MDEntries);
+  void UpdateDxilEntryPoints(std::vector<llvm::MDNode *> &MDEntries);
   const llvm::NamedMDNode *GetDxilEntryPoints();
   llvm::MDTuple *EmitDxilEntryPointTuple(llvm::Function *pFunc, const std::string &Name, llvm::MDTuple *pSignatures,
                                          llvm::MDTuple *pResources, llvm::MDTuple *pProperties);
@@ -296,6 +297,8 @@ public:
   // Resources.
   llvm::MDTuple *EmitDxilResourceTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs, 
                                        llvm::MDTuple *pCBuffers, llvm::MDTuple *pSamplers);
+  void EmitDxilResources(llvm::MDTuple *pDxilResourceTuple);
+  void UpdateDxilResources(llvm::MDTuple *pDxilResourceTuple);
   void GetDxilResources(const llvm::MDOperand &MDO, const llvm::MDTuple *&pSRVs, const llvm::MDTuple *&pUAVs, 
                         const llvm::MDTuple *&pCBuffers, const llvm::MDTuple *&pSamplers);
   void EmitDxilResourceLinkInfoTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs,

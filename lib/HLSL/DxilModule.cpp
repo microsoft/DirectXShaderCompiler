@@ -1193,6 +1193,8 @@ void DxilModule::EmitDxilMetadata() {
 
   MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_EntrySignature);
   MDTuple *pMDResources = EmitDxilResources();
+  if (pMDResources)
+    m_pMDHelper->EmitDxilResources(pMDResources);
   m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   if (!m_pSM->IsCS() &&
       (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
@@ -1349,6 +1351,25 @@ MDTuple *DxilModule::EmitDxilResources() {
   } else {
     return nullptr;
   }
+}
+
+void DxilModule::ReEmitDxilResources() {
+  MDTuple *pNewResource = EmitDxilResources();
+  m_pMDHelper->UpdateDxilResources(pNewResource);
+  const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
+  IFTBOOL(pEntries->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+  Function *pEntryFunc;
+  string EntryName;
+  const llvm::MDOperand *pSignatures, *pResources, *pProperties;
+  m_pMDHelper->GetDxilEntryPoint(pEntries->getOperand(0), pEntryFunc, EntryName, pSignatures, pResources, pProperties);
+
+  MDTuple *pMDSig = pSignatures? (MDTuple*)pSignatures->get():nullptr;
+  MDTuple *pMDProperties = pProperties ? (MDTuple*)pProperties->get():nullptr;
+  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(pEntryFunc, EntryName, pMDSig, pNewResource, pMDProperties);
+  vector<MDNode *> Entries;
+  Entries.emplace_back(pEntry);
+  m_pMDHelper->UpdateDxilEntryPoints(Entries);
 }
 
 void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
