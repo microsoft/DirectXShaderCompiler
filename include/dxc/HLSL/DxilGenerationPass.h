@@ -54,6 +54,7 @@ FunctionPass *createDxilLegalizeSampleOffsetPass();
 FunctionPass *createSimplifyInstPass();
 ModulePass *createDxilOutputColorBecomesConstantPass();
 ModulePass *createDxilRemoveDiscardsPass();
+ModulePass *createDxilReduceMSAAToSingleSamplePass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
 void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
@@ -72,6 +73,7 @@ void initializeDxilLegalizeSampleOffsetPassPass(llvm::PassRegistry&);
 void initializeSimplifyInstPass(llvm::PassRegistry&);
 void initializeDxilOutputColorBecomesConstantPass(llvm::PassRegistry&);
 void initializeDxilRemoveDiscardsPass(llvm::PassRegistry&);
+void initializeDxilReduceMSAAToSingleSamplePass(llvm::PassRegistry&);
 
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 
