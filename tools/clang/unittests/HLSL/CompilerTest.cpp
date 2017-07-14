@@ -371,6 +371,7 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
 
+  TEST_METHOD(PixMSAAToSample0)
   TEST_METHOD(PixRemoveDiscards)
   TEST_METHOD(PixConstantColor)
   TEST_METHOD(PixConstantColorInt)
@@ -520,6 +521,7 @@ public:
   TEST_METHOD(CodeGenIntrinsic5)
   TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
+  TEST_METHOD(CodeGenLibArgFlatten)
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
@@ -2470,6 +2472,10 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
+TEST_F(CompilerTest, PixMSAAToSample0) {
+  CodeGenTestCheck(L"pix\\msaaLoad.hlsl");
+}
+
 TEST_F(CompilerTest, PixRemoveDiscards) {
   CodeGenTestCheck(L"pix\\removeDiscards.hlsl");
 }
@@ -3062,6 +3068,10 @@ TEST_F(CompilerTest, CodeGenInvalidInputOutputTypes) {
 
 TEST_F(CompilerTest, CodeGenLegacyStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\legacy_struct.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibArgFlatten) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_arg_flatten.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibCsEntry) {

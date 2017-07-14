@@ -21,6 +21,7 @@ add_llvm_library(LLVMHLSL
   DxilOperations.cpp
   DxilOutputColorBecomesConstant.cpp
   DxilRemoveDiscards.cpp
+  DxilReduceMSAAToSingleSample.cpp
   DxilPreserveAllOutputs.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
