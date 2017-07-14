@@ -3895,8 +3895,16 @@ public:
         if (F.user_empty())
           continue;
       }
+      // Skip void(void) functions.
+      if (F.getReturnType()->isVoidTy() && F.arg_size() == 0)
+        continue;
 
       WorkList.emplace_back(&F);
+    }
+
+    // Preprocess aggregate function param used as function call arg.
+    for (Function *F : WorkList) {
+      preprocessArgUsedInCall(F);
     }
 
     // Process the worklist
@@ -3988,6 +3996,7 @@ public:
 
 private:
   void DeleteDeadInstructions();
+  void preprocessArgUsedInCall(Function *F);
   void moveFunctionBody(Function *F, Function *flatF);
   void replaceCall(Function *F, Function *flatF);
   void createFlattenedFunction(Function *F);
@@ -5345,6 +5354,92 @@ void SROA_Parameter_HLSL::flattenArgument(
                             semanticTypeMap);
   }
 
+}
+
+// For function parameter which used in function call and need to be flattened.
+// Replace with tmp alloca.
+void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
+  if (F->isDeclaration())
+    return;
+
+  const DataLayout &DL = m_pHLModule->GetModule()->getDataLayout();
+
+  DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
+  DxilFunctionAnnotation *pFuncAnnot = typeSys.GetFunctionAnnotation(F);
+  DXASSERT(pFuncAnnot, "else invalid function");
+
+  IRBuilder<> AllocaBuilder(F->getEntryBlock().getFirstInsertionPt());
+
+  SmallVector<ReturnInst*, 2> retList;
+  for (BasicBlock &bb : F->getBasicBlockList()) {
+    if (ReturnInst *RI = dyn_cast<ReturnInst>(bb.getTerminator())) {
+      retList.emplace_back(RI);
+    }
+  }
+
+  for (Argument &arg : F->args()) {
+    Type *Ty = arg.getType();
+    // Only check pointer types.
+    if (!Ty->isPointerTy())
+      continue;
+    Ty = Ty->getPointerElementType();
+    // Skip scalar types.
+    if (!Ty->isAggregateType() &&
+        Ty->getScalarType() == Ty)
+      continue;
+    bool bUsedInCall = false;
+    for (User *U : arg.users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        Function *CalledF = CI->getCalledFunction();
+        HLOpcodeGroup group = GetHLOpcodeGroup(CalledF);
+        // Skip HL operations.
+        if (group != HLOpcodeGroup::NotHL ||
+            group == HLOpcodeGroup::HLExtIntrinsic) {
+          continue;
+        }
+        // Skip llvm intrinsic.
+        if (CalledF->isIntrinsic())
+          continue;
+
+        bUsedInCall = true;
+        break;
+      }
+    }
+
+    if (bUsedInCall) {
+      // Create tmp.
+      Value *TmpArg = AllocaBuilder.CreateAlloca(Ty);
+      // Replace arg with tmp.
+      arg.replaceAllUsesWith(TmpArg);
+
+      DxilParameterAnnotation &paramAnnot = pFuncAnnot->GetParameterAnnotation(arg.getArgNo());
+      DxilParamInputQual inputQual = paramAnnot.GetParamInputQual();
+      unsigned size = DL.getTypeAllocSize(Ty);
+      // Copy between arg and tmp.
+      if (inputQual == DxilParamInputQual::In ||
+          inputQual == DxilParamInputQual::Inout) {
+        // copy arg to tmp.
+        CallInst *argToTmp = AllocaBuilder.CreateMemCpy(TmpArg, &arg, size, 0);
+        // Split the memcpy.
+        MemcpySplitter::SplitMemCpy(cast<MemCpyInst>(argToTmp), DL, nullptr,
+                                    typeSys);
+      }
+      if (inputQual == DxilParamInputQual::Out ||
+          inputQual == DxilParamInputQual::Inout) {
+        for (ReturnInst *RI : retList) {
+          IRBuilder<> Builder(RI);
+          // copy tmp to arg.
+          CallInst *tmpToArg =
+              AllocaBuilder.CreateMemCpy(&arg, TmpArg, size, 0);
+          // Split the memcpy.
+          MemcpySplitter::SplitMemCpy(cast<MemCpyInst>(tmpToArg), DL, nullptr,
+                                      typeSys);
+        }
+      }
+      // TODO: support other DxilParamInputQual.
+
+    }
+  }
 }
 
 /// moveFunctionBlocks - Move body of F to flatF.
