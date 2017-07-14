@@ -1268,6 +1268,11 @@ class db_dxil(object):
         add_pass('resource-handle', 'ResourceToHandle', 'Lower resource into handle', [])
         add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
         add_pass('hlsl-dxil-eliminate-output-dynamic', 'DxilEliminateOutputDynamicIndexing', 'DXIL eliminate ouptut dynamic indexing', [])
+        add_pass('hlsl-dxil-add-pixel-hit-instrmentation', 'DxilAddPixelHitInstrumentation', 'DXIL Count completed PS invocations and costs', [
+            {'n':'force-early-z','t':'int','c':1},
+            {'n':'add-pixel-cost','t':'int','c':1},
+            {'n':'rt-width','t':'int','c':1},
+            {'n':'num-pixels','t':'int','c':1}])
         add_pass('hlsl-dxil-constantColor', 'DxilOutputColorBecomesConstant', 'DXIL Constant Color Mod', [
             {'n':'mod-mode','t':'int','c':1},
             {'n':'constant-red','t':'float','c':1},

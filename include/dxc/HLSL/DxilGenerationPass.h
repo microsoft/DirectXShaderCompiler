@@ -52,6 +52,7 @@ ModulePass *createDxilLegalizeStaticResourceUsePass();
 ModulePass *createDxilLegalizeEvalOperationsPass();
 FunctionPass *createDxilLegalizeSampleOffsetPass();
 FunctionPass *createSimplifyInstPass();
+ModulePass *createDxilAddPixelHitInstrumentationPass();
 ModulePass *createDxilOutputColorBecomesConstantPass();
 ModulePass *createDxilRemoveDiscardsPass();
 
@@ -70,6 +71,7 @@ void initializeDxilLegalizeStaticResourceUsePassPass(llvm::PassRegistry&);
 void initializeDxilLegalizeEvalOperationsPass(llvm::PassRegistry&);
 void initializeDxilLegalizeSampleOffsetPassPass(llvm::PassRegistry&);
 void initializeSimplifyInstPass(llvm::PassRegistry&);
+void initializeDxilAddPixelHitInstrumentationPass(llvm::PassRegistry&);
 void initializeDxilOutputColorBecomesConstantPass(llvm::PassRegistry&);
 void initializeDxilRemoveDiscardsPass(llvm::PassRegistry&);
 
