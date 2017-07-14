@@ -10,6 +10,9 @@
 // Check texture load from single-sampled wasn't altered: (This should be 1) ---------------------------------------------------------V
 // CHECK: %TextureLoad3 = call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %singleSampledTex_texture_2d, i32 1, i32 1, i32 1, i32 undef, i32 undef, i32 undef, i32 undef)
 
+// Check texture load from UAV wasn't altered: (This should be 1) ---------------------------------------------------------------------V
+// CHECK: %TextureLoad4 = call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %floatRWUAV_UAV_2d, i32 undef, i32 1, i32 1, i32 undef, i32 undef, i32 undef, i32 undef)
+
 Texture2DMS<float4> tex : register(t2);
 Texture2DMS<half4> texh : register(t3);
 Texture2DMS<int4> texi : register(t4);
