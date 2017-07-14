@@ -78,8 +78,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
   // This pass adds instrumentation for pixel hit counting and pixel cost
 
   DxilModule &DM = M.GetOrCreateDxilModule();
-  LLVMContext & Ctx = M.getContext();
-  OP *HlslOP = DM.GetOP();
+  //LLVMContext & Ctx = M.getContext();
+  //OP *HlslOP = DM.GetOP();
 
   if (ForceEarlyZ)
   {
@@ -89,8 +89,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
   hlsl::DxilSignature & InputSignature = DM.GetInputSignature();
 
   auto & InputElements = InputSignature.GetElements();
-  if (std::find(InputElements.begin(), InputElements.end(), [](const DxilSignatureElement & Element) {
-    return Element.GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::Position; }) 
+  if (std::find_if(InputElements.begin(), InputElements.end(), [](const std::unique_ptr<DxilSignatureElement> & Element) {
+    return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::Position; }) 
     == InputElements.end()) {
 
     auto SVPosition = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
