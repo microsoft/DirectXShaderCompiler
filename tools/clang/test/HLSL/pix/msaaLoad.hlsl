@@ -1,11 +1,11 @@
 // RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-reduce-msaa-to-single | %FileCheck %s
 
 // Check that we overrode the sample index with 0 Here: -------------------------------------------------------------------V
-// CHECK: %TextureLoad = call %dx.types.ResRet.i32 @dx.op.textureLoad.i32(i32 66, %dx.types.Handle %texi_texture_2dMS, i32 0, i32 %4, i32 %5, i32 undef, i32 undef, i32 undef, i32 undef)
+// CHECK: %TextureLoad = call %dx.types.ResRet.i32 @dx.op.textureLoad.i32(i32 66, %dx.types.Handle %texi_texture_2dMS, i32 0
 
 // Check for integer and half-float loads:
-// CHECK: %TextureLoad1 = call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %texh_texture_2dMS, i32 0, i32 %add.i0, i32 %add.i1, i32 undef, i32 undef, i32 undef, i32 undef)
-// CHECK: %TextureLoad2 = call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %tex_texture_2dMS, i32 0, i32 %add.i0, i32 %add.i1, i32 undef, i32 undef, i32 undef, i32 undef)
+// CHECK: %TextureLoad1 = call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %texh_texture_2dMS, i32 0
+// CHECK: %TextureLoad2 = call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %tex_texture_2dMS, i32 0
 
 // Check texture load from single-sampled wasn't altered: (This should be 1) ---------------------------------------------------------V
 // CHECK: %TextureLoad3 = call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %singleSampledTex_texture_2d, i32 1, i32 1, i32 1, i32 undef, i32 undef, i32 undef, i32 undef)
