@@ -58,8 +58,8 @@ bool DxilReduceMSAAToSingleSample::runOnModule(Module &M)
       // Dynamic rangeId is not supported 
       if (isa<ConstantInt>(createHandle.get_rangeId())){
         unsigned rangeId = cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
-        auto Resource = DM.GetSRV(rangeId);
         if (static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val()) == DXIL::ResourceClass::SRV) {
+          auto Resource = DM.GetSRV(rangeId);
           if (Resource.GetKind() == DXIL::ResourceKind::Texture2DMS || Resource.GetKind() == DXIL::ResourceKind::Texture2DMSArray) {
             // "2" is the mip-level/sample-index operand index:
             // https://github.com/Microsoft/DirectXShaderCompiler/blob/master/docs/DXIL.rst#textureload
