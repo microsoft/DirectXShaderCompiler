@@ -14,6 +14,7 @@ Texture2DMS<float4> tex : register(t2);
 Texture2DMS<half4> texh : register(t3);
 Texture2DMS<int4> texi : register(t4);
 Texture2D<float4> singleSampledTex: register(t5);
+RWTexture2D<float4> floatRWUAV: register(u0);
 
 struct PSInput
 {
@@ -38,5 +39,5 @@ float4 main(PSInput input) : SV_TARGET
     resolved += tex.Load(iPos, i);
   }
   // Add a load from a single-sampled resource to check we didn't override that one's mip-level too:
-  return resolved / samples + singleSampledTex.Load(int3(1,1,1));
+  return resolved / samples + singleSampledTex.Load(int3(1, 1, 1)) + floatRWUAV.Load(int3(1,1,1));
 }

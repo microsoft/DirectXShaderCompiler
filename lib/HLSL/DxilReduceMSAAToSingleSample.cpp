@@ -26,7 +26,7 @@ class DxilReduceMSAAToSingleSample : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilReduceMSAAToSingleSample() : ModulePass(ID) {}
-  const char *getPassName() const override { return "HLSL DXIL Reduce all MSAA writes to single-sample writes"; }
+  const char *getPassName() const override { return "HLSL DXIL Reduce all MSAA reads to single-sample reads"; }
   bool runOnModule(Module &M) override;
 };
 
@@ -59,11 +59,13 @@ bool DxilReduceMSAAToSingleSample::runOnModule(Module &M)
       if (isa<ConstantInt>(createHandle.get_rangeId())){
         unsigned rangeId = cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
         auto Resource = DM.GetSRV(rangeId);
-        if (Resource.GetKind() == DXIL::ResourceKind::Texture2DMS || Resource.GetKind() == DXIL::ResourceKind::Texture2DMSArray) {
-          //todo: no apparent constant definition for the mip-level/sample-index operand index (the "2"):
-          // https://github.com/Microsoft/DirectXShaderCompiler/blob/master/docs/DXIL.rst#textureload
-          instruction->setOperand(2, HlslOP->GetI32Const(0));
-          Modified = true;
+        if (static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val()) == DXIL::ResourceClass::SRV) {
+          if (Resource.GetKind() == DXIL::ResourceKind::Texture2DMS || Resource.GetKind() == DXIL::ResourceKind::Texture2DMSArray) {
+            // "2" is the mip-level/sample-index operand index:
+            // https://github.com/Microsoft/DirectXShaderCompiler/blob/master/docs/DXIL.rst#textureload
+            instruction->setOperand(2, HlslOP->GetI32Const(0));
+            Modified = true;
+          }
         }
       }
     }
