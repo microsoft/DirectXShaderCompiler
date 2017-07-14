@@ -2171,9 +2171,12 @@ public:
   }
 
   virtual void *STDMETHODCALLTYPE Realloc(_In_opt_ void *pv, _In_ SIZE_T cb) {
+    SIZE_T priorSize = pv == nullptr ? (SIZE_T)0 : GetSize(pv);
     void *R = Alloc(cb);
     if (!R)
       return nullptr;
+    SIZE_T copySize = std::min(cb, priorSize);
+    memcpy(R, pv, copySize);
     Free(pv);
     return R;
   }
@@ -2241,6 +2244,11 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
     L"cs_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
   allocCount = InstrMalloc.GetAllocCount();
   allocSize = InstrMalloc.GetAllocSize();
+
+  HRESULT hrWithMemory;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrWithMemory));
+  VERIFY_SUCCEEDED(hrWithMemory);
+
   pCompiler.Release();
   pResult.Release();
 
@@ -2264,7 +2272,7 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
 
   // Now, fail each allocation and make sure we get an error.
   for (ULONG i = 0; i <= allocCount; ++i) {
-    LogCommentFmt(L"alloc fail %u", i);
+    // LogCommentFmt(L"alloc fail %u", i);
     bool isLast = i == allocCount;
     InstrMalloc.ResetCounts();
     InstrMalloc.ResetHeap();
