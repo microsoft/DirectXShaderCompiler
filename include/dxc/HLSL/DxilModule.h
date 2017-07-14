@@ -152,6 +152,8 @@ public:
   // DXIL metadata manipulation.
   /// Serialize DXIL in-memory form to metadata form.
   void EmitDxilMetadata();
+  /// Update resource metadata.
+  void ReEmitDxilResources();
   /// Deserialize DXIL metadata form into in-memory form.
   void LoadDxilMetadata();
   /// Check if a Named meta data node is known by dxil module.

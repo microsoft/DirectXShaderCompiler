@@ -676,7 +676,15 @@ bool DiagnosticIDs::ProcessDiag(DiagnosticsEngine &Diag) const {
   }
 
   // Finally, report it.
-  EmitDiag(Diag, DiagLevel);
+  // HLSL Change - guard bad_alloc with a fatal error report.
+  try {
+    EmitDiag(Diag, DiagLevel);
+  }
+  catch (const std::bad_alloc &) {
+    Diag.FatalErrorOccurred = true;
+    Diag.ErrorOccurred = true;
+    Diag.UnrecoverableErrorOccurred = true;
+  }
   return true;
 }
 
@@ -719,3 +727,10 @@ bool DiagnosticIDs::isARCDiagnostic(unsigned DiagID) {
   unsigned cat = getCategoryNumberForDiag(DiagID);
   return DiagnosticIDs::getCategoryNameFromID(cat).startswith("ARC ");
 }
+
+// HLSL Change Starts
+static_assert(std::is_nothrow_constructible<clang::DiagnosticIDs::Level>::value == 1, "enum cannot nothrow");
+static_assert(std::is_nothrow_constructible<std::string, llvm::StringRef>::value == 0, "string from StringRef can throw");
+static_assert(std::is_nothrow_constructible<std::string, llvm::StringRef &>::value == 0, "string from StringRef & can throw");
+static_assert(std::is_nothrow_constructible<std::pair<clang::DiagnosticIDs::Level, std::string>, std::pair<clang::DiagnosticIDs::Level, std::string>&>::value == 0, "pair can throw");
+// HLSL Change Starts Ends

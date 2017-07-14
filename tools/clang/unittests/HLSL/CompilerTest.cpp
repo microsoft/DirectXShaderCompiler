@@ -378,6 +378,8 @@ public:
   TEST_METHOD(PixConstantColorMRT)
   TEST_METHOD(PixConstantColorUAVs)
   TEST_METHOD(PixConstantColorOtherSIVs)
+  TEST_METHOD(PixConstantColorFromCB)
+  TEST_METHOD(PixConstantColorFromCBint)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -804,6 +806,7 @@ public:
   TEST_METHOD(CodeGenRootSigDefine10)
   TEST_METHOD(CodeGenRootSigDefine11)
   TEST_METHOD(CodeGenCBufferStructArray)
+  TEST_METHOD(CodeGenPatchLength)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(WhenSigMismatchPCFunctionThenFail)
 
@@ -2171,9 +2174,12 @@ public:
   }
 
   virtual void *STDMETHODCALLTYPE Realloc(_In_opt_ void *pv, _In_ SIZE_T cb) {
+    SIZE_T priorSize = pv == nullptr ? (SIZE_T)0 : GetSize(pv);
     void *R = Alloc(cb);
     if (!R)
       return nullptr;
+    SIZE_T copySize = std::min(cb, priorSize);
+    memcpy(R, pv, copySize);
     Free(pv);
     return R;
   }
@@ -2241,6 +2247,11 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
     L"cs_6_0", nullptr, 0, nullptr, 0, nullptr, &pResult));
   allocCount = InstrMalloc.GetAllocCount();
   allocSize = InstrMalloc.GetAllocSize();
+
+  HRESULT hrWithMemory;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrWithMemory));
+  VERIFY_SUCCEEDED(hrWithMemory);
+
   pCompiler.Release();
   pResult.Release();
 
@@ -2264,7 +2275,7 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
 
   // Now, fail each allocation and make sure we get an error.
   for (ULONG i = 0; i <= allocCount; ++i) {
-    LogCommentFmt(L"alloc fail %u", i);
+    // LogCommentFmt(L"alloc fail %u", i);
     bool isLast = i == allocCount;
     InstrMalloc.ResetCounts();
     InstrMalloc.ResetHeap();
@@ -2486,6 +2497,14 @@ TEST_F(CompilerTest, PixConstantColorUAVs) {
 
 TEST_F(CompilerTest, PixConstantColorOtherSIVs) {
   CodeGenTestCheck(L"pix\\constantcolorOtherSIVs.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColorFromCB) {
+  CodeGenTestCheck(L"pix\\constantcolorFromCB.hlsl");
+}
+
+TEST_F(CompilerTest, PixConstantColorFromCBint) {
+  CodeGenTestCheck(L"pix\\constantcolorFromCBint.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
@@ -4203,6 +4222,9 @@ TEST_F(CompilerTest, CodeGenCBufferStructArray) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbuffer-structarray.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenPatchLength) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\PatchLength1.hlsl");
+}
 
 // Dx11 Sample
 
