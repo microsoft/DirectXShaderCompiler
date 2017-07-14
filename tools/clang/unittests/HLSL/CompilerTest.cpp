@@ -520,6 +520,7 @@ public:
   TEST_METHOD(CodeGenIntrinsic5)
   TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
+  TEST_METHOD(CodeGenLibArgFlatten)
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
@@ -3062,6 +3063,10 @@ TEST_F(CompilerTest, CodeGenInvalidInputOutputTypes) {
 
 TEST_F(CompilerTest, CodeGenLegacyStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\legacy_struct.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibArgFlatten) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_arg_flatten.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibCsEntry) {

@@ -3030,7 +3030,10 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     LValue L = EmitLValue(cast<CastExpr>(E)->getSubExpr());
     assert(L.isSimple());
     if (L.getAlignment() >= getContext().getTypeAlignInChars(type)) {
-      args.add(L.asAggregateRValue(), type, /*NeedsCopy*/true);
+      // HLSL Change Begin - don't copy input arg.
+      // Copy for out param is done at CGMSHLSLRuntime::EmitHLSLOutParamConversion*.
+      args.add(L.asAggregateRValue(), type); // /*NeedsCopy*/true);
+      // HLSL Change End
     } else {
       // We can't represent a misaligned lvalue in the CallArgList, so copy
       // to an aligned temporary now.
