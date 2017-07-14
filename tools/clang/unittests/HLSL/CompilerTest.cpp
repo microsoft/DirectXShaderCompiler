@@ -2168,9 +2168,12 @@ public:
   }
 
   virtual void *STDMETHODCALLTYPE Realloc(_In_opt_ void *pv, _In_ SIZE_T cb) {
+    SIZE_T priorSize = pv == nullptr ? (SIZE_T)0 : GetSize(pv);
     void *R = Alloc(cb);
     if (!R)
       return nullptr;
+    SIZE_T copySize = std::min(cb, priorSize);
+    memcpy(R, pv, copySize);
     Free(pv);
     return R;
   }
