@@ -384,6 +384,14 @@ static unsigned GetFloatAt(MDTuple *tuple, unsigned idx) {
   return DxilMDHelper::ConstMDToFloat(tuple->getOperand(idx));
 }
 
+DXIL::FPDenormMode HLModule::GetFPDenormMode() const {
+  return m_FPDenormMode;
+}
+
+void HLModule::SetFPDenormMode(const DXIL::FPDenormMode mode) {
+  m_FPDenormMode = mode;
+}
+
 static const StringRef kHLDxilFunctionPropertiesMDName           = "dx.fnprops";
 static const StringRef kHLDxilOptionsMDName                      = "dx.options";
 static const StringRef kHLDxilResourceTypeAnnotationMDName       = "dx.resource.type.annotation";
@@ -404,6 +412,8 @@ void HLModule::EmitHLMetadata() {
   vector<MDNode *> Entries;
   Entries.emplace_back(pEntry);
   m_pMDHelper->EmitDxilEntryPoints(Entries);
+
+  m_pMDHelper->EmitDxilFPDenormMode((uint32_t)m_FPDenormMode);
 
   {
     NamedMDNode * fnProps = m_pModule->getOrInsertNamedMetadata(kHLDxilFunctionPropertiesMDName);
@@ -444,6 +454,8 @@ void HLModule::LoadHLMetadata() {
 
   LoadHLResources(*pResources);
   LoadHLShaderProperties(*pProperties);
+
+  m_pMDHelper->LoadDxilFPDenormMode((*(uint32_t *)&m_FPDenormMode));
 
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
 

@@ -1427,6 +1427,14 @@ class db_dxil(object):
             (5, "Invalid", ""),
             ])
 
+        FPDenormMode = db_dxil_enum("FPDenormMode", "Floating point behavior", [
+            (0, "IEEE", "Preserve both input and output denorms"),
+            (1, "FTZ","Preserve denorm input. Flush denorm output to zero"),
+            (2, "Invalid", ""),
+            ])
+        self.enums.append(FPDenormMode)
+
+
         SigPointCSV = """
             SigPoint, Related, ShaderKind, PackingKind,    SignatureKind
             VSIn,     Invalid, Vertex,     InputAssembler, Input

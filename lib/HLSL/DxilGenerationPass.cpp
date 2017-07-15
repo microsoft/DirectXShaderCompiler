@@ -177,6 +177,9 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
+  // FP Denorm mode
+  M.SetFPDenormMode(H.GetFPDenormMode());
+
   if (FnProps)
     M.SetShaderProperties(FnProps);
 

@@ -189,6 +189,14 @@ bool DxilModule::UpgradeToMinValidatorVersion() {
   return false;
 }
 
+void DxilModule::SetFPDenormMode(const DXIL::FPDenormMode mode) {
+  m_FPDenormMode = mode;
+}
+
+void DxilModule::GetFPDenormMode(DXIL::FPDenormMode &mode) const {
+  mode = m_FPDenormMode;
+}
+
 Function *DxilModule::GetEntryFunction() {
   return m_pEntryFunc;
 }
@@ -1200,6 +1208,9 @@ void DxilModule::EmitDxilMetadata() {
       (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
     m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
   }
+
+  m_pMDHelper->EmitDxilFPDenormMode((uint32_t)m_FPDenormMode);
+
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
@@ -1264,6 +1275,8 @@ void DxilModule::LoadDxilMetadata() {
   m_pMDHelper->LoadRootSignature(*m_RootSignature.get());
 
   m_pMDHelper->LoadDxilViewIdState(*m_pViewIdState.get());
+
+  m_pMDHelper->LoadDxilFPDenormMode((*(uint32_t*)&m_FPDenormMode));
 
   if (loadedModule->IsLib()) {
     LoadDxilResourcesLinkInfo();

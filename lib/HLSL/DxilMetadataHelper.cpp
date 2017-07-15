@@ -50,6 +50,7 @@ const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.cont
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
 const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
+const char DxilMDHelper::kDxilFPDenormModeMDName[]                    = "dx.fp.denormMode";
 
 // This named metadata is not valid in final module (should be moved to DxilContainer)
 const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
@@ -57,14 +58,15 @@ const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.view
 const char DxilMDHelper::kDxilFunctionPropertiesMDName[]              = "dx.func.props";
 const char DxilMDHelper::kDxilEntrySignaturesMDName[]                 = "dx.func.signatures";
 
-static std::array<const char *, 7> DxilMDNames = {
+static std::array<const char *, 8> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
   DxilMDHelper::kDxilShaderModelMDName,
   DxilMDHelper::kDxilEntryPointsMDName,
   DxilMDHelper::kDxilResourcesMDName,
   DxilMDHelper::kDxilTypeSystemMDName,
   DxilMDHelper::kDxilValidatorVersionMDName,
-  DxilMDHelper::kDxilViewIdStateMDName
+  DxilMDHelper::kDxilViewIdStateMDName,
+  DxilMDHelper::kDxilFPDenormModeMDName,
 };
 
 DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper> EPH)
@@ -1087,6 +1089,23 @@ void DxilMDHelper::LoadDxilViewIdState(DxilViewIdState &ViewIdState) {
 
   ViewIdState.Deserialize((unsigned *)pData->getRawDataValues().begin(), 
                           (unsigned)pData->getRawDataValues().size() / 4);
+}
+
+void DxilMDHelper::EmitDxilFPDenormMode(unsigned flag) {
+  NamedMDNode *pFPDenormModeNamedMD = m_pModule->getNamedMetadata(kDxilFPDenormModeMDName);
+  IFTBOOL(pFPDenormModeNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  pFPDenormModeNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilFPDenormModeMDName);
+  pFPDenormModeNamedMD->addOperand(MDNode::get(m_Ctx, Int32ToConstMD(flag)));
+}
+
+void DxilMDHelper::LoadDxilFPDenormMode(unsigned &flag) {
+  NamedMDNode *pFPDenormModeNamedMD = m_pModule->getNamedMetadata(kDxilFPDenormModeMDName);
+  if (pFPDenormModeNamedMD == nullptr)
+    return;
+  IFTBOOL(pFPDenormModeNamedMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDNode *pNode = pFPDenormModeNamedMD->getOperand(0);
+  IFTBOOL(pNode->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA)
+  flag = ConstMDToInt32(pNode->getOperand(0));
 }
 
 MDNode *DxilMDHelper::EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints) {

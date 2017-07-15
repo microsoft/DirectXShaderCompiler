@@ -792,6 +792,14 @@ public:
     if (Opts.IEEEStrict)
       compiler.getCodeGenOpts().UnsafeFPMath = true;
 
+    if (Opts.FPDenormalMode.empty() || Opts.FPDenormalMode.equals_lower(StringRef("ftz"))) {
+      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::FTZ;
+    }
+    else {
+      DXASSERT(Opts.FPDenormalMode.equals_lower(StringRef("ieee")), "else opts should have been rejected");
+      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::IEEE;
+    }
+
     if (Opts.DisableOptimizations)
       compiler.getCodeGenOpts().DisableLLVMOpts = true;
 

@@ -197,6 +197,9 @@ public:
   static const char kDxilValidatorVersionMDName[];
   // Validator version uses the same constants for fields as kDxilVersion*
 
+  // FP Denorm mode.
+  static const char kDxilFPDenormModeMDName[];
+
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag     = 0;
   static const unsigned kDxilGSStateTag         = 1;
@@ -345,6 +348,10 @@ public:
   // ViewId state.
   void EmitDxilViewIdState(DxilViewIdState &ViewIdState);
   void LoadDxilViewIdState(DxilViewIdState &ViewIdState);
+
+  // FP Denorm mode.
+  void EmitDxilFPDenormMode(unsigned flag);
+  void LoadDxilFPDenormMode(unsigned &flag);
 
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);
