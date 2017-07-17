@@ -50,7 +50,7 @@ private:
   Semantic(Kind Kind, const char *pszName);
 
   // Table of all semantic properties.
-  enum { kNumSemanticRecords = (unsigned)Kind::Invalid + 1 };
+  static const unsigned kNumSemanticRecords = (unsigned)Kind::Invalid + 1;
   static const Semantic ms_SemanticTable[kNumSemanticRecords];
 
   friend class ShaderModel;
