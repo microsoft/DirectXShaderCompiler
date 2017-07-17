@@ -11,6 +11,7 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include "dxc/HLSL/DxilSigPoint.h"
+#include "llvm/ADT/STLExtras.h"
 
 using std::vector;
 using std::unique_ptr;
@@ -53,7 +54,7 @@ bool DxilSignature::IsOutput() const {
 }
 
 unique_ptr<DxilSignatureElement> DxilSignature::CreateElement() {
-  return unique_ptr<DxilSignatureElement>(new DxilSignatureElement(m_sigPointKind));
+  return llvm::make_unique<DxilSignatureElement>(m_sigPointKind);
 }
 
 unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE, bool bSetID) {
@@ -67,11 +68,11 @@ unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE,
 }
 
 DxilSignatureElement &DxilSignature::GetElement(unsigned idx) {
-  return *m_Elements[idx].get();
+  return *m_Elements[idx];
 }
 
 const DxilSignatureElement &DxilSignature::GetElement(unsigned idx) const {
-  return *m_Elements[idx].get();
+  return *m_Elements[idx];
 }
 
 const std::vector<std::unique_ptr<DxilSignatureElement> > &DxilSignature::GetElements() const {

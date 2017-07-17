@@ -25,6 +25,7 @@
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -425,12 +426,10 @@ SourceLocation
 CGMSHLSLRuntime::SetSemantic(const NamedDecl *decl,
                              DxilParameterAnnotation &paramInfo) {
   for (const hlsl::UnusualAnnotation *it : decl->getUnusualAnnotations()) {
-    switch (it->getKind()) {
-    case hlsl::UnusualAnnotation::UA_SemanticDecl: {
+    if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
       const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
       paramInfo.SetSemanticString(sd->SemanticName);
       return it->Loc;
-    }
     }
   }
   return SourceLocation();
@@ -674,10 +673,7 @@ static void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotat
       }
     }
 
-    unsigned row, col;
-    hlsl::GetHLSLMatRowColCount(Ty, row, col);
-    Matrix.Cols = col;
-    Matrix.Rows = row;
+    hlsl::GetHLSLMatRowColCount(Ty, Matrix.Rows, Matrix.Cols);
     fieldAnnotation.SetMatrixAnnotation(Matrix);
     EltTy = hlsl::GetHLSLMatElementType(Ty);
   }
@@ -972,16 +968,13 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   return DxilResource::Kind::Invalid;
 }
 
-static DxilSampler::SamplerKind KeywordToSamplerKind(const std::string &keyword) {
+static DxilSampler::SamplerKind KeywordToSamplerKind(llvm::StringRef keyword) {
   // TODO: refactor for faster search (switch by 1/2/3 first letters, then
   // compare)
-  if (keyword == "SamplerState")
-    return DxilSampler::SamplerKind::Default;
-
-  if (keyword == "SamplerComparisonState")
-    return DxilSampler::SamplerKind::Comparison;
-
-  return DxilSampler::SamplerKind::Invalid;
+  return llvm::StringSwitch<DxilSampler::SamplerKind>(keyword)
+    .Case("SamplerState", DxilSampler::SamplerKind::Default)
+    .Case("SamplerComparisonState", DxilSampler::SamplerKind::Comparison)
+    .Default(DxilSampler::SamplerKind::Invalid);
 }
 
 void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
@@ -1351,19 +1344,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->shaderKind = DXIL::ShaderKind::Pixel;
   }
 
-  unsigned profileAttributes = 0;
-  if (isCS)
-    profileAttributes++;
-  if (isHS)
-    profileAttributes++;
-  if (isDS)
-    profileAttributes++;
-  if (isGS)
-    profileAttributes++;
-  if (isVS)
-    profileAttributes++;
-  if (isPS)
-    profileAttributes++;
+  const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS;
 
   // TODO: check this in front-end and report error.
   DXASSERT(profileAttributes < 2, "profile attributes are mutual exclusive");
