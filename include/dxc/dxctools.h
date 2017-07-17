@@ -19,6 +19,7 @@ enum RewriterOptionMask {
   SkipFunctionBody = 1,
   SkipStatic = 2,
   GlobalExternByDefault = 4,
+  KeepUserMacro = 8,
 };
 
 struct __declspec(uuid("c012115b-8893-4eb9-9c5a-111456ea1c45"))
