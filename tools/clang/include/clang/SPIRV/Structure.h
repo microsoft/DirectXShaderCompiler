@@ -18,11 +18,14 @@
 #ifndef LLVM_CLANG_SPIRV_STRUCTURE_H
 #define LLVM_CLANG_SPIRV_STRUCTURE_H
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "spirv/1.0/spirv.hpp11"
 #include "clang/SPIRV/InstBuilder.h"
+#include "clang/SPIRV/Type.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Optional.h"
 
 namespace clang {
@@ -97,7 +100,7 @@ public:
   /// \brief Adds a parameter to this function.
   inline void addParameter(uint32_t paramResultType, uint32_t paramResultId);
   /// \brief Adds a basic block to this function.
-  inline void addBasicBlock(BasicBlock &&block);
+  inline void addBasicBlock(std::unique_ptr<BasicBlock> block);
 
 private:
   uint32_t resultType;
@@ -106,7 +109,7 @@ private:
   uint32_t funcType;
   /// Parameter <result-type> and <result-id> pairs.
   std::vector<std::pair<uint32_t, uint32_t>> parameters;
-  std::vector<BasicBlock> blocks;
+  std::vector<std::unique_ptr<BasicBlock>> blocks;
 };
 
 /// \brief The class representing a SPIR-V module.
@@ -129,13 +132,13 @@ public:
   /// an empty module.
   void clear();
 
-  /// \brief Sets the id bound to the given bound.
-  inline void setBound(uint32_t newBound);
-
   /// \brief Collects all the SPIR-V words in this module and consumes them
   /// using the consumer within the given InstBuilder. This method is
   /// destructive; the module will be consumed and cleared after calling it.
   void take(InstBuilder *builder);
+
+  /// \brief Sets the id bound to the given bound.
+  inline void setBound(uint32_t newBound);
 
   inline void addCapability(spv::Capability);
   inline void addExtension(std::string extension);
@@ -146,12 +149,15 @@ public:
                             std::string targetName,
                             std::initializer_list<uint32_t> intefaces);
   inline void addExecutionMode(Instruction &&);
+  // TODO: source code debug information
   inline void addDebugName(uint32_t targetId,
                            llvm::Optional<uint32_t> memberIndex,
                            std::string name);
-  inline void addDecoration(Instruction &&);
-  inline void addType(Instruction &&);
-  inline void addFunction(Function &&);
+  inline void addDecoration(const Decoration &decoration, uint32_t targetId);
+  inline void addType(const Type *type, uint32_t resultId);
+  inline void addConstant(const Type &type, Instruction &&constant);
+  // TODO: global variables
+  inline void addFunction(std::unique_ptr<Function>);
 
 private:
   /// \brief The struct representing a SPIR-V module header.
@@ -162,11 +168,19 @@ private:
     /// \brief Feeds the consumer with all the SPIR-V words for this header.
     void collect(const WordConsumer &consumer);
 
-    uint32_t magicNumber;
-    uint32_t version;
-    uint32_t generator;
+    const uint32_t magicNumber;
+    const uint32_t version;
+    const uint32_t generator;
     uint32_t bound;
-    uint32_t reserved;
+    const uint32_t reserved;
+  };
+
+  /// \brief The struct representing an extended instruction set.
+  struct ExtInstSet {
+    inline ExtInstSet(uint32_t id, std::string name);
+
+    const uint32_t resultId;
+    const std::string setName;
   };
 
   /// \brief The struct representing an entry point.
@@ -174,10 +188,10 @@ private:
     inline EntryPoint(spv::ExecutionModel, uint32_t id, std::string name,
                       std::initializer_list<uint32_t> interface);
 
-    spv::ExecutionModel executionModel;
-    uint32_t targetId;
-    std::string targetName;
-    std::initializer_list<uint32_t> interfaces;
+    const spv::ExecutionModel executionModel;
+    const uint32_t targetId;
+    const std::string targetName;
+    const std::initializer_list<uint32_t> interfaces;
   };
 
   /// \brief The struct representing a debug name.
@@ -185,27 +199,56 @@ private:
     inline DebugName(uint32_t id, llvm::Optional<uint32_t> index,
                      std::string targetName);
 
-    uint32_t targetId;
-    llvm::Optional<uint32_t> memberIndex;
-    std::string name;
+    const uint32_t targetId;
+    const llvm::Optional<uint32_t> memberIndex;
+    const std::string name;
+  };
+
+  /// \brief The struct representing a deocoration and its target <result-id>.
+  struct DecorationIdPair {
+    inline DecorationIdPair(const Decoration &decor, uint32_t id);
+
+    const Decoration &decoration;
+    const uint32_t targetId;
+  };
+
+  /// \brief The struct representing a type and its <result-id>.
+  struct TypeIdPair {
+    inline TypeIdPair(const Type &ty, uint32_t id);
+
+    const Type &type;
+    const uint32_t resultId;
+  };
+
+  /// \brief The struct representing a constant and its type.
+  struct Constant {
+    inline Constant(const Type &ty, Instruction &&value);
+    const Type &type;
+    Instruction constant;
   };
 
   Header header; ///< SPIR-V module header.
   std::vector<spv::Capability> capabilities;
   std::vector<std::string> extensions;
-  std::vector<std::pair<uint32_t, std::string>> extInstSets;
+  std::vector<ExtInstSet> extInstSets;
+  // addressing and memory model must exist for a valid SPIR-V module.
+  // We make them optional here just to provide extra flexibility of
+  // the representation.
   llvm::Optional<spv::AddressingModel> addressingModel;
   llvm::Optional<spv::MemoryModel> memoryModel;
   std::vector<EntryPoint> entryPoints;
-  // XXX: Right now the following are basically vectors of Instructions.
-  // They will be turned into vectors of more full-fledged classes gradually
-  // as we implement more features.
   std::vector<Instruction> executionModes;
-  // TODO: support other debug instructions
+  // TODO: source code debug information
   std::vector<DebugName> debugNames;
-  std::vector<Instruction> decorations;
-  std::vector<Instruction> typesValues;
-  std::vector<Function> functions;
+  std::vector<DecorationIdPair> decorations;
+  // Note that types and constants are interdependent; Types like arrays have
+  // <result-id>s for constants in their definition, and constants all have
+  // their corresponding types. We store types and constants separately, but
+  // they should be handled together.
+  llvm::MapVector<const Type *, uint32_t> types;
+  std::vector<Constant> constants;
+  // TODO: global variables
+  std::vector<std::unique_ptr<Function>> functions;
 };
 
 BasicBlock::BasicBlock() : labelId(0) {}
@@ -241,7 +284,7 @@ void Function::addParameter(uint32_t rType, uint32_t rId) {
   parameters.emplace_back(rType, rId);
 }
 
-void Function::addBasicBlock(BasicBlock &&block) {
+void Function::addBasicBlock(std::unique_ptr<BasicBlock> block) {
   blocks.push_back(std::move(block));
 }
 
@@ -279,15 +322,22 @@ void SPIRVModule::addDebugName(uint32_t targetId,
                                std::string name) {
   debugNames.emplace_back(targetId, memberIndex, std::move(name));
 }
-void SPIRVModule::addDecoration(Instruction &&decoration) {
-  decorations.push_back(std::move(decoration));
+void SPIRVModule::addDecoration(const Decoration &decoration,
+                                uint32_t targetId) {
+  decorations.emplace_back(decoration, targetId);
 }
-void SPIRVModule::addType(Instruction &&type) {
-  typesValues.push_back(std::move(type));
+void SPIRVModule::addType(const Type *type, uint32_t resultId) {
+  types.insert(std::make_pair(type, resultId));
 }
-void SPIRVModule::addFunction(Function &&f) {
+void SPIRVModule::addConstant(const Type &type, Instruction &&constant) {
+  constants.emplace_back(type, std::move(constant));
+};
+void SPIRVModule::addFunction(std::unique_ptr<Function> f) {
   functions.push_back(std::move(f));
 }
+
+SPIRVModule::ExtInstSet::ExtInstSet(uint32_t id, std::string name)
+    : resultId(id), setName(name) {}
 
 SPIRVModule::EntryPoint::EntryPoint(spv::ExecutionModel em, uint32_t id,
                                     std::string name,
@@ -298,6 +348,16 @@ SPIRVModule::EntryPoint::EntryPoint(spv::ExecutionModel em, uint32_t id,
 SPIRVModule::DebugName::DebugName(uint32_t id, llvm::Optional<uint32_t> index,
                                   std::string targetName)
     : targetId(id), memberIndex(index), name(std::move(targetName)) {}
+
+SPIRVModule::DecorationIdPair::DecorationIdPair(const Decoration &decor,
+                                                uint32_t id)
+    : decoration(decor), targetId(id) {}
+
+SPIRVModule::TypeIdPair::TypeIdPair(const Type &ty, uint32_t id)
+    : type(ty), resultId(id) {}
+
+SPIRVModule::Constant::Constant(const Type &ty, Instruction &&value)
+    : type(ty), constant(std::move(value)) {}
 
 } // end namespace spirv
 } // end namespace clang

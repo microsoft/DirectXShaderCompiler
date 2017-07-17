@@ -94,7 +94,7 @@ void Function::take(InstBuilder *builder) {
     builder->opFunctionParameter(param.first, param.second).x();
   }
   for (auto &block : blocks) {
-    block.take(builder);
+    block->take(builder);
   }
   builder->opFunctionEnd().x();
   clear();
@@ -142,7 +142,7 @@ void SPIRVModule::take(InstBuilder *builder) {
   }
 
   for (auto &inst : extInstSets) {
-    builder->opExtInstImport(inst.first, inst.second).x();
+    builder->opExtInstImport(inst.resultId, inst.setName).x();
   }
 
   if (addressingModel.hasValue() && memoryModel.hasValue()) {
@@ -163,24 +163,31 @@ void SPIRVModule::take(InstBuilder *builder) {
   for (auto &inst : debugNames) {
     if (inst.memberIndex.hasValue()) {
       builder
-          ->opMemberName(inst.targetId, inst.memberIndex.getValue(),
-                         std::move(inst.name))
+          ->opMemberName(inst.targetId, *inst.memberIndex, std::move(inst.name))
           .x();
     } else {
       builder->opName(inst.targetId, std::move(inst.name)).x();
     }
   }
 
-  for (auto &inst : decorations) {
-    consumer(std::move(inst));
+  for (const auto &d : decorations) {
+    consumer(d.decoration.withTargetId(d.targetId));
   }
 
-  for (auto &inst : typesValues) {
-    consumer(std::move(inst));
+  // TODO: handle the interdependency between types and constants
+
+  for (const auto &t : types) {
+    consumer(t.first->withResultId(t.second));
   }
+
+  for (auto &c : constants) {
+    consumer(std::move(c.constant));
+  }
+
+  // TODO: global variables
 
   for (uint32_t i = 0; i < functions.size(); ++i) {
-    functions[i].take(builder);
+    functions[i]->take(builder);
   }
 
   clear();

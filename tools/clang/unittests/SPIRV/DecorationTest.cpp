@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "SPIRVTestUtils.h"
 #include "gmock/gmock.h"
 #include "clang/SPIRV/Decoration.h"
 #include "clang/SPIRV/SPIRVContext.h"
@@ -17,6 +18,7 @@ using namespace clang::spirv;
 
 namespace {
 using ::testing::ElementsAre;
+using ::testing::ContainerEq;
 
 TEST(Decoration, SameDecorationWoParameterShouldHaveSameAddress) {
   SPIRVContext ctx;
@@ -558,6 +560,25 @@ TEST(Decoration, ViewportRelativeNV) {
   EXPECT_EQ(dec->getValue(), spv::Decoration::ViewportRelativeNV);
   EXPECT_FALSE(dec->getMemberIndex().hasValue());
   EXPECT_TRUE(dec->getArgs().empty());
+}
+
+TEST(Decoration, BlockWithTargetId) {
+  SPIRVContext ctx;
+  const Decoration *d = Decoration::getBlock(ctx);
+  const auto result = d->withTargetId(1);
+  const auto expected = constructInst(
+      spv::Op::OpDecorate, {1, static_cast<uint32_t>(spv::Decoration::Block)});
+  EXPECT_THAT(result, ContainerEq(expected));
+}
+
+TEST(Decoration, RowMajorWithTargetId) {
+  SPIRVContext ctx;
+  const Decoration *d = Decoration::getRowMajor(ctx, 3);
+  const auto result = d->withTargetId(2);
+  const auto expected =
+      constructInst(spv::Op::OpMemberDecorate,
+                    {2, 3, static_cast<uint32_t>(spv::Decoration::RowMajor)});
+  EXPECT_THAT(result, ContainerEq(expected));
 }
 
 } // anonymous namespace

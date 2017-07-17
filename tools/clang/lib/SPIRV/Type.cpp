@@ -143,7 +143,7 @@ const Type *Type::getPointer(SPIRVContext &context,
   return getUniqueType(context, t);
 }
 const Type *Type::getFunction(SPIRVContext &context, uint32_t return_type,
-                              std::initializer_list<uint32_t> params,
+                              const std::vector<uint32_t> &params,
                               DecorationSet d) {
   std::vector<uint32_t> args = {return_type};
   args.insert(args.end(), params.begin(), params.end());
@@ -199,6 +199,20 @@ bool Type::isImageType() const { return opcode == spv::Op::OpTypeImage; }
 
 bool Type::hasDecoration(const Decoration *d) const {
   return decorations.find(d) != decorations.end();
+}
+
+std::vector<uint32_t> Type::withResultId(uint32_t resultId) const {
+  std::vector<uint32_t> words;
+
+  // TODO: we are essentially duplicate the work InstBuilder is responsible for.
+  // Should figure out a way to unify them.
+  words.reserve(2 + args.size());
+  words.push_back(static_cast<uint32_t>(opcode));
+  words.push_back(resultId);
+  words.insert(words.end(), args.begin(), args.end());
+  words.front() |= static_cast<uint32_t>(words.size()) << 16;
+
+  return words;
 }
 
 } // end namespace spirv

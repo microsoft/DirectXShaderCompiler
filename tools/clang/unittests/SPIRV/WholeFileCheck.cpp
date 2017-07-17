@@ -180,10 +180,6 @@ void WholeFileTest::convertIDxcBlobToUint32(const CComPtr<IDxcBlob> &blob) {
   memcpy(generatedBinary.data(), binaryStr.data(), binaryStr.size());
 }
 
-bool WholeFileTest::compareExpectedSpirvAndGeneratedSpirv() {
-  return generatedSpirvAsm == expectedSpirvAsm;
-}
-
 std::string
 WholeFileTest::getAbsPathOfInputDataFile(const std::string &filename) {
   std::string path = clang::spirv::testOptions::inputDataDir;
@@ -202,28 +198,24 @@ WholeFileTest::getAbsPathOfInputDataFile(const std::string &filename) {
   return path;
 }
 
-bool WholeFileTest::runWholeFileTest(std::string filename, bool generateHeader,
+void WholeFileTest::runWholeFileTest(std::string filename, bool generateHeader,
                                      bool runSpirvValidation) {
   inputFilePath = getAbsPathOfInputDataFile(filename);
 
-  bool success = true;
-
   // Parse the input file.
-  success = success && parseInputFile();
+  ASSERT_TRUE(parseInputFile());
 
   // Feed the HLSL source into the Compiler.
-  success = success && runCompilerWithSpirvGeneration();
+  ASSERT_TRUE(runCompilerWithSpirvGeneration());
 
   // Disassemble the generated SPIR-V binary.
-  success = success && disassembleSpirvBinary(generateHeader);
+  ASSERT_TRUE(disassembleSpirvBinary(generateHeader));
 
   // Run SPIR-V validation if requested.
   if (runSpirvValidation) {
-    success = success && validateSpirvBinary();
+    ASSERT_TRUE(validateSpirvBinary());
   }
 
   // Compare the expected and the generted SPIR-V code.
-  success = success && compareExpectedSpirvAndGeneratedSpirv();
-
-  return success;
+  EXPECT_EQ(expectedSpirvAsm, generatedSpirvAsm);
 }
