@@ -20,28 +20,34 @@ uint32_t TypeTranslator::translateType(QualType type) {
   if (canonicalType != type)
     return translateType(canonicalType);
 
-  const auto *typePtr = type.getTypePtr();
-
   // Primitive types
-  if (const auto *builtinType = dyn_cast<BuiltinType>(typePtr)) {
-    switch (builtinType->getKind()) {
-    case BuiltinType::Void:
-      return theBuilder.getVoidType();
-    case BuiltinType::Bool:
-      return theBuilder.getBoolType();
-    case BuiltinType::Int:
-      return theBuilder.getInt32Type();
-    case BuiltinType::UInt:
-      return theBuilder.getUint32Type();
-    case BuiltinType::Float:
-      return theBuilder.getFloat32Type();
-    default:
-      emitError("Primitive type '%0' is not supported yet.")
-          << builtinType->getTypeClassName();
-      return 0;
+  {
+    QualType ty = {};
+    if (isScalarType(type, &ty)) {
+      if (const auto *builtinType = cast<BuiltinType>(ty.getTypePtr())) {
+        switch (builtinType->getKind()) {
+        case BuiltinType::Void:
+          return theBuilder.getVoidType();
+        case BuiltinType::Bool:
+          return theBuilder.getBoolType();
+        case BuiltinType::Int:
+          return theBuilder.getInt32Type();
+        case BuiltinType::UInt:
+          return theBuilder.getUint32Type();
+        case BuiltinType::Float:
+          return theBuilder.getFloat32Type();
+        default:
+          emitError("Primitive type '%0' is not supported yet.")
+              << builtinType->getTypeClassName();
+          return 0;
+        }
+      }
     }
   }
 
+  const auto *typePtr = type.getTypePtr();
+
+  // Typedefs
   if (const auto *typedefType = dyn_cast<TypedefType>(typePtr)) {
     return translateType(typedefType->desugar());
   }
@@ -49,6 +55,7 @@ uint32_t TypeTranslator::translateType(QualType type) {
   // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
   // We handle them via HLSL type inspection functions.
 
+  // Vector types
   {
     QualType elemType = {};
     uint32_t elemCount = {};
@@ -62,18 +69,12 @@ uint32_t TypeTranslator::translateType(QualType type) {
     }
   }
 
+  // Matrix types
   if (hlsl::IsHLSLMatType(type)) {
-    uint32_t elemCount = 0;
+    // The other cases should already be handled in the above.
+    assert(isMxNMatrix(type));
+
     const auto elemTy = hlsl::GetHLSLMatElementType(type);
-
-    // 1x1 matrix is a scalar
-    if (is1x1Matrix(type))
-      return translateType(elemTy);
-
-    // Mx1 matrix or 1xN matrix is a vector.
-    if (isMx1Or1xNMatrix(type, nullptr, &elemCount))
-      return theBuilder.getVecType(translateType(elemTy), elemCount);
-
     // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
     // Validation Rules":
     //   Matrix types can only be parameterized with floating-point types.
@@ -84,22 +85,10 @@ uint32_t TypeTranslator::translateType(QualType type) {
       emitError("Non-floating-point matrices not supported yet");
       return 0;
     }
-    const auto elemType = translateType(elemTy);
 
+    const auto elemType = translateType(elemTy);
     uint32_t rowCount = 0, colCount = 0;
     hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-
-    // In SPIR-V, matrices must have two or more columns.
-    // Handle degenerated cases first.
-
-    if (rowCount == 1 && colCount == 1)
-      return elemType;
-
-    if (rowCount == 1)
-      return theBuilder.getVecType(elemType, colCount);
-
-    if (colCount == 1)
-      return theBuilder.getVecType(elemType, rowCount);
 
     // HLSL matrices are row major, while SPIR-V matrices are column major.
     // We are mapping what HLSL semantically mean a row into a column here.
@@ -124,31 +113,64 @@ uint32_t TypeTranslator::translateType(QualType type) {
   return 0;
 }
 
-bool TypeTranslator::isVec1Type(QualType type, QualType *elemType) {
-  uint32_t count = 0;
-  const bool isVec = isVectorType(type, elemType, &count);
-  return isVec && count == 1;
+bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
+  bool isScalar = false;
+  QualType ty = {};
+
+  if (type->isBuiltinType()) {
+    isScalar = true;
+    ty = type;
+  } else if (hlsl::IsHLSLVecType(type) && hlsl::GetHLSLVecSize(type) == 1) {
+    isScalar = true;
+    ty = hlsl::GetHLSLVecElementType(type);
+  } else if (const auto *extVecType =
+                 dyn_cast<ExtVectorType>(type.getTypePtr())) {
+    if (extVecType->getNumElements() == 1) {
+      isScalar = true;
+      ty = extVecType->getElementType();
+    }
+  } else if (is1x1Matrix(type)) {
+    isScalar = true;
+    ty = hlsl::GetHLSLMatElementType(type);
+  }
+
+  if (isScalar && scalarType)
+    *scalarType = ty;
+
+  return isScalar;
 }
 
 bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
-                                  uint32_t *count) {
+                                  uint32_t *elemCount) {
+  bool isVec = false;
+  QualType ty = {};
+  uint32_t count = 0;
+
   if (hlsl::IsHLSLVecType(type)) {
-    if (elemType)
-      *elemType = hlsl::GetHLSLVecElementType(type);
-    if (count)
-      *count = hlsl::GetHLSLVecSize(type);
-    return true;
+    ty = hlsl::GetHLSLVecElementType(type);
+    count = hlsl::GetHLSLVecSize(type);
+    isVec = count > 1;
+  } else if (const auto *extVecType =
+                 dyn_cast<ExtVectorType>(type.getTypePtr())) {
+    ty = extVecType->getElementType();
+    count = extVecType->getNumElements();
+    isVec = count > 1;
+  } else if (hlsl::IsHLSLMatType(type)) {
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+
+    ty = hlsl::GetHLSLMatElementType(type);
+    count = rowCount == 1 ? colCount : rowCount;
+    isVec = (rowCount == 1) != (colCount == 1);
   }
 
-  if (const auto *extVecType = dyn_cast<ExtVectorType>(type.getTypePtr())) {
+  if (isVec) {
     if (elemType)
-      *elemType = extVecType->getElementType();
-    if (count)
-      *count = extVecType->getNumElements();
-    return true;
+      *elemType = ty;
+    if (elemCount)
+      *elemCount = count;
   }
-
-  return false;
+  return isVec;
 }
 
 bool TypeTranslator::is1x1Matrix(QualType type, QualType *elemType) {
@@ -206,31 +228,6 @@ bool TypeTranslator::isMx1Matrix(QualType type, QualType *elemType,
   if (count)
     *count = rowCount;
   return true;
-}
-
-bool TypeTranslator::isMx1Or1xNMatrix(QualType type, QualType *elemType,
-                                      uint32_t *count) {
-  if (!hlsl::IsHLSLMatType(type))
-    return false;
-
-  uint32_t rowCount = 0, colCount = 0;
-  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-
-  const bool isSingleRowOrCol =
-      (rowCount == 1 && colCount > 1) || (rowCount > 1 && colCount == 1);
-
-  if (!isSingleRowOrCol)
-    return false;
-
-  if (elemType)
-    *elemType = hlsl::GetHLSLMatElementType(type);
-  if (count)
-    *count = rowCount > 1 ? rowCount : colCount;
-  return true;
-}
-
-bool TypeTranslator::is1x1OrMx1Or1xNMatrix(QualType type) {
-  return is1x1Matrix(type) || isMx1Or1xNMatrix(type);
 }
 
 bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
