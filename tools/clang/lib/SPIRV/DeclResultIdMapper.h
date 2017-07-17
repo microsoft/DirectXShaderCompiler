@@ -145,7 +145,7 @@ public:
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this
   /// mapper.
-  std::vector<uint32_t> collectStageVariables() const;
+  std::vector<uint32_t> collectStageVars() const;
 
   /// \brief Decorates all stage input and output variables with proper
   /// location.
@@ -171,7 +171,7 @@ private:
   /// and returns true on success.
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
-  bool createStageVariables(const DeclaratorDecl *decl, bool forReturnValue);
+  bool createStageVars(const DeclaratorDecl *decl, bool forReturnValue);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and

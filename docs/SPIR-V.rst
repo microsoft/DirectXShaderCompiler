@@ -235,7 +235,13 @@ Variables are defined in HLSL using the following `syntax <https://msdn.microsof
 Storage class
 +++++++++++++
 
-[TODO]
+Normal local variables (without any modifier) will be placed in the ``Function`` SPIR-V storage class.
+
+``static``
+~~~~~~~~~~
+
+- Global variables with ``static`` modifier will be placed in the ``Private`` SPIR-V storage class. Initalizers of such global variables will be translated into SPIR-V ``OpVariable`` initializers if possible; otherwise, they will be initialized at the very beginning of the entry function using SPIR-V ``OpStore``.
+- Local variables with ``static`` modifier will also be placed in the ``Private`` SPIR-V storage class. initializers of such local variables will also be translated into SPIR-V ``OpVariable`` initializers if possible; otherwise, they will be initialized at the very beginning of the enclosing function. To make sure that such a local variable is only initialized once, a second boolean variable of the ``Private`` SPIR-V storage class will be generated to mark its initialization status.
 
 Type modifier
 +++++++++++++
@@ -456,7 +462,7 @@ For a function ``f`` which has a parameter of type ``T``, the generated SPIR-V s
 This approach gives us unified handling of function parameters and local variables: both of them are accessed via load/store instructions.
 
 Intrinsic functions
------------------
+-------------------
 
 The following intrinsic HLSL functions are currently supported:
 
