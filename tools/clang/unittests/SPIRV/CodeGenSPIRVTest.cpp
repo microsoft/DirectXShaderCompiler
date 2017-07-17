@@ -205,14 +205,23 @@ TEST_F(FileTest, SwitchStmtUsingIfStmt) {
 // For for statements
 TEST_F(FileTest, ForStmtPlainAssign) { runFileTest("for-stmt.plain.hlsl"); }
 TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("for-stmt.nested.hlsl"); }
+TEST_F(FileTest, ForStmtContinue) { runFileTest("for-stmt.continue.hlsl"); }
+TEST_F(FileTest, ForStmtBreak) { runFileTest("for-stmt.break.hlsl"); }
 
 // For while statements
 TEST_F(FileTest, WhileStmtPlain) { runFileTest("while-stmt.plain.hlsl"); }
 TEST_F(FileTest, WhileStmtNested) { runFileTest("while-stmt.nested.hlsl"); }
+TEST_F(FileTest, WhileStmtContinue) { runFileTest("while-stmt.continue.hlsl"); }
+TEST_F(FileTest, WhileStmtBreak) { runFileTest("while-stmt.break.hlsl"); }
 
 // For do statements
 TEST_F(FileTest, DoStmtPlain) { runFileTest("do-stmt.plain.hlsl"); }
 TEST_F(FileTest, DoStmtNested) { runFileTest("do-stmt.nested.hlsl"); }
+TEST_F(FileTest, DoStmtContinue) { runFileTest("do-stmt.continue.hlsl"); }
+TEST_F(FileTest, DoStmtBreak) { runFileTest("do-stmt.break.hlsl"); }
+
+// For break statements (mix of breaks in loops and switch)
+TEST_F(FileTest, BreakStmtMixed) { runFileTest("break-stmt.mixed.hlsl"); }
 
 // For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
