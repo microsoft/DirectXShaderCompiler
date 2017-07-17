@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/ModuleBuilder.h"
 #include "spirv/1.0/spirv.hpp11"
+#include "clang/SPIRV/ModuleBuilder.h"
 
 #include "SPIRVTestUtils.h"
 
@@ -19,36 +19,24 @@ using namespace clang::spirv;
 using ::testing::ContainerEq;
 using ::testing::ElementsAre;
 
-void expectBuildSuccess(ModuleBuilder::Status status) {
-  EXPECT_EQ(ModuleBuilder::Status::Success, status);
-}
-
-TEST(ModuleBuilder, BeginAndThenEndModuleCreatesHeader) {
+TEST(ModuleBuilder, TakeModuleDirectlyCreatesHeader) {
   SPIRVContext context;
   ModuleBuilder builder(&context);
 
-  expectBuildSuccess(builder.beginModule());
-  expectBuildSuccess(builder.endModule());
-  std::vector<uint32_t> spvModule = builder.takeModule();
-
-  // At the very least, running BeginModule() and EndModule() should
-  // create the SPIR-V Header. The header is exactly 5 words long.
-  EXPECT_EQ(spvModule.size(), 5u);
-  EXPECT_THAT(spvModule,
+  EXPECT_THAT(builder.takeModule(),
               ElementsAre(spv::MagicNumber, spv::Version, 14u << 16, 1u, 0u));
 }
 
-TEST(ModuleBuilder, BeginEndFunctionCreatesFunction) {
+TEST(ModuleBuilder, CreateFunction) {
   SPIRVContext context;
   ModuleBuilder builder(&context);
 
-  expectBuildSuccess(builder.beginModule());
   const auto rType = context.takeNextId();
   const auto fType = context.takeNextId();
   const auto fId = context.getNextId();
-  expectBuildSuccess(builder.beginFunction(fType, rType));
-  expectBuildSuccess(builder.endFunction());
-  expectBuildSuccess(builder.endModule());
+  const auto resultId = builder.beginFunction(fType, rType);
+  EXPECT_EQ(fId, resultId);
+  EXPECT_TRUE(builder.endFunction());
   const auto result = builder.takeModule();
 
   auto expected = getModuleHeader(context.getNextId());
@@ -58,20 +46,20 @@ TEST(ModuleBuilder, BeginEndFunctionCreatesFunction) {
   EXPECT_THAT(result, ContainerEq(expected));
 }
 
-TEST(ModuleBuilder, BeginEndBasicBlockCreatesBasicBlock) {
+TEST(ModuleBuilder, CreateBasicBlock) {
   SPIRVContext context;
   ModuleBuilder builder(&context);
 
-  expectBuildSuccess(builder.beginModule());
   const auto rType = context.takeNextId();
   const auto fType = context.takeNextId();
   const auto fId = context.getNextId();
-  expectBuildSuccess(builder.beginFunction(fType, rType));
+  EXPECT_NE(0, builder.beginFunction(fType, rType));
   const auto labelId = context.getNextId();
-  expectBuildSuccess(builder.beginBasicBlock());
-  expectBuildSuccess(builder.endBasicBlockWithReturn());
-  expectBuildSuccess(builder.endFunction());
-  expectBuildSuccess(builder.endModule());
+  const auto resultId = builder.bbCreate();
+  EXPECT_EQ(labelId, resultId);
+  EXPECT_TRUE(builder.bbReturn(resultId));
+  EXPECT_TRUE(builder.endFunction());
+
   const auto result = builder.takeModule();
 
   auto expected = getModuleHeader(context.getNextId());
@@ -82,74 +70,6 @@ TEST(ModuleBuilder, BeginEndBasicBlockCreatesBasicBlock) {
   appendVector(&expected, constructInst(spv::Op::OpFunctionEnd, {}));
 
   EXPECT_THAT(result, ContainerEq(expected));
-}
-
-TEST(ModuleBuilder, NestedModuleResultsInError) {
-  SPIRVContext context;
-  ModuleBuilder builder(&context);
-
-  expectBuildSuccess(builder.beginModule());
-  expectBuildSuccess(builder.beginModule());
-  expectBuildSuccess(builder.beginFunction(1, 2));
-  EXPECT_EQ(ModuleBuilder::Status::ErrNestedModule, builder.beginModule());
-}
-
-TEST(ModuleBuilder, NestedFunctionResultsInError) {
-  SPIRVContext context;
-  ModuleBuilder builder(&context);
-
-  expectBuildSuccess(builder.beginModule());
-  expectBuildSuccess(builder.beginFunction(1, 2));
-  EXPECT_EQ(ModuleBuilder::Status::ErrNestedFunction,
-            builder.beginFunction(3, 4));
-}
-
-TEST(ModuleBuilder, NestedBasicBlockResultsInError) {
-  SPIRVContext context;
-  ModuleBuilder builder(&context);
-
-  expectBuildSuccess(builder.beginModule());
-  expectBuildSuccess(builder.beginFunction(1, 2));
-  expectBuildSuccess(builder.beginBasicBlock());
-  EXPECT_EQ(ModuleBuilder::Status::ErrNestedBasicBlock,
-            builder.beginBasicBlock());
-}
-
-TEST(ModuleBuilder, BasicBlockWoFunctionResultsInError) {
-  SPIRVContext context;
-  ModuleBuilder builder(&context);
-
-  expectBuildSuccess(builder.beginModule());
-  EXPECT_EQ(ModuleBuilder::Status::ErrDetachedBasicBlock,
-            builder.beginBasicBlock());
-}
-
-TEST(ModuleBuilder, EndFunctionWoBeginFunctionResultsInError) {
-  SPIRVContext context;
-  ModuleBuilder builder(&context);
-
-  expectBuildSuccess(builder.beginModule());
-  EXPECT_EQ(ModuleBuilder::Status::ErrNoActiveFunction, builder.endFunction());
-}
-
-TEST(ModuleBuilder, EndFunctionWActiveBasicBlockResultsInError) {
-  SPIRVContext context;
-  ModuleBuilder builder(&context);
-
-  expectBuildSuccess(builder.beginModule());
-  expectBuildSuccess(builder.beginFunction(1, 2));
-  expectBuildSuccess(builder.beginBasicBlock());
-  EXPECT_EQ(ModuleBuilder::Status::ErrActiveBasicBlock, builder.endFunction());
-}
-
-TEST(ModuleBuilder, ReturnWActiveBasicBlockResultsInError) {
-  SPIRVContext context;
-  ModuleBuilder builder(&context);
-
-  expectBuildSuccess(builder.beginModule());
-  expectBuildSuccess(builder.beginFunction(1, 2));
-  EXPECT_EQ(ModuleBuilder::Status::ErrNoActiveBasicBlock,
-            builder.endBasicBlockWithReturn());
 }
 
 } // anonymous namespace

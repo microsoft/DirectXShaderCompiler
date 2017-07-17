@@ -100,7 +100,7 @@ public:
                                 spv::StorageClass storage_class, uint32_t type,
                                 DecorationSet decs = {});
   static const Type *getFunction(SPIRVContext &ctx, uint32_t return_type,
-                                 std::initializer_list<uint32_t> params,
+                                 const std::vector<uint32_t> &params,
                                  DecorationSet decs = {});
   static const Type *getEvent(SPIRVContext &ctx, DecorationSet decs = {});
   static const Type *getDeviceEvent(SPIRVContext &ctx, DecorationSet decs = {});
@@ -115,6 +115,9 @@ public:
     return opcode == other.opcode && args == other.args &&
            decorations == other.decorations;
   }
+
+  // \brief Construct the SPIR-V words for this type with the given <result-id>.
+  std::vector<uint32_t> withResultId(uint32_t resultId) const;
 
 private:
   /// \brief Private constructor.

@@ -137,6 +137,10 @@ public:
             memberIndex.getValue() == other.memberIndex.getValue());
   }
 
+  // \brief Construct the SPIR-V words for this decoration with the given
+  // target <result-id>.
+  std::vector<uint32_t> withTargetId(uint32_t targetId) const;
+
 private:
   /// \brief prevent public APIs from creating Decoration objects.
   Decoration(spv::Decoration dec_id, llvm::SmallVector<uint32_t, 2> arg = {},

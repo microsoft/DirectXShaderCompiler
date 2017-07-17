@@ -281,5 +281,26 @@ Decoration::getSecondaryViewportRelativeNV(SPIRVContext &context,
   return getUniqueDecoration(context, d);
 }
 
+std::vector<uint32_t> Decoration::withTargetId(uint32_t targetId) const {
+  std::vector<uint32_t> words;
+
+  // TODO: we are essentially duplicate the work InstBuilder is responsible for.
+  // Should figure out a way to unify them.
+  words.reserve(3 + args.size() + (memberIndex.hasValue() ? 1 : 0));
+  if (memberIndex.hasValue()) {
+    words.push_back(static_cast<uint32_t>(spv::Op::OpMemberDecorate));
+    words.push_back(targetId);
+    words.push_back(*memberIndex);
+  } else {
+    words.push_back(static_cast<uint32_t>(spv::Op::OpDecorate));
+    words.push_back(targetId);
+  }
+  words.push_back(static_cast<uint32_t>(id));
+  words.insert(words.end(), args.begin(), args.end());
+  words.front() |= static_cast<uint32_t>(words.size()) << 16;
+
+  return words;
+}
+
 } // end namespace spirv
 } // end namespace clang

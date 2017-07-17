@@ -1,0 +1,26 @@
+// Run: %dxc -T ps_6_0 -E main
+void main()
+{
+
+}
+
+
+// TODO:
+// OpEntryPoint Fragment %main "main"
+// OpExecutionMode %main OriginUpperLeft
+
+
+// CHECK-WHOLE-SPIR-V:
+// ; SPIR-V
+// ; Version: 1.0
+// ; Generator: Google spiregg; 0
+// ; Bound: 5
+// ; Schema: 0
+// OpCapability Shader
+// OpMemoryModel Logical GLSL450
+// %void = OpTypeVoid
+// %2 = OpTypeFunction %void
+// %3 = OpFunction %void None %2
+// %4 = OpLabel
+// OpReturn
+// OpFunctionEnd
