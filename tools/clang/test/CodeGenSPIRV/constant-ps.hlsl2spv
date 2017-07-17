@@ -8,28 +8,36 @@ float4 main(): SV_TARGET
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 14
+// ; Bound: 18
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
-// OpEntryPoint Fragment %main "main" %4
+// OpEntryPoint Fragment %main "main" %out_var_SV_Target
 // OpExecutionMode %main OriginUpperLeft
 // OpName %main "main"
+// OpName %out_var_SV_Target "out.var.SV_Target"
+// OpName %src_main "src.main"
 // OpName %bb_entry "bb.entry"
-// OpDecorate %4 Location 0
+// OpDecorate %out_var_SV_Target Location 0
+// %void = OpTypeVoid
+// %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
 // %_ptr_Output_v4float = OpTypePointer Output %v4float
-// %void = OpTypeVoid
-// %6 = OpTypeFunction %void
+// %11 = OpTypeFunction %v4float
 // %float_1 = OpConstant %float 1
 // %float_2 = OpConstant %float 2
 // %float_3_5 = OpConstant %float 3.5
 // %float_4_7 = OpConstant %float 4.7
-// %13 = OpConstantComposite %v4float %float_1 %float_2 %float_3_5 %float_4_7
-// %4 = OpVariable %_ptr_Output_v4float Output
-// %main = OpFunction %void None %6
-// %bb_entry = OpLabel
-// OpStore %4 %13
+// %17 = OpConstantComposite %v4float %float_1 %float_2 %float_3_5 %float_4_7
+// %out_var_SV_Target = OpVariable %_ptr_Output_v4float Output
+// %main = OpFunction %void None %3
+// %5 = OpLabel
+// %8 = OpFunctionCall %v4float %src_main
+// OpStore %out_var_SV_Target %8
 // OpReturn
+// OpFunctionEnd
+// %src_main = OpFunction %v4float None %11
+// %bb_entry = OpLabel
+// OpReturnValue %17
 // OpFunctionEnd

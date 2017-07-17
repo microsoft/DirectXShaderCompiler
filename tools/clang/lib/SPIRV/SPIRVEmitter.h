@@ -310,6 +310,19 @@ private:
   /// shader model.
   void AddExecutionModeForEntryPoint(uint32_t entryPointId);
 
+  /// \brief Emits a wrapper function for the entry function.
+  ///
+  /// The wrapper function loads the values of all stage input variables and
+  /// creates composites as expected by the source code entry function. It then
+  /// calls the source code entry point and writes out stage output variables
+  /// by extracting sub-values from the return value. In this way, we can handle
+  /// the source code entry point as a normal function.
+  ///
+  /// The wrapper function is also responsible for initializing global static
+  /// variables for some cases.
+  uint32_t emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
+                                    uint32_t entryFuncId);
+
 private:
   /// \brief Returns true iff *all* the case values in the given switch
   /// statement are integer literals. In such cases OpSwitch can be used to

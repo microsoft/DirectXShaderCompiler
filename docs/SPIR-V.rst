@@ -240,7 +240,7 @@ Normal local variables (without any modifier) will be placed in the ``Function``
 ``static``
 ~~~~~~~~~~
 
-- Global variables with ``static`` modifier will be placed in the ``Private`` SPIR-V storage class. Initalizers of such global variables will be translated into SPIR-V ``OpVariable`` initializers if possible; otherwise, they will be initialized at the very beginning of the entry function using SPIR-V ``OpStore``.
+- Global variables with ``static`` modifier will be placed in the ``Private`` SPIR-V storage class. Initalizers of such global variables will be translated into SPIR-V ``OpVariable`` initializers if possible; otherwise, they will be initialized at the very beginning of the entry function wrapper using SPIR-V ``OpStore``.
 - Local variables with ``static`` modifier will also be placed in the ``Private`` SPIR-V storage class. initializers of such local variables will also be translated into SPIR-V ``OpVariable`` initializers if possible; otherwise, they will be initialized at the very beginning of the enclosing function. To make sure that such a local variable is only initialized once, a second boolean variable of the ``Private`` SPIR-V storage class will be generated to mark its initialization status.
 
 Type modifier
@@ -420,6 +420,83 @@ Functions
 ---------
 
 All functions reachable from the entry-point function will be translated into SPIR-V code. Functions not reachable from the entry-point function will be ignored.
+
+Entry function wrapper
+++++++++++++++++++++++
+
+HLSL entry functions takes in parameters and returns values. These parameters and return values can have semantics attached or if they are struct type, the struct fields can have semantics attached. However, in Vulkan, the entry function must be of the ``void(void)`` signature. To handle this difference, for a given entry function ``main``, we will emit a wrapper function for it.
+
+The wrapper function will take the name of the source code entry function, while the source code entry function will have its name prefixed with "src.". The wrapper function reads in stage input/builtin variables created according to semantics and groups them into composites meeting the requirements of the source code entry point. Then the wrapper calls the source code entry point. The return value is extracted and components of it will be written to stage output/builtin variables created according to semantics. For example::
+
+
+  // HLSL source code
+
+  struct S {
+    bool a : A;
+    uint2 b: B;
+    float2x3 c: C;
+  };
+
+  struct T {
+    S x;
+    int y: D;
+  };
+
+  T main(T input) {
+    return input;
+  }
+
+  // SPIR-V code
+
+  %in_var_A = OpVariable %_ptr_Input_bool Input
+  %in_var_B = OpVariable %_ptr_Input_v2uint Input
+  %in_var_C = OpVariable %_ptr_Input_mat2v3float Input
+  %in_var_D = OpVariable %_ptr_Input_int Input
+
+  %out_var_A = OpVariable %_ptr_Output_bool Output
+  %out_var_B = OpVariable %_ptr_Output_v2uint Output
+  %out_var_C = OpVariable %_ptr_Output_mat2v3float Output
+  %out_var_D = OpVariable %_ptr_Output_int Output
+
+  ; Wrapper function starts
+
+  %main    = OpFunction %void None {{%\d+}}
+  {{%\d+}} = OpLabel
+
+  %param_var_input = OpVariable %_ptr_Function_T Function
+
+  ; Load stage input variables and group into the expected composite
+
+  [[inA:%\d+]]     = OpLoad %bool %in_var_A
+  [[inB:%\d+]]     = OpLoad %v2uint %in_var_B
+  [[inC:%\d+]]     = OpLoad %mat2v3float %in_var_C
+  [[inS:%\d+]]     = OpCompositeConstruct %S [[inA]] [[inB]] [[inC]]
+  [[inD:%\d+]]     = OpLoad %int %in_var_D
+  [[inT:%\d+]]     = OpCompositeConstruct %T [[inS]] [[inD]]
+                     OpStore %param_var_input [[inT]]
+
+  [[ret:%\d+]]  = OpFunctionCall %T %src_main %param_var_input
+
+  ; Extract component values from the composite and store into stage output variables
+
+  [[outS:%\d+]] = OpCompositeExtract %S [[ret]] 0
+  [[outA:%\d+]] = OpCompositeExtract %bool [[outS]] 0
+                  OpStore %out_var_A [[outA]]
+  [[outB:%\d+]] = OpCompositeExtract %v2uint [[outS]] 1
+                  OpStore %out_var_B [[outB]]
+  [[outC:%\d+]] = OpCompositeExtract %mat2v3float [[outS]] 2
+                  OpStore %out_var_C [[outC]]
+  [[outD:%\d+]] = OpCompositeExtract %int [[ret]] 1
+                  OpStore %out_var_D [[outD]]
+
+  OpReturn
+  OpFunctionEnd
+
+  ; Source code entry point starts
+
+  %src_main = OpFunction %T None ...
+
+In this way, we can concentrate all stage input/output/builtin variable manipulation in the wrapper function and handle the source code entry function just like other nomal functions.
 
 Function parameter
 ++++++++++++++++++

@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// CHECK:                 OpEntryPoint Fragment %main "main" {{%\d+}} %gl_FragCoord
+// CHECK:                 OpEntryPoint Fragment %main "main" %gl_FragCoord %out_var_SV_Target
 
 // CHECK:                 OpDecorate %gl_FragCoord BuiltIn FragCoord
 
