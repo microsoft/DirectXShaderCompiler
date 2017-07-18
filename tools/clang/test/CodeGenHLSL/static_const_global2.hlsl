@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_1 -fcgl %s | FileCheck %s
+// RUN: %dxc -T ps_6_1 -E main -fcgl %s | FileCheck %s
 
 // Make sure ST only used once for decl.
 // CHECK: @ST
