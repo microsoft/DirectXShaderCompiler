@@ -1,10 +1,9 @@
 @echo off
 setlocal ENABLEDELAYEDEXPANSION
 
-if "%1"=="/?" goto :showhelp
-if "%1"=="-?" goto :showhelp
-if "%1"=="-help" goto :showhelp
-if "%1"=="--help" goto :showhelp
+if "%BUILD_CONFIG%"=="" (
+  set BUILD_CONFIG=Debug
+)
 
 rem Whether we built the project using ninja as the generator.
 set GENERATOR_NINJA=0
@@ -24,9 +23,6 @@ set TEST_SPIRV=0
 set TEST_SPIRV_ONLY=0
 rem End SPIRV change
 
-if "%BUILD_CONFIG%"=="" (
-  set BUILD_CONFIG=Debug
-)
 set HCT_DIR=%~dp0
 
 if "%NUMBER_OF_PROCESSORS%"=="" (
@@ -43,6 +39,11 @@ if "%NUMBER_OF_PROCESSORS%"=="" (
 
 :opt_loop
 if "%1"=="" (goto :done_opt)
+
+if "%1"=="/?" goto :showhelp
+if "%1"=="-?" goto :showhelp
+if "%1"=="-help" goto :showhelp
+if "%1"=="--help" goto :showhelp
 
 rem Begin SPIRV change
 if "%1"=="spirv" (
@@ -337,13 +338,17 @@ goto :eof
 rem %1 - name of binary to demo
 rem %2 - first argument to te
 
+if "%TEST_DIR%"=="" (
+  set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
+)
+
 echo You can debug the test with the following command line.
 echo start devenv /debugexe TE.exe /inproc %TEST_DIR%\%*
 echo.
-echo Use this te.exe for out-of-proc, or pick the correct one for the target arch, currently x86.
+echo Use this te.exe for out-of-proc, or pick the correct one for the target arch, currently %BUILD_ARCH%.
 where te.exe
 echo.
-echo Use /name:TestClass* or /name:TestClass::MethodName to filter.
+echo Use /name:TestClass* or /name:TestClass::MethodName to filter and /breakOnError to catch the failure.
 goto :eof
 
 :check_result
