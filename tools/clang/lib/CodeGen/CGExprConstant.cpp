@@ -750,6 +750,19 @@ public:
       std::vector<llvm::Constant*> Elts(vecSize, C);
       return llvm::ConstantVector::get(Elts);
     }
+    case CK_HLSLMatrixSplat: {
+      llvm::StructType *ST =
+          cast<llvm::StructType>(CGM.getTypes().ConvertType(E->getType()));
+      unsigned row,col;
+      hlsl::GetHLSLMatRowColCount(E->getType(), row, col);
+
+      std::vector<llvm::Constant *> Cols(col, C);
+      llvm::Constant *Row = llvm::ConstantVector::get(Cols);
+      std::vector<llvm::Constant *> Rows(row, Row);
+      llvm::Constant *Mat = llvm::ConstantArray::get(
+          cast<llvm::ArrayType>(ST->getElementType(0)), Rows);
+      return llvm::ConstantStruct::get(ST, Mat);
+    }
     // HLSL Change Ends.
     }
     llvm_unreachable("Invalid CastKind");
