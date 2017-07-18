@@ -100,10 +100,20 @@ void Function::take(InstBuilder *builder) {
   clear();
 }
 
-SPIRVModule::Header::Header()
+Header::Header()
     : magicNumber(spv::MagicNumber), version(spv::Version),
       generator((kGeneratorNumber << 16) | kToolVersion), bound(0),
       reserved(0) {}
+
+void Header::collect(const WordConsumer &consumer) {
+  std::vector<uint32_t> words;
+  words.push_back(magicNumber);
+  words.push_back(version);
+  words.push_back(generator);
+  words.push_back(bound);
+  words.push_back(reserved);
+  consumer(std::move(words));
+}
 
 bool SPIRVModule::isEmpty() const {
   return header.bound == 0 && capabilities.empty() && extensions.empty() &&
@@ -191,16 +201,6 @@ void SPIRVModule::take(InstBuilder *builder) {
   }
 
   clear();
-}
-
-void SPIRVModule::Header::collect(const WordConsumer &consumer) {
-  std::vector<uint32_t> words;
-  words.push_back(magicNumber);
-  words.push_back(version);
-  words.push_back(generator);
-  words.push_back(bound);
-  words.push_back(reserved);
-  consumer(std::move(words));
 }
 
 } // end namespace spirv
