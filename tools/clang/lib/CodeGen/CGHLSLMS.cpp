@@ -3953,8 +3953,10 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     for (auto &it : entryFunctionMap) {
       CloneShaderEntry(it.second, it.getKey(), *m_pHLModule);
     }
-    ReplaceConstStaticGlobals(staticConstGlobalInitListMap, staticConstGlobalCtorMap);
   }
+
+  ReplaceConstStaticGlobals(staticConstGlobalInitListMap,
+                            staticConstGlobalCtorMap);
 
   // Create copy for clip plane.
   for (Function *F : clipPlaneFuncList) {

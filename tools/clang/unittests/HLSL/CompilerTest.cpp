@@ -675,6 +675,7 @@ public:
   TEST_METHOD(CodeGenSrv_Typed_Load1)
   TEST_METHOD(CodeGenSrv_Typed_Load2)
   TEST_METHOD(CodeGenStaticConstGlobal)
+  TEST_METHOD(CodeGenStaticConstGlobal2)
   TEST_METHOD(CodeGenStaticGlobals)
   TEST_METHOD(CodeGenStaticGlobals2)
   TEST_METHOD(CodeGenStaticGlobals3)
@@ -3699,6 +3700,10 @@ TEST_F(CompilerTest, CodeGenSrv_Typed_Load2) {
 
 TEST_F(CompilerTest, CodeGenStaticConstGlobal) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\static_const_global.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticConstGlobal2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\static_const_global2.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenStaticGlobals) {
