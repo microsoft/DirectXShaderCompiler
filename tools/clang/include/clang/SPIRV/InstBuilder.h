@@ -16,12 +16,12 @@
 
 #include <deque>
 #include <functional>
-#include <initializer_list>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "spirv/1.0/spirv.hpp11"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 
 namespace clang {
@@ -101,12 +101,12 @@ public:
   InstBuilder &opExtInstImport(uint32_t result_id, std::string name);
   InstBuilder &opExtInst(uint32_t result_type, uint32_t result_id, uint32_t set,
                          uint32_t instruction,
-                         std::initializer_list<uint32_t> operand_1_operand_2_);
+                         llvm::ArrayRef<uint32_t> operand_1_operand_2_);
   InstBuilder &opMemoryModel(spv::AddressingModel addressing_model,
                              spv::MemoryModel memory_model);
   InstBuilder &opEntryPoint(spv::ExecutionModel execution_model,
                             uint32_t entry_point, std::string name,
-                            std::initializer_list<uint32_t> interface);
+                            llvm::ArrayRef<uint32_t> interface);
   InstBuilder &opExecutionMode(uint32_t entry_point, spv::ExecutionMode mode);
   InstBuilder &opCapability(spv::Capability capability);
   InstBuilder &opTypeVoid(uint32_t result_id);
@@ -130,14 +130,14 @@ public:
   InstBuilder &opTypeRuntimeArray(uint32_t result_id, uint32_t element_type);
   InstBuilder &
   opTypeStruct(uint32_t result_id,
-               std::initializer_list<uint32_t> member_0_type_member_1_type_);
+               llvm::ArrayRef<uint32_t> member_0_type_member_1_type_);
   InstBuilder &opTypeOpaque(uint32_t result_id,
                             std::string the_name_of_the_opaque_type);
   InstBuilder &opTypePointer(uint32_t result_id,
                              spv::StorageClass storage_class, uint32_t type);
-  InstBuilder &opTypeFunction(
-      uint32_t result_id, uint32_t return_type,
-      std::initializer_list<uint32_t> parameter_0_type_parameter_1_type_);
+  InstBuilder &
+  opTypeFunction(uint32_t result_id, uint32_t return_type,
+                 llvm::ArrayRef<uint32_t> parameter_0_type_parameter_1_type_);
   InstBuilder &opTypeEvent(uint32_t result_id);
   InstBuilder &opTypeDeviceEvent(uint32_t result_id);
   InstBuilder &opTypeReserveId(uint32_t result_id);
@@ -147,9 +147,8 @@ public:
                                     spv::StorageClass storage_class);
   InstBuilder &opConstantTrue(uint32_t result_type, uint32_t result_id);
   InstBuilder &opConstantFalse(uint32_t result_type, uint32_t result_id);
-  InstBuilder &
-  opConstantComposite(uint32_t result_type, uint32_t result_id,
-                      std::initializer_list<uint32_t> constituents);
+  InstBuilder &opConstantComposite(uint32_t result_type, uint32_t result_id,
+                                   llvm::ArrayRef<uint32_t> constituents);
   InstBuilder &
   opConstantSampler(uint32_t result_type, uint32_t result_id,
                     spv::SamplerAddressingMode sampler_addressing_mode,
@@ -157,9 +156,8 @@ public:
   InstBuilder &opConstantNull(uint32_t result_type, uint32_t result_id);
   InstBuilder &opSpecConstantTrue(uint32_t result_type, uint32_t result_id);
   InstBuilder &opSpecConstantFalse(uint32_t result_type, uint32_t result_id);
-  InstBuilder &
-  opSpecConstantComposite(uint32_t result_type, uint32_t result_id,
-                          std::initializer_list<uint32_t> constituents);
+  InstBuilder &opSpecConstantComposite(uint32_t result_type, uint32_t result_id,
+                                       llvm::ArrayRef<uint32_t> constituents);
   InstBuilder &opSpecConstantOp(uint32_t result_type, uint32_t result_id,
                                 spv::Op opcode);
   InstBuilder &opFunction(uint32_t result_type, uint32_t result_id,
@@ -167,9 +165,9 @@ public:
                           uint32_t function_type);
   InstBuilder &opFunctionParameter(uint32_t result_type, uint32_t result_id);
   InstBuilder &opFunctionEnd();
-  InstBuilder &
-  opFunctionCall(uint32_t result_type, uint32_t result_id, uint32_t function,
-                 std::initializer_list<uint32_t> argument_0_argument_1_);
+  InstBuilder &opFunctionCall(uint32_t result_type, uint32_t result_id,
+                              uint32_t function,
+                              llvm::ArrayRef<uint32_t> argument_0_argument_1_);
   InstBuilder &opVariable(uint32_t result_type, uint32_t result_id,
                           spv::StorageClass storage_class,
                           llvm::Optional<uint32_t> initializer);
@@ -188,31 +186,30 @@ public:
   opCopyMemorySized(uint32_t target, uint32_t source, uint32_t size,
                     llvm::Optional<spv::MemoryAccessMask> memory_access);
   InstBuilder &opAccessChain(uint32_t result_type, uint32_t result_id,
-                             uint32_t base,
-                             std::initializer_list<uint32_t> indexes);
+                             uint32_t base, llvm::ArrayRef<uint32_t> indexes);
   InstBuilder &opInBoundsAccessChain(uint32_t result_type, uint32_t result_id,
                                      uint32_t base,
-                                     std::initializer_list<uint32_t> indexes);
+                                     llvm::ArrayRef<uint32_t> indexes);
   InstBuilder &opPtrAccessChain(uint32_t result_type, uint32_t result_id,
                                 uint32_t base, uint32_t element,
-                                std::initializer_list<uint32_t> indexes);
+                                llvm::ArrayRef<uint32_t> indexes);
   InstBuilder &opArrayLength(uint32_t result_type, uint32_t result_id,
                              uint32_t structure, uint32_t array_member);
   InstBuilder &opGenericPtrMemSemantics(uint32_t result_type,
                                         uint32_t result_id, uint32_t pointer);
-  InstBuilder &
-  opInBoundsPtrAccessChain(uint32_t result_type, uint32_t result_id,
-                           uint32_t base, uint32_t element,
-                           std::initializer_list<uint32_t> indexes);
+  InstBuilder &opInBoundsPtrAccessChain(uint32_t result_type,
+                                        uint32_t result_id, uint32_t base,
+                                        uint32_t element,
+                                        llvm::ArrayRef<uint32_t> indexes);
   InstBuilder &opDecorate(uint32_t target, spv::Decoration decoration);
   InstBuilder &opMemberDecorate(uint32_t structure_type, uint32_t member,
                                 spv::Decoration decoration);
   InstBuilder &opDecorationGroup(uint32_t result_id);
   InstBuilder &opGroupDecorate(uint32_t decoration_group,
-                               std::initializer_list<uint32_t> targets);
-  InstBuilder &opGroupMemberDecorate(
-      uint32_t decoration_group,
-      std::initializer_list<std::pair<uint32_t, uint32_t>> targets);
+                               llvm::ArrayRef<uint32_t> targets);
+  InstBuilder &
+  opGroupMemberDecorate(uint32_t decoration_group,
+                        llvm::ArrayRef<std::pair<uint32_t, uint32_t>> targets);
   InstBuilder &opVectorExtractDynamic(uint32_t result_type, uint32_t result_id,
                                       uint32_t vector, uint32_t index);
   InstBuilder &opVectorInsertDynamic(uint32_t result_type, uint32_t result_id,
@@ -220,16 +217,15 @@ public:
                                      uint32_t index);
   InstBuilder &opVectorShuffle(uint32_t result_type, uint32_t result_id,
                                uint32_t vector_1, uint32_t vector_2,
-                               std::initializer_list<uint32_t> components);
-  InstBuilder &
-  opCompositeConstruct(uint32_t result_type, uint32_t result_id,
-                       std::initializer_list<uint32_t> constituents);
+                               llvm::ArrayRef<uint32_t> components);
+  InstBuilder &opCompositeConstruct(uint32_t result_type, uint32_t result_id,
+                                    llvm::ArrayRef<uint32_t> constituents);
   InstBuilder &opCompositeExtract(uint32_t result_type, uint32_t result_id,
                                   uint32_t composite,
-                                  std::initializer_list<uint32_t> indexes);
+                                  llvm::ArrayRef<uint32_t> indexes);
   InstBuilder &opCompositeInsert(uint32_t result_type, uint32_t result_id,
                                  uint32_t object, uint32_t composite,
-                                 std::initializer_list<uint32_t> indexes);
+                                 llvm::ArrayRef<uint32_t> indexes);
   InstBuilder &opCopyObject(uint32_t result_type, uint32_t result_id,
                             uint32_t operand);
   InstBuilder &opTranspose(uint32_t result_type, uint32_t result_id,
@@ -564,20 +560,18 @@ public:
                            uint32_t value);
   InstBuilder &
   opPhi(uint32_t result_type, uint32_t result_id,
-        std::initializer_list<std::pair<uint32_t, uint32_t>> variable_parent_);
+        llvm::ArrayRef<std::pair<uint32_t, uint32_t>> variable_parent_);
   InstBuilder &opLoopMerge(uint32_t merge_block, uint32_t continue_target,
                            spv::LoopControlMask loop_control);
   InstBuilder &opSelectionMerge(uint32_t merge_block,
                                 spv::SelectionControlMask selection_control);
   InstBuilder &opLabel(uint32_t result_id);
   InstBuilder &opBranch(uint32_t target_label);
-  InstBuilder &
-  opBranchConditional(uint32_t condition, uint32_t true_label,
-                      uint32_t false_label,
-                      std::initializer_list<uint32_t> branch_weights);
-  InstBuilder &
-  opSwitch(uint32_t selector, uint32_t default_target,
-           std::initializer_list<std::pair<uint32_t, uint32_t>> target);
+  InstBuilder &opBranchConditional(uint32_t condition, uint32_t true_label,
+                                   uint32_t false_label,
+                                   llvm::ArrayRef<uint32_t> branch_weights);
+  InstBuilder &opSwitch(uint32_t selector, uint32_t default_target,
+                        llvm::ArrayRef<std::pair<uint32_t, uint32_t>> target);
   InstBuilder &opKill();
   InstBuilder &opReturn();
   InstBuilder &opReturnValue(uint32_t value);
@@ -688,7 +682,7 @@ public:
                                uint32_t wait_events, uint32_t ret_event,
                                uint32_t invoke, uint32_t param,
                                uint32_t param_size, uint32_t param_align,
-                               std::initializer_list<uint32_t> local_size);
+                               llvm::ArrayRef<uint32_t> local_size);
   InstBuilder &opGetKernelNDrangeSubGroupCount(uint32_t result_type,
                                                uint32_t result_id,
                                                uint32_t nd_range,
