@@ -24,7 +24,9 @@ ModuleBuilder::ModuleBuilder(SPIRVContext *C)
   });
 }
 
-uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType) {
+uint32_t
+ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
+                             const std::vector<uint32_t> &paramTypeIds) {
   if (theFunction) {
     assert(false && "found nested function");
     return 0;
@@ -34,6 +36,12 @@ uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType) {
 
   theFunction = llvm::make_unique<Function>(
       returnType, fId, spv::FunctionControlMask::MaskNone, funcType);
+
+  // Any OpFunction must be immediately followed by one OpFunctionParameter
+  // instruction per each formal parameter of the function.
+  for (const auto &typeId : paramTypeIds) {
+    theFunction->addParameter(typeId, theContext.takeNextId());
+  }
 
   return fId;
 }

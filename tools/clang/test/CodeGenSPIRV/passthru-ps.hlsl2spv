@@ -6,10 +6,8 @@ float4 main(float4 input: COLOR): SV_TARGET
 
 
 // TODO:
-// OpEntryPoint Fragment %main "main"
-// OpExecutionMode %main OriginUpperLeft
+// Input/Output interfaces are missing from OpEntryPoint
 // Semantics
-// Function parameter
 // Function return value
 
 
@@ -17,14 +15,17 @@ float4 main(float4 input: COLOR): SV_TARGET
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 6
+// ; Bound: 7
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
+// OpEntryPoint Fragment %4 "main"
+// OpExecutionMode %4 OriginUpperLeft
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
 // %3 = OpTypeFunction %v4float %v4float
 // %4 = OpFunction %v4float None %3
-// %5 = OpLabel
+// %5 = OpFunctionParameter %v4float
+// %6 = OpLabel
 // OpReturn
 // OpFunctionEnd
