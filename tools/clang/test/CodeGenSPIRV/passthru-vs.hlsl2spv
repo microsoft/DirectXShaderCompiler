@@ -23,10 +23,10 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Vertex %VSmain "VSmain" %in_var_POSITION %in_var_COLOR %gl_Position %out_var_COLOR
 // OpName %VSmain "VSmain"
-// OpName %in_var_POSITION "in.var.POSITION"
 // OpName %param_var_position "param.var.position"
-// OpName %in_var_COLOR "in.var.COLOR"
+// OpName %in_var_POSITION "in.var.POSITION"
 // OpName %param_var_color "param.var.color"
+// OpName %in_var_COLOR "in.var.COLOR"
 // OpName %PSInput "PSInput"
 // OpMemberName %PSInput 0 "position"
 // OpMemberName %PSInput 1 "color"
@@ -45,8 +45,8 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
-// %_ptr_Input_v4float = OpTypePointer Input %v4float
 // %_ptr_Function_v4float = OpTypePointer Function %v4float
+// %_ptr_Input_v4float = OpTypePointer Input %v4float
 // %PSInput = OpTypeStruct %v4float %v4float
 // %_ptr_Output_v4float = OpTypePointer Output %v4float
 // %23 = OpTypeFunction %PSInput %_ptr_Function_v4float %_ptr_Function_v4float
@@ -61,10 +61,10 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // %5 = OpLabel
 // %param_var_position = OpVariable %_ptr_Function_v4float Function
 // %param_var_color = OpVariable %_ptr_Function_v4float Function
-// %10 = OpLoad %v4float %in_var_POSITION
-// OpStore %param_var_position %10
-// %14 = OpLoad %v4float %in_var_COLOR
-// OpStore %param_var_color %14
+// %12 = OpLoad %v4float %in_var_POSITION
+// OpStore %param_var_position %12
+// %15 = OpLoad %v4float %in_var_COLOR
+// OpStore %param_var_color %15
 // %17 = OpFunctionCall %PSInput %src_VSmain %param_var_position %param_var_color
 // %18 = OpCompositeExtract %v4float %17 0
 // OpStore %gl_Position %18
