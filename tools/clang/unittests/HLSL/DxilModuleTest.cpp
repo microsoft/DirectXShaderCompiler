@@ -48,6 +48,8 @@ public:
   TEST_METHOD(LoadDxilModule_1_1);
   TEST_METHOD(LoadDxilModule_1_2);
 
+  TEST_METHOD(FunctionFPFlag);
+
   // Precise query tests.
   TEST_METHOD(Precise1);
   TEST_METHOD(Precise2);
@@ -214,6 +216,54 @@ TEST_F(DxilModuleTest, LoadDxilModule_1_2) {
   DM.GetDxilVersion(vMajor, vMinor);
   VERIFY_IS_TRUE(vMajor == 1);
   VERIFY_IS_TRUE(vMinor == 2);
+}
+
+TEST_F(DxilModuleTest, FunctionFPFlag) {
+  std::vector<std::pair<DXIL::FPDenormMode, LPCWSTR>> modeMap = {
+    {DXIL::FPDenormMode::Undefined, L"undefined"},
+    {DXIL::FPDenormMode::FTZ, L"ftz"},
+    {DXIL::FPDenormMode::IEEE, L"ieee"}
+  };
+
+  for (unsigned i = 0, end = modeMap.size(); i < end; ++i) {
+    std::vector<LPCWSTR> args(4);
+    args[0] = L"/fdenormal-fp-math";
+    args[1] = modeMap[i].second;
+    args[2] = L"/T";
+    args[3] = L"ps_6_2";
+    Compiler c(m_dllSupport);
+    if (c.SkipDxil_Test(1, 2)) return;
+    c.Compile(
+        "float4 main() : SV_Target {\n"
+        "  return 0;\n"
+        "}\n"
+        ,
+        L"ps_6_2",
+        args, {}
+    );
+
+    DxilModule &DM = c.GetDxilModule();
+    DxilTypeSystem &TypeSystem = DM.GetTypeSystem();
+
+    // get main function
+    llvm::Module *M = DM.GetModule();
+    for (auto curFref = M->getFunctionList().begin(), endFref = M->getFunctionList().end();
+      curFref != endFref; ++curFref) {
+      DxilFunctionAnnotation *FuncAnnotation = TypeSystem.GetFunctionAnnotation(curFref);
+      llvm::StringRef name = curFref->getName();
+      if (FuncAnnotation == nullptr) {
+        VERIFY_IS_TRUE(name.startswith_lower("dx.op"));
+      }
+      else {
+        DXIL::FPDenormMode mode16 = FuncAnnotation->GetFlag().GetFP16DenormMode();
+        DXIL::FPDenormMode mode32 = FuncAnnotation->GetFlag().GetFP32DenormMode();
+        DXIL::FPDenormMode mode64 = FuncAnnotation->GetFlag().GetFP64DenormMode();
+        VERIFY_IS_TRUE(mode16 == modeMap[i].first &&
+                       mode32 == modeMap[i].first &&
+                       mode64 == modeMap[i].first);
+      }
+   }
+  }
 }
 
 TEST_F(DxilModuleTest, Precise1) {

@@ -175,11 +175,11 @@ void DxilFunctionFPFlag::SetFPAllDenormMode(DXIL::FPDenormMode mode) {
 }
 
 void DxilFunctionFPFlag::SetFP64DenormMode(DXIL::FPDenormMode mode) {
-  m_flag |= (int32_t)mode << 6;
+  m_flag |= (int32_t)mode<<6;
 }
 
 void DxilFunctionFPFlag::SetFP32DenormMode(DXIL::FPDenormMode mode) {
-  m_flag |= (int32_t)mode << 3;
+  m_flag |= (int32_t)mode<<3;
 }
 
 void DxilFunctionFPFlag::SetFP16DenormMode(DXIL::FPDenormMode mode) {
@@ -187,15 +187,15 @@ void DxilFunctionFPFlag::SetFP16DenormMode(DXIL::FPDenormMode mode) {
 }
 
 DXIL::FPDenormMode DxilFunctionFPFlag::GetFP64DenormMode() {
-  return (DXIL::FPDenormMode)(m_flag & (0x7 << 6));
+  return (DXIL::FPDenormMode)((m_flag>>6)&0x7);
 }
 
 DXIL::FPDenormMode DxilFunctionFPFlag::GetFP32DenormMode() {
-  return (DXIL::FPDenormMode)(m_flag & (0x7 << 3));
+  return (DXIL::FPDenormMode)((m_flag>>3)&0x7);
 }
 
 DXIL::FPDenormMode DxilFunctionFPFlag::GetFP16DenormMode() {
-  return (DXIL::FPDenormMode)(m_flag & 0x7);
+  return (DXIL::FPDenormMode)(m_flag&0x7);
 }
 
 uint32_t DxilFunctionFPFlag::GetFlagValue() {
