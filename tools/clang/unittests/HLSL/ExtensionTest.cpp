@@ -126,15 +126,15 @@ UINT countof(T(&)[N]) { return static_cast<UINT>(N); }
 
 Intrinsic Intrinsics[] = {
   {L"test_fn",      DEFAULT_NAME,      "r", {  1, false, true, -1, countof(TestFnArgs), TestFnArgs }},
-  {L"test_proc",    DEFAULT_NAME,      "r", {  2, false, true, -1, countof(TestProcArgs), TestProcArgs }},
+  {L"test_proc",    DEFAULT_NAME,      "r", {  2, false, false,-1, countof(TestProcArgs), TestProcArgs }},
   {L"test_poly",    "test_poly.$o",    "r", {  3, false, true, -1, countof(TestFnCustomArgs), TestFnCustomArgs }},
   {L"test_int",     "test_int",        "r", {  4, false, true, -1, countof(TestFnIntArgs), TestFnIntArgs}},
   {L"test_nolower", "test_nolower.$o", "n", {  5, false, true, -1, countof(TestFnNoLowerArgs), TestFnNoLowerArgs}},
-  {L"test_pack_0",  "test_pack_0.$o",  "p", {  6, false, true, -1, countof(TestFnPack0), TestFnPack0}},
+  {L"test_pack_0",  "test_pack_0.$o",  "p", {  6, false, false,-1, countof(TestFnPack0), TestFnPack0}},
   {L"test_pack_1",  "test_pack_1.$o",  "p", {  7, false, true, -1, countof(TestFnPack1), TestFnPack1}},
   {L"test_pack_2",  "test_pack_2.$o",  "p", {  8, false, true, -1, countof(TestFnPack2), TestFnPack2}},
   {L"test_pack_3",  "test_pack_3.$o",  "p", {  9, false, true, -1, countof(TestFnPack3), TestFnPack3}},
-  {L"test_pack_4",  "test_pack_4.$o",  "p", { 10, false, true, -1, countof(TestFnPack4), TestFnPack4}},
+  {L"test_pack_4",  "test_pack_4.$o",  "p", { 10, false, false,-1, countof(TestFnPack4), TestFnPack4}},
   {L"test_rand",    "test_rand",       "r", { 11, false, false,-1, countof(TestRand), TestRand}},
   {L"test_isinf",   "test_isinf",      "d", { 13, true,  true, -1, countof(TestIsInf), TestIsInf}},
   {L"test_ibfe",    "test_ibfe",       "d", { 14, true,  true, -1, countof(TestIBFE), TestIBFE}},
