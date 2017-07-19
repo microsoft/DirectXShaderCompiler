@@ -25,6 +25,7 @@
 #include "spirv/1.0/spirv.hpp11"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/Type.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Optional.h"
 
@@ -62,8 +63,11 @@ public:
   /// state.
   void take(InstBuilder *builder);
 
-  /// \brief add an instruction to this basic block.
+  /// \brief Add an instruction to this basic block.
   inline void addInstruction(Instruction &&);
+
+  /// \brief Returns true if this basic block is terminated.
+  bool isTerminated() const;
 
 private:
   uint32_t labelId; ///< The label id for this basic block. Zero means invalid.
@@ -140,12 +144,12 @@ struct ExtInstSet {
 /// \brief The struct representing an entry point.
 struct EntryPoint {
   inline EntryPoint(spv::ExecutionModel, uint32_t id, std::string name,
-                    std::initializer_list<uint32_t> interface);
+                    const std::vector<uint32_t> &interface);
 
   const spv::ExecutionModel executionModel;
   const uint32_t targetId;
   const std::string targetName;
-  const std::initializer_list<uint32_t> interfaces;
+  const std::vector<uint32_t> interfaces;
 };
 
 /// \brief The struct representing a debug name.
@@ -217,7 +221,7 @@ public:
   inline void setMemoryModel(spv::MemoryModel);
   inline void addEntryPoint(spv::ExecutionModel, uint32_t targetId,
                             std::string targetName,
-                            std::initializer_list<uint32_t> intefaces);
+                            llvm::ArrayRef<uint32_t> intefaces);
   inline void addExecutionMode(Instruction &&);
   // TODO: source code debug information
   inline void addDebugName(uint32_t targetId,
@@ -226,7 +230,7 @@ public:
   inline void addDecoration(const Decoration &decoration, uint32_t targetId);
   inline void addType(const Type *type, uint32_t resultId);
   inline void addConstant(const Type &type, Instruction &&constant);
-  // TODO: global variables
+  inline void addVariable(Instruction &&);
   inline void addFunction(std::unique_ptr<Function>);
 
 private:
@@ -250,7 +254,7 @@ private:
   // they should be handled together.
   llvm::MapVector<const Type *, uint32_t> types;
   std::vector<Constant> constants;
-  // TODO: global variables
+  std::vector<Instruction> variables;
   std::vector<std::unique_ptr<Function>> functions;
 };
 
@@ -294,22 +298,19 @@ void Function::addBasicBlock(std::unique_ptr<BasicBlock> block) {
 ExtInstSet::ExtInstSet(uint32_t id, std::string name)
     : resultId(id), setName(name) {}
 
-EntryPoint::EntryPoint(spv::ExecutionModel em, uint32_t id,
-                                    std::string name,
-                                    std::initializer_list<uint32_t> interface)
+EntryPoint::EntryPoint(spv::ExecutionModel em, uint32_t id, std::string name,
+                       const std::vector<uint32_t> &interface)
     : executionModel(em), targetId(id), targetName(std::move(name)),
-      interfaces(std::move(interface)) {}
+      interfaces(interface) {}
 
 DebugName::DebugName(uint32_t id, llvm::Optional<uint32_t> index,
-                                  std::string targetName)
+                     std::string targetName)
     : targetId(id), memberIndex(index), name(std::move(targetName)) {}
 
-DecorationIdPair::DecorationIdPair(const Decoration &decor,
-                                                uint32_t id)
+DecorationIdPair::DecorationIdPair(const Decoration &decor, uint32_t id)
     : decoration(decor), targetId(id) {}
 
-TypeIdPair::TypeIdPair(const Type &ty, uint32_t id)
-    : type(ty), resultId(id) {}
+TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 
 Constant::Constant(const Type &ty, Instruction &&value)
     : type(ty), constant(std::move(value)) {}
@@ -336,9 +337,8 @@ void SPIRVModule::setMemoryModel(spv::MemoryModel mm) {
 }
 void SPIRVModule::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
                                 std::string name,
-                                std::initializer_list<uint32_t> interfaces) {
-  entryPoints.emplace_back(em, targetId, std::move(name),
-                           std::move(interfaces));
+                                llvm::ArrayRef<uint32_t> interfaces) {
+  entryPoints.emplace_back(em, targetId, std::move(name), interfaces);
 }
 void SPIRVModule::addExecutionMode(Instruction &&execMode) {
   executionModes.push_back(std::move(execMode));
@@ -358,6 +358,9 @@ void SPIRVModule::addType(const Type *type, uint32_t resultId) {
 void SPIRVModule::addConstant(const Type &type, Instruction &&constant) {
   constants.emplace_back(type, std::move(constant));
 };
+void SPIRVModule::addVariable(Instruction &&var) {
+  variables.push_back(std::move(var));
+}
 void SPIRVModule::addFunction(std::unique_ptr<Function> f) {
   functions.push_back(std::move(f));
 }

@@ -24,9 +24,7 @@ ModuleBuilder::ModuleBuilder(SPIRVContext *C)
   });
 }
 
-uint32_t
-ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
-                             const std::vector<uint32_t> &paramTypeIds) {
+uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType) {
   if (theFunction) {
     assert(false && "found nested function");
     return 0;
@@ -37,13 +35,15 @@ ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
   theFunction = llvm::make_unique<Function>(
       returnType, fId, spv::FunctionControlMask::MaskNone, funcType);
 
-  // Any OpFunction must be immediately followed by one OpFunctionParameter
-  // instruction per each formal parameter of the function.
-  for (const auto &typeId : paramTypeIds) {
-    theFunction->addParameter(typeId, theContext.takeNextId());
-  }
-
   return fId;
+}
+
+uint32_t ModuleBuilder::addFnParameter(uint32_t type) {
+  assert(theFunction && "found detached parameter");
+
+  const uint32_t paramId = theContext.takeNextId();
+  theFunction->addParameter(type, paramId);
+  return paramId;
 }
 
 bool ModuleBuilder::endFunction() {
@@ -68,7 +68,7 @@ bool ModuleBuilder::endFunction() {
   return true;
 }
 
-uint32_t ModuleBuilder::bbCreate() {
+uint32_t ModuleBuilder::createBasicBlock() {
   if (theFunction == nullptr) {
     assert(false && "found detached basic block");
     return 0;
@@ -80,18 +80,6 @@ uint32_t ModuleBuilder::bbCreate() {
   return labelId;
 }
 
-bool ModuleBuilder::bbReturn(uint32_t labelId) {
-  auto it = basicBlocks.find(labelId);
-  if (it == basicBlocks.end()) {
-    assert(false && "invalid <label-id>");
-    return false;
-  }
-
-  instBuilder.opReturn().x();
-  it->second->addInstruction(std::move(constructSite));
-  return true;
-}
-
 bool ModuleBuilder::setInsertPoint(uint32_t labelId) {
   auto it = basicBlocks.find(labelId);
   if (it == basicBlocks.end()) {
@@ -100,6 +88,32 @@ bool ModuleBuilder::setInsertPoint(uint32_t labelId) {
   }
   insertPoint = it->second.get();
   return true;
+}
+
+uint32_t ModuleBuilder::createLoad(uint32_t resultType, uint32_t pointer) {
+  assert(insertPoint && "null insert point");
+  const uint32_t resultId = theContext.takeNextId();
+  instBuilder.opLoad(resultType, resultId, pointer, llvm::None).x();
+  insertPoint->addInstruction(std::move(constructSite));
+  return resultId;
+}
+
+void ModuleBuilder::createStore(uint32_t address, uint32_t value) {
+  assert(insertPoint && "null insert point");
+  instBuilder.opStore(address, value, llvm::None).x();
+  insertPoint->addInstruction(std::move(constructSite));
+}
+
+void ModuleBuilder::createReturn() {
+  assert(insertPoint && "null insert point");
+  instBuilder.opReturn().x();
+  insertPoint->addInstruction(std::move(constructSite));
+}
+
+void ModuleBuilder::createReturnValue(uint32_t value) {
+  assert(insertPoint && "null insert point");
+  instBuilder.opReturnValue(value).x();
+  insertPoint->addInstruction(std::move(constructSite));
 }
 
 uint32_t ModuleBuilder::getVoidType() {
@@ -144,6 +158,30 @@ ModuleBuilder::getFunctionType(uint32_t returnType,
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
   return typeId;
+}
+
+uint32_t ModuleBuilder::getPointerType(uint32_t pointeeType,
+                                       spv::StorageClass storageClass) {
+  const Type *type = Type::getPointer(theContext, storageClass, pointeeType);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t
+ModuleBuilder::addStageIOVariable(uint32_t type, spv::StorageClass storageClass,
+                                  llvm::Optional<uint32_t> initilizer) {
+  const uint32_t pointerType = getPointerType(type, storageClass);
+  const uint32_t varId = theContext.takeNextId();
+  instBuilder.opVariable(pointerType, varId, storageClass, initilizer).x();
+  theModule.addVariable(std::move(constructSite));
+  return varId;
+}
+
+void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
+  const Decoration *d =
+      Decoration::getLocation(theContext, location, llvm::None);
+  theModule.addDecoration(*d, targetId);
 }
 
 std::vector<uint32_t> ModuleBuilder::takeModule() {
