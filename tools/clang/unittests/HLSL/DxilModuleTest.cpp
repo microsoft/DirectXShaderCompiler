@@ -46,7 +46,8 @@ public:
   // Basic loading tests.
   TEST_METHOD(LoadDxilModule_1_0);
   TEST_METHOD(LoadDxilModule_1_1);
-  
+  TEST_METHOD(LoadDxilModule_1_2);
+
   // Precise query tests.
   TEST_METHOD(Precise1);
   TEST_METHOD(Precise2);
@@ -73,8 +74,8 @@ public:
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
   }
 
-  bool SkipDxil_1_1_Test() {
-    return m_ver.SkipDxil_1_1_Test();
+  bool SkipDxil_Test(unsigned major, unsigned minor) {
+    return m_ver.SkipDxil_Test(major, minor);
   }
   
   IDxcOperationResult *Compile(const char *program, LPCWSTR shaderModel = L"ps_6_0") {
@@ -179,7 +180,7 @@ TEST_F(DxilModuleTest, LoadDxilModule_1_0) {
 
 TEST_F(DxilModuleTest, LoadDxilModule_1_1) {
   Compiler c(m_dllSupport);
-  if (c.SkipDxil_1_1_Test()) return;
+  if (c.SkipDxil_Test(1,1)) return;
   c.Compile(
     "float4 main() : SV_Target {\n"
     "  return 0;\n"
@@ -194,6 +195,25 @@ TEST_F(DxilModuleTest, LoadDxilModule_1_1) {
   DM.GetDxilVersion(vMajor, vMinor);
   VERIFY_IS_TRUE(vMajor == 1);
   VERIFY_IS_TRUE(vMinor == 1);
+}
+
+TEST_F(DxilModuleTest, LoadDxilModule_1_2) {
+  Compiler c(m_dllSupport);
+  if (c.SkipDxil_Test(1,2)) return;
+  c.Compile(
+    "float4 main() : SV_Target {\n"
+    "  return 0;\n"
+    "}\n"
+    ,
+    L"ps_6_2"
+  );
+
+  // Basic sanity check on dxil version in dxil module.
+  DxilModule &DM = c.GetDxilModule();
+  unsigned vMajor, vMinor;
+  DM.GetDxilVersion(vMajor, vMinor);
+  VERIFY_IS_TRUE(vMajor == 1);
+  VERIFY_IS_TRUE(vMinor == 2);
 }
 
 TEST_F(DxilModuleTest, Precise1) {
