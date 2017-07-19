@@ -144,7 +144,8 @@ bool VersionSupportInfo::SkipIRSensitiveTest() {
   return false;
 }
 bool VersionSupportInfo::SkipDxil_Test(unsigned major, unsigned minor) {
-  if (m_DxilMajor < major || m_DxilMinor < minor || m_ValMajor < major || m_ValMinor < minor) {
+  if (m_DxilMajor < major || (m_DxilMajor == major && m_DxilMinor < minor) ||
+      m_ValMajor < major || (m_ValMajor == major && m_ValMinor < minor)) {
     WEX::Logging::Log::Comment(WEX::Common::String().Format(
         L"Test skipped because it requires Dxil %u.%u and Validator %u.%u.",
         major, minor, major, minor));
