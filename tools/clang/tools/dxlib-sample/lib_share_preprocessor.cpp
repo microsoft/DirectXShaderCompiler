@@ -26,6 +26,7 @@
 #include "clang/Sema/SemaConsumer.h"
 #include "dxc/Support/dxcfilesystem.h"
 #include "lib_share_helper.h"
+#include "llvm/ADT/STLExtras.h"
 
 using namespace libshare;
 
@@ -295,7 +296,7 @@ static void RewriteToSnippets(IDxcBlob *pSource, LPCWSTR pFilename,
   // Setup a compiler instance.
   clang::CompilerInstance compiler;
   std::unique_ptr<clang::TextDiagnosticPrinter> diagPrinter =
-      std::make_unique<clang::TextDiagnosticPrinter>(
+      llvm::make_unique<clang::TextDiagnosticPrinter>(
           w, &compiler.getDiagnosticOpts());
   SetupCompilerForRewrite(compiler, pLangExtensionsHelper, pUtf8Name.m_psz,
                           diagPrinter.get(), pRemap.get(), definesStr.c_str());
@@ -344,5 +345,5 @@ HRESULT IncludeToLibPreprocessorImpl::Preprocess(IDxcBlob *pSource,
 
 std::unique_ptr<IncludeToLibPreprocessor>
   IncludeToLibPreprocessor::CreateIncludeToLibPreprocessor(IDxcIncludeHandler *handler) {
-  return std::make_unique<IncludeToLibPreprocessorImpl>(handler);
+  return llvm::make_unique<IncludeToLibPreprocessorImpl>(handler);
 }
