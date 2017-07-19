@@ -2939,7 +2939,7 @@ TEST_F(ValidationTest, WhenFeatureInfoMismatchThenFail) {
 }
 
 TEST_F(ValidationTest, ViewIDInCSFail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(" \
 RWStructuredBuffer<uint> Buf; \
 [numthreads(1,1,1)] \
@@ -2956,7 +2956,7 @@ void main(uint id : SV_GroupIndex) \
 }
 
 TEST_F(ValidationTest, ViewIDIn60Fail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(" \
 [domain(\"tri\")] \
 float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
@@ -2972,7 +2972,7 @@ float4 main(float3 pos : Position, uint id : SV_PrimitiveID) : SV_Position \
 }
 
 TEST_F(ValidationTest, ViewIDNoSpaceFail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(" \
 float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
 { return float4(In[vid], 1); } \
@@ -2989,7 +2989,7 @@ float4 main(uint vid : SV_ViewID, float3 In[31] : INPUT) : SV_Target \
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(
     "float4 main(float4 pos: POSITION) : SV_POSITION { return pos.x; }",
     "vs_6_1",
@@ -3002,7 +3002,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(
     "float4 main(float4 col : COLOR) : "
     "SV_Target { return EvaluateAttributeCentroid(col).x; }",
@@ -3016,7 +3016,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexIn60Fail) {
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg("float4 main(nointerpolation float4 col : COLOR) : "
                           "SV_Target { return GetAttributeAtVertex(col, 0); }",
                           "ps_6_1", {"!\"COLOR\", i8 9, i8 0, (![0-9]+), i8 1"},
@@ -3027,7 +3027,7 @@ TEST_F(ValidationTest, GetAttributeAtVertexInterpFail) {
 }
 
 TEST_F(ValidationTest, BarycentricMaxIndexFail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(
       "float4 main(float3 bary : SV_Barycentrics, noperspective float3 bary1 : "
       "SV_Barycentrics1) : SV_Target { return 1; }",
@@ -3042,7 +3042,7 @@ TEST_F(ValidationTest, BarycentricMaxIndexFail) {
 }
 
 TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(
       "float4 main(float3 bary : SV_Barycentrics) : "
       "SV_Target { return bary.x * float4(1,0,0,0) + bary.y * float4(0,1,0,0) "
@@ -3054,7 +3054,7 @@ TEST_F(ValidationTest, BarycentricNoInterpolationFail) {
 }
 
 TEST_F(ValidationTest, BarycentricFloat4Fail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(
       "float4 main(float4 col : COLOR) : SV_Target { return col; }", "ps_6_1",
       {"!\"COLOR\", i8 9, i8 0"}, {"!\"SV_Barycentrics\", i8 9, i8 28"},
@@ -3062,7 +3062,7 @@ TEST_F(ValidationTest, BarycentricFloat4Fail) {
 }
 
 TEST_F(ValidationTest, BarycentricSamePerspectiveFail) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   RewriteAssemblyCheckMsg(
       "float4 main(float3 bary : SV_Barycentrics, noperspective float3 bary1 : "
       "SV_Barycentrics1) : SV_Target { return 1; }",

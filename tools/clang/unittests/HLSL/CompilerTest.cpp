@@ -143,7 +143,7 @@ bool VersionSupportInfo::SkipIRSensitiveTest() {
   }
   return false;
 }
-bool VersionSupportInfo::SkipDxil_Test(unsigned major, unsigned minor) {
+bool VersionSupportInfo::SkipDxilVersion(unsigned major, unsigned minor) {
   if (m_DxilMajor < major || (m_DxilMajor == major && m_DxilMinor < minor) ||
       m_ValMajor < major || (m_ValMajor == major && m_ValMinor < minor)) {
     WEX::Logging::Log::Comment(WEX::Common::String().Format(
@@ -2677,22 +2677,22 @@ TEST_F(CompilerTest, CodeGenAtomic2) {
 }
 
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentrics) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentrics1) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentricsThreeSV) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentricsThreeSV.hlsl");
 }
 
@@ -2913,7 +2913,7 @@ TEST_F(CompilerTest, CodeGenEnum2) {
 }
 
 TEST_F(CompilerTest, CodeGenEnum3) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
     CodeGenTestCheck(L"..\\CodeGenHLSL\\enum3.hlsl");
 }
 
@@ -3410,7 +3410,7 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad1) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad2) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad2.hlsl");
 }
 
@@ -3419,22 +3419,22 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad3) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad4) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad5.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad6) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad7) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad7.hlsl");
 }
 
@@ -3957,7 +3957,7 @@ TEST_F(CompilerTest, CodeGenUint64_1) {
 }
 
 TEST_F(CompilerTest, CodeGenUint64_2) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\uint64_2.hlsl");
 }
 
@@ -5238,7 +5238,7 @@ TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
 }
 
 TEST_F(CompilerTest, ViewID) {
-  if (m_ver.SkipDxil_Test(1,1)) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid01.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid02.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid03.hlsl");

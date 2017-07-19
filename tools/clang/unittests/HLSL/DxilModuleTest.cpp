@@ -75,7 +75,7 @@ public:
   }
 
   bool SkipDxil_Test(unsigned major, unsigned minor) {
-    return m_ver.SkipDxil_Test(major, minor);
+    return m_ver.SkipDxilVersion(major, minor);
   }
   
   IDxcOperationResult *Compile(const char *program, LPCWSTR shaderModel = L"ps_6_0") {
