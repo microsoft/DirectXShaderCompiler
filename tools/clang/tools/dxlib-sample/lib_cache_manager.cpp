@@ -17,6 +17,7 @@
 #include <shared_mutex>
 #include <unordered_map>
 #include "lib_share_helper.h"
+#include "llvm/ADT/STLExtras.h"
 
 using namespace llvm;
 using namespace libshare;
@@ -117,7 +118,7 @@ LibCacheManagerImpl::AddLibBlob(IDxcBlob *pSource, CompileInput &compiler,
 
 LibCacheManager *GetLibCacheManagerPtr(bool bFree) {
   static std::unique_ptr<LibCacheManagerImpl> g_LibCache =
-      std::make_unique<LibCacheManagerImpl>();
+      llvm::make_unique<LibCacheManagerImpl>();
   if (bFree)
     g_LibCache.reset();
   return g_LibCache.get();

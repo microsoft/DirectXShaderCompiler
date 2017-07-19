@@ -50,30 +50,15 @@ bool IsAbsoluteOrCurDirRelative(const Twine &T) {
 }
 
 namespace {
-  //IncPathIncludeHandler;
-}
-
-namespace {
-/// Max number of included files (1:1 to their directories) or search
-/// directories. If programs include more than a handful, DxcArgsFileSystem will
-/// need to do better than linear scans. If this is fired,
-/// ERROR_OUT_OF_STRUCTURES will be returned by an attempt to open a file.
-static const size_t MaxIncludedFiles = 200;
-
-class IncludeToLibPreprocessorImpl : public IncludeToLibPreprocessor, public IDxcIncludeHandler {
+class IncPathIncludeHandler : public IDxcIncludeHandler {
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  virtual ~IncludeToLibPreprocessorImpl() {}
+  virtual ~IncPathIncludeHandler() {}
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) {
     return DoBasicQueryInterface<::IDxcIncludeHandler>(this, riid, ppvObject);
   }
-
-  IncludeToLibPreprocessorImpl(IDxcIncludeHandler *handler)
-      : m_dwRef(0), m_pIncludeHandler(handler) {
-    if (!m_dllSupport.IsEnabled())
-      m_dllSupport.Initialize();
-  }
-
+  IncPathIncludeHandler(IDxcIncludeHandler *handler, std::vector<std::string> &includePathList)
+      : m_dwRef(0), m_pIncludeHandler(handler), m_includePathList(includePathList) {}
   __override HRESULT STDMETHODCALLTYPE LoadSource(
       _In_ LPCWSTR pFilename, // Candidate filename.
       _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource // Resultant
@@ -120,6 +105,27 @@ public:
     }
   }
 
+private:
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  IDxcIncludeHandler *m_pIncludeHandler;
+  StringSet<> m_loadedFileNames;
+  std::vector<std::string> &m_includePathList;
+};
+
+} // namespace
+
+namespace {
+
+class IncludeToLibPreprocessorImpl : public IncludeToLibPreprocessor {
+public:
+  virtual ~IncludeToLibPreprocessorImpl() {}
+
+  IncludeToLibPreprocessorImpl(IDxcIncludeHandler *handler)
+      : m_pIncludeHandler(handler) {
+    if (!m_dllSupport.IsEnabled())
+      m_dllSupport.Initialize();
+  }
+
   void SetupDefines(const DxcDefine *pDefines, unsigned defineCount) override;
   void AddIncPath(StringRef path) override;
   HRESULT Preprocess(IDxcBlob *pSource, LPCWSTR pFilename) override;
@@ -129,16 +135,12 @@ public:
 private:
   HRESULT RewriteToNoFuncBody(IDxcRewriter *pRewriter, LPCWSTR pFilename,
     std::string &Source, IDxcBlob **ppNoFuncBodySource);
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
   IDxcIncludeHandler *m_pIncludeHandler;
-  // Vector to save headers.
-  std::string m_curHeaderContent;
   // Processed header content.
   std::vector<std::string> m_headers;
   // Defines.
   std::vector<std::wstring> m_defineStrs;
   std::vector<DxcDefine> m_defines;
-  StringSet<> m_loadedFileNames;
   std::vector<std::string> m_includePathList;
   dxc::DxcDllSupport m_dllSupport;
 };
@@ -315,12 +317,12 @@ HRESULT IncludeToLibPreprocessorImpl::Preprocess(IDxcBlob *pSource,
 
   CW2A pUtf8Name(pFilename);
 
-  
-  // AddRef to hold this.
+  IncPathIncludeHandler incPathIncludeHandler(m_pIncludeHandler, m_includePathList);
+  // AddRef to hold incPathIncludeHandler.
   // If not, DxcArgsFileSystem will kill it.
-  this->AddRef();
+  incPathIncludeHandler.AddRef();
   std::vector<std::string> Snippets;
-  RewriteToSnippets(pSource, pFilename, m_defines, this, Snippets);
+  RewriteToSnippets(pSource, pFilename, m_defines, &incPathIncludeHandler, Snippets);
 
   // Combine Snippets.
   CComPtr<IDxcRewriter> pRewriter;

@@ -50,7 +50,7 @@ HRESULT CreateContainerReflection(IDxcContainerReflection **ppReflection) {
 HRESULT CompileToLib(IDxcBlob *pSource, std::vector<DxcDefine> &defines,
                      IDxcIncludeHandler *pInclude,
                      std::vector<LPCWSTR> &arguments, IDxcBlob **ppCode,
-                     IDxcBlob **ppErrorMsgs) {
+                     IDxcBlobEncoding **ppErrorMsgs) {
   CComPtr<IDxcCompiler> compiler;
   CComPtr<IDxcOperationResult> operationResult;
 
@@ -62,10 +62,10 @@ HRESULT CompileToLib(IDxcBlob *pSource, std::vector<DxcDefine> &defines,
   HRESULT hr;
   operationResult->GetStatus(&hr);
   if (SUCCEEDED(hr)) {
-    return operationResult->GetResult((IDxcBlob **)ppCode);
+    return operationResult->GetResult(ppCode);
   } else {
     if (ppErrorMsgs)
-      operationResult->GetErrorBuffer((IDxcBlobEncoding **)ppErrorMsgs);
+      operationResult->GetErrorBuffer(ppErrorMsgs);
     return hr;
   }
   return hr;
@@ -111,6 +111,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
   Target[6] = 0;
   Target[0] = pTarget[0];
 
+  HRESULT hr = S_OK;
   try {
     CA2W pEntrypointW(pEntrypoint);
     CA2W pTargetProfileW(Target);
@@ -182,11 +183,9 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     // Link
     return linker->Link(wEntry.c_str(), wTarget.c_str(), hashList.data(),
                         hashList.size(), nullptr, 0, ppOperationResult);
-  } catch (const std::bad_alloc &) {
-    return E_OUTOFMEMORY;
-  } catch (const CAtlException &err) {
-    return err.m_hr;
   }
+  CATCH_CPP_ASSIGN_HRESULT();
+  return hr;
 }
 
 HRESULT WINAPI DxilD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
@@ -205,9 +204,10 @@ HRESULT WINAPI DxilD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
   IFR(CreateLibrary(&library));
   IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
-  HRESULT hr;
-    CComPtr<IMalloc> m_pMalloc(GetGlobalHeapMalloc());
-    DxcThreadMalloc TM(m_pMalloc);
+  HRESULT hr = S_OK;
+  CComPtr<IMalloc> m_pMalloc(GetGlobalHeapMalloc());
+  DxcThreadMalloc TM(m_pMalloc);
+
   try {
     CA2W pFileName(pSourceName);
 
@@ -284,11 +284,9 @@ HRESULT WINAPI DxilD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
         operationResult->GetErrorBuffer((IDxcBlobEncoding **)ppErrorMsgs);
       return hr;
     }
-  } catch (const std::bad_alloc &) {
-    return E_OUTOFMEMORY;
-  } catch (const CAtlException &err) {
-    return err.m_hr;
   }
+  CATCH_CPP_ASSIGN_HRESULT();
+  return hr;
 }
 
 HRESULT WINAPI DxilD3DCompile2(
@@ -307,17 +305,16 @@ HRESULT WINAPI DxilD3DCompile2(
   IFR(CreateLibrary(&library));
   IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
-    CComPtr<IMalloc> m_pMalloc(GetGlobalHeapMalloc());
-    DxcThreadMalloc TM(m_pMalloc);
+  HRESULT hr = S_OK;
+  CComPtr<IMalloc> m_pMalloc(GetGlobalHeapMalloc());
+  DxcThreadMalloc TM(m_pMalloc);
   try {
     CA2W pFileName(pSourceName);
     std::vector<DxcDefine> defines(pDefines, pDefines + defineCount);
     std::vector<LPCWSTR> arguments(pArguments, pArguments + argCount);
     return CompileFromBlob(source, pFileName, defines, pInclude, pEntrypoint,
                            pTarget, arguments, ppOperationResult);
-  } catch (const std::bad_alloc &) {
-    return E_OUTOFMEMORY;
-  } catch (const CAtlException &err) {
-    return err.m_hr;
   }
+  CATCH_CPP_ASSIGN_HRESULT();
+  return hr;
 }
