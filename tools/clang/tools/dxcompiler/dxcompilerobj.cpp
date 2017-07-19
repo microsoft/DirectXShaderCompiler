@@ -792,7 +792,10 @@ public:
     if (Opts.IEEEStrict)
       compiler.getCodeGenOpts().UnsafeFPMath = true;
 
-    if (Opts.FPDenormalMode.empty() || Opts.FPDenormalMode.equals_lower(StringRef("ftz"))) {
+    if (Opts.FPDenormalMode.empty() || Opts.FPDenormalMode.equals_lower(StringRef("undefined"))) {
+      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::Undefined;
+    }
+    else if (Opts.FPDenormalMode.equals_lower(StringRef("ftz"))) {
       compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::FTZ;
     }
     else {

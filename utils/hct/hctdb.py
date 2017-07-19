@@ -1428,9 +1428,11 @@ class db_dxil(object):
             ])
 
         FPDenormMode = db_dxil_enum("FPDenormMode", "Floating point behavior", [
-            (0, "IEEE", "Preserve both input and output denorms"),
-            (1, "FTZ","Preserve denorm input. Flush denorm output to zero"),
-            (2, "Invalid", ""),
+            (0, "Undefined", "Undefined behavior for denormal numbers"),
+            (1, "FTZ", "Preserve denorm input. Flush denorm output to zero"),
+            (2, "DAZ", "Treat denormal inputs as zero. Perserve denorm output"),
+            (3, "FlushAll", "Flush both input and output"),
+            (4, "IEEE", "Preserve both input and output denorms"),
             ])
         self.enums.append(FPDenormMode)
 
