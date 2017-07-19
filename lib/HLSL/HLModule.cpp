@@ -350,6 +350,13 @@ DxilFunctionAnnotation *HLModule::AddFunctionAnnotation(llvm::Function *F) {
   return m_pTypeSystem->AddFunctionAnnotation(F);
 }
 
+DxilFunctionAnnotation *HLModule::AddFunctionAnnotationWithFPDenormMode(llvm::Function *F, DXIL::FPDenormMode mode) {
+  DXASSERT(m_pTypeSystem->GetFunctionAnnotation(F) == nullptr, "function annotataion already exist");
+  DxilFunctionFPFlag flag(0);
+  flag.SetFPAllDenormMode(mode);
+  return m_pTypeSystem->AddFunctionAnnotationWithFPFlag(F, &flag);
+}
+
 void HLModule::AddResourceTypeAnnotation(llvm::Type *Ty,
                                          DXIL::ResourceClass resClass,
                                          DXIL::ResourceKind kind) {
@@ -413,8 +420,6 @@ void HLModule::EmitHLMetadata() {
   Entries.emplace_back(pEntry);
   m_pMDHelper->EmitDxilEntryPoints(Entries);
 
-  m_pMDHelper->EmitDxilFPDenormMode((uint32_t)m_FPDenormMode);
-
   {
     NamedMDNode * fnProps = m_pModule->getOrInsertNamedMetadata(kHLDxilFunctionPropertiesMDName);
     for (auto && pair : m_DxilFunctionPropsMap) {
@@ -454,8 +459,6 @@ void HLModule::LoadHLMetadata() {
 
   LoadHLResources(*pResources);
   LoadHLShaderProperties(*pProperties);
-
-  m_pMDHelper->LoadDxilFPDenormMode((*(uint32_t *)&m_FPDenormMode));
 
   m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
 

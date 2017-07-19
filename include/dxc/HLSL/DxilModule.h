@@ -61,10 +61,6 @@ public:
   bool UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor);
   void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
 
-  // FP Denorm mode
-  void SetFPDenormMode(const DXIL::FPDenormMode mode);
-  void GetFPDenormMode(DXIL::FPDenormMode &mode) const;
-
   // Return true on success, requires valid shader model and CollectShaderFlags to have been set
   bool GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
   // Update validator version to minimum if higher than current (ex: after CollectShaderFlags)
@@ -435,9 +431,6 @@ private:
 
   // ViewId state.
   std::unique_ptr<DxilViewIdState> m_pViewIdState;
-
-  // Floating point denorm mode.
-  DXIL::FPDenormMode m_FPDenormMode;
 
   // DXIL metadata serialization/deserialization.
   llvm::MDTuple *EmitDxilResources();

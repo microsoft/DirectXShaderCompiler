@@ -156,6 +156,60 @@ const Function *DxilFunctionAnnotation::GetFunction() const {
   return m_pFunction;
 }
 
+DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() {
+  return m_fpFlag;
+}
+
+const DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() const {
+  return m_fpFlag;
+}
+
+//------------------------------------------------------------------------------
+//
+// DxilFunctionFPFlag class methods.
+//
+void DxilFunctionFPFlag::SetFPAllDenormMode(DXIL::FPDenormMode mode) {
+  SetFP64DenormMode(mode);
+  SetFP32DenormMode(mode);
+  SetFP16DenormMode(mode);
+}
+
+void DxilFunctionFPFlag::SetFP64DenormMode(DXIL::FPDenormMode mode) {
+  m_flag |= (int32_t)mode << 6;
+}
+
+void DxilFunctionFPFlag::SetFP32DenormMode(DXIL::FPDenormMode mode) {
+  m_flag |= (int32_t)mode << 3;
+}
+
+void DxilFunctionFPFlag::SetFP16DenormMode(DXIL::FPDenormMode mode) {
+  m_flag |= (int32_t)mode;
+}
+
+DXIL::FPDenormMode DxilFunctionFPFlag::GetFP64DenormMode() {
+  return (DXIL::FPDenormMode)(m_flag & (0x7 << 6));
+}
+
+DXIL::FPDenormMode DxilFunctionFPFlag::GetFP32DenormMode() {
+  return (DXIL::FPDenormMode)(m_flag & (0x7 << 3));
+}
+
+DXIL::FPDenormMode DxilFunctionFPFlag::GetFP16DenormMode() {
+  return (DXIL::FPDenormMode)(m_flag & 0x7);
+}
+
+uint32_t DxilFunctionFPFlag::GetFlagValue() {
+  return m_flag;
+}
+
+const uint32_t DxilFunctionFPFlag::GetFlagValue() const {
+  return m_flag;
+}
+
+void DxilFunctionFPFlag::SetFlagValue(uint32_t flag) {
+  m_flag = flag;
+}
+
 //------------------------------------------------------------------------------
 //
 // DxilStructAnnotationSystem class methods.
@@ -204,11 +258,19 @@ DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pFunction) {
+  DxilFunctionFPFlag flag;
+  flag.SetFlagValue(0);
+  DxilFunctionAnnotation *pA = AddFunctionAnnotationWithFPFlag(pFunction, &flag);
+  return pA;
+}
+
+DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotationWithFPFlag(const Function *pFunction, const DxilFunctionFPFlag *pFlag) {
   DXASSERT_NOMSG(m_FunctionAnnotations.find(pFunction) == m_FunctionAnnotations.end());
   DxilFunctionAnnotation *pA = new DxilFunctionAnnotation();
   m_FunctionAnnotations[pFunction] = unique_ptr<DxilFunctionAnnotation>(pA);
   pA->m_pFunction = pFunction;
   pA->m_parameterAnnotations.resize(pFunction->getFunctionType()->getNumParams());
+  pA->GetFlag().SetFlagValue(pFlag->GetFlagValue());
   return pA;
 }
 
@@ -312,7 +374,7 @@ void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
   if (GetFunctionAnnotation(pDstFunction))
     return;
 
-  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotation(pDstFunction);
+  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotationWithFPFlag(pDstFunction, &src.GetFunctionAnnotation(pSrcFunction)->GetFlag());
 
   // Copy the annotation.
   *dstAnnot = *annot;

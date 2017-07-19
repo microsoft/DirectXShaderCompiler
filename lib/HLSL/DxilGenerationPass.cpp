@@ -177,9 +177,6 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
-  // FP Denorm mode
-  M.SetFPDenormMode(H.GetFPDenormMode());
-
   if (FnProps)
     M.SetShaderProperties(FnProps);
 
@@ -1403,9 +1400,12 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
     DM.ReplaceDxilFunctionProps(F, NewFunc);
   }
 
+  // Save function fp flag
+  DxilFunctionFPFlag flag;
+  flag.SetFlagValue(DM.GetTypeSystem().GetFunctionAnnotation(F)->GetFlag().GetFlagValue());
   DM.GetTypeSystem().EraseFunctionAnnotation(F);
   F->eraseFromParent();
-  DM.GetTypeSystem().AddFunctionAnnotation(NewFunc);
+  DM.GetTypeSystem().AddFunctionAnnotationWithFPFlag(NewFunc, &flag);
   return NewFunc;
 }
 

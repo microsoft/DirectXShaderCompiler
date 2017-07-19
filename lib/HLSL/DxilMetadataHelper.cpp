@@ -50,7 +50,6 @@ const char DxilMDHelper::kDxilControlFlowHintMDName[]                 = "dx.cont
 const char DxilMDHelper::kDxilPreciseAttributeMDName[]                = "dx.precise";
 const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
-const char DxilMDHelper::kDxilFPDenormModeMDName[]                    = "dx.fp.denormMode";
 
 // This named metadata is not valid in final module (should be moved to DxilContainer)
 const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
@@ -58,7 +57,7 @@ const char DxilMDHelper::kDxilViewIdStateMDName[]                     = "dx.view
 const char DxilMDHelper::kDxilFunctionPropertiesMDName[]              = "dx.func.props";
 const char DxilMDHelper::kDxilEntrySignaturesMDName[]                 = "dx.func.signatures";
 
-static std::array<const char *, 8> DxilMDNames = {
+static std::array<const char *, 7> DxilMDNames = {
   DxilMDHelper::kDxilVersionMDName,
   DxilMDHelper::kDxilShaderModelMDName,
   DxilMDHelper::kDxilEntryPointsMDName,
@@ -66,7 +65,6 @@ static std::array<const char *, 8> DxilMDNames = {
   DxilMDHelper::kDxilTypeSystemMDName,
   DxilMDHelper::kDxilValidatorVersionMDName,
   DxilMDHelper::kDxilViewIdStateMDName,
-  DxilMDHelper::kDxilFPDenormModeMDName,
 };
 
 DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper> EPH)
@@ -800,24 +798,59 @@ void DxilMDHelper::LoadDxilStructAnnotation(const MDOperand &MDO, DxilStructAnno
   }
 }
 
+// For <= 1.1: Tuple of Parameter Annotataions, starting with the return type.
+// For >= 1.2: Tuple of 1) FPDenormMode and 2) Parameter Annotations
 Metadata *
 DxilMDHelper::EmitDxilFunctionAnnotation(const DxilFunctionAnnotation &FA) {
-  vector<Metadata *> MDVals(FA.GetNumParameters() + 1);
-  MDVals[0] = EmitDxilParamAnnotation(FA.GetRetTypeAnnotation());
-  for (unsigned i = 0; i < FA.GetNumParameters(); i++) {
-    MDVals[i + 1] = EmitDxilParamAnnotation(FA.GetParameterAnnotation(i));
+  unsigned Major, Minor;
+  LoadDxilVersion(Major, Minor);
+  // Parameter Annotataions
+  Metadata *MDParams = EmitDxilParamAnnotations(FA);
+  if (Major == 1 && Minor <= 1) {
+    return MDParams;
+  } else {
+    IFTBOOL(Major == 1 && Minor >= 2, DXC_E_INCORRECT_DXIL_METADATA);
+    vector<Metadata *> MDVals(2);
+    MDVals[0] = EmitDxilFunctionFPFlag(FA.GetFlag());
+    MDVals[1] = MDParams;
+    return MDNode::get(m_Ctx, MDVals);
   }
-
-  return MDNode::get(m_Ctx, MDVals);
 }
+
 void DxilMDHelper::LoadDxilFunctionAnnotation(const MDOperand &MDO,
                                               DxilFunctionAnnotation &FA) {
   IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  unsigned Major, Minor;
+  LoadDxilVersion(Major, Minor);
+  if (Major == 1 && Minor <= 1) {
+    LoadDxilParamAnnotations(MDO, FA);
+  } else {
+    IFTBOOL(Major == 1 && Minor >= 2, DXC_E_INCORRECT_DXIL_METADATA);
+    IFTBOOL(pTupleMD->getNumOperands() == 2, DXC_E_INCORRECT_DXIL_METADATA);
+    LoadDxilFunctionFPFlag(pTupleMD->getOperand(0), FA);
+    LoadDxilParamAnnotations(pTupleMD->getOperand(1), FA);
+  }
+}
+
+llvm::Metadata *
+DxilMDHelper::EmitDxilParamAnnotations(const DxilFunctionAnnotation &FA) {
+  vector<Metadata *> MDParamAnnotations(FA.GetNumParameters() + 1);
+  MDParamAnnotations[0] = EmitDxilParamAnnotation(FA.GetRetTypeAnnotation());
+  for (unsigned i = 0; i < FA.GetNumParameters(); i++) {
+    MDParamAnnotations[i + 1] =
+        EmitDxilParamAnnotation(FA.GetParameterAnnotation(i));
+  }
+  return MDNode::get(m_Ctx, MDParamAnnotations);
+}
+
+void DxilMDHelper::LoadDxilParamAnnotations(const llvm::MDOperand &MDO,
+                                            DxilFunctionAnnotation &FA) {
+  IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD->getNumOperands() == FA.GetNumParameters() + 1,
           DXC_E_INCORRECT_DXIL_METADATA);
-
   DxilParameterAnnotation &retTyAnnotation = FA.GetRetTypeAnnotation();
   LoadDxilParamAnnotation(pTupleMD->getOperand(0), retTyAnnotation);
   for (unsigned i = 0; i < FA.GetNumParameters(); i++) {
@@ -826,6 +859,20 @@ void DxilMDHelper::LoadDxilFunctionAnnotation(const MDOperand &MDO,
     LoadDxilParamAnnotation(MDO, PA);
   }
 }
+
+Metadata *DxilMDHelper::EmitDxilFunctionFPFlag(const DxilFunctionFPFlag &flag) {
+  return MDNode::get(m_Ctx, Int32ToConstMD(flag.GetFlagValue()));
+}
+
+void DxilMDHelper::LoadDxilFunctionFPFlag(const llvm::MDOperand &MDO,
+                                          DxilFunctionAnnotation &FA) {
+  IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
+  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(pTupleMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+  FA.GetFlag().SetFlagValue(ConstMDToUint32(pTupleMD->getOperand(0)));
+}
+
 Metadata *
 DxilMDHelper::EmitDxilParamAnnotation(const DxilParameterAnnotation &PA) {
   vector<Metadata *> MDVals(3);
@@ -1089,23 +1136,6 @@ void DxilMDHelper::LoadDxilViewIdState(DxilViewIdState &ViewIdState) {
 
   ViewIdState.Deserialize((unsigned *)pData->getRawDataValues().begin(), 
                           (unsigned)pData->getRawDataValues().size() / 4);
-}
-
-void DxilMDHelper::EmitDxilFPDenormMode(unsigned flag) {
-  NamedMDNode *pFPDenormModeNamedMD = m_pModule->getNamedMetadata(kDxilFPDenormModeMDName);
-  IFTBOOL(pFPDenormModeNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  pFPDenormModeNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilFPDenormModeMDName);
-  pFPDenormModeNamedMD->addOperand(MDNode::get(m_Ctx, Int32ToConstMD(flag)));
-}
-
-void DxilMDHelper::LoadDxilFPDenormMode(unsigned &flag) {
-  NamedMDNode *pFPDenormModeNamedMD = m_pModule->getNamedMetadata(kDxilFPDenormModeMDName);
-  if (pFPDenormModeNamedMD == nullptr)
-    return;
-  IFTBOOL(pFPDenormModeNamedMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
-  const MDNode *pNode = pFPDenormModeNamedMD->getOperand(0);
-  IFTBOOL(pNode->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA)
-  flag = ConstMDToInt32(pNode->getOperand(0));
 }
 
 MDNode *DxilMDHelper::EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints) {

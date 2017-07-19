@@ -138,6 +138,28 @@ private:
   std::vector<unsigned> m_semanticIndex;
 };
 
+/// Use this class to represent floating point operations flags for LLVM function
+class DxilFunctionFPFlag {
+  friend class DxilFunctionAnnotation;
+public:
+  void SetFPAllDenormMode(DXIL::FPDenormMode mode);
+  void SetFP64DenormMode(DXIL::FPDenormMode mode);
+  void SetFP32DenormMode(DXIL::FPDenormMode mode);
+  void SetFP16DenormMode(DXIL::FPDenormMode mode);
+
+  DXIL::FPDenormMode GetFP64DenormMode();
+  DXIL::FPDenormMode GetFP32DenormMode();
+  DXIL::FPDenormMode GetFP16DenormMode();
+
+  uint32_t GetFlagValue();
+  const uint32_t GetFlagValue() const;
+  void SetFlagValue(uint32_t flag);
+
+  DxilFunctionFPFlag(uint32_t flag = 0) : m_flag(flag) {}
+private:
+  uint32_t m_flag;
+};
+
 /// Use this class to represent LLVM function annotation.
 class DxilFunctionAnnotation {
   friend class DxilTypeSystem;
@@ -149,10 +171,13 @@ public:
   const llvm::Function *GetFunction() const;
   DxilParameterAnnotation &GetRetTypeAnnotation();
   const DxilParameterAnnotation &GetRetTypeAnnotation() const;
+  DxilFunctionFPFlag &GetFlag();
+  const DxilFunctionFPFlag &GetFlag() const;
 private:
   const llvm::Function *m_pFunction;
   std::vector<DxilParameterAnnotation> m_parameterAnnotations;
   DxilParameterAnnotation m_retTypeAnnotation;
+  DxilFunctionFPFlag m_fpFlag;
 };
 
 /// Use this class to represent structure type annotations in HL and DXIL.
@@ -171,6 +196,7 @@ public:
   StructAnnotationMap &GetStructAnnotationMap();
 
   DxilFunctionAnnotation *AddFunctionAnnotation(const llvm::Function *pFunction);
+  DxilFunctionAnnotation *AddFunctionAnnotationWithFPFlag(const llvm::Function *pFunction, const DxilFunctionFPFlag *flag);
   DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction);
   const DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction) const;
   void EraseFunctionAnnotation(const llvm::Function *pFunction);

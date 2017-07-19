@@ -128,6 +128,7 @@ public:
 
   DxilFunctionAnnotation *GetFunctionAnnotation(llvm::Function *F);
   DxilFunctionAnnotation *AddFunctionAnnotation(llvm::Function *F);
+  DxilFunctionAnnotation *AddFunctionAnnotationWithFPDenormMode(llvm::Function *F, DXIL::FPDenormMode mode);
 
   void AddResourceTypeAnnotation(llvm::Type *Ty, DXIL::ResourceClass resClass,
                                  DXIL::ResourceKind kind);

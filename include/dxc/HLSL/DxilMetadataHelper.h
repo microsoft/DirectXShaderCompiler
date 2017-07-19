@@ -47,6 +47,7 @@ class DxilStructAnnotation;
 class DxilFieldAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
+class DxilFunctionFPFlag;
 class RootSignatureHandle;
 class DxilViewIdState;
 struct DxilFunctionProps;
@@ -197,9 +198,6 @@ public:
   static const char kDxilValidatorVersionMDName[];
   // Validator version uses the same constants for fields as kDxilVersion*
 
-  // FP Denorm mode.
-  static const char kDxilFPDenormModeMDName[];
-
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag     = 0;
   static const unsigned kDxilGSStateTag         = 1;
@@ -338,6 +336,10 @@ public:
   void LoadDxilFunctionAnnotation(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
   llvm::Metadata *EmitDxilParamAnnotation(const DxilParameterAnnotation &PA);
   void LoadDxilParamAnnotation(const llvm::MDOperand &MDO, DxilParameterAnnotation &PA);
+  llvm::Metadata *EmitDxilParamAnnotations(const DxilFunctionAnnotation &FA);
+  void LoadDxilParamAnnotations(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
+  llvm::Metadata *EmitDxilFunctionFPFlag(const DxilFunctionFPFlag &flag);
+  void LoadDxilFunctionFPFlag(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
@@ -348,10 +350,6 @@ public:
   // ViewId state.
   void EmitDxilViewIdState(DxilViewIdState &ViewIdState);
   void LoadDxilViewIdState(DxilViewIdState &ViewIdState);
-
-  // FP Denorm mode.
-  void EmitDxilFPDenormMode(unsigned flag);
-  void LoadDxilFPDenormMode(unsigned &flag);
 
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);
