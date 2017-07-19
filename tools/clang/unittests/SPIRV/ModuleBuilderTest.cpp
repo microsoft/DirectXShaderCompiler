@@ -55,9 +55,10 @@ TEST(ModuleBuilder, CreateBasicBlock) {
   const auto fId = context.getNextId();
   EXPECT_NE(0, builder.beginFunction(fType, rType));
   const auto labelId = context.getNextId();
-  const auto resultId = builder.bbCreate();
+  const auto resultId = builder.createBasicBlock();
   EXPECT_EQ(labelId, resultId);
-  EXPECT_TRUE(builder.bbReturn(resultId));
+  builder.setInsertPoint(resultId);
+  builder.createReturn();
   EXPECT_TRUE(builder.endFunction());
 
   const auto result = builder.takeModule();

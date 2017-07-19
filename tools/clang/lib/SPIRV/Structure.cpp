@@ -50,13 +50,19 @@ void BasicBlock::take(InstBuilder *builder) {
   // Make sure we have a terminator instruction at the end.
   // TODO: This is a little bit ugly. It suggests that we should put the opcode
   // in the Instruction struct. But fine for now.
-  assert(!instructions.empty() && isTerminator(static_cast<spv::Op>(
-                                      instructions.back().front() & 0xffff)));
+  assert(isTerminated() && "found basic block without terminator");
   builder->opLabel(labelId).x();
   for (auto &inst : instructions) {
     builder->getConsumer()(std::move(inst));
   }
   clear();
+}
+
+bool BasicBlock::isTerminated() const {
+  return !instructions.empty() &&
+         isTerminator(
+             // Take the last 16 bits and convert it into opcode
+             static_cast<spv::Op>(instructions.back().front() & 0xffff));
 }
 
 Function::Function(Function &&that)
@@ -162,7 +168,7 @@ void SPIRVModule::take(InstBuilder *builder) {
   for (auto &inst : entryPoints) {
     builder
         ->opEntryPoint(inst.executionModel, inst.targetId,
-                       std::move(inst.targetName), std::move(inst.interfaces))
+                       std::move(inst.targetName), inst.interfaces)
         .x();
   }
 
@@ -194,7 +200,9 @@ void SPIRVModule::take(InstBuilder *builder) {
     consumer(std::move(c.constant));
   }
 
-  // TODO: global variables
+  for (auto &v : variables) {
+    consumer(std::move(v));
+  }
 
   for (uint32_t i = 0; i < functions.size(); ++i) {
     functions[i]->take(builder);
