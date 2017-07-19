@@ -502,6 +502,13 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+dxc_batch.exe -lib-link -multi-thread "%2"\..\CodeGenHLSL\batch_cmds2.txt 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to run dxc_batch -lib-link -multi-thread %2\..\CodeGenHLSL\batch_cmds2.txt
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 dxc_batch.exe -lib-link -multi-thread "%2"\..\CodeGenHLSL\batch_cmds.txt 1>nul
 if %errorlevel% neq 0 (
   echo Failed to run dxc_batch -lib-link -multi-thread %2\..\CodeGenHLSL\batch_cmds.txt

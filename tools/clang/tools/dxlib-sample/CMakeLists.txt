@@ -3,6 +3,10 @@
 # Build a dxlib_sample.dll as a sample for library and link.
 
 set(SOURCES
+  ../dxcompiler/dxcfilesystem.cpp
+  lib_cache_manager.cpp
+  lib_share_compile.cpp
+  lib_share_preprocessor.cpp
   dxlib_sample.cpp
   dxlib_sample.def
   )
@@ -24,6 +28,7 @@ target_link_libraries(dxlib_sample
   clangAST
   clangCodeGen
   clangSema
+  clangRewriteFrontend
   dxcompiler
   )
 

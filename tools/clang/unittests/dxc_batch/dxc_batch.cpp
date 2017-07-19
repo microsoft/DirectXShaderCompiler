@@ -920,7 +920,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       double duration_ms =
           std::chrono::duration<double, std::milli>(t_end - t_start).count();
 
-      fprintf(stderr, "duration: %f sec", duration_ms / 1000);
+      fprintf(stderr, "duration: %f sec\n", duration_ms / 1000);
     }
   } catch (const ::hlsl::Exception &hlslException) {
     PrintHlslException(hlslException, pStage);
