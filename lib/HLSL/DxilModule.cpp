@@ -1200,7 +1200,6 @@ void DxilModule::EmitDxilMetadata() {
       (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
     m_pMDHelper->EmitDxilViewIdState(GetViewIdState());
   }
-
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
