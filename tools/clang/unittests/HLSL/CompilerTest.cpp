@@ -528,6 +528,7 @@ public:
   TEST_METHOD(CodeGenLibCsEntry3)
   TEST_METHOD(CodeGenLibEntries)
   TEST_METHOD(CodeGenLibEntries2)
+  TEST_METHOD(CodeGenLibNoAlias)
   TEST_METHOD(CodeGenLibResource)
   TEST_METHOD(CodeGenLibUnusedFunc)
   TEST_METHOD(CodeGenLitInParen)
@@ -3204,6 +3205,10 @@ TEST_F(CompilerTest, CodeGenLibEntries) {
 
 TEST_F(CompilerTest, CodeGenLibEntries2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_entries2.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLibNoAlias) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_no_alias.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibResource) {

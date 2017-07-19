@@ -1695,6 +1695,14 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, llvm::Value *Arg,
   Arg->setName(D.getName());
 
   QualType Ty = D.getType();
+  // HLSL Change Begin - add noalias for all out param.
+  if (Ty.isRestrictQualified() && isa<llvm::Argument>(Arg)) {
+    llvm::Argument *AI = cast<llvm::Argument>(Arg);
+    if (!AI->hasNoAliasAttr())
+      AI->addAttr(llvm::AttributeSet::get(getLLVMContext(), AI->getArgNo() + 1,
+                                          llvm::Attribute::NoAlias));
+  }
+  // HLSL Change End
 
   // Use better IR generation for certain implicit parameters.
   if (isa<ImplicitParamDecl>(D)) {

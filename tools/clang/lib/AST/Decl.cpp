@@ -2362,6 +2362,10 @@ void ParmVarDecl::updateOutParamToRefType(ASTContext &C) {
   if ((!getType()->isArrayType() && !getType()->isRecordType()) ||
       hlsl::IsHLSLVecMatType(getType()))
     setType(C.getLValueReferenceType(getType(), false));
+  // Add restrict to out param.
+  QualType QT = getType();
+  QT.addRestrict();
+  setType(QT);
 }
 // HLSL Change Ends
 
