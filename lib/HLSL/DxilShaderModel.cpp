@@ -54,6 +54,7 @@ bool ShaderModel::IsValidForDxil() const {
       switch (m_Minor) {
       case 0:
       case 1:
+      case 2:
         return true;
       }
     }
@@ -116,9 +117,15 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
 
   unsigned Minor;
   switch (pszName[Idx++]) {
-  case '0': Minor = 0;  break;
-  case '1': Minor = 1;  break;
-  default:  return GetInvalid();
+    case '0': Minor = 0;  break;
+    case '1': Minor = 1;  break;
+    case '2':
+      if (Major == 6) {
+        Minor = 2;
+        break;
+      }
+      else return GetInvalid();
+    default:  return GetInvalid();
   }
   if (pszName[Idx++] != 0)
     return GetInvalid();
@@ -136,6 +143,9 @@ void ShaderModel::GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const
   case 1:
     DxilMinor = 1;
     break;
+  case 2:
+    DxilMinor = 2;
+    break;
   default:
     DXASSERT(0, "IsValidForDxil() should have caught this.");
     break;
@@ -151,6 +161,9 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor)
     break;
   case 1:
     ValMinor = 1;
+    break;
+  case 2:
+    ValMinor = 2;
     break;
   default:
     DXASSERT(0, "IsValidForDxil() should have caught this.");
@@ -184,11 +197,13 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Compute,  5, 1, "cs_5_1",  0,  0,   true,  true,  UINT_MAX),
   SM(Kind::Compute,  6, 0, "cs_6_0",  0,  0,   true,  true,  UINT_MAX),
   SM(Kind::Compute,  6, 1, "cs_6_1",  0,  0,   true,  true,  UINT_MAX),
+  SM(Kind::Compute,  6, 2, "cs_6_2",  0,  0,   true,  true,  UINT_MAX),
 
   SM(Kind::Domain,   5, 0, "ds_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Domain,   5, 1, "ds_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Domain,   6, 0, "ds_6_0",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Domain,   6, 1, "ds_6_1",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Domain,   6, 2, "ds_6_2",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Geometry, 4, 0, "gs_4_0",  16, 32,  false, false, 0),
   SM(Kind::Geometry, 4, 1, "gs_4_1",  32, 32,  false, false, 0),
@@ -196,11 +211,13 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Geometry, 5, 1, "gs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Geometry, 6, 0, "gs_6_0",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Geometry, 6, 1, "gs_6_1",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Geometry, 6, 2, "gs_6_2",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Hull,     5, 0, "hs_5_0",  32, 32,  true,  true,  64),
   SM(Kind::Hull,     5, 1, "hs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Hull,     6, 0, "hs_6_0",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Hull,     6, 1, "hs_6_1",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Hull,     6, 2, "hs_6_2",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Pixel,    4, 0, "ps_4_0",  32, 8,   false, false, 0),
   SM(Kind::Pixel,    4, 1, "ps_4_1",  32, 8,   false, false, 0),
@@ -208,6 +225,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Pixel,    5, 1, "ps_5_1",  32, 8,   true,  true,  UINT_MAX),
   SM(Kind::Pixel,    6, 0, "ps_6_0",  32, 8,   true,  true,  UINT_MAX),
   SM(Kind::Pixel,    6, 1, "ps_6_1",  32, 8,   true,  true,  UINT_MAX),
+  SM(Kind::Pixel,    6, 2, "ps_6_2",  32, 8,   true,  true,  UINT_MAX),
 
   SM(Kind::Vertex,   4, 0, "vs_4_0",  16, 16,  false, false, 0),
   SM(Kind::Vertex,   4, 1, "vs_4_1",  32, 32,  false, false, 0),
@@ -215,8 +233,10 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
   SM(Kind::Vertex,   5, 1, "vs_5_1",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Vertex,   6, 0, "vs_6_0",  32, 32,  true,  true,  UINT_MAX),
   SM(Kind::Vertex,   6, 1, "vs_6_1",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Vertex,   6, 2, "vs_6_2",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Library,  6, 1, "lib_6_1",  32, 32,  true,  true,  UINT_MAX),
+  SM(Kind::Library,  6, 2, "lib_6_2",  32, 32,  true,  true,  UINT_MAX),
 
   SM(Kind::Invalid,  0, 0, "invalid", 0,  0,   false, false, 0),
 };
