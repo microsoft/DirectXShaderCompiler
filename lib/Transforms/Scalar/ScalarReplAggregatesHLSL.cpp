@@ -4893,7 +4893,7 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
           TmpBuilder.SetInsertPoint(OldI->getNextNode());
         }
         // Split into scalar.
-        V = Builder.CreateExtractElement(OldV, (uint64_t)0);
+        V = TmpBuilder.CreateExtractElement(OldV, (uint64_t)0);
         vectorEltsMap[V].emplace_back(V);
         for (unsigned i = 1; i < vecSize; i++) {
           Value *Elt = TmpBuilder.CreateExtractElement(OldV, i);
