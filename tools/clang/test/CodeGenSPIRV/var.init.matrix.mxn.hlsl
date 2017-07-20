@@ -110,4 +110,42 @@ void main() {
                      intScalar, boolScalar,         // [1] - 1 scalar
                      boolVec3                       // [2]
     };
+
+    // Decomposing matrices
+    float2x2 mat8;
+    float2x4 mat9;
+    float4x1 mat10;
+    // TODO: Optimization opportunity. We are extracting all elements in each
+    // vector and then reconstructing the original vector. Optimally we should
+    // extract vectors from matrices directly.
+
+// CHECK-NEXT: [[mat8:%\d+]] = OpLoad %mat2v2float %mat8
+// CHECK-NEXT: [[mat8_00:%\d+]] = OpCompositeExtract %float [[mat8]] 0 0
+// CHECK-NEXT: [[mat8_01:%\d+]] = OpCompositeExtract %float [[mat8]] 0 1
+// CHECK-NEXT: [[mat8_10:%\d+]] = OpCompositeExtract %float [[mat8]] 1 0
+// CHECK-NEXT: [[mat8_11:%\d+]] = OpCompositeExtract %float [[mat8]] 1 1
+// CHECK-NEXT: [[cc21:%\d+]] = OpCompositeConstruct %v4float [[mat8_00]] [[mat8_01]] [[mat8_10]] [[mat8_11]]
+
+// CHECK-NEXT: [[mat9:%\d+]] = OpLoad %mat2v4float %mat9
+// CHECK-NEXT: [[mat9_00:%\d+]] = OpCompositeExtract %float [[mat9]] 0 0
+// CHECK-NEXT: [[mat9_01:%\d+]] = OpCompositeExtract %float [[mat9]] 0 1
+// CHECK-NEXT: [[mat9_02:%\d+]] = OpCompositeExtract %float [[mat9]] 0 2
+// CHECK-NEXT: [[mat9_03:%\d+]] = OpCompositeExtract %float [[mat9]] 0 3
+// CHECK-NEXT: [[mat9_10:%\d+]] = OpCompositeExtract %float [[mat9]] 1 0
+// CHECK-NEXT: [[mat9_11:%\d+]] = OpCompositeExtract %float [[mat9]] 1 1
+// CHECK-NEXT: [[mat9_12:%\d+]] = OpCompositeExtract %float [[mat9]] 1 2
+// CHECK-NEXT: [[mat9_13:%\d+]] = OpCompositeExtract %float [[mat9]] 1 3
+// CHECK-NEXT: [[cc22:%\d+]] = OpCompositeConstruct %v4float [[mat9_00]] [[mat9_01]] [[mat9_02]] [[mat9_03]]
+// CHECK-NEXT: [[cc23:%\d+]] = OpCompositeConstruct %v4float [[mat9_10]] [[mat9_11]] [[mat9_12]] [[mat9_13]]
+
+// CHECK-NEXT: [[mat10:%\d+]] = OpLoad %v4float %mat10
+// CHECK-NEXT: [[mat10_0:%\d+]] = OpCompositeExtract %float [[mat10]] 0
+// CHECK-NEXT: [[mat10_1:%\d+]] = OpCompositeExtract %float [[mat10]] 1
+// CHECK-NEXT: [[mat10_2:%\d+]] = OpCompositeExtract %float [[mat10]] 2
+// CHECK-NEXT: [[mat10_3:%\d+]] = OpCompositeExtract %float [[mat10]] 3
+// CHECK-NEXT: [[cc24:%\d+]] = OpCompositeConstruct %v4float [[mat10_0]] [[mat10_1]] [[mat10_2]] [[mat10_3]]
+
+// CHECK-NEXT: [[cc25:%\d+]] = OpCompositeConstruct %mat4v4float [[cc21]] [[cc22]] [[cc23]] [[cc24]]
+// CHECK-NEXT: OpStore %mat11 [[cc25]]
+    float4x4 mat11 = {mat8, mat9, mat10};
 }

@@ -16,6 +16,7 @@
 
 #include <deque>
 #include <utility>
+#include <vector>
 
 #include "clang/AST/Expr.h"
 #include "clang/Basic/Diagnostic.h"
@@ -96,6 +97,11 @@ private:
   /// Decomposes the given Expr and puts all elements into the end of the
   /// scalars queue.
   void decompose(const Expr *expr);
+  void decomposeVector(uint32_t vec, QualType elemType, uint32_t size);
+
+  /// If the next initializer is a struct, replaces it with MemberExprs to all
+  /// its members. Otherwise, does nothing.
+  void tryToSplitStruct();
 
   /// Emits the necessary SPIR-V instructions to create a SPIR-V value of the
   /// given type. The scalars and initializers queue will be used to fetch the
@@ -105,6 +111,7 @@ private:
   uint32_t createInitForVectorType(QualType elemType, uint32_t count);
   uint32_t createInitForMatrixType(QualType elemType, uint32_t rowCount,
                                    uint32_t colCount);
+  uint32_t createInitForStructType(QualType type);
 
 private:
   SPIRVEmitter &theEmitter;
@@ -112,8 +119,12 @@ private:
   TypeTranslator &typeTranslator;
   DiagnosticsEngine &diags;
 
-  /// A queue keeping track of unused AST nodes for initializers
-  std::deque<const Expr *> initializers;
+  /// A queue keeping track of unused AST nodes for initializers. Since we will
+  /// only comsume initializers from the head of the queue and will not add new
+  /// initializers to the tail of the queue, we use a vector (containing the
+  /// reverse of the original intializer list) here and manipulate its tail.
+  /// This is more efficient than using deque.
+  std::vector<const Expr *> initializers;
   /// A queue keeping track of previously extracted but unused scalars.
   /// Each element is a pair, with the first element as the SPIR-V <result-id>
   /// and the second element as the AST type of the scalar value.
