@@ -148,7 +148,7 @@ TEST(Structure, TakeModuleHaveAllContents) {
 
   // TODO: source code debug information
 
-  m.addDebugName(entryPointId, llvm::None, "main");
+  m.addDebugName(entryPointId, "main");
   appendVector(&expected, constructInst(spv::Op::OpName,
                                         {entryPointId, mainWord,
                                          /* additional null in name */ 0}));

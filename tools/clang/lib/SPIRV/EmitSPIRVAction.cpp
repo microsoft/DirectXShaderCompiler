@@ -412,7 +412,9 @@ public:
 
     const uint32_t funcType =
         theBuilder.getFunctionType(retType, residualParamTypes);
-    const uint32_t funcId = theBuilder.beginFunction(funcType, retType);
+    const std::string funcName = decl->getNameInfo().getAsString();
+    const uint32_t funcId =
+        theBuilder.beginFunction(funcType, retType, funcName);
 
     // Register all the "residual" parameters into the mapper.
     for (uint32_t i = 0; i < residualParams.size(); ++i) {
@@ -439,7 +441,7 @@ public:
     }
 
     // Record the entry function's <result-id>.
-    if (entryFunctionName == decl->getNameInfo().getAsString()) {
+    if (entryFunctionName == funcName) {
       entryFunctionId = funcId;
     }
 

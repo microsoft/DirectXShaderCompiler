@@ -41,7 +41,8 @@ public:
   /// \brief Begins building a SPIR-V function. At any time, there can only
   /// exist at most one function under building. Returns the <result-id> for the
   /// function on success. Returns zero on failure.
-  uint32_t beginFunction(uint32_t funcType, uint32_t returnType);
+  uint32_t beginFunction(uint32_t funcType, uint32_t returnType,
+                         std::string name = "");
 
   /// \brief Registers a function parameter of the given type onto the current
   /// function under construction and returns its <result-id>.

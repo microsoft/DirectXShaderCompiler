@@ -154,12 +154,12 @@ struct EntryPoint {
 
 /// \brief The struct representing a debug name.
 struct DebugName {
-  inline DebugName(uint32_t id, llvm::Optional<uint32_t> index,
-                   std::string targetName);
+  inline DebugName(uint32_t id, std::string targetName,
+                   llvm::Optional<uint32_t> index = llvm::None);
 
   const uint32_t targetId;
-  const llvm::Optional<uint32_t> memberIndex;
   const std::string name;
+  const llvm::Optional<uint32_t> memberIndex;
 };
 
 /// \brief The struct representing a deocoration and its target <result-id>.
@@ -224,9 +224,8 @@ public:
                             llvm::ArrayRef<uint32_t> intefaces);
   inline void addExecutionMode(Instruction &&);
   // TODO: source code debug information
-  inline void addDebugName(uint32_t targetId,
-                           llvm::Optional<uint32_t> memberIndex,
-                           std::string name);
+  inline void addDebugName(uint32_t targetId, std::string name,
+                           llvm::Optional<uint32_t> memberIndex = llvm::None);
   inline void addDecoration(const Decoration &decoration, uint32_t targetId);
   inline void addType(const Type *type, uint32_t resultId);
   inline void addConstant(const Type &type, Instruction &&constant);
@@ -303,9 +302,9 @@ EntryPoint::EntryPoint(spv::ExecutionModel em, uint32_t id, std::string name,
     : executionModel(em), targetId(id), targetName(std::move(name)),
       interfaces(interface) {}
 
-DebugName::DebugName(uint32_t id, llvm::Optional<uint32_t> index,
-                     std::string targetName)
-    : targetId(id), memberIndex(index), name(std::move(targetName)) {}
+DebugName::DebugName(uint32_t id, std::string targetName,
+                     llvm::Optional<uint32_t> index)
+    : targetId(id), name(std::move(targetName)), memberIndex(index) {}
 
 DecorationIdPair::DecorationIdPair(const Decoration &decor, uint32_t id)
     : decoration(decor), targetId(id) {}
@@ -343,10 +342,9 @@ void SPIRVModule::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
 void SPIRVModule::addExecutionMode(Instruction &&execMode) {
   executionModes.push_back(std::move(execMode));
 }
-void SPIRVModule::addDebugName(uint32_t targetId,
-                               llvm::Optional<uint32_t> memberIndex,
-                               std::string name) {
-  debugNames.emplace_back(targetId, memberIndex, std::move(name));
+void SPIRVModule::addDebugName(uint32_t targetId, std::string name,
+                               llvm::Optional<uint32_t> memberIndex) {
+  debugNames.emplace_back(targetId, std::move(name), memberIndex);
 }
 void SPIRVModule::addDecoration(const Decoration &decoration,
                                 uint32_t targetId) {
