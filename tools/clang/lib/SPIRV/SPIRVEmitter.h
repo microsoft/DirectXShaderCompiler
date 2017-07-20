@@ -220,6 +220,9 @@ private:
   /// Processes HLSL instrinsic functions.
   uint32_t processIntrinsicCallExpr(const CallExpr *);
 
+  /// Processes the 'mul' intrinsic function.
+  uint32_t processIntrinsicMul(const CallExpr *);
+
   /// Processes the 'dot' intrinsic function.
   uint32_t processIntrinsicDot(const CallExpr *);
 

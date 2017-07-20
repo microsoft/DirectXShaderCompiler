@@ -255,6 +255,7 @@ TEST_F(FileTest, SemanticArbitrary) { runFileTest("semantic.arbitrary.hlsl"); }
 
 // For intrinsic functions
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }
+TEST_F(FileTest, IntrinsicsMul) { runFileTest("intrinsics.mul.hlsl"); }
 TEST_F(FileTest, IntrinsicsAll) { runFileTest("intrinsics.all.hlsl"); }
 TEST_F(FileTest, IntrinsicsAny) { runFileTest("intrinsics.any.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsfloat) { runFileTest("intrinsics.asfloat.hlsl"); }
