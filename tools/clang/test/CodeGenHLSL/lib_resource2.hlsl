@@ -1,5 +1,11 @@
 // Check resource link with lib_cs_entry.hlsl
 
+RWStructuredBuffer<float2x2> unusedBuf;
+
+void UsedResFn(float2x2  m, uint gidx) {
+  unusedBuf[gidx] = m;
+}
+
 RWStructuredBuffer<float2x2> fA;
 
 void StoreOutputMat(float2x2  m, uint gidx) {
