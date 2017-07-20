@@ -2299,6 +2299,9 @@ static void ValidateInstructionMetadata(Instruction *I,
       ValidateTBAAMetadata(MD.second, ValCtx);
     } else if (MD.first == LLVMContext::MD_range) {
       // Validated in Verifier.cpp.
+    } else if (MD.first == LLVMContext::MD_noalias ||
+               MD.first == LLVMContext::MD_alias_scope) {
+      // noalias for DXIL validator >= 1.2
     } else {
       ValCtx.EmitMetaError(MD.second, ValidationRule::MetaUsed);
     }
@@ -2323,6 +2326,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       llvm::Instruction &I = *i;
 
       if (I.hasMetadata()) {
+
         ValidateInstructionMetadata(&I, ValCtx);
       }
 
