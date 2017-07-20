@@ -80,8 +80,12 @@ public:
   void setConsumer(WordConsumer);
   const WordConsumer &getConsumer() const;
 
-  /// \brief Finalizes the building.
+  /// \brief Finalizes the building and feeds the generated SPIR-V words
+  /// to the consumer.
   Status x();
+  /// \brief Finalizes the building and returns the generated SPIR-V words.
+  /// Returns an empty vector if errors happened during the construction.
+  std::vector<uint32_t> take();
   /// \brief Clears the current instruction under building.
   void clear();
 
@@ -786,6 +790,10 @@ public:
   InstBuilder &opSubgroupReadInvocationKHR(uint32_t result_type,
                                            uint32_t result_id, uint32_t value,
                                            uint32_t index);
+
+  // Methods for building constants.
+  InstBuilder &opConstant(uint32_t result_type, uint32_t result_id,
+                          uint32_t value);
 
   // Methods for supplying additional parameters.
   InstBuilder &fPFastMathMode(spv::FPFastMathModeMask);

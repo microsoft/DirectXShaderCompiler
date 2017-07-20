@@ -15,6 +15,33 @@
 namespace clang {
 namespace spirv {
 
+std::vector<uint32_t> InstBuilder::take() {
+  std::vector<uint32_t> result;
+
+  if (TheStatus == Status::Success && Expectation.empty() && !TheInst.empty()) {
+    TheInst.front() |= uint32_t(TheInst.size()) << 16;
+    result.swap(TheInst);
+  }
+
+  return result;
+}
+
+InstBuilder &InstBuilder::opConstant(uint32_t resultType, uint32_t resultId,
+                                     uint32_t value) {
+  if (!TheInst.empty()) {
+    TheStatus = Status::NestedInst;
+    return *this;
+  }
+
+  TheInst.reserve(4);
+  TheInst.emplace_back(static_cast<uint32_t>(spv::Op::OpConstant));
+  TheInst.emplace_back(resultType);
+  TheInst.emplace_back(resultId);
+  TheInst.emplace_back(value);
+
+  return *this;
+}
+
 void InstBuilder::encodeString(std::string value) {
   const auto &words = string::encodeSPIRVString(value);
   TheInst.insert(TheInst.end(), words.begin(), words.end());

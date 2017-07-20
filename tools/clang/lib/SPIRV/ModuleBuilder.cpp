@@ -47,9 +47,20 @@ uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
 uint32_t ModuleBuilder::addFnParameter(uint32_t type) {
   assert(theFunction && "found detached parameter");
 
+  const uint32_t pointerType =
+      getPointerType(type, spv::StorageClass::Function);
   const uint32_t paramId = theContext.takeNextId();
-  theFunction->addParameter(type, paramId);
+  theFunction->addParameter(pointerType, paramId);
+
   return paramId;
+}
+
+uint32_t ModuleBuilder::addFnVariable(uint32_t type) {
+  assert(theFunction && "found detached local variable");
+
+  const uint32_t varId = theContext.takeNextId();
+  theFunction->addVariable(type, varId);
+  return varId;
 }
 
 bool ModuleBuilder::endFunction() {
@@ -100,30 +111,46 @@ uint32_t ModuleBuilder::createLoad(uint32_t resultType, uint32_t pointer) {
   assert(insertPoint && "null insert point");
   const uint32_t resultId = theContext.takeNextId();
   instBuilder.opLoad(resultType, resultId, pointer, llvm::None).x();
-  insertPoint->addInstruction(std::move(constructSite));
+  insertPoint->appendInstruction(std::move(constructSite));
   return resultId;
 }
 
 void ModuleBuilder::createStore(uint32_t address, uint32_t value) {
   assert(insertPoint && "null insert point");
   instBuilder.opStore(address, value, llvm::None).x();
-  insertPoint->addInstruction(std::move(constructSite));
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
+uint32_t ModuleBuilder::createAccessChain(uint32_t resultType, uint32_t base,
+                                          llvm::ArrayRef<uint32_t> indexes) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.opAccessChain(resultType, id, base, indexes).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
 }
 
 void ModuleBuilder::createReturn() {
   assert(insertPoint && "null insert point");
   instBuilder.opReturn().x();
-  insertPoint->addInstruction(std::move(constructSite));
+  insertPoint->appendInstruction(std::move(constructSite));
 }
 
 void ModuleBuilder::createReturnValue(uint32_t value) {
   assert(insertPoint && "null insert point");
   instBuilder.opReturnValue(value).x();
-  insertPoint->addInstruction(std::move(constructSite));
+  insertPoint->appendInstruction(std::move(constructSite));
 }
 
 uint32_t ModuleBuilder::getVoidType() {
   const Type *type = Type::getVoid(theContext);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getInt32Type() {
+  const Type *type = Type::getInt32(theContext);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
   return typeId;
@@ -136,22 +163,32 @@ uint32_t ModuleBuilder::getFloatType() {
   return typeId;
 }
 
-uint32_t ModuleBuilder::getVec2Type(uint32_t elemType) {
-  const Type *type = Type::getVec2(theContext, elemType);
+uint32_t ModuleBuilder::getVecType(uint32_t elemType, uint32_t elemCount) {
+  const Type *type = nullptr;
+  switch (elemCount) {
+  case 2:
+    type = Type::getVec2(theContext, elemType);
+    break;
+  case 3:
+    type = Type::getVec3(theContext, elemType);
+    break;
+  case 4:
+    type = Type::getVec4(theContext, elemType);
+    break;
+  default:
+    assert(false && "unhandled vector size");
+    // Error found. Return 0 as the <result-id> directly.
+    return 0;
+  }
+
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
+
   return typeId;
 }
 
-uint32_t ModuleBuilder::getVec3Type(uint32_t elemType) {
-  const Type *type = Type::getVec3(theContext, elemType);
-  const uint32_t typeId = theContext.getResultIdForType(type);
-  theModule.addType(type, typeId);
-  return typeId;
-}
-
-uint32_t ModuleBuilder::getVec4Type(uint32_t elemType) {
-  const Type *type = Type::getVec4(theContext, elemType);
+uint32_t ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes) {
+  const Type *type = Type::getStruct(theContext, fieldTypes);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
   return typeId;
@@ -174,13 +211,45 @@ uint32_t ModuleBuilder::getPointerType(uint32_t pointeeType,
   return typeId;
 }
 
-uint32_t
-ModuleBuilder::addStageIOVariable(uint32_t type, spv::StorageClass storageClass,
-                                  llvm::Optional<uint32_t> initilizer) {
+uint32_t ModuleBuilder::getInt32Value(uint32_t value) {
+  const Type *i32Type = Type::getInt32(theContext);
+  const uint32_t i32TypeId = getInt32Type();
+  const uint32_t constantId = theContext.takeNextId();
+  instBuilder.opConstant(i32TypeId, constantId, value).x();
+  theModule.addConstant(*i32Type, std::move(constructSite));
+  return constantId;
+}
+
+uint32_t ModuleBuilder::addStageIOVariable(uint32_t type,
+                                           spv::StorageClass storageClass) {
   const uint32_t pointerType = getPointerType(type, storageClass);
   const uint32_t varId = theContext.takeNextId();
-  instBuilder.opVariable(pointerType, varId, storageClass, initilizer).x();
+  instBuilder.opVariable(pointerType, varId, storageClass, llvm::None).x();
   theModule.addVariable(std::move(constructSite));
+  return varId;
+}
+
+uint32_t ModuleBuilder::addStageBuiltinVariable(uint32_t type,
+                                                spv::BuiltIn builtin) {
+  spv::StorageClass sc = spv::StorageClass::Input;
+  switch (builtin) {
+  case spv::BuiltIn::Position:
+  case spv::BuiltIn::PointSize:
+    // TODO: add the rest output builtins
+    sc = spv::StorageClass::Output;
+    break;
+  default:
+    break;
+  }
+  const uint32_t pointerType = getPointerType(type, sc);
+  const uint32_t varId = theContext.takeNextId();
+  instBuilder.opVariable(pointerType, varId, sc, llvm::None).x();
+  theModule.addVariable(std::move(constructSite));
+
+  // Decorate with the specified Builtin
+  const Decoration *d = Decoration::getBuiltIn(theContext, builtin);
+  theModule.addDecoration(*d, varId);
+
   return varId;
 }
 

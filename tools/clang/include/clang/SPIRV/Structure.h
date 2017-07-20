@@ -18,6 +18,7 @@
 #ifndef LLVM_CLANG_SPIRV_STRUCTURE_H
 #define LLVM_CLANG_SPIRV_STRUCTURE_H
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
@@ -63,15 +64,18 @@ public:
   /// state.
   void take(InstBuilder *builder);
 
-  /// \brief Add an instruction to this basic block.
-  inline void addInstruction(Instruction &&);
+  /// \brief Appends an instruction to this basic block.
+  inline void appendInstruction(Instruction &&);
+
+  /// \brief Preprends an instruction to this basic block.
+  inline void prependInstruction(Instruction &&);
 
   /// \brief Returns true if this basic block is terminated.
   bool isTerminated() const;
 
 private:
   uint32_t labelId; ///< The label id for this basic block. Zero means invalid.
-  std::vector<Instruction> instructions;
+  std::deque<Instruction> instructions;
 };
 
 /// \brief The class representing a SPIR-V function.
@@ -99,11 +103,14 @@ public:
   void clear();
 
   /// \brief Serializes this function and feeds it to the comsumer in the given
-  /// InstBuilder. After this call, this function will be in an invalid state.
+  /// InstBuilder. After this call, this function will be in an empty state.
   void take(InstBuilder *builder);
 
   /// \brief Adds a parameter to this function.
   inline void addParameter(uint32_t paramResultType, uint32_t paramResultId);
+
+  /// \brief Adds a local variable to this function.
+  inline void addVariable(uint32_t varResultType, uint32_t varResultId);
 
   /// \brief Adds a basic block to this function.
   inline void addBasicBlock(std::unique_ptr<BasicBlock> block);
@@ -113,8 +120,11 @@ private:
   uint32_t resultId;
   spv::FunctionControlMask funcControl;
   uint32_t funcType;
+
   /// Parameter <result-type> and <result-id> pairs.
   std::vector<std::pair<uint32_t, uint32_t>> parameters;
+  /// Local variable <result-type> and <result-id> pairs.
+  std::vector<std::pair<uint32_t, uint32_t>> variables;
   std::vector<std::unique_ptr<BasicBlock>> blocks;
 };
 
@@ -268,8 +278,12 @@ void BasicBlock::clear() {
   instructions.clear();
 }
 
-void BasicBlock::addInstruction(Instruction &&inst) {
+void BasicBlock::appendInstruction(Instruction &&inst) {
   instructions.push_back(std::move(inst));
+}
+
+void BasicBlock::prependInstruction(Instruction &&inst) {
+  instructions.push_front(std::move(inst));
 }
 
 Function::Function()
@@ -288,6 +302,10 @@ bool Function::isEmpty() const {
 
 void Function::addParameter(uint32_t rType, uint32_t rId) {
   parameters.emplace_back(rType, rId);
+}
+
+void Function::addVariable(uint32_t varType, uint32_t varId) {
+  variables.emplace_back(varType, varId);
 }
 
 void Function::addBasicBlock(std::unique_ptr<BasicBlock> block) {

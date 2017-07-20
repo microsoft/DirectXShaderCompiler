@@ -15,6 +15,7 @@
 
 #include "spirv/1.0/spirv.hpp11"
 #include "clang/SPIRV/Decoration.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 
 namespace clang {
@@ -92,7 +93,7 @@ public:
                                      uint32_t component_type_id,
                                      DecorationSet decs = {});
   static const Type *getStruct(SPIRVContext &ctx,
-                               std::initializer_list<uint32_t> members,
+                               llvm::ArrayRef<uint32_t> members,
                                DecorationSet d = {});
   static const Type *getOpaque(SPIRVContext &ctx, std::string name,
                                DecorationSet decs = {});

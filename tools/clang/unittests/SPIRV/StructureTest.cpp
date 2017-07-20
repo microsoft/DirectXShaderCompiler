@@ -28,7 +28,7 @@ TEST(Structure, TakeBasicBlockHaveAllContents) {
   auto ib = constructInstBuilder(result);
 
   auto bb = BasicBlock(42);
-  bb.addInstruction(constructInst(spv::Op::OpReturn, {}));
+  bb.appendInstruction(constructInst(spv::Op::OpReturn, {}));
   bb.take(&ib);
 
   std::vector<uint32_t> expected;
@@ -41,7 +41,7 @@ TEST(Structure, TakeBasicBlockHaveAllContents) {
 
 TEST(Structure, AfterClearBasicBlockIsEmpty) {
   auto bb = BasicBlock(42);
-  bb.addInstruction(constructInst(spv::Op::OpNop, {}));
+  bb.appendInstruction(constructInst(spv::Op::OpNop, {}));
   EXPECT_FALSE(bb.isEmpty());
   bb.clear();
   EXPECT_TRUE(bb.isEmpty());
@@ -57,7 +57,7 @@ TEST(Structure, TakeFunctionHaveAllContents) {
   f.addParameter(1, 42);
 
   auto bb = llvm::make_unique<BasicBlock>(10);
-  bb->addInstruction(constructInst(spv::Op::OpReturn, {}));
+  bb->appendInstruction(constructInst(spv::Op::OpReturn, {}));
   f.addBasicBlock(std::move(bb));
 
   std::vector<uint32_t> result;
@@ -189,7 +189,7 @@ TEST(Structure, TakeModuleHaveAllContents) {
       voidId, funcId, spv::FunctionControlMask::MaskNone, funcTypeId);
   const uint32_t bbId = context.takeNextId();
   auto bb = llvm::make_unique<BasicBlock>(bbId);
-  bb->addInstruction(constructInst(spv::Op::OpReturn, {}));
+  bb->appendInstruction(constructInst(spv::Op::OpReturn, {}));
   f->addBasicBlock(std::move(bb));
   m.addFunction(std::move(f));
   appendVector(&expected, constructInst(spv::Op::OpFunction,

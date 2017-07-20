@@ -1,9 +1,5 @@
 // Run: %dxc -T vs_6_0 -E VSmain
 
-/*
-// This is the proper way to do it, but our code doesn't handle PSInput
-// as return type for now.
-
 struct PSInput {
   float4 position : POSITION;
   float4 color : COLOR;
@@ -15,40 +11,57 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
   result.color = color;
   return result;
 }
-*/
-
-float4 VSmain(float4 position: POSITION, float4 color: COLOR) {
-  return color;
-}
 
 // TODO:
-// Proper representation for the structure.
-// Input/Output interfaces for OpEntryPoint
-// Proper logic to determine ExecutionMode
-// Semantics
-// Function return value
+// Deduplicate integer constants
 
 
 // CHECK-WHOLE-SPIR-V:
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 11
+// ; Bound: 30
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
-// OpEntryPoint Vertex %VSmain "VSmain" %4
+// OpEntryPoint Vertex %VSmain "VSmain" %gl_Position %7 %8 %5
 // OpName %VSmain "VSmain"
-// OpDecorate %4 Location 0
+// OpDecorate %gl_Position BuiltIn Position
+// OpDecorate %7 Location 0
+// OpDecorate %8 Location 1
+// OpDecorate %5 Location 0
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
+// %_ptr_Output_v4float = OpTypePointer Output %v4float
 // %_ptr_Input_v4float = OpTypePointer Input %v4float
-// %5 = OpTypeFunction %v4float %v4float
 // %void = OpTypeVoid
-// %4 = OpVariable %_ptr_Input_v4float Input
-// %VSmain = OpFunction %v4float None %5
-// %7 = OpFunctionParameter %v4float
-// %8 = OpLabel
-// %9 = OpLoad %v4float %4
-// OpReturnValue %9
+// %10 = OpTypeFunction %void
+// %_struct_13 = OpTypeStruct %v4float %v4float
+// %_ptr_Function__struct_13 = OpTypePointer Function %_struct_13
+// %int = OpTypeInt 32 1
+// %_ptr_Function_v4float = OpTypePointer Function %v4float
+// %int_0 = OpConstant %int 0
+// %int_1 = OpConstant %int 1
+// %int_0_0 = OpConstant %int 0
+// %int_1_0 = OpConstant %int 1
+// %gl_Position = OpVariable %_ptr_Output_v4float Output
+// %5 = OpVariable %_ptr_Output_v4float Output
+// %7 = OpVariable %_ptr_Input_v4float Input
+// %8 = OpVariable %_ptr_Input_v4float Input
+// %VSmain = OpFunction %void None %10
+// %12 = OpLabel
+// %15 = OpVariable %_ptr_Function__struct_13 Function
+// %19 = OpAccessChain %_ptr_Function_v4float %15 %int_0
+// %20 = OpLoad %v4float %7
+// OpStore %19 %20
+// %22 = OpAccessChain %_ptr_Function_v4float %15 %int_1
+// %23 = OpLoad %v4float %8
+// OpStore %22 %23
+// %25 = OpAccessChain %_ptr_Function_v4float %15 %int_0_0
+// %26 = OpLoad %v4float %25
+// OpStore %gl_Position %26
+// %28 = OpAccessChain %_ptr_Function_v4float %15 %int_1_0
+// %29 = OpLoad %v4float %28
+// OpStore %5 %29
+// OpReturn
 // OpFunctionEnd
