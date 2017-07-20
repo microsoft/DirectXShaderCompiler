@@ -243,6 +243,13 @@ void ModuleBuilder::createSwitch(
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
+void ModuleBuilder::createKill() {
+  assert(insertPoint && "null insert point");
+  assert(!isCurrentBasicBlockTerminated());
+  instBuilder.opKill().x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
 void ModuleBuilder::createBranch(uint32_t targetLabel, uint32_t mergeBB,
                                  uint32_t continueBB,
                                  spv::LoopControlMask loopControl) {

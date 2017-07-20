@@ -233,6 +233,13 @@ TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 // For function calls
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
 
+// For early returns
+TEST_F(FileTest, EarlyReturn) { runFileTest("cf.return.early.hlsl"); }
+TEST_F(FileTest, EarlyReturnFloat4) { runFileTest("cf.return.early.float4.hlsl"); }
+
+// For discard
+TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
+
 // For semantics
 TEST_F(FileTest, SemanticPositionVS) {
   runFileTest("semantic.position.vs.hlsl");

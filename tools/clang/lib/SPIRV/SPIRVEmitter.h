@@ -74,6 +74,7 @@ private:
   void doVarDecl(const VarDecl *decl);
 
   void doBreakStmt(const BreakStmt *stmt);
+  void doDiscardStmt(const DiscardStmt *stmt);
   inline void doDeclStmt(const DeclStmt *stmt);
   void doForStmt(const ForStmt *, llvm::ArrayRef<const Attr *> attrs = {});
   void doIfStmt(const IfStmt *ifStmt);
@@ -95,6 +96,12 @@ private:
   uint32_t doInitListExpr(const InitListExpr *expr);
   uint32_t doMemberExpr(const MemberExpr *expr);
   uint32_t doUnaryOperator(const UnaryOperator *expr);
+
+private:
+  /// Translates the return statement into its SPIR-V equivalent. Also generates
+  /// necessary instructions for the entry function ensuring that the signature
+  /// matches the SPIR-V requirements.
+  void processReturnStmt(const ReturnStmt *stmt);
 
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
