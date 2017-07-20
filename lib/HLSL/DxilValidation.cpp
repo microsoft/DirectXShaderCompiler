@@ -2299,6 +2299,9 @@ static void ValidateInstructionMetadata(Instruction *I,
       ValidateTBAAMetadata(MD.second, ValCtx);
     } else if (MD.first == LLVMContext::MD_range) {
       // Validated in Verifier.cpp.
+    } else if (MD.first == LLVMContext::MD_noalias ||
+               MD.first == LLVMContext::MD_alias_scope) {
+      // noalias for DXIL validator >= 1.2
     } else {
       ValCtx.EmitMetaError(MD.second, ValidationRule::MetaUsed);
     }
@@ -2323,6 +2326,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       llvm::Instruction &I = *i;
 
       if (I.hasMetadata()) {
+
         ValidateInstructionMetadata(&I, ValCtx);
       }
 
@@ -2756,7 +2760,7 @@ static void ValidateDxilVersion(ValidationContext &ValCtx) {
           GetNodeOperandAsInt(ValCtx, pVerValues, 1, &minorVer)) {
         // This will need to be updated as dxil major/minor versions evolve,
         // depending on the degree of compat across versions.
-        if ((majorVer == 1 && minorVer < 2) &&
+        if ((majorVer == 1 && minorVer < 3) &&
             (majorVer == ValCtx.m_DxilMajor && minorVer == ValCtx.m_DxilMinor)) {
           return;
         }
@@ -4101,8 +4105,10 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // 1.0 is the first validator.
   // 1.1 adds:
   // - ILDN container part support
+  // 1.2 adds:
+  // - Metadata for floating point denorm mode
   *pMajor = 1;
-  *pMinor = 1;
+  *pMinor = 2;
 }
 
 _Use_decl_annotations_ HRESULT

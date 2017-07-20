@@ -1441,7 +1441,7 @@ public:
 
   const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
 
-  void patchValidation_1_0(Module &M) {
+  void patchValidation_1_1(Module &M) {
     for (iplist<Function>::iterator F : M.getFunctionList()) {
       for (Function::iterator BBI = F->begin(), BBE = F->end(); BBI != BBE;
            ++BBI) {
@@ -1477,7 +1477,7 @@ public:
       unsigned ValMinor = 0;
       M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
       if (ValMajor == 1 && ValMinor <= 1) {
-        patchValidation_1_0(M);
+        patchValidation_1_1(M);
       }
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (!hlslOP->IsDxilOpFunc(F))
