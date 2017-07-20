@@ -39,6 +39,7 @@
 #include "dia2.h"
 
 #include <fstream>
+#include <filesystem>
 
 using namespace std;
 using namespace hlsl_test;
@@ -1008,6 +1009,7 @@ public:
   TEST_METHOD(ConstantFolding)
   TEST_METHOD(HoistConstantArray)
   TEST_METHOD(ViewID)
+  TEST_METHOD(ShaderCompatSuite)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -5257,4 +5259,19 @@ TEST_F(CompilerTest, ViewID) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid16.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid17.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid18.hlsl");
+}
+
+TEST_F(CompilerTest, ShaderCompatSuite) {
+  using namespace std::experimental::filesystem;
+  LPCWSTR suitePath = L"..\\CodeGenHLSL\\shader-compat-suite";
+  std::wstring codeGenPath = hlsl_test::GetPathToHlslDataFile(suitePath);
+  for (auto &p: recursive_directory_iterator(path(codeGenPath))) {
+    if (is_regular_file(p)) {
+      auto filename = p.path().filename();
+      if (wcsstr(filename.c_str(), L".hlsl") == nullptr) continue;
+      path rel_path(suitePath);
+      rel_path = rel_path.append(filename);
+      CodeGenTestCheck(rel_path.c_str());
+    }
+  }
 }

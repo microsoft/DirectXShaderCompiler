@@ -4829,7 +4829,17 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
     // Create load here to make correct type.
     // The Ptr will be store with correct value in replaceCastParameter and
     // replaceCastArgument.
-    V = Builder.CreateLoad(Ptr);
+    if (Ptr->hasOneUse()) {
+      // Load after existing user for call arg replace.
+      // If not, call arg will load undef.
+      // This will not hurt parameter, new load is only after first load.
+      // It still before all the load users.
+      Instruction *User = cast<Instruction>(*(Ptr->user_begin()));
+      IRBuilder<> CallBuilder(User->getNextNode());
+      V = CallBuilder.CreateLoad(Ptr);
+    } else {
+      V = Builder.CreateLoad(Ptr);
+    }
     castParamMap[V] = std::make_pair(Ptr, inputQual);
   }
 
@@ -4877,11 +4887,16 @@ Value *SROA_Parameter_HLSL::castArgumentIfRequired(
           vectorEltsMap[V].emplace_back(Elt);
         }
       } else {
+        IRBuilder<> TmpBuilder(Builder.GetInsertPoint());
+        // Make sure extract element after OldV.
+        if (Instruction *OldI = dyn_cast<Instruction>(OldV)) {
+          TmpBuilder.SetInsertPoint(OldI->getNextNode());
+        }
         // Split into scalar.
         V = Builder.CreateExtractElement(OldV, (uint64_t)0);
         vectorEltsMap[V].emplace_back(V);
         for (unsigned i = 1; i < vecSize; i++) {
-          Value *Elt = Builder.CreateExtractElement(OldV, i);
+          Value *Elt = TmpBuilder.CreateExtractElement(OldV, i);
           vectorEltsMap[V].emplace_back(Elt);
         }
       }
@@ -5673,6 +5688,9 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   std::unique_ptr<BasicBlock> TmpBlockForFuncDecl;
   if (F->isDeclaration()) {
     TmpBlockForFuncDecl.reset(BasicBlock::Create(Ctx));
+    // Create return as terminator.
+    IRBuilder<> RetBuilder(TmpBlockForFuncDecl.get());
+    RetBuilder.CreateRetVoid();
   }
 
   std::vector<Value *> FlatParamList;
@@ -5690,7 +5708,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     if (!F->isDeclaration()) {
       Builder.SetInsertPoint(F->getEntryBlock().getFirstInsertionPt());
     } else {
-      Builder.SetInsertPoint(TmpBlockForFuncDecl.get());
+      Builder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
     }
 
     unsigned prevFlatParamCount = FlatParamList.size();
@@ -5716,7 +5734,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     if (!F->isDeclaration()) {
       Builder.SetInsertPoint(F->getEntryBlock().getFirstInsertionPt());
     } else {
-      Builder.SetInsertPoint(TmpBlockForFuncDecl.get());
+      Builder.SetInsertPoint(TmpBlockForFuncDecl->getFirstInsertionPt());
     }
     Value *retValAddr = Builder.CreateAlloca(retType);
     DxilParameterAnnotation &retAnnotation =
