@@ -12,11 +12,12 @@ void main()
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
-// OpEntryPoint Fragment %3 "main"
-// OpExecutionMode %3 OriginUpperLeft
+// OpEntryPoint Fragment %main "main"
+// OpExecutionMode %main OriginUpperLeft
+// OpName %main "main"
 // %void = OpTypeVoid
 // %2 = OpTypeFunction %void
-// %3 = OpFunction %void None %2
+// %main = OpFunction %void None %2
 // %4 = OpLabel
 // OpReturn
 // OpFunctionEnd
