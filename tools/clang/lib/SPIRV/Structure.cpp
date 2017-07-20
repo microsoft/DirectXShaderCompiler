@@ -78,6 +78,7 @@ Function &Function::operator=(Function &&that) {
   funcControl = that.funcControl;
   funcType = that.funcType;
   parameters = std::move(that.parameters);
+  variables = std::move(that.variables);
   blocks = std::move(that.blocks);
 
   that.clear();
@@ -91,17 +92,32 @@ void Function::clear() {
   funcControl = spv::FunctionControlMask::MaskNone;
   funcType = 0;
   parameters.clear();
+  variables.clear();
   blocks.clear();
 }
 
 void Function::take(InstBuilder *builder) {
   builder->opFunction(resultType, resultId, funcControl, funcType).x();
+
+  // Write out all parameters.
   for (auto &param : parameters) {
     builder->opFunctionParameter(param.first, param.second).x();
   }
+
+  // Preprend all local variables to the entry block.
+  for (auto &var : variables) {
+    blocks.front()->prependInstruction(
+        builder
+            ->opVariable(var.first, var.second, spv::StorageClass::Function,
+                         llvm::None)
+            .take());
+  }
+
+  // Write out all basic blocks.
   for (auto &block : blocks) {
     block->take(builder);
   }
+
   builder->opFunctionEnd().x();
   clear();
 }

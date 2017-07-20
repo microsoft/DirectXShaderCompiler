@@ -16,7 +16,7 @@ namespace spirv {
 
 Type::Type(spv::Op op, std::vector<uint32_t> arg,
            std::set<const Decoration *> decs)
-    : opcode(op), args(arg), decorations(decs) {}
+    : opcode(op), args(std::move(arg)), decorations(std::move(decs)) {}
 
 const Type *Type::getUniqueType(SPIRVContext &context, const Type &t) {
   return context.registerType(t);
@@ -125,8 +125,7 @@ const Type *Type::getRuntimeArray(SPIRVContext &context,
   return getUniqueType(context, t);
 }
 const Type *Type::getStruct(SPIRVContext &context,
-                            std::initializer_list<uint32_t> members,
-                            DecorationSet d) {
+                            llvm::ArrayRef<uint32_t> members, DecorationSet d) {
   Type t = Type(spv::Op::OpTypeStruct, std::vector<uint32_t>(members), d);
   return getUniqueType(context, t);
 }

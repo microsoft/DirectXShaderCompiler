@@ -216,11 +216,11 @@ void WholeFileTest::runWholeFileTest(std::string filename, bool generateHeader,
   // Disassemble the generated SPIR-V binary.
   ASSERT_TRUE(disassembleSpirvBinary(generateHeader));
 
-  // Run SPIR-V validation if requested.
-  if (runSpirvValidation) {
-    ASSERT_TRUE(validateSpirvBinary());
-  }
-
   // Compare the expected and the generted SPIR-V code.
   EXPECT_EQ(expectedSpirvAsm, generatedSpirvAsm);
+
+  // Run SPIR-V validation if requested.
+  if (runSpirvValidation) {
+    EXPECT_TRUE(validateSpirvBinary());
+  }
 }

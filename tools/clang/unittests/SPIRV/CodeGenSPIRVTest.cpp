@@ -15,17 +15,17 @@ TEST_F(WholeFileTest, EmptyVoidMain) {
   // TODO: change this test such that it does run validation.
   runWholeFileTest("empty-void-main.hlsl2spv",
                    /*generateHeader*/ true,
-                   /*runValidation*/ false);
+                   /*runValidation*/ true);
 }
 
 TEST_F(WholeFileTest, PassThruPixelShader) {
   runWholeFileTest("passthru-ps.hlsl2spv",
                    /*generateHeader*/ true,
-                   /*runValidation*/ false);
+                   /*runValidation*/ true);
 }
 
 TEST_F(WholeFileTest, PassThruVertexShader) {
   runWholeFileTest("passthru-vs.hlsl2spv",
                    /*generateHeader*/ true,
-                   /*runValidation*/ false);
+                   /*runValidation*/ true);
 }

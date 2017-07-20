@@ -45,8 +45,15 @@ public:
                          std::string name = "");
 
   /// \brief Registers a function parameter of the given type onto the current
-  /// function under construction and returns its <result-id>.
+  /// function and returns its <result-id>.
   uint32_t addFnParameter(uint32_t type);
+
+  /// \brief Creates a local variable of the given value type in the current
+  /// function and returns its <result-id>.
+  ///
+  /// The corresponding pointer type of the given value type will be constructed
+  /// for the variable itself.
+  uint32_t addFnVariable(uint32_t valueType);
 
   /// \brief Ends building of the current function. Returns true of success,
   /// false on failure. All basic blocks constructed from the beginning or
@@ -75,6 +82,12 @@ public:
   /// address.
   void createStore(uint32_t address, uint32_t value);
 
+  /// \brief Creates an access chain instruction to retrieve the element from
+  /// the given base by walking through the given indexes. Returns the
+  /// <result-id> for the pointer to the element.
+  uint32_t createAccessChain(uint32_t resultType, uint32_t base,
+                             llvm::ArrayRef<uint32_t> indexes);
+
   /// \brief Creates a return instruction.
   void createReturn();
   /// \brief Creates a return value instruction.
@@ -101,8 +114,13 @@ public:
   ///
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
-  uint32_t addStageIOVariable(uint32_t type, spv::StorageClass storageClass,
-                              llvm::Optional<uint32_t> initializer);
+  uint32_t addStageIOVariable(uint32_t type, spv::StorageClass storageClass);
+
+  /// \brief Adds a stage builtin variable whose value is of the given type.
+  ///
+  /// The corresponding pointer type of the given type will be constructed in
+  /// this method for the variable itself.
+  uint32_t addStageBuiltinVariable(uint32_t type, spv::BuiltIn);
 
   /// \brief Decorates the given target <result-id> with the given location.
   void decorateLocation(uint32_t targetId, uint32_t location);
@@ -110,13 +128,17 @@ public:
   // === Type ===
 
   uint32_t getVoidType();
+  uint32_t getInt32Type();
   uint32_t getFloatType();
-  uint32_t getVec2Type(uint32_t elemType);
-  uint32_t getVec3Type(uint32_t elemType);
-  uint32_t getVec4Type(uint32_t elemType);
+  uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
   uint32_t getPointerType(uint32_t pointeeType, spv::StorageClass);
+  uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes);
   uint32_t getFunctionType(uint32_t returnType,
                            const std::vector<uint32_t> &paramTypes);
+
+  // === Constant ===
+
+  uint32_t getInt32Value(uint32_t value);
 
 private:
   /// \brief Map from basic blocks' <label-id> to their structured
