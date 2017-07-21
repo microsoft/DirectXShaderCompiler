@@ -203,6 +203,12 @@ private:
   uint32_t processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
                                  const BinaryOperatorKind opcode);
 
+  /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
+  /// and writes into indices. Returns the real base (the first Expr that is not
+  /// a MemberExpr).
+  const Expr *collectStructIndices(const MemberExpr *expr,
+                                   llvm::SmallVectorImpl<uint32_t> *indices);
+
 private:
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.

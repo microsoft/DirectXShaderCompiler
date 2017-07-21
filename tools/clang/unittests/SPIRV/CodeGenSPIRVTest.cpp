@@ -175,6 +175,9 @@ TEST_F(FileTest, OpMatrixAccess1x1) {
   runFileTest("op.matrix.access.1x1.hlsl");
 }
 
+// For struct accessing operator
+TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
+
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
 TEST_F(FileTest, CastImplicit2Bool) { runFileTest("cast.2bool.implicit.hlsl"); }

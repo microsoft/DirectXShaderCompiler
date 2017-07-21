@@ -1554,20 +1554,15 @@ uint32_t SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
-  const uint32_t base = doExpr(expr->getBase());
-  const auto *memberDecl = expr->getMemberDecl();
-  if (const auto *fieldDecl = dyn_cast<FieldDecl>(memberDecl)) {
-    const auto index = theBuilder.getConstantInt32(fieldDecl->getFieldIndex());
-    const uint32_t fieldType =
-        typeTranslator.translateType(fieldDecl->getType());
-    const uint32_t ptrType = theBuilder.getPointerType(
-        fieldType, declIdMapper.resolveStorageClass(expr->getBase()));
-    return theBuilder.createAccessChain(ptrType, base, {index});
-  }
+  llvm::SmallVector<uint32_t, 4> indices;
 
-  emitError("Decl '%0' in MemberExpr is not supported yet.")
-      << memberDecl->getDeclKindName();
-  return 0;
+  const Expr *baseExpr = collectStructIndices(expr, &indices);
+  const uint32_t base = doExpr(baseExpr);
+
+  const uint32_t fieldType = typeTranslator.translateType(expr->getType());
+  const uint32_t ptrType = theBuilder.getPointerType(
+      fieldType, declIdMapper.resolveStorageClass(baseExpr));
+  return theBuilder.createAccessChain(ptrType, base, indices);
 }
 
 uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
@@ -2355,6 +2350,27 @@ uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   emitError("BinaryOperator '%0' for matrices not supported yet")
       << BinaryOperator::getOpcodeStr(opcode);
   return 0;
+}
+
+const Expr *
+SPIRVEmitter::collectStructIndices(const MemberExpr *expr,
+                                   llvm::SmallVectorImpl<uint32_t> *indices) {
+  const Expr *base = expr->getBase();
+  if (const auto *memExpr = dyn_cast<MemberExpr>(base)) {
+    base = collectStructIndices(memExpr, indices);
+  } else {
+    indices->clear();
+  }
+
+  const auto *memberDecl = expr->getMemberDecl();
+  if (const auto *fieldDecl = dyn_cast<FieldDecl>(memberDecl)) {
+    indices->push_back(theBuilder.getConstantInt32(fieldDecl->getFieldIndex()));
+  } else {
+    emitError("Decl '%0' in MemberExpr is not supported yet.")
+        << memberDecl->getDeclKindName();
+  }
+
+  return base;
 }
 
 uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
