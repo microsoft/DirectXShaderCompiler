@@ -133,7 +133,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
           llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "PIX_CountUAV_Type");
           std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
           pUAV->SetGlobalName("PIX_CountUAVName");
-          pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy));
+          pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
           pUAV->SetID(0);
           pUAV->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
           pUAV->SetSampleCount(1);
@@ -142,7 +142,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
           pUAV->SetCompType(CompType::getI32());
           pUAV->SetLowerBound(0);
           pUAV->SetRangeSize(1);
-          pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
+          pUAV->SetKind(DXIL::ResourceKind::StructuredBuffer);
+          pUAV->SetElementStride(4);
 
           ID = DM.AddUAV(std::move(pUAV));
 
@@ -178,12 +179,13 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
         { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, One8Arg /*column*/, UndefArg }, "YPos");
 
         // Calculate offset
-        Constant* RTWidthArg = HlslOP->GetFloatConst((float)RTWidth);
-        auto YOffset = Builder.CreateFMul(YPos, RTWidthArg);
-        auto FloatIndex = Builder.CreateFAdd(XPos, YOffset);
 
-        // Cast to int
-        auto Index = Builder.CreateCast(Instruction::CastOps::FPToUI, FloatIndex, Type::getInt32Ty(Ctx), "Index");
+        auto XAsInt = Builder.CreateCast(Instruction::CastOps::FPToUI, XPos, Type::getInt32Ty(Ctx), "XIndex");
+        auto YAsInt = Builder.CreateCast(Instruction::CastOps::FPToUI, YPos, Type::getInt32Ty(Ctx), "YIndex");
+
+        Constant* RTWidthArg = HlslOP->GetI32Const(RTWidth);
+        auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg);
+        auto Index = Builder.CreateAdd(XAsInt, YOffset);
 
         // Insert the UAV increment instruction:
         Function* UAVIncrement = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
