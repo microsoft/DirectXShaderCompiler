@@ -3,6 +3,7 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_library(clangSPIRV
+  Constant.cpp
   Decoration.cpp
   EmitSPIRVAction.cpp
   InstBuilderAuto.cpp

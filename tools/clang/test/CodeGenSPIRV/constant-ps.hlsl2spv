@@ -1,0 +1,34 @@
+// Run: %dxc -T ps_6_0 -E main
+float4 main(): SV_TARGET
+{
+  return float4(1.0f, 2.0f, 3.5f, 4.7f);
+}
+
+// CHECK-WHOLE-SPIR-V:
+// ; SPIR-V
+// ; Version: 1.0
+// ; Generator: Google spiregg; 0
+// ; Bound: 14
+// ; Schema: 0
+// OpCapability Shader
+// OpMemoryModel Logical GLSL450
+// OpEntryPoint Fragment %main "main" %4
+// OpExecutionMode %main OriginUpperLeft
+// OpName %main "main"
+// OpDecorate %4 Location 0
+// %float = OpTypeFloat 32
+// %v4float = OpTypeVector %float 4
+// %_ptr_Output_v4float = OpTypePointer Output %v4float
+// %void = OpTypeVoid
+// %6 = OpTypeFunction %void
+// %float_1 = OpConstant %float 1
+// %float_2 = OpConstant %float 2
+// %float_3_5 = OpConstant %float 3.5
+// %float_4_7 = OpConstant %float 4.7
+// %13 = OpConstantComposite %v4float %float_1 %float_2 %float_3_5 %float_4_7
+// %4 = OpVariable %_ptr_Output_v4float Output
+// %main = OpFunction %void None %6
+// %8 = OpLabel
+// OpStore %4 %13
+// OpReturn
+// OpFunctionEnd

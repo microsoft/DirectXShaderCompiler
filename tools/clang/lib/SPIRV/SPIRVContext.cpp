@@ -32,10 +32,34 @@ uint32_t SPIRVContext::getResultIdForType(const Type *t) {
   return result_id;
 }
 
+uint32_t SPIRVContext::getResultIdForConstant(const Constant *c) {
+  assert(c != nullptr);
+  uint32_t result_id = 0;
+
+  auto iter = constantResultIdMap.find(c);
+  if (iter == constantResultIdMap.end()) {
+    // The constant has not been defined yet. Reserve an ID for it.
+    result_id = takeNextId();
+    constantResultIdMap[c] = result_id;
+  } else {
+    result_id = iter->second;
+  }
+
+  assert(result_id != 0);
+  return result_id;
+}
+
 const Type *SPIRVContext::registerType(const Type &t) {
   // Insert function will only insert if it doesn't already exist in the set.
   TypeSet::iterator it;
   std::tie(it, std::ignore) = existingTypes.insert(t);
+  return &*it;
+}
+
+const Constant *SPIRVContext::registerConstant(const Constant &c) {
+  // Insert function will only insert if it doesn't already exist in the set.
+  ConstantSet::iterator it;
+  std::tie(it, std::ignore) = existingConstants.insert(c);
   return &*it;
 }
 

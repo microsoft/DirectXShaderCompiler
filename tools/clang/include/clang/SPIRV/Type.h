@@ -40,9 +40,7 @@ public:
 
   spv::Op getOpcode() const { return opcode; }
   const std::vector<uint32_t> &getArgs() const { return args; }
-  const std::set<const Decoration *> &getDecorations() const {
-    return decorations;
-  }
+  const DecorationSet &getDecorations() const { return decorations; }
   bool hasDecoration(const Decoration *) const;
 
   bool isBooleanType() const;
@@ -131,7 +129,7 @@ private:
 private:
   spv::Op opcode;             ///< OpCode of the Type defined in SPIR-V Spec
   std::vector<uint32_t> args; ///< Arguments needed to define the type
-  std::set<const Decoration *> decorations; ///< decorations applied to the type
+  DecorationSet decorations;  ///< decorations applied to the type
 };
 
 } // end namespace spirv
