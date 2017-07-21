@@ -20,8 +20,11 @@ class DiagnosticsEngine;
 }
 
 namespace llvm {
+class LLVMContext;
+class MemoryBuffer;
 class Module;
 class raw_string_ostream;
+class StringRef;
 class Twine;
 } // namespace llvm
 
@@ -51,5 +54,12 @@ void CreateOperationResultFromOutputs(
     _COM_Outptr_ IDxcOperationResult **ppResult);
 
 bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
+
+std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,
+                                                    llvm::LLVMContext &Ctx,
+                                                    std::string &DiagStr);
+std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::MemoryBuffer *MB,
+                                                    llvm::LLVMContext &Ctx,
+                                                    std::string &DiagStr);
 
 } // namespace dxcutil

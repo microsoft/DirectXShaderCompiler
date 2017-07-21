@@ -34,6 +34,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include <algorithm>
 #include <comdef.h>
+#include "dxcutil.h"
 
 using namespace llvm;
 using namespace clang;
@@ -1998,13 +1999,14 @@ public:
       m_context = std::make_shared<LLVMContext>();
       std::unique_ptr<MemoryBuffer> pBuffer =
           getMemBufferFromStream(pIStream, "data");
-      ErrorOr<std::unique_ptr<llvm::Module>> module =
-          parseBitcodeFile(pBuffer->getMemBufferRef(), *m_context.get());
-      if (!module)
+      std::string DiagStr;
+      std::unique_ptr<llvm::Module> pModule = dxcutil::LoadModuleFromBitcode(
+          pBuffer.get(), *m_context.get(), DiagStr);
+      if (!pModule.get())
         return E_FAIL;
       m_finder = std::make_shared<DebugInfoFinder>();
-      m_finder->processModule(*module.get().get());
-      m_module.reset(module.get().release());
+      m_finder->processModule(*pModule.get());
+      m_module.reset(pModule.release());
     }
     CATCH_CPP_RETURN_HRESULT();
     return S_OK;
