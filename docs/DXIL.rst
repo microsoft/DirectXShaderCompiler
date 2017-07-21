@@ -130,7 +130,7 @@ Main two features that were introduced for DXIL1.1 (Shader Model 6.1) are view i
 
 DXIL 1.2 Changes
 ----------------
-* New format for typeannotations_. for functions to indicate floating point operations behavior for per function basis.
+* New format for type-annotations_ for functions to indicate floating point operations behavior for per function basis.
 
 
 LLVM Bitcode version
@@ -399,7 +399,7 @@ HLSL precise type qualifier requires that all operations contributing to the val
 
 Precise behavior is represented in LLVM instructions: fadd, fsub, fmul, fdiv, frem, fcmp by not having 'fast' math flags set. Each relevant call instruction that contributes to computation of a precise value is annotated with dx.precise metadata that indicates that it is illegal for the driver compiler to perform IEEE-unsafe optimizations.
 
-.. _typeannotations:
+.. _type-annotations:
 
 Type annotations
 ----------------
@@ -434,7 +434,7 @@ User-defined types are annotated in DXIL to 'attach' additional properties to st
   !16 = !{null, !"lib.no::entry", null, null, null}
 
 The type/field annotation metadata hierarchy recursively mimics LLVM type hierarchy.
-dx.typeAnnotations is a metadata of type annotation nodes, where each node represents type annotation of a certain type:
+dx.typeAnnotations is a metadata of type annotation nodes, where each node represents type annotation of a certain type::
 
   !dx.typeAnnotations = !{!3, !7}
 
