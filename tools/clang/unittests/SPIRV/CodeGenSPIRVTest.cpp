@@ -9,10 +9,10 @@
 
 #include "WholeFileCheck.h"
 
+namespace {
+using clang::spirv::WholeFileTest;
+
 TEST_F(WholeFileTest, EmptyVoidMain) {
-  // Ideally all generated SPIR-V must be valid, but this currently fails with
-  // this error message: "No OpEntryPoint instruction was found...".
-  // TODO: change this test such that it does run validation.
   runWholeFileTest("empty-void-main.hlsl2spv",
                    /*generateHeader*/ true,
                    /*runValidation*/ true);
@@ -33,5 +33,6 @@ TEST_F(WholeFileTest, PassThruVertexShader) {
 TEST_F(WholeFileTest, ConstantPixelShader) {
   runWholeFileTest("constant-ps.hlsl2spv",
                    /*generateHeader*/ true,
-                   /*runValidation*/ false);
+                   /*runValidation*/ true);
+}
 }

@@ -107,8 +107,8 @@ public:
                             llvm::ArrayRef<uint32_t> interfaces);
 
   /// \brief Adds an execution mode to the module under construction.
-  inline void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
-                               const std::vector<uint32_t> &params);
+  void addExecutionMode(uint32_t entryPointId, spv::ExecutionMode em,
+                        const std::vector<uint32_t> &params);
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
@@ -128,9 +128,9 @@ public:
   // === Type ===
 
   uint32_t getVoidType();
-  uint32_t getUint32Type();
   uint32_t getInt32Type();
-  uint32_t getFloatType();
+  uint32_t getUint32Type();
+  uint32_t getFloat32Type();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
   uint32_t getPointerType(uint32_t pointeeType, spv::StorageClass);
   uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes);
@@ -138,9 +138,9 @@ public:
                            const std::vector<uint32_t> &paramTypes);
 
   // === Constant ===
-  uint32_t getConstantFloat32(float value);
   uint32_t getConstantInt32(int32_t value);
   uint32_t getConstantUint32(uint32_t value);
+  uint32_t getConstantFloat32(float value);
   uint32_t getConstantComposite(uint32_t typeId,
                                 llvm::ArrayRef<uint32_t> constituents);
 
@@ -180,18 +180,7 @@ void ModuleBuilder::requireCapability(spv::Capability cap) {
 void ModuleBuilder::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
                                   std::string targetName,
                                   llvm::ArrayRef<uint32_t> interfaces) {
-  theModule.addEntryPoint(em, targetId, targetName, interfaces);
-}
-
-void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
-                                     spv::ExecutionMode em,
-                                     const std::vector<uint32_t> &params) {
-  instBuilder.opExecutionMode(entryPointId, em);
-  for (const auto &param : params) {
-    instBuilder.literalInteger(param);
-  }
-  instBuilder.x();
-  theModule.addExecutionMode(std::move(constructSite));
+  theModule.addEntryPoint(em, targetId, std::move(targetName), interfaces);
 }
 
 } // end namespace spirv
