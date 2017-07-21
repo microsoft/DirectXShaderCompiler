@@ -792,15 +792,15 @@ public:
     if (Opts.IEEEStrict)
       compiler.getCodeGenOpts().UnsafeFPMath = true;
 
-    if (Opts.FPDenormalMode.empty() || Opts.FPDenormalMode.equals_lower(StringRef("undefined"))) {
-      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::Undefined;
+    if (Opts.FPDenormalMode.empty() || Opts.FPDenormalMode.equals_lower(StringRef("any"))) {
+      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::Any;
     }
     else if (Opts.FPDenormalMode.equals_lower(StringRef("ftz"))) {
       compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::FTZ;
     }
     else {
-      DXASSERT(Opts.FPDenormalMode.equals_lower(StringRef("ieee")), "else opts should have been rejected");
-      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::IEEE;
+      DXASSERT(Opts.FPDenormalMode.equals_lower(StringRef("preserve")), "else opts should have been rejected");
+      compiler.getCodeGenOpts().HLSLFlushFPDenorm = DXIL::FPDenormMode::Preserve;
     }
 
     if (Opts.DisableOptimizations)

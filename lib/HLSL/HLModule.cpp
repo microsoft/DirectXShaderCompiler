@@ -353,7 +353,7 @@ DxilFunctionAnnotation *HLModule::AddFunctionAnnotation(llvm::Function *F) {
 DxilFunctionAnnotation *HLModule::AddFunctionAnnotationWithFPDenormMode(llvm::Function *F, DXIL::FPDenormMode mode) {
   DXASSERT(m_pTypeSystem->GetFunctionAnnotation(F) == nullptr, "function annotataion already exist");
   DxilFunctionFPFlag flag(0);
-  flag.SetFPAllDenormMode(mode);
+  flag.SetFP32DenormMode(mode);
   return m_pTypeSystem->AddFunctionAnnotationWithFPFlag(F, &flag);
 }
 

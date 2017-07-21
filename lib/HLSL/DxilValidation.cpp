@@ -108,6 +108,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "SV_Barycentrics cannot be used with 'nointerpolation' type";
     case hlsl::ValidationRule::MetaBarycentricsFloat3: return "only 'float3' type is allowed for SV_Barycentrics.";
     case hlsl::ValidationRule::MetaBarycentricsTwoPerspectives: return "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.";
+    case hlsl::ValidationRule::MetaFPFlag: return "Invalid funciton floating point flag.";
     case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
     case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
     case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
@@ -2770,6 +2771,47 @@ static void ValidateDxilVersion(ValidationContext &ValCtx) {
   ValCtx.EmitError(ValidationRule::MetaWellFormed);
 }
 
+static void ValidateTypeAnnotation(ValidationContext &ValCtx) {
+  if (ValCtx.m_DxilMajor == 1 && ValCtx.m_DxilMinor >= 2) {
+    Module *pModule = &ValCtx.M;
+    NamedMDNode *TA = pModule->getNamedMetadata("dx.typeAnnotations");
+    if (TA == nullptr)
+      return;
+    for (unsigned i = 0, end = TA->getNumOperands(); i < end; ++i) {
+      MDTuple *TANode = dyn_cast<MDTuple>(TA->getOperand(i));
+      if (TANode->getNumOperands() < 3) {
+        ValCtx.EmitMetaError(TANode, ValidationRule::MetaWellFormed);
+        return;
+      }
+      ConstantInt *tag = mdconst::extract<ConstantInt>(TANode->getOperand(0));
+      uint64_t tagValue = tag->getZExtValue();
+      if (tagValue != DxilMDHelper::kDxilTypeSystemStructTag &&
+          tagValue != DxilMDHelper::kDxilTypeSystemFunctionTag &&
+          tagValue != DxilMDHelper::kDxilTypeSystemFunction2Tag) {
+          ValCtx.EmitMetaError(TANode, ValidationRule::MetaWellFormed);
+          return;
+      }
+      if (tagValue == DxilMDHelper::kDxilTypeSystemFunction2Tag) {
+          for (unsigned j = 2, jEnd = TANode->getNumOperands();
+              j != jEnd; ++j) {
+            MDTuple *FA = dyn_cast<MDTuple>(TANode->getOperand(j));
+            if (FA == nullptr) {
+                ValCtx.EmitMetaError(FA, ValidationRule::MetaWellFormed);
+                return;
+            }
+            MDNode *FlagNode = dyn_cast<MDNode>(FA->getOperand(0));
+            uint64_t flagValue = mdconst::extract<ConstantInt>(FlagNode->getOperand(0))->getZExtValue();
+            if (flagValue != (uint64_t)DXIL::FPDenormMode::Any &&
+                flagValue != (uint64_t)DXIL::FPDenormMode::FTZ &&
+                flagValue != (uint64_t)DXIL::FPDenormMode::Preserve) {
+                ValCtx.EmitMetaError(FA->getOperand(0), ValidationRule::MetaFPFlag);
+            }
+          }
+      }
+    }
+  }
+}
+
 static void ValidateMetadata(ValidationContext &ValCtx) {
   Module *pModule = &ValCtx.M;
   const std::string &target = pModule->getTargetTriple();
@@ -2819,6 +2861,7 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
 
   ValidateDxilVersion(ValCtx);
   ValidateValidatorVersion(ValCtx);
+  ValidateTypeAnnotation(ValCtx);
 }
 
 static void ValidateResourceOverlap(

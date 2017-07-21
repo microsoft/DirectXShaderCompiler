@@ -523,7 +523,7 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_2 /fdenormal-fp-math ieee 1>nul
+dxc.exe smoke.hlsl /Tps_6_2 /fdenormal-fp-math preserve 1>nul
 if %errorlevel% neq 0 (
   echo Failed to compile smoke.hlsl with /fdenormal-fp-math ieee option
   call :cleanup 2>nul
@@ -544,7 +544,7 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_1 /fdenormal-fp-math ieee 2>nul
+dxc.exe smoke.hlsl /Tps_6_1 /fdenormal-fp-math any 2>nul
 if %errorlevel% equ 0 (
   echo dxc incorrectly compiled smoke.hlsl shader model 6.1 with /fdenormal-fp-math option
   call :cleanup 2>nul

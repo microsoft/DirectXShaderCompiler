@@ -266,7 +266,7 @@ def Gfp : Flag<["-", "/"], "Gfp">, HelpText<"Prefer flow control constructs">, F
 def Ges : Flag<["-", "/"], "Ges">, HelpText<"Enable strict mode">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
-def fdenormal_fp_math : JoinedOrSeparate<["-", "/"], "fdenormal-fp-math">, HelpText<"select denormal value options (undefined, ieee, ftz). Undefined is the default.">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
+def fdenormal_fp_math : JoinedOrSeparate<["-", "/"], "fdenormal-fp-math">, HelpText<"select denormal value options (any, preserve, ftz). any is the default.">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
 def Fo : JoinedOrSeparate<["-", "/"], "Fo">, MetaVarName<"<file>">, HelpText<"Output object file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 // def Fl : JoinedOrSeparate<["-", "/"], "Fl">, MetaVarName<"<file>">, HelpText<"Output a library">;

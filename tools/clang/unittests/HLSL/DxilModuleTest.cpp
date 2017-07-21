@@ -220,9 +220,9 @@ TEST_F(DxilModuleTest, LoadDxilModule_1_2) {
 
 TEST_F(DxilModuleTest, FunctionFPFlag) {
   std::vector<std::pair<DXIL::FPDenormMode, LPCWSTR>> modeMap = {
-    {DXIL::FPDenormMode::Undefined, L"undefined"},
+    {DXIL::FPDenormMode::Any, L"any"},
     {DXIL::FPDenormMode::FTZ, L"ftz"},
-    {DXIL::FPDenormMode::IEEE, L"ieee"}
+    {DXIL::FPDenormMode::Preserve, L"preserve"}
   };
 
   for (unsigned i = 0, end = modeMap.size(); i < end; ++i) {
@@ -255,12 +255,7 @@ TEST_F(DxilModuleTest, FunctionFPFlag) {
         VERIFY_IS_TRUE(name.startswith_lower("dx.op"));
       }
       else {
-        DXIL::FPDenormMode mode16 = FuncAnnotation->GetFlag().GetFP16DenormMode();
-        DXIL::FPDenormMode mode32 = FuncAnnotation->GetFlag().GetFP32DenormMode();
-        DXIL::FPDenormMode mode64 = FuncAnnotation->GetFlag().GetFP64DenormMode();
-        VERIFY_IS_TRUE(mode16 == modeMap[i].first &&
-                       mode32 == modeMap[i].first &&
-                       mode64 == modeMap[i].first);
+        VERIFY_IS_TRUE(FuncAnnotation->GetFlag().GetFP32DenormMode() == modeMap[i].first);
       }
    }
   }

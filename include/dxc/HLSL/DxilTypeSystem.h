@@ -142,18 +142,12 @@ private:
 class DxilFunctionFPFlag {
   friend class DxilFunctionAnnotation;
 public:
-  void SetFPAllDenormMode(DXIL::FPDenormMode mode);
-  void SetFP64DenormMode(DXIL::FPDenormMode mode);
-  void SetFP32DenormMode(DXIL::FPDenormMode mode);
-  void SetFP16DenormMode(DXIL::FPDenormMode mode);
-
-  DXIL::FPDenormMode GetFP64DenormMode();
+  void SetFP32DenormMode(const DXIL::FPDenormMode mode);
   DXIL::FPDenormMode GetFP32DenormMode();
-  DXIL::FPDenormMode GetFP16DenormMode();
 
   uint32_t GetFlagValue();
   const uint32_t GetFlagValue() const;
-  void SetFlagValue(uint32_t flag);
+  void SetFlagValue(const uint32_t flag);
 
   DxilFunctionFPFlag(uint32_t flag = 0) : m_flag(flag) {}
 private:

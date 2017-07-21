@@ -302,9 +302,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.FPDenormalMode = Args.getLastArgValue(OPT_fdenormal_fp_math);
   // Check if a given denormalized value is valid
   if (!opts.FPDenormalMode.empty()) {
-    if (!(opts.FPDenormalMode.equals_lower("ieee") ||
+    if (!(opts.FPDenormalMode.equals_lower("preserve") ||
           opts.FPDenormalMode.equals_lower("ftz") ||
-          opts.FPDenormalMode.equals_lower("undefined"))) {
+          opts.FPDenormalMode.equals_lower("any"))) {
       errors << "Unsupported value '" << opts.FPDenormalMode
           << "' for fdenormal_fp_math option.";
       return 1;

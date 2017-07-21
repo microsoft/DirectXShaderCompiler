@@ -213,11 +213,14 @@ namespace DXIL {
   // FPDenormMode-ENUM:BEGIN
   // Floating point behavior
   enum class FPDenormMode : unsigned {
-    Undefined = 0, // Undefined behavior for denormal numbers
-    FTZ = 1, // Preserve denorm input. Flush denorm output to zero
-    DAZ = 2, // Treat denormal inputs as zero. Perserve denorm output
-    FlushAll = 3, // Flush both input and output
-    IEEE = 4, // Preserve both input and output denorms
+    Any = 0, // Undefined behavior for denormal numbers
+    Preserve = 1, // Preserve denorm input. Flush denorm output to zero
+    FTZ = 2, // Treat denormal inputs as zero. Perserve denorm output
+    Reserve3 = 3, // Reserved Value. Not used for now.
+    DAZ = 4, // Flush both input and output
+    Reserve5 = 5, // Reserved Value. Not used for now.
+    FlushAll = 6, // Preserve both input and output denorms
+    Reserve7 = 7, // Reserved Value. Not used for now.
   };
   // FPDenormMode-ENUM:END
 

@@ -1428,11 +1428,14 @@ class db_dxil(object):
             ])
 
         FPDenormMode = db_dxil_enum("FPDenormMode", "Floating point behavior", [
-            (0, "Undefined", "Undefined behavior for denormal numbers"),
-            (1, "FTZ", "Preserve denorm input. Flush denorm output to zero"),
-            (2, "DAZ", "Treat denormal inputs as zero. Perserve denorm output"),
-            (3, "FlushAll", "Flush both input and output"),
-            (4, "IEEE", "Preserve both input and output denorms"),
+            (0, "Any", "Undefined behavior for denormal numbers"),
+            (1, "Preserve", "Preserve denorm input. Flush denorm output to zero"),
+            (2, "FTZ", "Treat denormal inputs as zero. Perserve denorm output"),
+            (3, "Reserve3", "Reserved Value. Not used for now."),
+            (4, "DAZ", "Flush both input and output"),
+            (5, "Reserve5", "Reserved Value. Not used for now."),
+            (6, "FlushAll", "Preserve both input and output denorms"),
+            (7, "Reserve7", "Reserved Value. Not used for now."),
             ])
         self.enums.append(FPDenormMode)
 
@@ -1574,6 +1577,7 @@ class db_dxil(object):
         self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type")
         self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
         self.add_valrule("Meta.BarycentricsTwoPerspectives", "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.")
+        self.add_valrule("Meta.FPFlag", "Invalid funciton floating point flag.")
 
         self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
         self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")

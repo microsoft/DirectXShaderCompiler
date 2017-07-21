@@ -168,33 +168,12 @@ const DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() const {
 //
 // DxilFunctionFPFlag class methods.
 //
-void DxilFunctionFPFlag::SetFPAllDenormMode(DXIL::FPDenormMode mode) {
-  SetFP64DenormMode(mode);
-  SetFP32DenormMode(mode);
-  SetFP16DenormMode(mode);
-}
 
-void DxilFunctionFPFlag::SetFP64DenormMode(DXIL::FPDenormMode mode) {
-  m_flag |= (int32_t)mode<<6;
-}
-
-void DxilFunctionFPFlag::SetFP32DenormMode(DXIL::FPDenormMode mode) {
-  m_flag |= (int32_t)mode<<3;
-}
-
-void DxilFunctionFPFlag::SetFP16DenormMode(DXIL::FPDenormMode mode) {
+void DxilFunctionFPFlag::SetFP32DenormMode(const DXIL::FPDenormMode mode) {
   m_flag |= (int32_t)mode;
 }
 
-DXIL::FPDenormMode DxilFunctionFPFlag::GetFP64DenormMode() {
-  return (DXIL::FPDenormMode)((m_flag>>6)&0x7);
-}
-
 DXIL::FPDenormMode DxilFunctionFPFlag::GetFP32DenormMode() {
-  return (DXIL::FPDenormMode)((m_flag>>3)&0x7);
-}
-
-DXIL::FPDenormMode DxilFunctionFPFlag::GetFP16DenormMode() {
   return (DXIL::FPDenormMode)(m_flag&0x7);
 }
 
@@ -206,7 +185,7 @@ const uint32_t DxilFunctionFPFlag::GetFlagValue() const {
   return m_flag;
 }
 
-void DxilFunctionFPFlag::SetFlagValue(uint32_t flag) {
+void DxilFunctionFPFlag::SetFlagValue(const uint32_t flag) {
   m_flag = flag;
 }
 
