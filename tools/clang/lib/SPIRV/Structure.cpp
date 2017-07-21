@@ -159,6 +159,36 @@ void SPIRVModule::clear() {
   functions.clear();
 }
 
+void SPIRVModule::takeIntegerTypes(InstBuilder *ib) {
+  const auto &consumer = ib->getConsumer();
+  // If it finds any integer type, feeds it into the consumer, and removes it
+  // from the types collection.
+  types.remove_if([&consumer](std::pair<const Type *, uint32_t> &item) {
+    const bool isInteger = item.first->isIntegerType();
+    if (isInteger)
+      consumer(item.first->withResultId(item.second));
+    return isInteger;
+  });
+}
+
+void SPIRVModule::takeConstantForArrayType(const Type *arrType,
+                                           InstBuilder *ib) {
+  assert(arrType->isArrayType() &&
+         "takeConstantForArrayType was called with a non-array type.");
+  const auto &consumer = ib->getConsumer();
+  const uint32_t arrayLengthResultId = arrType->getArgs().back();
+
+  // If it finds the constant, feeds it into the consumer, and removes it
+  // from the constants collection.
+  constants.remove_if([&consumer, arrayLengthResultId](
+                          std::pair<const Constant *, uint32_t> &item) {
+    const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
+    if (isArrayLengthConstant)
+      consumer(item.first->withResultId(item.second));
+    return isArrayLengthConstant;
+  });
+}
+
 void SPIRVModule::take(InstBuilder *builder) {
   const auto &consumer = builder->getConsumer();
 
@@ -206,14 +236,27 @@ void SPIRVModule::take(InstBuilder *builder) {
     consumer(d.decoration.withTargetId(d.targetId));
   }
 
-  // TODO: handle the interdependency between types and constants
+  // Note on interdependence of types and constants:
+  // There is only one type (OpTypeArray) that requires the result-id of a
+  // constant. As a result, the constant integer should be defined before the
+  // array is defined. The integer type should also be defined before the
+  // constant integer is defined.
+
+  // First define all integer types
+  takeIntegerTypes(builder);
 
   for (const auto &t : types) {
+    // If we have an array type, we must first define the integer constant that
+    // defines its length.
+    if (t.first->isArrayType()) {
+      takeConstantForArrayType(t.first, builder);
+    }
+
     consumer(t.first->withResultId(t.second));
   }
 
-  for (auto &c : constants) {
-    consumer(std::move(c.constant));
+  for (const auto &c : constants) {
+    consumer(c.first->withResultId(c.second));
   }
 
   for (auto &v : variables) {

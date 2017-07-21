@@ -128,6 +128,7 @@ public:
   // === Type ===
 
   uint32_t getVoidType();
+  uint32_t getUint32Type();
   uint32_t getInt32Type();
   uint32_t getFloatType();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
@@ -137,8 +138,11 @@ public:
                            const std::vector<uint32_t> &paramTypes);
 
   // === Constant ===
-
-  uint32_t getInt32Value(uint32_t value);
+  uint32_t getConstantFloat32(float value);
+  uint32_t getConstantInt32(int32_t value);
+  uint32_t getConstantUint32(uint32_t value);
+  uint32_t getConstantComposite(uint32_t typeId,
+                                llvm::ArrayRef<uint32_t> constituents);
 
 private:
   /// \brief Map from basic blocks' <label-id> to their structured
