@@ -75,15 +75,19 @@ void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O)
 
 bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
 {
-  // This pass adds instrumentation for pixel hit counting and pixel cost
+  // This pass adds instrumentation for pixel hit counting and pixel cost.
 
   DxilModule &DM = M.GetOrCreateDxilModule();
   LLVMContext & Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
+  // ForceEarlyZ is incompatible with the discard function (the Z has to be tested/written, and may be written before the shader even runs)
   if (ForceEarlyZ)
   {
-    DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
+    if (HlslOP->GetOpFunc(DXIL::OpCode::Discard, Type::getVoidTy(Ctx))->user_empty())
+    {
+      DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
+    }
   }
   
   hlsl::DxilSignature & InputSignature = DM.GetInputSignature();
@@ -95,9 +99,16 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
   auto SV_Position = std::find_if(InputElements.begin(), InputElements.end(), [](const std::unique_ptr<DxilSignatureElement> & Element) {
     return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::Position; });
 
-  if ( SV_Position == InputElements.end()) {
+  // SV_Position, if present, has to have full mask, so we needn't worry 
+  // about the shader having selected components that don't include x or y.
+  // If not present, we add it.
+  if ( SV_Position == InputElements.end() ) {
     auto SVPosition = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-    SVPosition->Initialize("Position", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 2);
+    SVPosition->Initialize("Position", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4, 0, 0);
+    SVPosition->AppendSemanticIndex(0);
+    SVPosition->SetSigPointKind(DXIL::SigPointKind::PSIn);
+    SVPosition->SetKind(hlsl::DXIL::SemanticKind::Position);
+
     auto index = InputSignature.AppendElement(std::move(SVPosition));
     SV_Position_ID = InputElements[index]->GetID();
   }
@@ -162,39 +173,93 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
           HaveInsertedUAV = true;
         }
 
+        // ------------------------------------------------------------------------------------------------------------
+        // Generate instructions to increment (by one) a UAV value corresponding to the pixel currently being rendered
+        // ------------------------------------------------------------------------------------------------------------
+
         // Useful constants
         Constant* Zero32Arg = HlslOP->GetU32Const(0);
         Constant* Zero8Arg = HlslOP->GetI8Const(0);
         Constant* One32Arg = HlslOP->GetU32Const(1);
         Constant* One8Arg = HlslOP->GetI8Const(1);
         UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
+        Constant* NumPixelsArg = HlslOP->GetU32Const(NumPixels);
+        Constant* NumPixelsMinusOneArg = HlslOP->GetU32Const(NumPixels-1);
 
-        // Load x and y from SV_Position:
-        auto LoadInputOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getFloatTy(Ctx));
-        Constant* LoadInputOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
-        Constant*  SV_Pos_ID = HlslOP->GetU32Const(SV_Position_ID);
-        auto XPos = Builder.CreateCall(LoadInputOpFunc,
-        { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "XPos");
-        auto YPos = Builder.CreateCall(LoadInputOpFunc,
-        { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, One8Arg /*column*/, UndefArg }, "YPos");
+        // Step 1: Convert SV_POSITION to UINT          
+        Value * XAsInt;
+        Value * YAsInt;
+        {
+          auto LoadInputOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getFloatTy(Ctx));
+          Constant* LoadInputOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
+          Constant*  SV_Pos_ID = HlslOP->GetU32Const(SV_Position_ID);
+          auto XPos = Builder.CreateCall(LoadInputOpFunc,
+          { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "XPos");
+          auto YPos = Builder.CreateCall(LoadInputOpFunc,
+          { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, One8Arg /*column*/, UndefArg }, "YPos");
 
-        // Calculate offset
+          XAsInt = Builder.CreateCast(Instruction::CastOps::FPToUI, XPos, Type::getInt32Ty(Ctx), "XIndex");
+          YAsInt = Builder.CreateCast(Instruction::CastOps::FPToUI, YPos, Type::getInt32Ty(Ctx), "YIndex");
+        }
 
-        auto XAsInt = Builder.CreateCast(Instruction::CastOps::FPToUI, XPos, Type::getInt32Ty(Ctx), "XIndex");
-        auto YAsInt = Builder.CreateCast(Instruction::CastOps::FPToUI, YPos, Type::getInt32Ty(Ctx), "YIndex");
+        // Step 2: Calculate pixel index
+        Value * ClampedIndex;
+        {
+          Constant* RTWidthArg = HlslOP->GetI32Const(RTWidth);
+          auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg);
+          auto Index = Builder.CreateAdd(XAsInt, YOffset);
 
-        Constant* RTWidthArg = HlslOP->GetI32Const(RTWidth);
-        auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg);
-        auto Index = Builder.CreateAdd(XAsInt, YOffset);
+          // Step 3: Clamp to size of UAV to prevent TDR if something goes wrong
+          auto CompareToLimit = Builder.CreateICmpUGT(Index, NumPixelsMinusOneArg);
+          ClampedIndex = Builder.CreateSelect(CompareToLimit, NumPixelsMinusOneArg, Index, "Clamped");
+        }
 
         // Insert the UAV increment instruction:
-        Function* UAVIncrement = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
-        Constant* OpArg = HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
-        Constant* AtomicOpArg = HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
-        (void)Builder.CreateCall(UAVIncrement,
-        { OpArg, HandleForUAV, AtomicOpArg, Index,
-          Zero32Arg /*c1*/, Zero32Arg /*c2*/ , One32Arg /*increment value*/ }, "UAVIncResult" );
+        Function* AtomicOpFunc = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
+        Constant* AtomicBinOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
+        Constant* AtomicAdd = HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
+        {
+          (void)Builder.CreateCall(AtomicOpFunc, {
+            AtomicBinOpcode,// i32, ; opcode
+            HandleForUAV,   // %dx.types.Handle, ; resource handle
+            AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
+            ClampedIndex,   // i32, ; coordinate c0: offset in elements
+            Zero32Arg,      // i32, ; coordinate c1: byte offset into element
+            Zero32Arg,      // i32, ; coordinate c2 (unused)
+            One32Arg        // i32); increment value
+          }, "UAVIncResult");
+        }
 
+        if (AddPixelCost) {
+          // ------------------------------------------------------------------------------------------------------------
+          // Generate instructions to increment a value corresponding to the current pixel in the second half of the UAV, 
+          // by an amount proportional to the estimated average cost of each pixel in the current draw call.
+          // ------------------------------------------------------------------------------------------------------------
+
+          // Step 1: Retrieve weight value from UAV; it will be placed after the range we're writing to
+          CallInst * Weight;
+          {
+            Function* LoadWeight = HlslOP->GetOpFunc(OP::OpCode::BufferLoad, Type::getInt32Ty(Ctx));
+            Constant* LoadWeightOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferLoad);
+            Constant* OffsetIntoUAV = HlslOP->GetU32Const(NumPixels * 2);
+            Weight = Builder.CreateCall(LoadWeight,
+            { LoadWeightOpcode, HandleForUAV, OffsetIntoUAV, Zero32Arg /*byte offset into struct*/ }, "Weight");
+          }
+
+          // Step 2: Update write position ("Index") to second half of the UAV 
+          auto OffsetIndex = Builder.CreateAdd(ClampedIndex, NumPixelsArg);
+
+          // Step 3: Increment UAV value by the weight
+          (void)Builder.CreateCall(AtomicOpFunc,{
+            AtomicBinOpcode,          // i32, ; opcode
+            HandleForUAV,   // %dx.types.Handle, ; resource handle
+            AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
+            OffsetIndex,    // i32, ; coordinate c0: offset in elements
+            Zero32Arg,      // i32, ; coordinate c1: byte offset into element
+            Zero32Arg,      // i32, ; coordinate c2 (unused)
+            Weight          // i32); increment value
+          }, "UAVIncResult2");
+        }
       }
     }
   }

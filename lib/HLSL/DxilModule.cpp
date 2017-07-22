@@ -1364,9 +1364,11 @@ void DxilModule::ReEmitDxilResources() {
   const llvm::MDOperand *pSignatures, *pResources, *pProperties;
   m_pMDHelper->GetDxilEntryPoint(pEntries->getOperand(0), pEntryFunc, EntryName, pSignatures, pResources, pProperties);
 
-  MDTuple *pMDSig = pSignatures? (MDTuple*)pSignatures->get():nullptr;
-  MDTuple *pMDProperties = pProperties ? (MDTuple*)pProperties->get():nullptr;
-  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(pEntryFunc, EntryName, pMDSig, pNewResource, pMDProperties);
+  MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_EntrySignature);
+  MDTuple *pMDProperties = EmitDxilShaderProperties();
+  EmitLLVMUsed(); // necessary?
+  // todo: what about type system?
+  MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(pEntryFunc, EntryName, pMDSignatures, pNewResource, pMDProperties);
   vector<MDNode *> Entries;
   Entries.emplace_back(pEntry);
   m_pMDHelper->UpdateDxilEntryPoints(Entries);
