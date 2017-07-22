@@ -170,11 +170,11 @@ const DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() const {
 //
 
 void DxilFunctionFPFlag::SetFP32DenormMode(const DXIL::FPDenormMode mode) {
-  m_flag |= (int32_t)mode;
+  m_flag |= ((uint32_t)mode & kFPDenormMask) << kFPDenormOffset;
 }
 
 DXIL::FPDenormMode DxilFunctionFPFlag::GetFP32DenormMode() {
-  return (DXIL::FPDenormMode)(m_flag&0x7);
+  return (DXIL::FPDenormMode)((m_flag >> kFPDenormOffset) & kFPDenormMask);
 }
 
 uint32_t DxilFunctionFPFlag::GetFlagValue() {

@@ -523,30 +523,30 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_2 /fdenormal-fp-math preserve 1>nul
+dxc.exe smoke.hlsl /Tps_6_2 /denorm preserve 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to compile smoke.hlsl with /fdenormal-fp-math ieee option
+  echo Failed to compile smoke.hlsl with /denorm ieee option
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_2 /fdenormal-fp-math ftz 1>nul
+dxc.exe smoke.hlsl /Tps_6_2 /denorm ftz 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to compile smoke.hlsl with /fdenormal-fp-math ftz option
+  echo Failed to compile smoke.hlsl with /denorm ftz option
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_2 /fdenormal-fp-math abc 2>nul
+dxc.exe smoke.hlsl /Tps_6_2 /denorm abc 2>nul
 if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled smoke.hlsl with invalid /fdenormal-fp-math option
+  echo dxc incorrectly compiled smoke.hlsl with invalid /denorm option
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_1 /fdenormal-fp-math any 2>nul
+dxc.exe smoke.hlsl /Tps_6_1 /denorm any 2>nul
 if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled smoke.hlsl shader model 6.1 with /fdenormal-fp-math option
+  echo dxc incorrectly compiled smoke.hlsl shader model 6.1 with /denorm option
   call :cleanup 2>nul
   exit /b 1
 )

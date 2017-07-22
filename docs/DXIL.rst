@@ -124,14 +124,13 @@ DXIL 1.1 Changes
 ----------------
 Main two features that were introduced for DXIL1.1 (Shader Model 6.1) are view instancing and barycentric coordinates. Specifically, there are following changes to the DXIL representation.
 
-* New Instruction - GetAttributeAtVertex
-* New Systen Value - SV_Barycentrics, and SV_ViewID
+* New Intrinsics - AttributeAtVertex_, ViewID
+* New Systen Generated Value - SV_Barycentrics
 * New Container Part - ILDN
 
 DXIL 1.2 Changes
 ----------------
 * New format for type-annotations_ for functions to indicate floating point operations behavior for per function basis.
-
 
 LLVM Bitcode version
 --------------------
@@ -469,9 +468,10 @@ Idx Type
 2    Matrix
 3    Buffer Offset
 4    Semantic String
-5    Interpolation Model
+5    Interpolation Mode
 6    Field Name
-7    Component Type8    Precise
+7    Component Type
+8    Precise
 === =====================================================================
 
 **Function Annotation** is a series of parameter annotations::
@@ -502,7 +502,7 @@ FunctionFPFlag is a flag to control the behavior of the floating point operation
 
   !9 = !{i32 0}
 
-Currently three values are valid for FP version
+Currently three values are valid for floating point flag
 
 * 0: FP32 math operations on denorm may or may not flush to zero
 * 1: FP32 math operations perserve Denorms

@@ -142,6 +142,9 @@ private:
 class DxilFunctionFPFlag {
   friend class DxilFunctionAnnotation;
 public:
+  static const unsigned kFPDenormMask      = 0x00000007;
+  static const unsigned kFPDenormOffset    = 0;
+
   void SetFP32DenormMode(const DXIL::FPDenormMode mode);
   DXIL::FPDenormMode GetFP32DenormMode();
 

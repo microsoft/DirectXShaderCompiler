@@ -227,7 +227,7 @@ TEST_F(DxilModuleTest, FunctionFPFlag) {
 
   for (unsigned i = 0, end = modeMap.size(); i < end; ++i) {
     std::vector<LPCWSTR> args(4);
-    args[0] = L"/fdenormal-fp-math";
+    args[0] = L"/denorm";
     args[1] = modeMap[i].second;
     args[2] = L"/T";
     args[3] = L"ps_6_2";

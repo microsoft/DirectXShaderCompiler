@@ -299,18 +299,18 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.IEEEStrict = Args.hasFlag(OPT_Gis, OPT_INVALID, false);
 
-  opts.FPDenormalMode = Args.getLastArgValue(OPT_fdenormal_fp_math);
+  opts.FPDenormalMode = Args.getLastArgValue(OPT_denorm);
   // Check if a given denormalized value is valid
   if (!opts.FPDenormalMode.empty()) {
     if (!(opts.FPDenormalMode.equals_lower("preserve") ||
           opts.FPDenormalMode.equals_lower("ftz") ||
           opts.FPDenormalMode.equals_lower("any"))) {
       errors << "Unsupported value '" << opts.FPDenormalMode
-          << "' for fdenormal_fp_math option.";
+          << "' for denorm option.";
       return 1;
     }
     if (opts.TargetProfile.empty() || !opts.TargetProfile.endswith_lower("6_2")) {
-      errors << "fdenormal_fp_math option is only allowed for shader model 6.2 and above.";
+      errors << "denorm option is only allowed for shader model 6.2 and above.";
       return 1;
     }
   }
