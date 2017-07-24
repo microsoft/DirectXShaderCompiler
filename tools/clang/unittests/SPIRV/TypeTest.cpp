@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "SPIRVTestUtils.h"
 #include "gmock/gmock.h"
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/String.h"
@@ -16,6 +17,7 @@
 using namespace clang::spirv;
 
 namespace {
+using ::testing::ContainerEq;
 using ::testing::ElementsAre;
 
 TEST(Type, SameTypeWoParameterShouldHaveSameAddress) {
@@ -542,6 +544,21 @@ TEST(Type, DecoratedForwardPointer) {
   EXPECT_THAT(t->getArgs(), ElementsAre(6, static_cast<uint32_t>(
                                                spv::StorageClass::Workgroup)));
   EXPECT_THAT(t->getDecorations(), ElementsAre(d));
+}
+
+TEST(Type, BoolWithResultId) {
+  SPIRVContext ctx;
+  const Type *t = Type::getBool(ctx);
+  const auto words = t->withResultId(1);
+  EXPECT_THAT(words, ContainerEq(constructInst(spv::Op::OpTypeBool, {1})));
+}
+
+TEST(Type, IntWithResultId) {
+  SPIRVContext ctx;
+  const Type *t = Type::getInt32(ctx);
+  const auto words = t->withResultId(42);
+  EXPECT_THAT(words,
+              ContainerEq(constructInst(spv::Op::OpTypeInt, {42, 32, 1})));
 }
 
 } // anonymous namespace

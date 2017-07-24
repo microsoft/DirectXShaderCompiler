@@ -161,15 +161,21 @@ bool MacroPairCompareIsLessThan(const std::pair<const IdentifierInfo*, const Mac
   return left.first->getName().compare(right.first->getName()) < 0;
 }
 
+
 static
-void WriteSemanticDefines(CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper, raw_string_ostream &o) {
-  ParsedSemanticDefineList macros = CollectSemanticDefinesParsedByCompiler(compiler, helper);
+void WriteMacroDefines(ParsedSemanticDefineList &macros, raw_string_ostream &o) {
   if (!macros.empty()) {
     o << "\n// Macros:\n";
     for (auto&& m : macros) {
       o << "#define " << m.Name << " " << m.Value << "\n";
     }
   }
+}
+
+static
+void WriteSemanticDefines(CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper, raw_string_ostream &o) {
+  ParsedSemanticDefineList macros = CollectSemanticDefinesParsedByCompiler(compiler, helper);
+  WriteMacroDefines(macros, o);
 }
 
 ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper) {
@@ -230,6 +236,89 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(CompilerIn
   }
 
   return parsedDefines;
+}
+
+static ParsedSemanticDefineList CollectUserMacrosParsedByCompiler(CompilerInstance &compiler) {
+  ParsedSemanticDefineList parsedDefines;
+  // This is very inefficient in general, but in practice we either have
+  // no semantic defines, or we have a star define for a some reserved prefix. These will be
+  // sorted so rewrites are stable.
+  std::vector<std::pair<const IdentifierInfo*, MacroInfo*> > macros;
+  Preprocessor& pp = compiler.getPreprocessor();
+  Preprocessor::macro_iterator end = pp.macro_end();
+  SourceManager &SM = compiler.getSourceManager();
+  FileID PredefineFileID = pp.getPredefinesFileID();
+
+  for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
+    if (!i->second.getLatest()->isDefined()) {
+      continue;
+    }
+    MacroInfo* mi = i->second.getLatest()->getMacroInfo();
+    if (mi->getDefinitionLoc().isInvalid()) {
+      continue;
+    }
+    FileID FID = SM.getFileID(mi->getDefinitionEndLoc());
+    if (FID == PredefineFileID)
+      continue;
+
+    const IdentifierInfo* ii = i->first;
+
+    macros.push_back(std::pair<const IdentifierInfo*, MacroInfo*>(ii, mi));
+  }
+
+  if (!macros.empty()) {
+    std::sort(macros.begin(), macros.end(), MacroPairCompareIsLessThan);
+    MacroExpander expander(pp);
+    for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
+      std::string expandedValue;
+      MacroInfo* mi = m.second;
+      if (!mi->isFunctionLike()) {
+        expander.ExpandMacro(m.second, &expandedValue);
+        parsedDefines.emplace_back(ParsedSemanticDefine{ m.first->getName(), expandedValue, m.second->getDefinitionLoc().getRawEncoding() });
+      } else {
+        std::string macroStr;
+        raw_string_ostream macro(macroStr);
+        macro << m.first->getName();
+        auto args = mi->args();
+
+        macro << "(";
+        for (unsigned I = 0; I != mi->getNumArgs(); ++I) {
+          if (I)
+            macro << ", ";
+          macro << args[I]->getName();
+        }
+        macro << ")";
+        macro.flush();
+
+        std::string macroValStr;
+        raw_string_ostream macroVal(macroValStr);
+        for (const Token &Tok : mi->tokens()) {
+          macroVal << " ";
+          if (const char *Punc = tok::getPunctuatorSpelling(Tok.getKind()))
+            macroVal << Punc;
+          else if (const char *Kwd = tok::getKeywordSpelling(Tok.getKind()))
+            macroVal << Kwd;
+          else if (Tok.is(tok::identifier))
+            macroVal << Tok.getIdentifierInfo()->getName();
+          else if (Tok.isLiteral() && Tok.getLiteralData())
+            macroVal << StringRef(Tok.getLiteralData(), Tok.getLength());
+          else
+            macroVal << Tok.getName();
+        }
+        macroVal.flush();
+        parsedDefines.emplace_back(ParsedSemanticDefine{ macroStr, macroValStr, m.second->getDefinitionLoc().getRawEncoding() });
+      }
+    }
+  }
+
+  return parsedDefines;
+}
+
+
+static
+void WriteUserMacroDefines(CompilerInstance &compiler, raw_string_ostream &o) {
+  ParsedSemanticDefineList macros = CollectUserMacrosParsedByCompiler(compiler);
+  WriteMacroDefines(macros, o);
 }
 
 static
@@ -404,6 +493,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   bool bSkipFunctionBody = rewriteOption & RewriterOptionMask::SkipFunctionBody;
   bool bSkipStatic = rewriteOption & RewriterOptionMask::SkipStatic;
   bool bGlobalExternByDefault = rewriteOption & RewriterOptionMask::GlobalExternByDefault;
+  bool bKeepUserMacro = rewriteOption & RewriterOptionMask::KeepUserMacro;
 
   std::string s, warnings;
   raw_string_ostream o(s);
@@ -417,6 +507,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
+
   ParseAST(compiler.getSema(), false, bSkipFunctionBody);
 
   ASTContext& C = compiler.getASTContext();
@@ -437,6 +528,8 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   tu->print(o, p);
 
   WriteSemanticDefines(compiler, pHelper, o);
+  if (bKeepUserMacro)
+    WriteUserMacroDefines(compiler, o);
 
   // Flush and return results.
   raw_string_ostream_to_CoString(o, pResult);

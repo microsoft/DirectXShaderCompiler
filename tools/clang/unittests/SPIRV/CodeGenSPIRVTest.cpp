@@ -7,16 +7,39 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <fstream>
-
+#include "FileTestFixture.h"
 #include "WholeFileCheck.h"
-#include "gtest/gtest.h"
 
-TEST_F(WholeFileTest, BringUp) {
-  // Ideally all generated SPIR-V must be valid, but this currently fails with
-  // this error message: "No OpEntryPoint instruction was found...".
-  // TODO: change this test such that it does run validation.
-  bool success = runWholeFileTest("basic.hlsl2spv", /*generateHeader*/ true,
-                                  /*runValidation*/ false);
-  EXPECT_TRUE(success);
+namespace {
+using clang::spirv::FileTest;
+using clang::spirv::WholeFileTest;
+
+TEST_F(WholeFileTest, EmptyVoidMain) {
+  runWholeFileTest("empty-void-main.hlsl2spv",
+                   /*generateHeader*/ true,
+                   /*runValidation*/ true);
 }
+
+TEST_F(WholeFileTest, PassThruPixelShader) {
+  runWholeFileTest("passthru-ps.hlsl2spv",
+                   /*generateHeader*/ true,
+                   /*runValidation*/ true);
+}
+
+TEST_F(WholeFileTest, PassThruVertexShader) {
+  runWholeFileTest("passthru-vs.hlsl2spv",
+                   /*generateHeader*/ true,
+                   /*runValidation*/ true);
+}
+
+TEST_F(WholeFileTest, ConstantPixelShader) {
+  runWholeFileTest("constant-ps.hlsl2spv",
+                   /*generateHeader*/ true,
+                   /*runValidation*/ true);
+}
+
+TEST_F(FileTest, CheckMemoryModelAndEntryPoint) {
+  runFileTest("check-entrypoint.hlsl",
+              /*runValidation*/ true);
+}
+} // namespace

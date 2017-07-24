@@ -2,7 +2,7 @@
 
 // Make sure function call on external function is flattened.
 
-// CHECK: call void @"\01?test_extern@@YAMUT@@Y01U1@0AAV?$matrix@M$01$01@@@Z"(float %{{.*}}, float %{{.*}}, [2 x float]* nonnull %{{.*}}, [2 x float]* nonnull %{{.*}}, float* nonnull %{{.*}}, float* nonnull %{{.*}}, [4 x float]* nonnull %{{.*}}, float* nonnull %{{.*}})
+// CHECK: call void @"\01?test_extern@@YAMUT@@Y01U1@U1@AIAV?$matrix@M$01$01@@@Z"(float %{{.*}}, float %{{.*}}, [2 x float]* nonnull %{{.*}}, [2 x float]* nonnull %{{.*}}, float* nonnull %{{.*}}, float* nonnull %{{.*}}, [4 x float]* nonnull %{{.*}}, float* nonnull %{{.*}})
 
 struct T {
   float a;

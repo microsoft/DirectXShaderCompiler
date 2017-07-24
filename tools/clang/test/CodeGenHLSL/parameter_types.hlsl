@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T cs_6_0 -fcgl %s  | FileCheck %s
 
 // CHECK: float %a, <4 x float> %b, %struct.T* %t, %class.matrix.float.2.3 %m, [3 x <2 x float>]* %n
-// CHECK: float* dereferenceable(4) %a, <4 x float>* dereferenceable(16) %b, %struct.T* %t, %class.matrix.float.2.3* dereferenceable(24) %m, [3 x <2 x float>]* %n
+// CHECK: float* noalias dereferenceable(4) %a, <4 x float>* noalias dereferenceable(16) %b, %struct.T* noalias %t, %class.matrix.float.2.3* noalias dereferenceable(24) %m, [3 x <2 x float>]* noalias %n
 
 struct T{
   float a;

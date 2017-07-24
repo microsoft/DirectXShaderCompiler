@@ -143,9 +143,12 @@ bool VersionSupportInfo::SkipIRSensitiveTest() {
   }
   return false;
 }
-bool VersionSupportInfo::SkipDxil_1_1_Test() {
-  if (m_DxilMajor < 1 || m_DxilMinor < 1 || m_ValMajor < 1 || m_ValMinor < 1) {
-    WEX::Logging::Log::Comment(L"Test skipped because it requires Dxil 1.1 and Validator 1.1.");
+bool VersionSupportInfo::SkipDxilVersion(unsigned major, unsigned minor) {
+  if (m_DxilMajor < major || (m_DxilMajor == major && m_DxilMinor < minor) ||
+      m_ValMajor < major || (m_ValMajor == major && m_ValMinor < minor)) {
+    WEX::Logging::Log::Comment(WEX::Common::String().Format(
+        L"Test skipped because it requires Dxil %u.%u and Validator %u.%u.",
+        major, minor, major, minor));
     return true;
   }
   return false;
@@ -335,6 +338,7 @@ public:
   TEST_CLASS_SETUP(InitSupport);
 
   TEST_METHOD(CompileWhenDebugThenDIPresent)
+  TEST_METHOD(CompileDebugLines)
 
   TEST_METHOD(CompileWhenDefinesThenApplied)
   TEST_METHOD(CompileWhenDefinesManyThenApplied)
@@ -531,6 +535,7 @@ public:
   TEST_METHOD(CodeGenLibCsEntry3)
   TEST_METHOD(CodeGenLibEntries)
   TEST_METHOD(CodeGenLibEntries2)
+  TEST_METHOD(CodeGenLibNoAlias)
   TEST_METHOD(CodeGenLibResource)
   TEST_METHOD(CodeGenLibUnusedFunc)
   TEST_METHOD(CodeGenLitInParen)
@@ -678,6 +683,8 @@ public:
   TEST_METHOD(CodeGenSrv_Ms_Load2)
   TEST_METHOD(CodeGenSrv_Typed_Load1)
   TEST_METHOD(CodeGenSrv_Typed_Load2)
+  TEST_METHOD(CodeGenStaticConstGlobal)
+  TEST_METHOD(CodeGenStaticConstGlobal2)
   TEST_METHOD(CodeGenStaticGlobals)
   TEST_METHOD(CodeGenStaticGlobals2)
   TEST_METHOD(CodeGenStaticGlobals3)
@@ -1229,7 +1236,24 @@ public:
 
     return o.str();
   }
-
+  
+  struct LineNumber { DWORD line; DWORD rva; };
+  std::vector<LineNumber> ReadLineNumbers(IDiaEnumLineNumbers *pEnumLineNumbers) {
+    std::vector<LineNumber> lines;
+    CComPtr<IDiaLineNumber> pLineNumber;
+    DWORD lineCount;
+    while (SUCCEEDED(pEnumLineNumbers->Next(1, &pLineNumber, &lineCount)) && lineCount == 1)
+    {
+      DWORD line;
+      DWORD rva;
+      VERIFY_SUCCEEDED(pLineNumber->get_lineNumber(&line));
+      VERIFY_SUCCEEDED(pLineNumber->get_relativeVirtualAddress(&rva));
+      lines.push_back({ line, rva });
+      pLineNumber.Release();
+    }
+    return lines;
+  }
+ 
   std::string GetOption(std::string &cmd, char *opt) {
     std::string option = cmd.substr(cmd.find(opt));
     option = option.substr(option.find_first_of(' '));
@@ -1344,6 +1368,70 @@ public:
     VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
     return BlobToUtf8(pErrors);
   }
+
+  HRESULT CreateDiaSourceForCompile(const char *hlsl, IDiaDataSource **ppDiaSource)
+  {
+    if (!ppDiaSource)
+      return E_POINTER;
+
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    CComPtr<IDxcBlob> pProgram;
+
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    CreateBlobFromText(hlsl, &pSource);
+    LPCWSTR args[] = { L"/Zi" };
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+      L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult));
+    VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+    // Disassemble the compiled (stripped) program.
+    {
+      CComPtr<IDxcBlobEncoding> pDisassembly;
+      VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
+      std::string disText = BlobToUtf8(pDisassembly);
+      CA2W disTextW(disText.c_str(), CP_UTF8);
+      //WEX::Logging::Log::Comment(disTextW);
+    }
+
+    // CONSIDER: have the dia data source look for the part if passed a whole container.
+    CComPtr<IDiaDataSource> pDiaSource;
+    CComPtr<IStream> pProgramStream;
+    CComPtr<IDxcLibrary> pLib;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+    const hlsl::DxilContainerHeader *pContainer = hlsl::IsDxilContainerLike(
+        pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+    VERIFY_IS_NOT_NULL(pContainer);
+    hlsl::DxilPartIterator partIter =
+        std::find_if(hlsl::begin(pContainer), hlsl::end(pContainer),
+                     hlsl::DxilPartIsType(hlsl::DFCC_ShaderDebugInfoDXIL));
+    const hlsl::DxilProgramHeader *pProgramHeader =
+        (const hlsl::DxilProgramHeader *)hlsl::GetDxilPartData(*partIter);
+    uint32_t bitcodeLength;
+    const char *pBitcode;
+    CComPtr<IDxcBlob> pProgramPdb;
+    hlsl::GetDxilProgramBitcode(pProgramHeader, &pBitcode, &bitcodeLength);
+    VERIFY_SUCCEEDED(pLib->CreateBlobFromBlob(
+        pProgram, pBitcode - (char *)pProgram->GetBufferPointer(), bitcodeLength,
+        &pProgramPdb));
+
+    // Disassemble the program with debug information.
+    {
+      CComPtr<IDxcBlobEncoding> pDbgDisassembly;
+      VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgramPdb, &pDbgDisassembly));
+      std::string disText = BlobToUtf8(pDbgDisassembly);
+      CA2W disTextW(disText.c_str(), CP_UTF8);
+      //WEX::Logging::Log::Comment(disTextW);
+    }
+
+    // Create a short text dump of debug information.
+    VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pProgramPdb, &pProgramStream));
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
+    VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pProgramStream));
+    *ppDiaSource = pDiaSource.Detach();
+    return S_OK;
+  }
 };
 
 // Useful for debugging.
@@ -1408,11 +1496,6 @@ bool CompilerTest::InitSupport() {
 }
 
 TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcOperationResult> pResult;
-  CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlob> pProgram;
-
   // BUG: the first test written was of this form:
   // float4 local = 0; return local;
   //
@@ -1423,59 +1506,12 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   //
   // Making the function do a bit more work by calling an intrinsic
   // helps this case.
-  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target {\r\n"
+  CComPtr<IDiaDataSource> pDiaSource;
+  VERIFY_SUCCEEDED(CreateDiaSourceForCompile(
+    "float4 main(float4 pos : SV_Position) : SV_Target {\r\n"
     "  float4 local = abs(pos);\r\n"
     "  return local;\r\n"
-    "}", &pSource);
-  LPCWSTR args[] = { L"/Zi" };
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
-    L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult));
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-  // Disassemble the compiled (stripped) program.
-  {
-    CComPtr<IDxcBlobEncoding> pDisassembly;
-    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
-    std::string disText = BlobToUtf8(pDisassembly);
-    CA2W disTextW(disText.c_str(), CP_UTF8);
-    //WEX::Logging::Log::Comment(disTextW);
-  }
-
-  // CONSIDER: have the dia data source look for the part if passed a whole container.
-  CComPtr<IDiaDataSource> pDiaSource;
-  CComPtr<IStream> pProgramStream;
-  CComPtr<IDxcLibrary> pLib;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-  const hlsl::DxilContainerHeader *pContainer = hlsl::IsDxilContainerLike(
-      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
-  VERIFY_IS_NOT_NULL(pContainer);
-  hlsl::DxilPartIterator partIter =
-      std::find_if(hlsl::begin(pContainer), hlsl::end(pContainer),
-                   hlsl::DxilPartIsType(hlsl::DFCC_ShaderDebugInfoDXIL));
-  const hlsl::DxilProgramHeader *pProgramHeader =
-      (const hlsl::DxilProgramHeader *)hlsl::GetDxilPartData(*partIter);
-  uint32_t bitcodeLength;
-  const char *pBitcode;
-  CComPtr<IDxcBlob> pProgramPdb;
-  hlsl::GetDxilProgramBitcode(pProgramHeader, &pBitcode, &bitcodeLength);
-  VERIFY_SUCCEEDED(pLib->CreateBlobFromBlob(
-      pProgram, pBitcode - (char *)pProgram->GetBufferPointer(), bitcodeLength,
-      &pProgramPdb));
-
-  // Disassemble the program with debug information.
-  {
-    CComPtr<IDxcBlobEncoding> pDbgDisassembly;
-    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgramPdb, &pDbgDisassembly));
-    std::string disText = BlobToUtf8(pDbgDisassembly);
-    CA2W disTextW(disText.c_str(), CP_UTF8);
-    //WEX::Logging::Log::Comment(disTextW);
-  }
-
-  // Create a short text dump of debug information.
-  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pProgramPdb, &pProgramStream));
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
-  VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pProgramStream));
+    "}", &pDiaSource));
   std::wstring diaDump = GetDebugInfoAsText(pDiaSource).c_str();
   //WEX::Logging::Log::Comment(GetDebugInfoAsText(pDiaSource).c_str());
 
@@ -1499,6 +1535,86 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   VERIFY_SUCCEEDED(CreateDiaSourceFromDxbcBlob(pLib, fxcBlob, &pDiaSource));
   WEX::Logging::Log::Comment(GetDebugInfoAsText(pDiaSource).c_str());
 #endif
+}
+
+TEST_F(CompilerTest, CompileDebugLines) {
+  CComPtr<IDiaDataSource> pDiaSource;
+  VERIFY_SUCCEEDED(CreateDiaSourceForCompile(
+    "float main(float pos : A) : SV_Target {\r\n"
+    "  float x = abs(pos);\r\n"
+    "  float y = sin(pos);\r\n"
+    "  float z = x + y;\r\n"
+    "  return z;\r\n"
+    "}", &pDiaSource));
+    
+  const int numExpectedRVAs = 6;
+
+  auto verifyLines = [=](const std::vector<LineNumber> lines) {
+    VERIFY_ARE_EQUAL(lines.size(), numExpectedRVAs);
+    // 0: loadInput
+    VERIFY_ARE_EQUAL(lines[0].rva,  0);
+    VERIFY_ARE_EQUAL(lines[0].line, 1);
+    // 1: abs
+    VERIFY_ARE_EQUAL(lines[1].rva,  1);
+    VERIFY_ARE_EQUAL(lines[1].line, 2);
+    // 2: sin
+    VERIFY_ARE_EQUAL(lines[2].rva,  2);
+    VERIFY_ARE_EQUAL(lines[2].line, 3);
+    // 3: add
+    VERIFY_ARE_EQUAL(lines[3].rva,  3);
+    VERIFY_ARE_EQUAL(lines[3].line, 4);
+    // 4: storeOutput
+    VERIFY_ARE_EQUAL(lines[4].rva,  4);
+    VERIFY_ARE_EQUAL(lines[4].line, 5);
+    // 5: ret
+    VERIFY_ARE_EQUAL(lines[5].rva,  5);
+    VERIFY_ARE_EQUAL(lines[5].line, 5);
+  };
+  
+  CComPtr<IDiaSession> pSession;
+  CComPtr<IDiaEnumLineNumbers> pEnumLineNumbers;
+
+  // Verify lines are ok when getting one RVA at a time.
+  std::vector<LineNumber> linesOneByOne;
+  VERIFY_SUCCEEDED(pDiaSource->openSession(&pSession));
+  for (int i = 0; i < numExpectedRVAs; ++i) {
+    VERIFY_SUCCEEDED(pSession->findLinesByRVA(i, 1, &pEnumLineNumbers));
+    std::vector<LineNumber> lines = ReadLineNumbers(pEnumLineNumbers);
+    std::copy(lines.begin(), lines.end(), std::back_inserter(linesOneByOne));
+    pEnumLineNumbers.Release();
+  }
+  verifyLines(linesOneByOne);
+
+  // Verify lines are ok when getting all RVAs at once.
+  std::vector<LineNumber> linesAllAtOnce;
+  pEnumLineNumbers.Release();
+  VERIFY_SUCCEEDED(pSession->findLinesByRVA(0, numExpectedRVAs, &pEnumLineNumbers));
+  linesAllAtOnce = ReadLineNumbers(pEnumLineNumbers);
+  verifyLines(linesAllAtOnce);
+
+  // Verify lines are ok when getting all lines through enum tables.
+  std::vector<LineNumber> linesFromTable;
+  pEnumLineNumbers.Release();
+  CComPtr<IDiaEnumTables> pTables;
+  CComPtr<IDiaTable> pTable;
+  VERIFY_SUCCEEDED(pSession->getEnumTables(&pTables));
+  DWORD celt;
+  while (SUCCEEDED(pTables->Next(1, &pTable, &celt)) && celt == 1)
+  {
+    if (SUCCEEDED(pTable->QueryInterface(&pEnumLineNumbers))) {
+      linesFromTable = ReadLineNumbers(pEnumLineNumbers);
+      break;
+    }
+    pTable.Release();
+  }
+  verifyLines(linesFromTable);
+  
+  // Verify lines are ok when getting by address.
+  std::vector<LineNumber> linesByAddr;
+  pEnumLineNumbers.Release();
+  VERIFY_SUCCEEDED(pSession->findLinesByAddr(0, 0, numExpectedRVAs, &pEnumLineNumbers));
+  linesByAddr = ReadLineNumbers(pEnumLineNumbers);
+  verifyLines(linesByAddr);
 }
 
 TEST_F(CompilerTest, CompileWhenDefinesThenApplied) {
@@ -2581,22 +2697,22 @@ TEST_F(CompilerTest, CodeGenAtomic2) {
 }
 
 TEST_F(CompilerTest, CodeGenAttributeAtVertex) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\attributeAtVertex.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentrics) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentrics1) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentrics1.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenBarycentricsThreeSV) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\barycentricsThreeSV.hlsl");
 }
 
@@ -2817,7 +2933,7 @@ TEST_F(CompilerTest, CodeGenEnum2) {
 }
 
 TEST_F(CompilerTest, CodeGenEnum3) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
     CodeGenTestCheck(L"..\\CodeGenHLSL\\enum3.hlsl");
 }
 
@@ -3114,6 +3230,10 @@ TEST_F(CompilerTest, CodeGenLibEntries2) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_entries2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenLibNoAlias) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_no_alias.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenLibResource) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_resource.hlsl");
 }
@@ -3310,7 +3430,7 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad1) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad2) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad2.hlsl");
 }
 
@@ -3319,23 +3439,23 @@ TEST_F(CompilerTest, CodeGenMultiUAVLoad3) {
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad4) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad4.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad5) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad5.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad6) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad6.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiUAVLoad7) {
-    if (m_ver.SkipDxil_1_1_Test()) return;
-    CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad7.hlsl");
+  if (m_ver.SkipDxilVersion(1,1)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\multiUAVLoad7.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMultiStream) {
@@ -3716,6 +3836,14 @@ TEST_F(CompilerTest, CodeGenSrv_Typed_Load2) {
   CodeGenTest(L"..\\CodeGenHLSL\\srv_typed_load2.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenStaticConstGlobal) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\static_const_global.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenStaticConstGlobal2) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\static_const_global2.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenStaticGlobals) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\staticGlobals.hlsl");
 }
@@ -3849,7 +3977,7 @@ TEST_F(CompilerTest, CodeGenUint64_1) {
 }
 
 TEST_F(CompilerTest, CodeGenUint64_2) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\uint64_2.hlsl");
 }
 
@@ -5130,7 +5258,7 @@ TEST_F(CompilerTest, WhenSigMismatchPCFunctionThenFail) {
 }
 
 TEST_F(CompilerTest, ViewID) {
-  if (m_ver.SkipDxil_1_1_Test()) return;
+  if (m_ver.SkipDxilVersion(1,1)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid01.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid02.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid03.hlsl");

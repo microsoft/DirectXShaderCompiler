@@ -5677,7 +5677,10 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 
   std::vector<Value *> FlatParamList;
   std::vector<DxilParameterAnnotation> FlatParamAnnotationList;
+  std::vector<int> FlatParamOriArgNoList;
+
   const bool bForParamTrue = true;
+
   // Add all argument to worklist.
   for (Argument &Arg : F->args()) {
     // merge GEP use for arg.
@@ -5690,11 +5693,18 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       Builder.SetInsertPoint(TmpBlockForFuncDecl.get());
     }
 
+    unsigned prevFlatParamCount = FlatParamList.size();
+
     DxilParameterAnnotation &paramAnnotation =
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
     DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
     flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
                     FlatParamAnnotationList, Builder, DDI);
+
+    unsigned newFlatParamCount = FlatParamList.size() - prevFlatParamCount;
+    for (unsigned i = 0; i < newFlatParamCount; i++) {
+      FlatParamOriArgNoList.emplace_back(Arg.getArgNo());
+    }
   }
 
   Type *retType = F->getReturnType();
@@ -5762,6 +5772,11 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     flattenArgument(F, retValAddr, bForParamTrue,
                     funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
                     FlatRetAnnotationList, Builder, DDI);
+
+    const int kRetArgNo = -1;
+    for (unsigned i = 0; i < FlatRetList.size(); i++) {
+      FlatParamOriArgNoList.emplace_back(kRetArgNo);
+    }
   }
 
   // Always change return type as parameter.
@@ -5779,8 +5794,6 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
                                    FlatRetAnnotationList.begin(),
                                    FlatRetAnnotationList.end());
   }
-
-  // TODO: take care AttributeSet for function and each argument.
 
   std::vector<Type *> FinalTypeList;
   for (Value * arg : FlatParamList) {
@@ -5842,8 +5855,29 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   // Param Info
   for (unsigned ArgNo = 0; ArgNo < FlatParamAnnotationList.size(); ++ArgNo) {
     DxilParameterAnnotation &paramAnnotation = flatFuncAnnotation->GetParameterAnnotation(ArgNo);
-    paramAnnotation = FlatParamAnnotationList[ArgNo];    
+    paramAnnotation = FlatParamAnnotationList[ArgNo];
   }
+
+  // Function Attr and Parameter Attr.
+  AttributeSet AS = F->getAttributes();
+  AttrBuilder FnAttrs(AS.getFnAttributes(), AttributeSet::FunctionIndex);
+  AttributeSet flatAS;
+  flatAS = flatAS.addAttributes(
+      Ctx, AttributeSet::FunctionIndex,
+      AttributeSet::get(Ctx, AttributeSet::FunctionIndex, FnAttrs));
+  if (!F->isDeclaration()) {
+    // Only set Param attribute for function has a body.
+    for (unsigned ArgNo = 0; ArgNo < FlatParamAnnotationList.size(); ++ArgNo) {
+      unsigned oriArgNo = FlatParamOriArgNoList[ArgNo] + 1;
+      AttrBuilder paramAttr(AS, oriArgNo);
+      if (oriArgNo == AttributeSet::ReturnIndex)
+        paramAttr.addAttribute(Attribute::AttrKind::NoAlias);
+      flatAS = flatAS.addAttributes(
+          Ctx, ArgNo + 1, AttributeSet::get(Ctx, ArgNo + 1, paramAttr));
+    }
+  }
+  flatF->setAttributes(flatAS);
+
   DXASSERT(flatF->arg_size() == (extraParamSize + FlatParamAnnotationList.size()), "parameter count mismatch");
   // ShaderProps.
   if (m_pHLModule->HasDxilFunctionProps(F)) {

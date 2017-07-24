@@ -15,9 +15,9 @@ namespace spirv {
 namespace string {
 
 /// \brief Reinterprets a given string as sequence of words.
-std::vector<uint32_t> encodeSPIRVString(std::string s) {
+std::vector<uint32_t> encodeSPIRVString(llvm::StringRef strChars) {
   // Initialize all words to 0.
-  size_t numChars = s.size();
+  size_t numChars = strChars.size();
   std::vector<uint32_t> result(numChars / 4 + 1, 0);
 
   // From the SPIR-V spec, literal string is
@@ -32,19 +32,19 @@ std::vector<uint32_t> encodeSPIRVString(std::string s) {
   //
   // So the following works on little endian machines.
   char *strDest = reinterpret_cast<char *>(result.data());
-  strncpy(strDest, s.c_str(), numChars);
+  strncpy(strDest, strChars.data(), numChars);
   return result;
 }
 
 /// \brief Reinterprets the given vector of 32-bit words as a string.
 /// Expectes that the words represent a NULL-terminated string.
 /// Assumes Little Endian architecture.
-std::string decodeSPIRVString(const std::vector<uint32_t> &vec) {
-  std::string result;
-  if (!vec.empty()) {
-    result = std::string(reinterpret_cast<const char *>(vec.data()));
+std::string decodeSPIRVString(llvm::ArrayRef<uint32_t> strWords) {
+  if (!strWords.empty()) {
+    return reinterpret_cast<const char *>(strWords.data());
   }
-  return result;
+
+  return "";
 }
 
 } // end namespace string

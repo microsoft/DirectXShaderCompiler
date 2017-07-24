@@ -353,6 +353,7 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
     DxilResourceBase *res = it.second.first;
     GlobalVariable *GV = it.second.second;
     unsigned ID = 0;
+    DxilResourceBase *basePtr = nullptr;
     switch (res->GetClass()) {
     case DXIL::ResourceClass::UAV: {
       std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
@@ -360,6 +361,7 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
       // Copy the content.
       *ptr = *(static_cast<DxilResource *>(res));
       ID = DM.AddUAV(std::move(pUAV));
+      basePtr = &DM.GetUAV(ID);
     } break;
     case DXIL::ResourceClass::SRV: {
       std::unique_ptr<DxilResource> pSRV = llvm::make_unique<DxilResource>();
@@ -367,6 +369,7 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
       // Copy the content.
       *ptr = *(static_cast<DxilResource *>(res));
       ID = DM.AddSRV(std::move(pSRV));
+      basePtr = &DM.GetSRV(ID);
     } break;
     case DXIL::ResourceClass::CBuffer: {
       std::unique_ptr<DxilCBuffer> pCBuf = llvm::make_unique<DxilCBuffer>();
@@ -374,6 +377,7 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
       // Copy the content.
       *ptr = *(static_cast<DxilCBuffer *>(res));
       ID = DM.AddCBuffer(std::move(pCBuf));
+      basePtr = &DM.GetCBuffer(ID);
     } break;
     case DXIL::ResourceClass::Sampler: {
       std::unique_ptr<DxilSampler> pSampler = llvm::make_unique<DxilSampler>();
@@ -381,12 +385,15 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
       // Copy the content.
       *ptr = *(static_cast<DxilSampler *>(res));
       ID = DM.AddSampler(std::move(pSampler));
+      basePtr = &DM.GetSampler(ID);
     }
     default:
       DXASSERT(res->GetClass() == DXIL::ResourceClass::Sampler,
                "else invalid resource");
       break;
     }
+    // Update ID.
+    basePtr->SetID(ID);
     Constant *rangeID = ConstantInt::get(GV->getType()->getElementType(), ID);
     for (User *U : GV->users()) {
       LoadInst *LI = cast<LoadInst>(U);

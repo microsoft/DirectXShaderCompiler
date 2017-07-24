@@ -125,8 +125,8 @@ public:
   void Initialize(dxc::DxcDllSupport &dllSupport);
   // Return true if IR sensitive test should be skipped, and log comment
   bool SkipIRSensitiveTest();
-  // Return true if DXIL 1.1 test should be skipped, and log comment
-  bool SkipDxil_1_1_Test();
+  // Return true if test requiring DXIL of given version should be skipped, and log comment
+  bool SkipDxilVersion(unsigned major, unsigned minor);
   // Return true if out-of-memory test should be skipped, and log comment
   bool SkipOutOfMemoryTest();
 };

@@ -15,6 +15,7 @@
 
 #include "spirv/1.0/spirv.hpp11"
 #include "clang/SPIRV/Decoration.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 
 namespace clang {
@@ -39,9 +40,7 @@ public:
 
   spv::Op getOpcode() const { return opcode; }
   const std::vector<uint32_t> &getArgs() const { return args; }
-  const std::set<const Decoration *> &getDecorations() const {
-    return decorations;
-  }
+  const DecorationSet &getDecorations() const { return decorations; }
   bool hasDecoration(const Decoration *) const;
 
   bool isBooleanType() const;
@@ -92,7 +91,7 @@ public:
                                      uint32_t component_type_id,
                                      DecorationSet decs = {});
   static const Type *getStruct(SPIRVContext &ctx,
-                               std::initializer_list<uint32_t> members,
+                               llvm::ArrayRef<uint32_t> members,
                                DecorationSet d = {});
   static const Type *getOpaque(SPIRVContext &ctx, std::string name,
                                DecorationSet decs = {});
@@ -100,7 +99,7 @@ public:
                                 spv::StorageClass storage_class, uint32_t type,
                                 DecorationSet decs = {});
   static const Type *getFunction(SPIRVContext &ctx, uint32_t return_type,
-                                 std::initializer_list<uint32_t> params,
+                                 const std::vector<uint32_t> &params,
                                  DecorationSet decs = {});
   static const Type *getEvent(SPIRVContext &ctx, DecorationSet decs = {});
   static const Type *getDeviceEvent(SPIRVContext &ctx, DecorationSet decs = {});
@@ -116,6 +115,9 @@ public:
            decorations == other.decorations;
   }
 
+  // \brief Construct the SPIR-V words for this type with the given <result-id>.
+  std::vector<uint32_t> withResultId(uint32_t resultId) const;
+
 private:
   /// \brief Private constructor.
   Type(spv::Op op, std::vector<uint32_t> arg = {},
@@ -127,7 +129,7 @@ private:
 private:
   spv::Op opcode;             ///< OpCode of the Type defined in SPIR-V Spec
   std::vector<uint32_t> args; ///< Arguments needed to define the type
-  std::set<const Decoration *> decorations; ///< decorations applied to the type
+  DecorationSet decorations;  ///< decorations applied to the type
 };
 
 } // end namespace spirv

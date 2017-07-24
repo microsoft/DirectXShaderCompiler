@@ -262,7 +262,7 @@ InstBuilder &InstBuilder::opExtInstImport(uint32_t result_id,
 InstBuilder &
 InstBuilder::opExtInst(uint32_t result_type, uint32_t result_id, uint32_t set,
                        uint32_t instruction,
-                       std::initializer_list<uint32_t> operand_1_operand_2_) {
+                       llvm::ArrayRef<uint32_t> operand_1_operand_2_) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -303,10 +303,9 @@ InstBuilder &InstBuilder::opMemoryModel(spv::AddressingModel addressing_model,
   return *this;
 }
 
-InstBuilder &
-InstBuilder::opEntryPoint(spv::ExecutionModel execution_model,
-                          uint32_t entry_point, std::string name,
-                          std::initializer_list<uint32_t> interface) {
+InstBuilder &InstBuilder::opEntryPoint(spv::ExecutionModel execution_model,
+                                       uint32_t entry_point, std::string name,
+                                       llvm::ArrayRef<uint32_t> interface) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -571,8 +570,7 @@ InstBuilder &InstBuilder::opTypeRuntimeArray(uint32_t result_id,
 }
 
 InstBuilder &InstBuilder::opTypeStruct(
-    uint32_t result_id,
-    std::initializer_list<uint32_t> member_0_type_member_1_type_) {
+    uint32_t result_id, llvm::ArrayRef<uint32_t> member_0_type_member_1_type_) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -634,7 +632,7 @@ InstBuilder &InstBuilder::opTypePointer(uint32_t result_id,
 
 InstBuilder &InstBuilder::opTypeFunction(
     uint32_t result_id, uint32_t return_type,
-    std::initializer_list<uint32_t> parameter_0_type_parameter_1_type_) {
+    llvm::ArrayRef<uint32_t> parameter_0_type_parameter_1_type_) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -805,7 +803,7 @@ InstBuilder &InstBuilder::opConstantFalse(uint32_t result_type,
 
 InstBuilder &
 InstBuilder::opConstantComposite(uint32_t result_type, uint32_t result_id,
-                                 std::initializer_list<uint32_t> constituents) {
+                                 llvm::ArrayRef<uint32_t> constituents) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -925,9 +923,9 @@ InstBuilder &InstBuilder::opSpecConstantFalse(uint32_t result_type,
   return *this;
 }
 
-InstBuilder &InstBuilder::opSpecConstantComposite(
-    uint32_t result_type, uint32_t result_id,
-    std::initializer_list<uint32_t> constituents) {
+InstBuilder &
+InstBuilder::opSpecConstantComposite(uint32_t result_type, uint32_t result_id,
+                                     llvm::ArrayRef<uint32_t> constituents) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1035,9 +1033,10 @@ InstBuilder &InstBuilder::opFunctionEnd() {
   return *this;
 }
 
-InstBuilder &InstBuilder::opFunctionCall(
-    uint32_t result_type, uint32_t result_id, uint32_t function,
-    std::initializer_list<uint32_t> argument_0_argument_1_) {
+InstBuilder &
+InstBuilder::opFunctionCall(uint32_t result_type, uint32_t result_id,
+                            uint32_t function,
+                            llvm::ArrayRef<uint32_t> argument_0_argument_1_) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1210,10 +1209,9 @@ InstBuilder &InstBuilder::opCopyMemorySized(
   return *this;
 }
 
-InstBuilder &
-InstBuilder::opAccessChain(uint32_t result_type, uint32_t result_id,
-                           uint32_t base,
-                           std::initializer_list<uint32_t> indexes) {
+InstBuilder &InstBuilder::opAccessChain(uint32_t result_type,
+                                        uint32_t result_id, uint32_t base,
+                                        llvm::ArrayRef<uint32_t> indexes) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1240,7 +1238,7 @@ InstBuilder::opAccessChain(uint32_t result_type, uint32_t result_id,
 InstBuilder &
 InstBuilder::opInBoundsAccessChain(uint32_t result_type, uint32_t result_id,
                                    uint32_t base,
-                                   std::initializer_list<uint32_t> indexes) {
+                                   llvm::ArrayRef<uint32_t> indexes) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1264,10 +1262,10 @@ InstBuilder::opInBoundsAccessChain(uint32_t result_type, uint32_t result_id,
   return *this;
 }
 
-InstBuilder &
-InstBuilder::opPtrAccessChain(uint32_t result_type, uint32_t result_id,
-                              uint32_t base, uint32_t element,
-                              std::initializer_list<uint32_t> indexes) {
+InstBuilder &InstBuilder::opPtrAccessChain(uint32_t result_type,
+                                           uint32_t result_id, uint32_t base,
+                                           uint32_t element,
+                                           llvm::ArrayRef<uint32_t> indexes) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1347,7 +1345,7 @@ InstBuilder &InstBuilder::opGenericPtrMemSemantics(uint32_t result_type,
 InstBuilder &
 InstBuilder::opInBoundsPtrAccessChain(uint32_t result_type, uint32_t result_id,
                                       uint32_t base, uint32_t element,
-                                      std::initializer_list<uint32_t> indexes) {
+                                      llvm::ArrayRef<uint32_t> indexes) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1422,9 +1420,8 @@ InstBuilder &InstBuilder::opDecorationGroup(uint32_t result_id) {
   return *this;
 }
 
-InstBuilder &
-InstBuilder::opGroupDecorate(uint32_t decoration_group,
-                             std::initializer_list<uint32_t> targets) {
+InstBuilder &InstBuilder::opGroupDecorate(uint32_t decoration_group,
+                                          llvm::ArrayRef<uint32_t> targets) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1440,7 +1437,7 @@ InstBuilder::opGroupDecorate(uint32_t decoration_group,
 
 InstBuilder &InstBuilder::opGroupMemberDecorate(
     uint32_t decoration_group,
-    std::initializer_list<std::pair<uint32_t, uint32_t>> targets) {
+    llvm::ArrayRef<std::pair<uint32_t, uint32_t>> targets) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1514,10 +1511,10 @@ InstBuilder &InstBuilder::opVectorInsertDynamic(uint32_t result_type,
   return *this;
 }
 
-InstBuilder &
-InstBuilder::opVectorShuffle(uint32_t result_type, uint32_t result_id,
-                             uint32_t vector_1, uint32_t vector_2,
-                             std::initializer_list<uint32_t> components) {
+InstBuilder &InstBuilder::opVectorShuffle(uint32_t result_type,
+                                          uint32_t result_id, uint32_t vector_1,
+                                          uint32_t vector_2,
+                                          llvm::ArrayRef<uint32_t> components) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1545,9 +1542,9 @@ InstBuilder::opVectorShuffle(uint32_t result_type, uint32_t result_id,
   return *this;
 }
 
-InstBuilder &InstBuilder::opCompositeConstruct(
-    uint32_t result_type, uint32_t result_id,
-    std::initializer_list<uint32_t> constituents) {
+InstBuilder &
+InstBuilder::opCompositeConstruct(uint32_t result_type, uint32_t result_id,
+                                  llvm::ArrayRef<uint32_t> constituents) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1570,10 +1567,10 @@ InstBuilder &InstBuilder::opCompositeConstruct(
   return *this;
 }
 
-InstBuilder &
-InstBuilder::opCompositeExtract(uint32_t result_type, uint32_t result_id,
-                                uint32_t composite,
-                                std::initializer_list<uint32_t> indexes) {
+InstBuilder &InstBuilder::opCompositeExtract(uint32_t result_type,
+                                             uint32_t result_id,
+                                             uint32_t composite,
+                                             llvm::ArrayRef<uint32_t> indexes) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -1600,10 +1597,10 @@ InstBuilder::opCompositeExtract(uint32_t result_type, uint32_t result_id,
   return *this;
 }
 
-InstBuilder &
-InstBuilder::opCompositeInsert(uint32_t result_type, uint32_t result_id,
-                               uint32_t object, uint32_t composite,
-                               std::initializer_list<uint32_t> indexes) {
+InstBuilder &InstBuilder::opCompositeInsert(uint32_t result_type,
+                                            uint32_t result_id, uint32_t object,
+                                            uint32_t composite,
+                                            llvm::ArrayRef<uint32_t> indexes) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -5409,7 +5406,7 @@ InstBuilder &InstBuilder::opAtomicXor(uint32_t result_type, uint32_t result_id,
 
 InstBuilder &InstBuilder::opPhi(
     uint32_t result_type, uint32_t result_id,
-    std::initializer_list<std::pair<uint32_t, uint32_t>> variable_parent_) {
+    llvm::ArrayRef<std::pair<uint32_t, uint32_t>> variable_parent_) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -5499,9 +5496,10 @@ InstBuilder &InstBuilder::opBranch(uint32_t target_label) {
   return *this;
 }
 
-InstBuilder &InstBuilder::opBranchConditional(
-    uint32_t condition, uint32_t true_label, uint32_t false_label,
-    std::initializer_list<uint32_t> branch_weights) {
+InstBuilder &
+InstBuilder::opBranchConditional(uint32_t condition, uint32_t true_label,
+                                 uint32_t false_label,
+                                 llvm::ArrayRef<uint32_t> branch_weights) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -5520,9 +5518,9 @@ InstBuilder &InstBuilder::opBranchConditional(
   return *this;
 }
 
-InstBuilder &InstBuilder::opSwitch(
-    uint32_t selector, uint32_t default_target,
-    std::initializer_list<std::pair<uint32_t, uint32_t>> target) {
+InstBuilder &
+InstBuilder::opSwitch(uint32_t selector, uint32_t default_target,
+                      llvm::ArrayRef<std::pair<uint32_t, uint32_t>> target) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
@@ -6404,7 +6402,7 @@ InstBuilder &InstBuilder::opEnqueueKernel(
     uint32_t result_type, uint32_t result_id, uint32_t queue, uint32_t flags,
     uint32_t nd_range, uint32_t num_events, uint32_t wait_events,
     uint32_t ret_event, uint32_t invoke, uint32_t param, uint32_t param_size,
-    uint32_t param_align, std::initializer_list<uint32_t> local_size) {
+    uint32_t param_align, llvm::ArrayRef<uint32_t> local_size) {
   if (!TheInst.empty()) {
     TheStatus = Status::NestedInst;
     return *this;
