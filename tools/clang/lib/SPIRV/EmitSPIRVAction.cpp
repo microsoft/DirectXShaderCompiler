@@ -173,7 +173,7 @@ public:
 
       if (decl->hasBody()) {
         // The entry basic block.
-        const uint32_t entryLabel = theBuilder.createBasicBlock();
+        const uint32_t entryLabel = theBuilder.createBasicBlock("bb.entry");
         theBuilder.setInsertPoint(entryLabel);
 
         // Process all statments in the body.
@@ -203,7 +203,7 @@ public:
       const uint32_t ptrType = theBuilder.getPointerType(
           typeTranslator.translateType(decl->getType()),
           spv::StorageClass::Function);
-      const uint32_t varId = theBuilder.addFnVariable(ptrType);
+      const uint32_t varId = theBuilder.addFnVariable(ptrType, decl->getName());
       declIdMapper.registerDeclResultId(decl, varId);
     } else {
       // TODO: handle global variables
