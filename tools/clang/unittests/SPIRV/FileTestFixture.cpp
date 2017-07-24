@@ -1,4 +1,4 @@
-//===- unittests/SPIRV/WholeFileCheck.cpp - WholeFileCheck Implementation -===//
+//===- FileTestFixture.cpp ------------- File Test Fixture Implementation -===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,25 +7,23 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "FileTestFixture.h"
+
 #include <fstream>
 
 #include "FileTestUtils.h"
-#include "WholeFileCheck.h"
+#include "effcee/effcee.h"
 
 namespace clang {
 namespace spirv {
 
-namespace {
-const char hlslStartLabel[] = "// Run:";
-const char spirvStartLabel[] = "// CHECK-WHOLE-SPIR-V:";
-} // namespace
-
-bool WholeFileTest::parseInputFile() {
+bool FileTest::parseInputFile() {
+  const char hlslStartLabel[] = "// Run:";
   bool foundRunCommand = false;
-  bool parseSpirv = false;
-  std::ostringstream outString;
+  std::ostringstream checkCommandStream;
   std::ifstream inputFile;
   inputFile.exceptions(std::ifstream::failbit);
+
   try {
     inputFile.open(inputFilePath);
     for (std::string line; std::getline(inputFile, line);) {
@@ -35,22 +33,8 @@ bool WholeFileTest::parseInputFile() {
           // An error has occured when parsing the Run command.
           return false;
         }
-      } else if (line.find(spirvStartLabel) != std::string::npos) {
-        // HLSL source has ended.
-        // SPIR-V source starts on the next line.
-        parseSpirv = true;
-      } else if (parseSpirv) {
-        // Strip the leading "//" from the SPIR-V assembly (skip 2 characters)
-        if (line.size() > 2u) {
-          line = line.substr(2);
-        }
-        // Skip any leading whitespace
-        size_t found = line.find_first_not_of(" \t");
-        if (found != std::string::npos) {
-          line = line.substr(found);
-        }
-        outString << line << std::endl;
       }
+      checkCommandStream << line << std::endl;
     }
   } catch (...) {
     if (!inputFile.eof()) {
@@ -66,14 +50,10 @@ bool WholeFileTest::parseInputFile() {
     fprintf(stderr, "Error: Missing \"Run:\" command.\n");
     return false;
   }
-  if (!parseSpirv) {
-    fprintf(stderr, "Error: Missing \"CHECK-WHOLE-SPIR-V:\" command.\n");
-    return false;
-  }
 
-  // Reached the end of the file. SPIR-V source has ended. Store it for
-  // comparison.
-  expectedSpirvAsm = outString.str();
+  // Reached the end of the file. Check commands have ended.
+  // Store them so they can be passed to effcee.
+  checkCommands = checkCommandStream.str();
 
   // Close the input file.
   inputFile.close();
@@ -82,9 +62,7 @@ bool WholeFileTest::parseInputFile() {
   return true;
 }
 
-void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
-                                     bool generateHeader,
-                                     bool runSpirvValidation) {
+void FileTest::runFileTest(llvm::StringRef filename, bool runSpirvValidation) {
   inputFilePath = utils::getAbsPathOfInputDataFile(filename);
 
   // Parse the input file.
@@ -96,10 +74,19 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
 
   // Disassemble the generated SPIR-V binary.
   ASSERT_TRUE(utils::disassembleSpirvBinary(generatedBinary, &generatedSpirvAsm,
-                                            generateHeader));
+                                            true /* generateHeader */));
 
-  // Compare the expected and the generted SPIR-V code.
-  EXPECT_EQ(expectedSpirvAsm, generatedSpirvAsm);
+  // Run CHECK commands via effcee.
+  auto result = effcee::Match(generatedSpirvAsm, checkCommands,
+                              effcee::Options().SetInputName(filename.str()));
+
+  // Print effcee's error message (if any).
+  if (result.status() != effcee::Result::Status::Ok) {
+    fprintf(stderr, "%s\n", result.message().c_str());
+  }
+
+  // All checks must have passed.
+  ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
   // Run SPIR-V validation if requested.
   if (runSpirvValidation) {
