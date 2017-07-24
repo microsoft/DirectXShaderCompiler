@@ -1964,13 +1964,13 @@ HRESULT CreateDxcDiaTable(DxcDiaSession *pSession, DiaTableKind kind, IDiaTable 
 class DxcDiaDataSource : public IDiaDataSource {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
-    std::shared_ptr<llvm::Module> m_module;
+  std::shared_ptr<llvm::Module> m_module;
   std::shared_ptr<llvm::LLVMContext> m_context;
   std::shared_ptr<llvm::DebugInfoFinder> m_finder;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDiaDataSource>(this, iid, ppvObject);
   }
 
