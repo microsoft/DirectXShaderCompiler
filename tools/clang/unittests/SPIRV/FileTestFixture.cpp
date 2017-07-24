@@ -19,44 +19,42 @@ namespace spirv {
 
 bool FileTest::parseInputFile() {
   const char hlslStartLabel[] = "// Run:";
-  bool foundRunCommand = false;
-  std::ostringstream checkCommandStream;
+  std::stringstream inputSS;
   std::ifstream inputFile;
   inputFile.exceptions(std::ifstream::failbit);
 
   try {
     inputFile.open(inputFilePath);
-    for (std::string line; std::getline(inputFile, line);) {
-      if (line.find(hlslStartLabel) != std::string::npos) {
-        foundRunCommand = true;
-        if (!utils::processRunCommandArgs(line, &targetProfile, &entryPoint)) {
-          // An error has occured when parsing the Run command.
-          return false;
-        }
-      }
-      checkCommandStream << line << std::endl;
-    }
+    inputSS << inputFile.rdbuf();
   } catch (...) {
-    if (!inputFile.eof()) {
-      fprintf(
-          stderr,
-          "Error: Exception occurred while opening/reading the input file %s\n",
-          inputFilePath.c_str());
-      return false;
-    }
-  }
-
-  if (!foundRunCommand) {
-    fprintf(stderr, "Error: Missing \"Run:\" command.\n");
+    fprintf(
+        stderr,
+        "Error: Exception occurred while opening/reading the input file %s\n",
+        inputFilePath.c_str());
     return false;
   }
 
-  // Reached the end of the file. Check commands have ended.
-  // Store them so they can be passed to effcee.
-  checkCommands = checkCommandStream.str();
-
   // Close the input file.
   inputFile.close();
+
+  // Effcee skips any input line which doesn't have a CHECK directive, therefore
+  // we can pass the entire input to effcee. This way, any warning/error message
+  // provided by effcee also reflects the correct line number in the input file.
+  checkCommands = inputSS.str();
+
+  const auto runCmdStartPos = checkCommands.find(hlslStartLabel);
+  if (runCmdStartPos != std::string::npos) {
+    const auto runCmdEndPos = checkCommands.find('\n', runCmdStartPos);
+    const auto runCommand = checkCommands.substr(runCmdStartPos, runCmdEndPos);
+    if (!utils::processRunCommandArgs(runCommand, &targetProfile,
+                                      &entryPoint)) {
+      // An error has occured when parsing the Run command.
+      return false;
+    }
+  } else {
+    fprintf(stderr, "Error: Missing \"Run:\" command.\n");
+    return false;
+  }
 
   // Everything was successful.
   return true;
