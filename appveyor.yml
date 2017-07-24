@@ -9,6 +9,8 @@ environment:
 install:
 - ps: c:\projects\DirectXShaderCompiler\utils\appveyor\appveyor_setup.ps1
 - git clone --depth=1 https://github.com/google/googletest.git          %HLSL_SRC_DIR%\external\googletest
+- git clone --depth=1 https://github.com/google/effcee.git              %HLSL_SRC_DIR%\external\effcee
+- git clone --depth=1 https://github.com/google/re2.git                 %HLSL_SRC_DIR%\external\re2
 - git clone --depth=1 https://github.com/KhronosGroup/SPIRV-Headers.git %HLSL_SRC_DIR%\external\SPIRV-Headers
 - git clone --depth=1 https://github.com/KhronosGroup/SPIRV-Tools.git   %HLSL_SRC_DIR%\external\SPIRV-Tools
 build_script:
