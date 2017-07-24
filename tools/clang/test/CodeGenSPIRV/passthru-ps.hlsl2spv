@@ -15,6 +15,7 @@ float4 main(float4 input: COLOR): SV_TARGET
 // OpEntryPoint Fragment %main "main" %6 %4
 // OpExecutionMode %main OriginUpperLeft
 // OpName %main "main"
+// OpName %bb_entry "bb.entry"
 // OpDecorate %6 Location 0
 // OpDecorate %4 Location 0
 // %float = OpTypeFloat 32
@@ -26,7 +27,7 @@ float4 main(float4 input: COLOR): SV_TARGET
 // %4 = OpVariable %_ptr_Output_v4float Output
 // %6 = OpVariable %_ptr_Input_v4float Input
 // %main = OpFunction %void None %8
-// %10 = OpLabel
+// %bb_entry = OpLabel
 // %11 = OpLoad %v4float %6
 // OpStore %4 %11
 // OpReturn
