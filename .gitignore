@@ -68,9 +68,6 @@ tools/polly
 docs/_build
 # TAEF crash logs.
 WexLogFileOutput/*
-# SPIR-V dependencies.
-external/SPIRV-Headers
-external/SPIRV-Tools
 
 #==============================================================================#
 # Files created in tree by the Go bindings.
