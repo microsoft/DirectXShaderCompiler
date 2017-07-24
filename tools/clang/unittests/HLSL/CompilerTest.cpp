@@ -530,7 +530,6 @@ public:
   TEST_METHOD(CodeGenIntrinsic5)
   TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
-  TEST_METHOD(CodeGenLibArgFlatten)
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
@@ -3207,10 +3206,6 @@ TEST_F(CompilerTest, CodeGenLegacyStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\legacy_struct.hlsl");
 }
 
-TEST_F(CompilerTest, CodeGenLibArgFlatten) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_arg_flatten.hlsl");
-}
-
 TEST_F(CompilerTest, CodeGenLibCsEntry) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_cs_entry.hlsl");
 }
@@ -5333,5 +5328,5 @@ TEST_F(CompilerTest, SingleFileCheckTest) {
     filename = hlsl_test::GetPathToHlslDataFile(filename.c_str());
   }
 
-  CodeGenTestCheckFullPath(filename.c_str());
+  CodeGenTestCheckBatch(filename.c_str(), 0);
 }

@@ -18,5 +18,7 @@ float test(T t);
 float4 test3(){
   float2 x = m + 2;
   T t = { x };
-  return test(t);
+  float a = test(t);
+  t.v.x += 2;
+  return a + test(t);
 }
