@@ -223,7 +223,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
             AtomicBinOpcode,// i32, ; opcode
             HandleForUAV,   // %dx.types.Handle, ; resource handle
             AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
-            ClampedIndex,   // i32, ; coordinate c0: offset in elements
+            ClampedIndex,   // i32, ; coordinate c0: index in elements
             Zero32Arg,      // i32, ; coordinate c1: byte offset into element
             Zero32Arg,      // i32, ; coordinate c2 (unused)
             One32Arg        // i32); increment value
@@ -237,13 +237,18 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
           // ------------------------------------------------------------------------------------------------------------
 
           // Step 1: Retrieve weight value from UAV; it will be placed after the range we're writing to
-          CallInst * Weight;
+          Value * Weight;
           {
             Function* LoadWeight = HlslOP->GetOpFunc(OP::OpCode::BufferLoad, Type::getInt32Ty(Ctx));
             Constant* LoadWeightOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferLoad);
             Constant* OffsetIntoUAV = HlslOP->GetU32Const(NumPixels * 2);
-            Weight = Builder.CreateCall(LoadWeight,
-            { LoadWeightOpcode, HandleForUAV, OffsetIntoUAV, Zero32Arg /*byte offset into struct*/ }, "Weight");
+            auto WeightStruct = Builder.CreateCall(LoadWeight, {
+              LoadWeightOpcode, // i32 opcode
+              HandleForUAV,     // %dx.types.Handle, ; resource handle
+              OffsetIntoUAV,    // i32 c0: index in elements into UAV
+              Zero32Arg         // i32 c1: byte offset into struct
+            }, "WeightStruct");
+            Weight = Builder.CreateExtractValue(WeightStruct, static_cast<uint64_t>(0LL), "Weight");
           }
 
           // Step 2: Update write position ("Index") to second half of the UAV 
@@ -254,7 +259,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
             AtomicBinOpcode,          // i32, ; opcode
             HandleForUAV,   // %dx.types.Handle, ; resource handle
             AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
-            OffsetIndex,    // i32, ; coordinate c0: offset in elements
+            OffsetIndex,    // i32, ; coordinate c0: index in elements
             Zero32Arg,      // i32, ; coordinate c1: byte offset into element
             Zero32Arg,      // i32, ; coordinate c2 (unused)
             Weight          // i32); increment value
