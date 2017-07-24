@@ -1015,7 +1015,7 @@ public:
   TEST_METHOD(ViewID)
   TEST_METHOD(ShaderCompatSuite)
   BEGIN_TEST_METHOD(SingleFileCheckTest)
-    TEST_METHOD_PROPERTY(L"Priority", L"1")
+    TEST_METHOD_PROPERTY(L"Ignore", L"true")
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
