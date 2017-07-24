@@ -553,7 +553,25 @@ public:
 
   __override STDMETHODIMP Item(
     /* [in] */ VARIANT index,
-    /* [retval][out] */ IDiaTable **table) { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaTable **table) {
+    // Avoid pulling in additional variant support (could have used VariantChangeType instead).
+    DWORD indexVal;
+    switch (index.vt) {
+    case VT_UI4:
+      indexVal = index.uintVal;
+      break;
+    case VT_I4:
+      IFR(IntToDWord(index.intVal, &indexVal));
+      break;
+    default:
+      return E_INVALIDARG;
+    }
+    if (indexVal > (unsigned)LastTableKind) {
+      return E_INVALIDARG;
+    }
+    DxcThreadMalloc TM(m_pMalloc);
+    return CreateDxcDiaTable(m_pSession, (DiaTableKind)indexVal, table);
+  }
 
   __override STDMETHODIMP Next(
     ULONG celt,
@@ -1946,13 +1964,13 @@ HRESULT CreateDxcDiaTable(DxcDiaSession *pSession, DiaTableKind kind, IDiaTable 
 class DxcDiaDataSource : public IDiaDataSource {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
-  std::shared_ptr<llvm::Module> m_module;
+    std::shared_ptr<llvm::Module> m_module;
   std::shared_ptr<llvm::LLVMContext> m_context;
   std::shared_ptr<llvm::DebugInfoFinder> m_finder;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDiaDataSource>(this, iid, ppvObject);
   }
 
@@ -1966,7 +1984,7 @@ public:
 
   __override HRESULT STDMETHODCALLTYPE get_lastError(BSTR *pRetVal) {
     *pRetVal = nullptr;
-    return E_NOTIMPL;
+    return S_OK;
   }
 
   __override HRESULT STDMETHODCALLTYPE loadDataFromPdb(_In_ LPCOLESTR pdbPath) {
@@ -1997,11 +2015,44 @@ public:
     m_finder.reset();
     try {
       m_context = std::make_shared<LLVMContext>();
+      MemoryBuffer *pBitcodeBuffer;
+      std::unique_ptr<MemoryBuffer> pEmbeddedBuffer;
       std::unique_ptr<MemoryBuffer> pBuffer =
           getMemBufferFromStream(pIStream, "data");
+      size_t bufferSize = pBuffer->getBufferSize();
+
+      // The buffer can hold LLVM bitcode for a module, or the ILDB
+      // part from a container.
+      if (bufferSize < sizeof(UINT32)) {
+        return DXC_E_MALFORMED_CONTAINER;
+      }
+      const UINT32 BC_C0DE = ((INT32)(INT8)'B' | (INT32)(INT8)'C' << 8 | (INT32)0xDEC0 << 16); // BC0xc0de in big endian
+      if (BC_C0DE == *(const UINT32*)pBuffer->getBufferStart()) {
+        pBitcodeBuffer = pBuffer.get();
+      }
+      else {
+        if (bufferSize <= sizeof(hlsl::DxilProgramHeader)) {
+          return DXC_E_MALFORMED_CONTAINER;
+        }
+
+        hlsl::DxilProgramHeader *pDxilProgramHeader = (hlsl::DxilProgramHeader *)pBuffer->getBufferStart();
+        if (pDxilProgramHeader->BitcodeHeader.DxilMagic != DxilMagicValue) {
+          return DXC_E_MALFORMED_CONTAINER;
+        }
+
+        UINT32 BlobSize;
+        const char *pBitcode = nullptr;
+        hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &BlobSize);
+        UINT32 offset = (UINT32)(pBitcode - (const char *)pDxilProgramHeader);
+        std::unique_ptr<MemoryBuffer> p = MemoryBuffer::getMemBuffer(
+            StringRef(pBitcode, bufferSize - offset), "data");
+        pEmbeddedBuffer.swap(p);
+        pBitcodeBuffer = pEmbeddedBuffer.get();
+      }
+
       std::string DiagStr;
       std::unique_ptr<llvm::Module> pModule = dxcutil::LoadModuleFromBitcode(
-          pBuffer.get(), *m_context.get(), DiagStr);
+          pBitcodeBuffer, *m_context.get(), DiagStr);
       if (!pModule.get())
         return E_FAIL;
       m_finder = std::make_shared<DebugInfoFinder>();
