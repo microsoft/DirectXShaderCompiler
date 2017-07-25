@@ -82,6 +82,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDCEPass(Registry);
     initializeDSEPass(Registry);
     initializeDeadInstEliminationPass(Registry);
+    initializeDxilAddPixelHitInstrumentationPass(Registry);
     initializeDxilCondenseResourcesPass(Registry);
     initializeDxilEliminateOutputDynamicIndexingPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
@@ -170,6 +171,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR AlwaysInlinerArgs[] = { "InsertLifetime", "InlineThreshold" };
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
+  static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "force-early-z", "add-pixel-cost", "rt-width", "num-pixels" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
@@ -200,6 +202,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "always-inline") == 0) return ArrayRef<LPCSTR>(AlwaysInlinerArgs, _countof(AlwaysInlinerArgs));
   if (strcmp(passName, "argpromotion") == 0) return ArrayRef<LPCSTR>(ArgPromotionArgs, _countof(ArgPromotionArgs));
   if (strcmp(passName, "simplifycfg") == 0) return ArrayRef<LPCSTR>(CFGSimplifyPassArgs, _countof(CFGSimplifyPassArgs));
+  if (strcmp(passName, "hlsl-dxil-add-pixel-hit-instrmentation") == 0) return ArrayRef<LPCSTR>(DxilAddPixelHitInstrumentationArgs, _countof(DxilAddPixelHitInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
@@ -237,6 +240,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR AlwaysInlinerArgs[] = { "Insert @llvm.lifetime intrinsics", "Insert @llvm.lifetime intrinsics" };
   static const LPCSTR ArgPromotionArgs[] = { "None" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "None", "None", "Control the number of bonus instructions (default = 1)" };
+  static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
@@ -267,6 +271,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "always-inline") == 0) return ArrayRef<LPCSTR>(AlwaysInlinerArgs, _countof(AlwaysInlinerArgs));
   if (strcmp(passName, "argpromotion") == 0) return ArrayRef<LPCSTR>(ArgPromotionArgs, _countof(ArgPromotionArgs));
   if (strcmp(passName, "simplifycfg") == 0) return ArrayRef<LPCSTR>(CFGSimplifyPassArgs, _countof(CFGSimplifyPassArgs));
+  if (strcmp(passName, "hlsl-dxil-add-pixel-hit-instrmentation") == 0) return ArrayRef<LPCSTR>(DxilAddPixelHitInstrumentationArgs, _countof(DxilAddPixelHitInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "dynamic-vector-to-array") == 0) return ArrayRef<LPCSTR>(DynamicIndexingVectorToArrayArgs, _countof(DynamicIndexingVectorToArrayArgs));
@@ -319,6 +324,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("TIRA")
     ||  S.equals("TLIImpl")
     ||  S.equals("Threshold")
+    ||  S.equals("add-pixel-cost")
     ||  S.equals("bonus-inst-threshold")
     ||  S.equals("constant-alpha")
     ||  S.equals("constant-blue")
@@ -330,6 +336,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("enable-scoped-noalias")
     ||  S.equals("enable-tbaa")
     ||  S.equals("float2int-max-integer-bw")
+    ||  S.equals("force-early-z")
     ||  S.equals("force-ssa-updater")
     ||  S.equals("jump-threading-threshold")
     ||  S.equals("likely-branch-weight")
@@ -344,10 +351,12 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("mod-mode")
     ||  S.equals("no-discriminators")
     ||  S.equals("noloads")
+    ||  S.equals("num-pixels")
     ||  S.equals("pragma-unroll-threshold")
     ||  S.equals("reroll-num-tolerated-failed-matches")
     ||  S.equals("rewrite-map-file")
     ||  S.equals("rotation-max-header-size")
+    ||  S.equals("rt-width")
     ||  S.equals("sample-profile-file")
     ||  S.equals("sample-profile-max-propagate-iterations")
     ||  S.equals("sroa-random-shuffle-slices")
