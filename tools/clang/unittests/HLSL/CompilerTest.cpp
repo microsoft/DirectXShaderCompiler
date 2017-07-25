@@ -92,6 +92,40 @@ void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outpt
   Utf16ToBlob(dllSupport, val, (IDxcBlobEncoding**)ppBlob);
 }
 
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, LPCWSTR pArgs,
+                     _Outptr_ IDxcBlob **ppResult) {
+  std::vector<std::wstring> argsW;
+  std::vector<LPCWSTR> args;
+  if (pArgs) {
+    wistringstream argsS(pArgs);
+    copy(istream_iterator<wstring, wchar_t>(argsS),
+         istream_iterator<wstring, wchar_t>(), back_inserter(argsW));
+    transform(argsW.begin(), argsW.end(), back_inserter(args),
+              [](const wstring &w) { return w.data(); });
+  }
+  VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
+}
+
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+  LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+  _Outptr_ IDxcBlob **ppResult) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pResult;
+  HRESULT hrCompile;
+  *ppResult = nullptr;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  Utf8ToBlob(dllSupport, pText, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    pTargetProfile, args.data(), args.size(),
+    nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
+  VERIFY_SUCCEEDED(hrCompile);
+  VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
+}
+
+
 // VersionSupportInfo Implementation
 VersionSupportInfo::VersionSupportInfo() :
   m_CompilerIsDebugBuild(false),
@@ -370,6 +404,10 @@ public:
   TEST_METHOD(CompileHlsl2016ThenOK)
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
+
+  TEST_METHOD(DiaLoadBadBitcodeThenFail)
+  TEST_METHOD(DiaLoadDebugThenOK)
+  TEST_METHOD(DiaTableIndexThenOK)
 
   TEST_METHOD(PixMSAAToSample0)
   TEST_METHOD(PixRemoveDiscards)
@@ -2470,6 +2508,75 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   LPCSTR pErrorMsg = "Unknown HLSL version";
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
+
+TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
+  CComPtr<IDxcBlob> pBadBitcode;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pStream;
+  CComPtr<IDxcLibrary> pLib;
+
+  Utf8ToBlob(m_dllSupport, "badcode", &pBadBitcode);
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pBadBitcode, &pStream));
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
+  VERIFY_FAILED(pDiaSource->loadDataFromIStream(pStream));
+}
+
+static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource **ppDataSource) {
+  CComPtr<IDxcBlob> pContainer;
+  CComPtr<IDxcBlob> pDebugContent;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pStream;
+  CComPtr<IDxcLibrary> pLib;
+  CComPtr<IDxcContainerReflection> pReflection;
+  UINT32 index;
+
+  VerifyCompileOK(dllSupport, EmptyCompute, L"cs_6_0", L"/Zi", &pContainer);
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(pContainer));
+  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, &pDebugContent));
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pDebugContent, &pStream));
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
+  VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pStream));
+  if (ppDataSource) {
+    *ppDataSource = pDiaSource.Detach();
+  }
+}
+
+TEST_F(CompilerTest, DiaLoadDebugThenOK) {
+  CompileTestAndLoadDia(m_dllSupport, nullptr);
+}
+
+TEST_F(CompilerTest, DiaTableIndexThenOK) {
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CComPtr<IDiaEnumTables> pEnumTables;
+  CComPtr<IDiaTable> pTable;
+  VARIANT vtIndex;
+  CompileTestAndLoadDia(m_dllSupport, &pDiaSource);
+  VERIFY_SUCCEEDED(pDiaSource->openSession(&pDiaSession));
+  VERIFY_SUCCEEDED(pDiaSession->getEnumTables(&pEnumTables));
+
+  vtIndex.vt = VT_EMPTY;
+  VERIFY_FAILED(pEnumTables->Item(vtIndex, &pTable));
+
+  vtIndex.vt = VT_I4;
+  vtIndex.intVal = 1;
+  VERIFY_SUCCEEDED(pEnumTables->Item(vtIndex, &pTable));
+  VERIFY_IS_NOT_NULL(pTable.p);
+  pTable.Release();
+
+  vtIndex.vt = VT_UI4;
+  vtIndex.uintVal = 1;
+  VERIFY_SUCCEEDED(pEnumTables->Item(vtIndex, &pTable));
+  VERIFY_IS_NOT_NULL(pTable.p);
+  pTable.Release();
+
+  vtIndex.uintVal = 100;
+  VERIFY_FAILED(pEnumTables->Item(vtIndex, &pTable));
 }
 
 TEST_F(CompilerTest, PixMSAAToSample0) {
