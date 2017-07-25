@@ -3658,17 +3658,10 @@ void PointerStatus::analyzePointer(const Value *V, PointerStatus &PS,
       for (unsigned i = 0; i < argSize; i++) {
         Value *arg = CI->getArgOperand(i);
         if (V == arg) {
-          DxilParamInputQual inputQual =
-              annotation->GetParameterAnnotation(i).GetParamInputQual();
-          if (inputQual != DxilParamInputQual::In) {
-            PS.MarkAsStored();
-            if (inputQual == DxilParamInputQual::Inout)
-              PS.MarkAsLoaded();
-            break;
-          } else {
-            PS.MarkAsLoaded();
-            break;
-          }
+          // Do not replace struct arg.
+          // Mark stored and loaded to disable replace.
+          PS.MarkAsStored();
+          PS.MarkAsLoaded();
         }
       }
     }
