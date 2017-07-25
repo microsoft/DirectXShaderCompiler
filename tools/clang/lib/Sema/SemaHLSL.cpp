@@ -894,7 +894,7 @@ static const ArBasicKind g_AnyFloatCT[] =
 {
   AR_BASIC_FLOAT32,
   AR_BASIC_FLOAT32_PARTIAL_PRECISION,
-  // TODO - AR_BASIC_FLOAT16,
+  AR_BASIC_FLOAT16,
   AR_BASIC_FLOAT64,
   AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_MIN10FLOAT,
@@ -906,6 +906,7 @@ static const ArBasicKind g_FloatLikeCT[] =
 {
   AR_BASIC_FLOAT32,
   AR_BASIC_FLOAT32_PARTIAL_PRECISION,
+  AR_BASIC_FLOAT16,
   AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_MIN10FLOAT,
   AR_BASIC_MIN16FLOAT,
@@ -940,7 +941,7 @@ static const ArBasicKind g_NumericCT[] =
   AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_FLOAT32,
   AR_BASIC_FLOAT32_PARTIAL_PRECISION,
-  // TODO - AR_BASIC_FLOAT16,
+  AR_BASIC_FLOAT16,
   AR_BASIC_FLOAT64,
   AR_BASIC_MIN10FLOAT,
   AR_BASIC_MIN16FLOAT,
@@ -983,7 +984,7 @@ static const ArBasicKind g_AnyCT[] =
   AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_FLOAT32,
   AR_BASIC_FLOAT32_PARTIAL_PRECISION,
-  // TODO - AR_BASIC_FLOAT16,
+  AR_BASIC_FLOAT16,
   AR_BASIC_FLOAT64,
   AR_BASIC_MIN10FLOAT,
   AR_BASIC_MIN16FLOAT,
@@ -1299,7 +1300,7 @@ C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
 static
 const char* g_ArBasicTypeNames[] =
 {
-  "bool", "float", "<float16>", "half", "float", "double",
+  "bool", "float", "half", "half", "float", "double",
   "int", "sbyte", "byte", "short", "ushort",
   "int", "uint", "long", "ulong",
   "min10float", "min16float",
@@ -3283,7 +3284,8 @@ public:
       case BuiltinType::Bool: return AR_BASIC_BOOL;
       case BuiltinType::Double: return AR_BASIC_FLOAT64;
       case BuiltinType::Float: return AR_BASIC_FLOAT32;
-      case BuiltinType::Half: return AR_BASIC_MIN16FLOAT;  // rather than AR_BASIC_FLOAT16
+      case BuiltinType::Half: return AR_BASIC_FLOAT16;  // rather than AR_BASIC_FLOAT16
+        // case BuiltinType::Half: return AR_BASIC_FLOAT16;  // rather than AR_BASIC_FLOAT16
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
       case BuiltinType::Short: return AR_BASIC_MIN16INT;    // rather than AR_BASIC_INT16
@@ -3390,7 +3392,7 @@ public:
     case AR_OBJECT_NULL:          return m_context->VoidTy;
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
-    case AR_BASIC_FLOAT16:        return m_context->FloatTy;
+    case AR_BASIC_FLOAT16:        return m_context->HalfTy;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;
@@ -5623,6 +5625,7 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
   case AR_BASIC_MIN10FLOAT:
     switch (leftKind) {
     case AR_BASIC_MIN16FLOAT:
+    case AR_BASIC_FLOAT16:
     case AR_BASIC_FLOAT32:
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
     case AR_BASIC_FLOAT64:
@@ -5631,6 +5634,7 @@ bool HLSLExternalSource::IsPromotion(ArBasicKind leftKind, ArBasicKind rightKind
     break;
   case AR_BASIC_MIN16FLOAT:
     switch (leftKind) {
+    case AR_BASIC_FLOAT16:
     case AR_BASIC_FLOAT32:
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION:
     case AR_BASIC_FLOAT64:
@@ -10456,6 +10460,20 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   // case of a function (or method).
   QualType qt = TInfo->getType();
   const Type* pType = qt.getTypePtrOrNull();
+
+  // Unlike min12int or min10float that were defined as a built in type,
+  // min16float is defined by global typedef.
+  // So we can't check min16float at parsing level
+  std::string UnqualifiedString = qt.getUnqualifiedType().getAsString();
+  const std::string min16Float = "min16float";
+  if (UnqualifiedString.compare(0, min16Float.length(), min16Float) == 0) {
+    if (Context.getLangOpts().DxilMajor == 1 &&
+        Context.getLangOpts().DxilMinor >= 2) {
+      Diag(D.getLocStart(), diag::warn_hlsl_sema_minprecision_promotion)
+          << "min16float"
+          << "half";
+    }
+  }
 
   // Early checks - these are not simple attribution errors, but constructs that
   // are fundamentally unsupported,

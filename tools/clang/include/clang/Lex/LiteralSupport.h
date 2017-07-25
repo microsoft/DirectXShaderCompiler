@@ -62,6 +62,9 @@ public:
   bool isLong : 1;          // This is *not* set for long long.
   bool isLongLong : 1;
   bool isFloat : 1;         // 1.0f
+  // HLSL Change Begin
+  bool isHalf : 1;          // 1.0h
+  // HLSL Change End
   bool isImaginary : 1;     // 1.0i
   uint8_t MicrosoftInteger; // Microsoft suffix extension i8, i16, i32, or i64.
 
