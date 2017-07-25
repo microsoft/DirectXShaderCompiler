@@ -152,26 +152,25 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     LibCacheManager &libCache = LibCacheManager::GetLibCacheManager();
     IFR(CreateLinker(&linker));
     IDxcIncludeHandler * const kNoIncHandler = nullptr;
-    const auto &headers = preprocessor->GetHeaders();
+    const auto &snippets = preprocessor->GetSnippets();
+
+    std::string processedHeader = "";
     std::vector<std::wstring> hashStrList;
     std::vector<LPCWSTR> hashList;
-    for (const auto &header : headers) {
+    for (const auto &snippet : snippets) {
       CComPtr<IDxcBlob> pOutputBlob;
-      CComPtr<IDxcBlobEncoding> pSource;
-      IFT(DxcCreateBlobWithEncodingOnMallocCopy(GetGlobalHeapMalloc(), header.data(), header.size(), CP_UTF8, &pSource));
       size_t hash;
-      if (!libCache.GetLibBlob(pSource, compilerInput, hash, &pOutputBlob)) {
+      if (!libCache.GetLibBlob(processedHeader, snippet, compilerInput, hash, &pOutputBlob)) {
         // Cannot find existing blob, create from pSource.
         IDxcBlob **ppCode = &pOutputBlob;
 
-        auto compileFn = [&]() {
+        auto compileFn = [&](IDxcBlob *pSource) {
           IFT(CompileToLib(pSource, defines, kNoIncHandler, arguments,
                            ppCode, nullptr));
         };
-        libCache.AddLibBlob(pSource, compilerInput, hash, &pOutputBlob,
+        libCache.AddLibBlob(processedHeader, snippet, compilerInput, hash, &pOutputBlob,
                             compileFn);
       }
-      pSource.Detach(); // Don't keep the ownership.
       hashStrList.emplace_back(std::to_wstring(hash));
       hashList.emplace_back(hashStrList.back().c_str());
       linker->RegisterLibrary(hashList.back(), pOutputBlob);

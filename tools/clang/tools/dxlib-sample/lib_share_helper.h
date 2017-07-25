@@ -35,11 +35,13 @@ struct CompileInput {
 class LibCacheManager {
 public:
   virtual ~LibCacheManager() {}
-  virtual HRESULT AddLibBlob(IDxcBlob *pSource, CompileInput &compiler, size_t &hash,
-                     IDxcBlob **pResultLib,
-                     std::function<void(void)> compileFn) = 0;
-  virtual bool GetLibBlob(IDxcBlob *pSource, CompileInput &compiler, size_t &hash,
-                  IDxcBlob **pResultLib) = 0;
+  virtual HRESULT AddLibBlob(std::string &header, const std::string &snippet,
+                             CompileInput &compiler, size_t &hash,
+                             IDxcBlob **pResultLib,
+                             std::function<void(IDxcBlob *pSource)> compileFn) = 0;
+  virtual bool GetLibBlob(std::string &processedHeader, const std::string &snippet,
+                          CompileInput &compiler, size_t &hash,
+                          IDxcBlob **pResultLib) = 0;
   static LibCacheManager &GetLibCacheManager();
   static void ReleaseLibCacheManager();
 };
@@ -52,7 +54,7 @@ public:
   virtual void AddIncPath(llvm::StringRef path) = 0;
   virtual HRESULT Preprocess(IDxcBlob *pSource, LPCWSTR pFilename) = 0;
 
-  virtual const std::vector<std::string> &GetHeaders() const = 0;
+  virtual const std::vector<std::string> &GetSnippets() const = 0;
   static std::unique_ptr<IncludeToLibPreprocessor>
   CreateIncludeToLibPreprocessor(IDxcIncludeHandler *handler);
 };
