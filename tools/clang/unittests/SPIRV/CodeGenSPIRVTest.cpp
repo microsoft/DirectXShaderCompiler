@@ -40,4 +40,8 @@ TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
 
 TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
 
+TEST_F(FileTest, BinaryOpScalarArithmetic) {
+  runFileTest("binary-op.arithmetic.scalar.hlsl");
+}
+
 } // namespace

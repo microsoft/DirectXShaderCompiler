@@ -91,6 +91,11 @@ public:
   uint32_t createAccessChain(uint32_t resultType, uint32_t base,
                              llvm::ArrayRef<uint32_t> indexes);
 
+  /// \brief Creates a binary operation with the given SPIR-V opcode. Returns
+  /// the <result-id> for the result.
+  uint32_t createBinaryOp(spv::Op op, uint32_t resultType, uint32_t lhs,
+                          uint32_t rhs);
+
   /// \brief Creates a return instruction.
   void createReturn();
   /// \brief Creates a return value instruction.
