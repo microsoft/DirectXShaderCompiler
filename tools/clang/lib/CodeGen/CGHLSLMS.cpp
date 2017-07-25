@@ -1437,6 +1437,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       dxilInputQ = DxilParamInputQual::Inout;
     else if (parmDecl->hasAttr<HLSLOutAttr>())
       dxilInputQ = DxilParamInputQual::Out;
+    if (parmDecl->hasAttr<HLSLOutAttr>() && parmDecl->hasAttr<HLSLInAttr>())
+      dxilInputQ = DxilParamInputQual::Inout;
 
     DXIL::InputPrimitive inputPrimitive = DXIL::InputPrimitive::Undefined;
 
