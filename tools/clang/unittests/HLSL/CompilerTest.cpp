@@ -39,6 +39,11 @@
 #include "dia2.h"
 
 #include <fstream>
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/Path.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringSwitch.h"
 
 using namespace std;
 using namespace hlsl_test;
@@ -525,7 +530,6 @@ public:
   TEST_METHOD(CodeGenIntrinsic5)
   TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
-  TEST_METHOD(CodeGenLibArgFlatten)
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
@@ -1008,6 +1012,10 @@ public:
   TEST_METHOD(ConstantFolding)
   TEST_METHOD(HoistConstantArray)
   TEST_METHOD(ViewID)
+  TEST_METHOD(ShaderCompatSuite)
+  BEGIN_TEST_METHOD(SingleFileCheckTest)
+    TEST_METHOD_PROPERTY(L"Ignore", L"true")
+  END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -1308,14 +1316,26 @@ public:
     VERIFY_ARE_NOT_EQUAL(0, disassembleString.size());
   }
 
-  void CodeGenTestCheck(LPCWSTR name) {
-    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
-    FileRunTestResult t = FileRunTestResult::RunFromFileCommands(fullPath.c_str());
+  void CodeGenTestCheckFullPath(LPCWSTR fullPath) {
+    FileRunTestResult t = FileRunTestResult::RunFromFileCommands(fullPath);
     if (t.RunResult != 0) {
       CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
       WEX::Logging::Log::Comment(commentWide);
       WEX::Logging::Log::Error(L"Run result is not zero");
     }
+  }
+
+  void CodeGenTestCheck(LPCWSTR name) {
+    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
+    CodeGenTestCheckFullPath(fullPath.c_str());
+  }
+
+  void CodeGenTestCheckBatch(LPCWSTR name, unsigned option) {
+    WEX::Logging::Log::StartGroup(name);
+
+    CodeGenTestCheckFullPath(name);
+
+    WEX::Logging::Log::EndGroup(name);
   }
 
   std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg) {
@@ -3184,10 +3204,6 @@ TEST_F(CompilerTest, CodeGenInvalidInputOutputTypes) {
 
 TEST_F(CompilerTest, CodeGenLegacyStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\legacy_struct.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenLibArgFlatten) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_arg_flatten.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibCsEntry) {
@@ -5257,4 +5273,60 @@ TEST_F(CompilerTest, ViewID) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid16.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid17.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid18.hlsl");
+}
+
+TEST_F(CompilerTest, ShaderCompatSuite) {
+  using namespace llvm;
+  using namespace WEX::TestExecution;
+
+  ::llvm::sys::fs::MSFileSystem *msfPtr;
+  VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
+  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+  ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+  IFTLLVM(pts.error_code());
+
+  std::wstring suitePath = L"..\\CodeGenHLSL\\shader-compat-suite";
+
+  WEX::Common::String value;
+  if (!DXC_FAILED(RuntimeParameters::TryGetValue(L"SuitePath", value)))
+  {
+    suitePath = value;
+  }
+
+  CW2A pUtf8Filename(suitePath.c_str());
+  if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
+    suitePath = hlsl_test::GetPathToHlslDataFile(suitePath.c_str());
+  }
+
+  CW2A utf8SuitePath(suitePath.c_str());
+
+  std::error_code EC;
+  llvm::SmallString<128> DirNative;
+  llvm::sys::path::native(utf8SuitePath.m_psz, DirNative);
+  for (llvm::sys::fs::recursive_directory_iterator Dir(DirNative, EC), DirEnd;
+       Dir != DirEnd && !EC; Dir.increment(EC)) {
+    // Check whether this entry has an extension typically associated with
+    // headers.
+    if (!llvm::StringSwitch<bool>(llvm::sys::path::extension(Dir->path()))
+             .Cases(".hlsl", ".hlsl", true)
+             .Default(false))
+      continue;
+    StringRef filename = Dir->path();
+    CA2W wRelPath(filename.data());
+    CodeGenTestCheckBatch(wRelPath.m_psz, 0);
+  }
+}
+
+TEST_F(CompilerTest, SingleFileCheckTest) {
+  using namespace llvm;
+  using namespace WEX::TestExecution;
+  WEX::Common::String value;
+  VERIFY_SUCCEEDED(RuntimeParameters::TryGetValue(L"InputFile", value));
+  std::wstring filename = value;
+  CW2A pUtf8Filename(filename.c_str());
+  if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
+    filename = hlsl_test::GetPathToHlslDataFile(filename.c_str());
+  }
+
+  CodeGenTestCheckBatch(filename.c_str(), 0);
 }

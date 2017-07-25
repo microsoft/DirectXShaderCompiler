@@ -17,6 +17,10 @@ set TEST_EXEC_REQUIRED=0
 set TEST_CLANG_FILTER= /select: "@Priority<1"
 set TEST_EXEC_FILTER=ExecutionTest::*
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
+set TEST_COMPAT_SUITE=0
+set COMPAT_SUIT_PATH=
+set TEST_SINGLE_FILE_CHECK=0
+set SINGLE_FILE_CHECK_NAME=0
 
 rem Begin SPIRV change
 set TEST_SPIRV=0
@@ -72,6 +76,16 @@ if "%1"=="-clean" (
   set TEST_ALL=0
   set TEST_CLANG=1
   set TEST_CLANG_FILTER= /name:%2
+  shift /1
+) else if "%1"=="compat-suite" (
+  set TEST_ALL=0
+  set TEST_COMPAT_SUITE=1
+  set COMPAT_SUIT_PATH= /p:"SuitePath=%~2"
+  shift /1
+) else if "%1"=="file-check" (
+  set TEST_ALL=0
+  set TEST_SINGLE_FILE_CHECK=1
+  set COMPAT_SUIT_PATH= /p:"InputFile=%~2"
   shift /1
 ) else if "%1"=="v" (
   set TEST_ALL=0
@@ -250,6 +264,16 @@ if exist "%HCT_EXTRAS%\hcttest-after.cmd" (
   set RES_HCTTEST_AFTER=!ERRORLEVEL!
 )
 
+if "%TEST_SINGLE_FILE_CHECK%"=="1" (
+  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:CompilerTest::SingleFileCheckTest /runIgnoredTests %COMPAT_SUIT_PATH%
+  set RES_EXEC=!ERRORLEVEL!
+)
+
+if "%TEST_COMPAT_SUITE%"=="1" (
+  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL" /name:CompilerTest::ShaderCompatSuite %COMPAT_SUIT_PATH%
+  set RES_EXEC=!ERRORLEVEL!
+)
+
 echo.
 echo ==================================
 echo Unit test results:
@@ -299,12 +323,16 @@ echo   -x64 targets an x64 build (aka. Win64)
 echo   -arm targets an ARM build
 echo.
 echo target(s):
-echo  clang   - run clang tests.
-echo  cmd     - run command line tool tests.
-echo  v       - run the subset of clang tests that are verified-based.
-echo  exec    - run execution tests.
-echo  extras  - run hcttest-extras tests.
-echo  noexec  - all except exec and extras tests.
+echo  clang         - run clang tests.
+echo  file-check    - run file-check test on single file.
+echo                - hcttest file-check "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten\lib_arg_flatten.hlsl"
+echo  compat-suite  - run compat-suite test.
+echo                - hcttest compat-suite "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten"
+echo  cmd           - run command line tool tests.
+echo  v             - run the subset of clang tests that are verified-based.
+echo  exec          - run execution tests.
+echo  extras        - run hcttest-extras tests.
+echo  noexec        - all except exec and extras tests.
 echo.
 echo Select clang or exec targets with filter by test name:
 echo  clang-filter Name

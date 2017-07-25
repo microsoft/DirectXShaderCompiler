@@ -1031,12 +1031,10 @@ void DxilGenerationPass::GenerateDxilOperations(
   // Remove unused HL Operation functions.
   std::vector<Function *> deadList;
   for (iplist<Function>::iterator F : M.getFunctionList()) {
-    if (F->isDeclaration()) {
-      hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
-      if (group != HLOpcodeGroup::NotHL || F->isIntrinsic())
-        if (F->user_empty())
-          deadList.emplace_back(F);
-    }
+    hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);
+    if (group != HLOpcodeGroup::NotHL || F->isIntrinsic())
+      if (F->user_empty())
+        deadList.emplace_back(F);
   }
 
   for (Function *F : deadList)
