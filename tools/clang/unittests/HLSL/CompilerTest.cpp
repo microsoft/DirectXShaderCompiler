@@ -407,6 +407,7 @@ public:
   TEST_METHOD(CompileBadHlslThenFail)
   TEST_METHOD(CompileLegacyShaderModelThenFail)
   TEST_METHOD(CompileWhenRecursiveAlbeitStaticTermThenFail)
+
   TEST_METHOD(CompileWhenRecursiveThenFail)
 
   TEST_METHOD(CompileHlsl2015ThenFail)
@@ -420,6 +421,11 @@ public:
 
   TEST_METHOD(PixMSAAToSample0)
   TEST_METHOD(PixRemoveDiscards)
+  TEST_METHOD(PixPixelCounter)
+  TEST_METHOD(PixPixelCounterEarlyZ)
+  TEST_METHOD(PixPixelCounterNoSvPosition)
+  TEST_METHOD(PixPixelCounterInappropriateEarlyZ)
+  TEST_METHOD(PixPixelCounterAddPixelCost)
   TEST_METHOD(PixConstantColor)
   TEST_METHOD(PixConstantColorInt)
   TEST_METHOD(PixConstantColorMRT)
@@ -2721,6 +2727,26 @@ TEST_F(CompilerTest, PixMSAAToSample0) {
 
 TEST_F(CompilerTest, PixRemoveDiscards) {
   CodeGenTestCheck(L"pix\\removeDiscards.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounter) {
+  CodeGenTestCheck(L"pix\\pixelCounter.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounterEarlyZ) {
+  CodeGenTestCheck(L"pix\\pixelCounterEarlyZ.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounterNoSvPosition) {
+  CodeGenTestCheck(L"pix\\pixelCounterNoSvPosition.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounterInappropriateEarlyZ) {
+  CodeGenTestCheck(L"pix\\pixelCounterInappropriateEarlyZ.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounterAddPixelCost) {
+  CodeGenTestCheck(L"pix\\pixelCounterAddPixelCost.hlsl");
 }
 
 TEST_F(CompilerTest, PixConstantColor) {
