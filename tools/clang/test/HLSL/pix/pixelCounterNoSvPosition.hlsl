@@ -5,7 +5,7 @@
 // CHECK: %YPos = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 undef)
 
 // Check the SV_Position meta-data was added:
-// CHECK: !{i32 0, !"SV_Position", i8 9, i8 3, !13, i8 2, i32 1, i8 4, i32 0, i8 0, null}
+// CHECK: !{i32 0, !"SV_Position", i8 9, i8 3,
 
 float4 main() : SV_Target{
   discard;

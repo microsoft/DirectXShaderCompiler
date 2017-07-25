@@ -1366,8 +1366,7 @@ void DxilModule::ReEmitDxilResources() {
 
   MDTuple *pMDSignatures = m_pMDHelper->EmitDxilSignatures(*m_EntrySignature);
   MDTuple *pMDProperties = EmitDxilShaderProperties();
-  EmitLLVMUsed(); // necessary?
-  // todo: what about type system?
+  m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(pEntryFunc, EntryName, pMDSignatures, pNewResource, pMDProperties);
   vector<MDNode *> Entries;
   Entries.emplace_back(pEntry);

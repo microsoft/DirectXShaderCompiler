@@ -5,7 +5,9 @@
 
 // Early z flag value is 8. The flags are stored in the last entry in the entry function description record. See:
 // https://github.com/Microsoft/DirectXShaderCompiler/blob/master/docs/DXIL.rst#shader-properties-and-capabilities
-// CHECK: !20 = !{i32 0, i64 8}
+// CHECK: !{i32 0, i64 8}
+// Make sure it's the last entry:
+// CHECK-NOT: !{
 
 float4 main(float4 pos : SV_Position) : SV_Target {
   return pos;
