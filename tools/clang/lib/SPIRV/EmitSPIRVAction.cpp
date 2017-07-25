@@ -372,19 +372,41 @@ public:
 
   uint32_t doBinaryOperator(const BinaryOperator *expr) {
     const auto opcode = expr->getOpcode();
-    const uint32_t rhs = doExpr(expr->getRHS());
-    const uint32_t lhs = doExpr(expr->getLHS());
 
-    switch (opcode) {
-    case BO_Assign:
+    // Handle assignment first since we need to evaluate rhs before lhs.
+    // For other binary operations, we need to evaluate lhs before rhs.
+    if (opcode == BO_Assign) {
+      const uint32_t rhs = doExpr(expr->getRHS());
+      const uint32_t lhs = doExpr(expr->getLHS());
+
       theBuilder.createStore(lhs, rhs);
       // Assignment returns a rvalue.
       return rhs;
+    }
+
+    const uint32_t lhs = doExpr(expr->getLHS());
+    const uint32_t rhs = doExpr(expr->getRHS());
+    const uint32_t typeId = typeTranslator.translateType(expr->getType());
+    const QualType elemType = expr->getLHS()->getType();
+
+    switch (opcode) {
+    case BO_Add:
+    case BO_Sub:
+    case BO_Mul:
+    case BO_Div:
+    case BO_Rem: {
+      const spv::Op spvOp = translateOp(opcode, elemType);
+      return theBuilder.createBinaryOp(spvOp, typeId, lhs, rhs);
+    }
+    case BO_Assign: {
+      llvm_unreachable("assignment already handled before");
+    } break;
     default:
       break;
     }
 
     emitError("BinaryOperator '%0' is not supported yet.") << opcode;
+    expr->dump();
     return 0;
   }
 
@@ -420,6 +442,70 @@ public:
           << expr->getCastKind();
       return 0;
     }
+  }
+
+  spv::Op translateOp(BinaryOperator::Opcode op, QualType type) {
+    // TODO: the following is not considering vector types yet.
+    const bool isSintType = type->isSignedIntegerType();
+    const bool isUintType = type->isUnsignedIntegerType();
+    const bool isFloatType = type->isFloatingType();
+
+#define BIN_OP_CASE_INT_FLOAT(kind, intBinOp, floatBinOp)                      \
+  \
+case BO_##kind : {                                                             \
+    if (isSintType || isUintType) {                                            \
+      return spv::Op::Op##intBinOp;                                            \
+    }                                                                          \
+    if (isFloatType) {                                                         \
+      return spv::Op::Op##floatBinOp;                                          \
+    }                                                                          \
+  }                                                                            \
+  break
+
+#define BIN_OP_CASE_SINT_UINT_FLOAT(kind, sintBinOp, uintBinOp, floatBinOp)    \
+  \
+case BO_##kind : {                                                             \
+    if (isSintType) {                                                          \
+      return spv::Op::Op##sintBinOp;                                           \
+    }                                                                          \
+    if (isUintType) {                                                          \
+      return spv::Op::Op##uintBinOp;                                           \
+    }                                                                          \
+    if (isFloatType) {                                                         \
+      return spv::Op::Op##floatBinOp;                                          \
+    }                                                                          \
+  }                                                                            \
+  break
+
+    switch (op) {
+      BIN_OP_CASE_INT_FLOAT(Add, IAdd, FAdd);
+      BIN_OP_CASE_INT_FLOAT(Sub, ISub, FSub);
+      BIN_OP_CASE_INT_FLOAT(Mul, IMul, FMul);
+      BIN_OP_CASE_SINT_UINT_FLOAT(Div, SDiv, UDiv, FDiv);
+      // According to HLSL spec, "the modulus operator returns the remainder of
+      // a division." "The % operator is defined only in cases where either both
+      // sides are positive or both sides are negative."
+      //
+      // In SPIR-V, there are two reminder operations: Op*Rem and Op*Mod. With
+      // the former, the sign of a non-0 result comes from Operand 1, while
+      // with the latter, from Operand 2.
+      //
+      // For operands with different signs, technically we can map % to either
+      // Op*Rem or Op*Mod since it's undefined behavior. But it is more
+      // consistent with C (HLSL starts as a C derivative) and Clang frontend
+      // const expression evaluation if we map % to Op*Rem.
+      //
+      // Note there is no OpURem in SPIR-V.
+      BIN_OP_CASE_SINT_UINT_FLOAT(Rem, SRem, UMod, FRem);
+    default:
+      break;
+    }
+
+#undef BIN_OP_CASE_INT_FLOAT
+#undef BIN_OP_CASE_SINT_UINT_FLOAT
+
+    emitError("translating binary operator '%0' unimplemented") << op;
+    return spv::Op::OpNop;
   }
 
   uint32_t translateAPValue(const APValue &value, const QualType targetType) {

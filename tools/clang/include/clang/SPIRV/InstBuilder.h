@@ -791,6 +791,10 @@ public:
                                            uint32_t result_id, uint32_t value,
                                            uint32_t index);
 
+  // All-in-one method for creating binary operations.
+  InstBuilder &binaryOp(spv::Op op, uint32_t result_type, uint32_t result_id,
+                        uint32_t lhs, uint32_t rhs);
+
   // Methods for building constants.
   InstBuilder &opConstant(uint32_t result_type, uint32_t result_id,
                           uint32_t value);
