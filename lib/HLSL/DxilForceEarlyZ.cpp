@@ -80,4 +80,4 @@ ModulePass *llvm::createDxilForceEarlyZPass() {
   return new DxilForceEarlyZ();
 }
 
-INITIALIZE_PASS(DxilForceEarlyZ, "hlsl-dxil-constantColor", "HLSL DXIL Force the early Z global flag, if shader has no discard calls", false, false)
+INITIALIZE_PASS(DxilForceEarlyZ, "hlsl-dxil-force-early-z", "HLSL DXIL Force the early Z global flag, if shader has no discard calls", false, false)
