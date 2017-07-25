@@ -54,6 +54,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="${DOS_STYLE_SOURCE_DIR}\AsmColorizer.cs" />
+    <Compile Include="${DOS_STYLE_SOURCE_DIR}\D3DCompiler.cs" />
+    <Compile Include="${DOS_STYLE_SOURCE_DIR}\dia2.cs" />
     <Compile Include="${DOS_STYLE_SOURCE_DIR}\DotNetDxc.cs" />
     <Compile Include="${DOS_STYLE_SOURCE_DIR}\BinaryViewControl.cs">
       <SubType>Component</SubType>
