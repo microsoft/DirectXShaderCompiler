@@ -69,6 +69,7 @@ bool DxilForceEarlyZ::runOnModule(Module &M)
   if (HlslOP->GetOpFunc(DXIL::OpCode::Discard, Type::getVoidTy(Ctx))->user_empty()) {
     Modified = true;
     DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
+    DM.ReEmitDxilResources();
   }
 
   return Modified;

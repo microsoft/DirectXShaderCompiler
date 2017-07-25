@@ -1,10 +1,9 @@
 // RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-force-early-z | %FileCheck %s
 
-// Added override output color:
-// CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 1.000000e+00)
-// CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float 1.000000e+00)
-// CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float 1.000000e+00)
-// CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 3, float 1.000000e+00)
+// Just check that the last line (which contains global flags) has the "8" meaning force-early-z:
+// CHECK: !{i32 0, i64 8}
+// Check there are no more entries (i.e. the above really was the last line)
+// CHECK-NOT: !{
 
 [RootSignature("")]
 float4 main() : SV_Target {
