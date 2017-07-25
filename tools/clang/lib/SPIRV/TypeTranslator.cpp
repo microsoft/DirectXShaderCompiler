@@ -21,6 +21,12 @@ uint32_t TypeTranslator::translateType(QualType type) {
     switch (builtinType->getKind()) {
     case BuiltinType::Void:
       return theBuilder.getVoidType();
+    case BuiltinType::Bool:
+      return theBuilder.getBoolType();
+    case BuiltinType::Int:
+      return theBuilder.getInt32Type();
+    case BuiltinType::UInt:
+      return theBuilder.getUint32Type();
     case BuiltinType::Float:
       return theBuilder.getFloat32Type();
     default:
@@ -30,11 +36,20 @@ uint32_t TypeTranslator::translateType(QualType type) {
     }
   }
 
+  if (const auto *typedefType = dyn_cast<TypedefType>(typePtr)) {
+    return translateType(typedefType->desugar());
+  }
+
   // In AST, vector types are TypedefType of TemplateSpecializationType.
   // We handle them via HLSL type inspection functions.
   if (hlsl::IsHLSLVecType(type)) {
     const auto elemType = hlsl::GetHLSLVecElementType(type);
     const auto elemCount = hlsl::GetHLSLVecSize(type);
+    // In SPIR-V, vectors must have two or more elements. So translate vectors
+    // of size 1 into the underlying primitive types directly.
+    if (elemCount == 1) {
+      return translateType(elemType);
+    }
     return theBuilder.getVecType(translateType(elemType), elemCount);
   }
 

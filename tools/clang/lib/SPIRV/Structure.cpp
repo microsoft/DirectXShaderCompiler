@@ -96,6 +96,14 @@ void Function::clear() {
   blocks.clear();
 }
 
+void Function::addVariable(uint32_t varType, uint32_t varId,
+                           llvm::Optional<uint32_t> init) {
+  variables.emplace_back(
+      InstBuilder(nullptr)
+          .opVariable(varType, varId, spv::StorageClass::Function, init)
+          .take());
+}
+
 void Function::take(InstBuilder *builder) {
   builder->opFunction(resultType, resultId, funcControl, funcType).x();
 
@@ -105,12 +113,12 @@ void Function::take(InstBuilder *builder) {
   }
 
   // Preprend all local variables to the entry block.
-  for (auto &var : variables) {
-    blocks.front()->prependInstruction(
-        builder
-            ->opVariable(var.first, var.second, spv::StorageClass::Function,
-                         llvm::None)
-            .take());
+  // This is necessary since SPIR-V requires all local variables to be defined
+  // at the very begining of the entry block.
+  // We need to do it in the reverse order to guarantee variables have the
+  // same definition order in SPIR-V as in the source code.
+  for (auto it = variables.rbegin(), ie = variables.rend(); it != ie; ++it) {
+    blocks.front()->prependInstruction(std::move(*it));
   }
 
   // Write out all basic blocks.
@@ -181,7 +189,7 @@ void SPIRVModule::takeConstantForArrayType(const Type *arrType,
   // If it finds the constant, feeds it into the consumer, and removes it
   // from the constants collection.
   constants.remove_if([&consumer, arrayLengthResultId](
-                          std::pair<const Constant *, uint32_t> &item) {
+      std::pair<const Constant *, uint32_t> &item) {
     const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
     if (isArrayLengthConstant)
       consumer(item.first->withResultId(item.second));
