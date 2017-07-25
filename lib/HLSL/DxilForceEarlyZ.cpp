@@ -60,11 +60,16 @@ bool DxilForceEarlyZ::runOnModule(Module &M)
 {
   // This pass adds the force-early-z flag, if the shader has no uses of discard (which precludes early z)
 
-  //DxilModule &DM = M.GetOrCreateDxilModule();
-  //
-  //LLVMContext & Ctx = M.getContext();
+  DxilModule &DM = M.GetOrCreateDxilModule();
+  OP *HlslOP = DM.GetOP();
+  LLVMContext & Ctx = M.getContext();
 
   bool Modified = false;
+
+  if (HlslOP->GetOpFunc(DXIL::OpCode::Discard, Type::getVoidTy(Ctx))->user_empty()) {
+    Modified = true;
+    DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
+  }
 
   return Modified;
 }
