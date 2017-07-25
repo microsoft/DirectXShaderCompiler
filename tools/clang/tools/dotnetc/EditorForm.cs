@@ -30,6 +30,7 @@ namespace MainNs
         private IDxcIndex lastIndex;
         private IDxcTranslationUnit lastTU;
         private IDxcBlob selectedShaderBlob;
+        private string selectedShaderBlobTarget;
         private bool passesLoaded = false;
         private bool docModified = false;
         private string docFileName;
@@ -42,6 +43,8 @@ namespace MainNs
         private List<DiagnosticDetail> diagnosticDetails;
         private DataGridView diagnosticDetailsGrid;
         private List<PassInfo> passInfos;
+        private TabPage debugInfoTabPage;
+        private RichTextBox debugInfoControl;
         private HlslHost hlslHost = new HlslHost();
 
         internal enum DocumentKind
@@ -63,6 +66,56 @@ namespace MainNs
         public EditorForm()
         {
             InitializeComponent();
+        }
+
+        internal IDxcBlob SelectedShaderBlob
+        {
+            get { return this.selectedShaderBlob; }
+            set
+            {
+                this.selectedShaderBlob = value;
+                this.selectedShaderBlobTarget = TryGetBlobShaderTarget(this.selectedShaderBlob);
+            }
+        }
+
+        private const uint DFCC_DXIL = 1279875140;
+        private const uint DFCC_SHDR = 1380206675;
+        private const uint DFCC_SHEX = 1480935507;
+        private const uint DFCC_ILDB = 1111772233;
+        private const uint DFCC_SPDB = 1111773267;
+
+        private string TryGetBlobShaderTarget(IDxcBlob blob)
+        {
+            if (blob == null)
+                return null;
+            uint size = blob.GetBufferSize();
+            if (size == 0) return null;
+            unsafe
+            {
+                try
+                {
+                    var reflection = HlslDxcLib.CreateDxcContainerReflection();
+                    reflection.Load(blob);
+                    uint index;
+                    int hr = reflection.FindFirstPartKind(DFCC_DXIL, out index);
+                    if (hr < 0)
+                        hr = reflection.FindFirstPartKind(DFCC_SHEX, out index);
+                    if (hr < 0)
+                        hr = reflection.FindFirstPartKind(DFCC_SHDR, out index);
+                    if (hr < 0)
+                        return null;
+                    unsafe
+                    {
+                        IDxcBlob part = reflection.GetPartContent(index);
+                        UInt32* p = (UInt32 *)part.GetBufferPointer();
+                        return DescribeProgramVersionShort(*p);
+                    }
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
         }
 
         private void EditorForm_Shown(object sender, EventArgs e)
@@ -311,7 +364,7 @@ namespace MainNs
             string ext = System.IO.Path.GetExtension(this.DocFileName).ToLowerInvariant();
             if (ext == ".cso" || ext == ".fxc")
             {
-                this.selectedShaderBlob = this.Library.CreateBlobFromFile(this.DocFileName, IntPtr.Zero);
+                this.SelectedShaderBlob = this.Library.CreateBlobFromFile(this.DocFileName, IntPtr.Zero);
                 this.DocKind = DocumentKind.CompiledObject;
                 this.DisassembleSelectedShaderBlob();
             }
@@ -341,7 +394,7 @@ namespace MainNs
 
         private void exportCompiledObjectToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (this.selectedShaderBlob == null)
+            if (this.SelectedShaderBlob == null)
             {
                 MessageBox.Show(this, "There is no compiled shader blob available for exporting.");
                 return;
@@ -363,7 +416,7 @@ namespace MainNs
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                     return;
 
-                System.IO.File.WriteAllBytes(dialog.FileName, GetBytesFromBlob(this.selectedShaderBlob));
+                System.IO.File.WriteAllBytes(dialog.FileName, GetBytesFromBlob(this.SelectedShaderBlob));
             }
         }
 
@@ -398,6 +451,17 @@ namespace MainNs
 
         #endregion Menu item handlers.
 
+        private static bool IsDxilTarget(string target)
+        {
+            // ps_6_0
+            // 012345
+            int major;
+            if (target != null && target.Length == 6)
+                if (Int32.TryParse(new string(target[3], 1), out major))
+                    return major >= 6;
+            return false;
+        }
+
         private void CompileDocument()
         {
             this.DisassemblyTextBox.Font = this.CodeBox.Font;
@@ -430,22 +494,57 @@ namespace MainNs
 
             if (localKind == DocumentKind.HlslText)
             {
-                var compiler = HlslDxcLib.CreateDxcCompiler();
                 var source = this.CreateBlobForText(text);
 
                 string fileName = "hlsl.hlsl";
                 HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+                bool isDxil = IsDxilTarget(fileVars.Target);
+                IDxcCompiler compiler = isDxil ? HlslDxcLib.CreateDxcCompiler() : null;
                 {
                     string[] arguments = fileVars.Arguments;
-                    var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, arguments, arguments.Length, null, 0, library.CreateIncludeHandler());
-                    if (result.GetStatus() == 0)
+                    if (isDxil)
                     {
-                        this.selectedShaderBlob = result.GetResult();
-                        this.DisassembleSelectedShaderBlob();
+                        var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, arguments, arguments.Length, null, 0, library.CreateIncludeHandler());
+                        if (result.GetStatus() == 0)
+                        {
+                            this.SelectedShaderBlob = result.GetResult();
+                            this.DisassembleSelectedShaderBlob();
+                        }
+                        else
+                        {
+                            this.colorizationService.ClearColorization(this.DisassemblyTextBox);
+                            this.DisassemblyTextBox.Text = GetStringFromBlob(result.GetErrors());
+                        }
                     }
                     else
                     {
-                        this.DisassemblyTextBox.Text = GetStringFromBlob(result.GetErrors());
+                        this.colorizationService.ClearColorization(this.DisassemblyTextBox);
+                        IDxcBlob code, errorMsgs;
+                        uint flags = 0;
+                        const uint D3DCOMPILE_DEBUG = 1;
+                        if (fileVars.Arguments.Contains("/Zi")) flags = D3DCOMPILE_DEBUG;
+                        int hr = D3DCompiler.D3DCompiler.D3DCompile(text, text.Length, fileName, null, 0, fileVars.Entry, fileVars.Target, flags, 0, out code, out errorMsgs);
+                        if (hr != 0)
+                        {
+                            if (errorMsgs != null)
+                            {
+                                this.DisassemblyTextBox.Text = GetStringFromBlob(errorMsgs);
+                            }
+                            else
+                            {
+                                this.DisassemblyTextBox.Text = "Compilation filed with 0x" + hr.ToString("x");
+                            }
+                            return;
+                        }
+                        IDxcBlob disassembly;
+                        unsafe
+                        {
+                            IntPtr buf = new IntPtr(code.GetBufferPointer());
+                            hr = D3DCompiler.D3DCompiler.D3DDisassemble(buf, code.GetBufferSize(),
+                                0, null, out disassembly);
+                            this.DisassemblyTextBox.Text = GetStringFromBlob(disassembly);
+                        }
+                        this.SelectedShaderBlob = code;
                     }
                 }
 
@@ -493,7 +592,7 @@ namespace MainNs
                 var result = assembler.AssembleToContainer(source);
                 if (result.GetStatus() == 0)
                 {
-                    this.selectedShaderBlob = result.GetResult();
+                    this.SelectedShaderBlob = result.GetResult();
                     this.DisassembleSelectedShaderBlob();
                     // TODO: run validation on this shader blob
                 }
@@ -593,16 +692,22 @@ namespace MainNs
         {
             private Dictionary<RichTextBox, RtbColorization> instances = new Dictionary<RichTextBox, RtbColorization>();
 
+            public void ClearColorization(RichTextBox rtb)
+            {
+                SetColorization(rtb, null);
+            }
+
             public void SetColorization(RichTextBox rtb, RtbColorization colorization)
             {
                 RtbColorization existing;
-                if (instances.TryGetValue(rtb, out existing))
+                if (instances.TryGetValue(rtb, out existing) && existing != null)
                 {
                     existing.Stop();
                 }
 
                 instances[rtb] = colorization;
-                colorization.Start();
+                if (colorization != null)
+                    colorization.Start();
             }
         }
 
@@ -615,7 +720,7 @@ namespace MainNs
             var compiler = HlslDxcLib.CreateDxcCompiler();
             try
             {
-                var dis = compiler.Disassemble(this.selectedShaderBlob);
+                var dis = compiler.Disassemble(this.SelectedShaderBlob);
                 string disassemblyText = GetStringFromBlob(dis);
 
                 RichTextBox rtb = this.DisassemblyTextBox;
@@ -2093,7 +2198,7 @@ namespace MainNs
 
         private void bitstreamToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (this.selectedShaderBlob == null)
+            if (this.SelectedShaderBlob == null)
             {
                 MessageBox.Show(this, "No shader blob selected. Try compiling a file.");
                 return;
@@ -2102,8 +2207,8 @@ namespace MainNs
             byte[] bytes;
             unsafe
             {
-                char* pBuffer = this.selectedShaderBlob.GetBufferPointer();
-                uint size = this.selectedShaderBlob.GetBufferSize();
+                char* pBuffer = this.SelectedShaderBlob.GetBufferPointer();
+                uint size = this.SelectedShaderBlob.GetBufferSize();
                 bytes = new byte[size];
                 IntPtr ptr = new IntPtr(pBuffer);
                 System.Runtime.InteropServices.Marshal.Copy(ptr, bytes, 0, (int)size);
@@ -2348,8 +2453,18 @@ namespace MainNs
             kind = ((programVersion & 0xffff0000) >> 16);
             major = (programVersion & 0xf0) >> 4;
             minor = (programVersion & 0xf);
-            string[] shaderKinds = "Pixel,Geometry,Hull,Domain,Compute".Split(',');
+            string[] shaderKinds = "Pixel,Vertex,Geometry,Hull,Domain,Compute".Split(',');
             return shaderKinds[kind] + " " + major + "." + minor;
+        }
+
+        private static string DescribeProgramVersionShort(UInt32 programVersion)
+        {
+            uint kind, major, minor;
+            kind = ((programVersion & 0xffff0000) >> 16);
+            major = (programVersion & 0xf0) >> 4;
+            minor = (programVersion & 0xf);
+            string[] shaderKinds = "ps,vs,gs,hs,ds,cs".Split(',');
+            return shaderKinds[kind] + "_" + major + "_" + minor;
         }
 
         private static TreeNode RangeNode(string text)
@@ -2893,6 +3008,294 @@ namespace MainNs
             string rewriteText = GetStringFromBlob(rewriteBlob);
             RewriterOutputTextBox.Text = rewriteText;
             AnalysisTabControl.SelectTab(RewriterOutputTabPage);
+        }
+
+        private IEnumerable<string> EnumerateDiaCandidates()
+        {
+            string progPath = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            yield return System.IO.Path.Combine(progPath, @"Microsoft Visual Studio\2017\Community\DIA SDK\bin\amd64\msdia140.dll");
+            yield return System.IO.Path.Combine(progPath, @"Microsoft Visual Studio\2017\Community\Common7\IDE\msdia140.dll");
+            yield return System.IO.Path.Combine(progPath, @"Microsoft Visual Studio\2017\Community\Common7\IDE\msdia120.dll");
+        }
+
+        private string SuggestDiaRegistration()
+        {
+            foreach (string path in EnumerateDiaCandidates())
+            {
+                if (System.IO.File.Exists(path))
+                {
+                    return "Consider registering with this command:\r\n" +
+                        "regsvr32 \"" + path + "\"";
+                }
+            }
+            return null;
+        }
+
+        private void debugInformationToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.SelectedShaderBlob == null)
+            {
+                MessageBox.Show("Compile or load a shader to view debug information.");
+                return;
+            }
+
+            this.ClearDiaUnimplementedFlags();
+            IDxcBlob debugInfoBlob;
+            dia2.IDiaDataSource dataSource;
+            uint dfcc;
+            IDxcContainerReflection r = HlslDxcLib.CreateDxcContainerReflection();
+            r.Load(this.SelectedShaderBlob);
+            if (IsDxilTarget(this.selectedShaderBlobTarget))
+            {
+                dataSource = HlslDxcLib.CreateDxcDiaDataSource();
+                dfcc = DFCC_ILDB;
+            }
+            else
+            {
+                try
+                {
+                    dataSource = new dia2.DiaDataSource() as dia2.IDiaDataSource;
+                }
+                catch (System.Runtime.InteropServices.COMException ce)
+                {
+                    const int REGDB_E_CLASSNOTREG = -2147221164;
+                    if (ce.HResult == REGDB_E_CLASSNOTREG)
+                    {
+                        string suggestion = SuggestDiaRegistration();
+                        string message = "Unable to create dia object.";
+                        if (suggestion != null) message += "\r\n" + suggestion;
+                        MessageBox.Show(this, message);
+                    }
+                    else
+                    {
+                        HandleException(ce);
+                    }
+                    return;
+                }
+                dfcc = DFCC_SPDB;
+            }
+            uint index;
+            int hr = r.FindFirstPartKind(dfcc, out index);
+            if (hr < 0)
+            {
+                MessageBox.Show("Debug information not found in container.");
+                return;
+            }
+            debugInfoBlob = r.GetPartContent(index);
+            try
+            {
+                dataSource.loadDataFromIStream(Library.CreateStreamFromBlobReadOnly(debugInfoBlob));
+                string s = dataSource.get_lastError();
+                if (!String.IsNullOrEmpty(s))
+                {
+                    MessageBox.Show("Failure to load stream: " + s);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex);
+                return;
+            }
+            var session = dataSource.openSession();
+            var tables = session.getEnumTables();
+            uint count = tables.get_Count();
+            StringBuilder output = new StringBuilder();
+            output.AppendLine("* Tables");
+            bool isFirstTable = true;
+            for (uint i = 0; i < count; ++i)
+            {
+                var table = tables.Item(i);
+                if (isFirstTable) isFirstTable = false; else output.AppendLine();
+                output.AppendLine("** " + table.get_name());
+                int itemCount = table.get_Count();
+                output.AppendLine("Record count: " + itemCount);
+                for (int itemIdx = 0; itemIdx < itemCount; itemIdx++)
+                {
+                    object o = table.Item((uint)itemIdx);
+                    if (TryDumpDiaObject(o as dia2.IDiaSymbol, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaSourceFile, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaLineNumber, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaSectionContrib, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaSegment, output)) continue;
+                }
+            }
+
+            if (debugInfoTabPage == null)
+            {
+                this.debugInfoTabPage = new TabPage("Debug Info");
+                this.debugInfoControl = new RichTextBox()
+                {
+                    Dock = DockStyle.Fill,
+                    Font = this.CodeBox.Font,
+                    ReadOnly = true
+                };
+                this.AnalysisTabControl.TabPages.Add(this.debugInfoTabPage);
+                this.debugInfoTabPage.Controls.Add(this.debugInfoControl);
+            }
+            this.debugInfoControl.Text = output.ToString();
+            this.AnalysisTabControl.SelectedTab = this.debugInfoTabPage;
+        }
+
+        private bool TryDumpDiaObject<TIface>(TIface o, StringBuilder sb)
+        {
+            if (o == null) return false;
+            DumpDiaObject(o, sb);
+            return true;
+        }
+
+        private void ClearDiaUnimplementedFlags()
+        {
+            foreach (var item in TypeWriters)
+                foreach (var writer in item.Value)
+                    writer.Unimplemented = false;
+        }
+
+        private void DumpDiaObject<TIface>(TIface o, StringBuilder sb)
+        {
+            Type type = typeof(TIface);
+            bool hasLine = false;
+            List<DiaTypePropertyWriter> writers;
+            if (SymTagEnumValues == null)
+            {
+                SymTagEnumValues = Enum.GetNames(typeof(dia2.SymTagEnum));
+            }
+            if (!TypeWriters.TryGetValue(type, out writers))
+            {
+                writers = new List<DiaTypePropertyWriter>();
+                foreach (System.Reflection.MethodInfo mi in type.GetMethods())
+                {
+                    Func<string, object, StringBuilder, bool> writer;
+                    if (mi.GetParameters().Length > 0)
+                        continue;
+                    string propertyName = mi.Name;
+                    if (!propertyName.StartsWith("get_")) continue;
+                    propertyName = propertyName.Substring(4);
+                    Type returnType = mi.ReturnType;
+                    if (returnType == typeof(string))
+                        writer = WriteDiaValueString;
+                    else if (returnType == typeof(uint) && propertyName == "symTag")
+                        writer = WriteDiaValueSymTag;
+                    else if (returnType == typeof(uint))
+                        writer = WriteDiaValueUInt32;
+                    else if (returnType == typeof(UInt64))
+                        writer = WriteDiaValueUInt64;
+                    else if (returnType == typeof(bool))
+                        writer = WriteDiaValueBool;
+                    else
+                        writer = WriteDiaValueAny;
+                    writers.Add(new DiaTypePropertyWriter()
+                    {
+                        MI = mi,
+                        PropertyName = propertyName,
+                        Writer = writer
+                    });
+                }
+                TypeWriters[type] = writers;
+            }
+            foreach (var writer in writers)
+            {
+                if (writer.Write(o, sb))
+                    hasLine = true;
+            }
+            if (hasLine) sb.AppendLine();
+        }
+
+        private static Dictionary<Type, List<DiaTypePropertyWriter>> TypeWriters = new Dictionary<Type, List<DiaTypePropertyWriter>>();
+        internal static string[] SymTagEnumValues;
+
+        class DiaTypePropertyWriter
+        {
+            public static object[] EmptyParams = new object[0];
+            public bool Unimplemented;
+            public System.Reflection.MethodInfo MI;
+            public string PropertyName;
+            public Func<string, object, StringBuilder, bool> Writer;
+            internal bool Write(object instance, StringBuilder sb)
+            {
+                if (Unimplemented)
+                    return false;
+                try
+                {
+                    object value = MI.Invoke(instance, EmptyParams);
+                    return Writer(PropertyName, value, sb);
+                }
+                catch (System.Reflection.TargetInvocationException tie)
+                {
+                    if (tie.InnerException is NotImplementedException)
+                    {
+                        this.Unimplemented = true;
+                    }
+                    return false;
+                }
+                catch (System.Runtime.InteropServices.COMException)
+                {
+                    return false;
+                }
+            }
+        }
+
+        private static bool WriteDiaValueAny(string propertyName, object propertyValue, StringBuilder sb)
+        {
+            if (null == propertyValue) return false;
+            if (System.Runtime.InteropServices.Marshal.IsComObject(propertyValue)) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.Append(Convert.ToString(propertyValue));
+            sb.AppendLine();
+            return true;
+        }
+
+        private static bool WriteDiaValueSymTag(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            uint tag = (uint)propertyValueObj;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.AppendLine(SymTagEnumValues[tag]);
+            return true;
+        }
+
+        private static bool WriteDiaValueBool(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            bool propertyValue = (bool)propertyValueObj;
+            if (false == propertyValue) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.Append(propertyValue);
+            sb.AppendLine();
+            return true;
+        }
+
+        private static bool WriteDiaValueUInt32(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            uint propertyValue = (uint)propertyValueObj;
+            if (0 == propertyValue) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.Append(propertyValue);
+            sb.AppendLine();
+            return true;
+        }
+
+        private static bool WriteDiaValueUInt64(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            UInt64 propertyValue = (UInt64)propertyValueObj;
+            if (0 == propertyValue) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.Append(propertyValue);
+            sb.AppendLine();
+            return true;
+        }
+
+        private static bool WriteDiaValueString(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            string propertyValue = (string)propertyValueObj;
+            if (String.IsNullOrEmpty(propertyValue)) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.AppendLine(propertyValue);
+            return true;
         }
     }
 

@@ -111,6 +111,12 @@ void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, LPCWSTR pArgs,
+                     _Outptr_ IDxcBlob **ppResult);
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+                     _Outptr_ IDxcBlob **ppResult);
 
 class VersionSupportInfo {
 private:

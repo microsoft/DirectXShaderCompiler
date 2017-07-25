@@ -15,6 +15,7 @@
 #include "clang/SPIRV/SPIRVContext.h"
 #include "clang/SPIRV/Structure.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace clang {
@@ -54,7 +55,8 @@ public:
   ///
   /// The corresponding pointer type of the given value type will be constructed
   /// for the variable itself.
-  uint32_t addFnVariable(uint32_t valueType, llvm::StringRef name = "");
+  uint32_t addFnVariable(uint32_t valueType, llvm::StringRef name = "",
+                         llvm::Optional<uint32_t> init = llvm::None);
 
   /// \brief Ends building of the current function. Returns true of success,
   /// false on failure. All basic blocks constructed from the beginning or
@@ -88,6 +90,11 @@ public:
   /// <result-id> for the pointer to the element.
   uint32_t createAccessChain(uint32_t resultType, uint32_t base,
                              llvm::ArrayRef<uint32_t> indexes);
+
+  /// \brief Creates a binary operation with the given SPIR-V opcode. Returns
+  /// the <result-id> for the result.
+  uint32_t createBinaryOp(spv::Op op, uint32_t resultType, uint32_t lhs,
+                          uint32_t rhs);
 
   /// \brief Creates a return instruction.
   void createReturn();
@@ -129,6 +136,7 @@ public:
   // === Type ===
 
   uint32_t getVoidType();
+  uint32_t getBoolType();
   uint32_t getInt32Type();
   uint32_t getUint32Type();
   uint32_t getFloat32Type();
@@ -139,6 +147,7 @@ public:
                            const std::vector<uint32_t> &paramTypes);
 
   // === Constant ===
+  uint32_t getConstantBool(bool value);
   uint32_t getConstantInt32(int32_t value);
   uint32_t getConstantUint32(uint32_t value);
   uint32_t getConstantFloat32(float value);

@@ -112,7 +112,8 @@ public:
   inline void addParameter(uint32_t paramResultType, uint32_t paramResultId);
 
   /// \brief Adds a local variable to this function.
-  inline void addVariable(uint32_t varResultType, uint32_t varResultId);
+  void addVariable(uint32_t varResultType, uint32_t varResultId,
+                   llvm::Optional<uint32_t> init);
 
   /// \brief Adds a basic block to this function.
   inline void addBasicBlock(std::unique_ptr<BasicBlock> block);
@@ -125,8 +126,8 @@ private:
 
   /// Parameter <result-type> and <result-id> pairs.
   std::vector<std::pair<uint32_t, uint32_t>> parameters;
-  /// Local variable <result-type> and <result-id> pairs.
-  std::vector<std::pair<uint32_t, uint32_t>> variables;
+  /// Local variables.
+  std::vector<Instruction> variables;
   std::vector<std::unique_ptr<BasicBlock>> blocks;
 };
 
@@ -310,10 +311,6 @@ bool Function::isEmpty() const {
 
 void Function::addParameter(uint32_t rType, uint32_t rId) {
   parameters.emplace_back(rType, rId);
-}
-
-void Function::addVariable(uint32_t varType, uint32_t varId) {
-  variables.emplace_back(varType, varId);
 }
 
 void Function::addBasicBlock(std::unique_ptr<BasicBlock> block) {

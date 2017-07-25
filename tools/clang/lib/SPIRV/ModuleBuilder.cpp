@@ -64,11 +64,12 @@ uint32_t ModuleBuilder::addFnParameter(uint32_t type, llvm::StringRef name) {
   return paramId;
 }
 
-uint32_t ModuleBuilder::addFnVariable(uint32_t type, llvm::StringRef name) {
+uint32_t ModuleBuilder::addFnVariable(uint32_t type, llvm::StringRef name,
+                                      llvm::Optional<uint32_t> init) {
   assert(theFunction && "found detached local variable");
 
   const uint32_t varId = theContext.takeNextId();
-  theFunction->addVariable(type, varId);
+  theFunction->addVariable(type, varId, init);
   theModule.addDebugName(varId, name);
   return varId;
 }
@@ -137,6 +138,15 @@ uint32_t ModuleBuilder::createAccessChain(uint32_t resultType, uint32_t base,
   assert(insertPoint && "null insert point");
   const uint32_t id = theContext.takeNextId();
   instBuilder.opAccessChain(resultType, id, base, indexes).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
+uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
+                                       uint32_t lhs, uint32_t rhs) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.binaryOp(op, resultType, id, lhs, rhs).x();
   insertPoint->appendInstruction(std::move(constructSite));
   return id;
 }
@@ -214,6 +224,7 @@ uint32_t ModuleBuilder::get##ty##Type() {                                      \
 }
 
 IMPL_GET_PRIMITIVE_TYPE(Void)
+IMPL_GET_PRIMITIVE_TYPE(Bool)
 IMPL_GET_PRIMITIVE_TYPE(Int32)
 IMPL_GET_PRIMITIVE_TYPE(Uint32)
 IMPL_GET_PRIMITIVE_TYPE(Float32)
@@ -268,7 +279,17 @@ ModuleBuilder::getFunctionType(uint32_t returnType,
   return typeId;
 }
 
-#define IMPL_GET_PRIMITIVE_VALUE(builderTy, cppTy)                             \
+uint32_t ModuleBuilder::getConstantBool(bool value) {
+  const uint32_t typeId = getBoolType();
+  const Constant *constant = value ? Constant::getTrue(theContext, typeId)
+                                   : Constant::getFalse(theContext, typeId);
+
+  const uint32_t constId = theContext.getResultIdForConstant(constant);
+  theModule.addConstant(constant, constId);
+  return constId;
+}
+
+#define IMPL_GET_PRIMITIVE_CONST(builderTy, cppTy)                             \
   \
 uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                  \
     const uint32_t typeId = get##builderTy##Type();                            \
@@ -280,9 +301,9 @@ uint32_t ModuleBuilder::getConstant##builderTy(cppTy value) {                  \
   \
 }
 
-IMPL_GET_PRIMITIVE_VALUE(Int32, int32_t)
-IMPL_GET_PRIMITIVE_VALUE(Uint32, uint32_t)
-IMPL_GET_PRIMITIVE_VALUE(Float32, float)
+IMPL_GET_PRIMITIVE_CONST(Int32, int32_t)
+IMPL_GET_PRIMITIVE_CONST(Uint32, uint32_t)
+IMPL_GET_PRIMITIVE_CONST(Float32, float)
 
 #undef IMPL_GET_PRIMITIVE_VALUE
 

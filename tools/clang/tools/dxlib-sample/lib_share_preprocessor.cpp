@@ -12,8 +12,6 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/microcom.h"
-#include "dxc/dxctools.h"
-#include "dxc/Support/dxcapi.use.h"
 #include "clang/Rewrite/Frontend/Rewriters.h"
 #include "dxc/Support/FileIOHelper.h"
 
@@ -123,27 +121,22 @@ public:
 
   IncludeToLibPreprocessorImpl(IDxcIncludeHandler *handler)
       : m_pIncludeHandler(handler) {
-    if (!m_dllSupport.IsEnabled())
-      m_dllSupport.Initialize();
   }
 
   void SetupDefines(const DxcDefine *pDefines, unsigned defineCount) override;
   void AddIncPath(StringRef path) override;
   HRESULT Preprocess(IDxcBlob *pSource, LPCWSTR pFilename) override;
 
-  const std::vector<std::string> &GetHeaders() const override { return m_headers; }
+  const std::vector<std::string> &GetSnippets() const override { return m_snippets; }
 
 private:
-  HRESULT RewriteToNoFuncBody(IDxcRewriter *pRewriter, LPCWSTR pFilename,
-    std::string &Source, IDxcBlob **ppNoFuncBodySource);
   IDxcIncludeHandler *m_pIncludeHandler;
-  // Processed header content.
-  std::vector<std::string> m_headers;
+  // Snippets split by #include.
+  std::vector<std::string> m_snippets;
   // Defines.
   std::vector<std::wstring> m_defineStrs;
   std::vector<DxcDefine> m_defines;
   std::vector<std::string> m_includePathList;
-  dxc::DxcDllSupport m_dllSupport;
 };
 
 void IncludeToLibPreprocessorImpl::SetupDefines(const DxcDefine *pDefines,
@@ -168,39 +161,6 @@ void IncludeToLibPreprocessorImpl::SetupDefines(const DxcDefine *pDefines,
 
 void IncludeToLibPreprocessorImpl::AddIncPath(StringRef path) {
   m_includePathList.emplace_back(path);
-}
-
-HRESULT IncludeToLibPreprocessorImpl::RewriteToNoFuncBody(IDxcRewriter *pRewriter, LPCWSTR pFilename,
-    std::string &Source, IDxcBlob **ppNoFuncBodySource) {
-  // Create header with no function body.
-  CComPtr<IDxcBlobEncoding> pEncodingIncludeSource;
-  IFR(DxcCreateBlobWithEncodingOnMalloc(
-      Source.data(), GetGlobalHeapMalloc(), Source.size(),
-      CP_UTF8, &pEncodingIncludeSource));
-
-  CComPtr<IDxcOperationResult> pRewriteResult;
-  IFT(pRewriter->RewriteUnchangedWithInclude(
-      pEncodingIncludeSource, pFilename, m_defines.data(), m_defines.size(),
-      // Don't need include handler here, include already read in
-      // RewriteIncludesToSnippet
-      nullptr,
-      RewriterOptionMask::SkipFunctionBody | RewriterOptionMask::KeepUserMacro,
-      &pRewriteResult));
-  // includeSource ownes the memory.
-  pEncodingIncludeSource.Detach();
-  HRESULT status;
-  if (!SUCCEEDED(pRewriteResult->GetStatus(&status)) || !SUCCEEDED(status)) {
-    CComPtr<IDxcBlobEncoding> pErr;
-    IFT(pRewriteResult->GetErrorBuffer(&pErr));
-    std::string errString =
-        std::string((char *)pErr->GetBufferPointer(), pErr->GetBufferSize());
-    IFTMSG(E_FAIL, errString);
-    return E_FAIL;
-  };
-
-  // Get result.
-  IFT(pRewriteResult->GetResult(ppNoFuncBodySource));
-  return S_OK;
 }
 
 using namespace clang;
@@ -322,23 +282,7 @@ HRESULT IncludeToLibPreprocessorImpl::Preprocess(IDxcBlob *pSource,
   // AddRef to hold incPathIncludeHandler.
   // If not, DxcArgsFileSystem will kill it.
   incPathIncludeHandler.AddRef();
-  std::vector<std::string> Snippets;
-  RewriteToSnippets(pSource, pFilename, m_defines, &incPathIncludeHandler, Snippets);
-
-  // Combine Snippets.
-  CComPtr<IDxcRewriter> pRewriter;
-  m_dllSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter);
-  std::string curHeader = "";
-  for (std::string &Snippet : Snippets) {
-    curHeader = curHeader + Snippet;
-    m_headers.emplace_back(curHeader);
-    // Rewrite curHeader to remove function body.
-    CComPtr<IDxcBlob> result;
-    IFT(RewriteToNoFuncBody(pRewriter, L"input.hlsl", curHeader, &result));
-    curHeader = std::string((char *)(result)->GetBufferPointer(),
-                                   (result)->GetBufferSize());
-  }
-
+  RewriteToSnippets(pSource, pFilename, m_defines, &incPathIncludeHandler, m_snippets);
   return S_OK;
 }
 } // namespace

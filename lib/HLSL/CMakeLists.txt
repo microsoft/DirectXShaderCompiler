@@ -3,6 +3,7 @@
 add_llvm_library(LLVMHLSL
   ComputeViewIdState.cpp
   ControlDependence.cpp
+  DxilAddPixelHitInstrumentation.cpp
   DxilCBuffer.cpp
   DxilCompType.cpp
   DxilCondenseResources.cpp
