@@ -44,4 +44,8 @@ TEST_F(FileTest, BinaryOpScalarArithmetic) {
   runFileTest("binary-op.arithmetic.scalar.hlsl");
 }
 
+TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("if-stmt.plain.hlsl"); }
+
+TEST_F(FileTest, IfStmtNestedIfStmt) { runFileTest("if-stmt.nested.hlsl"); }
+
 } // namespace

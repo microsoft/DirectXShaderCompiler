@@ -96,6 +96,13 @@ public:
   uint32_t createBinaryOp(spv::Op op, uint32_t resultType, uint32_t lhs,
                           uint32_t rhs);
 
+  // \brief Creates an unconditional branch to the given target label.
+  void createBranch(uint32_t targetLabel);
+  // \brief Creates a conditional branch. The OpSelectionMerge instruction
+  // required for the conditional branch will also be created.
+  void createConditionalBranch(uint32_t condition, uint32_t trueLabel,
+                               uint32_t falseLabel, uint32_t mergeLabel);
+
   /// \brief Creates a return instruction.
   void createReturn();
   /// \brief Creates a return value instruction.
