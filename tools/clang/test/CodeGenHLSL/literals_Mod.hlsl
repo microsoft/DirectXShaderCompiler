@@ -63,7 +63,7 @@ float test() :Foo {
   VERIFY_TYPES(uint, overload2(2, 2ul));
   VERIFY_TYPES(uint, overload2(2ul, 2));
   // TODO : half is converted to float. Must have overload function with half parameters when true half type is supported.
-  VERIFY_TYPES(float, overload2(1.0h, 1.0));;
+  VERIFY_TYPES(float, overload2(1.0h, 1.0));
   VERIFY_TYPES(float, overload2(1.0, 1.0H));
   
   VERIFY_TYPES(uint64_t, overload2(2, 2ull));

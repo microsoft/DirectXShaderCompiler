@@ -3284,8 +3284,7 @@ public:
       case BuiltinType::Bool: return AR_BASIC_BOOL;
       case BuiltinType::Double: return AR_BASIC_FLOAT64;
       case BuiltinType::Float: return AR_BASIC_FLOAT32;
-      case BuiltinType::Half: return AR_BASIC_FLOAT16;  // rather than AR_BASIC_FLOAT16
-        // case BuiltinType::Half: return AR_BASIC_FLOAT16;  // rather than AR_BASIC_FLOAT16
+      case BuiltinType::Half: return AR_BASIC_FLOAT16;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
       case BuiltinType::Short: return AR_BASIC_MIN16INT;    // rather than AR_BASIC_INT16
@@ -10463,7 +10462,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
 
   // Unlike min12int or min10float that were defined as a built in type,
   // min16float is defined by global typedef.
-  // So we can't check min16float at parsing level
+  // So we can't check min16float at the parsing level
   std::string UnqualifiedString = qt.getUnqualifiedType().getAsString();
   const std::string min16Float = "min16float";
   if (UnqualifiedString.compare(0, min16Float.length(), min16Float) == 0) {
