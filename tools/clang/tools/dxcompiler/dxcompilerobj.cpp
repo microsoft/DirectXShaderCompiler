@@ -1095,7 +1095,10 @@ static PCSTR g_pFeatureInfoNames[] =
     "SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader feeding rasterizer",
     "Wave level operations",
     "64-Bit integer",
+    "View Instancing",
+    "Barycentrics",
 };
+static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
 static void PrintFeatureInfo(const DxilShaderFeatureInfo* pFeatureInfo, raw_string_ostream &OS, StringRef comment) {
   uint64_t featureFlags = pFeatureInfo->FeatureFlags;
