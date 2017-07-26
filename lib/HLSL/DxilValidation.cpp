@@ -16,7 +16,7 @@
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/Support/Global.h"
-#include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HLSL/DxilInstructions.h"
 #include "dxc/HLSL/ReducibilityAnalysis.h"
 #include "dxc/Support/WinIncludes.h"
@@ -2594,11 +2594,7 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
         argTy = argTy->getArrayElementType();
       }
 
-      DxilParameterAnnotation &paramAnnoation =
-          funcAnnotation->GetParameterAnnotation(arg.getArgNo());
-
-      if (argTy->isStructTy() && !HLModule::IsStreamOutputType(argTy) &&
-          !paramAnnoation.HasMatrixAnnotation()) {
+      if (argTy->isStructTy()) {
         if (arg.hasName())
           ValCtx.EmitFormatError(
               ValidationRule::DeclFnFlattenParam,
@@ -2622,7 +2618,7 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
 static void ValidateGlobalVariable(GlobalVariable &GV,
                                    ValidationContext &ValCtx) {
   bool isInternalGV =
-      HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV);
+      dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV);
 
   if (!isInternalGV) {
     if (!GV.user_empty()) {
@@ -2647,7 +2643,7 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
     }
 
     // Validate type for internal globals.
-    if (HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV)) {
+    if (dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV)) {
       Type *Ty = GV.getType()->getPointerElementType();
       ValidateType(Ty, ValCtx);
     }
@@ -2974,7 +2970,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
 
     unsigned offset = fieldAnnotation.GetCBufferOffset();
 
-    unsigned EltSize = HLModule::GetLegacyCBufferFieldElementSize(
+    unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
         fieldAnnotation, EltTy, typeSys);
 
     bool bOutOfBound = false;

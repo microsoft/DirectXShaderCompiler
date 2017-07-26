@@ -40,6 +40,9 @@ class InclusionToSnippetRewriter : public PPCallbacks {
   SourceManager &SM; ///< Used to read and manage source files.
   std::string OSStr;  ///< The string for string_ostream.
   raw_string_ostream OS; ///< The destination stream for rewritten contents.
+
+  int IfLevel; ///< Count of if which don't have endif in same snippet.
+  int EndIfLevel; ///<  Count of endif which don't have if in same snippet.
   StringRef MainEOL; ///< The line ending marker to use.
   const llvm::MemoryBuffer *PredefinesBuffer; ///< The preprocessor predefines.
   bool ShowLineMarkers; ///< Show #line markers.
@@ -90,19 +93,20 @@ private:
   const IncludedFile *FindIncludeAtLocation(SourceLocation Loc) const;
   const Module *FindModuleAtLocation(SourceLocation Loc) const;
   StringRef NextIdentifierName(Lexer &RawLex, Token &RawToken);
-  void WriteSnippet();
+  void WriteSnippet(bool bStartFile, StringRef filename);
 };
 
 }  // end anonymous namespace
 
 /// Initializes an InclusionRewriter with a \p PP source and \p OS destination.
 InclusionToSnippetRewriter::InclusionToSnippetRewriter(
-    Preprocessor &PP, bool ShowLineMarkers,
-    bool UseLineDirectives, std::vector<std::string> &Snippets)
-    : PP(PP), SM(PP.getSourceManager()), OS(OSStr), MainEOL("\n"),
-      PredefinesBuffer(nullptr), ShowLineMarkers(ShowLineMarkers),
-      UseLineDirectives(UseLineDirectives),
-      LastInclusionLocation(SourceLocation()), Snippets(Snippets), SnippetOffset(0) {}
+    Preprocessor &PP, bool ShowLineMarkers, bool UseLineDirectives,
+    std::vector<std::string> &Snippets)
+    : PP(PP), SM(PP.getSourceManager()), OS(OSStr), IfLevel(0), EndIfLevel(0),
+      MainEOL("\n"), PredefinesBuffer(nullptr),
+      ShowLineMarkers(ShowLineMarkers), UseLineDirectives(UseLineDirectives),
+      LastInclusionLocation(SourceLocation()), Snippets(Snippets),
+      SnippetOffset(0) {}
 
 /// Write appropriate line information as either #line directives or GNU line
 /// markers depending on what mode we're in, including the \p Filename and
@@ -403,9 +407,35 @@ bool InclusionToSnippetRewriter::HandleHasInclude(
   return true;
 }
 
-void InclusionToSnippetRewriter::WriteSnippet() {
+void InclusionToSnippetRewriter::WriteSnippet(bool bStartFile, StringRef filename) {
   if (OS.GetNumBytesInBuffer()) {
-    Snippets.emplace_back(OS.str().substr(SnippetOffset));
+    if (IfLevel == 0 && EndIfLevel == 0) {
+      Snippets.emplace_back(OS.str().substr(SnippetOffset));
+    } else {
+      std::string endIfPatch;
+      if (IfLevel > 0) {
+        // #if without #endif.
+        for (int i = 0; i < IfLevel; i++) {
+          endIfPatch = endIfPatch + "\n#endif";
+        }
+      }
+
+      std::string ifPatch;
+      if (EndIfLevel > 0) {
+        // #endif without #if.
+        // Need add #if 1 at beginning.
+        // Use #if 1 because new file only open when inside true condition.
+        IfLevel = -IfLevel;
+        for (int i = 0; i < EndIfLevel; i++) {
+          ifPatch = ifPatch + "#if 1\n";
+        }
+      }
+      Snippets.emplace_back(ifPatch + OS.str().substr(SnippetOffset) + endIfPatch);
+    }
+
+    // Clear level.
+    IfLevel = 0;
+    EndIfLevel = 0;
     SnippetOffset = OSStr.size();
   }
 }
@@ -415,13 +445,17 @@ void InclusionToSnippetRewriter::WriteSnippet() {
 bool InclusionToSnippetRewriter::Process(FileID FileId,
                                 SrcMgr::CharacteristicKind FileType)
 {
-  // Write Snippet before Process a file.
-  WriteSnippet();
 
   bool Invalid;
   const MemoryBuffer &FromFile = *SM.getBuffer(FileId, &Invalid);
   assert(!Invalid && "Attempting to process invalid inclusion");
   const char *FileName = FromFile.getBufferIdentifier();
+
+
+  // Write Snippet before Process a file.
+  WriteSnippet(/*bStartFile*/true, FileName);
+
+
   Lexer RawLex(FileId, &FromFile, PP.getSourceManager(), PP.getLangOpts());
   RawLex.SetCommentRetentionState(false);
 
@@ -501,7 +535,14 @@ bool InclusionToSnippetRewriter::Process(FileID FileId,
             }
             break;
           }
-          case tok::pp_if:
+          // Update IfLevel
+          case tok::pp_ifdef:
+          case tok::pp_ifndef:
+            IfLevel++;
+            break;
+          case tok::pp_if: {
+            IfLevel++;
+          }
           case tok::pp_elif: {
             bool elif = (RawToken.getIdentifierInfo()->getPPKeywordID() ==
                          tok::pp_elif);
@@ -555,7 +596,14 @@ bool InclusionToSnippetRewriter::Process(FileID FileId,
             }
             break;
           }
-          case tok::pp_endif:
+          // Update IfLevel
+          case tok::pp_endif: {
+            IfLevel--;
+            if (IfLevel<0) {
+              IfLevel = 0;
+              EndIfLevel++;
+            }
+          }
           case tok::pp_else: {
             // We surround every #include by #if 0 to comment it out, but that
             // changes line numbers. These are fixed up right after that, but
@@ -586,7 +634,7 @@ bool InclusionToSnippetRewriter::Process(FileID FileId,
                     Line, /*EnsureNewline=*/true);
 
   // Write Snippet after Process a file.
-  WriteSnippet();
+  WriteSnippet(/*bStartFile*/false, FileName);
   return true;
 }
 

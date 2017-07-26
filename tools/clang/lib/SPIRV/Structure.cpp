@@ -78,6 +78,7 @@ Function &Function::operator=(Function &&that) {
   funcControl = that.funcControl;
   funcType = that.funcType;
   parameters = std::move(that.parameters);
+  variables = std::move(that.variables);
   blocks = std::move(that.blocks);
 
   that.clear();
@@ -91,17 +92,40 @@ void Function::clear() {
   funcControl = spv::FunctionControlMask::MaskNone;
   funcType = 0;
   parameters.clear();
+  variables.clear();
   blocks.clear();
+}
+
+void Function::addVariable(uint32_t varType, uint32_t varId,
+                           llvm::Optional<uint32_t> init) {
+  variables.emplace_back(
+      InstBuilder(nullptr)
+          .opVariable(varType, varId, spv::StorageClass::Function, init)
+          .take());
 }
 
 void Function::take(InstBuilder *builder) {
   builder->opFunction(resultType, resultId, funcControl, funcType).x();
+
+  // Write out all parameters.
   for (auto &param : parameters) {
     builder->opFunctionParameter(param.first, param.second).x();
   }
+
+  // Preprend all local variables to the entry block.
+  // This is necessary since SPIR-V requires all local variables to be defined
+  // at the very begining of the entry block.
+  // We need to do it in the reverse order to guarantee variables have the
+  // same definition order in SPIR-V as in the source code.
+  for (auto it = variables.rbegin(), ie = variables.rend(); it != ie; ++it) {
+    blocks.front()->prependInstruction(std::move(*it));
+  }
+
+  // Write out all basic blocks.
   for (auto &block : blocks) {
     block->take(builder);
   }
+
   builder->opFunctionEnd().x();
   clear();
 }
@@ -141,6 +165,36 @@ void SPIRVModule::clear() {
   debugNames.clear();
   decorations.clear();
   functions.clear();
+}
+
+void SPIRVModule::takeIntegerTypes(InstBuilder *ib) {
+  const auto &consumer = ib->getConsumer();
+  // If it finds any integer type, feeds it into the consumer, and removes it
+  // from the types collection.
+  types.remove_if([&consumer](std::pair<const Type *, uint32_t> &item) {
+    const bool isInteger = item.first->isIntegerType();
+    if (isInteger)
+      consumer(item.first->withResultId(item.second));
+    return isInteger;
+  });
+}
+
+void SPIRVModule::takeConstantForArrayType(const Type *arrType,
+                                           InstBuilder *ib) {
+  assert(arrType->isArrayType() &&
+         "takeConstantForArrayType was called with a non-array type.");
+  const auto &consumer = ib->getConsumer();
+  const uint32_t arrayLengthResultId = arrType->getArgs().back();
+
+  // If it finds the constant, feeds it into the consumer, and removes it
+  // from the constants collection.
+  constants.remove_if([&consumer, arrayLengthResultId](
+      std::pair<const Constant *, uint32_t> &item) {
+    const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
+    if (isArrayLengthConstant)
+      consumer(item.first->withResultId(item.second));
+    return isArrayLengthConstant;
+  });
 }
 
 void SPIRVModule::take(InstBuilder *builder) {
@@ -190,14 +244,27 @@ void SPIRVModule::take(InstBuilder *builder) {
     consumer(d.decoration.withTargetId(d.targetId));
   }
 
-  // TODO: handle the interdependency between types and constants
+  // Note on interdependence of types and constants:
+  // There is only one type (OpTypeArray) that requires the result-id of a
+  // constant. As a result, the constant integer should be defined before the
+  // array is defined. The integer type should also be defined before the
+  // constant integer is defined.
+
+  // First define all integer types
+  takeIntegerTypes(builder);
 
   for (const auto &t : types) {
+    // If we have an array type, we must first define the integer constant that
+    // defines its length.
+    if (t.first->isArrayType()) {
+      takeConstantForArrayType(t.first, builder);
+    }
+
     consumer(t.first->withResultId(t.second));
   }
 
-  for (auto &c : constants) {
-    consumer(std::move(c.constant));
+  for (const auto &c : constants) {
+    consumer(c.first->withResultId(c.second));
   }
 
   for (auto &v : variables) {

@@ -18,16 +18,19 @@
 #ifndef LLVM_CLANG_SPIRV_STRUCTURE_H
 #define LLVM_CLANG_SPIRV_STRUCTURE_H
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "spirv/1.0/spirv.hpp11"
+#include "clang/SPIRV/Constant.h"
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/Type.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace clang {
 namespace spirv {
@@ -63,15 +66,18 @@ public:
   /// state.
   void take(InstBuilder *builder);
 
-  /// \brief Add an instruction to this basic block.
-  inline void addInstruction(Instruction &&);
+  /// \brief Appends an instruction to this basic block.
+  inline void appendInstruction(Instruction &&);
+
+  /// \brief Preprends an instruction to this basic block.
+  inline void prependInstruction(Instruction &&);
 
   /// \brief Returns true if this basic block is terminated.
   bool isTerminated() const;
 
 private:
   uint32_t labelId; ///< The label id for this basic block. Zero means invalid.
-  std::vector<Instruction> instructions;
+  std::deque<Instruction> instructions;
 };
 
 /// \brief The class representing a SPIR-V function.
@@ -99,11 +105,15 @@ public:
   void clear();
 
   /// \brief Serializes this function and feeds it to the comsumer in the given
-  /// InstBuilder. After this call, this function will be in an invalid state.
+  /// InstBuilder. After this call, this function will be in an empty state.
   void take(InstBuilder *builder);
 
   /// \brief Adds a parameter to this function.
   inline void addParameter(uint32_t paramResultType, uint32_t paramResultId);
+
+  /// \brief Adds a local variable to this function.
+  void addVariable(uint32_t varResultType, uint32_t varResultId,
+                   llvm::Optional<uint32_t> init);
 
   /// \brief Adds a basic block to this function.
   inline void addBasicBlock(std::unique_ptr<BasicBlock> block);
@@ -113,8 +123,11 @@ private:
   uint32_t resultId;
   spv::FunctionControlMask funcControl;
   uint32_t funcType;
+
   /// Parameter <result-type> and <result-id> pairs.
   std::vector<std::pair<uint32_t, uint32_t>> parameters;
+  /// Local variables.
+  std::vector<Instruction> variables;
   std::vector<std::unique_ptr<BasicBlock>> blocks;
 };
 
@@ -178,14 +191,6 @@ struct TypeIdPair {
   const uint32_t resultId;
 };
 
-/// \brief The struct representing a constant and its type.
-struct Constant {
-  inline Constant(const Type &ty, Instruction &&value);
-
-  const Type &type;
-  Instruction constant;
-};
-
 /// \brief The class representing a SPIR-V module.
 class SPIRVModule {
 public:
@@ -224,13 +229,26 @@ public:
                             llvm::ArrayRef<uint32_t> intefaces);
   inline void addExecutionMode(Instruction &&);
   // TODO: source code debug information
-  inline void addDebugName(uint32_t targetId, std::string name,
+  inline void addDebugName(uint32_t targetId, llvm::StringRef name,
                            llvm::Optional<uint32_t> memberIndex = llvm::None);
   inline void addDecoration(const Decoration &decoration, uint32_t targetId);
   inline void addType(const Type *type, uint32_t resultId);
-  inline void addConstant(const Type &type, Instruction &&constant);
+  inline void addConstant(const Constant *constant, uint32_t resultId);
   inline void addVariable(Instruction &&);
   inline void addFunction(std::unique_ptr<Function>);
+
+private:
+  /// \brief Collects all the Integer type definitions in this module and
+  /// consumes them using the consumer within the given InstBuilder.
+  /// After this method is called, all integer types are remove from the list of
+  /// types in this object.
+  void takeIntegerTypes(InstBuilder *builder);
+
+  /// \brief Finds the constant on which the given array type depends.
+  /// If found, (a) defines the constant by passing it to the consumer in the
+  /// given InstBuilder. (b) Removes the constant from the list of constants
+  /// in this object.
+  void takeConstantForArrayType(const Type *arrType, InstBuilder *ib);
 
 private:
   Header header; ///< SPIR-V module header.
@@ -252,7 +270,8 @@ private:
   // their corresponding types. We store types and constants separately, but
   // they should be handled together.
   llvm::MapVector<const Type *, uint32_t> types;
-  std::vector<Constant> constants;
+  llvm::MapVector<const Constant *, uint32_t> constants;
+
   std::vector<Instruction> variables;
   std::vector<std::unique_ptr<Function>> functions;
 };
@@ -268,8 +287,12 @@ void BasicBlock::clear() {
   instructions.clear();
 }
 
-void BasicBlock::addInstruction(Instruction &&inst) {
+void BasicBlock::appendInstruction(Instruction &&inst) {
   instructions.push_back(std::move(inst));
+}
+
+void BasicBlock::prependInstruction(Instruction &&inst) {
+  instructions.push_front(std::move(inst));
 }
 
 Function::Function()
@@ -311,9 +334,6 @@ DecorationIdPair::DecorationIdPair(const Decoration &decor, uint32_t id)
 
 TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 
-Constant::Constant(const Type &ty, Instruction &&value)
-    : type(ty), constant(std::move(value)) {}
-
 SPIRVModule::SPIRVModule()
     : addressingModel(llvm::None), memoryModel(llvm::None) {}
 
@@ -342,9 +362,11 @@ void SPIRVModule::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
 void SPIRVModule::addExecutionMode(Instruction &&execMode) {
   executionModes.push_back(std::move(execMode));
 }
-void SPIRVModule::addDebugName(uint32_t targetId, std::string name,
+void SPIRVModule::addDebugName(uint32_t targetId, llvm::StringRef name,
                                llvm::Optional<uint32_t> memberIndex) {
-  debugNames.emplace_back(targetId, std::move(name), memberIndex);
+  if (!name.empty()) {
+    debugNames.emplace_back(targetId, name, memberIndex);
+  }
 }
 void SPIRVModule::addDecoration(const Decoration &decoration,
                                 uint32_t targetId) {
@@ -353,8 +375,8 @@ void SPIRVModule::addDecoration(const Decoration &decoration,
 void SPIRVModule::addType(const Type *type, uint32_t resultId) {
   types.insert(std::make_pair(type, resultId));
 }
-void SPIRVModule::addConstant(const Type &type, Instruction &&constant) {
-  constants.emplace_back(type, std::move(constant));
+void SPIRVModule::addConstant(const Constant *constant, uint32_t resultId) {
+  constants.insert(std::make_pair(constant, resultId));
 };
 void SPIRVModule::addVariable(Instruction &&var) {
   variables.push_back(std::move(var));

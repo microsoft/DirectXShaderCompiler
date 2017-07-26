@@ -8,303 +8,36 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/SPIRV/EmitSPIRVAction.h"
+
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/HlslTypes.h"
-#include "clang/AST/RecordLayout.h"
-#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/SPIRV/DeclResultIdMapper.h"
 #include "clang/SPIRV/ModuleBuilder.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
+#include "clang/SPIRV/TypeTranslator.h"
+#include "llvm/ADT/STLExtras.h"
 
 namespace clang {
-namespace {
+namespace spirv {
 
-/// \brief Generates the corresponding SPIR-V type for the given Clang frontend
-/// type and returns the <result-id>.
+/// SPIR-V emitter class. It consumes the HLSL AST and emits SPIR-V words.
 ///
-/// The translation is recursive; all the types that the target type depends on
-/// will be generated.
-uint32_t translateType(QualType type, spirv::ModuleBuilder &theBuilder) {
-  // In AST, vector types are TypedefType of TemplateSpecializationType,
-  // which is nested deeply. So we do fast track check here.
-  const auto symbol = type.getAsString();
-  if (symbol == "float4") {
-    const uint32_t floatType = theBuilder.getFloatType();
-    return theBuilder.getVec4Type(floatType);
-  } else if (symbol == "float3") {
-    const uint32_t floatType = theBuilder.getFloatType();
-    return theBuilder.getVec3Type(floatType);
-  } else if (symbol == "float2") {
-    const uint32_t floatType = theBuilder.getFloatType();
-    return theBuilder.getVec2Type(floatType);
-  } else if (auto *builtinType = dyn_cast<BuiltinType>(type.getTypePtr())) {
-    switch (builtinType->getKind()) {
-    case BuiltinType::Void:
-      return theBuilder.getVoidType();
-    case BuiltinType::Float:
-      return theBuilder.getFloatType();
-    default:
-      // TODO: handle other primitive types
-      assert(false && "unhandled builtin type");
-      break;
-    }
-  } else {
-    // TODO: handle other types
-    assert(false && "unhandled clang type");
-  }
-  return 0;
-}
-
-/// \brief The class containing mappings from Clang frontend Decls to their
-/// corresponding SPIR-V <result-id>s.
-///
-/// All symbols defined in the AST should be "defined" or registered in this
-/// class and have their <result-id>s queried from this class. In the process
-/// of defining a Decl, the SPIR-V module builder passed into the constructor
-/// will be used to generate all SPIR-V instructions required.
-///
-/// This class acts as a middle layer to handle the mapping between HLSL
-/// semantics and Vulkan interface (stage builtin/input/output) variables.
-/// Such mapping is required because of the semantic differences between DirectX
-/// and Vulkan and the essence of HLSL as the front-end language for DirectX.
-/// A normal variable attached with some semantic will be translated into a
-/// single interface variables if it is of non-struct type. If it is of struct
-/// type, the fields with attached semantics will need to be translated into
-/// interface variables per Vulkan's requirements.
-///
-/// In the following class, we call a Decl or symbol as *remapped* when it is
-/// translated into an interface variable; otherwise, we call it as *normal*.
-class DeclResultIdMapper {
-public:
-  DeclResultIdMapper(spirv::ModuleBuilder *builder) : theBuilder(*builder) {}
-
-  /// \brief Defines a function return value in this mapper and returns the
-  /// <result-id> for the final return type.
-  ///
-  /// The final return type is the "residual" type after "stripping" all
-  /// subtypes with attached semantics. For exmaple, stripping "float4 :
-  /// SV_Target" will result in "void", and stripping "struct { float4 :
-  /// SV_Target, float4 }" will result in "struct { float4 }".
-  ///
-  /// Proper SPIR-V instructions will be generated to create the corresponding
-  /// interface variable if stripping happens.
-  uint32_t defineFnReturn(FunctionDecl *funcDecl) {
-    // SemanticDecl for the return value is attached to the FunctionDecl.
-    const auto sk = getInterfaceVarSemanticAndKind(funcDecl);
-    if (sk.second != InterfaceVariableKind::None) {
-      // Found return value with semantic attached. This means we need to map
-      // the return value to a single interface variable.
-      const uint32_t retTypeId =
-          translateType(funcDecl->getReturnType(), theBuilder);
-      // TODO: Change to the correct interface variable kind here.
-      const uint32_t varId = theBuilder.addStageIOVariable(
-          retTypeId, spv::StorageClass::Output, llvm::None);
-
-      stageOutputs.push_back(std::make_pair(varId, sk.first));
-      remappedDecls[funcDecl] = varId;
-      interfaceVars.insert(varId);
-
-      return theBuilder.getVoidType();
-    } else {
-      // TODO: We need to handle struct return types here.
-      return translateType(funcDecl->getReturnType(), theBuilder);
-    }
-  }
-
-  /// \brief Defines a function parameter in this mapper and returns the
-  /// <result-id> for the final parameter type. Returns 0 if the final type
-  /// is void.
-  ///
-  /// The final parameter type is the "residual" type after "stripping" all
-  /// subtypes will attached semantics. For exmaple, stripping "float4 :
-  /// SV_Target" will result in "void", and stripping "struct { float4 :
-  /// SV_Target, float4 }" will result in "struct { float4 }".
-  ///
-  /// Proper SPIR-V instructions will be generated to create the corresponding
-  /// interface variable if stripping happens.
-  uint32_t defineFnParam(ParmVarDecl *paramDecl) {
-    const auto sk = getInterfaceVarSemanticAndKind(paramDecl);
-    if (sk.second != InterfaceVariableKind::None) {
-      // Found parameter with semantic attached. This means we need to map the
-      // parameter to a single interface variable.
-      const uint32_t paramTypeId =
-          translateType(paramDecl->getType(), theBuilder);
-      // TODO: Change to the correct interface variable kind here.
-      const uint32_t varId = theBuilder.addStageIOVariable(
-          paramTypeId, spv::StorageClass::Input, llvm::None);
-
-      stageInputs.push_back(std::make_pair(varId, sk.first));
-      remappedDecls[paramDecl] = varId;
-      interfaceVars.insert(varId);
-
-      return 0;
-    } else {
-      // TODO: We need to handle struct parameter types here.
-      return translateType(paramDecl->getType(), theBuilder);
-    }
-  }
-
-  /// \brief Registers a Decl's <result-id> without generating any SPIR-V
-  /// instruction.
-  void registerDeclResultId(const NamedDecl *symbol, uint32_t resultId) {
-    normalDecls[symbol] = resultId;
-  }
-
-  /// \brief Returns true if the given <result-id> is for an interface variable.
-  bool isInterfaceVariable(uint32_t varId) const {
-    return interfaceVars.count(varId) != 0;
-  }
-
-  /// \brief Returns the <result-id> for the given Decl.
-  uint32_t getDeclResultId(const NamedDecl *decl) const {
-    if (const uint32_t id = getRemappedDeclResultId(decl))
-      return id;
-    if (const uint32_t id = getNormalDeclResultId(decl))
-      return id;
-
-    assert(false && "found unregistered Decl in DeclResultIdMapper");
-    return 0;
-  }
-
-  /// \brief Returns the <result-id> for the given remapped Decl. Returns zero
-  /// if it is not a registered remapped Decl.
-  uint32_t getRemappedDeclResultId(const NamedDecl *decl) const {
-    auto it = remappedDecls.find(decl);
-    if (it != remappedDecls.end())
-      return it->second;
-    return 0;
-  }
-
-  /// \brief Returns the <result-id> for the given normal Decl. Returns zero if
-  /// it is not a registered normal Decl.
-  uint32_t getNormalDeclResultId(const NamedDecl *decl) const {
-    auto it = normalDecls.find(decl);
-    if (it != normalDecls.end())
-      return it->second;
-    return 0;
-  }
-
-  /// \brief Returns all defined stage input and ouput variables in this mapper.
-  std::vector<uint32_t> collectStageIOVariables() {
-    std::vector<uint32_t> stageIOVars;
-
-    for (const auto &input : stageInputs) {
-      stageIOVars.push_back(input.first);
-    }
-    for (const auto &output : stageOutputs) {
-      stageIOVars.push_back(output.first);
-    }
-
-    return stageIOVars;
-  }
-
-  /// \brief Decorates all stage input and output variables with proper
-  /// location.
-  ///
-  /// This method will writes the location assignment into the module under
-  /// construction.
-  void finalizeStageIOLocations() {
-    uint32_t nextInputLocation = 0;
-    uint32_t nextOutputLocation = 0;
-
-    // TODO: sort the variables according to some criteria first, e.g.,
-    // alphabetical order of semantic names.
-    for (const auto &input : stageInputs) {
-      theBuilder.decorateLocation(input.first, nextInputLocation++);
-    }
-    for (const auto &output : stageOutputs) {
-      theBuilder.decorateLocation(output.first, nextOutputLocation++);
-    }
-  }
-
-private:
-  /// \brief Interface variable kind.
-  ///
-  /// By interface variable, I mean all stage builtin, input, and output
-  /// variables. They participate in interface matching in Vulkan pipelines.
-  enum class InterfaceVariableKind {
-    None,   ///< Not an interface variable
-    Input,  ///< Stage input variable
-    Output, ///< Stage output variable
-    IO, ///< Interface variable that can act as both stage input or stage output
-    // TODO: builtins
-  };
-
-  using InterfaceVarIdSemanticPair = std::pair<uint32_t, llvm::StringRef>;
-
-  /// \brief Returns the interface variable's semantic and kind for the given
-  /// Decl.
-  std::pair<llvm::StringRef, InterfaceVariableKind>
-  getInterfaceVarSemanticAndKind(NamedDecl *decl) const {
-    for (auto *annotation : decl->getUnusualAnnotations()) {
-      if (auto *semantic = dyn_cast<hlsl::SemanticDecl>(annotation)) {
-        const llvm::StringRef name = semantic->SemanticName;
-        // TODO: We should check the semantic name ends with a number.
-        if (name.startswith("SV_TARGET")) {
-          return std::make_pair(name, InterfaceVariableKind::Output);
-        }
-        if (name.startswith("COLOR")) {
-          return std::make_pair(name, InterfaceVariableKind::IO);
-        }
-      }
-    }
-    return std::make_pair("", InterfaceVariableKind::None);
-  }
-
-private:
-  spirv::ModuleBuilder &theBuilder;
-
-  /// Mapping of all remapped decls to their <result-id>s.
-  llvm::DenseMap<const NamedDecl *, uint32_t> remappedDecls;
-  /// Mapping of all normal decls to their <result-id>s.
-  llvm::DenseMap<const NamedDecl *, uint32_t> normalDecls;
-  /// <result-id>s of all defined interface variables.
-  ///
-  /// We need to keep a separate list here to avoid looping through the
-  /// remappedDecls to find whether an <result-id> is for interface variable.
-  llvm::SmallSet<uint32_t, 16> interfaceVars;
-
-  /// Stage input/oupt/builtin variables and their kinds.
-  ///
-  /// We need to keep a separate list here in order to sort them at the end
-  /// of the module building.
-  llvm::SmallVector<InterfaceVarIdSemanticPair, 8> stageInputs;
-  llvm::SmallVector<InterfaceVarIdSemanticPair, 8> stageOutputs;
-  llvm::SmallVector<InterfaceVarIdSemanticPair, 8> stageBuiltins;
-};
-
+/// This class only overrides the HandleTranslationUnit() method; Traversing
+/// through the AST is done manually instead of using ASTConsumer's harness.
 class SPIRVEmitter : public ASTConsumer {
 public:
   explicit SPIRVEmitter(CompilerInstance &ci)
-      : theCompilerInstance(ci), diags(ci.getDiagnostics()), theContext(),
-        theBuilder(&theContext), declIdMapper(&theBuilder),
+      : theCompilerInstance(ci), astContext(ci.getASTContext()),
+        diags(ci.getDiagnostics()),
         entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
         shaderStage(getSpirvShaderStageFromHlslProfile(
             ci.getCodeGenOpts().HLSLProfile.c_str())),
-        entryFunctionId(0), curFunction(nullptr) {}
-
-  /// \brief Wrapper method to create an error message and report it
-  /// in the diagnostic engine associated with this consumer
-  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
-    const auto diagId =
-        diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
-    return diags.Report(diagId);
-  }
-
-  /// \brief Wrapper method to create a warning message and report it
-  /// in the diagnostic engine associated with this consumer
-  template <unsigned N>
-  DiagnosticBuilder emitWarning(const char (&message)[N]) {
-    const auto diagId =
-        diags.getCustomDiagID(clang::DiagnosticsEngine::Warning, message);
-    return diags.Report(diagId);
-  }
+        theContext(), theBuilder(&theContext),
+        declIdMapper(shaderStage, theBuilder, diags),
+        typeTranslator(theBuilder, diags), entryFunctionId(0),
+        curFunction(nullptr) {}
 
   spv::ExecutionModel getSpirvShaderStageFromHlslProfile(const char *profile) {
     assert(profile && "nullptr passed as HLSL profile.");
@@ -379,13 +112,27 @@ public:
 
     TranslationUnitDecl *tu = context.getTranslationUnitDecl();
 
-    // Process all top level Decls.
+    // A queue of functions we need to translate.
+    std::deque<FunctionDecl *> workQueue;
+
+    // The entry function is the seed of the queue.
     for (auto *decl : tu->decls()) {
-      doDecl(decl);
+      if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
+        if (funcDecl->getName() == entryFunctionName) {
+          workQueue.push_back(funcDecl);
+        }
+      }
+    }
+    // TODO: enlarge the queue upon seeing a function call.
+
+    // Translate all functions reachable from the entry function.
+    while (!workQueue.empty()) {
+      doFunctionDecl(workQueue.front());
+      workQueue.pop_front();
     }
 
     theBuilder.addEntryPoint(shaderStage, entryFunctionId, entryFunctionName,
-                             declIdMapper.collectStageIOVariables());
+                             declIdMapper.collectStageVariables());
 
     AddExecutionModeForEntryPoint(shaderStage, entryFunctionId);
 
@@ -399,129 +146,528 @@ public:
   }
 
   void doDecl(Decl *decl) {
-    if (auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
-      doFunctionDecl(funcDecl);
+    if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
+      doVarDecl(varDecl);
     } else {
-      emitWarning("Translation is not implemented for this decl type: %0")
-          << std::string(decl->getDeclKindName());
       // TODO: Implement handling of other Decl types.
+      emitWarning("Decl type '%0' is not supported yet.")
+          << std::string(decl->getDeclKindName());
     }
   }
 
   void doFunctionDecl(FunctionDecl *decl) {
     curFunction = decl;
 
-    uint32_t retType = declIdMapper.defineFnReturn(decl);
+    const llvm::StringRef funcName = decl->getName();
 
-    // Process function parameters. We need to strip parameters mapping to stage
-    // builtin/input/output variables and use what's left in the function type.
-    std::vector<uint32_t> residualParamTypes;
-    std::vector<ParmVarDecl *> residualParams;
+    if (funcName == entryFunctionName) {
+      // First create stage variables for the entry point.
+      declIdMapper.createStageVarFromFnReturn(decl);
+      for (auto *param : decl->params())
+        declIdMapper.createStageVarFromFnParam(param);
 
-    for (auto *param : decl->params()) {
-      // Get the "residual" parameter type. If nothing left after stripping,
-      // zero will be returned.
-      const uint32_t paramType = declIdMapper.defineFnParam(param);
-      if (paramType) {
-        residualParamTypes.push_back(paramType);
-        residualParams.push_back(param);
-      }
-    }
+      // Construct the function signature.
+      const uint32_t voidType = theBuilder.getVoidType();
+      const uint32_t funcType = theBuilder.getFunctionType(voidType, {});
+      const uint32_t funcId =
+          theBuilder.beginFunction(funcType, voidType, funcName);
 
-    const uint32_t funcType =
-        theBuilder.getFunctionType(retType, residualParamTypes);
-    const std::string funcName = decl->getNameInfo().getAsString();
-    const uint32_t funcId =
-        theBuilder.beginFunction(funcType, retType, funcName);
+      if (decl->hasBody()) {
+        // The entry basic block.
+        const uint32_t entryLabel = theBuilder.createBasicBlock("bb.entry");
+        theBuilder.setInsertPoint(entryLabel);
 
-    // Register all the "residual" parameters into the mapper.
-    for (uint32_t i = 0; i < residualParams.size(); ++i) {
-      declIdMapper.registerDeclResultId(
-          residualParams[i], theBuilder.addFnParameter(residualParamTypes[i]));
-    }
+        // Process all statments in the body.
+        doStmt(decl->getBody());
 
-    if (decl->hasBody()) {
-      const uint32_t entryLabel = theBuilder.createBasicBlock();
-      theBuilder.setInsertPoint(entryLabel);
-
-      // Process all statments in the body.
-      for (Stmt *stmt : cast<CompoundStmt>(decl->getBody())->body())
-        doStmt(stmt);
-
-      // We have processed all Stmts in this function and now in the last basic
-      // block. Make sure we have OpReturn if this is a void(...) function.
-      if (retType == theBuilder.getVoidType() &&
-          !theBuilder.isCurrentBasicBlockTerminated()) {
-        theBuilder.createReturn();
+        // We have processed all Stmts in this function and now in the last
+        // basic block. Make sure we have OpReturn if missing.
+        if (!theBuilder.isCurrentBasicBlockTerminated()) {
+          theBuilder.createReturn();
+        }
       }
 
       theBuilder.endFunction();
-    }
 
-    // Record the entry function's <result-id>.
-    if (entryFunctionName == funcName) {
+      // Record the entry function's <result-id>.
       entryFunctionId = funcId;
+    } else {
+      emitError("Non-entry functions are not supported yet.");
     }
 
     curFunction = nullptr;
   }
 
-  void doStmt(Stmt *stmt) {
-    if (auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
-      doReturnStmt(retStmt);
+  void doVarDecl(VarDecl *decl) {
+    if (decl->isLocalVarDecl()) {
+      const uint32_t ptrType = theBuilder.getPointerType(
+          typeTranslator.translateType(decl->getType()),
+          spv::StorageClass::Function);
+
+      // Handle initializer. SPIR-V requires that "initializer must be an <id>
+      // from a constant instruction or a global (module scope) OpVariable
+      // instruction."
+      llvm::Optional<uint32_t> init = llvm::None;
+      if (decl->hasInit()) {
+        const Expr *declInit = decl->getInit();
+        if (declInit->isConstantInitializer(astContext, /*ForRef*/ false)) {
+          APValue evalResult;
+          llvm::SmallVector<PartialDiagnosticAt, 0> notes;
+          declInit->EvaluateAsInitializer(evalResult, astContext, decl, notes);
+          init = llvm::Optional<uint32_t>(
+              translateAPValue(evalResult, decl->getType()));
+        }
+      }
+
+      const uint32_t varId =
+          theBuilder.addFnVariable(ptrType, decl->getName(), init);
+
+      declIdMapper.registerDeclResultId(decl, varId);
+    } else {
+      // TODO: handle global variables
+      emitError("Global variables are not supported yet.");
     }
-    // TODO: handle other statements
   }
 
-  void doReturnStmt(ReturnStmt *stmt) {
-    const uint32_t retValue = doExpr(stmt->getRetValue());
-    const uint32_t interfaceVarId =
+  void doStmt(const Stmt *stmt) {
+    if (const auto *compoundStmt = dyn_cast<CompoundStmt>(stmt)) {
+      for (auto *st : compoundStmt->body())
+        doStmt(st);
+    } else if (const auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
+      doReturnStmt(retStmt);
+    } else if (const auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
+      for (auto *decl : declStmt->decls()) {
+        doDecl(decl);
+      }
+    } else if (const auto *ifStmt = dyn_cast<IfStmt>(stmt)) {
+      doIfStmt(ifStmt);
+    } else if (const auto *nullStmt = dyn_cast<NullStmt>(stmt)) {
+      // We don't need to do anything for NullStmt
+    } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
+      // All cases for expressions used as statements
+      doExpr(expr);
+    } else {
+      emitError("Stmt '%0' is not supported yet.") << stmt->getStmtClassName();
+    }
+  }
+
+  void doReturnStmt(const ReturnStmt *stmt) {
+    // For normal functions, just return in the normal way.
+    if (curFunction->getName() != entryFunctionName) {
+      theBuilder.createReturnValue(doExpr(stmt->getRetValue()));
+      return;
+    }
+
+    // SPIR-V requires the signature of entry functions to be void(), while
+    // in HLSL we can have non-void parameter and return types for entry points.
+    // So we should treat the ReturnStmt in entry functions specially.
+    //
+    // We need to walk through the return type, and for each subtype attached
+    // with semantics, write out the value to the corresponding stage variable
+    // mapped to the semantic.
+
+    const uint32_t stageVarId =
         declIdMapper.getRemappedDeclResultId(curFunction);
 
-    if (interfaceVarId) {
-      // The return value is mapped to an interface variable. We need to store
-      // the value into the interface variable instead.
-      theBuilder.createStore(interfaceVarId, retValue);
+    if (stageVarId) {
+      // The return value is mapped to a single stage variable. We just need
+      // to store the value into the stage variable instead.
+      theBuilder.createStore(stageVarId, doExpr(stmt->getRetValue()));
       theBuilder.createReturn();
+      return;
+    }
+
+    QualType retType = stmt->getRetValue()->getType();
+
+    if (const auto *structType = retType->getAsStructureType()) {
+      // We are trying to return a value of struct type.
+
+      // First get the return value. Clang AST will use an LValueToRValue cast
+      // for returning a struct variable. We need to ignore the cast to avoid
+      // creating OpLoad instruction since we need the pointer to the variable
+      // for creating access chain later.
+      const uint32_t retValue =
+          doExpr(stmt->getRetValue()->IgnoreParenLValueCasts());
+
+      // Then go through all fields.
+      uint32_t fieldIndex = 0;
+      for (const auto *field : structType->getDecl()->fields()) {
+        // Load the value from the current field.
+        const uint32_t valueType =
+            typeTranslator.translateType(field->getType());
+        // TODO: We may need to change the storage class accordingly.
+        const uint32_t ptrType = theBuilder.getPointerType(
+            typeTranslator.translateType(field->getType()),
+            spv::StorageClass::Function);
+        const uint32_t indexId = theBuilder.getConstantInt32(fieldIndex++);
+        const uint32_t valuePtr =
+            theBuilder.createAccessChain(ptrType, retValue, {indexId});
+        const uint32_t value = theBuilder.createLoad(valueType, valuePtr);
+        // Store it to the corresponding stage variable.
+        const uint32_t targetVar = declIdMapper.getDeclResultId(field);
+        theBuilder.createStore(targetVar, value);
+      }
     } else {
-      theBuilder.createReturnValue(retValue);
+      emitError("Return type '%0' for entry function is not supported yet.")
+          << retType->getTypeClassName();
     }
   }
 
-  uint32_t doExpr(Expr *expr) {
+  void doIfStmt(const IfStmt *ifStmt) {
+    // if statements are composed of:
+    //   if (<check>) { <then> } else { <else> }
+    //
+    // To translate if statements, we'll need to emit the <check> expressions
+    // in the current basic block, and then create separate basic blocks for
+    // <then> and <else>. Additionally, we'll need a <merge> block as per
+    // SPIR-V's structured control flow requirements. Depending whether there
+    // exists the else branch, the final CFG should normally be like the
+    // following. Exceptions will occur with non-local exits like loop breaks
+    // or early returns.
+    //             +-------+                        +-------+
+    //             | check |                        | check |
+    //             +-------+                        +-------+
+    //                 |                                |
+    //         +-------+-------+                  +-----+-----+
+    //         | true          | false            | true      | false
+    //         v               v         or       v           |
+    //     +------+         +------+           +------+       |
+    //     | then |         | else |           | then |       |
+    //     +------+         +------+           +------+       |
+    //         |               |                  |           v
+    //         |   +-------+   |                  |     +-------+
+    //         +-> | merge | <-+                  +---> | merge |
+    //             +-------+                            +-------+
+
+    // First emit the instruction for evaluating the condition.
+    const uint32_t condition = doExpr(ifStmt->getCond());
+
+    // Then we need to emit the instruction for the conditional branch.
+    // We'll need the <label-id> for the then/else/merge block to do so.
+    const bool hasElse = ifStmt->getElse() != nullptr;
+    const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
+    const uint32_t elseBB = hasElse ? theBuilder.createBasicBlock("if.false")
+                                    : theBuilder.createBasicBlock("if.merge");
+    const uint32_t mergeBB =
+        hasElse ? theBuilder.createBasicBlock("if.merge") : elseBB;
+
+    // Create the branch instruction. This will end the current basic block.
+    theBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB);
+
+    // Handle the then branch
+    theBuilder.setInsertPoint(thenBB);
+    doStmt(ifStmt->getThen());
+    if (!theBuilder.isCurrentBasicBlockTerminated())
+      theBuilder.createBranch(mergeBB);
+
+    // Handle the else branch (if exists)
+    if (hasElse) {
+      theBuilder.setInsertPoint(elseBB);
+      doStmt(ifStmt->getElse());
+      if (!theBuilder.isCurrentBasicBlockTerminated())
+        theBuilder.createBranch(mergeBB);
+    }
+
+    // From now on, we'll emit instructions into the merge block.
+    theBuilder.setInsertPoint(mergeBB);
+  }
+
+  uint32_t doExpr(const Expr *expr) {
     if (auto *delRefExpr = dyn_cast<DeclRefExpr>(expr)) {
       // Returns the <result-id> of the referenced Decl.
       const NamedDecl *referredDecl = delRefExpr->getFoundDecl();
       assert(referredDecl && "found non-NamedDecl referenced");
       return declIdMapper.getDeclResultId(referredDecl);
-    } else if (auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
-      const uint32_t fromValue = doExpr(castExpr->getSubExpr());
-      // Using lvalue as rvalue will result in a ImplicitCast in Clang AST.
-      // This place gives us a place to inject the code for handling interface
-      // variables. Since using the <result-id> of an interface variable as
-      // rvalue means OpLoad it first. For normal values, it is not required.
-      if (declIdMapper.isInterfaceVariable(fromValue)) {
-        const uint32_t resultType =
-            translateType(castExpr->getType(), theBuilder);
-        return theBuilder.createLoad(resultType, fromValue);
+    } else if (auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
+      const uint32_t base = doExpr(memberExpr->getBase());
+      auto *memberDecl = memberExpr->getMemberDecl();
+      if (auto *fieldDecl = dyn_cast<FieldDecl>(memberDecl)) {
+        const auto index =
+            theBuilder.getConstantInt32(fieldDecl->getFieldIndex());
+        const uint32_t fieldType =
+            typeTranslator.translateType(fieldDecl->getType());
+        const uint32_t ptrType =
+            theBuilder.getPointerType(fieldType, spv::StorageClass::Function);
+        return theBuilder.createAccessChain(ptrType, base, {index});
+      } else {
+        emitError("Decl '%0' in MemberExpr is not supported yet.")
+            << memberDecl->getDeclKindName();
       }
-      return fromValue;
+    } else if (auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
+      return doImplicitCastExpr(castExpr);
+    } else if (auto *cxxFunctionalCastExpr =
+                   dyn_cast<CXXFunctionalCastExpr>(expr)) {
+      // Explicit cast is a NO-OP (e.g. vector<float, 4> -> float4)
+      if (cxxFunctionalCastExpr->getCastKind() == CK_NoOp) {
+        return doExpr(cxxFunctionalCastExpr->getSubExpr());
+      }
+      emitError("Found unhandled CXXFunctionalCastExpr cast type: %0")
+          << cxxFunctionalCastExpr->getCastKindName();
+      return 0;
+    } else if (auto *initListExpr = dyn_cast<InitListExpr>(expr)) {
+      const uint32_t resultType =
+          typeTranslator.translateType(initListExpr->getType());
+
+      std::vector<uint32_t> constituents;
+      for (size_t i = 0; i < initListExpr->getNumInits(); ++i) {
+        constituents.push_back(doExpr(initListExpr->getInit(i)));
+      }
+
+      if (expr->isConstantInitializer(astContext, false)) {
+        return theBuilder.getConstantComposite(resultType, constituents);
+      }
+      // TODO: use OpCompositeConstruct for non-constant initializer lists.
+      emitError("Non-const initializer lists are currently not supported.");
+      return 0;
+    } else if (auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
+      const bool value = boolLiteral->getValue();
+      return theBuilder.getConstantBool(value);
+    } else if (auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
+      return translateAPInt(intLiteral->getValue(), expr->getType());
+    } else if (auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
+      return translateAPFloat(floatLiteral->getValue(), expr->getType());
+    } else if (auto *binOp = dyn_cast<BinaryOperator>(expr)) {
+      return doBinaryOperator(binOp);
     }
+
+    emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
     // TODO: handle other expressions
     return 0;
   }
 
+  uint32_t doBinaryOperator(const BinaryOperator *expr) {
+    const auto opcode = expr->getOpcode();
+
+    // Handle assignment first since we need to evaluate rhs before lhs.
+    // For other binary operations, we need to evaluate lhs before rhs.
+    if (opcode == BO_Assign) {
+      const uint32_t rhs = doExpr(expr->getRHS());
+      const uint32_t lhs = doExpr(expr->getLHS());
+
+      theBuilder.createStore(lhs, rhs);
+      // Assignment returns a rvalue.
+      return rhs;
+    }
+
+    const uint32_t lhs = doExpr(expr->getLHS());
+    const uint32_t rhs = doExpr(expr->getRHS());
+    const uint32_t typeId = typeTranslator.translateType(expr->getType());
+    const QualType elemType = expr->getLHS()->getType();
+
+    switch (opcode) {
+    case BO_Add:
+    case BO_Sub:
+    case BO_Mul:
+    case BO_Div:
+    case BO_Rem: {
+      const spv::Op spvOp = translateOp(opcode, elemType);
+      return theBuilder.createBinaryOp(spvOp, typeId, lhs, rhs);
+    }
+    case BO_Assign: {
+      llvm_unreachable("assignment already handled before");
+    } break;
+    default:
+      break;
+    }
+
+    emitError("BinaryOperator '%0' is not supported yet.") << opcode;
+    expr->dump();
+    return 0;
+  }
+
+  uint32_t doImplicitCastExpr(const ImplicitCastExpr *expr) {
+    const Expr *subExpr = expr->getSubExpr();
+    const QualType toType = expr->getType();
+
+    switch (expr->getCastKind()) {
+    // Integer literals in the AST are represented using 64bit APInt
+    // themselves and then implicitly casted into the expected bitwidth.
+    // We need special treatment of integer literals here because generating
+    // a 64bit constant and then explicit casting in SPIR-V requires Int64
+    // capability. We should avoid introducing unnecessary capabilities to
+    // our best.
+    case CastKind::CK_IntegralCast: {
+      llvm::APSInt intValue;
+      if (expr->EvaluateAsInt(intValue, astContext, Expr::SE_NoSideEffects)) {
+        return translateAPInt(intValue, toType);
+      } else {
+        emitError("Integral cast is not supported yet");
+        return 0;
+      }
+    }
+    case CastKind::CK_LValueToRValue: {
+      const uint32_t fromValue = doExpr(subExpr);
+      // Using lvalue as rvalue means we need to OpLoad the contents from
+      // the parameter/variable first.
+      const uint32_t resultType = typeTranslator.translateType(toType);
+      return theBuilder.createLoad(resultType, fromValue);
+    }
+    default:
+      emitError("ImplictCast Kind '%0' is not supported yet.")
+          << expr->getCastKind();
+      return 0;
+    }
+  }
+
+  spv::Op translateOp(BinaryOperator::Opcode op, QualType type) {
+    // TODO: the following is not considering vector types yet.
+    const bool isSintType = type->isSignedIntegerType();
+    const bool isUintType = type->isUnsignedIntegerType();
+    const bool isFloatType = type->isFloatingType();
+
+#define BIN_OP_CASE_INT_FLOAT(kind, intBinOp, floatBinOp)                      \
+  \
+case BO_##kind : {                                                             \
+    if (isSintType || isUintType) {                                            \
+      return spv::Op::Op##intBinOp;                                            \
+    }                                                                          \
+    if (isFloatType) {                                                         \
+      return spv::Op::Op##floatBinOp;                                          \
+    }                                                                          \
+  }                                                                            \
+  break
+
+#define BIN_OP_CASE_SINT_UINT_FLOAT(kind, sintBinOp, uintBinOp, floatBinOp)    \
+  \
+case BO_##kind : {                                                             \
+    if (isSintType) {                                                          \
+      return spv::Op::Op##sintBinOp;                                           \
+    }                                                                          \
+    if (isUintType) {                                                          \
+      return spv::Op::Op##uintBinOp;                                           \
+    }                                                                          \
+    if (isFloatType) {                                                         \
+      return spv::Op::Op##floatBinOp;                                          \
+    }                                                                          \
+  }                                                                            \
+  break
+
+    switch (op) {
+      BIN_OP_CASE_INT_FLOAT(Add, IAdd, FAdd);
+      BIN_OP_CASE_INT_FLOAT(Sub, ISub, FSub);
+      BIN_OP_CASE_INT_FLOAT(Mul, IMul, FMul);
+      BIN_OP_CASE_SINT_UINT_FLOAT(Div, SDiv, UDiv, FDiv);
+      // According to HLSL spec, "the modulus operator returns the remainder of
+      // a division." "The % operator is defined only in cases where either both
+      // sides are positive or both sides are negative."
+      //
+      // In SPIR-V, there are two reminder operations: Op*Rem and Op*Mod. With
+      // the former, the sign of a non-0 result comes from Operand 1, while
+      // with the latter, from Operand 2.
+      //
+      // For operands with different signs, technically we can map % to either
+      // Op*Rem or Op*Mod since it's undefined behavior. But it is more
+      // consistent with C (HLSL starts as a C derivative) and Clang frontend
+      // const expression evaluation if we map % to Op*Rem.
+      //
+      // Note there is no OpURem in SPIR-V.
+      BIN_OP_CASE_SINT_UINT_FLOAT(Rem, SRem, UMod, FRem);
+    default:
+      break;
+    }
+
+#undef BIN_OP_CASE_INT_FLOAT
+#undef BIN_OP_CASE_SINT_UINT_FLOAT
+
+    emitError("translating binary operator '%0' unimplemented") << op;
+    return spv::Op::OpNop;
+  }
+
+  uint32_t translateAPValue(const APValue &value, const QualType targetType) {
+    if (targetType->isBooleanType()) {
+      const bool boolValue = value.getInt().getBoolValue();
+      return theBuilder.getConstantBool(boolValue);
+    }
+
+    if (targetType->isIntegerType()) {
+      const llvm::APInt &intValue = value.getInt();
+      return translateAPInt(intValue, targetType);
+    }
+
+    if (targetType->isFloatingType()) {
+      const llvm::APFloat &floatValue = value.getFloat();
+      return translateAPFloat(floatValue, targetType);
+    }
+
+    emitError("APValue of type '%0' is not supported yet.") << value.getKind();
+    return 0;
+  }
+
+  uint32_t translateAPInt(const llvm::APInt &intValue, QualType targetType) {
+    const auto bitwidth = astContext.getIntWidth(targetType);
+
+    if (targetType->isSignedIntegerType()) {
+      const int64_t value = intValue.getSExtValue();
+      switch (bitwidth) {
+      case 32:
+        return theBuilder.getConstantInt32(static_cast<int32_t>(value));
+      default:
+        break;
+      }
+    } else {
+      const uint64_t value = intValue.getZExtValue();
+      switch (bitwidth) {
+      case 32:
+        return theBuilder.getConstantUint32(static_cast<uint32_t>(value));
+      default:
+        break;
+      }
+    }
+
+    emitError("APInt for target bitwidth '%0' is not supported yet.")
+        << bitwidth;
+    return 0;
+  }
+
+  uint32_t translateAPFloat(const llvm::APFloat &floatValue,
+                            QualType targetType) {
+    const auto &semantics = astContext.getFloatTypeSemantics(targetType);
+    const auto bitwidth = llvm::APFloat::getSizeInBits(semantics);
+
+    switch (bitwidth) {
+    case 32:
+      return theBuilder.getConstantFloat32(floatValue.convertToFloat());
+    default:
+      break;
+    }
+
+    emitError("APFloat for target bitwidth '%0' is not supported yet.")
+        << bitwidth;
+    return 0;
+  }
+
+private:
+  /// \brief Wrapper method to create an error message and report it
+  /// in the diagnostic engine associated with this consumer.
+  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
+    return diags.Report(diagId);
+  }
+
+  /// \brief Wrapper method to create a warning message and report it
+  /// in the diagnostic engine associated with this consumer
+  template <unsigned N>
+  DiagnosticBuilder emitWarning(const char (&message)[N]) {
+    const auto diagId =
+        diags.getCustomDiagID(clang::DiagnosticsEngine::Warning, message);
+    return diags.Report(diagId);
+  }
+
 private:
   CompilerInstance &theCompilerInstance;
+  ASTContext &astContext;
   DiagnosticsEngine &diags;
-  spirv::SPIRVContext theContext;
-  spirv::ModuleBuilder theBuilder;
-  DeclResultIdMapper declIdMapper;
 
   /// Entry function name and shader stage. Both of them are derived from the
   /// command line and should be const.
   const llvm::StringRef entryFunctionName;
   const spv::ExecutionModel shaderStage;
+
+  SPIRVContext theContext;
+  ModuleBuilder theBuilder;
+  DeclResultIdMapper declIdMapper;
+  TypeTranslator typeTranslator;
 
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
@@ -530,10 +676,10 @@ private:
   const FunctionDecl *curFunction;
 };
 
-} // namespace
+} // end namespace spirv
 
 std::unique_ptr<ASTConsumer>
 EmitSPIRVAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
-  return llvm::make_unique<SPIRVEmitter>(CI);
+  return llvm::make_unique<spirv::SPIRVEmitter>(CI);
 }
 } // end namespace clang

@@ -39,6 +39,11 @@
 #include "dia2.h"
 
 #include <fstream>
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/Path.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringSwitch.h"
 
 using namespace std;
 using namespace hlsl_test;
@@ -91,6 +96,40 @@ void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outpt
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob) {
   Utf16ToBlob(dllSupport, val, (IDxcBlobEncoding**)ppBlob);
 }
+
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, LPCWSTR pArgs,
+                     _Outptr_ IDxcBlob **ppResult) {
+  std::vector<std::wstring> argsW;
+  std::vector<LPCWSTR> args;
+  if (pArgs) {
+    wistringstream argsS(pArgs);
+    copy(istream_iterator<wstring, wchar_t>(argsS),
+         istream_iterator<wstring, wchar_t>(), back_inserter(argsW));
+    transform(argsW.begin(), argsW.end(), back_inserter(args),
+              [](const wstring &w) { return w.data(); });
+  }
+  VerifyCompileOK(dllSupport, pText, pTargetProfile, args, ppResult);
+}
+
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+  LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+  _Outptr_ IDxcBlob **ppResult) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pResult;
+  HRESULT hrCompile;
+  *ppResult = nullptr;
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+  Utf8ToBlob(dllSupport, pText, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    pTargetProfile, args.data(), args.size(),
+    nullptr, 0, nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
+  VERIFY_SUCCEEDED(hrCompile);
+  VERIFY_SUCCEEDED(pResult->GetResult(ppResult));
+}
+
 
 // VersionSupportInfo Implementation
 VersionSupportInfo::VersionSupportInfo() :
@@ -368,6 +407,7 @@ public:
   TEST_METHOD(CompileBadHlslThenFail)
   TEST_METHOD(CompileLegacyShaderModelThenFail)
   TEST_METHOD(CompileWhenRecursiveAlbeitStaticTermThenFail)
+
   TEST_METHOD(CompileWhenRecursiveThenFail)
 
   TEST_METHOD(CompileHlsl2015ThenFail)
@@ -375,8 +415,17 @@ public:
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
 
+  TEST_METHOD(DiaLoadBadBitcodeThenFail)
+  TEST_METHOD(DiaLoadDebugThenOK)
+  TEST_METHOD(DiaTableIndexThenOK)
+
   TEST_METHOD(PixMSAAToSample0)
   TEST_METHOD(PixRemoveDiscards)
+  TEST_METHOD(PixPixelCounter)
+  TEST_METHOD(PixPixelCounterEarlyZ)
+  TEST_METHOD(PixPixelCounterNoSvPosition)
+  TEST_METHOD(PixPixelCounterInappropriateEarlyZ)
+  TEST_METHOD(PixPixelCounterAddPixelCost)
   TEST_METHOD(PixConstantColor)
   TEST_METHOD(PixConstantColorInt)
   TEST_METHOD(PixConstantColorMRT)
@@ -525,7 +574,6 @@ public:
   TEST_METHOD(CodeGenIntrinsic5)
   TEST_METHOD(CodeGenInvalidInputOutputTypes)
   TEST_METHOD(CodeGenLegacyStruct)
-  TEST_METHOD(CodeGenLibArgFlatten)
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
@@ -1008,6 +1056,10 @@ public:
   TEST_METHOD(ConstantFolding)
   TEST_METHOD(HoistConstantArray)
   TEST_METHOD(ViewID)
+  TEST_METHOD(ShaderCompatSuite)
+  BEGIN_TEST_METHOD(SingleFileCheckTest)
+    TEST_METHOD_PROPERTY(L"Ignore", L"true")
+  END_TEST_METHOD()
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -1308,14 +1360,26 @@ public:
     VERIFY_ARE_NOT_EQUAL(0, disassembleString.size());
   }
 
-  void CodeGenTestCheck(LPCWSTR name) {
-    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
-    FileRunTestResult t = FileRunTestResult::RunFromFileCommands(fullPath.c_str());
+  void CodeGenTestCheckFullPath(LPCWSTR fullPath) {
+    FileRunTestResult t = FileRunTestResult::RunFromFileCommands(fullPath);
     if (t.RunResult != 0) {
       CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
       WEX::Logging::Log::Comment(commentWide);
       WEX::Logging::Log::Error(L"Run result is not zero");
     }
+  }
+
+  void CodeGenTestCheck(LPCWSTR name) {
+    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
+    CodeGenTestCheckFullPath(fullPath.c_str());
+  }
+
+  void CodeGenTestCheckBatch(LPCWSTR name, unsigned option) {
+    WEX::Logging::Log::StartGroup(name);
+
+    CodeGenTestCheckFullPath(name);
+
+    WEX::Logging::Log::EndGroup(name);
   }
 
   std::string VerifyCompileFailed(LPCSTR pText, LPWSTR pTargetProfile, LPCSTR pErrorMsg) {
@@ -2588,12 +2652,101 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 }
 
+TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
+  CComPtr<IDxcBlob> pBadBitcode;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pStream;
+  CComPtr<IDxcLibrary> pLib;
+
+  Utf8ToBlob(m_dllSupport, "badcode", &pBadBitcode);
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pBadBitcode, &pStream));
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
+  VERIFY_FAILED(pDiaSource->loadDataFromIStream(pStream));
+}
+
+static void CompileTestAndLoadDia(dxc::DxcDllSupport &dllSupport, IDiaDataSource **ppDataSource) {
+  CComPtr<IDxcBlob> pContainer;
+  CComPtr<IDxcBlob> pDebugContent;
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IStream> pStream;
+  CComPtr<IDxcLibrary> pLib;
+  CComPtr<IDxcContainerReflection> pReflection;
+  UINT32 index;
+
+  VerifyCompileOK(dllSupport, EmptyCompute, L"cs_6_0", L"/Zi", &pContainer);
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
+  VERIFY_SUCCEEDED(pReflection->Load(pContainer));
+  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+  VERIFY_SUCCEEDED(pReflection->GetPartContent(index, &pDebugContent));
+  VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pDebugContent, &pStream));
+  VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
+  VERIFY_SUCCEEDED(pDiaSource->loadDataFromIStream(pStream));
+  if (ppDataSource) {
+    *ppDataSource = pDiaSource.Detach();
+  }
+}
+
+TEST_F(CompilerTest, DiaLoadDebugThenOK) {
+  CompileTestAndLoadDia(m_dllSupport, nullptr);
+}
+
+TEST_F(CompilerTest, DiaTableIndexThenOK) {
+  CComPtr<IDiaDataSource> pDiaSource;
+  CComPtr<IDiaSession> pDiaSession;
+  CComPtr<IDiaEnumTables> pEnumTables;
+  CComPtr<IDiaTable> pTable;
+  VARIANT vtIndex;
+  CompileTestAndLoadDia(m_dllSupport, &pDiaSource);
+  VERIFY_SUCCEEDED(pDiaSource->openSession(&pDiaSession));
+  VERIFY_SUCCEEDED(pDiaSession->getEnumTables(&pEnumTables));
+
+  vtIndex.vt = VT_EMPTY;
+  VERIFY_FAILED(pEnumTables->Item(vtIndex, &pTable));
+
+  vtIndex.vt = VT_I4;
+  vtIndex.intVal = 1;
+  VERIFY_SUCCEEDED(pEnumTables->Item(vtIndex, &pTable));
+  VERIFY_IS_NOT_NULL(pTable.p);
+  pTable.Release();
+
+  vtIndex.vt = VT_UI4;
+  vtIndex.uintVal = 1;
+  VERIFY_SUCCEEDED(pEnumTables->Item(vtIndex, &pTable));
+  VERIFY_IS_NOT_NULL(pTable.p);
+  pTable.Release();
+
+  vtIndex.uintVal = 100;
+  VERIFY_FAILED(pEnumTables->Item(vtIndex, &pTable));
+}
+
 TEST_F(CompilerTest, PixMSAAToSample0) {
   CodeGenTestCheck(L"pix\\msaaLoad.hlsl");
 }
 
 TEST_F(CompilerTest, PixRemoveDiscards) {
   CodeGenTestCheck(L"pix\\removeDiscards.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounter) {
+  CodeGenTestCheck(L"pix\\pixelCounter.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounterEarlyZ) {
+  CodeGenTestCheck(L"pix\\pixelCounterEarlyZ.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounterNoSvPosition) {
+  CodeGenTestCheck(L"pix\\pixelCounterNoSvPosition.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounterInappropriateEarlyZ) {
+  CodeGenTestCheck(L"pix\\pixelCounterInappropriateEarlyZ.hlsl");
+}
+
+TEST_F(CompilerTest, PixPixelCounterAddPixelCost) {
+  CodeGenTestCheck(L"pix\\pixelCounterAddPixelCost.hlsl");
 }
 
 TEST_F(CompilerTest, PixConstantColor) {
@@ -3184,10 +3337,6 @@ TEST_F(CompilerTest, CodeGenInvalidInputOutputTypes) {
 
 TEST_F(CompilerTest, CodeGenLegacyStruct) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\legacy_struct.hlsl");
-}
-
-TEST_F(CompilerTest, CodeGenLibArgFlatten) {
-  CodeGenTestCheck(L"..\\CodeGenHLSL\\lib_arg_flatten.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenLibCsEntry) {
@@ -5257,4 +5406,60 @@ TEST_F(CompilerTest, ViewID) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid16.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid17.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid18.hlsl");
+}
+
+TEST_F(CompilerTest, ShaderCompatSuite) {
+  using namespace llvm;
+  using namespace WEX::TestExecution;
+
+  ::llvm::sys::fs::MSFileSystem *msfPtr;
+  VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
+  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+  ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+  IFTLLVM(pts.error_code());
+
+  std::wstring suitePath = L"..\\CodeGenHLSL\\shader-compat-suite";
+
+  WEX::Common::String value;
+  if (!DXC_FAILED(RuntimeParameters::TryGetValue(L"SuitePath", value)))
+  {
+    suitePath = value;
+  }
+
+  CW2A pUtf8Filename(suitePath.c_str());
+  if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
+    suitePath = hlsl_test::GetPathToHlslDataFile(suitePath.c_str());
+  }
+
+  CW2A utf8SuitePath(suitePath.c_str());
+
+  std::error_code EC;
+  llvm::SmallString<128> DirNative;
+  llvm::sys::path::native(utf8SuitePath.m_psz, DirNative);
+  for (llvm::sys::fs::recursive_directory_iterator Dir(DirNative, EC), DirEnd;
+       Dir != DirEnd && !EC; Dir.increment(EC)) {
+    // Check whether this entry has an extension typically associated with
+    // headers.
+    if (!llvm::StringSwitch<bool>(llvm::sys::path::extension(Dir->path()))
+             .Cases(".hlsl", ".hlsl", true)
+             .Default(false))
+      continue;
+    StringRef filename = Dir->path();
+    CA2W wRelPath(filename.data());
+    CodeGenTestCheckBatch(wRelPath.m_psz, 0);
+  }
+}
+
+TEST_F(CompilerTest, SingleFileCheckTest) {
+  using namespace llvm;
+  using namespace WEX::TestExecution;
+  WEX::Common::String value;
+  VERIFY_SUCCEEDED(RuntimeParameters::TryGetValue(L"InputFile", value));
+  std::wstring filename = value;
+  CW2A pUtf8Filename(filename.c_str());
+  if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
+    filename = hlsl_test::GetPathToHlslDataFile(filename.c_str());
+  }
+
+  CodeGenTestCheckBatch(filename.c_str(), 0);
 }

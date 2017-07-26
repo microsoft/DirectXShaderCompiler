@@ -3,6 +3,7 @@
 add_llvm_library(LLVMHLSL
   ComputeViewIdState.cpp
   ControlDependence.cpp
+  DxilAddPixelHitInstrumentation.cpp
   DxilCBuffer.cpp
   DxilCompType.cpp
   DxilCondenseResources.cpp
@@ -19,6 +20,7 @@ add_llvm_library(LLVMHLSL
   DxilModule.cpp
   DxilOperations.cpp
   DxilOutputColorBecomesConstant.cpp
+  DxilPreparePasses.cpp
   DxilRemoveDiscards.cpp
   DxilReduceMSAAToSingleSample.cpp
   DxilPreserveAllOutputs.cpp
@@ -31,6 +33,7 @@ add_llvm_library(LLVMHLSL
   DxilSignature.cpp
   DxilSignatureElement.cpp
   DxilTypeSystem.cpp
+  DxilUtil.cpp
   DxilValidation.cpp
   DxcOptimizer.cpp
   HLMatrixLowerPass.cpp

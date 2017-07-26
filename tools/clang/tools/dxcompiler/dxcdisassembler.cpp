@@ -19,14 +19,14 @@
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilOperations.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Format.h"
 #include "dxc/HLSL/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/DxilContainer.h"
+#include "dxcutil.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -1317,21 +1317,15 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   }
 
   std::string DiagStr;
-  raw_string_ostream DiagStream(DiagStr);
   llvm::LLVMContext llvmContext;
-  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
-  llvmContext.setDiagnosticHandler(PrintDiagnosticHandler, &DiagPrinter, true);
-  std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf(
-      llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(pIL, pILLength), "",
-                                       false));
-  ErrorOr<std::unique_ptr<llvm::Module>> pModule(
-      llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), llvmContext));
-  if (std::error_code ec = pModule.getError()) {
+  std::unique_ptr<llvm::Module> pModule(dxcutil::LoadModuleFromBitcode(
+    llvm::StringRef(pIL, pILLength), llvmContext, DiagStr));
+  if (pModule.get() == nullptr) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
-  if (pModule->get()->getNamedMetadata("dx.version")) {
-    DxilModule &dxilModule = pModule->get()->GetOrCreateDxilModule();
+  if (pModule->getNamedMetadata("dx.version")) {
+    DxilModule &dxilModule = pModule->GetOrCreateDxilModule();
     PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
                        /*comment*/ ";");
     PrintDxilSignature("Output", dxilModule.GetOutputSignature(), Stream,
@@ -1344,7 +1338,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     PrintViewIdState(dxilModule, Stream, /*comment*/ ";");
   }
   DxcAssemblyAnnotationWriter w;
-  pModule.get()->print(Stream, &w);
+  pModule->print(Stream, &w);
   Stream.flush();
   return S_OK;
 }

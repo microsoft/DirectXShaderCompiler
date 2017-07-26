@@ -28,7 +28,7 @@ TEST(Structure, TakeBasicBlockHaveAllContents) {
   auto ib = constructInstBuilder(result);
 
   auto bb = BasicBlock(42);
-  bb.addInstruction(constructInst(spv::Op::OpReturn, {}));
+  bb.appendInstruction(constructInst(spv::Op::OpReturn, {}));
   bb.take(&ib);
 
   std::vector<uint32_t> expected;
@@ -41,7 +41,7 @@ TEST(Structure, TakeBasicBlockHaveAllContents) {
 
 TEST(Structure, AfterClearBasicBlockIsEmpty) {
   auto bb = BasicBlock(42);
-  bb.addInstruction(constructInst(spv::Op::OpNop, {}));
+  bb.appendInstruction(constructInst(spv::Op::OpNop, {}));
   EXPECT_FALSE(bb.isEmpty());
   bb.clear();
   EXPECT_TRUE(bb.isEmpty());
@@ -57,7 +57,7 @@ TEST(Structure, TakeFunctionHaveAllContents) {
   f.addParameter(1, 42);
 
   auto bb = llvm::make_unique<BasicBlock>(10);
-  bb->addInstruction(constructInst(spv::Op::OpReturn, {}));
+  bb->appendInstruction(constructInst(spv::Op::OpReturn, {}));
   f.addBasicBlock(std::move(bb));
 
   std::vector<uint32_t> result;
@@ -161,6 +161,11 @@ TEST(Structure, TakeModuleHaveAllContents) {
                    {entryPointId,
                     static_cast<uint32_t>(spv::Decoration::RelaxedPrecision)}));
 
+  const auto *i32Type = Type::getInt32(context);
+  const uint32_t i32Id = context.getResultIdForType(i32Type);
+  m.addType(i32Type, i32Id);
+  appendVector(&expected, constructInst(spv::Op::OpTypeInt, {i32Id, 32, 1}));
+
   const auto *voidType = Type::getVoid(context);
   const uint32_t voidId = context.getResultIdForType(voidType);
   m.addType(voidType, voidId);
@@ -172,14 +177,9 @@ TEST(Structure, TakeModuleHaveAllContents) {
   appendVector(&expected, constructInst(spv::Op::OpTypeFunction,
                                         {funcTypeId, voidId, voidId}));
 
-  const auto *i32Type = Type::getInt32(context);
-  const uint32_t i32Id = context.getResultIdForType(i32Type);
-  m.addType(i32Type, i32Id);
-  appendVector(&expected, constructInst(spv::Op::OpTypeInt, {i32Id, 32, 1}));
-
+  const auto *i32Const = Constant::getInt32(context, i32Id, 42);
   const uint32_t constantId = context.takeNextId();
-  m.addConstant(*i32Type,
-                constructInst(spv::Op::OpConstant, {i32Id, constantId, 42}));
+  m.addConstant(i32Const, constantId);
   appendVector(&expected,
                constructInst(spv::Op::OpConstant, {i32Id, constantId, 42}));
   // TODO: global variable
@@ -189,7 +189,7 @@ TEST(Structure, TakeModuleHaveAllContents) {
       voidId, funcId, spv::FunctionControlMask::MaskNone, funcTypeId);
   const uint32_t bbId = context.takeNextId();
   auto bb = llvm::make_unique<BasicBlock>(bbId);
-  bb->addInstruction(constructInst(spv::Op::OpReturn, {}));
+  bb->appendInstruction(constructInst(spv::Op::OpReturn, {}));
   f->addBasicBlock(std::move(bb));
   m.addFunction(std::move(f));
   appendVector(&expected, constructInst(spv::Op::OpFunction,
@@ -209,4 +209,76 @@ TEST(Structure, TakeModuleHaveAllContents) {
   EXPECT_TRUE(m.isEmpty());
 }
 
+TEST(Structure, TakeModuleWithArrayAndConstantDependency) {
+  SPIRVContext context;
+  auto m = SPIRVModule();
+  std::vector<uint32_t> expected = getModuleHeader(0);
+
+  // Add void type
+  const auto *voidType = Type::getVoid(context);
+  const uint32_t voidId = context.getResultIdForType(voidType);
+  m.addType(voidType, voidId);
+
+  // Add float type
+  const auto *f32Type = Type::getFloat32(context);
+  const uint32_t f32Id = context.getResultIdForType(f32Type);
+  m.addType(f32Type, f32Id);
+
+  // Add int64 type
+  const auto *i64Type = Type::getInt64(context);
+  const uint32_t i64Id = context.getResultIdForType(i64Type);
+  m.addType(i64Type, i64Id);
+
+  // Add int32 type
+  const auto *i32Type = Type::getInt32(context);
+  const uint32_t i32Id = context.getResultIdForType(i32Type);
+  m.addType(i32Type, i32Id);
+
+  // Add 32-bit integer constant (8)
+  const auto *i32Const = Constant::getInt32(context, i32Id, 8);
+  const uint32_t constantId = context.getResultIdForConstant(i32Const);
+  m.addConstant(i32Const, constantId);
+
+  // Add array of 8 32-bit integers type
+  const auto *arrType = Type::getArray(context, i32Id, constantId);
+  const uint32_t arrId = context.getResultIdForType(arrType);
+  m.addType(arrType, arrId);
+  m.setBound(context.getNextId());
+
+  // Add another array of the same size. The constant does not need to be
+  // redefined.
+  const auto *arrStride = Decoration::getArrayStride(context, 4);
+  const auto *secondArrType =
+      Type::getArray(context, i32Id, constantId, {arrStride});
+  const uint32_t secondArrId = context.getResultIdForType(arrType);
+  m.addType(secondArrType, secondArrId);
+  m.addDecoration(*arrStride, secondArrId);
+  m.setBound(context.getNextId());
+
+  // Decorations
+  appendVector(
+      &expected,
+      constructInst(spv::Op::OpDecorate,
+                    {secondArrId,
+                     static_cast<uint32_t>(spv::Decoration::ArrayStride), 4}));
+  // Now the expected order: int64, int32, void, float, constant(8), array
+  appendVector(&expected, constructInst(spv::Op::OpTypeInt, {i64Id, 64, 1}));
+  appendVector(&expected, constructInst(spv::Op::OpTypeInt, {i32Id, 32, 1}));
+  appendVector(&expected, constructInst(spv::Op::OpTypeVoid, {voidId}));
+  appendVector(&expected, constructInst(spv::Op::OpTypeFloat, {f32Id, 32}));
+  appendVector(&expected,
+               constructInst(spv::Op::OpConstant, {i32Id, constantId, 8}));
+  appendVector(&expected,
+               constructInst(spv::Op::OpTypeArray, {arrId, i32Id, constantId}));
+  appendVector(&expected, constructInst(spv::Op::OpTypeArray,
+                                        {secondArrId, i32Id, constantId}));
+  expected[3] = context.getNextId();
+
+  std::vector<uint32_t> result;
+  auto ib = constructInstBuilder(result);
+  m.take(&ib);
+
+  EXPECT_THAT(result, ContainerEq(expected));
+  EXPECT_TRUE(m.isEmpty());
+}
 } // anonymous namespace

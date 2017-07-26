@@ -17,6 +17,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
@@ -1440,6 +1441,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       dxilInputQ = DxilParamInputQual::Inout;
     else if (parmDecl->hasAttr<HLSLOutAttr>())
       dxilInputQ = DxilParamInputQual::Out;
+    if (parmDecl->hasAttr<HLSLOutAttr>() && parmDecl->hasAttr<HLSLInAttr>())
+      dxilInputQ = DxilParamInputQual::Inout;
 
     DXIL::InputPrimitive inputPrimitive = DXIL::InputPrimitive::Undefined;
 
@@ -3810,7 +3813,7 @@ static void SimpleTransformForHLDXIR(llvm::Module *pM) {
   deadInsts.clear();
 
   for (GlobalVariable &GV : pM->globals()) {
-    if (HLModule::IsStaticGlobal(&GV)) {
+    if (dxilutil::IsStaticGlobal(&GV)) {
       for (User *U : GV.users()) {
         if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(U)) {
           SimplifyBitCast(BCO, deadInsts);
@@ -5630,8 +5633,8 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
     return;
-  } else if (HLModule::IsHLSLObjectType(HLModule::GetArrayEltTy(SrcPtrTy)) &&
-             HLModule::IsHLSLObjectType(HLModule::GetArrayEltTy(DestPtrTy))) {
+  } else if (HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
+             HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
     unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);

@@ -159,13 +159,6 @@ public:
   static bool IsStreamOutputPtrType(llvm::Type *Ty);
   static bool IsStreamOutputType(llvm::Type *Ty);
   static bool IsHLSLObjectType(llvm::Type *Ty);
-  static unsigned
-  GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
-                                   llvm::Type *Ty, DxilTypeSystem &typeSys);
-  static llvm::Type *GetArrayEltTy(llvm::Type *Ty);
-
-  static bool IsStaticGlobal(llvm::GlobalVariable *GV);
-  static bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
   static const char *GetLegacyDataLayoutDesc();
