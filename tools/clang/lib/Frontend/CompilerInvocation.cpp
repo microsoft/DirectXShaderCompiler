@@ -1730,6 +1730,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
       << ver;
   }
+
+  // Enable low precision for HLSL 2018
+  // TODO: should we tie low precision to HLSL2018 only?
+  Opts.UseLowPrecision = Args.hasArg(options::OPT_low_precision);
 #endif // #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 }
 

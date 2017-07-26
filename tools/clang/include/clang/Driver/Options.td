@@ -678,6 +678,8 @@ def fmsc_version : Joined<["-"], "fmsc-version=">, Group<f_Group>, Flags<[Driver
   HelpText<"Microsoft compiler version number to report in _MSC_VER (0 = don't define it (default))">;
 def hlsl_version : Separate<["-", "/"], "HV">, Group<f_Group>, Flags<[DriverOption, CoreOption, CC1Option]>,
   HelpText<"HLSL version (2015, 2016, 2017)">; // HLSL Change - mimic the HLSLOptions.td flag
+def low_precision : Flag<["-", "/"], "low-precision">, Group<f_Group>, Flags<[CoreOption, DriverOption, HelpHidden, CC1Option]>,
+  HelpText<"Use strict low precision, not min precision.">; // HLSL Change - mimic the HLSLOptions.td flag
 def fms_compatibility_version
     : Joined<["-"], "fms-compatibility-version=">,
       Group<f_Group>,

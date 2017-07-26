@@ -156,6 +156,7 @@ public:
   unsigned RootSigMajor;
   unsigned RootSigMinor;
   bool IsHLSLLibrary;
+  bool UseLowPrecision; // use strict low precision, not min precision.
   // MS Change Ends
   
   bool isSignedOverflowDefined() const {

@@ -275,6 +275,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.UseInstructionNumbers = Args.hasFlag(OPT_Ni, OPT_INVALID);
   opts.UseInstructionByteOffsets = Args.hasFlag(OPT_No, OPT_INVALID);
   opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID);
+  opts.UseLowPrecision = Args.hasFlag(OPT_low_precision, OPT_INVALID, false);
   opts.Preprocess = Args.getLastArgValue(OPT_P);
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
   opts.GenSPIRV = Args.hasFlag(OPT_spirv, OPT_INVALID, false); // SPIRV change

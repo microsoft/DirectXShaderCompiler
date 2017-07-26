@@ -1,4 +1,4 @@
-// RUN: %dxc -E test -T vs_6_0 %s
+// RUN: %dxc -low-precision -E test -T vs_6_0 %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 literals.hlsl
@@ -19,6 +19,7 @@ bool overload1(bool v) { return (bool)400; }                /* expected-note {{c
 double overload1(double v) { return (double)500; }          /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 int64_t overload1(int64_t v) { return (int64_t)600; }                   /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 uint64_t overload1(uint64_t v) { return (uint64_t)700; }                /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
+half overload1(half v) { return (half)800; }
 
 float overload2(float v1, float v2) { return (float)100; }
 int overload2(int v1, int v2) { return (int)200; }
@@ -27,6 +28,7 @@ bool overload2(bool v1, bool v2) { return (bool)400; }
 double overload2(double v1, double v2) { return (double)500; }
 int64_t overload2(int64_t v1, int64_t v2) { return (int64_t)600; }
 uint64_t overload2(uint64_t v1, uint64_t v2) { return (uint64_t)700; }
+half overload2(half v1, half v2) { return (half)800; }
 
 min16float m16f;
 min16float4x4 m16f4x4;
@@ -49,8 +51,8 @@ float test() :Foo {
   VERIFY_TYPES(uint64_t, overload1(2ULL));
   VERIFY_TYPES(int64_t, overload1(2ll));
   VERIFY_TYPES(int64_t, overload1(2LL));
-  VERIFY_TYPES(float, overload1(1.0h));
-  VERIFY_TYPES(float, overload1(1.0H));
+  VERIFY_TYPES(half, overload1(1.0h));
+  VERIFY_TYPES(half, overload1(1.0H));
 
   
   // Not ambiguous due to one literal and one specific:
@@ -62,9 +64,8 @@ float test() :Foo {
   VERIFY_TYPES(uint, overload2(2u, 2));
   VERIFY_TYPES(uint, overload2(2, 2ul));
   VERIFY_TYPES(uint, overload2(2ul, 2));
-  // TODO : half is converted to float. Must have overload function with half parameters when true half type is supported.
-  VERIFY_TYPES(float, overload2(1.0h, 1.0));;
-  VERIFY_TYPES(float, overload2(1.0, 1.0H));
+  VERIFY_TYPES(half, overload2(1.0h, 1.0));;
+  VERIFY_TYPES(half, overload2(1.0, 1.0H));
   
   VERIFY_TYPES(uint64_t, overload2(2, 2ull));
   VERIFY_TYPES(uint64_t, overload2(2ull, 2));
@@ -102,8 +103,8 @@ float test() :Foo {
   VERIFY_TYPES(uint, 2 * 2UL);
   VERIFY_TYPES(int64_t, 2 * 2LL);
   VERIFY_TYPES(uint64_t, 2 * 2ULL);
-  VERIFY_TYPES(float, 1.0 * 2 * 1.5h);
-  VERIFY_TYPES(float, 1.0 * 2 * 1.5H);
+  VERIFY_TYPES(half, 1.0 * 2 * 1.5h);
+  VERIFY_TYPES(half, 1.0 * 2 * 1.5H);
 
   // Specific width int forces float to be specific-width
   VERIFY_TYPES(float, 1.5 * 2 * 2L);

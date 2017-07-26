@@ -3362,14 +3362,16 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
   if (Literal.isFloatingLiteral()) {
     QualType Ty;
     if (Literal.isFloat)
+
       Ty = Context.FloatTy;
     // HLSL Change Starts
     else if (getLangOpts().HLSL && !Literal.isLong && !Literal.isHalf)
       Ty = Context.LitFloatTy;
     else if (getLangOpts().HLSL && Literal.isLong)
       Ty = Context.DoubleTy;
-    else if (getLangOpts().HLSL && Literal.isHalf)
-      Ty = Context.HalfTy;
+    else if (getLangOpts().HLSL && Literal.isHalf) {
+      Ty = getLangOpts().UseLowPrecision ? Context.HalfTy : Context.FloatTy;
+    }
     // HLSL Change Ends
     else if (!Literal.isLong)
       Ty = Context.DoubleTy;

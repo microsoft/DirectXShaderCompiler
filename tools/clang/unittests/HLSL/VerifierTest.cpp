@@ -50,6 +50,7 @@ public:
   TEST_METHOD(RunObjectOperators);
   TEST_METHOD(RunPackReg);
   TEST_METHOD(RunScalarAssignments);
+  TEST_METHOD(RunScalarAssignmentsExactPrecision);
   TEST_METHOD(RunScalarOperatorsAssign);
   TEST_METHOD(RunScalarOperators);
   TEST_METHOD(RunString);
@@ -197,6 +198,10 @@ TEST_F(VerifierTest, RunPackReg) {
 
 TEST_F(VerifierTest, RunScalarAssignments) {
   CheckVerifiesHLSL(L"scalar-assignments.hlsl");
+}
+
+TEST_F(VerifierTest, RunScalarAssignmentsExactPrecision) {
+  CheckVerifiesHLSL(L"scalar-assignments-exact-precision.hlsl");
 }
 
 TEST_F(VerifierTest, RunScalarOperatorsAssign) {

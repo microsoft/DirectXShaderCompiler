@@ -10467,8 +10467,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   std::string UnqualifiedString = qt.getUnqualifiedType().getAsString();
   const std::string min16Float = "min16float";
   if (UnqualifiedString.compare(0, min16Float.length(), min16Float) == 0) {
-    if (Context.getLangOpts().DxilMajor == 1 &&
-        Context.getLangOpts().DxilMinor >= 2) {
+    if (Context.getLangOpts().UseLowPrecision) {
       Diag(D.getLocStart(), diag::warn_hlsl_sema_minprecision_promotion)
           << "min16float"
           << "half";

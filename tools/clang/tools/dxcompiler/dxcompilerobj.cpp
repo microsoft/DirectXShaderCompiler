@@ -39,7 +39,7 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
-
+#include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/dxcapi.internal.h"
 
 #include "dxc/Support/dxcapi.use.h"
@@ -785,6 +785,8 @@ public:
     compiler.getLangOpts().HLSL2015 = Opts.HLSL2015;
     compiler.getLangOpts().HLSL2016 = Opts.HLSL2016;
     compiler.getLangOpts().HLSL2017 = Opts.HLSL2017;
+
+    compiler.getLangOpts().UseLowPrecision = Opts.UseLowPrecision;
 
     if (Opts.WarningAsError)
       compiler.getDiagnostics().setWarningsAsErrors(true);

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
+// RUN: %clang_cc1 -low-precision -fsyntax-only -Wno-unused-value -ffreestanding -verify %s
 
 // we use -Wno-unused-value because we generate some no-op expressions to yield errors
 // without also putting them in a static assertion
@@ -23,7 +23,7 @@ float4 plain(float4 param4 : FOO) : FOO {
     half        halfs       = 0;
     float       floats      = 0;
     double      doubles     = 0;
-    min16float  min16floats = 0;
+    min16float  min16floats = 0; /* expected-warning {{min16float is promoted to half}} */
     min10float  min10floats = 0; // expected-warning {{min10float is promoted to min16float}}
     min16int    min16ints   = 0;
     min12int    min12ints   = 0; // expected-warning {{min12int is promoted to min16int}}

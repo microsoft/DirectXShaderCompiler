@@ -139,6 +139,7 @@ public:
   bool UseHexLiterals; // OPT_Lx
   bool UseInstructionByteOffsets; // OPT_No
   bool UseInstructionNumbers; // OPT_Ni
+  bool UseLowPrecision; // OPT_low_precision
   bool NotUseLegacyCBufLoad;  // OPT_not_use_legacy_cbuf_load
   bool PackPrefixStable;  // OPT_pack_prefix_stable
   bool PackOptimized;  // OPT_pack_optimized
