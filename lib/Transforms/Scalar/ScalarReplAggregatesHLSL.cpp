@@ -5849,8 +5849,10 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         }
       }
     }
-    // Support store to input and load from output.
-    LegalizeDxilInputOutputs(F, funcAnnotation, typeSys);
+    if (!F->isDeclaration()) {
+      // Support store to input and load from output.
+      LegalizeDxilInputOutputs(F, funcAnnotation, typeSys);
+    }
     return;
   }
 
