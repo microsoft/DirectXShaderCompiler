@@ -43,6 +43,7 @@ public:
   TEST_METHOD(RunLinkFailNoDefine);
   TEST_METHOD(RunLinkFailReDefine);
   TEST_METHOD(RunLinkGlobalInit);
+  TEST_METHOD(RunLinkNoAlloca);
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
@@ -83,7 +84,8 @@ public:
   }
 
   void Link(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
-            ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pCheckMsgs) {
+            ArrayRef<LPCWSTR> libNames, llvm::ArrayRef<LPCSTR> pCheckMsgs,
+            llvm::ArrayRef<LPCSTR> pCheckNotMsgs) {
     CComPtr<IDxcOperationResult> pResult;
     VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames.data(),
                                    libNames.size(), nullptr, 0, &pResult));
@@ -98,6 +100,9 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
     std::string IR = BlobToUtf8(pDisassembly);
     CheckMsgs(IR.c_str(), IR.size(), pCheckMsgs.data(), pCheckMsgs.size(), false);
+    for (auto notMsg : pCheckNotMsgs) {
+      VERIFY_IS_TRUE(IR.find(notMsg) == std::string::npos);
+    }
   }
 
   void LinkCheckMsg(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
@@ -133,7 +138,7 @@ TEST_F(LinkerTest, RunLinkResource) {
   LPCWSTR libResName = L"res";
   RegisterDxcModule(libResName, pResLib, pLinker);
 
-  Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {});
+  Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {} ,{});
 }
 
 TEST_F(LinkerTest, RunLinkAllProfiles) {
@@ -146,18 +151,18 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
   CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib);
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
-  Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {});
-  Link(L"hs_main", L"hs_6_0", pLinker, {libName}, {});
-  Link(L"ds_main", L"ds_6_0", pLinker, {libName}, {});
-  Link(L"gs_main", L"gs_6_0", pLinker, {libName}, {});
-  Link(L"ps_main", L"ps_6_0", pLinker, {libName}, {});
+  Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {},{});
+  Link(L"hs_main", L"hs_6_0", pLinker, {libName}, {},{});
+  Link(L"ds_main", L"ds_6_0", pLinker, {libName}, {},{});
+  Link(L"gs_main", L"gs_6_0", pLinker, {libName}, {},{});
+  Link(L"ps_main", L"ps_6_0", pLinker, {libName}, {},{});
 
   CComPtr<IDxcBlob> pResLib;
   CompileLib(L"..\\CodeGenHLSL\\lib_resource2.hlsl", &pResLib);
 
   LPCWSTR libResName = L"res";
   RegisterDxcModule(libResName, pResLib, pLinker);
-  Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {});
+  Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {},{});
 }
 
 TEST_F(LinkerTest, RunLinkFailNoDefine) {
@@ -200,7 +205,7 @@ TEST_F(LinkerTest, RunLinkGlobalInit) {
 
   Link(L"test", L"ps_6_0", pLinker, {libName},
        // Make sure cbuffer load is generated.
-       {"dx.op.cbufferLoad"});
+       {"dx.op.cbufferLoad"},{});
 }
 
 TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
@@ -254,4 +259,22 @@ TEST_F(LinkerTest, RunLinkFailEntryNoProps) {
 
   LinkCheckMsg(L"\01?update@@YAXXZ", L"cs_6_0", pLinker, {libName},
                {"Cannot find function property for entry function"});
+}
+
+TEST_F(LinkerTest, RunLinkNoAlloca) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\lib_no_alloca.hlsl", &pEntryLib);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(L"..\\CodeGenHLSL\\lib_no_alloca.h", &pLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+
+  Link(L"ps_main", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
 }
