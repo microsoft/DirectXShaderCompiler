@@ -151,6 +151,24 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   return id;
 }
 
+void ModuleBuilder::createBranch(uint32_t targetLabel) {
+  assert(insertPoint && "null insert point");
+  instBuilder.opBranch(targetLabel).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
+void ModuleBuilder::createConditionalBranch(uint32_t condition,
+                                            uint32_t trueLabel,
+                                            uint32_t falseLabel,
+                                            uint32_t mergeLabel) {
+  assert(insertPoint && "null insert point");
+  instBuilder.opSelectionMerge(mergeLabel, spv::SelectionControlMask::MaskNone)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  instBuilder.opBranchConditional(condition, trueLabel, falseLabel, {}).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
 void ModuleBuilder::createReturn() {
   assert(insertPoint && "null insert point");
   instBuilder.opReturn().x();

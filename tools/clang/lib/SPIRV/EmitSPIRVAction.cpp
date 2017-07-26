@@ -178,8 +178,7 @@ public:
         theBuilder.setInsertPoint(entryLabel);
 
         // Process all statments in the body.
-        for (Stmt *stmt : cast<CompoundStmt>(decl->getBody())->body())
-          doStmt(stmt);
+        doStmt(decl->getBody());
 
         // We have processed all Stmts in this function and now in the last
         // basic block. Make sure we have OpReturn if missing.
@@ -230,14 +229,21 @@ public:
     }
   }
 
-  void doStmt(Stmt *stmt) {
-    if (auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
+  void doStmt(const Stmt *stmt) {
+    if (const auto *compoundStmt = dyn_cast<CompoundStmt>(stmt)) {
+      for (auto *st : compoundStmt->body())
+        doStmt(st);
+    } else if (const auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
       doReturnStmt(retStmt);
-    } else if (auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
+    } else if (const auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
       for (auto *decl : declStmt->decls()) {
         doDecl(decl);
       }
-    } else if (auto *expr = dyn_cast<Expr>(stmt)) {
+    } else if (const auto *ifStmt = dyn_cast<IfStmt>(stmt)) {
+      doIfStmt(ifStmt);
+    } else if (const auto *nullStmt = dyn_cast<NullStmt>(stmt)) {
+      // We don't need to do anything for NullStmt
+    } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
       // All cases for expressions used as statements
       doExpr(expr);
     } else {
@@ -245,7 +251,7 @@ public:
     }
   }
 
-  void doReturnStmt(ReturnStmt *stmt) {
+  void doReturnStmt(const ReturnStmt *stmt) {
     // For normal functions, just return in the normal way.
     if (curFunction->getName() != entryFunctionName) {
       theBuilder.createReturnValue(doExpr(stmt->getRetValue()));
@@ -305,6 +311,65 @@ public:
       emitError("Return type '%0' for entry function is not supported yet.")
           << retType->getTypeClassName();
     }
+  }
+
+  void doIfStmt(const IfStmt *ifStmt) {
+    // if statements are composed of:
+    //   if (<check>) { <then> } else { <else> }
+    //
+    // To translate if statements, we'll need to emit the <check> expressions
+    // in the current basic block, and then create separate basic blocks for
+    // <then> and <else>. Additionally, we'll need a <merge> block as per
+    // SPIR-V's structured control flow requirements. Depending whether there
+    // exists the else branch, the final CFG should normally be like the
+    // following. Exceptions will occur with non-local exits like loop breaks
+    // or early returns.
+    //             +-------+                        +-------+
+    //             | check |                        | check |
+    //             +-------+                        +-------+
+    //                 |                                |
+    //         +-------+-------+                  +-----+-----+
+    //         | true          | false            | true      | false
+    //         v               v         or       v           |
+    //     +------+         +------+           +------+       |
+    //     | then |         | else |           | then |       |
+    //     +------+         +------+           +------+       |
+    //         |               |                  |           v
+    //         |   +-------+   |                  |     +-------+
+    //         +-> | merge | <-+                  +---> | merge |
+    //             +-------+                            +-------+
+
+    // First emit the instruction for evaluating the condition.
+    const uint32_t condition = doExpr(ifStmt->getCond());
+
+    // Then we need to emit the instruction for the conditional branch.
+    // We'll need the <label-id> for the then/else/merge block to do so.
+    const bool hasElse = ifStmt->getElse() != nullptr;
+    const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
+    const uint32_t elseBB = hasElse ? theBuilder.createBasicBlock("if.false")
+                                    : theBuilder.createBasicBlock("if.merge");
+    const uint32_t mergeBB =
+        hasElse ? theBuilder.createBasicBlock("if.merge") : elseBB;
+
+    // Create the branch instruction. This will end the current basic block.
+    theBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB);
+
+    // Handle the then branch
+    theBuilder.setInsertPoint(thenBB);
+    doStmt(ifStmt->getThen());
+    if (!theBuilder.isCurrentBasicBlockTerminated())
+      theBuilder.createBranch(mergeBB);
+
+    // Handle the else branch (if exists)
+    if (hasElse) {
+      theBuilder.setInsertPoint(elseBB);
+      doStmt(ifStmt->getElse());
+      if (!theBuilder.isCurrentBasicBlockTerminated())
+        theBuilder.createBranch(mergeBB);
+    }
+
+    // From now on, we'll emit instructions into the merge block.
+    theBuilder.setInsertPoint(mergeBB);
   }
 
   uint32_t doExpr(const Expr *expr) {
