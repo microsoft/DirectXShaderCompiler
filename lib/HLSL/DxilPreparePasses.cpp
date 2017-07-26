@@ -131,10 +131,12 @@ Function *StripFunctionParameter(Function *F, DxilModule &DM,
     DM.ReplaceDxilEntrySignature(F, NewFunc);
     DM.ReplaceDxilFunctionProps(F, NewFunc);
   }
-
+  // Save function fp flag
+  DxilFunctionFPFlag flag;
+  flag.SetFlagValue(DM.GetTypeSystem().GetFunctionAnnotation(F)->GetFlag().GetFlagValue());
   DM.GetTypeSystem().EraseFunctionAnnotation(F);
   F->eraseFromParent();
-  DM.GetTypeSystem().AddFunctionAnnotation(NewFunc);
+  DM.GetTypeSystem().AddFunctionAnnotationWithFPFlag(NewFunc, &flag);
   return NewFunc;
 }
 
