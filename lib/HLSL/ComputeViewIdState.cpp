@@ -53,6 +53,7 @@ void DxilViewIdState::Compute() {
   Clear();
 
   const ShaderModel *pSM = m_pModule->GetShaderModel();
+  m_bUsesViewId = m_pModule->m_ShaderFlags.GetViewID();
 
   // 1. Traverse signature MD to determine max packed location.
   DetermineMaxPackedLocation(m_pModule->GetInputSignature(), &m_NumInputSigScalars, 1);
@@ -399,19 +400,30 @@ void DxilViewIdState::CollectValuesContributingToOutputs(EntryInfo &Entry) {
       endRow = SigElem.GetRows() - 1;
     }
 
+    InstructionSetType ContributingInstructionsAllRows;
+    InstructionSetType *pContributingInstructions = &ContributingInstructionsAllRows;
     if (startRow == endRow) {
       // Scalar or indexable with known index.
       unsigned index = GetLinearIndex(SigElem, startRow, col);
-      InstructionSetType &ContributingInstructions = Entry.ContributingInstructions[StreamId][index];
-      CollectValuesContributingToOutputRec(Entry, pContributingValue, ContributingInstructions);
-    } else {
-      // Dynamically indexed output.
-      InstructionSetType ContributingInstructions;
-      CollectValuesContributingToOutputRec(Entry, pContributingValue, ContributingInstructions);
+      pContributingInstructions = &Entry.ContributingInstructions[StreamId][index];
+    }
 
+    CollectValuesContributingToOutputRec(Entry, pContributingValue, *pContributingInstructions);
+
+    // Handle control dependence of this instruction BB.
+    BasicBlock *pBB = CI->getParent();
+    Function *F = pBB->getParent();
+    FuncInfo *pFuncInfo = m_FuncInfo[F].get();
+    const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
+    for (BasicBlock *B : CtrlDepSet) {
+      CollectValuesContributingToOutputRec(Entry, B->getTerminator(), *pContributingInstructions);
+    }
+
+    if (pContributingInstructions == &ContributingInstructionsAllRows) {
+      // Write dynamically indexed output contributions to all rows.
       for (int row = startRow; row <= endRow; row++) {
         unsigned index = GetLinearIndex(SigElem, row, col);
-        Entry.ContributingInstructions[StreamId][index].insert(ContributingInstructions.begin(), ContributingInstructions.end());
+        Entry.ContributingInstructions[StreamId][index].insert(ContributingInstructionsAllRows.begin(), ContributingInstructionsAllRows.end());
       }
     }
   }
@@ -672,7 +684,7 @@ void DxilViewIdState::CreateViewIdSets(const std::unordered_map<unsigned, Instru
     for (Instruction *pInst : itOut.second) {
       // Set output dependence on ViewId.
       if (DxilInst_ViewID VID = DxilInst_ViewID(pInst)) {
-        m_bUsesViewId = true;
+        DXASSERT(m_bUsesViewId, "otherwise, DxilModule flag not set properly");
         OutputsDependentOnViewId[outIdx] = true;
         continue;
       }

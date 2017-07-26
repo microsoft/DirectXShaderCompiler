@@ -5406,6 +5406,7 @@ TEST_F(CompilerTest, ViewID) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid16.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid17.hlsl");
   CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid18.hlsl");
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\viewid\\viewid19.hlsl");
 }
 
 TEST_F(CompilerTest, ShaderCompatSuite) {
