@@ -5,5 +5,5 @@
 [shader("pixel")]
 float4 ps_main() : SV_TARGET
 {
-  return a + b + c + d + M;
+  return a + b + c + d + e + M;
 }
