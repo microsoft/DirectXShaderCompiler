@@ -49,6 +49,7 @@
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
@@ -2604,7 +2605,7 @@ static bool isVectorOrStructArray(Type *T) {
   if (!T->isArrayTy())
     return false;
 
-  T = HLModule::GetArrayEltTy(T);
+  T = dxilutil::GetArrayEltTy(T);
 
   return T->isStructTy() || T->isVectorTy();
 }
@@ -3922,8 +3923,8 @@ public:
     // Flatten internal global.
     std::vector<GlobalVariable *> staticGVs;
     for (GlobalVariable &GV : M.globals()) {
-      if (HLModule::IsStaticGlobal(&GV) ||
-          HLModule::IsSharedMemoryGlobal(&GV)) {
+      if (dxilutil::IsStaticGlobal(&GV) ||
+          dxilutil::IsSharedMemoryGlobal(&GV)) {
         staticGVs.emplace_back(&GV);
       } else {
         // merge GEP use for global.
@@ -3937,8 +3938,8 @@ public:
     // Remove unused internal global.
     staticGVs.clear();
     for (GlobalVariable &GV : M.globals()) {
-      if (HLModule::IsStaticGlobal(&GV) ||
-          HLModule::IsSharedMemoryGlobal(&GV)) {
+      if (dxilutil::IsStaticGlobal(&GV) ||
+          dxilutil::IsSharedMemoryGlobal(&GV)) {
         staticGVs.emplace_back(&GV);
       }
     }
@@ -4797,8 +4798,8 @@ void SROA_Parameter_HLSL::replaceCastParameter(
       }
     }
 
-    Type *NewEltTy = HLModule::GetArrayEltTy(NewTy);
-    Type *OldEltTy = HLModule::GetArrayEltTy(OldTy);
+    Type *NewEltTy = dxilutil::GetArrayEltTy(NewTy);
+    Type *OldEltTy = dxilutil::GetArrayEltTy(OldTy);
 
     if (NewEltTy == HandlePtrTy) {
       // Save resource attribute.
@@ -5129,7 +5130,7 @@ void SROA_Parameter_HLSL::flattenArgument(
           EltAnnotation.SetSemanticString(semantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
-          Type *EltTy = HLModule::GetArrayEltTy(Ty);
+          Type *EltTy = dxilutil::GetArrayEltTy(Ty);
           DXASSERT(EltTy->isStructTy(), "must be a struct type to has semantic.");
           semanticTypeMap[eltSem] = EltTy->getStructElementType(i);
         }
@@ -6218,7 +6219,7 @@ public:
     std::vector<GlobalVariable *> staticGVs;
     for (GlobalVariable &GV : M.globals()) {
       bool isStaticGlobal =
-          HLModule::IsStaticGlobal(&GV) &&
+          dxilutil::IsStaticGlobal(&GV) &&
           GV.getType()->getAddressSpace() == DXIL::kDefaultAddrSpace;
 
       if (isStaticGlobal &&
@@ -6388,7 +6389,7 @@ bool LowerTypePass::runOnModule(Module &M) {
   // Work on internal global.
   std::vector<GlobalVariable *> vecGVs;
   for (GlobalVariable &GV : M.globals()) {
-    if (HLModule::IsStaticGlobal(&GV) || HLModule::IsSharedMemoryGlobal(&GV)) {
+    if (dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV)) {
       if (needToLower(&GV) && !GV.user_empty())
         vecGVs.emplace_back(&GV);
     }
@@ -6528,7 +6529,7 @@ bool DynamicIndexingVectorToArray::needToLower(Value *V) {
     // Array must be replaced even without dynamic indexing to remove vector
     // type in dxil.
     // TODO: optimize static array index in later pass.
-    Type *EltTy = HLModule::GetArrayEltTy(AT);
+    Type *EltTy = dxilutil::GetArrayEltTy(AT);
     return isa<VectorType>(EltTy);
   }
   return false;
@@ -6888,7 +6889,7 @@ void ResourceToHandle::initialize(Module &M) {
 
 bool ResourceToHandle::needToLower(Value *V) {
   Type *Ty = V->getType()->getPointerElementType();
-  Ty = HLModule::GetArrayEltTy(Ty);
+  Ty = dxilutil::GetArrayEltTy(Ty);
   return (HLModule::IsHLSLObjectType(Ty) && !HLModule::IsStreamOutputType(Ty));
 }
 
