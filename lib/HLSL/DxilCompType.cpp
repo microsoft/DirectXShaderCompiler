@@ -173,8 +173,9 @@ CompType CompType::GetBaseCompType() const {
   case Kind::SNormF64:  __fallthrough;
   case Kind::UNormF64:  __fallthrough;
   case Kind::F64:       return CompType(Kind::F64);
+  default:
+    DXASSERT(false, "invalid type kind");
   }
-  DXASSERT(false, "invalid type kind");
   return CompType();
 }
 
@@ -222,8 +223,9 @@ Type *CompType::GetLLVMType(LLVMContext &Ctx) const {
   case Kind::SNormF64:
   case Kind::UNormF64:
   case Kind::F64:       return Type::getDoubleTy(Ctx);
+  default:
+    DXASSERT(false, "invalid type kind");
   }
-  DXASSERT(false, "invalid type kind");
   return nullptr;
 }
 
@@ -245,8 +247,9 @@ PointerType *CompType::GetLLVMPtrType(LLVMContext &Ctx, const unsigned AddrSpace
   case Kind::SNormF64:
   case Kind::UNormF64:
   case Kind::F64:       return Type::getDoublePtrTy(Ctx, AddrSpace);
+  default:
+    DXASSERT(false, "invalid type kind");
   }
-  DXASSERT(false, "invalid type kind");
   return nullptr;
 }
 

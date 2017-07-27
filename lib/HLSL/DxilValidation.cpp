@@ -316,6 +316,8 @@ void PrintDiagnosticContext::Handle(const DiagnosticInfo &DI) {
   case llvm::DiagnosticSeverity::DS_Warning:
     m_warningsFound = true;
     break;
+  default:
+    break;
   }
   m_Printer << "\n";
 }
@@ -500,7 +502,7 @@ struct ValidationContext {
       unsigned idx = 0;
       for (auto i = F->getBasicBlockList().begin(),
         e = F->getBasicBlockList().end(); i != e; ++i) {
-        if (BB == i) {
+        if (BB == &(*i)) {
           break;
         }
       }
@@ -1871,7 +1873,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
 }
 
 static bool IsDxilFunction(llvm::Function *F) {
-  unsigned argSize = F->getArgumentList().size();
+  unsigned argSize = F->arg_size();
   if (argSize < 1) {
     // Cannot be a DXIL operation.
     return false;
@@ -3159,6 +3161,8 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
     case DXIL::InterpolationMode::LinearNoperspectiveSample: {
       ValCtx.EmitFormatError(ValidationRule::MetaIntegerInterpMode, {SE.GetName()});
     } break;
+    default:
+      break;
     }
   }
 
@@ -3174,6 +3178,8 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   case DXIL::SemanticInterpretationKind::NotPacked:
   case DXIL::SemanticInterpretationKind::Shadow:
     bShouldBeAllocated = false;
+    break;
+  default:
     break;
   }
 
@@ -3383,6 +3389,8 @@ static void ValidateSignatureOverlap(
   case DXIL::SemanticInterpretationKind::NotPacked:
   case DXIL::SemanticInterpretationKind::Shadow:
     return;
+  default:
+    break;
   }
 
   DxilPackElement PE(&E);
@@ -3622,6 +3630,8 @@ static void ValidateSignatures(ValidationContext &ValCtx) {
   case DXIL::ShaderKind::Domain:
       maxOutputScalars = DXIL::kMaxOutputTotalScalars;
       maxPatchConstantScalars = DXIL::kMaxHSOutputPatchConstantTotalScalars;
+    break;
+  default:
     break;
   }
 
@@ -3905,6 +3915,8 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
       case DXIL::TessellatorOutputPrimitive::TriangleCCW:
         ValCtx.EmitError(ValidationRule::SmIsoLineOutputPrimitiveMismatch);
         break;
+      default:
+        break;
       }
       break;
     case DXIL::TessellatorDomain::Tri:
@@ -3912,12 +3924,16 @@ static void ValidateShaderState(ValidationContext &ValCtx) {
       case DXIL::TessellatorOutputPrimitive::Line:
         ValCtx.EmitError(ValidationRule::SmTriOutputPrimitiveMismatch);
         break;
+      default:
+        break;
       }
       break;
     case DXIL::TessellatorDomain::Quad:
       switch (tessOutputPrimitive) {
       case DXIL::TessellatorOutputPrimitive::Line:
         ValCtx.EmitError(ValidationRule::SmTriOutputPrimitiveMismatch);
+        break;
+      default:
         break;
       }
       break;
@@ -4224,6 +4240,8 @@ static void VerifySignatureMatches(_In_ ValidationContext &ValCtx,
   case hlsl::DXIL::SignatureKind::PatchConstant:
     pName = "Program Patch Constant Signature";
     break;
+  default:
+    break;
   }
 
   unique_ptr<DxilPartWriter> pWriter(NewProgramSignatureWriter(ValCtx.DxilMod, SigKind));
@@ -4468,8 +4486,9 @@ HRESULT ValidateLoadModule(const char *pIL,
   std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf;
   pBitcodeBuf.reset(llvm::MemoryBuffer::getMemBuffer(
       llvm::StringRef(pIL, ILLength), "", false).release());
-  ErrorOr<std::unique_ptr<llvm::Module>> loadedModuleResult(llvm::parseBitcodeFile(
-    pBitcodeBuf->getMemBufferRef(), Ctx));
+
+  ErrorOr<std::unique_ptr<Module>> loadedModuleResult =
+      llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), Ctx);
 
   // DXIL disallows some LLVM bitcode constructs, like unaccounted-for sub-blocks.
   // These appear as warnings, which the validator should reject.
