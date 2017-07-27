@@ -1,4 +1,4 @@
-//===--- utils/unittest/UnitTestMain/TestMain.cpp - unittest driver -------===//
+//===--- utils/unittest/SPIRV/TestMain.cpp - unittest driver --------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

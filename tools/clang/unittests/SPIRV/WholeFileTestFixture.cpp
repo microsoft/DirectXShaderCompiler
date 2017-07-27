@@ -1,4 +1,4 @@
-//===- unittests/SPIRV/WholeFileCheck.cpp - WholeFileCheck Implementation -===//
+//===- unittests/SPIRV/WholeFileTestFixture.cpp - WholeFileTest impl ------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -10,7 +10,7 @@
 #include <fstream>
 
 #include "FileTestUtils.h"
-#include "WholeFileCheck.h"
+#include "WholeFileTestFixture.h"
 
 namespace clang {
 namespace spirv {

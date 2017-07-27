@@ -15,22 +15,34 @@ namespace spirv {
 namespace {
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
+} // namespace
 
-bool isTerminator(spv::Op opcode) {
-  switch (opcode) {
-  case spv::Op::OpKill:
-  case spv::Op::OpUnreachable:
+// === Instruction implementations ===
+
+spv::Op Instruction::getOpcode() const {
+  if (!isEmpty()) {
+    return static_cast<spv::Op>(words.front() & spv::OpCodeMask);
+  }
+
+  return spv::Op::Max;
+}
+
+bool Instruction::isTerminator() const {
+  switch (getOpcode()) {
   case spv::Op::OpBranch:
   case spv::Op::OpBranchConditional:
-  case spv::Op::OpSwitch:
   case spv::Op::OpReturn:
   case spv::Op::OpReturnValue:
+  case spv::Op::OpSwitch:
+  case spv::Op::OpKill:
+  case spv::Op::OpUnreachable:
     return true;
   default:
     return false;
   }
 }
-} // namespace
+
+// === Basic block implementations ===
 
 BasicBlock::BasicBlock(BasicBlock &&that)
     : labelId(that.labelId), instructions(std::move(that.instructions)) {
@@ -46,29 +58,35 @@ BasicBlock &BasicBlock::operator=(BasicBlock &&that) {
   return *this;
 }
 
+void BasicBlock::clear() {
+  labelId = 0;
+  instructions.clear();
+}
+
 void BasicBlock::take(InstBuilder *builder) {
   // Make sure we have a terminator instruction at the end.
-  // TODO: This is a little bit ugly. It suggests that we should put the opcode
-  // in the Instruction struct. But fine for now.
   assert(isTerminated() && "found basic block without terminator");
+
   builder->opLabel(labelId).x();
+
   for (auto &inst : instructions) {
-    builder->getConsumer()(std::move(inst));
+    builder->getConsumer()(inst.take());
   }
+
   clear();
 }
 
 bool BasicBlock::isTerminated() const {
-  return !instructions.empty() &&
-         isTerminator(
-             // Take the last 16 bits and convert it into opcode
-             static_cast<spv::Op>(instructions.back().front() & 0xffff));
+  return !instructions.empty() && instructions.back().isTerminator();
 }
+
+// === Function implementations ===
 
 Function::Function(Function &&that)
     : resultType(that.resultType), resultId(that.resultId),
       funcControl(that.funcControl), funcType(that.funcType),
-      parameters(std::move(that.parameters)), blocks(std::move(that.blocks)) {
+      parameters(std::move(that.parameters)),
+      variables(std::move(that.variables)), blocks(std::move(that.blocks)) {
   that.clear();
 }
 
@@ -94,14 +112,6 @@ void Function::clear() {
   parameters.clear();
   variables.clear();
   blocks.clear();
-}
-
-void Function::addVariable(uint32_t varType, uint32_t varId,
-                           llvm::Optional<uint32_t> init) {
-  variables.emplace_back(
-      InstBuilder(nullptr)
-          .opVariable(varType, varId, spv::StorageClass::Function, init)
-          .take());
 }
 
 void Function::take(InstBuilder *builder) {
@@ -130,6 +140,16 @@ void Function::take(InstBuilder *builder) {
   clear();
 }
 
+void Function::addVariable(uint32_t varType, uint32_t varId,
+                           llvm::Optional<uint32_t> init) {
+  variables.emplace_back(
+      InstBuilder(nullptr)
+          .opVariable(varType, varId, spv::StorageClass::Function, init)
+          .take());
+}
+
+// === Module components implementations ===
+
 Header::Header()
     : magicNumber(spv::MagicNumber), version(spv::Version),
       generator((kGeneratorNumber << 16) | kToolVersion), bound(0),
@@ -145,16 +165,20 @@ void Header::collect(const WordConsumer &consumer) {
   consumer(std::move(words));
 }
 
+// === Module implementations ===
+
 bool SPIRVModule::isEmpty() const {
   return header.bound == 0 && capabilities.empty() && extensions.empty() &&
          extInstSets.empty() && !addressingModel.hasValue() &&
          !memoryModel.hasValue() && entryPoints.empty() &&
          executionModes.empty() && debugNames.empty() && decorations.empty() &&
+         types.empty() && constants.empty() && variables.empty() &&
          functions.empty();
 }
 
 void SPIRVModule::clear() {
   header.bound = 0;
+
   capabilities.clear();
   extensions.clear();
   extInstSets.clear();
@@ -164,43 +188,18 @@ void SPIRVModule::clear() {
   executionModes.clear();
   debugNames.clear();
   decorations.clear();
+  types.clear();
+  constants.clear();
+  variables.clear();
+
   functions.clear();
-}
-
-void SPIRVModule::takeIntegerTypes(InstBuilder *ib) {
-  const auto &consumer = ib->getConsumer();
-  // If it finds any integer type, feeds it into the consumer, and removes it
-  // from the types collection.
-  types.remove_if([&consumer](std::pair<const Type *, uint32_t> &item) {
-    const bool isInteger = item.first->isIntegerType();
-    if (isInteger)
-      consumer(item.first->withResultId(item.second));
-    return isInteger;
-  });
-}
-
-void SPIRVModule::takeConstantForArrayType(const Type *arrType,
-                                           InstBuilder *ib) {
-  assert(arrType->isArrayType() &&
-         "takeConstantForArrayType was called with a non-array type.");
-  const auto &consumer = ib->getConsumer();
-  const uint32_t arrayLengthResultId = arrType->getArgs().back();
-
-  // If it finds the constant, feeds it into the consumer, and removes it
-  // from the constants collection.
-  constants.remove_if([&consumer, arrayLengthResultId](
-      std::pair<const Constant *, uint32_t> &item) {
-    const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
-    if (isArrayLengthConstant)
-      consumer(item.first->withResultId(item.second));
-    return isArrayLengthConstant;
-  });
 }
 
 void SPIRVModule::take(InstBuilder *builder) {
   const auto &consumer = builder->getConsumer();
 
   // Order matters here.
+
   header.collect(consumer);
 
   for (auto &cap : capabilities) {
@@ -227,7 +226,7 @@ void SPIRVModule::take(InstBuilder *builder) {
   }
 
   for (auto &inst : executionModes) {
-    consumer(std::move(inst));
+    consumer(inst.take());
   }
 
   for (auto &inst : debugNames) {
@@ -257,7 +256,7 @@ void SPIRVModule::take(InstBuilder *builder) {
     // If we have an array type, we must first define the integer constant that
     // defines its length.
     if (t.first->isArrayType()) {
-      takeConstantForArrayType(t.first, builder);
+      takeConstantForArrayType(*t.first, builder);
     }
 
     consumer(t.first->withResultId(t.second));
@@ -268,7 +267,7 @@ void SPIRVModule::take(InstBuilder *builder) {
   }
 
   for (auto &v : variables) {
-    consumer(std::move(v));
+    consumer(v.take());
   }
 
   for (uint32_t i = 0; i < functions.size(); ++i) {
@@ -276,6 +275,36 @@ void SPIRVModule::take(InstBuilder *builder) {
   }
 
   clear();
+}
+
+void SPIRVModule::takeIntegerTypes(InstBuilder *ib) {
+  const auto &consumer = ib->getConsumer();
+  // If it finds any integer type, feeds it into the consumer, and removes it
+  // from the types collection.
+  types.remove_if([&consumer](std::pair<const Type *, uint32_t> &item) {
+    const bool isInteger = item.first->isIntegerType();
+    if (isInteger)
+      consumer(item.first->withResultId(item.second));
+    return isInteger;
+  });
+}
+
+void SPIRVModule::takeConstantForArrayType(const Type &arrType,
+                                           InstBuilder *ib) {
+  assert(arrType.isArrayType());
+
+  const auto &consumer = ib->getConsumer();
+  const uint32_t arrayLengthResultId = arrType.getArgs().back();
+
+  // If it finds the constant, feeds it into the consumer, and removes it
+  // from the constants collection.
+  constants.remove_if([&consumer, arrayLengthResultId](
+      std::pair<const Constant *, uint32_t> &item) {
+    const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
+    if (isArrayLengthConstant)
+      consumer(item.first->withResultId(item.second));
+    return isArrayLengthConstant;
+  });
 }
 
 } // end namespace spirv

@@ -39,11 +39,10 @@ TEST(ModuleBuilder, CreateFunction) {
   EXPECT_TRUE(builder.endFunction());
   const auto result = builder.takeModule();
 
-  auto expected = getModuleHeader(context.getNextId());
-  appendVector(&expected,
-               constructInst(spv::Op::OpFunction, {rType, fId, 0, fType}));
-  appendVector(&expected, constructInst(spv::Op::OpFunctionEnd, {}));
-  EXPECT_THAT(result, ContainerEq(expected));
+  SimpleInstBuilder sib(context.getNextId());
+  sib.inst(spv::Op::OpFunction, {rType, fId, 0, fType});
+  sib.inst(spv::Op::OpFunctionEnd, {});
+  EXPECT_THAT(result, ContainerEq(sib.get()));
 }
 
 TEST(ModuleBuilder, CreateBasicBlock) {
@@ -63,14 +62,13 @@ TEST(ModuleBuilder, CreateBasicBlock) {
 
   const auto result = builder.takeModule();
 
-  auto expected = getModuleHeader(context.getNextId());
-  appendVector(&expected,
-               constructInst(spv::Op::OpFunction, {rType, fId, 0, fType}));
-  appendVector(&expected, constructInst(spv::Op::OpLabel, {labelId}));
-  appendVector(&expected, constructInst(spv::Op::OpReturn, {}));
-  appendVector(&expected, constructInst(spv::Op::OpFunctionEnd, {}));
+  SimpleInstBuilder sib(context.getNextId());
+  sib.inst(spv::Op::OpFunction, {rType, fId, 0, fType});
+  sib.inst(spv::Op::OpLabel, {labelId});
+  sib.inst(spv::Op::OpReturn, {});
+  sib.inst(spv::Op::OpFunctionEnd, {});
 
-  EXPECT_THAT(result, ContainerEq(expected));
+  EXPECT_THAT(result, ContainerEq(sib.get()));
 }
 
 } // anonymous namespace
