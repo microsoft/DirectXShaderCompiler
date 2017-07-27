@@ -5,8 +5,7 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Provides a pass to stomp a pixel shader's output color to a given         //
-// constant value                                                            //
+// Provides a pass to turn on the early-z flag                               //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
