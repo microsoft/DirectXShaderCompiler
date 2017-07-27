@@ -311,7 +311,10 @@ PCSTR g_pFeatureInfoNames[] = {
     "feeding rasterizer",
     "Wave level operations",
     "64-Bit integer",
+    "View Instancing",
+    "Barycentrics",
 };
+static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
 void PrintFeatureInfo(const DxilShaderFeatureInfo *pFeatureInfo,
                              raw_string_ostream &OS, StringRef comment) {
