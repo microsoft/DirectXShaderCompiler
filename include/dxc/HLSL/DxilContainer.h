@@ -106,7 +106,7 @@ static const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
 static const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
 static const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
 
-static const unsigned ShaderFeatureInfoCount = 16;
+static const unsigned ShaderFeatureInfoCount = 18;
 
 struct DxilShaderFeatureInfo {
   uint64_t FeatureFlags;
