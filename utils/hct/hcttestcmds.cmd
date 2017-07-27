@@ -525,11 +525,11 @@ if %errorlevel% neq 0 (
 )
 
 
-rem When dxil.dll is present, skip /Tps_6_2 for old validators
+rem Skipping shader model 6.2 when dxil.dll is present
 if exist dxil.dll (
-  echo Skipping /Fd with trailing backslash when dxil.dll is present.
-  echo A future dxil.dll will provide this information.
-  goto :skipdenorm
+  echo Skipping shader model 6.2 when dxil.dll is present
+  echo A future dxil.dll will support this model.
+  goto :skipsm62
 )
 
 echo Test for denorm options ...
@@ -561,7 +561,7 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
-:skipdenorm
+:skipsm62
 call :cleanup
 exit /b 0
 
