@@ -38,14 +38,24 @@ TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
 
+TEST_F(FileTest, UnaryOpPrefixIncrement) {
+  runFileTest("unary-op.prefix-inc.hlsl");
+}
+
 TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
 
 TEST_F(FileTest, BinaryOpScalarArithmetic) {
   runFileTest("binary-op.arithmetic.scalar.hlsl");
 }
 
+TEST_F(FileTest, BinaryOpScalarComparison) {
+  runFileTest("binary-op.comparison.scalar.hlsl");
+}
+
 TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("if-stmt.plain.hlsl"); }
 
 TEST_F(FileTest, IfStmtNestedIfStmt) { runFileTest("if-stmt.nested.hlsl"); }
+
+TEST_F(FileTest, ForStmtPlainAssign) { runFileTest("for-stmt.plain.hlsl"); }
 
 } // namespace
