@@ -102,29 +102,29 @@ static void PrintHlslException(const ::hlsl::Exception &hlslException,
       if (hlslException.hr == DXC_E_DUPLICATE_PART) {
         sprintf_s(
             printBuffer, _countof(printBuffer),
-            "dxc failed : DXIL container already contains the given part.");
+            "dxc_batch failed : DXIL container already contains the given part.");
       } else if (hlslException.hr == DXC_E_MISSING_PART) {
         sprintf_s(
             printBuffer, _countof(printBuffer),
-            "dxc failed : DXIL container does not contain the given part.");
+            "dxc_batch failed : DXIL container does not contain the given part.");
       } else if (hlslException.hr == DXC_E_CONTAINER_INVALID) {
         sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc failed : Invalid DXIL container.");
+                  "dxc_batch failed : Invalid DXIL container.");
       } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DXIL) {
         sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc failed : DXIL container is missing DXIL part.");
+                  "dxc_batch failed : DXIL container is missing DXIL part.");
       } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DEBUG) {
         sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc failed : DXIL container is missing Debug Info part.");
+                  "dxc_batch failed : DXIL container is missing Debug Info part.");
       } else if (hlslException.hr == E_OUTOFMEMORY) {
         sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc failed : Out of Memory.");
+                  "dxc_batch failed : Out of Memory.");
       } else if (hlslException.hr == E_INVALIDARG) {
         sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc failed : Invalid argument.");
+                  "dxc_batch failed : Invalid argument.");
       } else {
         sprintf_s(printBuffer, _countof(printBuffer),
-                  "dxc failed : error code 0x%08x.\n", hlslException.hr);
+                  "dxc_batch failed : error code 0x%08x.\n", hlslException.hr);
       }
       msg = printBuffer;
     }
@@ -155,7 +155,7 @@ static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
       ReadDxcOpts(optionTable, DxcFlags, argStrings, dxcOpts, errorStream);
   errorStream.flush();
   if (errorString.size()) {
-    fprintf(stderr, "dxc failed : %s", errorString.data());
+    fprintf(stderr, "dxc_batch failed : %s", errorString.data());
   }
   if (optResult != 0) {
     return optResult;
@@ -880,7 +880,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       // TODO: validate unused option for dxc_bach.
       errorStream.flush();
       if (errorString.size()) {
-        fprintf(stderr, "dxc failed : %s", errorString.data());
+        fprintf(stderr, "dxc_batch failed : %s", errorString.data());
       }
       if (optResult != 0) {
         return optResult;

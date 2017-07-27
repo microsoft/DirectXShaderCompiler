@@ -86,8 +86,7 @@ public:
       bool bLoaded = false;
       // Not support same filename in different directory.
       for (std::string &path : m_includePathList) {
-        llvm::Twine tmpFilename = path + pUtf8Filename;
-        std::string tmpFilenameStr = tmpFilename.str();
+        std::string tmpFilenameStr = path + StringRef(pUtf8Filename.m_psz).str();
         CA2W pWTmpFilename(tmpFilenameStr.c_str());
         if (S_OK == m_pIncludeHandler->LoadSource(pWTmpFilename.m_psz,
                                                   ppIncludeSource)) {
