@@ -3284,7 +3284,7 @@ public:
       case BuiltinType::Bool: return AR_BASIC_BOOL;
       case BuiltinType::Double: return AR_BASIC_FLOAT64;
       case BuiltinType::Float: return AR_BASIC_FLOAT32;
-      case BuiltinType::Half: return AR_BASIC_FLOAT16;
+      case BuiltinType::Half: return m_context->getLangOpts().UseLowPrecision ? AR_BASIC_FLOAT16 : AR_BASIC_MIN16FLOAT;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
       case BuiltinType::Short: return AR_BASIC_MIN16INT;    // rather than AR_BASIC_INT16
@@ -3391,7 +3391,7 @@ public:
     case AR_OBJECT_NULL:          return m_context->VoidTy;
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
-    case AR_BASIC_FLOAT16:        return m_context->HalfTy;
+    case AR_BASIC_FLOAT16:        return m_context->getLangOpts().UseLowPrecision ? m_context->HalfTy : m_context->FloatTy;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;
@@ -10459,19 +10459,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   // case of a function (or method).
   QualType qt = TInfo->getType();
   const Type* pType = qt.getTypePtrOrNull();
-
-  // Unlike min12int or min10float that were defined as a built in type,
-  // min16float is defined by global typedef.
-  // So we can't check min16float at the parsing level
-  std::string UnqualifiedString = qt.getUnqualifiedType().getAsString();
-  const std::string min16Float = "min16float";
-  if (UnqualifiedString.compare(0, min16Float.length(), min16Float) == 0) {
-    if (Context.getLangOpts().UseLowPrecision) {
-      Diag(D.getLocStart(), diag::warn_hlsl_sema_minprecision_promotion)
-          << "min16float"
-          << "half";
-    }
-  }
 
   // Early checks - these are not simple attribution errors, but constructs that
   // are fundamentally unsupported,

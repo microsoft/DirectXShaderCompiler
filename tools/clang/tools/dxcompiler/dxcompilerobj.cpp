@@ -39,7 +39,6 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
-#include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/dxcapi.internal.h"
 
 #include "dxc/Support/dxcapi.use.h"
