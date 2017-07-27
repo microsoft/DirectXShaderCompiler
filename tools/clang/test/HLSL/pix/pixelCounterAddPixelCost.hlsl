@@ -6,8 +6,8 @@
 // Check for pixel cost instructions:
 // CHECK: %WeightStruct = call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 68, %dx.types.Handle %PIX_CountUAV_Handle, i32 128, i32 0)
 // CHECK: %Weight = extractvalue %dx.types.ResRet.i32 %WeightStruct, 0
-// CHECK: %7 = add i32 %Clamped, 64
-// CHECK: %UAVIncResult2 = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_CountUAV_Handle, i32 0, i32 %7, i32 0, i32 0, i32 %Weight)
+// CHECK: add i32 %Clamped, 64
+// CHECK: %UAVIncResult2 = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_CountUAV_Handle, i32 0, i32
 
 
 
