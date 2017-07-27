@@ -84,10 +84,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
   // ForceEarlyZ is incompatible with the discard function (the Z has to be tested/written, and may be written before the shader even runs)
   if (ForceEarlyZ)
   {
-    if (HlslOP->GetOpFunc(DXIL::OpCode::Discard, Type::getVoidTy(Ctx))->user_empty())
-    {
-      DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
-    }
+    DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
   }
   
   hlsl::DxilSignature & InputSignature = DM.GetInputSignature();
