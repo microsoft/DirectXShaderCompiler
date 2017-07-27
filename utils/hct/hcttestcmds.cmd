@@ -502,6 +502,7 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+echo Smoke test for dxc_batch command line ...
 dxc_batch.exe -lib-link -multi-thread "%2"\..\CodeGenHLSL\batch_cmds2.txt 1>nul
 if %errorlevel% neq 0 (
   echo Failed to run dxc_batch -lib-link -multi-thread %2\..\CodeGenHLSL\batch_cmds2.txt
@@ -523,6 +524,7 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+echo Test for denorm options ...
 dxc.exe smoke.hlsl /Tps_6_2 /denorm preserve 1>nul
 if %errorlevel% neq 0 (
   echo Failed to compile smoke.hlsl with /denorm ieee option
