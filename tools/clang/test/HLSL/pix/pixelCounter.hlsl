@@ -9,12 +9,12 @@
 // CHECK: %YIndex = fptoui float %YPos to i32
 
 // Calculation of offset:
-// CHECK: %4 = mul i32 %YIndex, 16
-// CHECK: %5 = add i32 %XIndex, %4
-// CHECK: %6 = icmp ugt i32 %5, 63
+// CHECK: = mul i32 %YIndex, 16
+// CHECK: = add i32 %XIndex,
+// CHECK: = icmp ugt i32
 
 // Clamp to UAV size:
-// CHECK: %Clamped = select i1 %6, i32 63, i32 %5
+// CHECK: %Clamped = select i1 
 
 // Check the write to the UAV was emitted:
 // CHECK: %UAVIncResult = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_CountUAV_Handle, i32 0, i32 %Clamped, i32 0, i32 0, i32 1)
