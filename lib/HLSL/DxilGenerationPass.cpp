@@ -1302,7 +1302,6 @@ ModulePass *llvm::createHLEnsureMetadataPass() {
 
 INITIALIZE_PASS(HLEnsureMetadata, "hlsl-hlensure", "HLSL High-Level Metadata Ensure", false, false)
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Precise propagate.
 

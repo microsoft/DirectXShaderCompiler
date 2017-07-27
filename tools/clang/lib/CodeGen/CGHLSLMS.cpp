@@ -378,6 +378,9 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   CB->SetRangeSize(1);
   CB->SetLowerBound(UINT_MAX);
   DXVERIFY_NOMSG(globalCBIndex == m_pHLModule->AddCBuffer(std::move(CB)));
+
+  // set Float Denorm Mode
+  m_pHLModule->SetFPDenormMode(CGM.getCodeGenOpts().HLSLFlushFPDenorm);
 }
 
 bool CGMSHLSLRuntime::IsHlslObjectType(llvm::Type *Ty) {
@@ -1370,7 +1373,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   DxilFunctionAnnotation *FuncAnnotation =
-      m_pHLModule->AddFunctionAnnotation(F);
+      m_pHLModule->AddFunctionAnnotationWithFPDenormMode(F, m_pHLModule->GetFPDenormMode());
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
 
   // Param Info
@@ -3850,7 +3853,7 @@ static void CloneShaderEntry(Function *ShaderF, StringRef EntryName,
 
   // Copy function annotation.
   DxilFunctionAnnotation *shaderAnnot = HLM.GetFunctionAnnotation(ShaderF);
-  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotation(F);
+  DxilFunctionAnnotation *annot = HLM.AddFunctionAnnotationWithFPDenormMode(F, HLM.GetFPDenormMode());
 
   DxilParameterAnnotation &retAnnot = shaderAnnot->GetRetTypeAnnotation();
   DxilParameterAnnotation &cloneRetAnnot = annot->GetRetTypeAnnotation();

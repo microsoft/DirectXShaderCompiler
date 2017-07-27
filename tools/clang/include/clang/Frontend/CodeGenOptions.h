@@ -198,6 +198,8 @@ public:
   std::shared_ptr<hlsl::HLSLExtensionsCodegenHelper> HLSLExtensionsCodegen;
   /// Signature packing mode (0 == default for target)
   unsigned HLSLSignaturePackingStrategy = 0;
+  /// denormalized number mode ("ieee" for default)
+  hlsl::DXIL::FPDenormMode HLSLFlushFPDenorm;
   // HLSL Change Ends
   /// Regular expression to select optimizations for which we should enable
   /// optimization remarks. Transformation passes whose name matches this

@@ -120,6 +120,18 @@ DXIL version must be declared exactly once per LLVM module (translation unit) an
 
 DXIL will evolve in a manner that retains backward compatibility.
 
+DXIL 1.1 Changes
+----------------
+Main two features that were introduced for DXIL1.1 (Shader Model 6.1) are view instancing and barycentric coordinates. Specifically, there are following changes to the DXIL representation.
+
+* New Intrinsics - AttributeAtVertex_, ViewID
+* New Systen Generated Value - SV_Barycentrics
+* New Container Part - ILDN
+
+DXIL 1.2 Changes
+----------------
+* New format for type-annotations_ for functions to indicate floating point operations behavior for per function basis.
+
 LLVM Bitcode version
 --------------------
 
@@ -386,41 +398,117 @@ HLSL precise type qualifier requires that all operations contributing to the val
 
 Precise behavior is represented in LLVM instructions: fadd, fsub, fmul, fdiv, frem, fcmp by not having 'fast' math flags set. Each relevant call instruction that contributes to computation of a precise value is annotated with dx.precise metadata that indicates that it is illegal for the driver compiler to perform IEEE-unsafe optimizations.
 
+.. _type-annotations:
+
 Type annotations
 ----------------
 
-User-defined types are annotated in DXIL to 'attach' additional properties to structure fields. For example, DXIL may contain type annotations for reflection purposes::
+User-defined types are annotated in DXIL to 'attach' additional properties to structure fields. For example, DXIL may contain type annotations of structures and funcitons for reflection purposes::
 
- ; namespace MyNamespace1
- ; {
- ;   struct MyType1
- ;   {
- ;     float field1;
- ;     int2 field2;
- ;   };
- ; }
+  namespace MyNameSpace {
+    struct MyType {
+        float field1;
+        int2 field2;
+    };
+  }
 
- %struct.MyNamespace1.MyType1 = type { float, <2 x i32> }
- !struct.MyNamespace1.MyType1 = !{ !1, !2 }
- !1 = !{ !"field1", null }
- !2 = !{ !"field2", null }
+  float main(float col : COLOR) : SV_Target {
+    .....
+  }
 
- ; struct MyType2
- ; {
- ;    MyType1 array_field[2];
- ;    float4 float4_field;
- ; };
-
- %struct.MyType2 = type { [2 x %struct.MyType1], <4 x float> }
- !struct.MyType2 = !{ !3, !4 }
- !3 = !{ !"array_field", null }
- !4 = !{ !"float4_field", null }
+  !dx.typeAnnotations = !{!3, !7}
+  !3 = !{i32 0, %"struct.MyNameSpace::MyType" undef, !4}
+  !4 = !{i32 12, !5, !6}
+  !5 = !{i32 6, !"field1", i32 3, i32 0, i32 7, i32 9}
+  !6 = !{i32 6, !"field2", i32 3, i32 4, i32 7, i32 4}
+  !7 = !{i32 1, void (float, float*)* @"main", !8}
+  !8 = !{!9, !11, !14}
+  !9 = !{i32 0, !10, !10}
+  !10 = !{}
+  !11 = !{i32 0, !12, !13}
+  !12 = !{i32 4, !"COLOR", i32 7, i32 9}
+  !13 = !{i32 0}
+  !14 = !{i32 1, !15, !13}
+  !15 = !{i32 4, !"SV_Target", i32 7, i32 9}
+  !16 = !{null, !"lib.no::entry", null, null, null}
 
 The type/field annotation metadata hierarchy recursively mimics LLVM type hierarchy.
+dx.typeAnnotations is a metadata of type annotation nodes, where each node represents type annotation of a certain type::
 
-Each field-annotation record has an optional named-value pair list for infrequent annotations and for future extensions. The lists are null in the example above.
+  !dx.typeAnnotations = !{!3, !7}
 
-Note that Clang emits '::' to separate namespaces, if any, in type names. We modify Clang to use '.' instead, because it is illegal to use ':' in metadata names.
+For each **type annotation** node, the first value represents the type of the annotation::
+
+  !3 = !{i32 0, %"struct.MyNameSpace::MyType" undef, !4}
+  !7 = !{i32 1, void (float, float*)* @"main", !8}
+
+=== =====================================================================
+Idx Type
+=== =====================================================================
+0    Structure Annotation
+1    Function Annotation
+2    Function Annotation2 (Not available before DXIL 1.2)
+=== =====================================================================
+
+The second value represents the name, the third is a corresponding type metadata node.
+
+**Structure Annotation** starts with the size of the structure in bytes, followed by the list of field annotations::
+
+  !4 = !{i32 12, !5, !6}
+  !5 = !{i32 6, !"field1", i32 3, i32 0, i32 7, i32 9}
+  !6 = !{i32 6, !"field2", i32 3, i32 4, i32 7, i32 4}
+
+**Field Annotation** is a series of pairs with tag number followed by its value. Field Annotation pair is defined as follows
+
+=== =====================================================================
+Idx Type
+=== =====================================================================
+0    SNorm
+1    UNorm
+2    Matrix
+3    Buffer Offset
+4    Semantic String
+5    Interpolation Mode
+6    Field Name
+7    Component Type
+8    Precise
+=== =====================================================================
+
+**Function Annotation** is a series of parameter annotations::
+
+  !7 = !{i32 1, void (float, float*)* @"main", !8}
+  !8 = !{!9, !11, !14}
+
+Each **Parameter Annotation** contains Input/Output type, field annotation, and semantic index::
+
+  !9 = !{i32 0, !10, !10}
+  !10 = !{}
+  !11 = !{i32 0, !12, !13}
+  !12 = !{i32 4, !"COLOR", i32 7, i32 9}
+  !13 = !{i32 0}
+  !14 = !{i32 1, !15, !13}
+  !15 = !{i32 4, !"SV_Target", i32 7, i32 9}
+
+**DXIL 1.2 Change**
+Prior to DXIL 1.2, function annotations metadata only contained a list of parameter annotations, starting with the input parameter
+For DXIL 1.2, **function annotation** will contain FunctionFPFlag, followed by parameter annotations::
+
+  !7 = !{i32 2, void (float, float*)* @"main", !8}
+  !8 = !{!9, !10}
+  !9 = !{i32 0}
+  !10 = !{!11, !13, !15}
+  
+FunctionFPFlag is a flag to control the behavior of the floating point operation::
+
+  !9 = !{i32 0}
+
+Currently three values are valid for floating point flag
+
+* 0: FP32 math operations on denorm may or may not flush to zero
+* 1: FP32 math operations perserve Denorms
+* 2: FP32 math operations flush denormal output numbers to zero
+
+For operations on FP16/FP64 denormal numbers will preserve denormal numbers.
 
 Shader Properties and Capabilities
 ==================================
@@ -1233,8 +1321,8 @@ CBufferLoadLegacy
 ~~~~~~~~~~~~~~~~~
 
 The following signature shows the operation syntax::
-  
-  ; overloads: SM5.1: f32|i32|f64,  future SM: possibly deprecated
+
+   ; overloads: SM5.1: f32|i32|f64,  future SM: possibly deprecated
   %dx.types.CBufRet.f32 = type { float, float, float, float }
   declare %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(
       i32,                  ; opcode
@@ -2787,6 +2875,7 @@ META.DUPLICATESYSVALUE                 System value may only appear once in sign
 META.ENTRYFUNCTION                     entrypoint not found
 META.FLAGSUSAGE                        Flags must match usage
 META.FORCECASEONSWITCH                 Attribute forcecase only works for switch
+META.FPFLAG                            Invalid funciton floating point flag.
 META.FUNCTIONANNOTATION                Cannot find function annotation for %0
 META.GLCNOTONAPPENDCONSUME             globallycoherent cannot be used with append/consume buffers
 META.INTEGERINTERPMODE                 Interpolation mode on integer must be Constant

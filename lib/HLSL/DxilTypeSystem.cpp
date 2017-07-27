@@ -156,6 +156,39 @@ const Function *DxilFunctionAnnotation::GetFunction() const {
   return m_pFunction;
 }
 
+DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() {
+  return m_fpFlag;
+}
+
+const DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() const {
+  return m_fpFlag;
+}
+
+//------------------------------------------------------------------------------
+//
+// DxilFunctionFPFlag class methods.
+//
+
+void DxilFunctionFPFlag::SetFP32DenormMode(const DXIL::FPDenormMode mode) {
+  m_flag |= ((uint32_t)mode & kFPDenormMask) << kFPDenormOffset;
+}
+
+DXIL::FPDenormMode DxilFunctionFPFlag::GetFP32DenormMode() {
+  return (DXIL::FPDenormMode)((m_flag >> kFPDenormOffset) & kFPDenormMask);
+}
+
+uint32_t DxilFunctionFPFlag::GetFlagValue() {
+  return m_flag;
+}
+
+const uint32_t DxilFunctionFPFlag::GetFlagValue() const {
+  return m_flag;
+}
+
+void DxilFunctionFPFlag::SetFlagValue(const uint32_t flag) {
+  m_flag = flag;
+}
+
 //------------------------------------------------------------------------------
 //
 // DxilStructAnnotationSystem class methods.
@@ -204,11 +237,19 @@ DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pFunction) {
+  DxilFunctionFPFlag flag;
+  flag.SetFlagValue(0);
+  DxilFunctionAnnotation *pA = AddFunctionAnnotationWithFPFlag(pFunction, &flag);
+  return pA;
+}
+
+DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotationWithFPFlag(const Function *pFunction, const DxilFunctionFPFlag *pFlag) {
   DXASSERT_NOMSG(m_FunctionAnnotations.find(pFunction) == m_FunctionAnnotations.end());
   DxilFunctionAnnotation *pA = new DxilFunctionAnnotation();
   m_FunctionAnnotations[pFunction] = unique_ptr<DxilFunctionAnnotation>(pA);
   pA->m_pFunction = pFunction;
   pA->m_parameterAnnotations.resize(pFunction->getFunctionType()->getNumParams());
+  pA->GetFlag().SetFlagValue(pFlag->GetFlagValue());
   return pA;
 }
 
@@ -312,7 +353,7 @@ void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
   if (GetFunctionAnnotation(pDstFunction))
     return;
 
-  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotation(pDstFunction);
+  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotationWithFPFlag(pDstFunction, &src.GetFunctionAnnotation(pSrcFunction)->GetFlag());
 
   // Copy the annotation.
   *dstAnnot = *annot;
