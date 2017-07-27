@@ -424,7 +424,6 @@ public:
   TEST_METHOD(PixPixelCounter)
   TEST_METHOD(PixPixelCounterEarlyZ)
   TEST_METHOD(PixPixelCounterNoSvPosition)
-  TEST_METHOD(PixPixelCounterInappropriateEarlyZ)
   TEST_METHOD(PixPixelCounterAddPixelCost)
   TEST_METHOD(PixConstantColor)
   TEST_METHOD(PixConstantColorInt)
@@ -2739,10 +2738,6 @@ TEST_F(CompilerTest, PixPixelCounterEarlyZ) {
 
 TEST_F(CompilerTest, PixPixelCounterNoSvPosition) {
   CodeGenTestCheck(L"pix\\pixelCounterNoSvPosition.hlsl");
-}
-
-TEST_F(CompilerTest, PixPixelCounterInappropriateEarlyZ) {
-  CodeGenTestCheck(L"pix\\pixelCounterInappropriateEarlyZ.hlsl");
 }
 
 TEST_F(CompilerTest, PixPixelCounterAddPixelCost) {
