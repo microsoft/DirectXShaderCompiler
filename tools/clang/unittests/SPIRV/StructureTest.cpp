@@ -18,9 +18,37 @@ using namespace clang::spirv;
 
 using ::testing::ContainerEq;
 
-TEST(Structure, DefaultConstructedBasicBlockIsEmpty) {
-  auto bb = BasicBlock();
-  EXPECT_TRUE(bb.isEmpty());
+TEST(Structure, InstructionHasCorrectOpcode) {
+  Instruction inst(constructInst(spv::Op::OpIAdd, {1, 2, 3, 4}));
+
+  ASSERT_TRUE(!inst.isEmpty());
+  EXPECT_EQ(inst.getOpcode(), spv::Op::OpIAdd);
+}
+
+TEST(Structure, InstructionGetOriginalContents) {
+  Instruction inst(constructInst(spv::Op::OpIAdd, {1, 2, 3, 4}));
+
+  EXPECT_THAT(inst.take(),
+              ContainerEq(constructInst(spv::Op::OpIAdd, {1, 2, 3, 4})));
+}
+
+TEST(Structure, InstructionIsTerminator) {
+  for (auto opcode :
+       {spv::Op::OpKill, spv::Op::OpUnreachable, spv::Op::OpBranch,
+        spv::Op::OpBranchConditional, spv::Op::OpSwitch, spv::Op::OpReturn,
+        spv::Op::OpReturnValue}) {
+    Instruction inst(constructInst(opcode, {/* wrong params here */ 1}));
+
+    EXPECT_TRUE(inst.isTerminator());
+  }
+}
+
+TEST(Structure, InstructionIsNotTerminator) {
+  for (auto opcode : {spv::Op::OpNop, spv::Op::OpAccessChain, spv::Op::OpAll}) {
+    Instruction inst(constructInst(opcode, {/* wrong params here */ 1}));
+
+    EXPECT_FALSE(inst.isTerminator());
+  }
 }
 
 TEST(Structure, TakeBasicBlockHaveAllContents) {
@@ -31,11 +59,11 @@ TEST(Structure, TakeBasicBlockHaveAllContents) {
   bb.appendInstruction(constructInst(spv::Op::OpReturn, {}));
   bb.take(&ib);
 
-  std::vector<uint32_t> expected;
-  appendVector(&expected, constructInst(spv::Op::OpLabel, {42}));
-  appendVector(&expected, constructInst(spv::Op::OpReturn, {}));
+  SimpleInstBuilder sib;
+  sib.inst(spv::Op::OpLabel, {42});
+  sib.inst(spv::Op::OpReturn, {});
 
-  EXPECT_THAT(result, ContainerEq(expected));
+  EXPECT_THAT(result, ContainerEq(sib.get()));
   EXPECT_TRUE(bb.isEmpty());
 }
 
@@ -45,11 +73,6 @@ TEST(Structure, AfterClearBasicBlockIsEmpty) {
   EXPECT_FALSE(bb.isEmpty());
   bb.clear();
   EXPECT_TRUE(bb.isEmpty());
-}
-
-TEST(Structure, DefaultConstructedFunctionIsEmpty) {
-  auto f = Function();
-  EXPECT_TRUE(f.isEmpty());
 }
 
 TEST(Structure, TakeFunctionHaveAllContents) {
@@ -64,14 +87,14 @@ TEST(Structure, TakeFunctionHaveAllContents) {
   auto ib = constructInstBuilder(result);
   f.take(&ib);
 
-  std::vector<uint32_t> expected;
-  appendVector(&expected, constructInst(spv::Op::OpFunction, {1, 2, 1, 3}));
-  appendVector(&expected, constructInst(spv::Op::OpFunctionParameter, {1, 42}));
-  appendVector(&expected, constructInst(spv::Op::OpLabel, {10}));
-  appendVector(&expected, constructInst(spv::Op::OpReturn, {}));
-  appendVector(&expected, constructInst(spv::Op::OpFunctionEnd, {}));
+  SimpleInstBuilder sib;
+  sib.inst(spv::Op::OpFunction, {1, 2, 1, 3});
+  sib.inst(spv::Op::OpFunctionParameter, {1, 42});
+  sib.inst(spv::Op::OpLabel, {10});
+  sib.inst(spv::Op::OpReturn, {});
+  sib.inst(spv::Op::OpFunctionEnd, {});
 
-  EXPECT_THAT(result, ContainerEq(expected));
+  EXPECT_THAT(result, ContainerEq(sib.get()));
   EXPECT_TRUE(f.isEmpty());
 }
 
@@ -101,88 +124,79 @@ TEST(Structure, TakeModuleHaveAllContents) {
   auto m = SPIRVModule();
 
   // Will fix up the bound later.
-  std::vector<uint32_t> expected = getModuleHeader(0);
+  SimpleInstBuilder sib(0);
 
   m.addCapability(spv::Capability::Shader);
-  appendVector(&expected,
-               constructInst(spv::Op::OpCapability,
-                             {static_cast<uint32_t>(spv::Capability::Shader)}));
+  sib.inst(spv::Op::OpCapability,
+           {static_cast<uint32_t>(spv::Capability::Shader)});
 
   m.addExtension("ext");
   const uint32_t extWord = 'e' | ('x' << 8) | ('t' << 16);
-  appendVector(&expected, constructInst(spv::Op::OpExtension, {extWord}));
+  sib.inst(spv::Op::OpExtension, {extWord});
 
   const uint32_t extInstSetId = context.takeNextId();
   m.addExtInstSet(extInstSetId, "gl");
   const uint32_t glWord = 'g' | ('l' << 8);
-  appendVector(&expected,
-               constructInst(spv::Op::OpExtInstImport, {extInstSetId, glWord}));
+  sib.inst(spv::Op::OpExtInstImport, {extInstSetId, glWord});
 
   m.setAddressingModel(spv::AddressingModel::Logical);
   m.setMemoryModel(spv::MemoryModel::GLSL450);
-  appendVector(
-      &expected,
-      constructInst(spv::Op::OpMemoryModel,
-                    {static_cast<uint32_t>(spv::AddressingModel::Logical),
-                     static_cast<uint32_t>(spv::MemoryModel::GLSL450)}));
+  sib.inst(spv::Op::OpMemoryModel,
+           {static_cast<uint32_t>(spv::AddressingModel::Logical),
+            static_cast<uint32_t>(spv::MemoryModel::GLSL450)});
 
   const uint32_t entryPointId = context.takeNextId();
   m.addEntryPoint(spv::ExecutionModel::Fragment, entryPointId, "main", {42});
   const uint32_t mainWord = 'm' | ('a' << 8) | ('i' << 16) | ('n' << 24);
-  appendVector(
-      &expected,
-      constructInst(spv::Op::OpEntryPoint,
-                    {static_cast<uint32_t>(spv::ExecutionModel::Fragment),
-                     entryPointId, mainWord, /* addtional null in name */ 0,
-                     42}));
+  sib.inst(spv::Op::OpEntryPoint,
+           {static_cast<uint32_t>(spv::ExecutionModel::Fragment), entryPointId,
+            mainWord, /* addtional null in name */ 0, 42});
 
   m.addExecutionMode(constructInst(
       spv::Op::OpExecutionMode,
       {entryPointId,
        static_cast<uint32_t>(spv::ExecutionMode::OriginUpperLeft)}));
-  appendVector(
-      &expected,
-      constructInst(spv::Op::OpExecutionMode,
-                    {entryPointId, static_cast<uint32_t>(
-                                       spv::ExecutionMode::OriginUpperLeft)}));
+  sib.inst(spv::Op::OpExecutionMode,
+           {entryPointId,
+            static_cast<uint32_t>(spv::ExecutionMode::OriginUpperLeft)});
 
   // TODO: source code debug information
 
   m.addDebugName(entryPointId, "main");
-  appendVector(&expected, constructInst(spv::Op::OpName,
-                                        {entryPointId, mainWord,
-                                         /* additional null in name */ 0}));
+  sib.inst(spv::Op::OpName,
+           {entryPointId, mainWord, /* additional null in name */ 0});
 
   m.addDecoration(*Decoration::getRelaxedPrecision(context), entryPointId);
-
-  appendVector(&expected,
-               constructInst(
-                   spv::Op::OpDecorate,
-                   {entryPointId,
-                    static_cast<uint32_t>(spv::Decoration::RelaxedPrecision)}));
+  sib.inst(
+      spv::Op::OpDecorate,
+      {entryPointId, static_cast<uint32_t>(spv::Decoration::RelaxedPrecision)});
 
   const auto *i32Type = Type::getInt32(context);
   const uint32_t i32Id = context.getResultIdForType(i32Type);
   m.addType(i32Type, i32Id);
-  appendVector(&expected, constructInst(spv::Op::OpTypeInt, {i32Id, 32, 1}));
+  sib.inst(spv::Op::OpTypeInt, {i32Id, 32, 1});
 
   const auto *voidType = Type::getVoid(context);
   const uint32_t voidId = context.getResultIdForType(voidType);
   m.addType(voidType, voidId);
-  appendVector(&expected, constructInst(spv::Op::OpTypeVoid, {voidId}));
+  sib.inst(spv::Op::OpTypeVoid, {voidId});
 
   const auto *funcType = Type::getFunction(context, voidId, {voidId});
   const uint32_t funcTypeId = context.getResultIdForType(funcType);
   m.addType(funcType, funcTypeId);
-  appendVector(&expected, constructInst(spv::Op::OpTypeFunction,
-                                        {funcTypeId, voidId, voidId}));
+  sib.inst(spv::Op::OpTypeFunction, {funcTypeId, voidId, voidId});
 
   const auto *i32Const = Constant::getInt32(context, i32Id, 42);
   const uint32_t constantId = context.takeNextId();
   m.addConstant(i32Const, constantId);
-  appendVector(&expected,
-               constructInst(spv::Op::OpConstant, {i32Id, constantId, 42}));
-  // TODO: global variable
+  sib.inst(spv::Op::OpConstant, {i32Id, constantId, 42});
+
+  const uint32_t varId = context.takeNextId();
+  m.addVariable(constructInst(
+      spv::Op::OpVariable,
+      {i32Id, varId, static_cast<uint32_t>(spv::StorageClass::Input)}));
+  sib.inst(spv::Op::OpVariable,
+           {i32Id, varId, static_cast<uint32_t>(spv::StorageClass::Input)});
 
   const uint32_t funcId = context.takeNextId();
   auto f = llvm::make_unique<Function>(
@@ -192,13 +206,14 @@ TEST(Structure, TakeModuleHaveAllContents) {
   bb->appendInstruction(constructInst(spv::Op::OpReturn, {}));
   f->addBasicBlock(std::move(bb));
   m.addFunction(std::move(f));
-  appendVector(&expected, constructInst(spv::Op::OpFunction,
-                                        {voidId, funcId, 0, funcTypeId}));
-  appendVector(&expected, constructInst(spv::Op::OpLabel, {bbId}));
-  appendVector(&expected, constructInst(spv::Op::OpReturn, {}));
-  appendVector(&expected, constructInst(spv::Op::OpFunctionEnd, {}));
+  sib.inst(spv::Op::OpFunction, {voidId, funcId, 0, funcTypeId});
+  sib.inst(spv::Op::OpLabel, {bbId});
+  sib.inst(spv::Op::OpReturn, {});
+  sib.inst(spv::Op::OpFunctionEnd, {});
 
   m.setBound(context.getNextId());
+
+  std::vector<uint32_t> expected = sib.get();
   expected[3] = context.getNextId();
 
   std::vector<uint32_t> result;
@@ -212,7 +227,9 @@ TEST(Structure, TakeModuleHaveAllContents) {
 TEST(Structure, TakeModuleWithArrayAndConstantDependency) {
   SPIRVContext context;
   auto m = SPIRVModule();
-  std::vector<uint32_t> expected = getModuleHeader(0);
+
+  // Will fix up the id bound later.
+  SimpleInstBuilder sib(0);
 
   // Add void type
   const auto *voidType = Type::getVoid(context);
@@ -256,22 +273,19 @@ TEST(Structure, TakeModuleWithArrayAndConstantDependency) {
   m.setBound(context.getNextId());
 
   // Decorations
-  appendVector(
-      &expected,
-      constructInst(spv::Op::OpDecorate,
-                    {secondArrId,
-                     static_cast<uint32_t>(spv::Decoration::ArrayStride), 4}));
+  sib.inst(
+      spv::Op::OpDecorate,
+      {secondArrId, static_cast<uint32_t>(spv::Decoration::ArrayStride), 4});
   // Now the expected order: int64, int32, void, float, constant(8), array
-  appendVector(&expected, constructInst(spv::Op::OpTypeInt, {i64Id, 64, 1}));
-  appendVector(&expected, constructInst(spv::Op::OpTypeInt, {i32Id, 32, 1}));
-  appendVector(&expected, constructInst(spv::Op::OpTypeVoid, {voidId}));
-  appendVector(&expected, constructInst(spv::Op::OpTypeFloat, {f32Id, 32}));
-  appendVector(&expected,
-               constructInst(spv::Op::OpConstant, {i32Id, constantId, 8}));
-  appendVector(&expected,
-               constructInst(spv::Op::OpTypeArray, {arrId, i32Id, constantId}));
-  appendVector(&expected, constructInst(spv::Op::OpTypeArray,
-                                        {secondArrId, i32Id, constantId}));
+  sib.inst(spv::Op::OpTypeInt, {i64Id, 64, 1});
+  sib.inst(spv::Op::OpTypeInt, {i32Id, 32, 1});
+  sib.inst(spv::Op::OpTypeVoid, {voidId});
+  sib.inst(spv::Op::OpTypeFloat, {f32Id, 32});
+  sib.inst(spv::Op::OpConstant, {i32Id, constantId, 8});
+  sib.inst(spv::Op::OpTypeArray, {arrId, i32Id, constantId});
+  sib.inst(spv::Op::OpTypeArray, {secondArrId, i32Id, constantId});
+
+  std::vector<uint32_t> expected = sib.get();
   expected[3] = context.getNextId();
 
   std::vector<uint32_t> result;

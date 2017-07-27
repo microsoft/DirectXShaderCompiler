@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "FileTestFixture.h"
-#include "WholeFileCheck.h"
+#include "WholeFileTestFixture.h"
 
 namespace {
 using clang::spirv::FileTest;

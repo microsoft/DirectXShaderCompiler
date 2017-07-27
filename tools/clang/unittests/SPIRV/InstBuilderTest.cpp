@@ -169,20 +169,20 @@ TEST(InstBuilder, InstWStringParams) {
   expectBuildSuccess(ib.opString(5, "main").x());
   expectBuildSuccess(ib.opString(6, "mainf").x());
 
-  std::vector<uint32_t> expected;
+  SimpleInstBuilder sib;
   uint32_t strWord = 0;
-  appendVector(&expected, constructInst(spv::Op::OpString, {1, strWord}));
+  sib.inst(spv::Op::OpString, {1, strWord});
   strWord = 'm';
-  appendVector(&expected, constructInst(spv::Op::OpString, {2, strWord}));
+  sib.inst(spv::Op::OpString, {2, strWord});
   strWord |= 'a' << 8;
-  appendVector(&expected, constructInst(spv::Op::OpString, {3, strWord}));
+  sib.inst(spv::Op::OpString, {3, strWord});
   strWord |= 'i' << 16;
-  appendVector(&expected, constructInst(spv::Op::OpString, {4, strWord}));
+  sib.inst(spv::Op::OpString, {4, strWord});
   strWord |= 'n' << 24;
-  appendVector(&expected, constructInst(spv::Op::OpString, {5, strWord, 0}));
-  appendVector(&expected, constructInst(spv::Op::OpString, {6, strWord, 'f'}));
+  sib.inst(spv::Op::OpString, {5, strWord, 0});
+  sib.inst(spv::Op::OpString, {6, strWord, 'f'});
 
-  EXPECT_THAT(result, ContainerEq(expected));
+  EXPECT_THAT(result, ContainerEq(sib.get()));
 }
 // TOOD: Add tests for providing more parameters than needed
 

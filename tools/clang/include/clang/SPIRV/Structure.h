@@ -35,30 +35,66 @@
 namespace clang {
 namespace spirv {
 
-// TODO: do some statistics and switch to use SmallVector here if helps.
+// === Instruction definition ===
+
 /// \brief The class representing a SPIR-V instruction.
-using Instruction = std::vector<uint32_t>;
+class Instruction {
+public:
+  /// Constructs an instruction from the given underlying SPIR-V binary words.
+  inline Instruction(std::vector<uint32_t> &&);
+
+  // Copy constructor/assignment
+  Instruction(const Instruction &) = default;
+  Instruction &operator=(const Instruction &) = default;
+
+  // Move constructor/assignment
+  Instruction(Instruction &&) = default;
+  Instruction &operator=(Instruction &&) = default;
+
+  /// Returns true if this instruction is empty, which contains no underlying
+  /// SPIR-V binary words.
+  inline bool isEmpty() const;
+
+  /// Returns the opcode for this instruction. Returns spv::Op::Max if this
+  /// instruction is empty.
+  spv::Op getOpcode() const;
+
+  /// Returns the underlying SPIR-v binary words for this instruction.
+  /// This instruction will be in an empty state after this call.
+  inline std::vector<uint32_t> take();
+
+  /// Returns true if this instruction is a termination instruction.
+  ///
+  /// See "2.2.4. Control Flow" in the SPIR-V spec for the defintion of
+  /// termination instructions.
+  bool isTerminator() const;
+
+private:
+  // TODO: do some statistics and switch to use SmallVector here if helps.
+  std::vector<uint32_t> words; ///< Underlying SPIR-V words
+};
+
+// === Basic block definition ===
 
 /// \brief The class representing a SPIR-V basic block.
 class BasicBlock {
 public:
-  /// \brief Default constructs an empty basic block.
-  inline BasicBlock();
-  /// \brief Constructs a basic block with the given label id.
+  /// \brief Constructs a basic block with the given <label-id>.
   inline explicit BasicBlock(uint32_t labelId);
 
-  // Disable copy constructor/assignment until we find they are truly useful.
+  // Disable copy constructor/assignment
   BasicBlock(const BasicBlock &) = delete;
   BasicBlock &operator=(const BasicBlock &) = delete;
-  // Allow move constructor/assignment since they are efficient.
+
+  // Move constructor/assignment
   BasicBlock(BasicBlock &&that);
   BasicBlock &operator=(BasicBlock &&that);
 
   /// \brief Returns true if this basic block is empty, which has no <label-id>
   /// assigned and no instructions.
   inline bool isEmpty() const;
-  /// \brief Clears all instructions in this basic block and turns this basic
-  /// block into an empty basic block.
+  /// \brief Clears everything in this basic block and turns it into an
+  /// empty basic block.
   inline void clear();
 
   /// \brief Serializes this basic block and feeds it to the comsumer in the
@@ -80,20 +116,20 @@ private:
   std::deque<Instruction> instructions;
 };
 
+// === Function definition ===
+
 /// \brief The class representing a SPIR-V function.
 class Function {
 public:
-  /// \brief Default constructs an empty SPIR-V function.
-  inline Function();
   /// \brief Constructs a SPIR-V function with the given parameters.
   inline Function(uint32_t resultType, uint32_t resultId,
                   spv::FunctionControlMask control, uint32_t functionType);
 
-  // Disable copy constructor/assignment until we find they are truly useful.
+  // Disable copy constructor/assignment
   Function(const Function &) = delete;
   Function &operator=(const Function &) = delete;
 
-  // Allow move constructor/assignment since they are efficient.
+  // Move constructor/assignment
   Function(Function &&that);
   Function &operator=(Function &&that);
 
@@ -130,6 +166,8 @@ private:
   std::vector<Instruction> variables;
   std::vector<std::unique_ptr<BasicBlock>> blocks;
 };
+
+// === Module components defintion ====
 
 /// \brief The struct representing a SPIR-V module header.
 struct Header {
@@ -191,17 +229,19 @@ struct TypeIdPair {
   const uint32_t resultId;
 };
 
+// === Module defintion ====
+
 /// \brief The class representing a SPIR-V module.
 class SPIRVModule {
 public:
   /// \brief Default constructs an empty SPIR-V module.
   inline SPIRVModule();
 
-  // Disable copy constructor/assignment until we find they are truly useful.
+  // Disable copy constructor/assignment
   SPIRVModule(const SPIRVModule &) = delete;
   SPIRVModule &operator=(const SPIRVModule &) = delete;
 
-  // Allow move constructor/assignment since they are efficient.
+  // Move constructor/assignment
   SPIRVModule(SPIRVModule &&that) = default;
   SPIRVModule &operator=(SPIRVModule &&that) = default;
 
@@ -248,14 +288,14 @@ private:
   /// If found, (a) defines the constant by passing it to the consumer in the
   /// given InstBuilder. (b) Removes the constant from the list of constants
   /// in this object.
-  void takeConstantForArrayType(const Type *arrType, InstBuilder *ib);
+  void takeConstantForArrayType(const Type &arrType, InstBuilder *ib);
 
 private:
   Header header; ///< SPIR-V module header.
   std::vector<spv::Capability> capabilities;
   std::vector<std::string> extensions;
   std::vector<ExtInstSet> extInstSets;
-  // addressing and memory model must exist for a valid SPIR-V module.
+  // Addressing and memory model must exist for a valid SPIR-V module.
   // We make them optional here just to provide extra flexibility of
   // the representation.
   llvm::Optional<spv::AddressingModel> addressingModel;
@@ -276,15 +316,21 @@ private:
   std::vector<std::unique_ptr<Function>> functions;
 };
 
-BasicBlock::BasicBlock() : labelId(0) {}
+// === Instruction inline implementations ===
+
+Instruction::Instruction(std::vector<uint32_t> &&data)
+    : words(std::move(data)) {}
+
+bool Instruction::isEmpty() const { return words.empty(); }
+
+std::vector<uint32_t> Instruction::take() { return std::move(words); }
+
+// === Basic block inline implementations ===
+
 BasicBlock::BasicBlock(uint32_t id) : labelId(id) {}
 
 bool BasicBlock::isEmpty() const {
   return labelId == 0 && instructions.empty();
-}
-void BasicBlock::clear() {
-  labelId = 0;
-  instructions.clear();
 }
 
 void BasicBlock::appendInstruction(Instruction &&inst) {
@@ -295,9 +341,7 @@ void BasicBlock::prependInstruction(Instruction &&inst) {
   instructions.push_front(std::move(inst));
 }
 
-Function::Function()
-    : resultType(0), resultId(0),
-      funcControl(spv::FunctionControlMask::MaskNone), funcType(0) {}
+// === Function inline implementations ===
 
 Function::Function(uint32_t rType, uint32_t rId,
                    spv::FunctionControlMask control, uint32_t fType)
@@ -317,6 +361,8 @@ void Function::addBasicBlock(std::unique_ptr<BasicBlock> block) {
   blocks.push_back(std::move(block));
 }
 
+// === Module components inline implementations ===
+
 ExtInstSet::ExtInstSet(uint32_t id, std::string name)
     : resultId(id), setName(name) {}
 
@@ -334,6 +380,8 @@ DecorationIdPair::DecorationIdPair(const Decoration &decor, uint32_t id)
 
 TypeIdPair::TypeIdPair(const Type &ty, uint32_t id) : type(ty), resultId(id) {}
 
+// === Module inline implementations ===
+
 SPIRVModule::SPIRVModule()
     : addressingModel(llvm::None), memoryModel(llvm::None) {}
 
@@ -342,45 +390,57 @@ void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
 void SPIRVModule::addCapability(spv::Capability cap) {
   capabilities.push_back(cap);
 }
+
 void SPIRVModule::addExtension(std::string ext) {
   extensions.push_back(std::move(ext));
 }
+
 void SPIRVModule::addExtInstSet(uint32_t setId, std::string extInstSet) {
   extInstSets.emplace_back(setId, extInstSet);
 }
+
 void SPIRVModule::setAddressingModel(spv::AddressingModel am) {
   addressingModel = llvm::Optional<spv::AddressingModel>(am);
 }
+
 void SPIRVModule::setMemoryModel(spv::MemoryModel mm) {
   memoryModel = llvm::Optional<spv::MemoryModel>(mm);
 }
+
 void SPIRVModule::addEntryPoint(spv::ExecutionModel em, uint32_t targetId,
                                 std::string name,
                                 llvm::ArrayRef<uint32_t> interfaces) {
   entryPoints.emplace_back(em, targetId, std::move(name), interfaces);
 }
+
 void SPIRVModule::addExecutionMode(Instruction &&execMode) {
   executionModes.push_back(std::move(execMode));
 }
+
 void SPIRVModule::addDebugName(uint32_t targetId, llvm::StringRef name,
                                llvm::Optional<uint32_t> memberIndex) {
   if (!name.empty()) {
     debugNames.emplace_back(targetId, name, memberIndex);
   }
 }
+
 void SPIRVModule::addDecoration(const Decoration &decoration,
                                 uint32_t targetId) {
   decorations.emplace_back(decoration, targetId);
 }
+
 void SPIRVModule::addType(const Type *type, uint32_t resultId) {
   types.insert(std::make_pair(type, resultId));
 }
+
 void SPIRVModule::addConstant(const Constant *constant, uint32_t resultId) {
   constants.insert(std::make_pair(constant, resultId));
 };
+
 void SPIRVModule::addVariable(Instruction &&var) {
   variables.push_back(std::move(var));
 }
+
 void SPIRVModule::addFunction(std::unique_ptr<Function> f) {
   functions.push_back(std::move(f));
 }
