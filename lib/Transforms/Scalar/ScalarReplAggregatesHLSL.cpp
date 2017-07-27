@@ -5862,7 +5862,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     funcDI->replaceFunction(flatF);
 
   // Create FunctionAnnotation for flatF.
-  DxilFunctionAnnotation *flatFuncAnnotation = m_pHLModule->AddFunctionAnnotation(flatF);
+  DxilFunctionAnnotation *flatFuncAnnotation = m_pHLModule->AddFunctionAnnotationWithFPDenormMode(flatF, m_pHLModule->GetFPDenormMode());
   
   // Don't need to set Ret Info, flatF always return void now.
 

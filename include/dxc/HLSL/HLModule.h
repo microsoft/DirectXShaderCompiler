@@ -128,11 +128,16 @@ public:
 
   DxilFunctionAnnotation *GetFunctionAnnotation(llvm::Function *F);
   DxilFunctionAnnotation *AddFunctionAnnotation(llvm::Function *F);
+  DxilFunctionAnnotation *AddFunctionAnnotationWithFPDenormMode(llvm::Function *F, DXIL::FPDenormMode mode);
 
   void AddResourceTypeAnnotation(llvm::Type *Ty, DXIL::ResourceClass resClass,
                                  DXIL::ResourceKind kind);
   DXIL::ResourceClass GetResourceClass(llvm::Type *Ty);
   DXIL::ResourceKind  GetResourceKind(llvm::Type *Ty);
+
+  // Float Denorm mode.
+  void SetFPDenormMode(const DXIL::FPDenormMode mode);
+  DXIL::FPDenormMode GetFPDenormMode() const;
 
   // HLDXIR metadata manipulation.
   /// Serialize HLDXIR in-memory form to metadata form.
@@ -249,6 +254,7 @@ private:
   unsigned m_DxilMinor;
   unsigned m_ValMajor;
   unsigned m_ValMinor;
+  DXIL::FPDenormMode m_FPDenormMode;
   HLOptions m_Options;
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;

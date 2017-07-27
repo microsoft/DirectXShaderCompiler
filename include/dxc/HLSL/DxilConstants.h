@@ -209,6 +209,21 @@ namespace DXIL {
   };
   // PackingKind-ENUM:END
 
+  /* <py::lines('FPDenormMode-ENUM')>hctdb_instrhelp.get_enum_decl("FPDenormMode", hide_val=False, sort_val=False)</py>*/
+  // FPDenormMode-ENUM:BEGIN
+  // Floating point behavior
+  enum class FPDenormMode : unsigned {
+    Any = 0, // Undefined behavior for denormal numbers
+    Preserve = 1, // Preserve both input and output
+    FTZ = 2, // Preserve denormal inputs. Flush denorm outputs
+    Reserve3 = 3, // Reserved Value. Not used for now
+    Reserve4 = 4, // Reserved Value. Not used for now
+    Reserve5 = 5, // Reserved Value. Not used for now
+    Reserve6 = 6, // Reserved Value. Not used for now
+    Reserve7 = 7, // Reserved Value. Not used for now
+  };
+  // FPDenormMode-ENUM:END
+
   enum class PackingStrategy : unsigned {
     Default = 0, // Choose default packing algorithm based on target (currently PrefixStable)
     PrefixStable, // Maintain assumption that all elements are packed in order and stable as new elements are added.

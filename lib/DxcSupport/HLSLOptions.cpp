@@ -17,6 +17,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "dxc/HLSL/DxilShaderModel.h"
 
 using namespace llvm::opt;
 using namespace dxc;
@@ -297,7 +298,23 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   opts.IEEEStrict = Args.hasFlag(OPT_Gis, OPT_INVALID, false);
-  
+
+  opts.FPDenormalMode = Args.getLastArgValue(OPT_denorm);
+  // Check if a given denormalized value is valid
+  if (!opts.FPDenormalMode.empty()) {
+    if (!(opts.FPDenormalMode.equals_lower("preserve") ||
+          opts.FPDenormalMode.equals_lower("ftz") ||
+          opts.FPDenormalMode.equals_lower("any"))) {
+      errors << "Unsupported value '" << opts.FPDenormalMode
+          << "' for denorm option.";
+      return 1;
+    }
+    if (opts.TargetProfile.empty() || !opts.TargetProfile.endswith_lower("6_2")) {
+      errors << "denorm option is only allowed for shader model 6.2 and above.";
+      return 1;
+    }
+  }
+
   if (Arg *A = Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3)) {
     if (A->getOption().matches(OPT_O0))
       opts.OptLevel = 0;

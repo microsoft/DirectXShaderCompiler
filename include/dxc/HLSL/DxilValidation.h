@@ -127,6 +127,7 @@ enum class ValidationRule : unsigned {
   MetaDenseResIDs, // Resource identifiers must be zero-based and dense
   MetaDuplicateSysValue, // System value may only appear once in signature
   MetaEntryFunction, // entrypoint not found
+  MetaFPFlag, // Invalid funciton floating point flag.
   MetaFlagsUsage, // Flags must match usage
   MetaForceCaseOnSwitch, // Attribute forcecase only works for switch
   MetaFunctionAnnotation, // Cannot find function annotation for %0
