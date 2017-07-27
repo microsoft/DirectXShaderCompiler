@@ -13,6 +13,7 @@
 #include "dxc/HLSL/HLMatrixLowerPass.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/DxilOperations.h"
@@ -177,8 +178,8 @@ public:
     }
     std::vector<GlobalVariable*> staticGVs;
     for (GlobalVariable &GV : M.globals()) {
-      if (HLModule::IsStaticGlobal(&GV) ||
-          HLModule::IsSharedMemoryGlobal(&GV)) {
+      if (dxilutil::IsStaticGlobal(&GV) ||
+          dxilutil::IsSharedMemoryGlobal(&GV)) {
         staticGVs.emplace_back(&GV);
       }
     }

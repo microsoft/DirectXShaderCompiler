@@ -618,6 +618,8 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   legacy::PassManager PM;
 
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
+  // mem2reg.
+  PM.add(createPromoteMemoryToRegisterPass());
   // Remove unused functions.
   PM.add(createDeadCodeEliminationPass());
   PM.add(createGlobalDCEPass());

@@ -17,6 +17,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
@@ -1437,6 +1438,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       dxilInputQ = DxilParamInputQual::Inout;
     else if (parmDecl->hasAttr<HLSLOutAttr>())
       dxilInputQ = DxilParamInputQual::Out;
+    if (parmDecl->hasAttr<HLSLOutAttr>() && parmDecl->hasAttr<HLSLInAttr>())
+      dxilInputQ = DxilParamInputQual::Inout;
 
     DXIL::InputPrimitive inputPrimitive = DXIL::InputPrimitive::Undefined;
 
@@ -3807,7 +3810,7 @@ static void SimpleTransformForHLDXIR(llvm::Module *pM) {
   deadInsts.clear();
 
   for (GlobalVariable &GV : pM->globals()) {
-    if (HLModule::IsStaticGlobal(&GV)) {
+    if (dxilutil::IsStaticGlobal(&GV)) {
       for (User *U : GV.users()) {
         if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(U)) {
           SimplifyBitCast(BCO, deadInsts);
@@ -5627,8 +5630,8 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
     return;
-  } else if (HLModule::IsHLSLObjectType(HLModule::GetArrayEltTy(SrcPtrTy)) &&
-             HLModule::IsHLSLObjectType(HLModule::GetArrayEltTy(DestPtrTy))) {
+  } else if (HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
+             HLModule::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
     unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);
@@ -5844,17 +5847,34 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
   // Special case: skip first argument of CXXOperatorCall (it is "this").
   unsigned ArgsToSkip = isa<CXXOperatorCallExpr>(E) ? 1 : 0;
-
   for (uint32_t i = 0; i < FD->getNumParams(); i++) {
     const ParmVarDecl *Param = FD->getParamDecl(i);
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
 
-    if (!Param->isModifierOut())
-      continue;
+    if (!Param->isModifierOut()) {
+      if (!ParamTy->isAggregateType() || hlsl::IsHLSLMatType(ParamTy))
+        continue;
+    }
 
     // get original arg
     LValue argLV = CGF.EmitLValue(Arg);
+
+    if (!Param->isModifierOut()) {
+      bool isDefaultAddrSpace = true;
+      if (argLV.isSimple()) {
+        isDefaultAddrSpace =
+            argLV.getAddress()->getType()->getPointerAddressSpace() ==
+            DXIL::kDefaultAddrSpace;
+      }
+      bool isHLSLIntrinsic = false;
+      if (const FunctionDecl *Callee = E->getDirectCallee()) {
+        isHLSLIntrinsic = Callee->hasAttr<HLSLIntrinsicAttr>();
+      }
+      // Copy in arg which is not default address space and not on hlsl intrinsic.
+      if (isDefaultAddrSpace || isHLSLIntrinsic)
+        continue;
+    }
 
     // create temp Var
     VarDecl *tmpArg =
@@ -5899,8 +5919,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                                     CGF.getContext());
 
     // save for cast after call
-    castArgList.emplace_back(tmpLV);
-    castArgList.emplace_back(argLV);
+    if (Param->isModifierOut()) {
+      castArgList.emplace_back(tmpLV);
+      castArgList.emplace_back(argLV);
+    }
 
     bool isObject = HLModule::IsHLSLObjectType(
         tmpArgAddr->getType()->getPointerElementType());

@@ -178,8 +178,7 @@ public:
         theBuilder.setInsertPoint(entryLabel);
 
         // Process all statments in the body.
-        for (Stmt *stmt : cast<CompoundStmt>(decl->getBody())->body())
-          doStmt(stmt);
+        doStmt(decl->getBody());
 
         // We have processed all Stmts in this function and now in the last
         // basic block. Make sure we have OpReturn if missing.
@@ -230,14 +229,23 @@ public:
     }
   }
 
-  void doStmt(Stmt *stmt) {
-    if (auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
+  void doStmt(const Stmt *stmt) {
+    if (const auto *compoundStmt = dyn_cast<CompoundStmt>(stmt)) {
+      for (auto *st : compoundStmt->body())
+        doStmt(st);
+    } else if (const auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
       doReturnStmt(retStmt);
-    } else if (auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
+    } else if (const auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
       for (auto *decl : declStmt->decls()) {
         doDecl(decl);
       }
-    } else if (auto *expr = dyn_cast<Expr>(stmt)) {
+    } else if (const auto *ifStmt = dyn_cast<IfStmt>(stmt)) {
+      doIfStmt(ifStmt);
+    } else if (const auto *forStmt = dyn_cast<ForStmt>(stmt)) {
+      doForStmt(forStmt);
+    } else if (const auto *nullStmt = dyn_cast<NullStmt>(stmt)) {
+      // For the null statement ";". We don't need to do anything.
+    } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
       // All cases for expressions used as statements
       doExpr(expr);
     } else {
@@ -245,7 +253,7 @@ public:
     }
   }
 
-  void doReturnStmt(ReturnStmt *stmt) {
+  void doReturnStmt(const ReturnStmt *stmt) {
     // For normal functions, just return in the normal way.
     if (curFunction->getName() != entryFunctionName) {
       theBuilder.createReturnValue(doExpr(stmt->getRetValue()));
@@ -307,12 +315,151 @@ public:
     }
   }
 
+  void doIfStmt(const IfStmt *ifStmt) {
+    // if statements are composed of:
+    //   if (<check>) { <then> } else { <else> }
+    //
+    // To translate if statements, we'll need to emit the <check> expressions
+    // in the current basic block, and then create separate basic blocks for
+    // <then> and <else>. Additionally, we'll need a <merge> block as per
+    // SPIR-V's structured control flow requirements. Depending whether there
+    // exists the else branch, the final CFG should normally be like the
+    // following. Exceptions will occur with non-local exits like loop breaks
+    // or early returns.
+    //             +-------+                        +-------+
+    //             | check |                        | check |
+    //             +-------+                        +-------+
+    //                 |                                |
+    //         +-------+-------+                  +-----+-----+
+    //         | true          | false            | true      | false
+    //         v               v         or       v           |
+    //     +------+         +------+           +------+       |
+    //     | then |         | else |           | then |       |
+    //     +------+         +------+           +------+       |
+    //         |               |                  |           v
+    //         |   +-------+   |                  |     +-------+
+    //         +-> | merge | <-+                  +---> | merge |
+    //             +-------+                            +-------+
+
+    // First emit the instruction for evaluating the condition.
+    const uint32_t condition = doExpr(ifStmt->getCond());
+
+    // Then we need to emit the instruction for the conditional branch.
+    // We'll need the <label-id> for the then/else/merge block to do so.
+    const bool hasElse = ifStmt->getElse() != nullptr;
+    const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
+    const uint32_t elseBB = hasElse ? theBuilder.createBasicBlock("if.false")
+                                    : theBuilder.createBasicBlock("if.merge");
+    const uint32_t mergeBB =
+        hasElse ? theBuilder.createBasicBlock("if.merge") : elseBB;
+
+    // Create the branch instruction. This will end the current basic block.
+    theBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB);
+
+    // Handle the then branch
+    theBuilder.setInsertPoint(thenBB);
+    doStmt(ifStmt->getThen());
+    if (!theBuilder.isCurrentBasicBlockTerminated())
+      theBuilder.createBranch(mergeBB);
+
+    // Handle the else branch (if exists)
+    if (hasElse) {
+      theBuilder.setInsertPoint(elseBB);
+      doStmt(ifStmt->getElse());
+      if (!theBuilder.isCurrentBasicBlockTerminated())
+        theBuilder.createBranch(mergeBB);
+    }
+
+    // From now on, we'll emit instructions into the merge block.
+    theBuilder.setInsertPoint(mergeBB);
+  }
+
+  void doForStmt(const ForStmt *forStmt) {
+    // for loops are composed of:
+    //   for (<init>; <check>; <continue>) <body>
+    //
+    // To translate a for loop, we'll need to emit all <init> statements
+    // in the current basic block, and then have separate basic blocks for
+    // <check>, <continue>, and <body>. Besides, since SPIR-V requires
+    // structured control flow, we need two more basic blocks, <header>
+    // and <merge>. <header> is the block before control flow diverges,
+    // while <merge> is the block where control flow subsequently converges.
+    // The <check> block can take the responsibility of the <header> block.
+    // The final CFG should normally be like the following. Exceptions will
+    // occur with non-local exits like loop breaks or early returns.
+    //             +--------+
+    //             |  init  |
+    //             +--------+
+    //                 |
+    //                 v
+    //            +----------+
+    //            |  header  | <---------------+
+    //            | (check)  |                 |
+    //            +----------+                 |
+    //                 |                       |
+    //         +-------+-------+               |
+    //         | false         | true          |
+    //         |               v               |
+    //         |            +------+     +----------+
+    //         |            | body | --> | continue |
+    //         v            +------+     +----------+
+    //     +-------+
+    //     | merge |
+    //     +-------+
+    //
+    // For more details, see "2.11. Structured Control Flow" in the SPIR-V spec.
+
+    // Create basic blocks
+    const uint32_t checkBB = theBuilder.createBasicBlock("for.check");
+    const uint32_t bodyBB = theBuilder.createBasicBlock("for.body");
+    const uint32_t continueBB = theBuilder.createBasicBlock("for.continue");
+    const uint32_t mergeBB = theBuilder.createBasicBlock("for.merge");
+
+    // Process the <init> block
+    if (const Stmt *initStmt = forStmt->getInit()) {
+      doStmt(initStmt);
+    }
+    theBuilder.createBranch(checkBB);
+
+    // Process the <check> block
+    theBuilder.setInsertPoint(checkBB);
+    uint32_t condition;
+    if (const Expr *check = forStmt->getCond()) {
+      condition = doExpr(check);
+    } else {
+      condition = theBuilder.getConstantBool(true);
+    }
+    theBuilder.createConditionalBranch(condition, bodyBB,
+                                       /*false branch*/ mergeBB,
+                                       /*merge*/ mergeBB, continueBB);
+
+    // Process the <body> block
+    theBuilder.setInsertPoint(bodyBB);
+    if (const Stmt *body = forStmt->getBody()) {
+      doStmt(body);
+    }
+    theBuilder.createBranch(continueBB);
+
+    // Process the <continue> block
+    theBuilder.setInsertPoint(continueBB);
+    if (const Expr *cont = forStmt->getInc()) {
+      doExpr(cont);
+    }
+    theBuilder.createBranch(checkBB); // <continue> should jump back to header
+
+    // Set insertion point to the <merge> block for subsequent statements
+    theBuilder.setInsertPoint(mergeBB);
+  }
+
   uint32_t doExpr(const Expr *expr) {
     if (auto *delRefExpr = dyn_cast<DeclRefExpr>(expr)) {
       // Returns the <result-id> of the referenced Decl.
       const NamedDecl *referredDecl = delRefExpr->getFoundDecl();
       assert(referredDecl && "found non-NamedDecl referenced");
       return declIdMapper.getDeclResultId(referredDecl);
+    } else if (auto *parenExpr = dyn_cast<ParenExpr>(expr)) {
+      // Just need to return what's inside the parentheses.
+      return doExpr(parenExpr->getSubExpr());
     } else if (auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
       const uint32_t base = doExpr(memberExpr->getBase());
       auto *memberDecl = memberExpr->getMemberDecl();
@@ -363,6 +510,8 @@ public:
       return translateAPFloat(floatLiteral->getValue(), expr->getType());
     } else if (auto *binOp = dyn_cast<BinaryOperator>(expr)) {
       return doBinaryOperator(binOp);
+    } else if (auto *unaryOp = dyn_cast<UnaryOperator>(expr)) {
+      return doUnaryOperator(unaryOp);
     }
 
     emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
@@ -394,7 +543,8 @@ public:
     case BO_Sub:
     case BO_Mul:
     case BO_Div:
-    case BO_Rem: {
+    case BO_Rem:
+    case BO_LT: {
       const spv::Op spvOp = translateOp(opcode, elemType);
       return theBuilder.createBinaryOp(spvOp, typeId, lhs, rhs);
     }
@@ -406,6 +556,33 @@ public:
     }
 
     emitError("BinaryOperator '%0' is not supported yet.") << opcode;
+    expr->dump();
+    return 0;
+  }
+
+  uint32_t doUnaryOperator(const UnaryOperator *expr) {
+    const auto opcode = expr->getOpcode();
+    const auto *subExpr = expr->getSubExpr();
+    const auto subType = subExpr->getType();
+    const auto subValue = doExpr(subExpr);
+    const auto subTypeId = typeTranslator.translateType(subType);
+
+    switch (opcode) {
+    case UO_PreInc: {
+      const spv::Op spvOp = translateOp(BO_Add, subType);
+      const uint32_t one = getValueOne(subType);
+      const uint32_t originValue = theBuilder.createLoad(subTypeId, subValue);
+      const uint32_t incValue =
+          theBuilder.createBinaryOp(spvOp, subTypeId, originValue, one);
+      theBuilder.createStore(subValue, incValue);
+      // Prefix increment operator returns a lvalue.
+      return subValue;
+    }
+    default:
+      break;
+    }
+
+    emitError("unary operator '%0' unimplemented yet") << opcode;
     expr->dump();
     return 0;
   }
@@ -444,6 +621,8 @@ public:
     }
   }
 
+  /// Translates the given frontend binary operator into its SPIR-V equivalent
+  /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type) {
     // TODO: the following is not considering vector types yet.
     const bool isSintType = type->isSignedIntegerType();
@@ -497,6 +676,7 @@ case BO_##kind : {                                                             \
       //
       // Note there is no OpURem in SPIR-V.
       BIN_OP_CASE_SINT_UINT_FLOAT(Rem, SRem, UMod, FRem);
+      BIN_OP_CASE_SINT_UINT_FLOAT(LT, SLessThan, ULessThan, FOrdLessThan);
     default:
       break;
     }
@@ -508,6 +688,26 @@ case BO_##kind : {                                                             \
     return spv::Op::OpNop;
   }
 
+  /// Returns the <result-id> for constant value 1 of the given type.
+  uint32_t getValueOne(QualType type) {
+    if (type->isSignedIntegerType()) {
+      return theBuilder.getConstantInt32(1);
+    }
+
+    if (type->isUnsignedIntegerType()) {
+      return theBuilder.getConstantUint32(1);
+    }
+
+    if (type->isFloatingType()) {
+      return theBuilder.getConstantFloat32(1.0);
+    }
+
+    emitError("getting value 1 for type '%0' unimplemented") << type;
+    return 0;
+  }
+
+  /// Translates the given frontend APValue into its SPIR-V equivalent for the
+  /// given targetType.
   uint32_t translateAPValue(const APValue &value, const QualType targetType) {
     if (targetType->isBooleanType()) {
       const bool boolValue = value.getInt().getBoolValue();
@@ -528,6 +728,8 @@ case BO_##kind : {                                                             \
     return 0;
   }
 
+  /// Translates the given frontend APInt into its SPIR-V equivalent for the
+  /// given targetType.
   uint32_t translateAPInt(const llvm::APInt &intValue, QualType targetType) {
     const auto bitwidth = astContext.getIntWidth(targetType);
 
@@ -554,6 +756,8 @@ case BO_##kind : {                                                             \
     return 0;
   }
 
+  /// Translates the given frontend APFloat into its SPIR-V equivalent for the
+  /// given targetType.
   uint32_t translateAPFloat(const llvm::APFloat &floatValue,
                             QualType targetType) {
     const auto &semantics = astContext.getFloatTypeSemantics(targetType);

@@ -286,6 +286,8 @@ unsigned OP::GetTypeSlot(Type *pType) {
     case 64:              return 8;
     }
   }
+  default:
+    break;
   }
   return UINT_MAX;
 }

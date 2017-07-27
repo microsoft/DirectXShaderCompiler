@@ -13,6 +13,7 @@
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/DxilUtil.h"
 #include "dxc/HLSL/HLOperationLower.h"
 #include "dxc/HLSL/HLOperationLowerExtension.h"
 #include "dxc/HLSL/HLOperations.h"
@@ -4614,7 +4615,7 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
       } else {
         DXASSERT(fieldAnnotation, "must be a field");
         if (ArrayType *AT = dyn_cast<ArrayType>(EltTy)) {
-          unsigned EltSize = HLModule::GetLegacyCBufferFieldElementSize(
+          unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
               *fieldAnnotation, EltTy, dxilTypeSys);
 
           // Decide the nested array size.
@@ -4651,7 +4652,7 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
       offset = Builder.CreateAdd(offset, hlslOP->GetU32Const(structOffset));
     } else if (GEPIt->isArrayTy()) {
       DXASSERT(fieldAnnotation != nullptr, "must a field");
-      unsigned EltSize = HLModule::GetLegacyCBufferFieldElementSize(
+      unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
               *fieldAnnotation, *GEPIt, dxilTypeSys);
       // Decide the nested array size.
       unsigned nestedArraySize = 1;
@@ -5103,7 +5104,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
       } else {
         DXASSERT(fieldAnnotation, "must be a field");
         if (ArrayType *AT = dyn_cast<ArrayType>(EltTy)) {
-          unsigned EltSize = HLModule::GetLegacyCBufferFieldElementSize(
+          unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
               *fieldAnnotation, EltTy, dxilTypeSys);
 
           // Decide the nested array size.
@@ -5154,7 +5155,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         legacyIndex = Builder.CreateAdd(legacyIndex, hlslOP->GetU32Const(idxInc));
     } else if (GEPIt->isArrayTy()) {
       DXASSERT(fieldAnnotation != nullptr, "must a field");
-      unsigned EltSize = HLModule::GetLegacyCBufferFieldElementSize(
+      unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
               *fieldAnnotation, *GEPIt, dxilTypeSys);
       // Decide the nested array size.
       unsigned nestedArraySize = 1;
@@ -5883,8 +5884,6 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     // should only used by GEP
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);
     Type *Ty = GEP->getType()->getPointerElementType();
-    DXASSERT_LOCALVAR(Ty, !Ty->isStructTy() || HLMatrixLower::IsMatrixType(Ty),
-             "should be flattened");
 
     Value *offset = GEPIdxToOffset(GEP, Builder, OP, DL);
     DXASSERT(offset->getType() == Type::getInt32Ty(Ty->getContext()),
