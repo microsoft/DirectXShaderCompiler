@@ -432,6 +432,7 @@ public:
   TEST_METHOD(PixConstantColorOtherSIVs)
   TEST_METHOD(PixConstantColorFromCB)
   TEST_METHOD(PixConstantColorFromCBint)
+  TEST_METHOD(PixForceEarlyZ)
 
   TEST_METHOD(CodeGenAbs1)
   TEST_METHOD(CodeGenAbs2)
@@ -2770,6 +2771,10 @@ TEST_F(CompilerTest, PixConstantColorFromCB) {
 
 TEST_F(CompilerTest, PixConstantColorFromCBint) {
   CodeGenTestCheck(L"pix\\constantcolorFromCBint.hlsl");
+}
+
+TEST_F(CompilerTest, PixForceEarlyZ) {
+  CodeGenTestCheck(L"pix\\forceEarlyZ.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenAbs1) {
