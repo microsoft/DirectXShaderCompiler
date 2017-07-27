@@ -5886,7 +5886,7 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     Type *Ty = GEP->getType()->getPointerElementType();
 
     Value *offset = GEPIdxToOffset(GEP, Builder, OP, DL);
-    DXASSERT(offset->getType() == Type::getInt32Ty(Ty->getContext()),
+    DXASSERT_LOCALVAR(Ty, offset->getType() == Type::getInt32Ty(Ty->getContext()),
              "else bitness is wrong");
     if (baseOffset)
       offset = Builder.CreateAdd(offset, baseOffset);

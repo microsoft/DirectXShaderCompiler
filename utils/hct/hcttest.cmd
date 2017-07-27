@@ -313,7 +313,7 @@ echo.
 echo options:
 echo   -clean - deletes test directory before copying binaries and testing
 echo   -ninja - artifacts were built using the Ninja generator
-echo   -rel   - builds release rather than debug
+echo   -rel   - tests release rather than debug
 echo   -adapter "adapter name" - overrides Adapter for execution tests
 echo   -verbose - for TAEF: turns off /parallel and removes logging filter
 echo.
