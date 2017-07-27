@@ -524,6 +524,14 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+
+rem When dxil.dll is present, skip /Tps_6_2 for old validators
+if exist dxil.dll (
+  echo Skipping /Fd with trailing backslash when dxil.dll is present.
+  echo A future dxil.dll will provide this information.
+  goto :skipdenorm
+)
+
 echo Test for denorm options ...
 dxc.exe smoke.hlsl /Tps_6_2 /denorm preserve 1>nul
 if %errorlevel% neq 0 (
@@ -553,6 +561,7 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
+:skipdenorm
 call :cleanup
 exit /b 0
 
