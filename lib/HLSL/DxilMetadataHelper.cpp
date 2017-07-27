@@ -998,6 +998,8 @@ Function *DxilMDHelper::LoadDxilFunctionProps(MDTuple *pProps,
     props->ShaderProps.PS.EarlyDepthStencil =
         ConstMDToUint32(pProps->getOperand(idx++));
     break;
+  default:
+    break;
   }
   return F;
 }
@@ -1046,6 +1048,8 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
     break;
   case DXIL::ShaderKind::Pixel:
     MDVals[valIdx++] = BoolToConstMD(props->ShaderProps.PS.EarlyDepthStencil);
+    break;
+  default:
     break;
   }
   return MDTuple::get(m_Ctx, ArrayRef<llvm::Metadata *>(MDVals, valIdx));
