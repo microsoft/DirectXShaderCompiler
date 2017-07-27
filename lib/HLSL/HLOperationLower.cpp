@@ -5884,8 +5884,6 @@ void TranslateStructBufSubscriptUser(Instruction *user, Value *handle,
     // should only used by GEP
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(user);
     Type *Ty = GEP->getType()->getPointerElementType();
-    DXASSERT_LOCALVAR(Ty, !Ty->isStructTy() || HLMatrixLower::IsMatrixType(Ty),
-             "should be flattened");
 
     Value *offset = GEPIdxToOffset(GEP, Builder, OP, DL);
     DXASSERT(offset->getType() == Type::getInt32Ty(Ty->getContext()),
