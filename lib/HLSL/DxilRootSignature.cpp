@@ -597,6 +597,8 @@ static DxilDescriptorRangeType GetRangeType(DxilRootParameterType RPT) {
   case DxilRootParameterType::CBV: return DxilDescriptorRangeType::CBV;
   case DxilRootParameterType::SRV: return DxilDescriptorRangeType::SRV;
   case DxilRootParameterType::UAV: return DxilDescriptorRangeType::UAV;
+  default:
+    break;
   }
 
   DXASSERT_NOMSG(false);
@@ -796,6 +798,8 @@ void RootSignatureVerifier::VerifyShader(DxilShaderVisibility VisType,
     if ((m_RootSignatureFlags & DxilRootSignatureFlags::DenyPixelShaderRootAccess) != DxilRootSignatureFlags::None) {
       bShaderDeniedByRootSig = true;
     }
+    break;
+  default:
     break;
   }
 

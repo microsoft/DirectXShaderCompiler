@@ -89,6 +89,8 @@ static bool ShouldBeAllocated(const DxilSignatureElement *SE) {
   case DXIL::SemanticInterpretationKind::NotPacked:
   case DXIL::SemanticInterpretationKind::Shadow:
     return false;
+  default:
+    break;
   }
   return true;
 }

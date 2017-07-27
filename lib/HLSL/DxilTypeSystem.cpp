@@ -334,6 +334,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
       return DXIL::SigPointKind::VSIn;
     case DxilParamInputQual::Out:
       return DXIL::SigPointKind::VSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Hull:
@@ -352,6 +354,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
       return DXIL::SigPointKind::HSCPIn;
     case DxilParamInputQual::OutputPatch:
       return DXIL::SigPointKind::HSCPOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Domain:
@@ -363,6 +367,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
     case DxilParamInputQual::InputPatch:
     case DxilParamInputQual::OutputPatch:
       return DXIL::SigPointKind::DSCPIn;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Geometry:
@@ -376,6 +382,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
     case DxilParamInputQual::OutStream2:
     case DxilParamInputQual::OutStream3:
       return DXIL::SigPointKind::GSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Pixel:
@@ -384,13 +392,19 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
       return DXIL::SigPointKind::PSIn;
     case DxilParamInputQual::Out:
       return DXIL::SigPointKind::PSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Compute:
     switch (Q) {
     case DxilParamInputQual::In:
       return DXIL::SigPointKind::CSIn;
+    default:
+      break;
     }
+    break;
+  default:
     break;
   }
   return DXIL::SigPointKind::Invalid;

@@ -145,6 +145,8 @@ DXIL::SigPointKind SigPoint::GetKind(DXIL::ShaderKind shaderKind, DXIL::Signatur
     case DXIL::ShaderKind::Geometry:
       if (sigKind == DXIL::SignatureKind::Input)
         return DXIL::SigPointKind::GSIn;
+    default:
+      break;
     }
   }
 
@@ -153,6 +155,8 @@ DXIL::SigPointKind SigPoint::GetKind(DXIL::ShaderKind shaderKind, DXIL::Signatur
     switch (sigKind) {
     case DXIL::SignatureKind::Input: return DXIL::SigPointKind::VSIn;
     case DXIL::SignatureKind::Output: return DXIL::SigPointKind::VSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Hull:
@@ -160,6 +164,8 @@ DXIL::SigPointKind SigPoint::GetKind(DXIL::ShaderKind shaderKind, DXIL::Signatur
     case DXIL::SignatureKind::Input: return DXIL::SigPointKind::HSCPIn;
     case DXIL::SignatureKind::Output: return DXIL::SigPointKind::HSCPOut;
     case DXIL::SignatureKind::PatchConstant: return DXIL::SigPointKind::PCOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Domain:
@@ -167,24 +173,34 @@ DXIL::SigPointKind SigPoint::GetKind(DXIL::ShaderKind shaderKind, DXIL::Signatur
     case DXIL::SignatureKind::Input: return DXIL::SigPointKind::DSCPIn;
     case DXIL::SignatureKind::Output: return DXIL::SigPointKind::DSOut;
     case DXIL::SignatureKind::PatchConstant: return DXIL::SigPointKind::DSIn;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Geometry:
     switch (sigKind) {
     case DXIL::SignatureKind::Input: return DXIL::SigPointKind::GSVIn;
     case DXIL::SignatureKind::Output: return DXIL::SigPointKind::GSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Pixel:
     switch (sigKind) {
     case DXIL::SignatureKind::Input: return DXIL::SigPointKind::PSIn;
     case DXIL::SignatureKind::Output: return DXIL::SigPointKind::PSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Compute:
     switch (sigKind) {
     case DXIL::SignatureKind::Input: return DXIL::SigPointKind::CSIn;
+    default:
+      break;
     }
+    break;
+  default:
     break;
   }
 
