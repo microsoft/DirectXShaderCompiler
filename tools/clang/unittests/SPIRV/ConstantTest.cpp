@@ -262,4 +262,18 @@ TEST(Constant, DecoratedSpecComposite) {
   EXPECT_THAT(c->getDecorations(), ElementsAre(d));
 }
 
+TEST(Constant, ConstantsWithSameBitPatternButDifferentTypeIdAreNotEqual) {
+  SPIRVContext ctx;
+
+  const Constant *int1 = Constant::getInt32(ctx, /*type_id*/ 1, 0);
+  const Constant *uint1 = Constant::getUint32(ctx, /*type_id*/ 2, 0);
+  const Constant *float1 = Constant::getFloat32(ctx, /*type_id*/ 3, 0);
+  const Constant *anotherInt1 = Constant::getInt32(ctx, /*type_id*/ 4, 0);
+
+  EXPECT_FALSE(*int1 == *uint1);
+  EXPECT_FALSE(*int1 == *float1);
+  EXPECT_FALSE(*uint1 == *float1);
+  EXPECT_FALSE(*int1 == *anotherInt1);
+}
+
 } // anonymous namespace

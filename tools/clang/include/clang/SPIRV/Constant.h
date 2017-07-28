@@ -95,8 +95,8 @@ public:
                                           DecorationSet dec = {});
 
   bool operator==(const Constant &other) const {
-    return opcode == other.opcode && args == other.args &&
-           decorations == other.decorations;
+    return opcode == other.opcode && typeId == other.typeId &&
+           args == other.args && decorations == other.decorations;
   }
 
   // \brief Construct the SPIR-V words for this constant with the given
