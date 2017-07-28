@@ -86,6 +86,7 @@ public:
   void SetEntryFunction(llvm::Function *pEntryFunc);
   const std::string &GetEntryFunctionName() const;
   void SetEntryFunctionName(const std::string &name);
+  llvm::Function *GetPatchConstantFunction();
 
   // Resources.
   unsigned AddCBuffer(std::unique_ptr<DxilCBuffer> pCB);

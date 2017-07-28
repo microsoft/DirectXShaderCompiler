@@ -211,7 +211,7 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
   }
 
   if (!NoOpt) {
-    MPM.add(createDxilDeadFunctionEliminationPass());
+    MPM.add(createHLDeadFunctionEliminationPass());
   }
 
   // Split struct and array of parameter.

@@ -112,19 +112,8 @@ public:
       Function *EntryFunc = DM.GetEntryFunction();
       Function *PatchConstantFunc = DM.GetPatchConstantFunction();
 
-      std::vector<Function *> deadList;
-      for (iplist<Function>::iterator F : M.getFunctionList()) {
-        if (&(*F) == EntryFunc || &(*F) == PatchConstantFunc)
-          continue;
-        if (F->isDeclaration() || !IsLib) {
-          if (F->user_empty())
-            deadList.emplace_back(F);
-        }
-      }
-      bool bUpdated = deadList.size();
-      for (Function *F : deadList)
-        F->eraseFromParent();
-      return bUpdated;
+      return dxilutil::RemoveUnusedFunctions(M, EntryFunc, PatchConstantFunc,
+                                             IsLib);
     }
 
     return false;

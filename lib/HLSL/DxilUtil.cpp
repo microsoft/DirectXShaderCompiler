@@ -13,6 +13,7 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilUtil.h"
+#include "llvm/IR/Module.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -80,6 +81,22 @@ bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV) {
   return GV->getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace;
 }
 
+bool RemoveUnusedFunctions(Module &M, Function *EntryFunc,
+                           Function *PatchConstantFunc, bool IsLib) {
+  std::vector<Function *> deadList;
+  for (auto &F : M.functions()) {
+    if (&F == EntryFunc || &F == PatchConstantFunc)
+      continue;
+    if (F.isDeclaration() || !IsLib) {
+      if (F.user_empty())
+        deadList.emplace_back(&F);
+    }
+  }
+  bool bUpdated = deadList.size();
+  for (Function *F : deadList)
+    F->eraseFromParent();
+  return bUpdated;
+}
 }
 
 }
