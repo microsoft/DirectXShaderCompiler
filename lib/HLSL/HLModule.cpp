@@ -128,6 +128,15 @@ Function *HLModule::GetEntryFunction() const {
   return m_pEntryFunc;
 }
 
+Function *HLModule::GetPatchConstantFunction() {
+  if (!m_pSM->IsHS())
+    return nullptr;
+  if (!m_pEntryFunc)
+    return nullptr;
+  DxilFunctionProps &funcProps = GetDxilFunctionProps(m_pEntryFunc);
+  return funcProps.ShaderProps.HS.patchConstantFunc;
+}
+
 void HLModule::SetEntryFunction(Function *pEntryFunc) {
   m_pEntryFunc = pEntryFunc;
 }
