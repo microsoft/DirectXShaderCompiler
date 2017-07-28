@@ -210,6 +210,10 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
     return;
   }
 
+  if (!NoOpt) {
+    MPM.add(createDxilDeadFunctionEliminationPass());
+  }
+
   // Split struct and array of parameter.
   MPM.add(createSROA_Parameter_HLSL());
 
@@ -295,6 +299,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
       MPM.add(createDxilFinalizeModulePass());      // HLSL Change
       MPM.add(createComputeViewIdStatePass());    // HLSL Change
+      MPM.add(createDxilDeadFunctionEliminationPass()); // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
     // HLSL Change Ends.
@@ -566,6 +571,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
     MPM.add(createDxilFinalizeModulePass());
     MPM.add(createComputeViewIdStatePass()); // HLSL Change
+    MPM.add(createDxilDeadFunctionEliminationPass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.
