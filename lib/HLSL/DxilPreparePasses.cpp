@@ -207,12 +207,18 @@ public:
       DxilModule &DM = M.GetDxilModule();
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
-      unsigned ValMajor = 0;
-      unsigned ValMinor = 0;
-      M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
-      if (ValMajor == 1 && ValMinor <= 1) {
-        patchValidation_1_1(M);
+
+      bool IsLib = DM.GetShaderModel()->IsLib();
+      // Skip patch for lib.
+      if (!IsLib) {
+        unsigned ValMajor = 0;
+        unsigned ValMinor = 0;
+        M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
+        if (ValMajor == 1 && ValMinor <= 1) {
+          patchValidation_1_1(M);
+        }
       }
+
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (!hlslOP->IsDxilOpFunc(F))
           continue;
@@ -252,7 +258,6 @@ public:
       // patchconstant function.
       Function *EntryFunc = DM.GetEntryFunction();
       Function *PatchConstantFunc = DM.GetPatchConstantFunction();
-      bool IsLib = DM.GetShaderModel()->IsLib();
 
       std::vector<Function *> deadList;
       for (iplist<Function>::iterator F : M.getFunctionList()) {
@@ -344,10 +349,12 @@ public:
           StripFunctionParameter(entry, DM, FunctionDIs);
         }
       }
-
-      DM.CollectShaderFlags(); // Update flags to reflect any changes.
-                               // Update Validator Version
-      DM.UpgradeToMinValidatorVersion();
+      // Skip shader flag for library.
+      if (!IsLib) {
+        DM.CollectShaderFlags(); // Update flags to reflect any changes.
+                                 // Update Validator Version
+        DM.UpgradeToMinValidatorVersion();
+      }
       DM.EmitDxilMetadata();
       return true;
     }
