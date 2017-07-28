@@ -354,9 +354,6 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
     GetValidatorVersion(valMajor, valMinor);
     hasMulticomponentUAVLoadsBackCompat = valMajor <= 1 && valMinor == 0;
   }
-  // Don't check hasMulticomponentUAVLoads for lib.
-  if (m_pSM->IsLib())
-    hasMulticomponentUAVLoads = true;
 
   Type *int16Ty = Type::getInt16Ty(GetCtx());
   Type *int64Ty = Type::getInt64Ty(GetCtx());
