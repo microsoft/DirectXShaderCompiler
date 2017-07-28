@@ -59,22 +59,29 @@ public:
   /// the given function's parameter.
   void createStageVarFromFnParam(const ParmVarDecl *paramDecl);
 
-  /// \brief Registers a Decl's <result-id> without generating any SPIR-V
-  /// instruction.
+  /// \brief Registers a decl's <result-id> without generating any SPIR-V
+  /// instruction. The given decl will be treated as normal decl.
   void registerDeclResultId(const NamedDecl *symbol, uint32_t resultId);
 
   /// \brief Returns true if the given <result-id> is for a stage variable.
   bool isStageVariable(uint32_t varId) const;
 
-  /// \brief Returns the <result-id> for the given Decl.
+  /// \brief Returns the <result-id> for the given decl.
+  ///
+  /// This method will panic if the given decl is not registered.
   uint32_t getDeclResultId(const NamedDecl *decl) const;
 
-  /// \brief Returns the <result-id> for the given remapped Decl. Returns zero
-  /// if it is not a registered remapped Decl.
+  /// \brief Returns the <result-id> for the given decl if already registered;
+  /// otherwise, treats the given decl as a normal decl and returns a newly
+  /// assigned <result-id> for it.
+  uint32_t getOrRegisterDeclResultId(const NamedDecl *decl);
+
+  /// \brief Returns the <result-id> for the given remapped decl. Returns zero
+  /// if it is not a registered remapped decl.
   uint32_t getRemappedDeclResultId(const NamedDecl *decl) const;
 
-  /// \brief Returns the <result-id> for the given normal Decl. Returns zero if
-  /// it is not a registered normal Decl.
+  /// \brief Returns the <result-id> for the given normal decl. Returns zero if
+  /// it is not a registered normal decl.
   uint32_t getNormalDeclResultId(const NamedDecl *decl) const;
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this

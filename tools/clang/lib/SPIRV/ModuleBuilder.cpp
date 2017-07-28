@@ -33,17 +33,19 @@ std::vector<uint32_t> ModuleBuilder::takeModule() {
   });
 
   theModule.take(&ib);
-  return std::move(binary);
+  return binary;
 }
 
 uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
-                                      llvm::StringRef funcName) {
+                                      llvm::StringRef funcName, uint32_t fId) {
   if (theFunction) {
     assert(false && "found nested function");
     return 0;
   }
 
-  const uint32_t fId = theContext.takeNextId();
+  // If the caller doesn't supply a function <result-id>, we need to get one.
+  if (!fId)
+    fId = theContext.takeNextId();
 
   theFunction = llvm::make_unique<Function>(
       returnType, fId, spv::FunctionControlMask::MaskNone, funcType);
@@ -52,24 +54,22 @@ uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
   return fId;
 }
 
-uint32_t ModuleBuilder::addFnParameter(uint32_t type, llvm::StringRef name) {
+uint32_t ModuleBuilder::addFnParameter(uint32_t ptrType, llvm::StringRef name) {
   assert(theFunction && "found detached parameter");
 
-  const uint32_t pointerType =
-      getPointerType(type, spv::StorageClass::Function);
   const uint32_t paramId = theContext.takeNextId();
-  theFunction->addParameter(pointerType, paramId);
+  theFunction->addParameter(ptrType, paramId);
   theModule.addDebugName(paramId, name);
 
   return paramId;
 }
 
-uint32_t ModuleBuilder::addFnVariable(uint32_t type, llvm::StringRef name,
+uint32_t ModuleBuilder::addFnVariable(uint32_t ptrType, llvm::StringRef name,
                                       llvm::Optional<uint32_t> init) {
   assert(theFunction && "found detached local variable");
 
   const uint32_t varId = theContext.takeNextId();
-  theFunction->addVariable(type, varId, init);
+  theFunction->addVariable(ptrType, varId, init);
   theModule.addDebugName(varId, name);
   return varId;
 }
@@ -150,6 +150,16 @@ void ModuleBuilder::createStore(uint32_t address, uint32_t value) {
   assert(insertPoint && "null insert point");
   instBuilder.opStore(address, value, llvm::None).x();
   insertPoint->appendInstruction(std::move(constructSite));
+}
+
+uint32_t ModuleBuilder::createFunctionCall(uint32_t returnType,
+                                           uint32_t functionId,
+                                           llvm::ArrayRef<uint32_t> params) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.opFunctionCall(returnType, id, functionId, params).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
 }
 
 uint32_t ModuleBuilder::createAccessChain(uint32_t resultType, uint32_t base,
@@ -322,9 +332,8 @@ uint32_t ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes) {
   return typeId;
 }
 
-uint32_t
-ModuleBuilder::getFunctionType(uint32_t returnType,
-                               const std::vector<uint32_t> &paramTypes) {
+uint32_t ModuleBuilder::getFunctionType(uint32_t returnType,
+                                        llvm::ArrayRef<uint32_t> paramTypes) {
   const Type *type = Type::getFunction(theContext, returnType, paramTypes);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);

@@ -38,13 +38,25 @@ bool DeclResultIdMapper::isStageVariable(uint32_t varId) const {
 }
 
 uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) const {
-  if (const uint32_t id = getRemappedDeclResultId(decl))
-    return id;
   if (const uint32_t id = getNormalDeclResultId(decl))
     return id;
+  if (const uint32_t id = getRemappedDeclResultId(decl))
+    return id;
 
-  assert(false && "found unregistered Decl in DeclResultIdMapper");
+  assert(false && "found unregistered decl");
   return 0;
+}
+
+uint32_t DeclResultIdMapper::getOrRegisterDeclResultId(const NamedDecl *decl) {
+  if (const uint32_t id = getNormalDeclResultId(decl))
+    return id;
+  if (const uint32_t id = getRemappedDeclResultId(decl))
+    return id;
+
+  const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
+  registerDeclResultId(decl, id);
+
+  return id;
 }
 
 uint32_t
