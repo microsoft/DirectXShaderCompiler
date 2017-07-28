@@ -84,6 +84,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDeadInstEliminationPass(Registry);
     initializeDxilAddPixelHitInstrumentationPass(Registry);
     initializeDxilCondenseResourcesPass(Registry);
+    initializeDxilDeadFunctionEliminationPass(Registry);
     initializeDxilEliminateOutputDynamicIndexingPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilExpandTrigIntrinsicsPass(Registry);
@@ -107,6 +108,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeGVNPass(Registry);
     initializeGlobalDCEPass(Registry);
     initializeGlobalOptPass(Registry);
+    initializeHLDeadFunctionEliminationPass(Registry);
     initializeHLEmitMetadataPass(Registry);
     initializeHLEnsureMetadataPass(Registry);
     initializeHLMatrixLowerPassPass(Registry);

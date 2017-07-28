@@ -343,6 +343,13 @@ bool OP::IsDxilOpFunc(const llvm::Function *F) {
   return IsDxilOpFuncName(F->getName());
 }
 
+bool OP::IsDxilOpType(llvm::StructType *ST) {
+  if (!ST->hasName())
+    return false;
+  StringRef Name = ST->getName();
+  return Name.startswith(m_TypePrefix);
+}
+
 bool OP::IsDupDxilOpType(llvm::StructType *ST) {
   if (!ST->hasName())
     return false;

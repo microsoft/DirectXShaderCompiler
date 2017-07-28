@@ -5252,6 +5252,7 @@ void SROA_Parameter_HLSL::flattenArgument(
       flatParamAnnotation.SetCompType(annotation.GetCompType().GetKind());
       flatParamAnnotation.SetMatrixAnnotation(annotation.GetMatrixAnnotation());
       flatParamAnnotation.SetPrecise(annotation.IsPrecise());
+      flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
 
       // Add debug info.
       if (DDI && V != Arg) {
