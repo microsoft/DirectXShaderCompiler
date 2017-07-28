@@ -1540,6 +1540,8 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
   OP *hlslOP = HLM.GetOP();
   Type *HandleTy = hlslOP->GetHandleType();
 
+  bool IsLib = HLM.GetShaderModel()->IsLib();
+
   BasicBlock &BB = F.getEntryBlock();
   unsigned allocaSize = 0;
   while (1) {
@@ -1550,7 +1552,10 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
         if (HandleTy == dxilutil::GetArrayEltTy(AI->getAllocatedType())) {
-          DXASSERT(isAllocaPromotable(AI), "otherwise, non-promotable resource array alloca found");
+          // Skip for unpromotable for lib.
+          if (!isAllocaPromotable(AI) && IsLib)
+            continue;
+
           Allocas.push_back(AI);
         }
       }

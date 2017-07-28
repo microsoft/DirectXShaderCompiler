@@ -167,6 +167,46 @@ private:
       HandleMetaMap[Handle] = Attrib;
       return HandleMetaMap[Handle];
     }
+    if (LoadInst *LI = dyn_cast<LoadInst>(Handle)) {
+      Value *Ptr = LI->getPointerOperand();
+
+      for (User *U : Ptr->users()) {
+        if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          DxilFunctionAnnotation *FnAnnot = HLM.GetFunctionAnnotation(CI->getCalledFunction());
+          if (FnAnnot) {
+            for (auto &arg : CI->arg_operands()) {
+              if (arg == Ptr) {
+                unsigned argNo = arg.getOperandNo();
+                DxilParameterAnnotation &ParamAnnot = FnAnnot->GetParameterAnnotation(argNo);
+                MDNode *MD = ParamAnnot.GetResourceAttribute();
+                if (!MD) {
+                  Handle->getContext().emitError(
+                      "cannot map resource to handle");
+                  return HandleMetaMap[Handle];
+                }
+                DxilResourceBase Res(DxilResource::Class::Invalid);
+                HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
+
+                ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
+                                       Res.GetGlobalSymbol()->getType()};
+
+                HandleMetaMap[Handle] = Attrib;
+                return HandleMetaMap[Handle];
+              }
+            }
+          }
+        }
+        if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+          Value *V = SI->getValueOperand();
+          ResAttribute Attrib = FindCreateHandleResourceBase(V);
+          HandleMetaMap[Handle] = Attrib;
+          return HandleMetaMap[Handle];
+        }
+      }
+      // Cannot find.
+      Handle->getContext().emitError("cannot map resource to handle");
+      return HandleMetaMap[Handle];
+    }
     if (CallInst *CI = dyn_cast<CallInst>(Handle)) {
       MDNode *MD = HLM.GetDxilResourceAttrib(CI->getCalledFunction());
       if (!MD) {
