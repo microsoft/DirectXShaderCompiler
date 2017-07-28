@@ -87,6 +87,7 @@ public:
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);
   static bool IsDxilOpWave(OpCode C);
   static bool IsDxilOpGradient(OpCode C);
+  static bool IsDxilOpType(llvm::StructType *ST);
   static bool IsDupDxilOpType(llvm::StructType *ST);
   static llvm::StructType *GetOriginalDxilOpType(llvm::StructType *ST,
                                                  llvm::Module &M);
