@@ -524,6 +524,14 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+
+rem Skipping shader model 6.2 when dxil.dll is present
+if exist dxil.dll (
+  echo Skipping shader model 6.2 when dxil.dll is present
+  echo A future dxil.dll will support this model.
+  goto :skipsm62
+)
+
 echo Test for denorm options ...
 dxc.exe smoke.hlsl /Tps_6_2 /denorm preserve 1>nul
 if %errorlevel% neq 0 (
@@ -553,6 +561,7 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
+:skipsm62
 call :cleanup
 exit /b 0
 
