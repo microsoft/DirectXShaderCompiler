@@ -628,6 +628,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
   PM.add(createCFGSimplificationPass());
 
   PM.add(createDxilCondenseResourcesPass());
+  PM.add(createDxilFinalizeModulePass());
   PM.add(createComputeViewIdStatePass());
   PM.add(createDxilEmitMetadataPass());
 
