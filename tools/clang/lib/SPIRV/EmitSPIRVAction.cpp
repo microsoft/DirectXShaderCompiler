@@ -348,19 +348,24 @@ public:
     // We'll need the <label-id> for the then/else/merge block to do so.
     const bool hasElse = ifStmt->getElse() != nullptr;
     const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
-    const uint32_t elseBB = hasElse ? theBuilder.createBasicBlock("if.false")
-                                    : theBuilder.createBasicBlock("if.merge");
-    const uint32_t mergeBB =
-        hasElse ? theBuilder.createBasicBlock("if.merge") : elseBB;
+    const uint32_t mergeBB = theBuilder.createBasicBlock("if.merge");
+    const uint32_t elseBB =
+        hasElse ? theBuilder.createBasicBlock("if.false") : mergeBB;
 
     // Create the branch instruction. This will end the current basic block.
     theBuilder.createConditionalBranch(condition, thenBB, elseBB, mergeBB);
+    theBuilder.addSuccessor(thenBB);
+    theBuilder.addSuccessor(elseBB);
+    // The current basic block has the OpSelectionMerge instruction. We need
+    // to record its merge target.
+    theBuilder.setMergeTarget(mergeBB);
 
     // Handle the then branch
     theBuilder.setInsertPoint(thenBB);
     doStmt(ifStmt->getThen());
     if (!theBuilder.isCurrentBasicBlockTerminated())
       theBuilder.createBranch(mergeBB);
+    theBuilder.addSuccessor(mergeBB);
 
     // Handle the else branch (if exists)
     if (hasElse) {
@@ -368,6 +373,7 @@ public:
       doStmt(ifStmt->getElse());
       if (!theBuilder.isCurrentBasicBlockTerminated())
         theBuilder.createBranch(mergeBB);
+      theBuilder.addSuccessor(mergeBB);
     }
 
     // From now on, we'll emit instructions into the merge block.
@@ -420,6 +426,7 @@ public:
       doStmt(initStmt);
     }
     theBuilder.createBranch(checkBB);
+    theBuilder.addSuccessor(checkBB);
 
     // Process the <check> block
     theBuilder.setInsertPoint(checkBB);
@@ -432,6 +439,12 @@ public:
     theBuilder.createConditionalBranch(condition, bodyBB,
                                        /*false branch*/ mergeBB,
                                        /*merge*/ mergeBB, continueBB);
+    theBuilder.addSuccessor(bodyBB);
+    theBuilder.addSuccessor(mergeBB);
+    // The current basic block has OpLoopMerge instruction. We need to set its
+    // continue and merge target.
+    theBuilder.setContinueTarget(continueBB);
+    theBuilder.setMergeTarget(mergeBB);
 
     // Process the <body> block
     theBuilder.setInsertPoint(bodyBB);
@@ -439,6 +452,7 @@ public:
       doStmt(body);
     }
     theBuilder.createBranch(continueBB);
+    theBuilder.addSuccessor(continueBB);
 
     // Process the <continue> block
     theBuilder.setInsertPoint(continueBB);
@@ -446,6 +460,7 @@ public:
       doExpr(cont);
     }
     theBuilder.createBranch(checkBB); // <continue> should jump back to header
+    theBuilder.addSuccessor(checkBB);
 
     // Set insertion point to the <merge> block for subsequent statements
     theBuilder.setInsertPoint(mergeBB);
@@ -497,10 +512,9 @@ public:
 
       if (expr->isConstantInitializer(astContext, false)) {
         return theBuilder.getConstantComposite(resultType, constituents);
+      } else {
+        return theBuilder.createCompositeConstruct(resultType, constituents);
       }
-      // TODO: use OpCompositeConstruct for non-constant initializer lists.
-      emitError("Non-const initializer lists are currently not supported.");
-      return 0;
     } else if (auto *boolLiteral = dyn_cast<CXXBoolLiteralExpr>(expr)) {
       const bool value = boolLiteral->getValue();
       return theBuilder.getConstantBool(value);
@@ -592,13 +606,13 @@ public:
     const QualType toType = expr->getType();
 
     switch (expr->getCastKind()) {
-    // Integer literals in the AST are represented using 64bit APInt
-    // themselves and then implicitly casted into the expected bitwidth.
-    // We need special treatment of integer literals here because generating
-    // a 64bit constant and then explicit casting in SPIR-V requires Int64
-    // capability. We should avoid introducing unnecessary capabilities to
-    // our best.
     case CastKind::CK_IntegralCast: {
+      // Integer literals in the AST are represented using 64bit APInt
+      // themselves and then implicitly casted into the expected bitwidth.
+      // We need special treatment of integer literals here because generating
+      // a 64bit constant and then explicit casting in SPIR-V requires Int64
+      // capability. We should avoid introducing unnecessary capabilities to
+      // our best.
       llvm::APSInt intValue;
       if (expr->EvaluateAsInt(intValue, astContext, Expr::SE_NoSideEffects)) {
         return translateAPInt(intValue, toType);
@@ -606,6 +620,17 @@ public:
         emitError("Integral cast is not supported yet");
         return 0;
       }
+    }
+    case CastKind::CK_FloatingCast: {
+      // First try to see if we can do constant folding for floating point
+      // numbers like what we are doing for integers in the above.
+      Expr::EvalResult evalResult;
+      if (expr->EvaluateAsRValue(evalResult, astContext) &&
+          !evalResult.HasSideEffects) {
+        return translateAPFloat(evalResult.Val.getFloat(), toType);
+      }
+      emitError("floating cast unimplemented");
+      return 0;
     }
     case CastKind::CK_LValueToRValue: {
       const uint32_t fromValue = doExpr(subExpr);

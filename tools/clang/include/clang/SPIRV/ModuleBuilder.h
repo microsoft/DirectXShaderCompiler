@@ -67,15 +67,34 @@ public:
   /// for the basic block. On failure, returns zero.
   uint32_t createBasicBlock(llvm::StringRef name = "");
 
+  /// \brief Adds the basic block with the given label as a successor to the
+  /// current basic block.
+  void addSuccessor(uint32_t successorLabel);
+
+  /// \brief Sets the merge target to the basic block with the given <label-id>.
+  /// The caller must make sure the current basic block contains an
+  /// OpSelectionMerge or OpLoopMerge instruction.
+  void setMergeTarget(uint32_t mergeLabel);
+
+  /// \brief Sets the continue target to the basic block with the given
+  /// <label-id>. The caller must make sure the current basic block contains an
+  /// OpLoopMerge instruction.
+  void setContinueTarget(uint32_t continueLabel);
+
   /// \brief Returns true if the current basic block inserting into is
   /// terminated.
   inline bool isCurrentBasicBlockTerminated() const;
 
   /// \brief Sets insertion point to the basic block with the given <label-id>.
-  /// Returns true on success, false on failure.
-  bool setInsertPoint(uint32_t labelId);
+  void setInsertPoint(uint32_t labelId);
 
   // === Instruction at the current Insertion Point ===
+
+  /// \brief Creates a composite construct instruction with the given
+  /// <result-type> and constituents and returns the <result-id> for the
+  /// composite.
+  uint32_t createCompositeConstruct(uint32_t resultType,
+                                    llvm::ArrayRef<uint32_t> constituents);
 
   /// \brief Creates a load instruction loading the value of the given
   /// <result-type> from the given pointer. Returns the <result-id> for the
@@ -169,8 +188,15 @@ public:
 private:
   /// \brief Map from basic blocks' <label-id> to their structured
   /// representation.
+  ///
+  /// We need MapVector here to remember the order of insertion. Order matters
+  /// here since, for example, we'll know for sure the first basic block is the
+  /// entry block.
   using OrderedBasicBlockMap =
       llvm::MapVector<uint32_t, std::unique_ptr<BasicBlock>>;
+
+  /// \brief Returns the basic block with the given <label-id>.
+  BasicBlock *getBasicBlock(uint32_t label);
 
   SPIRVContext &theContext; ///< The SPIR-V context.
   SPIRVModule theModule;    ///< The module under building.

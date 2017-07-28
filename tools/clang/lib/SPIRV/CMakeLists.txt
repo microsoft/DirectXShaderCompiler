@@ -3,6 +3,7 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_library(clangSPIRV
+  BlockReadableOrder.cpp
   Constant.cpp
   DeclResultIdMapper.cpp
   Decoration.cpp
