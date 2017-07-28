@@ -310,7 +310,8 @@ private:
   /// shader model.
   void AddExecutionModeForEntryPoint(uint32_t entryPointId);
 
-  /// \brief Emits a wrapper function for the entry function.
+  /// \brief Emits a wrapper function for the entry function and returns true
+  /// on success.
   ///
   /// The wrapper function loads the values of all stage input variables and
   /// creates composites as expected by the source code entry function. It then
@@ -320,8 +321,8 @@ private:
   ///
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
-  uint32_t emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
-                                    uint32_t entryFuncId);
+  bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
+                                uint32_t entryFuncId);
 
 private:
   /// \brief Returns true iff *all* the case values in the given switch

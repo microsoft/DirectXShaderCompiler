@@ -207,6 +207,9 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
                            ? namePrefix + "." + semantic->GetName()
                            : namePrefix + "." + semanticStr;
     const uint32_t varId = createSpirvStageVar(&stageVar, name);
+    if (varId == 0)
+      return false;
+
     stageVar.setSpirvId(varId);
 
     stageVars.push_back(stageVar);
@@ -273,7 +276,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   switch (semanticKind) {
   // According to DXIL spec, the Position SV can be used by all SigPoints
   // other than PCIn, HSIn, GSIn, PSOut, CSIn.
-  // According to Vulkan spec, the Position decoration can only be used
+  // According to Vulkan spec, the Position BuiltIn can only be used
   // by PSOut, HS/DS/GS In/Out.
   case hlsl::Semantic::Kind::Position: {
     switch (sigPointKind) {
@@ -297,7 +300,8 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::VertexIndex);
   // According to DXIL spec, the InstanceID SV can  be used by VSIn, VSOut,
   // HSCPIn, HSCPOut, DSCPIn, DSOut, GSVIn, GSOut, PSIn.
-  // According to Vulkan spec, the InstanceIndex can only be used by VSIn.
+  // According to Vulkan spec, the InstanceIndex BuitIn can only be used by
+  // VSIn.
   case hlsl::Semantic::Kind::InstanceID: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
@@ -313,10 +317,34 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
       break;
     }
   }
-  // According to DXIL spec, the Depth SV can only be used by PSOut.
+  // According to DXIL spec, the Depth{|GreaterEqual|LessEqual} SV can only be
+  // used by PSOut.
   case hlsl::Semantic::Kind::Depth:
+  case hlsl::Semantic::Kind::DepthGreaterEqual:
+  case hlsl::Semantic::Kind::DepthLessEqual: {
     stageVar->setIsSpirvBuiltin();
+    if (semanticKind == hlsl::Semantic::Kind::DepthGreaterEqual)
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::DepthGreater, {});
+    else if (semanticKind == hlsl::Semantic::Kind::DepthLessEqual)
+      theBuilder.addExecutionMode(entryFunctionId,
+                                  spv::ExecutionMode::DepthLess, {});
     return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragDepth);
+  }
+  // According to DXIL spec, the IsFrontFace SV can only be used by GSOut and
+  // PSIn.
+  // According to Vulkan spec, the FrontFacing BuitIn can only be used in PSIn.
+  case hlsl::Semantic::Kind::IsFrontFace: {
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::PSIn:
+      stageVar->setIsSpirvBuiltin();
+      return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing);
+    default:
+      emitError("semantic IsFrontFace for SigPoint %0 unimplemented yet")
+          << stageVar->getSigPoint()->GetName();
+      break;
+    }
+  }
   // According to DXIL spec, the Target SV can only be used by PSOut.
   // There is no corresponding builtin decoration in SPIR-V. So generate normal
   // Vulkan stage input/output variables.

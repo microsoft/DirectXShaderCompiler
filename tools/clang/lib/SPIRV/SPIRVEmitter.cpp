@@ -404,8 +404,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     funcName = "src." + funcName;
 
     // Create wrapper for the entry function
-    entryFunctionId = emitEntryFunctionWrapper(decl, funcId);
-    if (entryFunctionId == 0)
+    if (!emitEntryFunctionWrapper(decl, funcId))
       return;
   } else {
     // Non-entry functions are added to the work queue following function
@@ -3117,31 +3116,23 @@ void SPIRVEmitter::AddRequiredCapabilitiesForShaderModel() {
 
 void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
   if (shaderModel.IsPS()) {
-    // TODO: Implement the logic to determine the proper Execution Mode for
-    // fragment shaders. Currently using OriginUpperLeft as default.
     theBuilder.addExecutionMode(entryPointId,
                                 spv::ExecutionMode::OriginUpperLeft, {});
-    emitWarning("Execution mode for fragment shaders is "
-                "currently set to OriginUpperLeft by default.");
-  } else {
-    emitWarning(
-        "Execution mode is currently only defined for fragment shaders.");
-    // TODO: Implement logic for adding proper execution mode for other
-    // shader stages. Silently skipping for now.
   }
 }
 
-uint32_t SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
-                                                uint32_t entryFuncId) {
+bool SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
+                                            const uint32_t entryFuncId) {
   // Construct the wrapper function signature.
   const uint32_t voidType = theBuilder.getVoidType();
   const uint32_t funcType = theBuilder.getFunctionType(voidType, {});
 
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
-  // function calls.
-  const uint32_t funcId =
+  // function calls. And the wrapper is the entry function.
+  entryFunctionId =
       theBuilder.beginFunction(funcType, voidType, decl->getName());
+  declIdMapper.setEntryFunctionId(entryFunctionId);
 
   // The entry basic block.
   const uint32_t entryLabel = theBuilder.createBasicBlock();
@@ -3166,7 +3157,7 @@ uint32_t SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     if (!param->getAttr<HLSLOutAttr>()) {
       uint32_t loadedValue = 0;
       if (!declIdMapper.createStageInputVar(param, &loadedValue))
-        return 0;
+        return false;
 
       theBuilder.createStore(tempVar, loadedValue);
     }
@@ -3179,7 +3170,7 @@ uint32_t SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
 
   // Create and write stage output variables for return value
   if (!declIdMapper.createStageOutputVar(decl, retVal))
-    return 0;
+    return false;
 
   // Create and write stage output variables for parameters marked as out/inout
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
@@ -3190,14 +3181,14 @@ uint32_t SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       const uint32_t loadedParam = theBuilder.createLoad(typeId, params[i]);
 
       if (!declIdMapper.createStageOutputVar(param, loadedParam))
-        return 0;
+        return false;
     }
   }
 
   theBuilder.createReturn();
   theBuilder.endFunction();
 
-  return funcId;
+  return true;
 }
 
 bool SPIRVEmitter::allSwitchCasesAreIntegerLiterals(const Stmt *root) {

@@ -309,7 +309,7 @@ uint32_t ModuleBuilder::createExtInst(uint32_t resultType, uint32_t setId,
 
 void ModuleBuilder::addExecutionMode(uint32_t entryPointId,
                                      spv::ExecutionMode em,
-                                     const std::vector<uint32_t> &params) {
+                                     llvm::ArrayRef<uint32_t> params) {
   instBuilder.opExecutionMode(entryPointId, em);
   for (const auto &param : params) {
     instBuilder.literalInteger(param);
