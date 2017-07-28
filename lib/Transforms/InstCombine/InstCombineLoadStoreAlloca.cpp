@@ -20,6 +20,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "dxc/HLSL/DxilOperations.h"   // HLSL Change - avoid unpack for dxil types.
 using namespace llvm;
 
 #define DEBUG_TYPE "instcombine"
@@ -519,7 +520,9 @@ static Instruction *unpackLoadToAggregate(InstCombiner &IC, LoadInst &LI) {
 
   if (auto *ST = dyn_cast<StructType>(T)) {
     // If the struct only have one element, we unpack.
-    if (ST->getNumElements() == 1) {
+    if (ST->getNumElements() == 1
+        && !hlsl::OP::IsDxilOpType(ST) // HLSL Change - avoid unpack dxil types.
+        ) {
       LoadInst *NewLoad = combineLoadToNewType(IC, LI, ST->getTypeAtIndex(0U),
                                                ".unpack");
       return IC.ReplaceInstUsesWith(LI, IC.Builder->CreateInsertValue(
