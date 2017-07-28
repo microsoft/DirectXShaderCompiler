@@ -14,6 +14,8 @@
 namespace llvm {
 class Type;
 class GlobalVariable;
+class Function;
+class Module;
 }
 
 namespace hlsl {
@@ -29,6 +31,8 @@ namespace dxilutil {
 
   bool IsStaticGlobal(llvm::GlobalVariable *GV);
   bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);
+  bool RemoveUnusedFunctions(llvm::Module &M, llvm::Function *EntryFunc,
+                             llvm::Function *PatchConstantFunc, bool IsLib);
 }
 
 }

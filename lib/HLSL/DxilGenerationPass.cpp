@@ -1441,6 +1441,44 @@ ModulePass *llvm::createDxilPrecisePropagatePass() {
 INITIALIZE_PASS(DxilPrecisePropagatePass, "hlsl-dxil-precise", "DXIL precise attribute propagate", false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
+
+namespace {
+class HLDeadFunctionElimination : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit HLDeadFunctionElimination () : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "Remove all unused function except entry from HLModule"; }
+
+  bool runOnModule(Module &M) override {
+    if (M.HasHLModule()) {
+      HLModule &HLM = M.GetHLModule();
+
+      bool IsLib = HLM.GetShaderModel()->IsLib();
+      // Remove unused functions except entry and patch constant func.
+      // For library profile, only remove unused external functions.
+      Function *EntryFunc = HLM.GetEntryFunction();
+      Function *PatchConstantFunc = HLM.GetPatchConstantFunction();
+
+      return dxilutil::RemoveUnusedFunctions(M, EntryFunc, PatchConstantFunc,
+                                             IsLib);
+    }
+
+    return false;
+  }
+};
+}
+
+char HLDeadFunctionElimination::ID = 0;
+
+ModulePass *llvm::createHLDeadFunctionEliminationPass() {
+  return new HLDeadFunctionElimination();
+}
+
+INITIALIZE_PASS(HLDeadFunctionElimination, "hl-dfe", "Remove all unused function except entry from HLModule", false, false)
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Legalize resource use.
 // Map local or static global resource to global resource.
 // Require inline for static global resource.
