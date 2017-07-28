@@ -1555,7 +1555,7 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
           // Skip for unpromotable for lib.
           if (!isAllocaPromotable(AI) && IsLib)
             continue;
-
+          DXASSERT(isAllocaPromotable(AI), "otherwise, non-promotable resource array alloca found");
           Allocas.push_back(AI);
         }
       }
