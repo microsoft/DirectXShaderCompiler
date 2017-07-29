@@ -179,12 +179,13 @@ class db_instrhelp_gen:
     "A generator of instruction helper classes."
     def __init__(self, db):
         self.db = db
+        TypeInfo = collections.namedtuple("TypeInfo", "name bits")
         self.llvm_type_map = {
-            "i1": ("bool", 1),
-            "i8": ("int8_t", 8),
-            "u8": ("uint8_t", 8),
-            "i32": ("int32_t", 32),
-            "u32": ("uint32_t", 32)
+            "i1": TypeInfo("bool", 1),
+            "i8": TypeInfo("int8_t", 8),
+            "u8": TypeInfo("uint8_t", 8),
+            "i32": TypeInfo("int32_t", 32),
+            "u32": TypeInfo("uint32_t", 32)
             }
         self.IsDxilOpFuncCallInst = "hlsl::OP::IsDxilOpFuncCallInst"
 
@@ -216,11 +217,11 @@ class db_instrhelp_gen:
 
     def op_type(self, o):
         if o.llvm_type in self.llvm_type_map:
-            return self.llvm_type_map[o.llvm_type][0]
+            return self.llvm_type_map[o.llvm_type].name
         raise ValueError("Don't know how to describe type %s for operand %s." % (o.llvm_type, o.name))
     def op_size(self, o):
         if o.llvm_type in self.llvm_type_map:
-            return self.llvm_type_map[o.llvm_type][1]
+            return self.llvm_type_map[o.llvm_type].bits
         raise ValueError("Don't know how to describe type %s for operand %s." % (o.llvm_type, o.name))
 
     def op_const_expr(self, o):
