@@ -2867,10 +2867,10 @@ void CheckInBoundForTGSM(GlobalVariable &GV, const DataLayout &DL) {
   }
 }
 
-class DxilEmitMetadata : public ModulePass {
+class DxilFinalizeModule : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilEmitMetadata() : ModulePass(ID) {}
+  explicit DxilFinalizeModule() : ModulePass(ID) {}
 
   const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
 
@@ -3006,7 +3006,37 @@ public:
       DM.CollectShaderFlags(); // Update flags to reflect any changes.
                                // Update Validator Version
       DM.UpgradeToMinValidatorVersion();
-      DM.EmitDxilMetadata();
+      return true;
+    }
+
+    return false;
+  }
+};
+}
+
+char DxilFinalizeModule::ID = 0;
+
+ModulePass *llvm::createDxilFinalizeModulePass() {
+  return new DxilFinalizeModule();
+}
+
+INITIALIZE_PASS(DxilFinalizeModule, "hlsl-dxilfinalize", "HLSL DXIL Finalize Module", false, false)
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
+class DxilEmitMetadata : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilEmitMetadata() : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
+
+  bool runOnModule(Module &M) override {
+    if (M.HasDxilModule()) {
+      M.GetDxilModule().EmitDxilMetadata();
       return true;
     }
 

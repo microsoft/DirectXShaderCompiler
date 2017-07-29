@@ -277,6 +277,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
       MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+      MPM.add(createDxilFinalizeModulePass());      // HLSL Change
       MPM.add(createComputeViewIdStatePass());    // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
@@ -547,6 +548,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilCondenseResourcesPass());
     if (DisableUnrollLoops)
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+    MPM.add(createDxilFinalizeModulePass());
     MPM.add(createComputeViewIdStatePass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
