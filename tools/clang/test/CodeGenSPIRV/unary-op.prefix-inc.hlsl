@@ -1,5 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: [[v3float_1_1_1:%\d+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
+
 void main() {
     int a, b;
 // CHECK:      [[a0:%\d+]] = OpLoad %int %a
@@ -50,8 +52,8 @@ void main() {
 
     float o, p;
 // CHECK-NEXT: [[o0:%\d+]] = OpLoad %float %o
-// CHECK-NEXT: [[01:%\d+]] = OpFAdd %float [[o0]] %float_1
-// CHECK-NEXT: OpStore %o [[01]]
+// CHECK-NEXT: [[o1:%\d+]] = OpFAdd %float [[o0]] %float_1
+// CHECK-NEXT: OpStore %o [[o1]]
 // CHECK-NEXT: [[o2:%\d+]] = OpLoad %float %o
 // CHECK-NEXT: OpStore %p [[o2]]
     p = ++o;
@@ -61,4 +63,18 @@ void main() {
 // CHECK-NEXT: OpStore %o [[o4]]
 // CHECK-NEXT: OpStore %o [[p0]]
     ++o = p;
+
+    float3 x, y;
+// CHECK-NEXT: [[x0:%\d+]] = OpLoad %v3float %x
+// CHECK-NEXT: [[x1:%\d+]] = OpFAdd %v3float [[x0]] [[v3float_1_1_1]]
+// CHECK-NEXT: OpStore %x [[x1]]
+// CHECK-NEXT: [[x2:%\d+]] = OpLoad %v3float %x
+// CHECK-NEXT: OpStore %y [[x2]]
+    y = ++x;
+// CHECK-NEXT: [[y0:%\d+]] = OpLoad %v3float %y
+// CHECK-NEXT: [[x3:%\d+]] = OpLoad %v3float %x
+// CHECK-NEXT: [[x4:%\d+]] = OpFAdd %v3float [[x3]] [[v3float_1_1_1]]
+// CHECK-NEXT: OpStore %x [[x4]]
+// CHECK-NEXT: OpStore %x [[y0]]
+    ++x = y;
 }

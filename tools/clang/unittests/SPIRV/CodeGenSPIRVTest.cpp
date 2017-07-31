@@ -35,8 +35,12 @@ TEST_F(WholeFileTest, ConstantPixelShader) {
 // === Partial output tests ===
 
 TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
+TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
 
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
+TEST_F(FileTest, VectorConstants) { runFileTest("constant.vector.hlsl"); }
+
+TEST_F(FileTest, VariableInitialier) { runFileTest("var.init.hlsl"); }
 
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
   runFileTest("unary-op.prefix-inc.hlsl");
@@ -47,9 +51,21 @@ TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
 TEST_F(FileTest, BinaryOpScalarArithmetic) {
   runFileTest("binary-op.arithmetic.scalar.hlsl");
 }
+TEST_F(FileTest, BinaryOpVectorArithmetic) {
+  runFileTest("binary-op.arithmetic.vector.hlsl");
+}
+TEST_F(FileTest, BinaryOpMixedArithmetic) {
+  runFileTest("binary-op.arithmetic.mixed.hlsl");
+}
 
 TEST_F(FileTest, BinaryOpScalarComparison) {
   runFileTest("binary-op.comparison.scalar.hlsl");
+}
+TEST_F(FileTest, BinaryOpVectorComparison) {
+  runFileTest("binary-op.comparison.vector.hlsl");
+}
+TEST_F(FileTest, BinaryOpMixedComparison) {
+  runFileTest("binary-op.comparison.mixed.hlsl");
 }
 
 TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("if-stmt.plain.hlsl"); }
