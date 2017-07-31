@@ -5366,6 +5366,30 @@ void SROA_Parameter_HLSL::flattenArgument(
 
 }
 
+static bool IsUsedAsCallArg(Value *V) {
+  for (User *U : V->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      Function *CalledF = CI->getCalledFunction();
+      HLOpcodeGroup group = GetHLOpcodeGroup(CalledF);
+      // Skip HL operations.
+      if (group != HLOpcodeGroup::NotHL ||
+          group == HLOpcodeGroup::HLExtIntrinsic) {
+        continue;
+      }
+      // Skip llvm intrinsic.
+      if (CalledF->isIntrinsic())
+        continue;
+
+      return true;
+    }
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
+      if (IsUsedAsCallArg(GEP))
+        return true;
+    }
+  }
+  return false;
+}
+
 // For function parameter which used in function call and need to be flattened.
 // Replace with tmp alloca.
 void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
@@ -5397,24 +5421,8 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
     if (!Ty->isAggregateType() &&
         Ty->getScalarType() == Ty)
       continue;
-    bool bUsedInCall = false;
-    for (User *U : arg.users()) {
-      if (CallInst *CI = dyn_cast<CallInst>(U)) {
-        Function *CalledF = CI->getCalledFunction();
-        HLOpcodeGroup group = GetHLOpcodeGroup(CalledF);
-        // Skip HL operations.
-        if (group != HLOpcodeGroup::NotHL ||
-            group == HLOpcodeGroup::HLExtIntrinsic) {
-          continue;
-        }
-        // Skip llvm intrinsic.
-        if (CalledF->isIntrinsic())
-          continue;
 
-        bUsedInCall = true;
-        break;
-      }
-    }
+    bool bUsedInCall = IsUsedAsCallArg(&arg);
 
     if (bUsedInCall) {
       // Create tmp.
