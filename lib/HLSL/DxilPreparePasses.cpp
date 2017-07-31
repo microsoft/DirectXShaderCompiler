@@ -318,7 +318,8 @@ private:
       if (!hlslOP->IsDxilOpFunc(F))
         continue;
       DXIL::OpCodeClass opClass;
-      DXASSERT(hlslOP->GetOpCodeClass(F, opClass), "else not a dxil op func");
+      bool bHasOpClass = hlslOP->GetOpCodeClass(F, opClass);
+      DXASSERT(bHasOpClass, "else not a dxil op func");
       if (opClass != DXIL::OpCodeClass::StoreOutput)
         continue;
 
