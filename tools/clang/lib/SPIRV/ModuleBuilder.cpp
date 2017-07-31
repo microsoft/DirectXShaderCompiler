@@ -180,6 +180,15 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   return id;
 }
 
+uint32_t ModuleBuilder::createUnaryOp(spv::Op op, uint32_t resultType,
+                                      uint32_t operand) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.unaryOp(op, resultType, id, operand).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 void ModuleBuilder::createBranch(uint32_t targetLabel) {
   assert(insertPoint && "null insert point");
 
