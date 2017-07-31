@@ -58,6 +58,16 @@ TEST_F(FileTest, BinaryOpMixedArithmetic) {
   runFileTest("binary-op.arithmetic.mixed.hlsl");
 }
 
+TEST_F(FileTest, BinaryOpScalarArithAssign) {
+  runFileTest("binary-op.arith-assign.scalar.hlsl");
+}
+TEST_F(FileTest, BinaryOpVectorArithAssign) {
+  runFileTest("binary-op.arith-assign.vector.hlsl");
+}
+TEST_F(FileTest, BinaryOpMixedArithAssign) {
+  runFileTest("binary-op.arith-assign.mixed.hlsl");
+}
+
 TEST_F(FileTest, BinaryOpScalarComparison) {
   runFileTest("binary-op.comparison.scalar.hlsl");
 }

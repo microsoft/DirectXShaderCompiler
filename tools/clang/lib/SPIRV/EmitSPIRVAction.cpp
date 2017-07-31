@@ -618,6 +618,12 @@ public:
       return translateAPFloat(floatLiteral->getValue(), expr->getType());
     }
 
+    // CompoundAssignOperator is a subclass of BinaryOperator. It should be
+    // checked before BinaryOperator.
+    if (const auto *compoundAssignOp = dyn_cast<CompoundAssignOperator>(expr)) {
+      return doCompoundAssignOperator(compoundAssignOp);
+    }
+
     if (const auto *binOp = dyn_cast<BinaryOperator>(expr)) {
       return doBinaryOperator(binOp);
     }
@@ -685,6 +691,46 @@ public:
     emitError("BinaryOperator '%0' is not supported yet.") << opcode;
     expr->dump();
     return 0;
+  }
+
+  uint32_t doCompoundAssignOperator(const CompoundAssignOperator *expr) {
+    const auto opcode = expr->getOpcode();
+
+    // Try to optimize floatN *= float case
+    if (opcode == BO_MulAssign) {
+      if (const uint32_t result = tryToGenFloatVectorScale(expr))
+        return result;
+    }
+
+    const auto *rhs = expr->getRHS();
+    const auto *lhs = expr->getLHS();
+
+    switch (opcode) {
+    case BO_AddAssign:
+    case BO_SubAssign:
+    case BO_MulAssign:
+    case BO_DivAssign:
+    case BO_RemAssign: {
+      const uint32_t resultType = typeTranslator.translateType(expr->getType());
+
+      // Evalute rhs before lhs
+      const uint32_t rhsVal = doExpr(rhs);
+      const uint32_t lhsPtr = doExpr(lhs);
+      const uint32_t lhsVal = theBuilder.createLoad(resultType, lhsPtr);
+
+      const spv::Op spvOp = translateOp(opcode, expr->getType());
+      const uint32_t result =
+          theBuilder.createBinaryOp(spvOp, resultType, lhsVal, rhsVal);
+      theBuilder.createStore(lhsPtr, result);
+
+      // Compound assign operators return lvalues.
+      return lhsPtr;
+    }
+    default:
+      emitError("CompoundAssignOperator '%0' unimplemented")
+          << expr->getStmtClassName();
+      return 0;
+    }
   }
 
   uint32_t doUnaryOperator(const UnaryOperator *expr) {
@@ -848,10 +894,22 @@ public:
         if (cast->getCastKind() == CK_HLSLVectorSplat) {
           const uint32_t vecType =
               typeTranslator.translateType(expr->getType());
-          const uint32_t lhsId = doExpr(lhs);
-          const uint32_t rhsId = doExpr(cast->getSubExpr());
-          return theBuilder.createBinaryOp(spv::Op::OpVectorTimesScalar,
-                                           vecType, lhsId, rhsId);
+          if (isa<CompoundAssignOperator>(expr)) {
+            // For floatN * float cases. We'll need to do the load/store and
+            // return the lhs.
+            const uint32_t rhsVal = doExpr(cast->getSubExpr());
+            const uint32_t lhsPtr = doExpr(lhs);
+            const uint32_t lhsVal = theBuilder.createLoad(vecType, lhsPtr);
+            const uint32_t result = theBuilder.createBinaryOp(
+                spv::Op::OpVectorTimesScalar, vecType, lhsVal, rhsVal);
+            theBuilder.createStore(lhsPtr, result);
+            return lhsPtr;
+          } else {
+            const uint32_t lhsId = doExpr(lhs);
+            const uint32_t rhsId = doExpr(cast->getSubExpr());
+            return theBuilder.createBinaryOp(spv::Op::OpVectorTimesScalar,
+                                             vecType, lhsId, rhsId);
+          }
         }
       }
     }
@@ -910,9 +968,13 @@ case BO_##kind : {                                                             \
 
     switch (op) {
       BIN_OP_CASE_INT_FLOAT(Add, IAdd, FAdd);
+      BIN_OP_CASE_INT_FLOAT(AddAssign, IAdd, FAdd);
       BIN_OP_CASE_INT_FLOAT(Sub, ISub, FSub);
+      BIN_OP_CASE_INT_FLOAT(SubAssign, ISub, FSub);
       BIN_OP_CASE_INT_FLOAT(Mul, IMul, FMul);
+      BIN_OP_CASE_INT_FLOAT(MulAssign, IMul, FMul);
       BIN_OP_CASE_SINT_UINT_FLOAT(Div, SDiv, UDiv, FDiv);
+      BIN_OP_CASE_SINT_UINT_FLOAT(DivAssign, SDiv, UDiv, FDiv);
       // According to HLSL spec, "the modulus operator returns the remainder of
       // a division." "The % operator is defined only in cases where either both
       // sides are positive or both sides are negative."
@@ -928,6 +990,7 @@ case BO_##kind : {                                                             \
       //
       // Note there is no OpURem in SPIR-V.
       BIN_OP_CASE_SINT_UINT_FLOAT(Rem, SRem, UMod, FRem);
+      BIN_OP_CASE_SINT_UINT_FLOAT(RemAssign, SRem, UMod, FRem);
       BIN_OP_CASE_SINT_UINT_FLOAT(LT, SLessThan, ULessThan, FOrdLessThan);
       BIN_OP_CASE_SINT_UINT_FLOAT(LE, SLessThanEqual, ULessThanEqual,
                                   FOrdLessThanEqual);
