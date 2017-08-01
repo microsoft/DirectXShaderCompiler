@@ -133,6 +133,11 @@ public:
   uint32_t createBinaryOp(spv::Op op, uint32_t resultType, uint32_t lhs,
                           uint32_t rhs);
 
+  /// \brief Creates a select operation with the given values for true and false
+  /// cases and returns the <result-id> for the result.
+  uint32_t createSelect(uint32_t resultType, uint32_t condition,
+                        uint32_t trueValue, uint32_t falseValue);
+
   // \brief Creates an unconditional branch to the given target label.
   void createBranch(uint32_t targetLabel);
 

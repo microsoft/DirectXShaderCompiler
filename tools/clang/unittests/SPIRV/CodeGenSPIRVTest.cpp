@@ -124,6 +124,19 @@ TEST_F(FileTest, BinaryOpMixedComparison) {
   runFileTest("binary-op.comparison.mixed.hlsl");
 }
 
+// For logical binary operators
+TEST_F(FileTest, BinaryOpLogicalAnd) {
+  runFileTest("binary-op.logical-and.hlsl");
+}
+TEST_F(FileTest, BinaryOpLogicalOr) {
+  runFileTest("binary-op.logical-or.hlsl");
+}
+
+// For ternary operators
+TEST_F(FileTest, TernaryOpConditionalOp) {
+  runFileTest("ternary-op.cond-op.hlsl");
+}
+
 // For if statements
 TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("if-stmt.plain.hlsl"); }
 TEST_F(FileTest, IfStmtNestedIfStmt) { runFileTest("if-stmt.nested.hlsl"); }
@@ -134,6 +147,9 @@ TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("for-stmt.nested.hlsl"); }
 
 // For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
+TEST_F(FileTest, ControlFlowLogicalAnd) { runFileTest("cf.logical-and.hlsl"); }
+TEST_F(FileTest, ControlFlowLogicalOr) { runFileTest("cf.logical-or.hlsl"); }
+TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 
 // For function calls
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }

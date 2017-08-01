@@ -181,6 +181,15 @@ uint32_t ModuleBuilder::createAccessChain(uint32_t resultType, uint32_t base,
   return id;
 }
 
+uint32_t ModuleBuilder::createUnaryOp(spv::Op op, uint32_t resultType,
+                                      uint32_t operand) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder.unaryOp(op, resultType, id, operand).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
                                        uint32_t lhs, uint32_t rhs) {
   assert(insertPoint && "null insert point");
@@ -190,11 +199,11 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   return id;
 }
 
-uint32_t ModuleBuilder::createUnaryOp(spv::Op op, uint32_t resultType,
-                                      uint32_t operand) {
+uint32_t ModuleBuilder::createSelect(uint32_t resultType, uint32_t condition,
+                                     uint32_t trueValue, uint32_t falseValue) {
   assert(insertPoint && "null insert point");
   const uint32_t id = theContext.takeNextId();
-  instBuilder.unaryOp(op, resultType, id, operand).x();
+  instBuilder.opSelect(resultType, id, condition, trueValue, falseValue).x();
   insertPoint->appendInstruction(std::move(constructSite));
   return id;
 }
