@@ -35,6 +35,7 @@ public:
   virtual ~DxilLinker() {}
   static DxilLinker *CreateLinker(llvm::LLVMContext &Ctx);
 
+  virtual bool DisableLazyLoad() = 0;
   virtual bool HasLibNameRegistered(llvm::StringRef name) = 0;
   virtual bool RegisterLib(llvm::StringRef name,
                            std::unique_ptr<llvm::Module> pModule,

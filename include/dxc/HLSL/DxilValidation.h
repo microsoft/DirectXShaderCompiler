@@ -270,7 +270,8 @@ HRESULT ValidateLoadModule(_In_reads_bytes_(ILLength) const char *pIL,
                            _In_ uint32_t ILLength,
                            _In_ std::unique_ptr<llvm::Module> &pModule,
                            _In_ llvm::LLVMContext &Ctx,
-                           _In_ llvm::raw_ostream &DiagStream);
+                           _In_ llvm::raw_ostream &DiagStream,
+                           _In_ unsigned bLazyLoad);
 
 // Loads module from container, validating load, but not module.
 HRESULT ValidateLoadModuleFromContainer(
@@ -278,7 +279,7 @@ HRESULT ValidateLoadModuleFromContainer(
     _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
     _In_ std::unique_ptr<llvm::Module> &pDebugModule,
     _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
-    _In_ llvm::raw_ostream &DiagStream);
+    _In_ llvm::raw_ostream &DiagStream, _In_ unsigned bLazyLoad);
 
 // Load and validate Dxil module from bitcode.
 HRESULT ValidateDxilBitcode(_In_reads_bytes_(ILLength) const char *pIL,

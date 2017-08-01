@@ -68,6 +68,14 @@ public:
           *ppResult // Linker output status, buffer, and errors
   );
 
+  __override HRESULT DisableLazyLibLoad() {
+    DXASSERT(m_pLinker.get(),
+             "else Initialize() not called or failed silently");
+    bool bOK = m_pLinker->DisableLazyLoad();
+    m_bLazyLoad = bOK ? false : m_bLazyLoad;
+    return bOK ? S_OK : E_FAIL;
+  }
+
   __override HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
       IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) {
     DxcThreadMalloc TM(m_pMalloc);
@@ -91,6 +99,7 @@ public:
   }
 
   void Initialize() {
+    m_bLazyLoad = true;
     m_pLinker.reset(DxilLinker::CreateLinker(m_Ctx));
   }
 
@@ -104,6 +113,7 @@ private:
   LLVMContext m_Ctx;
   std::unique_ptr<DxilLinker> m_pLinker;
   CComPtr<IDxcContainerEventsHandler> m_pDxcContainerEventsHandler;
+  bool m_bLazyLoad;
 };
 
 HRESULT
@@ -131,7 +141,7 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
 
     IFR(ValidateLoadModuleFromContainer(
         pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
-        pDebugModule, m_Ctx, m_Ctx, DiagStream));
+        pDebugModule, m_Ctx, m_Ctx, DiagStream, m_bLazyLoad));
 
     return m_pLinker->RegisterLib(pUtf8LibName.m_psz, std::move(pModule),
                                   std::move(pDebugModule))
