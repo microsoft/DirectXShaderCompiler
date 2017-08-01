@@ -1,5 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
-float4 main(): SV_TARGET
+
+float4 main(): SV_Target
 {
   return float4(1.0f, 2.0f, 3.5f, 4.7f);
 }
