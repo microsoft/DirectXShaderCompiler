@@ -235,7 +235,8 @@ void DxilLib::LazyLoadFunction(Function *F) {
   DXASSERT(m_functionNameMap.count(F->getName()), "else invalid Function");
   DxilFunctionLinkInfo *linkInfo = m_functionNameMap[F->getName()].get();
 
-  DXASSERT(!F->materialize(), "else fail to materialize");
+  std::error_code EC = F->materialize();
+  DXASSERT_LOCALVAR(EC, !EC, "else fail to materialize");
 
   // Build used functions for F.
   for (auto &BB : F->getBasicBlockList()) {
