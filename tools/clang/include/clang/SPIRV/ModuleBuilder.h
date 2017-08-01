@@ -99,6 +99,12 @@ public:
   uint32_t createCompositeConstruct(uint32_t resultType,
                                     llvm::ArrayRef<uint32_t> constituents);
 
+  /// \brief Creates a composite extract instruction. The given composite is
+  /// indexed using the given literal indexes to obtain the resulting element.
+  /// Returns the <result-id> for the extracted element.
+  uint32_t createCompositeExtract(uint32_t resultType, uint32_t composite,
+                                  llvm::ArrayRef<uint32_t> indexes);
+
   /// \brief Creates a load instruction loading the value of the given
   /// <result-type> from the given pointer. Returns the <result-id> for the
   /// loaded value.

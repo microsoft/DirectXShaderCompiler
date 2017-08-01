@@ -138,6 +138,16 @@ ModuleBuilder::createCompositeConstruct(uint32_t resultType,
   return resultId;
 }
 
+uint32_t
+ModuleBuilder::createCompositeExtract(uint32_t resultType, uint32_t composite,
+                                      llvm::ArrayRef<uint32_t> indexes) {
+  assert(insertPoint && "null insert point");
+  const uint32_t resultId = theContext.takeNextId();
+  instBuilder.opCompositeExtract(resultType, resultId, composite, indexes).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return resultId;
+}
+
 uint32_t ModuleBuilder::createLoad(uint32_t resultType, uint32_t pointer) {
   assert(insertPoint && "null insert point");
   const uint32_t resultId = theContext.takeNextId();
