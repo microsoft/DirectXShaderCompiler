@@ -637,6 +637,10 @@ public:
       return doCallExpr(funcCall);
     }
 
+    if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
+      return doConditionalOperator(condExpr);
+    }
+
     emitError("Expr '%0' is not supported yet.") << expr->getStmtClassName();
     // TODO: handle other expressions
     return 0;
@@ -683,7 +687,9 @@ public:
     case BO_Or:
     case BO_Xor:
     case BO_Shl:
-    case BO_Shr: {
+    case BO_Shr:
+    case BO_LAnd:
+    case BO_LOr: {
       const spv::Op spvOp = translateOp(opcode, elemType);
       return theBuilder.createBinaryOp(spvOp, typeId, lhs, rhs);
     }
@@ -1010,6 +1016,17 @@ public:
     return 0;
   }
 
+  uint32_t doConditionalOperator(const ConditionalOperator *expr) {
+    // According to HLSL doc, all sides of the ?: expression are always
+    // evaluated.
+    const uint32_t type = typeTranslator.translateType(expr->getType());
+    const uint32_t condition = doExpr(expr->getCond());
+    const uint32_t trueBranch = doExpr(expr->getTrueExpr());
+    const uint32_t falseBranch = doExpr(expr->getFalseExpr());
+
+    return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
+  }
+
   /// Translates a floatN * float multiplication into SPIR-V instructions and
   /// returns the <result-id>. Returns 0 if the given binary operation is not
   /// floatN * float.
@@ -1162,6 +1179,12 @@ case BO_##kind : {                                                             \
       BIN_OP_CASE_SINT_UINT(ShlAssign, ShiftLeftLogical, ShiftLeftLogical);
       BIN_OP_CASE_SINT_UINT(Shr, ShiftRightArithmetic, ShiftRightLogical);
       BIN_OP_CASE_SINT_UINT(ShrAssign, ShiftRightArithmetic, ShiftRightLogical);
+    // According to HLSL doc, all sides of the && and || expression are always
+    // evaluated.
+    case BO_LAnd:
+      return spv::Op::OpLogicalAnd;
+    case BO_LOr:
+      return spv::Op::OpLogicalOr;
     default:
       break;
     }
