@@ -9,6 +9,7 @@
 
 #include "clang/SPIRV/EmitSPIRVAction.h"
 
+#include "dxc/HlslIntrinsicOp.h"
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -847,8 +848,110 @@ public:
     }
   }
 
+  uint32_t processIntrinsicDot(const CallExpr *callExpr) {
+    const uint32_t returnType =
+        typeTranslator.translateType(callExpr->getType());
+
+    // Get the function parameters. Expect 2 vectors as parameters.
+    assert(callExpr->getNumArgs() == 2u);
+    const Expr *arg0 = callExpr->getArg(0);
+    const Expr *arg1 = callExpr->getArg(1);
+    const uint32_t arg0Id = doExpr(arg0);
+    const uint32_t arg1Id = doExpr(arg1);
+    QualType arg0Type = arg0->getType();
+    QualType arg1Type = arg1->getType();
+    const size_t vec0Size = hlsl::GetHLSLVecSize(arg0Type);
+    const size_t vec1Size = hlsl::GetHLSLVecSize(arg1Type);
+    const QualType vec0ComponentType = hlsl::GetHLSLVecElementType(arg0Type);
+    const QualType vec1ComponentType = hlsl::GetHLSLVecElementType(arg1Type);
+    assert(callExpr->getType() == vec1ComponentType);
+    assert(vec0ComponentType == vec1ComponentType);
+    assert(vec0Size == vec1Size);
+    assert(vec0Size >= 1 && vec0Size <= 4);
+
+    // According to HLSL reference, the dot function only works on integers
+    // and floats.
+    const auto returnTypeBuiltinKind =
+        cast<BuiltinType>(callExpr->getType().getTypePtr())->getKind();
+    assert(returnTypeBuiltinKind == BuiltinType::Float ||
+           returnTypeBuiltinKind == BuiltinType::Int ||
+           returnTypeBuiltinKind == BuiltinType::UInt);
+
+    // Special case: dot product of two vectors, each of size 1. That is
+    // basically the same as regular multiplication of 2 scalars.
+    if (vec0Size == 1) {
+      const spv::Op spvOp = translateOp(BO_Mul, arg0Type);
+      return theBuilder.createBinaryOp(spvOp, returnType, arg0Id, arg1Id);
+    }
+
+    // If the vectors are of type Float, we can use OpDot.
+    if (returnTypeBuiltinKind == BuiltinType::Float) {
+      return theBuilder.createBinaryOp(spv::Op::OpDot, returnType, arg0Id,
+                                       arg1Id);
+    }
+    // Vector component type is Integer (signed or unsigned).
+    // Create all instructions necessary to perform a dot product on
+    // two integer vectors. SPIR-V OpDot does not support integer vectors.
+    // Therefore, we use other SPIR-V instructions (addition and
+    // multiplication).
+    else {
+      uint32_t result = 0;
+      llvm::SmallVector<uint32_t, 4> multIds;
+      const spv::Op multSpvOp = translateOp(BO_Mul, arg0Type);
+      const spv::Op addSpvOp = translateOp(BO_Add, arg0Type);
+
+      // Extract members from the two vectors and multiply them.
+      for (unsigned int i = 0; i < vec0Size; ++i) {
+        const uint32_t vec0member =
+            theBuilder.createCompositeExtract(returnType, arg0Id, {i});
+        const uint32_t vec1member =
+            theBuilder.createCompositeExtract(returnType, arg1Id, {i});
+        const uint32_t multId = theBuilder.createBinaryOp(
+            multSpvOp, returnType, vec0member, vec1member);
+        multIds.push_back(multId);
+      }
+      // Add all the multiplications.
+      result = multIds[0];
+      for (unsigned int i = 1; i < vec0Size; ++i) {
+        const uint32_t additionId =
+            theBuilder.createBinaryOp(addSpvOp, returnType, result, multIds[i]);
+        result = additionId;
+      }
+      return result;
+    }
+  }
+
+  uint32_t processIntrinsicCallExpr(const CallExpr *callExpr) {
+    const FunctionDecl *callee = callExpr->getDirectCallee();
+    assert(hlsl::IsIntrinsicOp(callee) &&
+           "doIntrinsicCallExpr was called for a non-intrinsic function.");
+
+    // Figure out which intrinsic function to translate.
+    llvm::StringRef group;
+    uint32_t opcode = static_cast<uint32_t>(hlsl::IntrinsicOp::Num_Intrinsics);
+    hlsl::GetIntrinsicOp(callee, opcode, group);
+
+    switch (static_cast<hlsl::IntrinsicOp>(opcode)) {
+    case hlsl::IntrinsicOp::IOP_dot: {
+      return processIntrinsicDot(callExpr);
+      break;
+    }
+    default:
+      break;
+    }
+
+    emitError("Intrinsic function '%0' not yet implemented.")
+        << callee->getName();
+    return 0;
+  }
+
   uint32_t doCallExpr(const CallExpr *callExpr) {
     const FunctionDecl *callee = callExpr->getDirectCallee();
+
+    // Intrinsic functions such as 'dot' or 'mul'
+    if (hlsl::IsIntrinsicOp(callee)) {
+      return processIntrinsicCallExpr(callExpr);
+    }
 
     if (callee) {
       const uint32_t returnType =
