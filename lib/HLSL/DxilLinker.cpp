@@ -98,6 +98,7 @@ class DxilLib {
 public:
   DxilLib(std::unique_ptr<llvm::Module> pModule, bool bLazy);
   virtual ~DxilLib() {}
+  bool IsLazyLoad() { return m_bLazyLoad; }
   bool HasFunction(std::string &name);
   llvm::StringMap<std::unique_ptr<DxilFunctionLinkInfo>> &GetFunctionTable() {
     return m_functionNameMap;
@@ -128,13 +129,12 @@ struct DxilLinkJob;
 
 class DxilLinkerImpl : public hlsl::DxilLinker {
 public:
-  DxilLinkerImpl(LLVMContext &Ctx) : DxilLinker(Ctx), m_bLazyLoad(true) {}
+  DxilLinkerImpl(LLVMContext &Ctx) : DxilLinker(Ctx) {}
   virtual ~DxilLinkerImpl() {}
-  bool DisableLazyLoad() override;
   bool HasLibNameRegistered(StringRef name) override;
-  bool RegisterLib(StringRef name,
-                          std::unique_ptr<llvm::Module> pModule,
-                          std::unique_ptr<llvm::Module> pDebugModule)  override;
+  bool RegisterLib(StringRef name, std::unique_ptr<llvm::Module> pModule,
+                   std::unique_ptr<llvm::Module> pDebugModule,
+                   bool bLazyLoad) override;
   bool AttachLib(StringRef name) override;
   bool DetachLib(StringRef name) override;
   void DetachAll() override;
@@ -147,14 +147,13 @@ private:
   bool DetachLib(DxilLib *lib);
   bool AddFunctions(SmallVector<StringRef, 4> &workList,
                     DenseSet<DxilLib *> &libSet, StringSet<> &addedFunctionSet,
-                    DxilLinkJob &linkJob, bool bLazyLoad);
+                    DxilLinkJob &linkJob, bool bTryLazyLoad);
   // Attached libs to link.
   std::unordered_set<DxilLib *> m_attachedLibs;
   // Owner of all DxilLib.
   StringMap<std::unique_ptr<DxilLib>> m_LibMap;
   llvm::StringMap<std::pair<DxilFunctionLinkInfo *, DxilLib *>>
       m_functionNameMap;
-  bool m_bLazyLoad;
 };
 
 } // namespace
@@ -711,15 +710,10 @@ bool DxilLinkerImpl::HasLibNameRegistered(StringRef name) {
   return m_LibMap.count(name);
 }
 
-bool DxilLinkerImpl::DisableLazyLoad() {
-  m_bLazyLoad = false;
-  DXASSERT(m_LibMap.size() == 0, "else already lazy load");
-  return m_LibMap.size() == 0;
-}
-
 bool DxilLinkerImpl::RegisterLib(StringRef name,
-                             std::unique_ptr<llvm::Module> pModule,
-                             std::unique_ptr<llvm::Module> pDebugModule) {
+                                 std::unique_ptr<llvm::Module> pModule,
+                                 std::unique_ptr<llvm::Module> pDebugModule,
+                                 bool bLazyLoad) {
   if (m_LibMap.count(name))
     return false;
 
@@ -731,7 +725,7 @@ bool DxilLinkerImpl::RegisterLib(StringRef name,
 
   pM->setModuleIdentifier(name);
   std::unique_ptr<DxilLib> pLib =
-      std::make_unique<DxilLib>(std::move(pM), m_bLazyLoad);
+      std::make_unique<DxilLib>(std::move(pM), bLazyLoad);
   m_LibMap[name] = std::move(pLib);
   return true;
 }
@@ -823,7 +817,7 @@ bool DxilLinkerImpl::DetachLib(DxilLib *lib) {
 bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
                                   DenseSet<DxilLib *> &libSet,
                                   StringSet<> &addedFunctionSet,
-                                  DxilLinkJob &linkJob, bool bLazyLoad) {
+                                  DxilLinkJob &linkJob, bool bTryLazyLoad) {
   while (!workList.empty()) {
     StringRef name = workList.pop_back_val();
     // Ignore added function.
@@ -841,9 +835,11 @@ bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
 
     DxilLib *pLib = linkPair.second;
     libSet.insert(pLib);
-    if (bLazyLoad) {
-      Function *F = linkPair.first->func;
-      pLib->LazyLoadFunction(F);
+    if (bTryLazyLoad) {
+      if (pLib->IsLazyLoad()) {
+        Function *F = linkPair.first->func;
+        pLib->LazyLoadFunction(F);
+      }
     }
     for (Function *F : linkPair.first->usedFunctions) {
       if (hlsl::OP::IsDxilOpFunc(F)) {
@@ -869,14 +865,14 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
   DxilLinkJob linkJob(m_ctx);
 
   DenseSet<DxilLib *> libSet;
-  if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob, m_bLazyLoad))
+  if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
+                    /*bTryLazyLoad*/ true))
     return nullptr;
 
-  if (m_bLazyLoad) {
     // Save global users.
-    for (auto &pLib : libSet) {
+  for (auto &pLib : libSet) {
+    if (pLib->IsLazyLoad())
       pLib->BuildGlobalUsage();
-    }
   }
 
   // Save global ctor users.
@@ -887,7 +883,7 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
   // All init function already loaded in BuildGlobalUsage, so set bLazyLoad
   // false here.
   if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
-                    /*bLazyLoad*/ false))
+                    /*bTryLazyLoad*/ false))
     return nullptr;
 
   std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair =
