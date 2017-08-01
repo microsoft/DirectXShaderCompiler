@@ -60,8 +60,8 @@ namespace spirv {
 ///
 /// When we reach a scalar type, we will try to decode a scalar value from the
 /// front of the initializers queue. This may trigger composite extraction
-/// since the front of the queue may be a vector/etc. The leftover values after
-/// the extraction should be retained for the next decoding. Thus, we need
+/// since the front of the queue may be a vector/matrix. The leftover values
+/// after the extraction should be retained for the next decoding. Thus, we need
 /// another queue, scalars, to keep track of leftover unused scalar values.
 /// To adjust properly, when decoding values for a given type, we first try
 /// the scalar queue.
@@ -70,6 +70,12 @@ namespace spirv {
 /// the scalar values previously extracted and retained in the scalars queue.
 /// To optimize, if we have no leftover scalars and a value of the same type at
 /// the front of the initializers queue, we use the value as a whole.
+///
+/// If the composite type is vector or matrix, we decompose() it into scalars as
+/// explained above. If it is a struct or array type, the element type is not
+/// guaranteed to be scalars. But still, we need to split them into their
+/// elements. For such cases, we create faux MemberExpr or ArraySubscriptExpr
+/// AST nodes for all the elements and push them into the initializers queue.
 class InitListHandler {
 public:
   /// Constructs an InitListHandler which uses the given emitter for normal
@@ -100,8 +106,12 @@ private:
   void decomposeVector(uint32_t vec, QualType elemType, uint32_t size);
 
   /// If the next initializer is a struct, replaces it with MemberExprs to all
-  /// its members. Otherwise, does nothing.
-  void tryToSplitStruct();
+  /// its members and returns true. Otherwise, does nothing and return false.
+  bool tryToSplitStruct();
+  /// If the next initializer is a constant array, replaces it with MemberExprs
+  /// to all its members and returns true. Otherwise, does nothing and return
+  /// false.
+  bool tryToSplitConstantArray();
 
   /// Emits the necessary SPIR-V instructions to create a SPIR-V value of the
   /// given type. The scalars and initializers queue will be used to fetch the
@@ -112,6 +122,7 @@ private:
   uint32_t createInitForMatrixType(QualType elemType, uint32_t rowCount,
                                    uint32_t colCount);
   uint32_t createInitForStructType(QualType type);
+  uint32_t createInitForConstantArrayType(QualType type);
 
 private:
   SPIRVEmitter &theEmitter;

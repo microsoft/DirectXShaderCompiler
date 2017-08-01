@@ -346,6 +346,10 @@ uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
     return doCallExpr(funcCall);
   }
 
+  if (const auto *subscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
+    return doArraySubscriptExpr(subscriptExpr);
+  }
+
   if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
     return doConditionalOperator(condExpr);
   }
@@ -1061,6 +1065,23 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
     processSwitchStmtUsingSpirvOpSwitch(switchStmt);
   else
     processSwitchStmtUsingIfStmts(switchStmt);
+}
+
+uint32_t SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
+  // The base of an ArraySubscriptExpr has a wrapping LValueToRValue implicit
+  // cast. We need to ingore it to avoid creating OpLoad.
+  const auto *baseExpr = expr->getBase()->IgnoreParenLValueCasts();
+
+  const uint32_t valType = typeTranslator.translateType(
+      // TODO: handle non-constant array types
+      astContext.getAsConstantArrayType(baseExpr->getType())->getElementType());
+  const uint32_t ptrType = theBuilder.getPointerType(
+      valType, declIdMapper.resolveStorageClass(baseExpr));
+
+  const uint32_t base = doExpr(baseExpr);
+  const uint32_t index = doExpr(expr->getIdx());
+
+  return theBuilder.createAccessChain(ptrType, base, {index});
 }
 
 uint32_t SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
@@ -3033,27 +3054,21 @@ uint32_t SPIRVEmitter::translateAPValue(const APValue &value,
 
 uint32_t SPIRVEmitter::translateAPInt(const llvm::APInt &intValue,
                                       QualType targetType) {
-  const auto bitwidth = astContext.getIntWidth(targetType);
-
   if (targetType->isSignedIntegerType()) {
-    const int64_t value = intValue.getSExtValue();
-    switch (bitwidth) {
-    case 32:
-      return theBuilder.getConstantInt32(static_cast<int32_t>(value));
-    default:
-      break;
-    }
+    // Try to see if this integer can be represented in 32-bit
+    if (intValue.isSignedIntN(32))
+      return theBuilder.getConstantInt32(
+          static_cast<int32_t>(intValue.getSExtValue()));
   } else {
-    const uint64_t value = intValue.getZExtValue();
-    switch (bitwidth) {
-    case 32:
-      return theBuilder.getConstantUint32(static_cast<uint32_t>(value));
-    default:
-      break;
-    }
+    // Try to see if this integer can be represented in 32-bit
+    if (intValue.isIntN(32))
+      return theBuilder.getConstantUint32(
+          static_cast<uint32_t>(intValue.getZExtValue()));
   }
 
-  emitError("APInt for target bitwidth '%0' is not supported yet.") << bitwidth;
+  emitError("APInt for target bitwidth '%0' is not supported yet.")
+      << astContext.getIntWidth(targetType);
+
   return 0;
 }
 

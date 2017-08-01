@@ -39,6 +39,7 @@ TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
 TEST_F(FileTest, MatrixTypes) { runFileTest("type.matrix.hlsl"); }
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
+TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
 
 // For constants
@@ -46,14 +47,16 @@ TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
 TEST_F(FileTest, VectorConstants) { runFileTest("constant.vector.hlsl"); }
 TEST_F(FileTest, MatrixConstants) { runFileTest("constant.matrix.hlsl"); }
 TEST_F(FileTest, StructConstants) { runFileTest("constant.struct.hlsl"); }
+TEST_F(FileTest, ArrayConstants) { runFileTest("constant.array.hlsl"); }
 
 // For variables
-TEST_F(FileTest, VarInit) { runFileTest("var.init.hlsl"); }
+TEST_F(FileTest, VarInitScalarVector) { runFileTest("var.init.hlsl"); }
 TEST_F(FileTest, VarInitMatrixMxN) { runFileTest("var.init.matrix.mxn.hlsl"); }
 TEST_F(FileTest, VarInitMatrixMx1) { runFileTest("var.init.matrix.mx1.hlsl"); }
 TEST_F(FileTest, VarInitMatrix1xN) { runFileTest("var.init.matrix.1xn.hlsl"); }
 TEST_F(FileTest, VarInitMatrix1x1) { runFileTest("var.init.matrix.1x1.hlsl"); }
 TEST_F(FileTest, VarInitStruct) { runFileTest("var.init.struct.hlsl"); }
+TEST_F(FileTest, VarInitArray) { runFileTest("var.init.array.hlsl"); }
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 
 // For prefix/postfix increment/decrement
@@ -178,8 +181,9 @@ TEST_F(FileTest, OpMatrixAccess1x1) {
   runFileTest("op.matrix.access.1x1.hlsl");
 }
 
-// For struct accessing operator
+// For struct & array accessing operator
 TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
+TEST_F(FileTest, OpStructArray) { runFileTest("op.array.access.hlsl"); }
 
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
@@ -230,17 +234,8 @@ TEST_F(FileTest, DoStmtBreak) { runFileTest("do-stmt.break.hlsl"); }
 // For break statements (mix of breaks in loops and switch)
 TEST_F(FileTest, BreakStmtMixed) { runFileTest("break-stmt.mixed.hlsl"); }
 
-// For control flows
-TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
-TEST_F(FileTest, ControlFlowLogicalAnd) { runFileTest("cf.logical-and.hlsl"); }
-TEST_F(FileTest, ControlFlowLogicalOr) { runFileTest("cf.logical-or.hlsl"); }
-TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
-
-// For function calls
-TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
-
-// For function parameters
-TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
+// For discard statement
+TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
 
 // For early returns
 TEST_F(FileTest, EarlyReturn) { runFileTest("cf.return.early.hlsl"); }
@@ -248,8 +243,15 @@ TEST_F(FileTest, EarlyReturnFloat4) {
   runFileTest("cf.return.early.float4.hlsl");
 }
 
-// For discard
-TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
+// For control flows
+TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
+TEST_F(FileTest, ControlFlowLogicalAnd) { runFileTest("cf.logical-and.hlsl"); }
+TEST_F(FileTest, ControlFlowLogicalOr) { runFileTest("cf.logical-or.hlsl"); }
+TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
+
+// For functions
+TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
+TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
 
 // For semantics
 TEST_F(FileTest, SemanticPositionVS) {
@@ -315,7 +317,7 @@ TEST_F(FileTest, IntrinsicsAsin) { runFileTest("intrinsics.asin.hlsl"); }
 TEST_F(FileTest, IntrinsicsAcos) { runFileTest("intrinsics.acos.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
 
-// SPIR-V specific
+// Vulkan/SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 TEST_F(FileTest, SpirvEntryFunctionWrapper) {
   runFileTest("spirv.entry-function.wrapper.hlsl");

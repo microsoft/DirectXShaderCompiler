@@ -251,6 +251,7 @@ public:
   uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
                          llvm::StringRef structName = "",
                          llvm::ArrayRef<llvm::StringRef> fieldNames = {});
+  uint32_t getArrayType(uint32_t elemType, uint32_t count);
   uint32_t getFunctionType(uint32_t returnType,
                            llvm::ArrayRef<uint32_t> paramTypes);
 
