@@ -210,6 +210,124 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   return id;
 }
 
+namespace {
+spv::ImageOperandsMask composeImageOperandsMask(
+    uint32_t bias, uint32_t lod, const std::pair<uint32_t, uint32_t> &grad,
+    uint32_t constOffset, llvm::SmallVectorImpl<uint32_t> *orderedParams) {
+  using spv::ImageOperandsMask;
+  // SPIR-V Image Operands from least significant bit to most significant bit
+  // Bias, Lod, Grad, ConstOffset, Offset, ConstOffsets, Sample, MinLod
+
+  auto mask = ImageOperandsMask::MaskNone;
+  orderedParams->clear();
+
+  if (bias) {
+    mask = mask | ImageOperandsMask::Bias;
+    orderedParams->push_back(bias);
+  }
+
+  if (lod) {
+    mask = mask | ImageOperandsMask::Lod;
+    orderedParams->push_back(lod);
+  }
+
+  if (grad.first && grad.second) {
+    mask = mask | ImageOperandsMask::Grad;
+    orderedParams->push_back(grad.first);
+    orderedParams->push_back(grad.second);
+  }
+
+  if (constOffset) {
+    mask = mask | ImageOperandsMask::ConstOffset;
+    orderedParams->push_back(constOffset);
+  }
+
+  return mask;
+}
+} // anonymous namespace
+
+uint32_t ModuleBuilder::createImageSample(uint32_t texelType,
+                                          uint32_t imageType, uint32_t image,
+                                          uint32_t sampler, uint32_t coordinate,
+                                          uint32_t bias, uint32_t lod,
+                                          std::pair<uint32_t, uint32_t> grad,
+                                          uint32_t offset) {
+  assert(insertPoint && "null insert point");
+
+  // An OpSampledImage is required to do the image sampling.
+  const uint32_t sampledImgId = theContext.takeNextId();
+  const uint32_t sampledImgTy = getSampledImageType(imageType);
+  instBuilder.opSampledImage(sampledImgTy, sampledImgId, image, sampler).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+
+  const uint32_t texelId = theContext.takeNextId();
+  llvm::SmallVector<uint32_t, 4> params;
+  const auto mask = composeImageOperandsMask(bias, lod, grad, offset, &params);
+  // The Lod and Grad image operands requires explicit-lod instructions.
+  if (lod || (grad.first && grad.second)) {
+    instBuilder.opImageSampleExplicitLod(texelType, texelId, sampledImgId,
+                                         coordinate, mask);
+  } else {
+    instBuilder.opImageSampleImplicitLod(
+        texelType, texelId, sampledImgId, coordinate,
+        llvm::Optional<spv::ImageOperandsMask>(mask));
+  }
+  for (const auto param : params)
+    instBuilder.idRef(param);
+  instBuilder.x();
+  insertPoint->appendInstruction(std::move(constructSite));
+
+  return texelId;
+}
+
+uint32_t ModuleBuilder::createImageFetch(uint32_t texelType, uint32_t image,
+                                         uint32_t coordinate, uint32_t lod,
+                                         uint32_t offset) {
+  assert(insertPoint && "null insert point");
+
+  llvm::SmallVector<uint32_t, 2> params;
+  const auto mask =
+      llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
+          /*bias*/ 0, lod, std::make_pair(0, 0), offset, &params));
+
+  const uint32_t texelId = theContext.takeNextId();
+  instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
+  for (const auto param : params)
+    instBuilder.idRef(param);
+  instBuilder.x();
+  insertPoint->appendInstruction(std::move(constructSite));
+
+  return texelId;
+}
+
+uint32_t ModuleBuilder::createImageGather(uint32_t texelType,
+                                          uint32_t imageType, uint32_t image,
+                                          uint32_t sampler, uint32_t coordinate,
+                                          uint32_t component, uint32_t offset) {
+  assert(insertPoint && "null insert point");
+
+  // An OpSampledImage is required to do the image sampling.
+  const uint32_t sampledImgId = theContext.takeNextId();
+  const uint32_t sampledImgTy = getSampledImageType(imageType);
+  instBuilder.opSampledImage(sampledImgTy, sampledImgId, image, sampler).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+
+  llvm::SmallVector<uint32_t, 2> params;
+
+  const auto mask =
+      llvm::Optional<spv::ImageOperandsMask>(composeImageOperandsMask(
+          /*bias*/ 0, /*lod*/ 0, std::make_pair(0, 0), offset, &params));
+  const uint32_t texelId = theContext.takeNextId();
+  instBuilder.opImageGather(texelType, texelId, sampledImgId, coordinate,
+                            component, mask);
+  for (const auto param : params)
+    instBuilder.idRef(param);
+  instBuilder.x();
+  insertPoint->appendInstruction(std::move(constructSite));
+
+  return texelId;
+}
+
 uint32_t ModuleBuilder::createSelect(uint32_t resultType, uint32_t condition,
                                      uint32_t trueValue, uint32_t falseValue) {
   assert(insertPoint && "null insert point");
@@ -523,6 +641,14 @@ uint32_t ModuleBuilder::getSamplerType() {
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
   theModule.addDebugName(typeId, "type.sampler");
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getSampledImageType(uint32_t imageType) {
+  const Type *type = Type::getSampledImage(theContext, imageType);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  theModule.addDebugName(typeId, "type.sampled.image");
   return typeId;
 }
 

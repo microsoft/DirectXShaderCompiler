@@ -1029,6 +1029,9 @@ uint32_t SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
   if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr))
     return doCXXOperatorCallExpr(operatorCall);
 
+  if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr))
+    return doCXXMemberCallExpr(memberCall);
+
   const FunctionDecl *callee = callExpr->getDirectCallee();
 
   // Intrinsic functions such as 'dot' or 'mul'
@@ -1279,6 +1282,163 @@ uint32_t SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   const uint32_t falseBranch = doExpr(expr->getFalseExpr());
 
   return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
+}
+
+uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
+  using namespace hlsl;
+
+  const FunctionDecl *callee = expr->getDirectCallee();
+  const auto retType = typeTranslator.translateType(callee->getReturnType());
+
+  // TODO: For the following method calls, offset is not always constant.
+  // In SPIR-V, there are two image operands, ConstOffset and Offset.
+  // We are translating all into ConstOffset right now, which is incorrect
+  // for non-constant offset.
+
+  llvm::StringRef group;
+  uint32_t opcode = static_cast<uint32_t>(IntrinsicOp::Num_Intrinsics);
+  if (GetIntrinsicOp(callee, opcode, group)) {
+    switch (static_cast<IntrinsicOp>(opcode)) {
+    case IntrinsicOp::MOP_Sample:
+    case IntrinsicOp::MOP_Gather: {
+      // Signatures:
+      // DXGI_FORMAT Object.Sample(sampler_state S,
+      //                           float Location
+      //                           [, int Offset]);
+      //
+      // <Template Type>4 Object.Gather(sampler_state S,
+      //                                float2|3|4 Location
+      //                                [, int2 Offset]);
+
+      const auto *imageExpr = expr->getImplicitObjectArgument();
+
+      const uint32_t imageType =
+          typeTranslator.translateType(imageExpr->getType());
+
+      const uint32_t image = loadIfGLValue(imageExpr);
+      const uint32_t sampler = doExpr(expr->getArg(0));
+      const uint32_t coordinate = doExpr(expr->getArg(1));
+      // .Sample()/.Gather() has a third optional paramter for offset, which
+      // should be translated into SPIR-V ConstOffset image operands.
+      const uint32_t offset =
+          expr->getNumArgs() == 3 ? doExpr(expr->getArg(2)) : 0;
+
+      if (opcode == static_cast<uint32_t>(IntrinsicOp::MOP_Sample)) {
+        return theBuilder.createImageSample(retType, imageType, image, sampler,
+                                            coordinate, /*bias*/ 0, /*lod*/ 0,
+                                            std::make_pair(0, 0), offset);
+      } else {
+        return theBuilder.createImageGather(
+            retType, imageType, image, sampler, coordinate,
+            // .Gather() doc says we return four components of red data.
+            theBuilder.getConstantInt32(0), offset);
+      }
+    }
+    case IntrinsicOp::MOP_SampleBias:
+    case IntrinsicOp::MOP_SampleLevel: {
+      // Signatures:
+      // DXGI_FORMAT Object.SampleBias(sampler_state S,
+      //                               float Location,
+      //                               float Bias
+      //                               [, int Offset]);
+      //
+      // DXGI_FORMAT Object.SampleLevel(sampler_state S,
+      //                                float Location,
+      //                                float LOD
+      //                                [, int Offset]);
+      const auto *imageExpr = expr->getImplicitObjectArgument();
+
+      const uint32_t imageType =
+          typeTranslator.translateType(imageExpr->getType());
+
+      const uint32_t image = loadIfGLValue(imageExpr);
+      const uint32_t sampler = doExpr(expr->getArg(0));
+      const uint32_t coordinate = doExpr(expr->getArg(1));
+      uint32_t lod = 0;
+      uint32_t bias = 0;
+      if (opcode == static_cast<uint32_t>(IntrinsicOp::MOP_SampleBias)) {
+        bias = doExpr(expr->getArg(2));
+      } else {
+        lod = doExpr(expr->getArg(2));
+      }
+      // .Bias()/.SampleLevel() has a fourth optional paramter for offset,
+      // which should be translated into SPIR-V ConstOffset image operands.
+      const uint32_t offset =
+          expr->getNumArgs() == 4 ? doExpr(expr->getArg(3)) : 0;
+
+      return theBuilder.createImageSample(retType, imageType, image, sampler,
+                                          coordinate, bias, lod,
+                                          std::make_pair(0, 0), offset);
+    }
+    case IntrinsicOp::MOP_SampleGrad: {
+      // Signature:
+      // DXGI_FORMAT Object.SampleGrad(sampler_state S,
+      //                               float Location,
+      //                               float DDX,
+      //                               float DDY
+      //                               [, int Offset]);
+
+      const auto *imageExpr = expr->getImplicitObjectArgument();
+
+      const uint32_t imageType =
+          typeTranslator.translateType(imageExpr->getType());
+
+      const uint32_t image = loadIfGLValue(imageExpr);
+      const uint32_t sampler = doExpr(expr->getArg(0));
+      const uint32_t coordinate = doExpr(expr->getArg(1));
+      const uint32_t ddx = doExpr(expr->getArg(2));
+      const uint32_t ddy = doExpr(expr->getArg(3));
+      // .SampleGrad() has a fifth optional paramter for offset, which
+      // should be translated into SPIR-V ConstOffset image operands.
+      const uint32_t offset =
+          expr->getNumArgs() == 5 ? doExpr(expr->getArg(4)) : 0;
+
+      return theBuilder.createImageSample(retType, imageType, image, sampler,
+                                          coordinate, /*bias*/ 0, /*lod*/ 0,
+                                          std::make_pair(ddx, ddy), offset);
+    }
+    case IntrinsicOp::MOP_Load: {
+      // Signature:
+      // ret Object.Load(int Location
+      //                 [, int SampleIndex,]
+      //                 [, int Offset]);
+
+      // SampleIndex is only available when the Object is of Texture2DMS or
+      // Texture2DMSArray types. Under those cases, Offset will be the third
+      // parameter. Otherwise, Offset should be the second parameter.
+      if (expr->getNumArgs() == 3) {
+        emitError("Texture2DMS[Array].Load() not implemented yet");
+        return 0;
+      }
+
+      const auto *imageExpr = expr->getImplicitObjectArgument();
+      const uint32_t image = loadIfGLValue(imageExpr);
+
+      // The location parameter is a vector that consists of both the coordinate
+      // and the mipmap level (via the last vector element). We need to split it
+      // here since the OpImageFetch SPIR-V instruction encodes them as separate
+      // arguments.
+      const uint32_t location = doExpr(expr->getArg(0));
+      uint32_t coordinate = 0, lod = 0;
+      splitVecLastElement(expr->getArg(0)->getType(), location, &coordinate,
+                          &lod);
+
+      const uint32_t offset =
+          expr->getNumArgs() == 2 ? doExpr(expr->getArg(1)) : 0;
+
+      return theBuilder.createImageFetch(retType, image, coordinate, lod,
+                                         offset);
+    }
+    default:
+      emitError("HLSL intrinsic member call unimplemented: %0")
+          << callee->getName();
+      return 0;
+    }
+  } else {
+    emitError("C++ member function call unimplemented: %0")
+        << callee->getName();
+    return 0;
+  }
 }
 
 uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
@@ -1965,6 +2125,31 @@ uint32_t SPIRVEmitter::createVectorSplat(const Expr *scalarExpr, uint32_t size,
   }
 }
 
+void SPIRVEmitter::splitVecLastElement(QualType vecType, uint32_t vec,
+                                       uint32_t *residual,
+                                       uint32_t *lastElement) {
+  assert(hlsl::IsHLSLVecType(vecType));
+
+  const uint32_t count = hlsl::GetHLSLVecSize(vecType);
+  assert(count > 1);
+  const uint32_t elemTypeId =
+      typeTranslator.translateType(hlsl::GetHLSLVecElementType(vecType));
+
+  if (count == 2) {
+    *residual = theBuilder.createCompositeExtract(elemTypeId, vec, 0);
+  } else {
+    llvm::SmallVector<uint32_t, 4> indices;
+    for (uint32_t i = 0; i < count - 1; ++i)
+      indices.push_back(i);
+
+    const uint32_t typeId = theBuilder.getVecType(elemTypeId, count - 1);
+    *residual = theBuilder.createVectorShuffle(typeId, vec, vec, indices);
+  }
+
+  *lastElement =
+      theBuilder.createCompositeExtract(elemTypeId, vec, {count - 1});
+}
+
 uint32_t SPIRVEmitter::tryToGenFloatVectorScale(const BinaryOperator *expr) {
   const QualType type = expr->getType();
   // We can only translate floatN * float into OpVectorTimesScalar.
@@ -2387,6 +2572,12 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
   const bool isFloatType = isFloatOrVecMatOfFloatType(callExpr->getType());
   const bool isSintType = isSintOrVecMatOfSintType(callExpr->getType());
+
+  // Figure out which intrinsic function to translate.
+  llvm::StringRef group;
+  uint32_t opcode = static_cast<uint32_t>(hlsl::IntrinsicOp::Num_Intrinsics);
+  hlsl::GetIntrinsicOp(callee, opcode, group);
+
   GLSLstd450 glslOpcode = GLSLstd450Bad;
 
 #define INTRINSIC_OP_CASE(intrinsicOp, glslOp, doEachVec)                      \
@@ -2413,10 +2604,6 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);     \
   } break
 
-  // Figure out which intrinsic function to translate.
-  llvm::StringRef group;
-  uint32_t opcode = static_cast<uint32_t>(hlsl::IntrinsicOp::Num_Intrinsics);
-  hlsl::GetIntrinsicOp(callee, opcode, group);
   switch (static_cast<hlsl::IntrinsicOp>(opcode)) {
   case hlsl::IntrinsicOp::IOP_dot:
     return processIntrinsicDot(callExpr);
