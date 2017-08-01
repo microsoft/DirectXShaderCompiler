@@ -753,18 +753,41 @@ public:
     const auto subTypeId = typeTranslator.translateType(subType);
 
     switch (opcode) {
-    case UO_PreInc: {
-      const spv::Op spvOp = translateOp(BO_Add, subType);
+    case UO_PreInc:
+    case UO_PreDec:
+    case UO_PostInc:
+    case UO_PostDec: {
+      const bool isPre = opcode == UO_PreInc || opcode == UO_PreDec;
+      const bool isInc = opcode == UO_PreInc || opcode == UO_PostInc;
+
+      const spv::Op spvOp = translateOp(isInc ? BO_Add : BO_Sub, subType);
       const uint32_t one = getValueOne(subType);
       const uint32_t originValue = theBuilder.createLoad(subTypeId, subValue);
       const uint32_t incValue =
           theBuilder.createBinaryOp(spvOp, subTypeId, originValue, one);
       theBuilder.createStore(subValue, incValue);
-      // Prefix increment operator returns a lvalue.
-      return subValue;
+
+      // Prefix increment/decrement operator returns a lvalue, while postfix
+      // increment/decrement returns a rvalue.
+      return isPre ? subValue : originValue;
     }
     case UO_Not:
       return theBuilder.createUnaryOp(spv::Op::OpNot, subTypeId, subValue);
+    case UO_LNot:
+      // Parsing will do the necessary casting to make sure we are applying the
+      // ! operator on boolean values.
+      return theBuilder.createUnaryOp(spv::Op::OpLogicalNot, subTypeId,
+                                      subValue);
+    case UO_Plus:
+      // No need to do anything for the prefix + operator.
+      return subValue;
+    case UO_Minus: {
+      // SPIR-V have two opcodes for negating values: OpSNegate and OpFNegate.
+      const spv::Op spvOp = isFloatOrVecOfFloatType(subType)
+                                ? spv::Op::OpFNegate
+                                : spv::Op::OpSNegate;
+      return theBuilder.createUnaryOp(spvOp, subTypeId, subValue);
+    }
     default:
       break;
     }
