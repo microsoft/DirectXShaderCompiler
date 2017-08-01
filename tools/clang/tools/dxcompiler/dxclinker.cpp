@@ -50,7 +50,8 @@ public:
   // Register a library with name to ref it later.
   __override HRESULT RegisterLibrary(
       _In_opt_ LPCWSTR pLibName, // Name of the library.
-      _In_ IDxcBlob *pLib        // Library to add.
+      _In_ IDxcBlob *pLib,       // Library to add.
+      _In_ unsigned bLazyLoad    // Lazy load the lib
   );
 
   // Links the shader and produces a shader blob that the Direct3D runtime can
@@ -67,14 +68,6 @@ public:
       _COM_Outptr_ IDxcOperationResult *
           *ppResult // Linker output status, buffer, and errors
   );
-
-  __override HRESULT DisableLazyLibLoad() {
-    DXASSERT(m_pLinker.get(),
-             "else Initialize() not called or failed silently");
-    bool bOK = m_pLinker->DisableLazyLoad();
-    m_bLazyLoad = bOK ? false : m_bLazyLoad;
-    return bOK ? S_OK : E_FAIL;
-  }
 
   __override HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
       IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) {
@@ -99,7 +92,6 @@ public:
   }
 
   void Initialize() {
-    m_bLazyLoad = true;
     m_pLinker.reset(DxilLinker::CreateLinker(m_Ctx));
   }
 
@@ -113,12 +105,12 @@ private:
   LLVMContext m_Ctx;
   std::unique_ptr<DxilLinker> m_pLinker;
   CComPtr<IDxcContainerEventsHandler> m_pDxcContainerEventsHandler;
-  bool m_bLazyLoad;
 };
 
 HRESULT
 DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
-                           _In_ IDxcBlob *pBlob       // Library to add.
+                           _In_ IDxcBlob *pBlob,       // Library to add.
+                           _In_ unsigned bLazyLoad     // Lazy load the lib
 ) {
   DXASSERT(m_pLinker.get(), "else Initialize() not called or failed silently");
   DxcThreadMalloc TM(m_pMalloc);
@@ -141,10 +133,10 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
 
     IFR(ValidateLoadModuleFromContainer(
         pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
-        pDebugModule, m_Ctx, m_Ctx, DiagStream, m_bLazyLoad));
+        pDebugModule, m_Ctx, m_Ctx, DiagStream, bLazyLoad));
 
     return m_pLinker->RegisterLib(pUtf8LibName.m_psz, std::move(pModule),
-                                  std::move(pDebugModule))
+                                  std::move(pDebugModule), bLazyLoad)
                ? S_OK
                : E_INVALIDARG;
   } catch (hlsl::Exception &) {
