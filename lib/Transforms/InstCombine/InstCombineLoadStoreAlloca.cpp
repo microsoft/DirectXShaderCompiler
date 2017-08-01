@@ -900,7 +900,9 @@ static bool unpackStoreToAggregate(InstCombiner &IC, StoreInst &SI) {
 
   if (auto *ST = dyn_cast<StructType>(T)) {
     // If the struct only have one element, we unpack.
-    if (ST->getNumElements() == 1) {
+    if (ST->getNumElements() == 1
+        && !hlsl::OP::IsDxilOpType(ST) // HLSL Change - avoid unpack dxil types.
+        ) {
       V = IC.Builder->CreateExtractValue(V, 0);
       combineStoreToNewValue(IC, SI, V);
       return true;
