@@ -206,6 +206,9 @@ public:
       _In_ IDxcBlob *pLib                // Library blob.
   ) = 0;
 
+  // Materialize all when load library blob, default is lazy load.
+  virtual HRESULT DisableLazyLibLoad() = 0;
+
   // Links the shader and produces a shader blob that the Direct3D runtime can
   // use.
   virtual HRESULT STDMETHODCALLTYPE Link(
