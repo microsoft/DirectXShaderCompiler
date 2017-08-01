@@ -78,9 +78,19 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS3
 } 	D3D12_FEATURE_DATA_D3D12_OPTIONS3;
 #endif
 
-static char *BoolToStr(bool value) {
+static char *BoolToStrJson(bool value) {
+  return value ? "true" : "false";
+}
+
+static char *BoolToStrText(bool value) {
   return value ? "YES" : "NO";
 }
+
+static char *(*BoolToStr)(bool value);
+static bool IsOutputJson;
+
+#define json_printf(...) if (IsOutputJson) { printf(__VA_ARGS__); }
+#define text_printf(...) if (!IsOutputJson) { printf(__VA_ARGS__); }
 
 static char *ShaderModelToStr(D3D_SHADER_MODEL SM) {
   switch ((UINT32)SM) {
@@ -101,7 +111,10 @@ static char *ViewInstancingTierToStr(D3D12_VIEW_INSTANCING_TIER Tier) {
   }
 }
 
-static void PrintAdapters() {
+static HRESULT PrintAdapters() {
+  HRESULT hr = S_OK;
+  char comma = ' ';
+  json_printf("{ \"adapters\" : [\n");
   try {
     CComPtr<IDXGIFactory2> pFactory;
     AtlCheck(CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory)));
@@ -129,7 +142,11 @@ static void PrintAdapters() {
       if (SUCCEEDED(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS3, &DeviceOptions3, sizeof(DeviceOptions3))))
         DeviceSM.HighestShaderModel = D3D_SHADER_MODEL_6_1;
       AtlCheck(pDevice->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &DeviceSM, sizeof(DeviceSM)));
-      printf("%S - Highest SM [%s] Wave [%s] I64 [%s] Barycentrics [%s] View Instancing [%s]\n",
+      const char *Format = IsOutputJson ?
+        "%c { \"name\": \"%S\", \"sm\": \"%s\", \"wave\": %s, \"i64\": %s, \"bary\": %s, \"view-inst\": \"%s\" }\n" :
+        "%c %S - Highest SM [%s] Wave [%s] I64 [%s] Barycentrics [%s] View Instancing [%s]\n";
+      printf(Format,
+             comma,
              AdapterDesc.Description,
              ShaderModelToStr(DeviceSM.HighestShaderModel),
              BoolToStr(DeviceOptions.WaveOps),
@@ -137,11 +154,16 @@ static void PrintAdapters() {
              BoolToStr(DeviceOptions3.BarycentricsSupported),
              ViewInstancingTierToStr(DeviceOptions3.ViewInstancingTier));
       AdapterIndex++;
+      comma = IsOutputJson ? ',' : ' ';
     }
   }
-  catch (ATL::CAtlException &) {
-    printf("%s", "Unable to print information for adapters.\n");
+  catch (ATL::CAtlException &e) {
+    hr = e.m_hr;
+    json_printf("%c { \"err\": \"unable to print information for adapters - 0x%08x\" }\n", comma, hr);
+    text_printf("%s", "Unable to print information for adapters.\n");
   }
+  json_printf("  ] }\n");
+  return hr;
 }
 
 
@@ -152,17 +174,25 @@ static void PrintAdapters() {
 // 3 - experimental shader mode interface unsupported
 // 4 - other error
 int main(int argc, const char *argv[]) {
+  BoolToStr = BoolToStrText;
+  IsOutputJson = false;
+
   if (argc > 1) {
     const char *pArg = argv[1];
-    if (0 == strcmp(pArg, "-?") || 0 == strcmp(pArg, "/?") || 0 == strcmp(pArg, "/?")) {
+    if (0 == strcmp(pArg, "-?") || 0 == strcmp(pArg, "--?") || 0 == strcmp(pArg, "/?")) {
       printf("Checks the available of D3D support for experimental shader models.\n\n");
-      printf("dxexp\n\n");
+      printf("dxexp [-json]\n\n");
       printf("Sets errorlevel to 0 on success, non-zero for failure cases.\n");
+      return 4;
+    }
+    else if (0 == strcmp(pArg, "-json") || 0 == strcmp(pArg, "/json")) {
+      IsOutputJson = true;
+      BoolToStr = BoolToStrJson;
     }
     else {
       printf("Unrecognized command line arguments.\n");
+      return 4;
     }
-    return 4;
   }
 
   DWORD err;
@@ -174,10 +204,16 @@ int main(int argc, const char *argv[]) {
     return 1;
   }
 
-  printf("Adapter feature support without experimental shaders enabled:\n");
-  PrintAdapters();
+  json_printf("{ \"noexp\":\n");
+  text_printf("Adapter feature support without experimental shaders enabled:\n");
+
+  if (FAILED(PrintAdapters())) {
+    return 4;
+  }
   FreeLibrary(hRuntime);
-  printf("-------------------------------------------------------------\n");
+
+  json_printf(" , \"exp\":");
+  text_printf("-------------------------------------------------------------\n");
 
   hRuntime = LoadLibraryW(L"d3d12.dll");
   if (hRuntime == NULL) {
@@ -201,25 +237,32 @@ int main(int argc, const char *argv[]) {
 
   HRESULT hr = pD3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
   if (SUCCEEDED(hr)) {
-    printf("Experimental shader model feature succeeded.\n");
-    PrintAdapters();
-    return 0;
+    text_printf("Experimental shader model feature succeeded.\n");
+    hr = PrintAdapters();
+    json_printf("\n}\n");
+    return (SUCCEEDED(hr)) ? 0 : 4;
   }
   else if (hr == E_NOINTERFACE) {
-    printf("Experimental shader model feature failed with error E_NOINTERFACE.\n");
-    printf("The most likely cause is that Windows Developer mode is not on.\n");
-    printf("See https://msdn.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development\n");
+    text_printf("Experimental shader model feature failed with error E_NOINTERFACE.\n");
+    text_printf("The most likely cause is that Windows Developer mode is not on.\n");
+    text_printf("See https://msdn.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development\n");
+    json_printf("{ \"err\": \"E_NOINTERFACE\" }");
+    json_printf("\n}\n");
     return 3;
   }
   else if (hr == E_INVALIDARG) {
-    printf("Experimental shader model feature failed with error E_INVALIDARG.\n");
-    printf("This means the configuration of a feature is incorrect, the set of features passed\n"
+    text_printf("Experimental shader model feature failed with error E_INVALIDARG.\n");
+    text_printf("This means the configuration of a feature is incorrect, the set of features passed\n"
       "in are known to be incompatible with each other, or other errors occured,\n"
       "and is generally unexpected for the experimental shader model feature.\n");
+    json_printf("{ \"err\": \"E_INVALIDARG\" }");
+    json_printf("\n}\n");
     return 4;
   }
   else {
-    printf("Experimental shader model feature failed with unexpected HRESULT 0x%08x.\n", hr);
+    text_printf("Experimental shader model feature failed with unexpected HRESULT 0x%08x.\n", hr);
+    json_printf("{ \"err\": \"0x%08x\" }", hr);
+    json_printf("\n}\n");
     return 4;
   }
 }
