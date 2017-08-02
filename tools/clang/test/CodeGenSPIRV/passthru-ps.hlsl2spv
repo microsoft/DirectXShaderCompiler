@@ -22,8 +22,8 @@ float4 main(float4 input: COLOR): SV_Target
 // OpName %out_var_SV_Target "out.var.SV_Target"
 // OpName %src_main "src.main"
 // OpName %input "input"
-// OpDecorate %out_var_SV_Target Location 0
 // OpDecorate %in_var_COLOR Location 0
+// OpDecorate %out_var_SV_Target Location 0
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32
