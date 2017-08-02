@@ -37,6 +37,7 @@ TEST_F(WholeFileTest, ConstantPixelShader) {
 // For types
 TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
 TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
+TEST_F(FileTest, MatrixTypes) { runFileTest("type.matrix.hlsl"); }
 
 // For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
