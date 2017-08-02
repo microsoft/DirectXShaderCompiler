@@ -159,22 +159,33 @@ HLSL also supports various `minimal precision scalar types <https://msdn.microso
 
 There are no direct mapping in SPIR-V for these types. We may need to use ``OpTypeFloat``/``OpTypeInt`` with ``RelaxedPrecision`` for some of them and issue warnings/errors for the rest.
 
-Vectors and matrixes
+Vectors and matrices
 ++++++++++++++++++++
 
-`Vectors <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509707(v=vs.85).aspx>`_ and `matrixes <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509623(v=vs.85).aspx>`_ are also relatively straightforward to handle:
+`Vectors <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509707(v=vs.85).aspx>`_ and `matrices <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509623(v=vs.85).aspx>`_ are translated into:
 
-+------------------------------------+------------------------------------+
-|               HLSL                 |             SPIR-V                 |
-+------------------------------------+------------------------------------+
-|``vector<|type|, |count|>``         | ``OpTypeVector |type| |count|``    |
-+------------------------------------+------------------------------------+
-|``matrix<|type|, |row|, |column|>`` | ``%v = OpTypeVector |type| |row|`` |
-+------------------------------------+                                    |
-|``|type||row|x|column|``            | ``OpTypeMatrix %v |column|``       |
-+------------------------------------+------------------------------------+
++-------------------------------------+---------------------------------------+
+|               HLSL                  |             SPIR-V                    |
++-------------------------------------+---------------------------------------+
+| ``|type||count|``                   |                                       |
++-------------------------------------+  ``OpTypeVector |type| |count|``      |
+| ``vector<|type|, |count|>``         |                                       |
++-------------------------------------+---------------------------------------+
+| ``matrix<|type|, |row|, |column|>`` | ``%v = OpTypeVector |type| |column|`` |
++-------------------------------------+                                       |
+| ``|type||row|x|column|``            | ``OpTypeMatrix %v |row|``             |
++-------------------------------------+---------------------------------------+
+
+A MxN HLSL matrix is translated into a SPIR-V matrix with M columns, each with N elements. Conceptually HLSL matrices are row-major while SPIR-V matrices are column-major, thus all HLSL matrices are represented by their transposes. Doing so may require special handling of certain matrix operations:
+
+- **Indexing**: no special handling required. ``matrix[m][n]`` will still access the correct element since ``m``/``n`` means the ``m``-th/``n``-th row/column in HLSL but ``m``-th/``n``-th column/element in SPIR-V.
+- **Per-element operation**: no special handling required.
+- **Matrix multiplication**: need to swap the operands. ``mat1 x mat2`` should be translated as ``transpose(mat2) x transpose(mat1)``. Then the result is ``transpose(mat1 x mat2)``.
+- **Storage layout**: ``row_major``/``column_major`` will be translated into SPIR-V ``ColMajor``/``RowMajor`` decoration. This is because HLSL matrix row/column becomes SPIR-V matrix column/row. If elements in a row/column are packed together, they should be loaded into a column/row correspondingly.
 
 Note that vectors of size 1 are just translated into scalar values of the element types since SPIR-V mandates the size of vector to be at least 2.
+
+Also, matrices whose row or column count is 1 are also translated into the corresponding vector types with the same element type. Matrices of size 1x1 are translated into scalars.
 
 Structs
 +++++++
@@ -364,6 +375,11 @@ Casting between (vectors) of scalar types is translated according to the followi
 +------------+                   +-------------------+-------------------+-------------------+
 |   Float    |                   | ``OpConvertFToS`` | ``OpConvertFToU`` |      no-op        |
 +------------+-------------------+-------------------+-------------------+-------------------+
+
+Indexing operator
++++++++++++++++++
+
+The ``[]`` operator can also be used to access elements in a matrix or vector. A matrix whose row and/or column count is 1 will be translated into a vector or scalar. If a variable is used as the index for the dimension whose count is 1, that variable will be ignored in the generated SPIR-V code. This is because out-of-bound indexing triggers undefined behavior anyway. For example, for a 1xN matrix ``mat``, ``mat[index][0]`` will be translated into ``OpAccessChain ... %mat %uint_0``. Similarly, variable index into a size 1 vector will also be ignored and the only element will be always returned.
 
 Control flows
 -------------
