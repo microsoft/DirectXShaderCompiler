@@ -4600,7 +4600,7 @@ HRESULT ValidateDxilBitcode(
   return S_OK;
 }
 
-_Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainer(
+static HRESULT ValidateLoadModuleFromContainer(
     _In_reads_bytes_(ILLength) const void *pContainer,
     _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
     _In_ std::unique_ptr<llvm::Module> &pDebugModule,
@@ -4643,6 +4643,28 @@ _Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainer(
   return S_OK;
 }
 
+_Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainer(
+    _In_reads_bytes_(ContainerSize) const void *pContainer,
+    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
+    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
+    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
+    _In_ llvm::raw_ostream &DiagStream) {
+  return ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
+                                         pDebugModule, Ctx, DbgCtx, DiagStream,
+                                         /*bLazyLoad*/ false);
+}
+// Lazy loads module from container, validating load, but not module.
+_Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainerLazy(
+    _In_reads_bytes_(ContainerSize) const void *pContainer,
+    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
+    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
+    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
+    _In_ llvm::raw_ostream &DiagStream) {
+  return ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
+                                         pDebugModule, Ctx, DbgCtx, DiagStream,
+                                         /*bLazyLoad*/ true);
+}
+
 _Use_decl_annotations_
 HRESULT ValidateDxilContainer(const void *pContainer,
                               uint32_t ContainerSize,
@@ -4658,7 +4680,7 @@ HRESULT ValidateDxilContainer(const void *pContainer,
                               &DiagContext, true);
 
   IFR(ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule, pDebugModule,
-      Ctx, DbgCtx, DiagStream, /*bLazyLoad*/false));
+      Ctx, DbgCtx, DiagStream));
 
   // Validate DXIL Module
   IFR(ValidateDxilModule(pModule.get(), pDebugModule.get()));

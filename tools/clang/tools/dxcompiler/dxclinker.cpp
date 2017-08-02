@@ -130,10 +130,15 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
     IFT(CreateMemoryStream(pMalloc, &pDiagStream));
 
     raw_stream_ostream DiagStream(pDiagStream);
-
-    IFR(ValidateLoadModuleFromContainer(
-        pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
-        pDebugModule, m_Ctx, m_Ctx, DiagStream, bLazyLoad));
+    if (bLazyLoad) {
+      IFR(ValidateLoadModuleFromContainerLazy(
+          pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
+          pDebugModule, m_Ctx, m_Ctx, DiagStream));
+    } else {
+      IFR(ValidateLoadModuleFromContainer(
+          pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
+          pDebugModule, m_Ctx, m_Ctx, DiagStream));
+    }
 
     return m_pLinker->RegisterLib(pUtf8LibName.m_psz, std::move(pModule),
                                   std::move(pDebugModule), bLazyLoad)
