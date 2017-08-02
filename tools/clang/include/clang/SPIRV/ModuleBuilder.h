@@ -144,6 +144,12 @@ public:
   uint32_t createSelect(uint32_t resultType, uint32_t condition,
                         uint32_t trueValue, uint32_t falseValue);
 
+  /// \brief Creates a switch statement for the given selector, default, and
+  /// branches. Results in OpSelectionMerge followed by OpSwitch.
+  void createSwitch(uint32_t mergeLabel, uint32_t selector,
+                    uint32_t defaultLabel,
+                    llvm::ArrayRef<std::pair<uint32_t, uint32_t>> target);
+
   // \brief Creates an unconditional branch to the given target label.
   void createBranch(uint32_t targetLabel);
 
