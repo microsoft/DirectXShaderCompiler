@@ -201,7 +201,7 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<int2, __decltype(-bool2_l)>::value, "");
     _Static_assert(std::is_same<float3, __decltype(-float3_l)>::value, "");
     _Static_assert(std::is_same<double4, __decltype(-double4_l)>::value, "");
-    _Static_assert(std::is_same<min10float1x2, __decltype(-min10float1x2_l)>::value, "");  
+    _Static_assert(std::is_same<min10float1x2, __decltype(-min10float1x2_l)>::value, "");      /* expected-warning {{min10float is promoted to min16float}} */
     _Static_assert(std::is_same<uint2x3, __decltype(-uint2x3_l)>::value, "");
     _Static_assert(std::is_same<min16uint4x4, __decltype(-min16uint4x4_l)>::value, "");
     _Static_assert(std::is_same<int3x2, __decltype(-int3x2_l)>::value, "");
@@ -223,7 +223,7 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<int2, __decltype(+bool2_l)>::value, "");
     _Static_assert(std::is_same<float3, __decltype(+float3_l)>::value, "");
     _Static_assert(std::is_same<double4, __decltype(+double4_l)>::value, "");
-    _Static_assert(std::is_same<min10float1x2, __decltype(+min10float1x2_l)>::value, "");  
+    _Static_assert(std::is_same<min10float1x2, __decltype(+min10float1x2_l)>::value, "");      /* expected-warning {{min10float is promoted to min16float}} */
     _Static_assert(std::is_same<uint2x3, __decltype(+uint2x3_l)>::value, "");
     _Static_assert(std::is_same<min16uint4x4, __decltype(+min16uint4x4_l)>::value, "");
     _Static_assert(std::is_same<int3x2, __decltype(+int3x2_l)>::value, "");
@@ -287,11 +287,11 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<double, __decltype(double_l--)>::value, "");
     _Static_assert(std::is_same<min16float&, __decltype(--min16float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16float, __decltype(min16float_l--)>::value, "");
-    _Static_assert(std::is_same<min10float&, __decltype(--min10float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}} expected-warning {{min10float is promoted to min16float}}
+    _Static_assert(std::is_same<min10float&, __decltype(--min10float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} expected-warning {{min10float is promoted to min16float}} fxc-pass {{}}
     _Static_assert(std::is_same<min10float, __decltype(min10float_l--)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
     _Static_assert(std::is_same<min16int&, __decltype(--min16int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16int, __decltype(min16int_l--)>::value, "");
-    _Static_assert(std::is_same<min12int&, __decltype(--min12int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}  expected-warning {{min12int is promoted to min16int}}
+    _Static_assert(std::is_same<min12int&, __decltype(--min12int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} expected-warning {{min12int is promoted to min16int}} fxc-pass {{}}
     _Static_assert(std::is_same<min12int, __decltype(min12int_l--)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
     _Static_assert(std::is_same<min16uint&, __decltype(--min16uint_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16uint, __decltype(min16uint_l--)>::value, "");
@@ -309,8 +309,8 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<float3, __decltype(float3_l--)>::value, "");
     _Static_assert(std::is_same<double4&, __decltype(--double4_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<double4, __decltype(double4_l--)>::value, "");
-    _Static_assert(std::is_same<min10float1x2&, __decltype(--min10float1x2_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
-    _Static_assert(std::is_same<min10float1x2, __decltype(min10float1x2_l--)>::value, "");  
+    _Static_assert(std::is_same<min10float1x2&, __decltype(--min10float1x2_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} expected-warning {{min10float is promoted to min16float}} fxc-pass {{}}
+    _Static_assert(std::is_same<min10float1x2, __decltype(min10float1x2_l--)>::value, "");      /* expected-warning {{min10float is promoted to min16float}} */
     _Static_assert(std::is_same<uint2x3&, __decltype(--uint2x3_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<uint2x3, __decltype(uint2x3_l--)>::value, "");
     _Static_assert(std::is_same<min16uint4x4&, __decltype(--min16uint4x4_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
@@ -331,11 +331,11 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<double, __decltype(double_l++)>::value, "");
     _Static_assert(std::is_same<min16float&, __decltype(++min16float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16float, __decltype(min16float_l++)>::value, "");
-    _Static_assert(std::is_same<min10float&, __decltype(++min10float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}} expected-warning {{min10float is promoted to min16float}}
+    _Static_assert(std::is_same<min10float&, __decltype(++min10float_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} expected-warning {{min10float is promoted to min16float}} fxc-pass {{}}
     _Static_assert(std::is_same<min10float, __decltype(min10float_l++)>::value, "");  // expected-warning {{min10float is promoted to min16float}}
     _Static_assert(std::is_same<min16int&, __decltype(++min16int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16int, __decltype(min16int_l++)>::value, "");
-    _Static_assert(std::is_same<min12int&, __decltype(++min12int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}} expected-warning {{min12int is promoted to min16int}}
+    _Static_assert(std::is_same<min12int&, __decltype(++min12int_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} expected-warning {{min12int is promoted to min16int}} fxc-pass {{}}
     _Static_assert(std::is_same<min12int, __decltype(min12int_l++)>::value, "");  // expected-warning {{min12int is promoted to min16int}}
     _Static_assert(std::is_same<min16uint&, __decltype(++min16uint_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<min16uint, __decltype(min16uint_l++)>::value, "");
@@ -353,8 +353,8 @@ float4 plain(float4 param4 /* : FOO */) /*: FOO */{
     _Static_assert(std::is_same<float3, __decltype(float3_l++)>::value, "");
     _Static_assert(std::is_same<double4&, __decltype(++double4_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<double4, __decltype(double4_l++)>::value, "");
-    _Static_assert(std::is_same<min10float1x2&, __decltype(++min10float1x2_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
-    _Static_assert(std::is_same<min10float1x2, __decltype(min10float1x2_l++)>::value, ""); 
+    _Static_assert(std::is_same<min10float1x2&, __decltype(++min10float1x2_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} expected-warning {{min10float is promoted to min16float}} fxc-pass {{}}
+    _Static_assert(std::is_same<min10float1x2, __decltype(min10float1x2_l++)>::value, "");  /* expected-warning {{min10float is promoted to min16float}} */
     _Static_assert(std::is_same<uint2x3&, __decltype(++uint2x3_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}
     _Static_assert(std::is_same<uint2x3, __decltype(uint2x3_l++)>::value, "");
     _Static_assert(std::is_same<min16uint4x4&, __decltype(++min16uint4x4_l)>::value, ""); // expected-error {{pointers are unsupported in HLSL}} fxc-pass {{}}

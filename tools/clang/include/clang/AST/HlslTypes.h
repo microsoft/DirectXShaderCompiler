@@ -70,6 +70,8 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T);
 
 static const HLSLScalarType HLSLScalarType_minvalid = HLSLScalarType_bool;
 static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_uint64;
+static const HLSLScalarType HLSLScalarType_min_minprecise = HLSLScalarType_float_min10;
+static const HLSLScalarType HLSLScalarType_max_minprecise = HLSLScalarType_uint_min16;
 static const size_t HLSLScalarTypeCount = static_cast<size_t>(HLSLScalarType_max) + 1;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -428,5 +430,14 @@ bool TryParseHLSLScalarType(
   size_t typeNameLen,
   _Out_     HLSLScalarType *parsedType
 );
+
+_Success_(return != false)
+bool TryParseHLSLMinPrecision(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _Out_     HLSLScalarType *parsedType
+);
+
 } // end hlsl namespace
 #endif

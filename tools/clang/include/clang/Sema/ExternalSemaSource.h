@@ -218,6 +218,8 @@ public:
     return false;
   }
 
+  virtual void DiagnoseLookup(const LookupResult &R) {}
+
   // HLSL Change Ends
 
 

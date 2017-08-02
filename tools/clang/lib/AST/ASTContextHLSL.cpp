@@ -869,17 +869,71 @@ bool hlsl::TryParseHLSLScalarType(
             size_t typeNameLen,
   _Out_     HLSLScalarType *parsedType
 ) {
-  for (HLSLScalarType index = HLSLScalarType_minvalid;
-    index <= HLSLScalarType_max;
-    index = (HLSLScalarType)(index + 1)) {
-    // Parsing only scalar type.
-    size_t compareLen = typeNameLen > strlen(HLSLScalarTypeNames[index]) ? typeNameLen : strlen(HLSLScalarTypeNames[index]);
-    if (strncmp(HLSLScalarTypeNames[index], typeName, compareLen) == 0) {
-      *parsedType = index;
-      return true;
+  // type is at least 'int'
+  const size_t MinValidLen = 3;
+  if (typeNameLen >= MinValidLen) {
+    for (HLSLScalarType index = HLSLScalarType_minvalid;
+      index <= HLSLScalarType_max;
+      index = (HLSLScalarType)(index + 1)) {
+      // Parsing only scalar type.
+      const size_t compareLen = typeNameLen > strlen(HLSLScalarTypeNames[index])
+                                    ? typeNameLen
+                                    : strlen(HLSLScalarTypeNames[index]);
+      if (strncmp(HLSLScalarTypeNames[index], typeName, compareLen) == 0) {
+        *parsedType = index;
+        return true;
+      }
     }
   }
-  // unable to parse
+ // unable to parse
+  return false;
+}
+
+/// <summary>Parse any kind of min precision (e.g min16float, min12int3x4) </summary>
+_Use_decl_annotations_
+bool hlsl::TryParseHLSLMinPrecision(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _Out_   HLSLScalarType *parsedType
+) {
+  // some precision type is at least 'min16int'
+  const size_t MinValidLen = 8;
+  if (typeNameLen >= MinValidLen) {
+    int colCount, rowCount;
+    if (TryParseColOrRowChar(typeName[typeNameLen - 1], &colCount) &&
+      typeName[typeNameLen - 2] == 'x' &&
+      TryParseColOrRowChar(typeName[typeNameLen - 3], &rowCount)) {
+      for (HLSLScalarType index = HLSLScalarType_min_minprecise;
+        index < HLSLScalarType_max_minprecise;
+        index = (HLSLScalarType)(index + 1)) {
+        if (strncmp(HLSLScalarTypeNames[index], typeName, typeNameLen - 3) == 0) {
+          *parsedType = index;
+          return true;
+        }
+      }
+    }
+    else if (TryParseColOrRowChar(typeName[typeNameLen - 1], &colCount)) {
+      for (HLSLScalarType index = HLSLScalarType_min_minprecise;
+        index < HLSLScalarType_max_minprecise;
+        index = (HLSLScalarType)(index + 1)) {
+        if (strncmp(HLSLScalarTypeNames[index], typeName, typeNameLen - 1) == 0) {
+          *parsedType = index;
+          return true;
+        }
+      }
+    }
+    else {
+      for (HLSLScalarType index = HLSLScalarType_min_minprecise;
+        index < HLSLScalarType_max_minprecise;
+        index = (HLSLScalarType)(index + 1)) {
+        if (strncmp(HLSLScalarTypeNames[index], typeName, typeNameLen) == 0) {
+          *parsedType = index;
+          return true;
+        }
+      }
+    }
+  }
   return false;
 }
 

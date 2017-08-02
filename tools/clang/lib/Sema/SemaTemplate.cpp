@@ -309,7 +309,9 @@ void Sema::LookupTemplateName(LookupResult &Found,
   } else {
     // Perform unqualified name lookup in the current scope.
     LookupName(Found, S);
-    
+    // HLSL Change: Diagnose on lookup level. Currently this is used to throw warnings for minprecision promotion
+    if (getLangOpts().HLSL)
+      ExternalSource->DiagnoseLookup(Found);
     if (!ObjectType.isNull())
       AllowFunctionTemplatesInLookup = false;
   }

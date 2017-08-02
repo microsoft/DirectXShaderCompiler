@@ -3093,6 +3093,18 @@ public:
     }
   }
 
+  void DiagnoseLookup(const LookupResult &R) {
+    const DeclarationNameInfo declName = R.getLookupNameInfo();
+    IdentifierInfo* idInfo = declName.getName().getAsIdentifierInfo();
+    if (idInfo) {
+      StringRef nameIdentifier = idInfo->getName();
+      HLSLScalarType parsedType;
+      if (TryParseHLSLMinPrecision(nameIdentifier.data(), nameIdentifier.size(), &parsedType)) {
+        WarnMinPrecision(parsedType, R.getNameLoc());
+      }
+    }
+  }
+
   bool LookupUnqualified(LookupResult &R, Scope *S) override
   {
     const DeclarationNameInfo declName = R.getLookupNameInfo();
@@ -3116,19 +3128,16 @@ public:
     // Try parsing hlsl scalar types that is not initialized at AST time.
     if (TryParseHLSLScalarType(nameIdentifier.data(), nameIdentifier.size(), &parsedType)) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
-      WarnMinPrecision(parsedType, R.getNameLoc());
       TypedefDecl *typeDecl = LookupScalarType(parsedType);
       R.addDecl(typeDecl);
     } else if (TryParseMatrixShorthand(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseMatrixShorthand should not have succeeded");
-      WarnMinPrecision(parsedType, R.getNameLoc());
       QualType qt = LookupMatrixType(parsedType, rowCount, colCount);
       TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
       R.addDecl(qts);
       return true;
     } else if (TryParseVectorShorthand(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &colCount)) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseVectorShorthand should not have succeeded");
-      WarnMinPrecision(parsedType, R.getNameLoc());
       QualType qt = LookupVectorType(parsedType, colCount);
       TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
       R.addDecl(qts);
