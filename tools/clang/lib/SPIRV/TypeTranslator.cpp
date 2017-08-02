@@ -106,5 +106,52 @@ uint32_t TypeTranslator::translateType(QualType type) {
   return 0;
 }
 
+bool TypeTranslator::is1x1MatrixType(QualType type) {
+  if (!hlsl::IsHLSLMatType(type))
+    return false;
+
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+
+  return rowCount == 1 && colCount == 1;
+}
+
+bool TypeTranslator::is1xNMatrixType(QualType type) {
+  if (!hlsl::IsHLSLMatType(type))
+    return false;
+
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+
+  return rowCount == 1 && colCount > 1;
+}
+
+/// Returns true if the given type is a SPIR-V acceptable matrix type, i.e.,
+/// with floating point elements and greater than 1 row and column counts.
+bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
+  if (!hlsl::IsHLSLMatType(type))
+    return false;
+
+  const auto elemType = hlsl::GetHLSLMatElementType(type);
+  if (!elemType->isFloatingType())
+    return false;
+
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+  return rowCount > 1 && colCount > 1;
+}
+
+uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
+  assert(isSpirvAcceptableMatrixType(matrixType));
+
+  const uint32_t elemType =
+      translateType(hlsl::GetHLSLMatElementType(matrixType));
+
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(matrixType, rowCount, colCount);
+
+  return theBuilder.getVecType(elemType, colCount);
+}
+
 } // end namespace spirv
 } // end namespace clang
