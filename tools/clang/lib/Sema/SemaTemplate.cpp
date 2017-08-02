@@ -311,7 +311,8 @@ void Sema::LookupTemplateName(LookupResult &Found,
     LookupName(Found, S);
     // HLSL Change: Diagnose on lookup level. Currently this is used to throw warnings for minprecision promotion
     if (getLangOpts().HLSL)
-      ExternalSource->DiagnoseLookup(Found);
+      DiagnoseHLSLLookup(Found);
+    // HLSL Change End
     if (!ObjectType.isNull())
       AllowFunctionTemplatesInLookup = false;
   }

@@ -3093,18 +3093,6 @@ public:
     }
   }
 
-  void DiagnoseLookup(const LookupResult &R) {
-    const DeclarationNameInfo declName = R.getLookupNameInfo();
-    IdentifierInfo* idInfo = declName.getName().getAsIdentifierInfo();
-    if (idInfo) {
-      StringRef nameIdentifier = idInfo->getName();
-      HLSLScalarType parsedType;
-      if (TryParseHLSLMinPrecision(nameIdentifier.data(), nameIdentifier.size(), &parsedType)) {
-        WarnMinPrecision(parsedType, R.getNameLoc());
-      }
-    }
-  }
-
   bool LookupUnqualified(LookupResult &R, Scope *S) override
   {
     const DeclarationNameInfo declName = R.getLookupNameInfo();
@@ -10859,6 +10847,21 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   }
 
   return result;
+}
+
+// Diagnose HLSL types on lookup
+bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
+  const DeclarationNameInfo declName = R.getLookupNameInfo();
+  IdentifierInfo* idInfo = declName.getName().getAsIdentifierInfo();
+  if (idInfo) {
+    StringRef nameIdentifier = idInfo->getName();
+    HLSLScalarType parsedType;
+    if (TryParseHLSLMinPrecision(nameIdentifier.data(), nameIdentifier.size(), &parsedType)) {
+      HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
+      hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
+    }
+  }
+  return true;
 }
 
 static QualType getUnderlyingType(QualType Type)
