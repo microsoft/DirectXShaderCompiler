@@ -77,6 +77,9 @@ TEST_F(FileTest, BinaryOpScalarArithmetic) {
 TEST_F(FileTest, BinaryOpVectorArithmetic) {
   runFileTest("binary-op.arithmetic.vector.hlsl");
 }
+TEST_F(FileTest, BinaryOpMatrixArithmetic) {
+  runFileTest("binary-op.arithmetic.matrix.hlsl");
+}
 TEST_F(FileTest, BinaryOpMixedArithmetic) {
   runFileTest("binary-op.arithmetic.mixed.hlsl");
 }
@@ -87,6 +90,9 @@ TEST_F(FileTest, BinaryOpScalarArithAssign) {
 }
 TEST_F(FileTest, BinaryOpVectorArithAssign) {
   runFileTest("binary-op.arith-assign.vector.hlsl");
+}
+TEST_F(FileTest, BinaryOpMatrixArithAssign) {
+  runFileTest("binary-op.arith-assign.matrix.hlsl");
 }
 TEST_F(FileTest, BinaryOpMixedArithAssign) {
   runFileTest("binary-op.arith-assign.mixed.hlsl");
