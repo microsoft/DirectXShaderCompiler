@@ -15,8 +15,8 @@ void main() {
 // CHECK-NEXT: [[mul0:%\d+]] = OpVectorTimesScalar %v4float [[a4]] [[s4]]
 // CHECK-NEXT: OpStore %b [[mul0]]
     b = a * s;
-// CHECK-NEXT: [[s5:%\d+]] = OpLoad %float %s
 // CHECK-NEXT: [[a5:%\d+]] = OpLoad %v4float %a
+// CHECK-NEXT: [[s5:%\d+]] = OpLoad %float %s
 // CHECK-NEXT: [[mul1:%\d+]] = OpVectorTimesScalar %v4float [[a5]] [[s5]]
 // CHECK-NEXT: OpStore %b [[mul1]]
     b = s * a;

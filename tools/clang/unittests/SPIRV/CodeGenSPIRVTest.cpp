@@ -128,6 +128,12 @@ TEST_F(FileTest, TernaryOpConditionalOp) {
   runFileTest("ternary-op.cond-op.hlsl");
 }
 
+// For vector swizzle operators
+TEST_F(FileTest, OpVectorSwizzle) { runFileTest("op.vector.swizzle.hlsl"); }
+TEST_F(FileTest, OpVectorSize1Swizzle) {
+  runFileTest("op.vector.swizzle.size1.hlsl");
+}
+
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
 TEST_F(FileTest, CastImplicit2Bool) { runFileTest("cast.2bool.implicit.hlsl"); }
