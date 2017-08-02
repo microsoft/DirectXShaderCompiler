@@ -174,6 +174,8 @@ Vectors and matrixes
 |``|type||row|x|column|``            | ``OpTypeMatrix %v |column|``       |
 +------------------------------------+------------------------------------+
 
+Note that vectors of size 1 are just translated into scalar values of the element types since SPIR-V mandates the size of vector to be at least 2.
+
 Structs
 +++++++
 
