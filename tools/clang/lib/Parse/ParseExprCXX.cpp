@@ -1905,16 +1905,6 @@ HLSLReservedKeyword:
     if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
     DS.SetTypeSpecType(DeclSpec::TST_int128, Loc, PrevSpec, DiagID, Policy);
     break;
-    // HLSL Change Starts
-  case tok::kw_min10float:
-    DS.SetTypeSpecType(DeclSpec::TST_min10float, Loc, PrevSpec, DiagID, Policy);
-    Diag(Tok, diag::warn_hlsl_minprecision_promotion) << "min10float" << "min16float";
-    break;
-  case tok::kw_min12int:
-    DS.SetTypeSpecType(DeclSpec::TST_min12int, Loc, PrevSpec, DiagID, Policy);
-    Diag(Tok, diag::warn_hlsl_minprecision_promotion) << "min12int" << "min16int";
-    break;
-    // HLSL Change Ends
   case tok::kw_half:
     DS.SetTypeSpecType(DeclSpec::TST_half, Loc, PrevSpec, DiagID, Policy);
     break;

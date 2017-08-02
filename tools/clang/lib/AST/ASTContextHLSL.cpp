@@ -861,6 +861,28 @@ bool hlsl::TryParseVectorShorthand(
   return false;
 }
 
+/// <summary>Parses a hlsl scalar type (e.g min16float, uint3x4) </summary>
+_Use_decl_annotations_
+bool hlsl::TryParseHLSLScalarType(
+  _In_count_(typenameLen)
+            const char* typeName,
+            size_t typeNameLen,
+  _Out_     HLSLScalarType *parsedType
+) {
+  for (HLSLScalarType index = HLSLScalarType_minvalid;
+    index <= HLSLScalarType_max;
+    index = (HLSLScalarType)(index + 1)) {
+    // Parsing only scalar type.
+    size_t compareLen = typeNameLen > strlen(HLSLScalarTypeNames[index]) ? typeNameLen : strlen(HLSLScalarTypeNames[index]);
+    if (strncmp(HLSLScalarTypeNames[index], typeName, compareLen) == 0) {
+      *parsedType = index;
+      return true;
+    }
+  }
+  // unable to parse
+  return false;
+}
+
 /// <summary>Creates a typedef for a matrix shorthand (eg, float3x2).</summary>
 TypedefDecl* hlsl::CreateMatrixSpecializationShorthand(
   ASTContext& context,

@@ -114,12 +114,6 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw___underlying_type:
     return true;
 
-  // HLSL Change Starts
-  case tok::kw_min10float:
-  case tok::kw_min12int:
-    return true;
-  // HLSL Change Ends
-
   case tok::annot_typename:
   case tok::kw_char16_t:
   case tok::kw_char32_t:

@@ -421,6 +421,12 @@ bool TryParseVectorShorthand(
   _Out_     HLSLScalarType* parsedType,
   _Out_     int* elementCount);
 
-}
-
+_Success_(return != false)
+bool TryParseHLSLScalarType(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _Out_     HLSLScalarType *parsedType
+);
+} // end hlsl namespace
 #endif

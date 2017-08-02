@@ -5584,9 +5584,7 @@ static bool IsHLSLBuiltInType(IdentifierInfo* ii)
   if (tokenKind == clang::tok::kw_bool ||
       tokenKind == clang::tok::kw_int ||
       tokenKind == clang::tok::kw_float ||
-      tokenKind == clang::tok::kw_double ||
-      tokenKind == clang::tok::kw_min10float ||
-      tokenKind == clang::tok::kw_min12int) {
+      tokenKind == clang::tok::kw_double) {
     return true;
   }
 
