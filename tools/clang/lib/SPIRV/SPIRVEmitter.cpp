@@ -2448,6 +2448,9 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_asint:
   case hlsl::IntrinsicOp::IOP_asuint:
     return processIntrinsicAsType(callExpr);
+  case hlsl::IntrinsicOp::IOP_clamp:
+  case hlsl::IntrinsicOp::IOP_uclamp:
+    return processIntrinsicClamp(callExpr);
   case hlsl::IntrinsicOp::IOP_sign: {
     if (isFloatArg)
       return processIntrinsicFloatSign(callExpr);
@@ -2491,6 +2494,47 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 #undef INTRINSIC_OP_CASE_INT_FLOAT
 
   return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, actOnEachVecInMat);
+}
+
+uint32_t SPIRVEmitter::processIntrinsicClamp(const CallExpr *callExpr) {
+  // According the HLSL reference: clamp(X, Min, Max) takes 3 arguments. Each
+  // one may be int, uint, or float.
+  const uint32_t glslInstSetId = theBuilder.getGLSLExtInstSet();
+  const QualType returnType = callExpr->getType();
+  const uint32_t returnTypeId = typeTranslator.translateType(returnType);
+  GLSLstd450 glslOpcode = GLSLstd450::GLSLstd450UClamp;
+  if (isFloatOrVecMatOfFloatType(returnType))
+    glslOpcode = GLSLstd450::GLSLstd450FClamp;
+  else if (isSintOrVecMatOfSintType(returnType))
+    glslOpcode = GLSLstd450::GLSLstd450SClamp;
+
+  // Get the function parameters. Expect 3 parameters.
+  assert(callExpr->getNumArgs() == 3u);
+  const Expr *argX = callExpr->getArg(0);
+  const Expr *argMin = callExpr->getArg(1);
+  const Expr *argMax = callExpr->getArg(2);
+  const uint32_t argXId = doExpr(argX);
+  const uint32_t argMinId = doExpr(argMin);
+  const uint32_t argMaxId = doExpr(argMax);
+
+  // FClamp, UClamp, and SClamp do not operate on matrices, so we should perform
+  // the operation on each vector of the matrix.
+  if (TypeTranslator::isSpirvAcceptableMatrixType(argX->getType())) {
+    const auto actOnEachVec = [this, glslInstSetId, glslOpcode, argMinId,
+                               argMaxId](uint32_t index, uint32_t vecType,
+                                         uint32_t curRowId) {
+      const auto minRowId =
+          theBuilder.createCompositeExtract(vecType, argMinId, {index});
+      const auto maxRowId =
+          theBuilder.createCompositeExtract(vecType, argMaxId, {index});
+      return theBuilder.createExtInst(vecType, glslInstSetId, glslOpcode,
+                                      {curRowId, minRowId, maxRowId});
+    };
+    return processEachVectorInMatrix(argX, argXId, actOnEachVec);
+  }
+
+  return theBuilder.createExtInst(returnTypeId, glslInstSetId, glslOpcode,
+                                  {argXId, argMinId, argMaxId});
 }
 
 uint32_t SPIRVEmitter::processIntrinsicMul(const CallExpr *callExpr) {
