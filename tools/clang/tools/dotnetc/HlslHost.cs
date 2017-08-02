@@ -36,11 +36,15 @@ namespace MainNs
             StopRendererMsgId = 4,
             SetPayloadMsgId = 5,
             ReadLogMsgId = 6,
+            SetSizeMsgId = 7,
+            SetParentHwndMsgId = 8,
             GetPidMsgReplyId = 100 + GetPidMsgId,
             StartRendererMsgReplyId = 100 + StartRendererMsgId,
             StopRendererMsgReplyId = 100 + StopRendererMsgId,
             SetPayloadMsgReplyId = 100 + SetPayloadMsgId,
             ReadLogMsgReplyId = 100 + ReadLogMsgId,
+            SetSizeMsgReplyId = 100 + SetSizeMsgId,
+            SetParentHwndMsgReplyId = 100 + SetParentHwndMsgId,
         }
 
         internal class HhMessageReply
@@ -136,6 +140,7 @@ namespace MainNs
                     case StartRendererMsgReplyId:
                     case StopRendererMsgReplyId:
                     case SetPayloadMsgReplyId:
+                    case (uint)HhMessageId.SetParentHwndMsgReplyId:
                         str.Read(response, 4, IntPtr.Zero);
                         return new HhResultReply(kind, BytesAsUInt32(response));
                     case ReadLogMsgReplyId:
@@ -175,6 +180,21 @@ namespace MainNs
             writer.Write(h.Kind);
             writer.Write(payloadBytes);
             writer.Write('\0');
+            writer.Flush();
+            str.Write(stream.ToArray(), (int)h.Length, IntPtr.Zero);
+        }
+
+        internal void SetParentHwnd(IntPtr handle)
+        {
+            var str = host as System.Runtime.InteropServices.ComTypes.IStream;
+            HhMessageHeader h = new HhMessageHeader();
+            h.Kind = (uint)HhMessageId.SetParentHwndMsgId;
+            h.Length = (uint)(HhMessageHeader.FixedSize + sizeof(UInt64));
+            var stream = new System.IO.MemoryStream();
+            var writer = new System.IO.BinaryWriter(stream);
+            writer.Write(h.Length);
+            writer.Write(h.Kind);
+            writer.Write(handle.ToInt64());
             writer.Flush();
             str.Write(stream.ToArray(), (int)h.Length, IntPtr.Zero);
         }
