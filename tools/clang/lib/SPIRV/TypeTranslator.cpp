@@ -40,8 +40,9 @@ uint32_t TypeTranslator::translateType(QualType type) {
     return translateType(typedefType->desugar());
   }
 
-  // In AST, vector types are TypedefType of TemplateSpecializationType.
+  // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
   // We handle them via HLSL type inspection functions.
+
   if (hlsl::IsHLSLVecType(type)) {
     const auto elemType = hlsl::GetHLSLVecElementType(type);
     const auto elemCount = hlsl::GetHLSLVecSize(type);
@@ -51,6 +52,41 @@ uint32_t TypeTranslator::translateType(QualType type) {
       return translateType(elemType);
     }
     return theBuilder.getVecType(translateType(elemType), elemCount);
+  }
+
+  if (hlsl::IsHLSLMatType(type)) {
+    const auto elemTy = hlsl::GetHLSLMatElementType(type);
+    // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
+    // Validation Rules":
+    //   Matrix types can only be parameterized with floating-point types.
+    //
+    // So we need special handling of non-fp matrices, probably by emulating
+    // them using other types. But for now just disable them.
+    if (!elemTy->isFloatingType()) {
+      emitError("Non-floating-point matrices not supported yet");
+      return 0;
+    }
+    const auto elemType = translateType(elemTy);
+
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+
+    // In SPIR-V, matrices must have two or more columns.
+    // Handle degenerated cases first.
+
+    if (rowCount == 1 && colCount == 1)
+      return elemType;
+
+    if (rowCount == 1)
+      return theBuilder.getVecType(elemType, colCount);
+
+    if (colCount == 1)
+      return theBuilder.getVecType(elemType, rowCount);
+
+    // HLSL matrices are row major, while SPIR-V matrices are column major.
+    // We are mapping what HLSL semantically mean a row into a column here.
+    const uint32_t vecType = theBuilder.getVecType(elemType, colCount);
+    return theBuilder.getMatType(vecType, rowCount);
   }
 
   // Struct type

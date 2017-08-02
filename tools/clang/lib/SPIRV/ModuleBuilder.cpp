@@ -357,6 +357,14 @@ uint32_t ModuleBuilder::getVecType(uint32_t elemType, uint32_t elemCount) {
   return typeId;
 }
 
+uint32_t ModuleBuilder::getMatType(uint32_t colType, uint32_t colCount) {
+  const Type *type = Type::getMatrix(theContext, colType, colCount);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+
+  return typeId;
+}
+
 uint32_t ModuleBuilder::getPointerType(uint32_t pointeeType,
                                        spv::StorageClass storageClass) {
   const Type *type = Type::getPointer(theContext, storageClass, pointeeType);

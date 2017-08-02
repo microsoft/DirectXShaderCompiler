@@ -201,6 +201,7 @@ public:
   uint32_t getUint32Type();
   uint32_t getFloat32Type();
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
+  uint32_t getMatType(uint32_t colType, uint32_t colCount);
   uint32_t getPointerType(uint32_t pointeeType, spv::StorageClass);
   uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes);
   uint32_t getFunctionType(uint32_t returnType,
