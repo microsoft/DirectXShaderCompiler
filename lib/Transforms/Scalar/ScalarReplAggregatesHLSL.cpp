@@ -2229,6 +2229,8 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
     }
     DxilStructAnnotation *STA = typeSys.GetStructAnnotation(ST);
     DXASSERT(STA, "require annotation here");
+    if (STA->IsEmptyStruct())
+      return;
     for (uint32_t i = 0; i < ST->getNumElements(); i++) {
       llvm::Type *ET = ST->getElementType(i);
 
@@ -5445,10 +5447,10 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
       if (inputQual == DxilParamInputQual::Out ||
           inputQual == DxilParamInputQual::Inout) {
         for (ReturnInst *RI : retList) {
-          IRBuilder<> Builder(RI);
+          IRBuilder<> RetBuilder(RI);
           // copy tmp to arg.
           CallInst *tmpToArg =
-              AllocaBuilder.CreateMemCpy(&arg, TmpArg, size, 0);
+              RetBuilder.CreateMemCpy(&arg, TmpArg, size, 0);
           // Split the memcpy.
           MemcpySplitter::SplitMemCpy(cast<MemCpyInst>(tmpToArg), DL, nullptr,
                                       typeSys);
