@@ -191,6 +191,9 @@ TEST_F(FileTest, IfStmtNestedIfStmt) { runFileTest("if-stmt.nested.hlsl"); }
 TEST_F(FileTest, SwitchStmtUsingOpSwitch) {
   runFileTest("switch-stmt.opswitch.hlsl");
 }
+TEST_F(FileTest, SwitchStmtUsingIfStmt) {
+  runFileTest("switch-stmt.ifstmt.hlsl");
+}
 
 // For for statements
 TEST_F(FileTest, ForStmtPlainAssign) { runFileTest("for-stmt.plain.hlsl"); }
