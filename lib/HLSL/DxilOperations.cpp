@@ -155,7 +155,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Synchronization                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::AtomicBinOp,             "AtomicBinOp",              OCC::AtomicBinOp,              "atomicBinOp",                false, false, false, false, false, false, false,  true, false, Attribute::None,     },
   {  OC::AtomicCompareExchange,   "AtomicCompareExchange",    OCC::AtomicCompareExchange,    "atomicCompareExchange",      false, false, false, false, false, false, false,  true, false, Attribute::None,     },
-  {  OC::Barrier,                 "Barrier",                  OCC::Barrier,                  "barrier",                     true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::Barrier,                 "Barrier",                  OCC::Barrier,                  "barrier",                     true, false, false, false, false, false, false, false, false, Attribute::NoDuplicate, },
 
   // Pixel shader                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::CalculateLOD,            "CalculateLOD",             OCC::CalculateLOD,             "calculateLOD",               false, false,  true, false, false, false, false, false, false, Attribute::ReadOnly, },
