@@ -207,7 +207,6 @@ public:
         }
       }
     }
-    // TODO: enlarge the queue upon seeing a function call.
 
     // Translate all functions reachable from the entry function.
     // The queue can grow in the meanwhile; so need to keep evaluating
@@ -894,6 +893,10 @@ public:
       return doHLSLVectorElementExpr(vecElemExpr);
     }
 
+    if (const auto *matElemExpr = dyn_cast<ExtMatrixElementExpr>(expr)) {
+      return doExtMatrixElementExpr(matElemExpr);
+    }
+
     if (const auto *funcCall = dyn_cast<CallExpr>(expr)) {
       return doCallExpr(funcCall);
     }
@@ -1051,6 +1054,70 @@ public:
     return rhs;
   }
 
+  /// Tries to emit instructions for assigning to the given matrix element
+  /// accessing expression. Returns 0 if the trial fails and no instructions
+  /// are generated.
+  uint32_t tryToAssignToMatrixElements(const Expr *lhs, uint32_t rhs) {
+    const auto *lhsExpr = dyn_cast<ExtMatrixElementExpr>(lhs);
+    if (!lhsExpr)
+      return 0;
+
+    const Expr *baseMat = lhsExpr->getBase();
+    const uint32_t base = doExpr(baseMat);
+    const QualType elemType = hlsl::GetHLSLMatElementType(baseMat->getType());
+    const uint32_t elemTypeId = typeTranslator.translateType(elemType);
+
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(baseMat->getType(), rowCount, colCount);
+
+    // For each lhs element written to:
+    // 1. Extract the corresponding rhs element using OpCompositeExtract
+    // 2. Create access chain for the lhs element using OpAccessChain
+    // 3. Write using OpStore
+
+    const auto accessor = lhsExpr->getEncodedElementAccess();
+    for (uint32_t i = 0; i < accessor.Count; ++i) {
+      uint32_t row = 0, col = 0;
+      accessor.GetPosition(i, &row, &col);
+
+      llvm::SmallVector<uint32_t, 2> indices;
+      // If the matrix only has one row/column, we are indexing into a vector
+      // then. Only one index is needed for such cases.
+      if (rowCount > 1)
+        indices.push_back(row);
+      if (colCount > 1)
+        indices.push_back(col);
+
+      for (uint32_t i = 0; i < indices.size(); ++i)
+        indices[i] = theBuilder.getConstantInt32(indices[i]);
+
+      // If we are writing to only one element, the rhs should already be a
+      // scalar value.
+      uint32_t rhsElem = rhs;
+      if (accessor.Count > 1)
+        rhsElem = theBuilder.createCompositeExtract(elemTypeId, rhs, {i});
+
+      // TODO: select storage type based on the underlying variable
+      const uint32_t ptrType =
+          theBuilder.getPointerType(elemTypeId, spv::StorageClass::Function);
+
+      // If the lhs is actually a matrix of size 1x1, we don't need the access
+      // chain. base is already the dest pointer.
+      uint32_t lhsElemPtr = base;
+      if (!indices.empty()) {
+        // Load the element via access chain
+        lhsElemPtr = theBuilder.createAccessChain(ptrType, base, indices);
+      }
+
+      theBuilder.createStore(lhsElemPtr, rhsElem);
+    }
+
+    // TODO: OK, this return value is incorrect for compound assignments, for
+    // which cases we should return lvalues. Should at least emit errors if
+    // this return value is used (can be checked via ASTContext.getParents).
+    return rhs;
+  }
+
   /// Generates the necessary instructions for assigning rhs to lhs. If lhsPtr
   /// is not zero, it will be used as the pointer from lhs instead of evaluating
   /// lhs again.
@@ -1058,6 +1125,10 @@ public:
                              bool isCompoundAssignment, uint32_t lhsPtr = 0) {
     // Assigning to vector swizzling should be handled differently.
     if (const uint32_t result = tryToAssignToVectorElements(lhs, rhs)) {
+      return result;
+    }
+    // Assigning to matrix swizzling should be handled differently.
+    if (const uint32_t result = tryToAssignToMatrixElements(lhs, rhs)) {
       return result;
     }
 
@@ -1474,6 +1545,63 @@ public:
     return theBuilder.createVectorShuffle(type, baseVal, baseVal, selectors);
   }
 
+  uint32_t doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
+    const Expr *baseExpr = expr->getBase();
+    const uint32_t base = doExpr(baseExpr);
+    const auto accessor = expr->getEncodedElementAccess();
+    const uint32_t elemType = typeTranslator.translateType(
+        hlsl::GetHLSLMatElementType(baseExpr->getType()));
+
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(baseExpr->getType(), rowCount, colCount);
+
+    // Construct a temporary vector out of all elements accessed:
+    // 1. Create access chain for each element using OpAccessChain
+    // 2. Load each element using OpLoad
+    // 3. Create the vector using OpCompositeConstruct
+
+    llvm::SmallVector<uint32_t, 4> elements;
+    for (uint32_t i = 0; i < accessor.Count; ++i) {
+      uint32_t row = 0, col = 0, elem = 0;
+      accessor.GetPosition(i, &row, &col);
+
+      llvm::SmallVector<uint32_t, 2> indices;
+      // If the matrix only have one row/column, we are indexing into a vector
+      // then. Only one index is needed for such cases.
+      if (rowCount > 1)
+        indices.push_back(row);
+      if (colCount > 1)
+        indices.push_back(col);
+
+      if (baseExpr->isGLValue()) {
+        for (uint32_t i = 0; i < indices.size(); ++i)
+          indices[i] = theBuilder.getConstantInt32(indices[i]);
+
+        // TODO: select storage type based on the underlying variable
+        const uint32_t ptrType =
+            theBuilder.getPointerType(elemType, spv::StorageClass::Function);
+        if (!indices.empty()) {
+          // Load the element via access chain
+          elem = theBuilder.createAccessChain(ptrType, base, indices);
+        } else {
+          // The matrix is of size 1x1. No need to use access chain, base should
+          // be the source pointer.
+          elem = base;
+        }
+        elem = theBuilder.createLoad(elemType, elem);
+      } else { // e.g., (mat1 + mat2)._m11
+        elem = theBuilder.createCompositeExtract(elemType, base, indices);
+      }
+      elements.push_back(elem);
+    }
+
+    if (elements.size() == 1)
+      return elements.front();
+
+    const uint32_t vecType = theBuilder.getVecType(elemType, elements.size());
+    return theBuilder.createCompositeConstruct(vecType, elements);
+  }
+
   /// Returns true if the given expression will be translated into a vector
   /// shuffle instruction in SPIR-V.
   ///
@@ -1522,11 +1650,13 @@ public:
     switch (expr->getCastKind()) {
     case CastKind::CK_LValueToRValue: {
       const uint32_t fromValue = doExpr(subExpr);
-      if (isVectorShuffle(subExpr)) {
-        // By reaching here, it means the vector element accessing operation is
-        // an lvalue. If we generated a vector shuffle for it and trying to use
-        // it as a rvalue, we cannot do the load here as normal. Need the upper
-        // nodes in the AST tree to handle it properly.
+      if (isVectorShuffle(subExpr) || isa<ExtMatrixElementExpr>(subExpr)) {
+        // By reaching here, it means the vector/matrix element accessing
+        // operation is an lvalue. For vector element accessing, if we generated
+        // a vector shuffle for it and trying to use it as a rvalue, we cannot
+        // do the load here as normal. Need the upper nodes in the AST tree to
+        // handle it properly. For matrix element accessing, load should have
+        // already happened after creating access chain for each element.
         return fromValue;
       }
 
