@@ -62,19 +62,19 @@ float_arr_2 arr_return() {
 #endif
 
 bool fn_bool() {
-  float a [ 2 ] ; 
-  a [ 0 ] = 1 - 2 ; 
-  a [ 1 ] = 2 + 3 ; 
-  float b1 , b2 ; 
+  float a [ 2 ] ;
+  a [ 0 ] = 1 - 2 ;
+  a [ 1 ] = 2 + 3 ;
+  float b1 , b2 ;
   b1 = min(a[0], a[1]);
   b2 = max(a[0], a[1]);
-  return ( a [ 1 ] < b1 || b2 < a [ 0 ] ) ; 
+  return ( a [ 1 ] < b1 || b2 < a [ 0 ] ) ;
 }
 
 struct Texture2DArrayFloat {
   Texture2DArray<float> tex;
   SamplerState smp;
-  
+
   float SampleLevel(float2 coord, float arrayIndex, float level)
   {
     return tex.SampleLevel(smp, float3 (coord, arrayIndex), level);
@@ -219,6 +219,18 @@ void fn_uint_oload3(uint u) { }
 void fn_uint_oload3(inout uint u) { }
 void fn_uint_oload3(out uint u) { }
 
+// function redefinitions
+void fn_redef(min10float x) {}      /* expected-note {{previous definition is here}} expected-warning {{min10float is promoted to min16float}} */
+void fn_redef(min16float x) {}      /* expected-error {{redefinition of 'fn_redef'}} */
+
+typedef min16int My16Int            /* expected-error {{expected ';' after top level declarator}} */
+void fn_redef2(min12int x) {}       /* expected-note {{previous definition is here}} expected-warning {{min12int is promoted to min16int}} */
+void fn_redef2(min16int x) {}       /* expected-error {{redefinition of 'fn_redef2'}} */
+void fn_redef2(My16Int x) {}
+
+void fn_redef3(half x) {}           /* expected-note {{previous definition is here}} */
+void fn_redef3(float x) {}          /* expected-error {{redefinition of 'fn_redef3'}} */
+
 void inout_calls() {
   uint u = 1;
 
@@ -255,7 +267,7 @@ void cs_main() {
   fn_float_arr(arr2);
 
   fn_inout_separate(f2);
-  
+
   f2 = arr2[0];
   f2 = arr2[arr2[0]];
   f2 = 0[arr2]; // expected-error {{HLSL does not support having the base of a subscript operator in brackets}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
