@@ -107,13 +107,12 @@ namespace MainNs
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.AvailablePassesBox = new System.Windows.Forms.ListBox();
-            this.RewriterOutputTabPage = new System.Windows.Forms.TabPage();
-            this.RewriterOutputTextBox = new System.Windows.Forms.RichTextBox();
             this.TheToolTip = new System.Windows.Forms.ToolTip(this.components);
             this.TopSplitContainer = new System.Windows.Forms.SplitContainer();
             this.OutputTabControl = new System.Windows.Forms.TabControl();
             this.RenderLogTabPage = new System.Windows.Forms.TabPage();
             this.RenderLogBox = new System.Windows.Forms.TextBox();
+            this.RewriterOutputTextBox = new System.Windows.Forms.RichTextBox();
             this.TheStatusStrip.SuspendLayout();
             this.TheMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -125,7 +124,6 @@ namespace MainNs
             this.ASTTabPage.SuspendLayout();
             this.OptimizerTabPage.SuspendLayout();
             this.PassesContextMenu.SuspendLayout();
-            this.RewriterOutputTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.TopSplitContainer)).BeginInit();
             this.TopSplitContainer.Panel1.SuspendLayout();
             this.TopSplitContainer.Panel2.SuspendLayout();
@@ -164,7 +162,7 @@ namespace MainNs
             this.TheMenuStrip.Location = new System.Drawing.Point(0, 0);
             this.TheMenuStrip.Name = "TheMenuStrip";
             this.TheMenuStrip.Padding = new System.Windows.Forms.Padding(8, 2, 0, 2);
-            this.TheMenuStrip.Size = new System.Drawing.Size(1568, 42);
+            this.TheMenuStrip.Size = new System.Drawing.Size(1568, 40);
             this.TheMenuStrip.TabIndex = 1;
             this.TheMenuStrip.Text = "menuStrip1";
             // 
@@ -180,7 +178,7 @@ namespace MainNs
             this.toolStripMenuItem4,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            this.fileToolStripMenuItem.Size = new System.Drawing.Size(64, 38);
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(64, 36);
             this.fileToolStripMenuItem.Text = "&File";
             this.fileToolStripMenuItem.DropDownOpening += new System.EventHandler(this.fileToolStripMenuItem_DropDownOpening);
             // 
@@ -256,7 +254,7 @@ namespace MainNs
             this.FontGrowToolStripMenuItem,
             this.FontShrinkToolStripMenuItem});
             this.editToolStripMenuItem.Name = "editToolStripMenuItem";
-            this.editToolStripMenuItem.Size = new System.Drawing.Size(67, 38);
+            this.editToolStripMenuItem.Size = new System.Drawing.Size(67, 36);
             this.editToolStripMenuItem.Text = "&Edit";
             // 
             // undoToolStripMenuItem
@@ -383,7 +381,7 @@ namespace MainNs
             this.renderToolStripMenuItem,
             this.outputToolStripMenuItem});
             this.viewToolStripMenuItem.Name = "viewToolStripMenuItem";
-            this.viewToolStripMenuItem.Size = new System.Drawing.Size(78, 38);
+            this.viewToolStripMenuItem.Size = new System.Drawing.Size(78, 36);
             this.viewToolStripMenuItem.Text = "&View";
             // 
             // autoUpdateToolStripMenuItem
@@ -441,7 +439,7 @@ namespace MainNs
             this.compileToolStripMenuItem,
             this.exportCompiledObjectToolStripMenuItem});
             this.buildToolStripMenuItem.Name = "buildToolStripMenuItem";
-            this.buildToolStripMenuItem.Size = new System.Drawing.Size(81, 38);
+            this.buildToolStripMenuItem.Size = new System.Drawing.Size(81, 36);
             this.buildToolStripMenuItem.Text = "&Build";
             // 
             // compileToolStripMenuItem
@@ -466,7 +464,7 @@ namespace MainNs
             this.rewriterToolStripMenuItem,
             this.rewriteNobodyToolStripMenuItem});
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
-            this.toolsToolStripMenuItem.Size = new System.Drawing.Size(82, 38);
+            this.toolsToolStripMenuItem.Size = new System.Drawing.Size(82, 36);
             this.toolsToolStripMenuItem.Text = "&Tools";
             // 
             // optionsToolStripMenuItem
@@ -495,7 +493,7 @@ namespace MainNs
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.aboutToolStripMenuItem});
             this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
-            this.helpToolStripMenuItem.Size = new System.Drawing.Size(77, 38);
+            this.helpToolStripMenuItem.Size = new System.Drawing.Size(77, 36);
             this.helpToolStripMenuItem.Text = "&Help";
             // 
             // aboutToolStripMenuItem
@@ -519,7 +517,7 @@ namespace MainNs
             // splitContainer1.Panel2
             // 
             this.splitContainer1.Panel2.Controls.Add(this.AnalysisTabControl);
-            this.splitContainer1.Size = new System.Drawing.Size(1568, 990);
+            this.splitContainer1.Size = new System.Drawing.Size(1568, 992);
             this.splitContainer1.SplitterDistance = 569;
             this.splitContainer1.SplitterWidth = 5;
             this.splitContainer1.TabIndex = 2;
@@ -531,7 +529,7 @@ namespace MainNs
             this.CodeBox.Location = new System.Drawing.Point(0, 0);
             this.CodeBox.Margin = new System.Windows.Forms.Padding(4);
             this.CodeBox.Name = "CodeBox";
-            this.CodeBox.Size = new System.Drawing.Size(569, 990);
+            this.CodeBox.Size = new System.Drawing.Size(569, 992);
             this.CodeBox.TabIndex = 0;
             this.CodeBox.Text = "";
             this.CodeBox.WordWrap = false;
@@ -543,13 +541,12 @@ namespace MainNs
             this.AnalysisTabControl.Controls.Add(this.DisassemblyTabPage);
             this.AnalysisTabControl.Controls.Add(this.ASTTabPage);
             this.AnalysisTabControl.Controls.Add(this.OptimizerTabPage);
-            this.AnalysisTabControl.Controls.Add(this.RewriterOutputTabPage);
             this.AnalysisTabControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.AnalysisTabControl.Location = new System.Drawing.Point(0, 0);
             this.AnalysisTabControl.Margin = new System.Windows.Forms.Padding(4);
             this.AnalysisTabControl.Name = "AnalysisTabControl";
             this.AnalysisTabControl.SelectedIndex = 0;
-            this.AnalysisTabControl.Size = new System.Drawing.Size(994, 990);
+            this.AnalysisTabControl.Size = new System.Drawing.Size(994, 992);
             this.AnalysisTabControl.TabIndex = 0;
             this.AnalysisTabControl.Selecting += new System.Windows.Forms.TabControlCancelEventHandler(this.AnalysisTabControl_Selecting);
             // 
@@ -560,7 +557,7 @@ namespace MainNs
             this.DisassemblyTabPage.Margin = new System.Windows.Forms.Padding(4);
             this.DisassemblyTabPage.Name = "DisassemblyTabPage";
             this.DisassemblyTabPage.Padding = new System.Windows.Forms.Padding(4);
-            this.DisassemblyTabPage.Size = new System.Drawing.Size(978, 943);
+            this.DisassemblyTabPage.Size = new System.Drawing.Size(978, 945);
             this.DisassemblyTabPage.TabIndex = 0;
             this.DisassemblyTabPage.Text = "Disassembly";
             this.DisassemblyTabPage.UseVisualStyleBackColor = true;
@@ -572,7 +569,7 @@ namespace MainNs
             this.DisassemblyTextBox.Margin = new System.Windows.Forms.Padding(4);
             this.DisassemblyTextBox.Name = "DisassemblyTextBox";
             this.DisassemblyTextBox.ReadOnly = true;
-            this.DisassemblyTextBox.Size = new System.Drawing.Size(970, 935);
+            this.DisassemblyTextBox.Size = new System.Drawing.Size(970, 937);
             this.DisassemblyTextBox.TabIndex = 0;
             this.DisassemblyTextBox.Text = "";
             this.DisassemblyTextBox.WordWrap = false;
@@ -717,7 +714,7 @@ namespace MainNs
             this.SelectedPassesBox.Location = new System.Drawing.Point(560, 58);
             this.SelectedPassesBox.Margin = new System.Windows.Forms.Padding(4);
             this.SelectedPassesBox.Name = "SelectedPassesBox";
-            this.SelectedPassesBox.Size = new System.Drawing.Size(409, 504);
+            this.SelectedPassesBox.Size = new System.Drawing.Size(409, 479);
             this.SelectedPassesBox.TabIndex = 3;
             this.SelectedPassesBox.DoubleClick += new System.EventHandler(this.SelectedPassesBox_DoubleClick);
             this.SelectedPassesBox.KeyUp += new System.Windows.Forms.KeyEventHandler(this.SelectedPassesBox_KeyUp);
@@ -791,39 +788,15 @@ namespace MainNs
             this.AvailablePassesBox.Margin = new System.Windows.Forms.Padding(4);
             this.AvailablePassesBox.Name = "AvailablePassesBox";
             this.AvailablePassesBox.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
-            this.AvailablePassesBox.Size = new System.Drawing.Size(534, 504);
+            this.AvailablePassesBox.Size = new System.Drawing.Size(534, 479);
             this.AvailablePassesBox.TabIndex = 0;
             this.AvailablePassesBox.DoubleClick += new System.EventHandler(this.AvailablePassesBox_DoubleClick);
-            // 
-            // RewriterOutputTabPage
-            // 
-            this.RewriterOutputTabPage.Controls.Add(this.RewriterOutputTextBox);
-            this.RewriterOutputTabPage.Location = new System.Drawing.Point(8, 39);
-            this.RewriterOutputTabPage.Margin = new System.Windows.Forms.Padding(4);
-            this.RewriterOutputTabPage.Name = "RewriterOutputTabPage";
-            this.RewriterOutputTabPage.Padding = new System.Windows.Forms.Padding(4);
-            this.RewriterOutputTabPage.Size = new System.Drawing.Size(978, 945);
-            this.RewriterOutputTabPage.TabIndex = 3;
-            this.RewriterOutputTabPage.Text = "RewriterOutput";
-            this.RewriterOutputTabPage.UseVisualStyleBackColor = true;
-            // 
-            // RewriterOutputTextBox
-            // 
-            this.RewriterOutputTextBox.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.RewriterOutputTextBox.Location = new System.Drawing.Point(4, 4);
-            this.RewriterOutputTextBox.Margin = new System.Windows.Forms.Padding(4);
-            this.RewriterOutputTextBox.Name = "RewriterOutputTextBox";
-            this.RewriterOutputTextBox.ReadOnly = true;
-            this.RewriterOutputTextBox.Size = new System.Drawing.Size(970, 937);
-            this.RewriterOutputTextBox.TabIndex = 1;
-            this.RewriterOutputTextBox.Text = "";
-            this.RewriterOutputTextBox.WordWrap = false;
             // 
             // TopSplitContainer
             // 
             this.TopSplitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.TopSplitContainer.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
-            this.TopSplitContainer.Location = new System.Drawing.Point(0, 42);
+            this.TopSplitContainer.Location = new System.Drawing.Point(0, 40);
             this.TopSplitContainer.Margin = new System.Windows.Forms.Padding(4);
             this.TopSplitContainer.Name = "TopSplitContainer";
             this.TopSplitContainer.Orientation = System.Windows.Forms.Orientation.Horizontal;
@@ -836,7 +809,7 @@ namespace MainNs
             // 
             this.TopSplitContainer.Panel2.Controls.Add(this.OutputTabControl);
             this.TopSplitContainer.Panel2Collapsed = true;
-            this.TopSplitContainer.Size = new System.Drawing.Size(1568, 990);
+            this.TopSplitContainer.Size = new System.Drawing.Size(1568, 992);
             this.TopSplitContainer.SplitterDistance = 477;
             this.TopSplitContainer.TabIndex = 3;
             // 
@@ -875,6 +848,18 @@ namespace MainNs
             this.RenderLogBox.TabIndex = 0;
             this.RenderLogBox.WordWrap = false;
             // 
+            // RewriterOutputTextBox
+            // 
+            this.RewriterOutputTextBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.RewriterOutputTextBox.Location = new System.Drawing.Point(4, 4);
+            this.RewriterOutputTextBox.Margin = new System.Windows.Forms.Padding(4);
+            this.RewriterOutputTextBox.Name = "RewriterOutputTextBox";
+            this.RewriterOutputTextBox.ReadOnly = true;
+            this.RewriterOutputTextBox.Size = new System.Drawing.Size(970, 937);
+            this.RewriterOutputTextBox.TabIndex = 1;
+            this.RewriterOutputTextBox.Text = "";
+            this.RewriterOutputTextBox.WordWrap = false;
+            // 
             // EditorForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
@@ -905,7 +890,6 @@ namespace MainNs
             this.OptimizerTabPage.ResumeLayout(false);
             this.OptimizerTabPage.PerformLayout();
             this.PassesContextMenu.ResumeLayout(false);
-            this.RewriterOutputTabPage.ResumeLayout(false);
             this.TopSplitContainer.Panel1.ResumeLayout(false);
             this.TopSplitContainer.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.TopSplitContainer)).EndInit();
@@ -927,12 +911,9 @@ namespace MainNs
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
         private System.Windows.Forms.SplitContainer splitContainer1;
         private System.Windows.Forms.RichTextBox CodeBox;
-        private System.Windows.Forms.TabControl AnalysisTabControl;
-        private System.Windows.Forms.TabPage DisassemblyTabPage;
         private System.Windows.Forms.ToolStripMenuItem editToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem viewToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem NewToolStripMenuItem;
-        private System.Windows.Forms.RichTextBox DisassemblyTextBox;
         private System.Windows.Forms.ToolStripMenuItem undoToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem cutToolStripMenuItem;
@@ -943,17 +924,6 @@ namespace MainNs
         private System.Windows.Forms.ToolStripMenuItem selectAllToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem3;
         private System.Windows.Forms.ToolStripMenuItem goToToolStripMenuItem;
-        private System.Windows.Forms.TabPage ASTTabPage;
-        private System.Windows.Forms.RichTextBox ASTDumpBox;
-        private System.Windows.Forms.TabPage OptimizerTabPage;
-        private System.Windows.Forms.ListBox AvailablePassesBox;
-        private System.Windows.Forms.Button SelectPassDownButton;
-        private System.Windows.Forms.Button SelectPassUpButton;
-        private System.Windows.Forms.ListBox SelectedPassesBox;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Button RunPassesButton;
-        private System.Windows.Forms.Button AddPrintModuleButton;
         private System.Windows.Forms.ToolStripMenuItem bitstreamToolStripMenuItem;
         private System.Windows.Forms.ToolTip TheToolTip;
         private System.Windows.Forms.ToolStripMenuItem openToolStripMenuItem;
@@ -965,8 +935,6 @@ namespace MainNs
         private System.Windows.Forms.ToolStripMenuItem autoUpdateToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exportCompiledObjectToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem fileVariablesToolStripMenuItem;
-        private System.Windows.Forms.Button ResetDefaultPassesButton;
-        private System.Windows.Forms.CheckBox AnalyzeCheckBox;
         private System.Windows.Forms.ToolStripMenuItem recentFilesToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem4;
         private System.Windows.Forms.ToolStripMenuItem findAndReplaceToolStripMenuItem;
@@ -987,14 +955,29 @@ namespace MainNs
         private System.Windows.Forms.TextBox RenderLogBox;
         private System.Windows.Forms.ToolStripMenuItem FontGrowToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem FontShrinkToolStripMenuItem;
-        private System.Windows.Forms.CheckBox PrintAllPassesBox;
         private System.Windows.Forms.ToolStripMenuItem toolsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem ColorMenuItem;
-        private System.Windows.Forms.TabPage RewriterOutputTabPage;
         private System.Windows.Forms.ToolStripMenuItem rewriterToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem rewriteNobodyToolStripMenuItem;
-        private System.Windows.Forms.RichTextBox RewriterOutputTextBox;
         private System.Windows.Forms.ToolStripMenuItem debugInformationToolStripMenuItem;
+        private System.Windows.Forms.TabControl AnalysisTabControl;
+        private System.Windows.Forms.TabPage DisassemblyTabPage;
+        private System.Windows.Forms.RichTextBox DisassemblyTextBox;
+        private System.Windows.Forms.TabPage ASTTabPage;
+        private System.Windows.Forms.RichTextBox ASTDumpBox;
+        private System.Windows.Forms.TabPage OptimizerTabPage;
+        private System.Windows.Forms.CheckBox PrintAllPassesBox;
+        private System.Windows.Forms.Button ResetDefaultPassesButton;
+        private System.Windows.Forms.CheckBox AnalyzeCheckBox;
+        private System.Windows.Forms.Button AddPrintModuleButton;
+        private System.Windows.Forms.Button RunPassesButton;
+        private System.Windows.Forms.Button SelectPassDownButton;
+        private System.Windows.Forms.Button SelectPassUpButton;
+        private System.Windows.Forms.ListBox SelectedPassesBox;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.ListBox AvailablePassesBox;
+        private System.Windows.Forms.RichTextBox RewriterOutputTextBox;
     }
 }

@@ -46,6 +46,8 @@ namespace MainNs
         private TabPage debugInfoTabPage;
         private RichTextBox debugInfoControl;
         private HlslHost hlslHost = new HlslHost();
+        private TabPage renderViewTabPage;
+        private TabPage rewriterOutputTabPage;
 
         internal enum DocumentKind
         {
@@ -83,6 +85,32 @@ namespace MainNs
         private const uint DFCC_SHEX = 1480935507;
         private const uint DFCC_ILDB = 1111772233;
         private const uint DFCC_SPDB = 1111773267;
+
+        private TabPage RenderViewTabPage
+        {
+            get
+            {
+                if (this.renderViewTabPage == null)
+                {
+                    this.renderViewTabPage = new TabPage("Render View");
+                    this.AnalysisTabControl.TabPages.Add(renderViewTabPage);
+                }
+                return this.renderViewTabPage;
+            }
+        }
+
+        private TabPage RewriterOutputTabPage
+        {
+            get
+            {
+                if (this.rewriterOutputTabPage == null)
+                {
+                    this.rewriterOutputTabPage = new TabPage("Rewriter Output");
+                    this.AnalysisTabControl.TabPages.Add(rewriterOutputTabPage);
+                }
+                return this.rewriterOutputTabPage;
+            }
+        }
 
         private string TryGetBlobShaderTarget(IDxcBlob blob)
         {
@@ -2832,6 +2860,8 @@ namespace MainNs
             try
             {
                 SendHostMessageAndLogReply(HlslHost.HhMessageId.StartRendererMsgId);
+                this.AnalysisTabControl.SelectedTab = RenderViewTabPage;
+                this.hlslHost.SetParentHwnd(RenderViewTabPage.Handle);
                 this.hlslHost.SendHostMessagePlay(payloadText);
                 System.Windows.Forms.Timer t = new Timer();
                 t.Interval = 1000;

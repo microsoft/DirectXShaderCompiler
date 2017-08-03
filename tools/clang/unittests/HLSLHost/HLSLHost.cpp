@@ -129,12 +129,14 @@ static const DWORD StopRendererMsgId = 4;
 static const DWORD SetPayloadMsgId = 5;
 static const DWORD ReadLogMsgId = 6;
 static const DWORD SetSizeMsgId = 7;
+static const DWORD SetParentWndMsgId = 8;
 static const DWORD GetPidMsgReplyId = 100 + GetPidMsgId;
 static const DWORD StartRendererMsgReplyId = 100 + StartRendererMsgId;
 static const DWORD StopRendererMsgReplyId = 100 + StopRendererMsgId;
 static const DWORD SetPayloadMsgReplyId = 100 + SetPayloadMsgId;
 static const DWORD ReadLogMsgReplyId = 100 + ReadLogMsgId;
 static const DWORD SetSizeMsgReplyId = 100 + SetSizeMsgId;
+static const DWORD SetParentWndMsgReplyId = 100 + SetParentWndMsgId;
 
 struct HhMessageHeader {
   DWORD Length;
@@ -147,6 +149,10 @@ struct HhSetSizeMessage {
   HhMessageHeader Header;
   DWORD Width;
   DWORD Height;
+};
+struct HhSetParentWndMessage {
+  HhMessageHeader Header;
+  UINT64 Handle;
 };
 struct HhGetPidReply {
   HhMessageHeader Header;
@@ -490,6 +496,22 @@ public:
       client.bottom - client.top, SWP_NOZORDER);
     return S_OK;
   }
+  HRESULT SetParentHwnd(HWND handle) {
+    HWND prior = SetParent(m_hwnd, handle);
+    if (prior == NULL) {
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
+    if (handle == NULL) {
+      // Top-level, so restore original style.
+      SetWindowLong(m_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+    }
+    else {
+      // Child window, so set new style and reset position.
+      SetWindowPos(m_hwnd, 0, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+      SetWindowLong(m_hwnd, GWL_STYLE, WS_CHILD | WS_VISIBLE);
+    }
+    return S_OK;
+  }
   void Stop() {
     if (m_hwnd != NULL) {
       PostMessage(m_hwnd, WM_RENDERER_QUIT, 0, 0);
@@ -504,7 +526,9 @@ public:
   LRESULT HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_SHOWWINDOW:
-      SetupD3D();
+      if (m_device == nullptr) {
+        SetupD3D();
+      }
       break;
     case WM_SIZE:
       if (m_device) {
@@ -698,6 +722,15 @@ public:
       const HhSetSizeMessage *pSetSize = (const HhSetSizeMessage *)pHeader;
       WriteRequestResultReply(MsgKind,
         m_renderer.SetSize(pSetSize->Width, pSetSize->Height));
+    }
+    case SetParentWndMsgId: {
+      if (cb < sizeof(HhSetParentWndMessage)) {
+        WriteRequestResultReply(MsgKind, E_INVALIDARG);
+        return;
+      }
+      const HhSetParentWndMessage *pSetParent = (const HhSetParentWndMessage *)pHeader;
+      WriteRequestResultReply(MsgKind,
+        m_renderer.SetParentHwnd((HWND)pSetParent->Handle));
     }
     }
   }
