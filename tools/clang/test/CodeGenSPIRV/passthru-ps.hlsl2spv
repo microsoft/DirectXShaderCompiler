@@ -9,19 +9,19 @@ float4 main(float4 input: COLOR): SV_TARGET
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 20
+// ; Bound: 21
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Fragment %main "main" %in_var_COLOR %out_var_SV_Target
 // OpExecutionMode %main OriginUpperLeft
+// OpName %bb_entry "bb.entry"
 // OpName %main "main"
 // OpName %in_var_COLOR "in.var.COLOR"
 // OpName %param_var_input "param.var.input"
 // OpName %out_var_SV_Target "out.var.SV_Target"
 // OpName %src_main "src.main"
 // OpName %input "input"
-// OpName %bb_entry "bb.entry"
 // OpDecorate %in_var_COLOR Location 0
 // OpDecorate %out_var_SV_Target Location 0
 // %void = OpTypeVoid

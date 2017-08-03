@@ -44,31 +44,31 @@ void main() {
 // CHECK-NEXT: OpBranch %do_while_header_0
 
 // CHECK-NEXT: %do_while_header_0 = OpLabel
-// CHECK-NEXT: OpLoopMerge %do_while_merge_0 %do_while_continue_0 None
+// CHECK-NEXT: OpLoopMerge %do_while_merge_1 %do_while_continue_1 None
 // CHECK-NEXT: OpBranch %do_while_body_0
   do {
 // CHECK-NEXT: %do_while_body_0 = OpLabel
     ++i;
 // CHECK:      OpBranch %do_while_header_1
 // CHECK-NEXT: %do_while_header_1 = OpLabel
-// CHECK-NEXT: OpLoopMerge %do_while_merge_1 %do_while_continue_1 None
+// CHECK-NEXT: OpLoopMerge %do_while_merge_0 %do_while_continue_0 None
 // CHECK-NEXT: OpBranch %do_while_body_1
     do {
 // CHECK-NEXT: %do_while_body_1 = OpLabel
       ++val;
-// CHECK:      OpBranch %do_while_continue_1
-      continue;
-// CHECK-NEXT: %do_while_continue_1 = OpLabel
-// CHECK:      OpBranchConditional {{%\d+}} %do_while_header_1 %do_while_merge_1
-    } while (i < 10);
-// CHECK-NEXT: %do_while_merge_1 = OpLabel
-    --i;
 // CHECK:      OpBranch %do_while_continue_0
+      continue;
+// CHECK-NEXT: %do_while_continue_0 = OpLabel
+// CHECK:      OpBranchConditional {{%\d+}} %do_while_header_1 %do_while_merge_0
+    } while (i < 10);
+// CHECK-NEXT: %do_while_merge_0 = OpLabel
+    --i;
+// CHECK:      OpBranch %do_while_continue_1
     continue;
     continue;  // No SPIR-V should be emitted for this statement.
 
-// CHECK-NEXT: %do_while_continue_0 = OpLabel
-// CHECK:      OpBranchConditional {{%\d+}} %do_while_header_0 %do_while_merge_0
+// CHECK-NEXT: %do_while_continue_1 = OpLabel
+// CHECK:      OpBranchConditional {{%\d+}} %do_while_header_0 %do_while_merge_1
   } while(val < 10);
-// CHECK-NEXT: %do_while_merge_0 = OpLabel
+// CHECK-NEXT: %do_while_merge_1 = OpLabel
 }
