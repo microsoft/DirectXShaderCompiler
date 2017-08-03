@@ -319,7 +319,7 @@ private:
         continue;
       DXIL::OpCodeClass opClass;
       bool bHasOpClass = hlslOP->GetOpCodeClass(F, opClass);
-      DXASSERT_LOCALVAR(bHasOpClass, "else not a dxil op func");
+      DXASSERT_LOCALVAR(bHasOpClass, bHasOpClass, "else not a dxil op func");
       if (opClass != DXIL::OpCodeClass::StoreOutput)
         continue;
 
