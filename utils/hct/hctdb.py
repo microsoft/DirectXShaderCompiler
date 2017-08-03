@@ -760,7 +760,7 @@ class db_dxil(object):
         next_op_idx += 1
 
         # Synchronization.
-        self.add_dxil_op("Barrier", next_op_idx, "Barrier", "inserts a memory barrier in the shader", "v", "", [
+        self.add_dxil_op("Barrier", next_op_idx, "Barrier", "inserts a memory barrier in the shader", "v", "nd", [
             retvoid_param,
             db_dxil_param(2, "i32", "barrierMode", "a mask of DXIL::BarrierMode values", is_const=True)])
         next_op_idx += 1

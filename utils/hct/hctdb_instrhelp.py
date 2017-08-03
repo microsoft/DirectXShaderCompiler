@@ -342,7 +342,7 @@ class db_oload_gen:
         f = lambda i,c : "true," if i.oload_types.find(c) >= 0 else "false,"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
-        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone" }
+        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate" }
         attr_fn = lambda i : "Attribute::" + attr_dict[i.fn_attr] + ","
         for i in self.instrs:
             if last_category != i.category:
