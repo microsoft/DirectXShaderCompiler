@@ -1071,6 +1071,34 @@ public:
     return isCompoundAssignment ? lhsPtr : rhs;
   }
 
+  /// Processes each vector within the given matrix by calling actOnEachVector.
+  /// matrixVal should be the loaded value of the matrix. actOnEachVector takes
+  /// three parameters for the current vector: the index, the <type-id>, and
+  /// the value. It returns the <result-id> of the processed vector.
+  uint32_t processEachVectorInMatrix(
+      const Expr *matrix, const uint32_t matrixVal,
+      llvm::function_ref<uint32_t(uint32_t, uint32_t, uint32_t)>
+          actOnEachVector) {
+    const auto matType = matrix->getType();
+    assert(TypeTranslator::isSpirvAcceptableMatrixType(matType));
+    const uint32_t vecType = typeTranslator.getComponentVectorType(matType);
+
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(matType, rowCount, colCount);
+
+    llvm::SmallVector<uint32_t, 4> vectors;
+    // Extract each component vector and do operation on it
+    for (uint32_t i = 0; i < rowCount; ++i) {
+      const uint32_t lhsVec =
+          theBuilder.createCompositeExtract(vecType, matrixVal, {i});
+      vectors.push_back(actOnEachVector(i, vecType, lhsVec));
+    }
+
+    // Construct the result matrix
+    return theBuilder.createCompositeConstruct(
+        typeTranslator.translateType(matType), vectors);
+  }
+
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs.
   ///
@@ -1107,24 +1135,16 @@ public:
     case BO_DivAssign:
     case BO_RemAssign: {
       const uint32_t vecType = typeTranslator.getComponentVectorType(lhsType);
-
-      uint32_t rowCount = 0, colCount = 0;
-      hlsl::GetHLSLMatRowColCount(lhsType, rowCount, colCount);
-
-      llvm::SmallVector<uint32_t, 4> vectors;
-      // Extract each component vector and do operation on it
-      for (uint32_t i = 0; i < rowCount; ++i) {
-        const uint32_t lhsVec =
-            theBuilder.createCompositeExtract(vecType, lhsVal, {i});
+      const auto actOnEachVec = [this, spvOp, rhsVal](
+          uint32_t index, uint32_t vecType, uint32_t lhsVec) {
+        // For each vector of lhs, we need to load the corresponding vector of
+        // rhs and do the operation on them.
         const uint32_t rhsVec =
-            theBuilder.createCompositeExtract(vecType, rhsVal, {i});
-        vectors.push_back(
-            theBuilder.createBinaryOp(spvOp, vecType, lhsVec, rhsVec));
-      }
+            theBuilder.createCompositeExtract(vecType, rhsVal, {index});
+        return theBuilder.createBinaryOp(spvOp, vecType, lhsVec, rhsVec);
 
-      // Construct the result matrix
-      return theBuilder.createCompositeConstruct(
-          typeTranslator.translateType(lhsType), vectors);
+      };
+      return processEachVectorInMatrix(lhs, lhsVal, actOnEachVec);
     }
     case BO_Assign:
       llvm_unreachable("assignment should not be handled here");
@@ -1270,10 +1290,23 @@ public:
       const bool isInc = opcode == UO_PreInc || opcode == UO_PostInc;
 
       const spv::Op spvOp = translateOp(isInc ? BO_Add : BO_Sub, subType);
-      const uint32_t one = getValueOne(subType);
       const uint32_t originValue = theBuilder.createLoad(subTypeId, subValue);
-      const uint32_t incValue =
-          theBuilder.createBinaryOp(spvOp, subTypeId, originValue, one);
+      const uint32_t one = hlsl::IsHLSLMatType(subType)
+                               ? getMatElemValueOne(subType)
+                               : getValueOne(subType);
+      uint32_t incValue = 0;
+      if (TypeTranslator::isSpirvAcceptableMatrixType(subType)) {
+        // For matrices, we can only incremnt/decrement each vector of it.
+        const auto actOnEachVec = [this, spvOp, one](
+            uint32_t /*index*/, uint32_t vecType, uint32_t lhsVec) {
+          return theBuilder.createBinaryOp(spvOp, vecType, lhsVec, one);
+        };
+        incValue =
+            processEachVectorInMatrix(subExpr, originValue, actOnEachVec);
+      } else {
+        incValue =
+            theBuilder.createBinaryOp(spvOp, subTypeId, originValue, one);
+      }
       theBuilder.createStore(subValue, incValue);
 
       // Prefix increment/decrement operator returns a lvalue, while postfix
@@ -2071,6 +2104,42 @@ case BO_##kind : {                                                             \
     return spv::Op::OpNop;
   }
 
+  /// Returns the <result-id> for a constant one vector of the given size and
+  /// element type.
+  uint32_t getVecValueOne(QualType elemType, uint32_t size) {
+    const uint32_t elemOneId = getValueOne(elemType);
+
+    if (size == 1)
+      return elemOneId;
+
+    llvm::SmallVector<uint32_t, 4> elements(size_t(size), elemOneId);
+    const uint32_t vecType =
+        theBuilder.getVecType(typeTranslator.translateType(elemType), size);
+
+    return theBuilder.getConstantComposite(vecType, elements);
+  }
+
+  /// Returns the <result-id> for a constant one (vector) having the same
+  /// element type as the given matrix type.
+  ///
+  /// If a 1x1 matrix is given, the returned value one will be a scalar;
+  /// if a Mx1 or 1xN matrix is given, the returned value one will be a
+  /// vector of size M or N; if a MxN matrix is given, the returned value
+  /// one will be a vector of size N.
+  uint32_t getMatElemValueOne(QualType type) {
+    assert(hlsl::IsHLSLMatType(type));
+    const auto elemType = hlsl::GetHLSLMatElementType(type);
+
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+
+    if (rowCount == 1 && colCount == 1)
+      return getValueOne(elemType);
+    if (colCount == 1)
+      return getVecValueOne(elemType, rowCount);
+    return getVecValueOne(elemType, colCount);
+  }
+
   /// Returns the <result-id> for constant value 1 of the given type.
   uint32_t getValueOne(QualType type) {
     if (type->isSignedIntegerType()) {
@@ -2087,16 +2156,8 @@ case BO_##kind : {                                                             \
 
     if (hlsl::IsHLSLVecType(type)) {
       const QualType elemType = hlsl::GetHLSLVecElementType(type);
-      const uint32_t elemOneId = getValueOne(elemType);
-
-      const size_t size = hlsl::GetHLSLVecSize(type);
-      if (size == 1)
-        return elemOneId;
-
-      llvm::SmallVector<uint32_t, 4> elements(size, elemOneId);
-
-      const uint32_t vecTypeId = typeTranslator.translateType(type);
-      return theBuilder.getConstantComposite(vecTypeId, elements);
+      const auto size = hlsl::GetHLSLVecSize(type);
+      return getVecValueOne(elemType, size);
     }
 
     emitError("getting value 1 for type '%0' unimplemented") << type;
