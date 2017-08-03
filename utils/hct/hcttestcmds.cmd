@@ -524,6 +524,26 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+echo Smoke test for dxl command line ...
+dxc.exe -T lib_6_1 "%2"\..\CodeGenHLSL\lib_entry4.hlsl -Fo lib_entry4.dxbc 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to run dxc.exe -T "%2"\..\CodeGenHLSL\lib_6_1 lib_entry4.hlsl -Fo lib_entry4.dxbc
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -T lib_6_1 "%2"\..\CodeGenHLSL\lib_res_match.hlsl -Fo lib_res_match.dxbc 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to run dxc.exe -T "%2"\..\CodeGenHLSL\lib_6_1 lib_res_match.hlsl -Fo lib_res_match.dxbc
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+dxl.exe -T ps_6_1 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to run dxl.exe -T ps_6_1 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc
+  call :cleanup 2>nul
+  exit /b 1
+)
 
 rem Skipping shader model 6.2 when dxil.dll is present
 if exist dxil.dll (
@@ -595,6 +615,9 @@ del %CD%\smoke.opt.ll
 del %CD%\smoke.opt.prn.txt
 del %CD%\smoke.rebuilt-container.cso
 del %CD%\smoke.rebuilt-container2.cso
+del %CD%\lib_res_match.dxbc
+del %CD%\lib_entry4.dxbc
+del %CD%\res_match_entry.dxbc
 
 exit /b 0
 
