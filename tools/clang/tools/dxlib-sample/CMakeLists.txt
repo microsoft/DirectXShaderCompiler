@@ -25,10 +25,6 @@ add_clang_library(dxlib_sample SHARED ${SOURCES})
 
 target_link_libraries(dxlib_sample
   PRIVATE
-  clangAST
-  clangCodeGen
-  clangSema
-  clangRewriteFrontend
   dxcompiler
   )
 

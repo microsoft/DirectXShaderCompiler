@@ -118,7 +118,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
 
     // Preprocess.
     std::unique_ptr<IncludeToLibPreprocessor> preprocessor = IncludeToLibPreprocessor::CreateIncludeToLibPreprocessor(pInclude);
-    preprocessor->SetupDefines(defines.data(), defines.size());
+
     if (arguments.size()) {
       CComPtr<AbstractMemoryStream> pOutputStream;
       IFT(CreateMemoryStream(GetGlobalHeapMalloc(), &pOutputStream));
@@ -145,7 +145,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       }
     }
 
-    preprocessor->Preprocess(pSource, pSourceName);
+    preprocessor->Preprocess(pSource, pSourceName, arguments.data(),
+                             arguments.size(), defines.data(), defines.size());
 
     CompileInput compilerInput{defines, arguments};
 
