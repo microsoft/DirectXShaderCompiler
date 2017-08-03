@@ -846,6 +846,8 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
     UpdateHandleOperands(Res, handleMap, nonUniformOps);
   }
 
+  bool bIsLib = m_pHLModule->GetShaderModel()->IsLib();
+
   // ResClass and ResID must be uniform.
   // Try to merge res class, res id into imm.
   while (1) {
@@ -866,7 +868,7 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
     }
 
     if (!bUpdated) {
-      if (!nonUniformOps.empty()) {
+      if (!nonUniformOps.empty() && !bIsLib) {
         for (Instruction *I : nonUniformOps) {
           // Non uniform res class or res id.
           FT->getContext().emitError(I, kResourceMapErrorMsg);
