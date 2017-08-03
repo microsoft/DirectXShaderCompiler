@@ -122,12 +122,7 @@ hash_code LibCacheManagerImpl::GetHash(const std::string &header, const std::str
   for (auto &Arg : compiler.arguments) {
     libHash = CombineWStr(libHash, Arg);
   }
-  for (auto &Define : compiler.defines) {
-    libHash = CombineWStr(libHash, Define.Name);
-    if (Define.Value) {
-      libHash = CombineWStr(libHash, Define.Value);
-    }
-  }
+  // snippet has been processed so don't add define to hash.
   return libHash;
 }
 
