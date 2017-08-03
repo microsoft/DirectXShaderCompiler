@@ -158,9 +158,33 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     std::string processedHeader = "";
     std::vector<std::wstring> hashStrList;
     std::vector<LPCWSTR> hashList;
+//#define LIB_SHARE_DBG
+#ifdef LIB_SHARE_DBG
+    std::vector<std::wstring> defineList;
+    defineList.emplace_back(L"");
+    for (auto &def : defines) {
+      std::wstring strDef = std::wstring(L"#define ") + std::wstring(def.Name);
+      if (def.Value) {
+        strDef.push_back(L' ');
+        strDef += std::wstring(def.Value);
+        strDef.push_back(L'\n');
+      }
+      defineList[0] += strDef;
+      defineList.emplace_back(strDef);
+    }
+    std::string contents;
+    std::vector<std::wstring> contentStrList;
+    std::vector<LPCWSTR> contentList;
+#endif
     for (const auto &snippet : snippets) {
       CComPtr<IDxcBlob> pOutputBlob;
       size_t hash;
+#ifdef LIB_SHARE_DBG
+      contents = processedHeader + snippet;
+      CA2W tmpContents(contents.c_str());
+      contentStrList.emplace_back(tmpContents.m_psz);
+      contentList.emplace_back(contentStrList.back().c_str());
+#endif
       if (!libCache.GetLibBlob(processedHeader, snippet, compilerInput, hash, &pOutputBlob)) {
         // Cannot find existing blob, create from pSource.
         IDxcBlob **ppCode = &pOutputBlob;
@@ -181,8 +205,14 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     std::wstring wTarget = Unicode::UTF8ToUTF16StringOrThrow(Target);
 
     // Link
+#ifdef LIB_SHARE_DBG
+    return linker->Link(wEntry.c_str(), wTarget.c_str(), hashList.data(),
+                        hashList.size(), contentList.data(), 0,
+                        ppOperationResult);
+#else
     return linker->Link(wEntry.c_str(), wTarget.c_str(), hashList.data(),
                         hashList.size(), nullptr, 0, ppOperationResult);
+#endif
   }
   CATCH_CPP_ASSIGN_HRESULT();
   return hr;

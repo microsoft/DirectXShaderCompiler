@@ -323,7 +323,7 @@ const char kShaderKindMismatch[] =
     "Profile mismatch between entry function and target profile:";
 const char kNoEntryProps[] =
     "Cannot find function property for entry function ";
-const char kRefineResource[] =
+const char kRedefineResource[] =
     "Resource already exists as ";
 } // namespace
 //------------------------------------------------------------------------------
@@ -331,14 +331,81 @@ const char kRefineResource[] =
 // DxilLinkJob methods.
 //
 
+namespace {
+// Helper function to check type match.
+bool IsMatchedType(Type *Ty0, Type *Ty);
+
+StringRef RemoveNameSuffix(StringRef Name) {
+  size_t DotPos = Name.rfind('.');
+  if (DotPos != StringRef::npos && Name.back() != '.' &&
+      isdigit(static_cast<unsigned char>(Name[DotPos + 1])))
+    Name = Name.substr(0, DotPos);
+  return Name;
+}
+
+bool IsMatchedStructType(StructType *ST0, StructType *ST) {
+  StringRef Name0 = RemoveNameSuffix(ST0->getName());
+  StringRef Name = RemoveNameSuffix(ST->getName());
+
+  if (Name0 != Name)
+    return false;
+
+  if (ST0->getNumElements() != ST->getNumElements())
+    return false;
+
+  if (ST0->isLayoutIdentical(ST))
+    return true;
+
+  for (unsigned i = 0; i < ST->getNumElements(); i++) {
+    Type *Ty = ST->getElementType(i);
+    Type *Ty0 = ST0->getElementType(i);
+    if (!IsMatchedType(Ty, Ty0))
+      return false;
+  }
+  return true;
+}
+
+bool IsMatchedArrayType(ArrayType *AT0, ArrayType *AT) {
+  if (AT0->getNumElements() != AT->getNumElements())
+    return false;
+  return IsMatchedType(AT0->getElementType(), AT->getElementType());
+}
+
+bool IsMatchedType(Type *Ty0, Type *Ty) {
+  if (Ty0->isStructTy() && Ty->isStructTy()) {
+    StructType *ST0 = cast<StructType>(Ty0);
+    StructType *ST = cast<StructType>(Ty);
+    return IsMatchedStructType(ST0, ST);
+  }
+
+  if (Ty0->isArrayTy() && Ty->isArrayTy()) {
+    ArrayType *AT0 = cast<ArrayType>(Ty0);
+    ArrayType *AT = cast<ArrayType>(Ty);
+    return IsMatchedArrayType(AT0, AT);
+  }
+
+  if (Ty0->isPointerTy() && Ty->isPointerTy()) {
+    if (Ty0->getPointerAddressSpace() != Ty->getPointerAddressSpace())
+      return false;
+
+    return IsMatchedType(Ty0->getPointerElementType(),
+                         Ty->getPointerElementType());
+  }
+
+  return Ty0 == Ty;
+}
+} // namespace
+
 bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
   if (m_resourceMap.count(res->GetGlobalName())) {
     DxilResourceBase *res0 = m_resourceMap[res->GetGlobalName()].first;
+    Type *Ty0 = res0->GetGlobalSymbol()->getType()->getPointerElementType();
+    Type *Ty = res->GetGlobalSymbol()->getType()->getPointerElementType();
     // Make sure res0 match res.
-    bool bMatch = res->GetGlobalSymbol()->getType() == res0->GetGlobalSymbol()->getType();
+    bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {
       // Report error.
-      m_ctx.emitError(Twine(kRefineResource) + res->GetResClassName() + " for " +
+      m_ctx.emitError(Twine(kRedefineResource) + res->GetResClassName() + " for " +
                       res->GetGlobalName());
       return false;
     }
