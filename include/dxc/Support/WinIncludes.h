@@ -34,6 +34,11 @@
 #include <intsafe.h>
 #include <ObjIdl.h>
 
+// Support older atlbase.h if needed
+#ifndef _ATL_DECLSPEC_ALLOCATOR
+#define _ATL_DECLSPEC_ALLOCATOR
+#endif
+
 /// Swap two ComPtr classes.
 template <class T> void swap(CComHeapPtr<T> &a, CComHeapPtr<T> &b) {
   T *c(a.m_pData);
