@@ -50,7 +50,6 @@ static const bool VirtualFalse = false;           // whether the base class is d
 static const bool BaseClassFalse = false;         // whether the base class is declared as 'class' (vs. 'struct')
 
 /// <summary>Names of HLSLScalarType enumeration values, in matching order to HLSLScalarType.</summary>
-static
 const char* HLSLScalarTypeNames[] = {
   "<unknown>",
   "bool",
@@ -72,8 +71,6 @@ const char* HLSLScalarTypeNames[] = {
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
-
-typedef std::map<std::string, HLSLScalarType> HLSLScalarTypeMap;
 
 static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t typeLen) {
   // skipped HLSLScalarType: unknown, literal int, literal float
@@ -957,8 +954,8 @@ bool hlsl::TryParseAny(
   const size_t MinValidLen = 3;
   if (typeNameLen >= MinValidLen) {
     TryParseMatrixOrVectorDimension(typeName, typeNameLen, rowCount, colCount);
-    int suffixLen = *rowCount == 0 ? 0 :
-                    *colCount == 0 ? 1 : 3;
+    int suffixLen = *colCount == 0 ? 0 :
+                    *rowCount == 0 ? 1 : 3;
     HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-suffixLen);
     if (type!= HLSLScalarType_unknown) {
       *parsedType = type;
@@ -979,24 +976,16 @@ bool hlsl::TryParseMatrixOrVectorDimension(
     _Out_opt_ int *rowCount,
     _Out_opt_ int *colCount
 ) {
-  int col, row;
-  size_t MinValidLen = 3;
+  *rowCount = 0;
+  *colCount = 0;
+  size_t MinValidLen = 3; // at least int
   if (typeNameLen > MinValidLen) {
-    if (TryParseColOrRowChar(typeName[typeNameLen - 1], &col)) {
-      // Handle matrix case.
-      if (typeName[typeNameLen - 2] == 'x' &&
-        TryParseColOrRowChar(typeName[typeNameLen - 3], &row)) {
-        *rowCount = row;
-        *colCount = col;
-        return true;
-      }
-      // Handle vector case. Potential matrix column was a vector row.
-      *rowCount = col;
-      *colCount = 0;
+    if (TryParseColOrRowChar(typeName[typeNameLen - 1], colCount)) {
+      // Try parse matrix
+      if (typeName[typeNameLen - 2] == 'x')
+        TryParseColOrRowChar(typeName[typeNameLen - 3], rowCount);
       return true;
     }
-    *rowCount = 0;
-    *colCount = 0;
   }
   return false;
 }

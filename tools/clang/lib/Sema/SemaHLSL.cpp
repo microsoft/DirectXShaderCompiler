@@ -622,6 +622,8 @@ using namespace clang;
 using namespace clang::sema;
 using namespace hlsl;
 
+extern const char *HLSLScalarTypeNames[];
+
 static const int FirstTemplateDepth = 0;
 static const int FirstParamPosition = 0;
 static const bool ExplicitConversionFalse = false;// a conversion operation is not the result of an explicit cast
@@ -2439,6 +2441,9 @@ private:
   QualType m_vectorTypes[HLSLScalarTypeCount][4];
   TypedefDecl* m_vectorTypedefs[HLSLScalarTypeCount][4];
 
+  // BuiltinType for each scalar type.
+  QualType m_baseTypes[HLSLScalarTypeCount];
+
   // Built-in object types declarations, indexed by basic kind constant.
   CXXRecordDecl* m_objectTypeDecls[_countof(g_ArBasicKindsAsTypes)];
   // Map from object decl to the object index.
@@ -2448,6 +2453,9 @@ private:
   uint64_t m_objectTypeLazyInitMask;
 
   UsedIntrinsicStore m_usedIntrinsics;
+
+  /// <summary>Add all base QualTypes for each hlsl scalar types.</summary>
+  void AddBaseTypes();
 
   /// <summary>Adds all supporting declarations to reference scalar types.</summary>
   void AddHLSLScalarTypes();
@@ -2953,6 +2961,7 @@ public:
     memset(m_vectorTypedefs, 0, sizeof(m_vectorTypedefs));
     memset(m_scalarTypes, 0, sizeof(m_scalarTypes));
     memset(m_scalarTypeDefs, 0, sizeof(m_scalarTypeDefs));
+    memset(m_baseTypes, 0, sizeof(m_baseTypes));
   }
 
   ~HLSLExternalSource() { }
@@ -2991,54 +3000,8 @@ public:
 
   TypedefDecl* LookupScalarType(HLSLScalarType scalarType) {
     if (m_scalarTypes[scalarType].isNull()) {
-      switch (scalarType) {
-        case HLSLScalarType_uint:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "uint", m_context->UnsignedIntTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          break;
-        case HLSLScalarType_dword:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "dword", m_context->UnsignedIntTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          break;
-        case HLSLScalarType_half:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "half", m_context->FloatTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          break;
-        case HLSLScalarType_float_min10:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "min10float", m_context->HalfTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          // Since min10float promotes to min16float, we have to initialize scalar type for min16float
-          m_scalarTypes[HLSLScalarType_float_min16] = m_context->getTypeDeclType(CreateGlobalTypedef(m_context, "min16float", m_context->HalfTy));
-          break;
-        case HLSLScalarType_float_min16:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "min16float", m_context->HalfTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          break;
-        case HLSLScalarType_int_min12:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "min12int", m_context->ShortTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          // Since this promotes to min16, we have to initialize scalar type for min16int
-          m_scalarTypes[HLSLScalarType_int_min16] = m_context->getTypeDeclType(CreateGlobalTypedef(m_context, "min16int", m_context->ShortTy));
-          break;
-        case HLSLScalarType_int_min16:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "min16int", m_context->ShortTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          break;
-        case HLSLScalarType_uint_min16:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "min16uint", m_context->UnsignedShortTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          break;
-        case HLSLScalarType_int64:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "int64_t", m_context->LongLongTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          break;
-        case HLSLScalarType_uint64:
-          m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, "uint64_t", m_context->UnsignedLongLongTy);
-          m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
-          break;
-        default:
-          DXASSERT(false, "Otherwise we found an unknown scalar type.");
-      }
+      m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, HLSLScalarTypeNames[scalarType], m_baseTypes[scalarType]);
+      m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
     }
     DXASSERT(m_scalarTypeDefs[scalarType], "Otherwise we did not build scalar types correctly.");
     return m_scalarTypeDefs[scalarType];
@@ -3122,9 +3085,9 @@ public:
         TypedefDecl *typeDecl = LookupScalarType(parsedType);
         R.addDecl(typeDecl);
       }
-      else if (colCount == 0) { // vector
-        QualType qt = LookupVectorType(parsedType, rowCount);
-        TypedefDecl *qts = LookupVectorShorthandType(parsedType, rowCount);
+      else if (rowCount == 0) { // vector
+        QualType qt = LookupVectorType(parsedType, colCount);
+        TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
         R.addDecl(qts);
       }
       else { // matrix
@@ -3703,7 +3666,7 @@ public:
                                SourceLocation(), &context.Idents.get("hlsl"),
                                /*PrevDecl*/ nullptr);
     m_hlslNSDecl->setImplicit();
-
+    AddBaseTypes();
     AddHLSLScalarTypes();
 
     AddHLSLVectorTemplate(*m_context, &m_vectorTemplateDecl);
@@ -4450,15 +4413,36 @@ QualType GetFirstElementType(QualType type)
   return QualType();
 }
 
+void HLSLExternalSource::AddBaseTypes()
+{
+  DXASSERT(m_baseTypes[HLSLScalarType_unknown].isNull(), "otherwise unknown was initialized to an actual type");
+  m_baseTypes[HLSLScalarType_bool] = m_context->BoolTy;
+  m_baseTypes[HLSLScalarType_int] = m_context->IntTy;
+  m_baseTypes[HLSLScalarType_uint] = m_context->UnsignedIntTy;
+  m_baseTypes[HLSLScalarType_dword] = m_context->UnsignedIntTy;
+  m_baseTypes[HLSLScalarType_half] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_float] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
+  m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_float_min16] = m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_int_min12] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_int_min16] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
+  m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
+  m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
+  m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
+}
+
 void HLSLExternalSource::AddHLSLScalarTypes()
 {
   DXASSERT(m_scalarTypes[HLSLScalarType_unknown].isNull(), "otherwise unknown was initialized to an actual type");
-  m_scalarTypes[HLSLScalarType_bool] = m_context->BoolTy;
-  m_scalarTypes[HLSLScalarType_int] = m_context->IntTy;
-  m_scalarTypes[HLSLScalarType_float] = m_context->FloatTy;
-  m_scalarTypes[HLSLScalarType_double] = m_context->DoubleTy;
-  m_scalarTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
-  m_scalarTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
+  m_scalarTypes[HLSLScalarType_bool] = m_baseTypes[HLSLScalarType_bool];
+  m_scalarTypes[HLSLScalarType_int] = m_baseTypes[HLSLScalarType_int];
+  m_scalarTypes[HLSLScalarType_float] = m_baseTypes[HLSLScalarType_float];
+  m_scalarTypes[HLSLScalarType_double] = m_baseTypes[HLSLScalarType_double];
+  m_scalarTypes[HLSLScalarType_float_lit] = m_baseTypes[HLSLScalarType_float_lit];
+  m_scalarTypes[HLSLScalarType_int_lit] = m_baseTypes[HLSLScalarType_int_lit];
 }
 
 FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(
