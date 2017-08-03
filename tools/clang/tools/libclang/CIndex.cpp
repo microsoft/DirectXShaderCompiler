@@ -5588,24 +5588,10 @@ static bool IsHLSLBuiltInType(IdentifierInfo* ii)
     return true;
   }
 
-  // Other built-in types are simple typedefs.
-  if (ii->getName().equals("uint") ||
-      ii->getName().equals("dword") ||
-      ii->getName().equals("half")) {
-    return true;
-  }
-
   // Vectors and matrices can be parsed with internal lookup tables.
   hlsl::HLSLScalarType scalarType;
   int count;
-  if (hlsl::TryParseMatrixShorthand(ii->getNameStart(), ii->getLength(), &scalarType, &count, &count)) {
-    return true;
-  }
-  if (hlsl::TryParseVectorShorthand(ii->getNameStart(), ii->getLength(), &scalarType, &count)) {
-    return true;
-  }
-
-  return false;
+  return hlsl::TryParseAny(ii->getNameStart(), ii->getLength(), &scalarType, &count, &count);
 }
 // HLSL Change Ends
 

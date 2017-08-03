@@ -70,8 +70,6 @@ HLSLScalarType MakeUnsigned(HLSLScalarType T);
 
 static const HLSLScalarType HLSLScalarType_minvalid = HLSLScalarType_bool;
 static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_uint64;
-static const HLSLScalarType HLSLScalarType_min_minprecise = HLSLScalarType_float_min10;
-static const HLSLScalarType HLSLScalarType_max_minprecise = HLSLScalarType_uint_min16;
 static const size_t HLSLScalarTypeCount = static_cast<size_t>(HLSLScalarType_max) + 1;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -424,7 +422,7 @@ bool TryParseVectorShorthand(
   _Out_     int* elementCount);
 
 _Success_(return != false)
-bool TryParseHLSLScalarType(
+bool TryParseScalar(
   _In_count_(typenameLen)
   const char* typeName,
   size_t typeNameLen,
@@ -432,11 +430,22 @@ bool TryParseHLSLScalarType(
 );
 
 _Success_(return != false)
-bool TryParseHLSLMinPrecision(
+bool TryParseAny(
   _In_count_(typenameLen)
   const char* typeName,
   size_t typeNameLen,
-  _Out_     HLSLScalarType *parsedType
+  _Out_ HLSLScalarType *parsedType,
+  _Out_ int *rowCount,
+  _Out_ int *colCount
+);
+
+_Success_(return != false)
+bool TryParseMatrixOrVectorDimension(
+  _In_count_(typeNameLen)
+  const char *typeName,
+  size_t typeNameLen,
+  _Out_opt_ int *rowCount,
+  _Out_opt_ int *colCount
 );
 
 } // end hlsl namespace

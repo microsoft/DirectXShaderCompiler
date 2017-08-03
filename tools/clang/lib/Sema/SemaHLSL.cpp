@@ -2951,6 +2951,8 @@ public:
     memset(m_matrixShorthandTypes, 0, sizeof(m_matrixShorthandTypes));
     memset(m_vectorTypes, 0, sizeof(m_vectorTypes));
     memset(m_vectorTypedefs, 0, sizeof(m_vectorTypedefs));
+    memset(m_scalarTypes, 0, sizeof(m_scalarTypes));
+    memset(m_scalarTypeDefs, 0, sizeof(m_scalarTypeDefs));
   }
 
   ~HLSLExternalSource() { }
@@ -3071,16 +3073,16 @@ public:
 
   void WarnMinPrecision(HLSLScalarType type, SourceLocation loc) {
     // TODO: enalbe this once we introduce precise master option
-    bool isPrecise = false;
+    bool isMinPrecisionAllowed = true;
     if (type == HLSLScalarType_int_min12) {
-      const char *PromotedType = isPrecise ? "int16" : "min16int";
+      const char *PromotedType = isMinPrecisionAllowed? "min16int" : "int16";
       m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << PromotedType;
     }
     else if (type == HLSLScalarType_float_min10) {
-      const char *PromotedType = isPrecise ? "half" : "min16float";
+      const char *PromotedType =  isMinPrecisionAllowed? "min16float" : "half";
       m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << PromotedType;
     }
-    if (isPrecise) {
+    if (!isMinPrecisionAllowed) {
       if (type == HLSLScalarType_float_min16) {
         m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
       }
@@ -3114,24 +3116,24 @@ public:
     int colCount;
 
     // Try parsing hlsl scalar types that is not initialized at AST time.
-    if (TryParseHLSLScalarType(nameIdentifier.data(), nameIdentifier.size(), &parsedType)) {
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
       assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
-      TypedefDecl *typeDecl = LookupScalarType(parsedType);
-      R.addDecl(typeDecl);
-    } else if (TryParseMatrixShorthand(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
-      assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseMatrixShorthand should not have succeeded");
-      QualType qt = LookupMatrixType(parsedType, rowCount, colCount);
-      TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
-      R.addDecl(qts);
-      return true;
-    } else if (TryParseVectorShorthand(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &colCount)) {
-      assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseVectorShorthand should not have succeeded");
-      QualType qt = LookupVectorType(parsedType, colCount);
-      TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
-      R.addDecl(qts);
+      if (rowCount == 0 && colCount == 0) { // scalar
+        TypedefDecl *typeDecl = LookupScalarType(parsedType);
+        R.addDecl(typeDecl);
+      }
+      else if (colCount == 0) { // vector
+        QualType qt = LookupVectorType(parsedType, rowCount);
+        TypedefDecl *qts = LookupVectorShorthandType(parsedType, rowCount);
+        R.addDecl(qts);
+      }
+      else { // matrix
+        QualType qt = LookupMatrixType(parsedType, rowCount, colCount);
+        TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
+        R.addDecl(qts);
+      }
       return true;
     }
-
     return false;
   }
 
@@ -10856,7 +10858,8 @@ bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
   if (idInfo) {
     StringRef nameIdentifier = idInfo->getName();
     HLSLScalarType parsedType;
-    if (TryParseHLSLMinPrecision(nameIdentifier.data(), nameIdentifier.size(), &parsedType)) {
+    int rowCount, colCount;
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
       HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
       hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
     }
