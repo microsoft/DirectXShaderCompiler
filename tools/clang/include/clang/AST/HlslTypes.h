@@ -421,6 +421,32 @@ bool TryParseVectorShorthand(
   _Out_     HLSLScalarType* parsedType,
   _Out_     int* elementCount);
 
-}
+_Success_(return != false)
+bool TryParseScalar(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _Out_     HLSLScalarType *parsedType
+);
 
+_Success_(return != false)
+bool TryParseAny(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _Out_ HLSLScalarType *parsedType,
+  _Out_ int *rowCount,
+  _Out_ int *colCount
+);
+
+_Success_(return != false)
+bool TryParseMatrixOrVectorDimension(
+  _In_count_(typeNameLen)
+  const char *typeName,
+  size_t typeNameLen,
+  _Out_opt_ int *rowCount,
+  _Out_opt_ int *colCount
+);
+
+} // end hlsl namespace
 #endif
