@@ -203,7 +203,8 @@ public:
   // Register a library with name to ref it later.
   virtual HRESULT RegisterLibrary(
       _In_opt_ LPCWSTR pLibName,         // Name of the library.
-      _In_ IDxcBlob *pLib                // Library blob.
+      _In_ IDxcBlob *pLib,               // Library blob.
+      _In_ unsigned bLazyLoad            // Lazy load the lib.
   ) = 0;
 
   // Links the shader and produces a shader blob that the Direct3D runtime can

@@ -154,7 +154,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     IFR(CreateLinker(&linker));
     IDxcIncludeHandler * const kNoIncHandler = nullptr;
     const auto &snippets = preprocessor->GetSnippets();
-
+    const bool bLazyLoad = true;
     std::string processedHeader = "";
     std::vector<std::wstring> hashStrList;
     std::vector<LPCWSTR> hashList;
@@ -198,7 +198,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       }
       hashStrList.emplace_back(std::to_wstring(hash));
       hashList.emplace_back(hashStrList.back().c_str());
-      linker->RegisterLibrary(hashList.back(), pOutputBlob);
+      linker->RegisterLibrary(hashList.back(), pOutputBlob, bLazyLoad);
       pOutputBlob.Detach(); // Ownership is in libCache.
     }
     std::wstring wEntry = Unicode::UTF8ToUTF16StringOrThrow(pEntrypoint);
