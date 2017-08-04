@@ -4,13 +4,13 @@
 
 // CHECK: float 6.000000e+00
 
-struct Tex2DAndSampler {
+struct X {
 
-static const uint NumberOfReservedSamplers = 6 ;
+static const uint A = 6 ;
 
 };
 
 
 float test() {
-  return Tex2DAndSampler::NumberOfReservedSamplers ;
+  return X::A ;
 }
