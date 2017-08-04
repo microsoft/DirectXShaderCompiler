@@ -2573,7 +2573,7 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     InClassInitStyle HasInClassInit = ICIS_NoInit;
     bool HasStaticInitializer = false;
     if (Tok.isOneOf(tok::equal, tok::l_brace) && PureSpecLoc.isInvalid()) {
-      Diag(Tok, diag::err_hlsl_unsupported_member_default); // HLSL Change
+      if (DS.getStorageClassSpec() != DeclSpec::SCS_static) Diag(Tok, diag::err_hlsl_unsupported_member_default); // HLSL Change
       if (BitfieldSize.get()) {
         Diag(Tok, diag::err_bitfield_member_init);
         SkipUntil(tok::comma, StopAtSemi | StopBeforeMatch);

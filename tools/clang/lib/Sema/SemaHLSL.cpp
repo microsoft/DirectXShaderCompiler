@@ -10467,7 +10467,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   }
 
   if (isStatic) {
-    if (!(isLocalVar || isGlobal || isFunction || isMethod)) {
+    if (!(isLocalVar || isGlobal || isFunction || isMethod || isField)) {
       Diag(D.getLocStart(), diag::err_hlsl_varmodifierna) << "'static'"
                                                           << declarationType;
       result = false;
@@ -10483,7 +10483,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   }
 
   if (isConst) {
-    if (isField) {
+    if (isField && !isStatic) {
       Diag(D.getLocStart(), diag::err_hlsl_varmodifierna) << "'const'"
                                                           << declarationType;
       result = false;
