@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/BlockReadableOrder.h"
+#include "BlockReadableOrder.h"
 
 namespace clang {
 namespace spirv {

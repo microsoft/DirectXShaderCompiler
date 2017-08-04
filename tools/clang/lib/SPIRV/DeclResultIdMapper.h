@@ -7,18 +7,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_SPIRV_DECLRESULTIDMAPPER_H
-#define LLVM_CLANG_SPIRV_DECLRESULTIDMAPPER_H
+#ifndef LLVM_CLANG_LIB_SPIRV_DECLRESULTIDMAPPER_H
+#define LLVM_CLANG_LIB_SPIRV_DECLRESULTIDMAPPER_H
 
 #include <string>
 #include <vector>
 
 #include "spirv/1.0/spirv.hpp11"
 #include "clang/SPIRV/ModuleBuilder.h"
-#include "clang/SPIRV/TypeTranslator.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
+
+#include "TypeTranslator.h"
 
 namespace clang {
 namespace spirv {

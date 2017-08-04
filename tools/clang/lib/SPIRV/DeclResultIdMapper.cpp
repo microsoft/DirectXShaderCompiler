@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/DeclResultIdMapper.h"
+#include "DeclResultIdMapper.h"
 
 #include "clang/AST/HlslTypes.h"
 #include "llvm/ADT/StringSwitch.h"
