@@ -223,13 +223,16 @@ void fn_uint_oload3(out uint u) { }
 void fn_redef(min10float x) {}      /* expected-note {{previous definition is here}} expected-warning {{min10float is promoted to min16float}} */
 void fn_redef(min16float x) {}      /* expected-error {{redefinition of 'fn_redef'}} */
 
-typedef min16int My16Int            /* expected-error {{expected ';' after top level declarator}} */
+
 void fn_redef2(min12int x) {}       /* expected-note {{previous definition is here}} expected-warning {{min12int is promoted to min16int}} */
 void fn_redef2(min16int x) {}       /* expected-error {{redefinition of 'fn_redef2'}} */
-void fn_redef2(My16Int x) {}
 
 void fn_redef3(half x) {}           /* expected-note {{previous definition is here}} */
 void fn_redef3(float x) {}          /* expected-error {{redefinition of 'fn_redef3'}} */
+
+typedef min16int My16Int;
+void fn_redef4(min16int x) {}       /* expected-note {{previous definition is here}} */
+void fn_redef4(My16Int x) {}        /* expected-error {{redefinition of 'fn_redef4'}} */
 
 void inout_calls() {
   uint u = 1;
