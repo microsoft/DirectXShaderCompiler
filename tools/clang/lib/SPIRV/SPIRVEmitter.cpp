@@ -441,13 +441,8 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
     // instruction."
     llvm::Optional<uint32_t> constInit;
     if (decl->hasInit()) {
-      // First try to evaluate the initializer as a constant expression
-      Expr::EvalResult evalResult;
-      if (decl->getInit()->EvaluateAsRValue(evalResult, astContext) &&
-          !evalResult.HasSideEffects) {
-        constInit = llvm::Optional<uint32_t>(
-            translateAPValue(evalResult.Val, decl->getType()));
-      }
+      if (const uint32_t id = tryToEvaluateAsConst(decl->getInit()))
+        constInit = llvm::Optional<uint32_t>(id);
     } else if (isFileScopeVar) {
       // For static variables, if no initializers are provided, we should
       // initialize them to zero values.
@@ -1295,10 +1290,21 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
   const FunctionDecl *callee = expr->getDirectCallee();
   const auto retType = typeTranslator.translateType(callee->getReturnType());
 
-  // TODO: For the following method calls, offset is not always constant.
-  // In SPIR-V, there are two image operands, ConstOffset and Offset.
-  // We are translating all into ConstOffset right now, which is incorrect
-  // for non-constant offset.
+  // Handles the offset argument. If there exists an offset argument, writes the
+  // <result-id> to either *constOffset or *varOffset, depending on the
+  // constantness of the offset.
+  const auto handleOffset = [this](const CXXMemberCallExpr *expr,
+                                   uint32_t index, uint32_t *constOffset,
+                                   uint32_t *varOffset) {
+    *constOffset = *varOffset = 0; // Initialize both first
+
+    if (expr->getNumArgs() == index + 1) { // Has offset argument
+      if (*constOffset = tryToEvaluateAsConst(expr->getArg(index)))
+        return; // Constant offset
+      else
+        *varOffset = doExpr(expr->getArg(index));
+    }
+  };
 
   llvm::StringRef group;
   uint32_t opcode = static_cast<uint32_t>(IntrinsicOp::Num_Intrinsics);
@@ -1323,20 +1329,19 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
       const uint32_t image = loadIfGLValue(imageExpr);
       const uint32_t sampler = doExpr(expr->getArg(0));
       const uint32_t coordinate = doExpr(expr->getArg(1));
-      // .Sample()/.Gather() has a third optional paramter for offset, which
-      // should be translated into SPIR-V ConstOffset image operands.
-      const uint32_t offset =
-          expr->getNumArgs() == 3 ? doExpr(expr->getArg(2)) : 0;
+      // .Sample()/.Gather() has a third optional paramter for offset.
+      uint32_t constOffset = 0, varOffset = 0;
+      handleOffset(expr, 2, &constOffset, &varOffset);
 
       if (opcode == static_cast<uint32_t>(IntrinsicOp::MOP_Sample)) {
-        return theBuilder.createImageSample(retType, imageType, image, sampler,
-                                            coordinate, /*bias*/ 0, /*lod*/ 0,
-                                            std::make_pair(0, 0), offset);
+        return theBuilder.createImageSample(
+            retType, imageType, image, sampler, coordinate, /*bias*/ 0,
+            /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset);
       } else {
         return theBuilder.createImageGather(
             retType, imageType, image, sampler, coordinate,
             // .Gather() doc says we return four components of red data.
-            theBuilder.getConstantInt32(0), offset);
+            theBuilder.getConstantInt32(0), constOffset, varOffset);
       }
     }
     case IntrinsicOp::MOP_SampleBias:
@@ -1366,14 +1371,13 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
       } else {
         lod = doExpr(expr->getArg(2));
       }
-      // .Bias()/.SampleLevel() has a fourth optional paramter for offset,
-      // which should be translated into SPIR-V ConstOffset image operands.
-      const uint32_t offset =
-          expr->getNumArgs() == 4 ? doExpr(expr->getArg(3)) : 0;
+      // .Bias()/.SampleLevel() has a fourth optional paramter for offset.
+      uint32_t constOffset = 0, varOffset = 0;
+      handleOffset(expr, 3, &constOffset, &varOffset);
 
-      return theBuilder.createImageSample(retType, imageType, image, sampler,
-                                          coordinate, bias, lod,
-                                          std::make_pair(0, 0), offset);
+      return theBuilder.createImageSample(
+          retType, imageType, image, sampler, coordinate, bias, lod,
+          std::make_pair(0, 0), constOffset, varOffset);
     }
     case IntrinsicOp::MOP_SampleGrad: {
       // Signature:
@@ -1393,14 +1397,13 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
       const uint32_t coordinate = doExpr(expr->getArg(1));
       const uint32_t ddx = doExpr(expr->getArg(2));
       const uint32_t ddy = doExpr(expr->getArg(3));
-      // .SampleGrad() has a fifth optional paramter for offset, which
-      // should be translated into SPIR-V ConstOffset image operands.
-      const uint32_t offset =
-          expr->getNumArgs() == 5 ? doExpr(expr->getArg(4)) : 0;
+      // .SampleGrad() has a fifth optional paramter for offset.
+      uint32_t constOffset = 0, varOffset = 0;
+      handleOffset(expr, 4, &constOffset, &varOffset);
 
-      return theBuilder.createImageSample(retType, imageType, image, sampler,
-                                          coordinate, /*bias*/ 0, /*lod*/ 0,
-                                          std::make_pair(ddx, ddy), offset);
+      return theBuilder.createImageSample(
+          retType, imageType, image, sampler, coordinate, /*bias*/ 0, /*lod*/ 0,
+          std::make_pair(ddx, ddy), constOffset, varOffset);
     }
     case IntrinsicOp::MOP_Load: {
       // Signature:
@@ -1428,11 +1431,12 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
       splitVecLastElement(expr->getArg(0)->getType(), location, &coordinate,
                           &lod);
 
-      const uint32_t offset =
-          expr->getNumArgs() == 2 ? doExpr(expr->getArg(1)) : 0;
+      // .Load() has a second optional paramter for offset.
+      uint32_t constOffset = 0, varOffset = 0;
+      handleOffset(expr, 1, &constOffset, &varOffset);
 
       return theBuilder.createImageFetch(retType, image, coordinate, lod,
-                                         offset);
+                                         constOffset, varOffset);
     }
     default:
       emitError("HLSL intrinsic member call unimplemented: %0")
@@ -1638,12 +1642,8 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
-  // First try to evaluate the expression as constant expression
-  Expr::EvalResult evalResult;
-  if (expr->EvaluateAsRValue(evalResult, astContext) &&
-      !evalResult.HasSideEffects) {
-    return translateAPValue(evalResult.Val, expr->getType());
-  }
+  if (const uint32_t id = tryToEvaluateAsConst(expr))
+    return id;
 
   return InitListHandler(*this).process(expr);
 }
@@ -2103,11 +2103,8 @@ uint32_t SPIRVEmitter::createVectorSplat(const Expr *scalarExpr, uint32_t size,
 
   // Try to evaluate the element as constant first. If successful, then we
   // can generate constant instructions for this vector splat.
-  Expr::EvalResult evalResult;
-  if (scalarExpr->EvaluateAsRValue(evalResult, astContext) &&
-      !evalResult.HasSideEffects) {
+  if (scalarVal = tryToEvaluateAsConst(scalarExpr)) {
     isConstVal = true;
-    scalarVal = translateAPValue(evalResult.Val, scalarExpr->getType());
   } else {
     scalarVal = doExpr(scalarExpr);
   }
@@ -3278,6 +3275,16 @@ uint32_t SPIRVEmitter::translateAPFloat(const llvm::APFloat &floatValue,
 
   emitError("APFloat for target bitwidth '%0' is not supported yet.")
       << bitwidth;
+  return 0;
+}
+
+uint32_t SPIRVEmitter::tryToEvaluateAsConst(const Expr *expr) {
+  Expr::EvalResult evalResult;
+  if (expr->EvaluateAsRValue(evalResult, astContext) &&
+      !evalResult.HasSideEffects) {
+    return translateAPValue(evalResult.Val, expr->getType());
+  }
+
   return 0;
 }
 

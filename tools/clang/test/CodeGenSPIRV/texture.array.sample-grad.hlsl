@@ -8,6 +8,8 @@ Texture1DArray   <float4> t1 : register(t1);
 Texture2DArray   <float4> t2 : register(t2);
 TextureCubeArray <float4> t3 : register(t3);
 
+// CHECK: OpCapability ImageGatherExtended
+
 // CHECK: %type_sampled_image = OpTypeSampledImage %type_1d_image
 // CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image
 // CHECK: %type_sampled_image_1 = OpTypeSampledImage %type_cube_image
@@ -20,7 +22,7 @@ TextureCubeArray <float4> t3 : register(t3);
 // CHECK: [[v3f_0_2:%\d+]] = OpConstantComposite %v3float %float_0_2 %float_0_2 %float_0_2
 // CHECK: [[v3f_0_3:%\d+]] = OpConstantComposite %v3float %float_0_3 %float_0_3 %float_0_3
 
-float4 main() : SV_Target {
+float4 main(int2 offset : A) : SV_Target {
 // CHECK:              [[t1:%\d+]] = OpLoad %type_1d_image_array %t1
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image [[t1]] [[gSampler]]
@@ -29,9 +31,10 @@ float4 main() : SV_Target {
 
 // CHECK:              [[t2:%\d+]] = OpLoad %type_2d_image_array %t2
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
+// CHECK-NEXT:     [[offset:%\d+]] = OpLoad %v2int %offset
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler]]
-// CHECK-NEXT:            {{%\d+}} = OpImageSampleExplicitLod %v4float [[sampledImg]] [[v3f_0_1]] Grad [[v2f_0_2]] [[v2f_0_3]]
-    float4 val2 = t2.SampleGrad(gSampler, float3(0.1, 0.1, 0.1), float2(0.2, 0.2), float2(0.3, 0.3));
+// CHECK-NEXT:            {{%\d+}} = OpImageSampleExplicitLod %v4float [[sampledImg]] [[v3f_0_1]] Grad|Offset [[v2f_0_2]] [[v2f_0_3]] [[offset]]
+    float4 val2 = t2.SampleGrad(gSampler, float3(0.1, 0.1, 0.1), float2(0.2, 0.2), float2(0.3, 0.3), offset);
 
 // CHECK:              [[t3:%\d+]] = OpLoad %type_cube_image_array %t3
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
