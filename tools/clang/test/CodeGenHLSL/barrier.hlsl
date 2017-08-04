@@ -53,6 +53,7 @@
 // CHECK: i32 2
 // CHECK: barrier
 // CHECK: i32 4
+// CHECK: noduplicate
 
 groupshared column_major float2x2 dataC[8*8];
 
