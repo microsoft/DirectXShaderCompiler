@@ -147,13 +147,14 @@ TEST_F(FileTest, TernaryOpConditionalOp) {
   runFileTest("ternary-op.cond-op.hlsl");
 }
 
-// For vector swizzle operators
+// For vector accessing/swizzling operators
 TEST_F(FileTest, OpVectorSwizzle) { runFileTest("op.vector.swizzle.hlsl"); }
 TEST_F(FileTest, OpVectorSize1Swizzle) {
   runFileTest("op.vector.swizzle.size1.hlsl");
 }
+TEST_F(FileTest, OpVectorAccess) { runFileTest("op.vector.access.hlsl"); }
 
-// For matrix accessing operators
+// For matrix accessing/swizzling operators
 TEST_F(FileTest, OpMatrixAccessMxN) {
   runFileTest("op.matrix.access.mxn.hlsl");
 }
