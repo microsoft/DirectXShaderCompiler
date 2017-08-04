@@ -278,6 +278,13 @@ bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
   return isMxNMatrix(type, &elemType) && elemType->isFloatingType();
 }
 
+QualType TypeTranslator::getElementType(QualType type) {
+  QualType elemType = {};
+  (void)(isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
+         isMxNMatrix(type, &elemType));
+  return elemType;
+}
+
 uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
   assert(isSpirvAcceptableMatrixType(matrixType));
 

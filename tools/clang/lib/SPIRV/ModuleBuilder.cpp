@@ -358,6 +358,27 @@ void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   theModule.addDecoration(*d, targetId);
 }
 
+void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
+  const Decoration *d = nullptr;
+  switch (decoration) {
+  case spv::Decoration::Centroid:
+    d = Decoration::getCentroid(theContext);
+    break;
+  case spv::Decoration::Flat:
+    d = Decoration::getFlat(theContext);
+    break;
+  case spv::Decoration::NoPerspective:
+    d = Decoration::getNoPerspective(theContext);
+    break;
+  case spv::Decoration::Sample:
+    d = Decoration::getSample(theContext);
+    break;
+  }
+
+  assert(d && "unimplemented decoration");
+  theModule.addDecoration(*d, targetId);
+}
+
 #define IMPL_GET_PRIMITIVE_TYPE(ty)                                            \
   \
 uint32_t ModuleBuilder::get##ty##Type() {                                      \

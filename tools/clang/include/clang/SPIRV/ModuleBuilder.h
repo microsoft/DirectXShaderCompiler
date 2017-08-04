@@ -237,6 +237,10 @@ public:
   /// \brief Decorates the given target <result-id> with the given location.
   void decorateLocation(uint32_t targetId, uint32_t location);
 
+  /// \brief Decorates the given target <result-id> with the given decoration
+  /// (without additional parameters).
+  void decorate(uint32_t targetId, spv::Decoration);
+
   // === Type ===
 
   uint32_t getVoidType();
