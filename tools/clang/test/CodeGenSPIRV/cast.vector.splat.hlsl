@@ -6,9 +6,10 @@ void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
     // From constant
-// CHECK: OpStore %vf4 [[v4f32c]]
+// CHECK: %vf4 = OpVariable %_ptr_Function_v4float Function [[v4f32c]]
     float4 vf4 = 1;
-// CHECK-NEXT: [[v3f32c:%\d+]] = OpCompositeConstruct %v3float %float_2 %float_2 %float_2
+
+// CHECK: [[v3f32c:%\d+]] = OpCompositeConstruct %v3float %float_2 %float_2 %float_2
 // CHECK-NEXT: OpStore %vf3 [[v3f32c]]
     float3 vf3;
     vf3 = float1(2);

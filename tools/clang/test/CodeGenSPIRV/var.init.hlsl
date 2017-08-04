@@ -16,20 +16,11 @@
 float4 main(float component: COLOR) : SV_TARGET {
 // CHECK-LABEL: %bb_entry = OpLabel
 
-// CHECK-NEXT: %a = OpVariable %_ptr_Function_int Function %int_0
-// CHECK-NEXT: %b = OpVariable %_ptr_Function_int Function
-
-// CHECK-NEXT: %i = OpVariable %_ptr_Function_float Function %float_3
-// CHECK-NEXT: %j = OpVariable %_ptr_Function_float Function
-
-// CHECK-NEXT: %m = OpVariable %_ptr_Function_v4float Function
-// CHECK-NEXT: %n = OpVariable %_ptr_Function_v4float Function
-// CHECK-NEXT: %o = OpVariable %_ptr_Function_v4float Function
-
-// CHECK-NEXT: %p = OpVariable %_ptr_Function_v2int Function [[int2constant]]
-// CHECK-NEXT: %q = OpVariable %_ptr_Function_v3int Function
-
-// CHECK-NEXT: %x = OpVariable %_ptr_Function_uint Function
+// CHECK: %a = OpVariable %_ptr_Function_int Function %int_0
+// CHECK: %i = OpVariable %_ptr_Function_float Function %float_3
+// CHECK: %m = OpVariable %_ptr_Function_v4float Function [[float4constant]]
+// CHECK: %p = OpVariable %_ptr_Function_v2int Function [[int2constant]]
+// CHECK: %x = OpVariable %_ptr_Function_uint Function %uint_1
 
 // Initializer already attached to the var definition
     int a = 0; // From constant
@@ -43,9 +34,8 @@ float4 main(float component: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpStore %j [[component0]]
     float j = component; // From stage variable
 
-// CHECK-NEXT: OpStore %m [[float4constant]]
     float4 m = float4(1.0, 2.0, 3.0, 4.0);  // All components are constants
-// CHECK-NEXT: [[j0:%\d+]] = OpLoad %float %j
+// CHECK: [[j0:%\d+]] = OpLoad %float %j
 // CHECK-NEXT: [[j1:%\d+]] = OpLoad %float %j
 // CHECK-NEXT: [[j2:%\d+]] = OpLoad %float %j
 // CHECK-NEXT: [[j3:%\d+]] = OpLoad %float %j
@@ -65,7 +55,6 @@ float4 main(float component: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpStore %q [[qinit]]
     int3 q = {4, b, a}; // Mixed cases
 
-// CHECK-NEXT: OpStore %x %uint_1
     uint1 x = uint1(1); // Special case: vector of size 1
 
     return o;
