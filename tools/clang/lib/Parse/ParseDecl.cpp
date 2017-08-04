@@ -3882,19 +3882,6 @@ HLSLReservedKeyword:
                                      DiagID, Policy);
       break;
     // HLSL Change Starts
-    case tok::kw_min10float:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_min10float, Loc, PrevSpec,
-                                     DiagID, Policy);
-      if (!isInvalid)
-        Diag(Tok, diag::warn_hlsl_minprecision_promotion) << "min10float" << "min16float";
-      break;
-    case tok::kw_min12int:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_min12int, Loc, PrevSpec,
-                                     DiagID, Policy);
-      if (!isInvalid)
-        Diag(Tok, diag::warn_hlsl_minprecision_promotion) << "min12int" << "min16int";
-      break;
-    // HLSL Change Ends
     case tok::kw_half:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_half, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -4970,11 +4957,6 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
     // enum-specifier
   case tok::kw_enum:
 
-    // HLSL Change Starts - HLSL types
-  case tok::kw_min10float:
-  case tok::kw_min12int:
-    // HLSL Change Ends
-
     // typedef-name
   case tok::annot_typename:
     return true;
@@ -5060,8 +5042,6 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::annot_typename:
 
     // HLSL Change Starts
-  case tok::kw_min10float:
-  case tok::kw_min12int:
   case tok::kw_column_major:
   case tok::kw_row_major:
   case tok::kw_snorm:
@@ -5168,8 +5148,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_noperspective:
   case tok::kw_sample:
   case tok::kw_centroid:
-  case tok::kw_min10float:
-  case tok::kw_min12int:
   case tok::kw_column_major:
   case tok::kw_row_major:
   case tok::kw_snorm:

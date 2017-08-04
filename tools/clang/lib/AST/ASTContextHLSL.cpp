@@ -50,7 +50,6 @@ static const bool VirtualFalse = false;           // whether the base class is d
 static const bool BaseClassFalse = false;         // whether the base class is declared as 'class' (vs. 'struct')
 
 /// <summary>Names of HLSLScalarType enumeration values, in matching order to HLSLScalarType.</summary>
-static
 const char* HLSLScalarTypeNames[] = {
   "<unknown>",
   "bool",
@@ -72,6 +71,105 @@ const char* HLSLScalarTypeNames[] = {
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
+
+static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t typeLen) {
+  // skipped HLSLScalarType: unknown, literal int, literal float
+  switch (typeLen) {
+    case 3: // int
+      if (typeName[0] == 'i') {
+        if (strncmp(typeName, "int", 3))
+          break;
+        return HLSLScalarType_int;
+      }
+      break;
+    case 4: // bool, uint, half
+      if (typeName[0] == 'b') {
+        if (strncmp(typeName, "bool", 4))
+          break;
+        return HLSLScalarType_bool;
+      }
+      else if (typeName[0] == 'u') {
+        if (strncmp(typeName, "uint", 4))
+          break;
+        return HLSLScalarType_uint;
+      }
+      else if (typeName[0] == 'h') {
+        if (strncmp(typeName, "half", 4))
+          break;
+        return HLSLScalarType_half;
+      }
+      break;
+    case 5: // dword, float
+      if (typeName[0] == 'd') {
+        if (strncmp(typeName, "dword", 5))
+          break;
+        return HLSLScalarType_dword;
+      }
+      else if (typeName[0] == 'f') {
+        if (strncmp(typeName, "float", 5))
+          break;
+        return HLSLScalarType_float;
+      }
+      break;
+    case 6: // double
+      if (typeName[0] == 'd') {
+        if (strncmp(typeName, "double", 6))
+          break;
+        return HLSLScalarType_double;
+      }
+      break;
+    case 7: // int64_t
+      if (typeName[0] == 'i' && typeName[1] == 'n') {
+        if (strncmp(typeName, "int64_t", 7))
+          break;
+        return HLSLScalarType_int64;
+      }
+      break;
+    case 8: // min12int, min16int, uint64_t
+      if (typeName[0] == 'm' && typeName[1] == 'i') {
+        if (typeName[4] == '2') {
+          if (strncmp(typeName, "min12int", 8))
+            break;
+          return HLSLScalarType_int_min12;
+        }
+        else if (typeName[4] == '6') {
+          if (strncmp(typeName, "min16int", 8))
+            break;
+          return HLSLScalarType_int_min16;
+        }
+      }
+      if (typeName[0] == 'u' && typeName[1] == 'i') {
+        if (strncmp(typeName, "uint64_t", 8))
+          break;
+        return HLSLScalarType_uint64;
+      }
+      break;
+    case 9: // min16uint
+      if (typeName[0] == 'm' && typeName[1] == 'i') {
+        if (strncmp(typeName, "min16uint", 9))
+          break;
+        return HLSLScalarType_uint_min16;
+      }
+      break;
+    case 10: // min10float, min16float
+      if (typeName[0] == 'm' && typeName[1] == 'i') {
+        if (typeName[4] == '0') {
+          if (strncmp(typeName, "min10float", 10))
+            break;
+          return HLSLScalarType_float_min10;
+        }
+        if (typeName[4] == '6') {
+          if (strncmp(typeName, "min16float", 10))
+            break;
+          return HLSLScalarType_float_min16;
+        }
+      }
+      break;
+    default:
+      break;
+  }
+  return HLSLScalarType_unknown;
+}
 
 /// <summary>Provides the primitive type for lowering matrix types to IR.</summary>
 static
@@ -791,34 +889,15 @@ bool hlsl::TryParseMatrixShorthand(
   // x is a literal 'x' character.
   // PrimitiveType is one of the HLSLScalarTypeNames values.
   //
-
-  // TODO: binary-search or build a switch table for type name of matrix identifiers
-
-  // At least *something*RxC characters necessary, where something is at least 'int'
-  const size_t MinValidLen = 3 + 3;
-  if (typeNameLen >= MinValidLen) {
-    // The trailing parts are less expensive to parse, so start with those.
-    if (TryParseColOrRowChar(typeName[typeNameLen - 1], colCount) &&
-      typeName[typeNameLen - 2] == 'x' &&
-      TryParseColOrRowChar(typeName[typeNameLen - 3], rowCount)) {
-      for (HLSLScalarType index = HLSLScalarType_minvalid;
-           index <= HLSLScalarType_max;
-           index = (HLSLScalarType)(index + 1)) {
-        // Shorten the compared character to make sure that the suffix isn't considered.
-        if (strncmp(HLSLScalarTypeNames[index], typeName, typeNameLen - 3) == 0) {
-          // Make sure the whole scalar type matches.
-          if (strlen(HLSLScalarTypeNames[index]) == typeNameLen - 3) {
-            *parsedType = index;
-            return true;
-          }
-          else {
-            return false;
-          }
-        }
-      }
+  if (TryParseMatrixOrVectorDimension(typeName, typeNameLen, rowCount, colCount) &&
+    *rowCount != 0 && *colCount != 0) {
+    // compare scalar component
+    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-3);
+    if (type!= HLSLScalarType_unknown) {
+      *parsedType = type;
+      return true;
     }
   }
-
   // Unable to parse.
   return false;
 }
@@ -832,32 +911,82 @@ bool hlsl::TryParseVectorShorthand(
   int* elementCount
   )
 {
-  // TODO: binary-search or build a switch table for type name of vector identifiers
-
   // At least *something*N characters necessary, where something is at least 'int'
-  const size_t MinValidLen = 1 + 3;
-  if (typeNameLen >= MinValidLen) {
-    // The trailing part is less expensive to parse, so start with that.
-    if (TryParseColOrRowChar(typeName[typeNameLen - 1], elementCount)) {
-      for (HLSLScalarType index = HLSLScalarType_minvalid;
-        index <= HLSLScalarType_max;
-        index = (HLSLScalarType)(index + 1)) {
-        // Shorten the compared character to make sure that the suffix isn't considered.
-        if (strncmp(HLSLScalarTypeNames[index], typeName, typeNameLen - 1) == 0) {
-          // Make sure the whole scalar type matches.
-          if (strlen(HLSLScalarTypeNames[index]) == typeNameLen - 1) {
-            *parsedType = index;
-            return true;
-          }
-          else {
-            return false;
-          }
-        }
-      }
+  if (TryParseColOrRowChar(typeName[typeNameLen - 1], elementCount)) {
+    // compare scalar component
+    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-1);
+    if (type!= HLSLScalarType_unknown) {
+      *parsedType = type;
+      return true;
     }
   }
-
   // Unable to parse.
+  return false;
+}
+
+/// <summary>Parses a hlsl scalar type (e.g min16float, uint3x4) </summary>
+_Use_decl_annotations_
+bool hlsl::TryParseScalar(
+  _In_count_(typenameLen)
+            const char* typeName,
+            size_t typeNameLen,
+  _Out_     HLSLScalarType *parsedType
+) {
+  HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen);
+  if (type!= HLSLScalarType_unknown) {
+    *parsedType = type;
+    return true;
+  }
+  return false; // unable to parse
+}
+
+/// <summary>Parse any (scalar, vector, matrix) hlsl types (e.g float, int3x4, uint2) </summary>
+_Use_decl_annotations_
+bool hlsl::TryParseAny(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _Out_ HLSLScalarType *parsedType,
+  int *rowCount,
+  int *colCount
+) {
+  // at least 'int'
+  const size_t MinValidLen = 3;
+  if (typeNameLen >= MinValidLen) {
+    TryParseMatrixOrVectorDimension(typeName, typeNameLen, rowCount, colCount);
+    int suffixLen = *colCount == 0 ? 0 :
+                    *rowCount == 0 ? 1 : 3;
+    HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen-suffixLen);
+    if (type!= HLSLScalarType_unknown) {
+      *parsedType = type;
+      return true;
+    }
+  }
+  return false;
+}
+
+/// <summary>Parse any kind of dimension for vector or matrix (e.g 4,3 in int4x3).
+/// If it's a matrix type, rowCount and colCount will be nonzero. If it's a vector type, colCount is 0.
+/// Otherwise both rowCount and colCount is 0. Returns true if either matrix or vector dimensions detected. </summary>
+_Use_decl_annotations_
+bool hlsl::TryParseMatrixOrVectorDimension(
+    _In_count_(typeNameLen)
+    const char *typeName,
+    size_t typeNameLen,
+    _Out_opt_ int *rowCount,
+    _Out_opt_ int *colCount
+) {
+  *rowCount = 0;
+  *colCount = 0;
+  size_t MinValidLen = 3; // at least int
+  if (typeNameLen > MinValidLen) {
+    if (TryParseColOrRowChar(typeName[typeNameLen - 1], colCount)) {
+      // Try parse matrix
+      if (typeName[typeNameLen - 2] == 'x')
+        TryParseColOrRowChar(typeName[typeNameLen - 3], rowCount);
+      return true;
+    }
+  }
   return false;
 }
 

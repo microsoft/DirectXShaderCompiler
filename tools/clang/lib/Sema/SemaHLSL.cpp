@@ -622,6 +622,8 @@ using namespace clang;
 using namespace clang::sema;
 using namespace hlsl;
 
+extern const char *HLSLScalarTypeNames[];
+
 static const int FirstTemplateDepth = 0;
 static const int FirstParamPosition = 0;
 static const bool ExplicitConversionFalse = false;// a conversion operation is not the result of an explicit cast
@@ -2379,6 +2381,22 @@ namespace hlsl {
   };
 }
 
+/// <summary>Creates a Typedef in the specified ASTContext.</summary>
+static
+TypedefDecl *CreateGlobalTypedef(ASTContext* context, const char* ident, QualType baseType)
+{
+  DXASSERT_NOMSG(context != nullptr);
+  DXASSERT_NOMSG(ident != nullptr);
+  DXASSERT_NOMSG(!baseType.isNull());
+
+  DeclContext* declContext = context->getTranslationUnitDecl();
+  TypeSourceInfo* typeSource = context->getTrivialTypeSourceInfo(baseType);
+  TypedefDecl* decl = TypedefDecl::Create(*context, declContext, NoLoc, NoLoc, &context->Idents.get(ident), typeSource);
+  declContext->addDecl(decl);
+  decl->setImplicit(true);
+  return decl;
+}
+
 class HLSLExternalSource : public ExternalSemaSource {
 private:
   // Inner types.
@@ -2410,6 +2428,9 @@ private:
   // Scalar types indexed by HLSLScalarType.
   QualType m_scalarTypes[HLSLScalarTypeCount];
 
+  // Scalar types already built.
+  TypedefDecl* m_scalarTypeDefs[HLSLScalarTypeCount];
+
   // Matrix types already built indexed by type, row-count, col-count. Should probably move to a sparse map. Instrument to figure out best initial size.
   QualType m_matrixTypes[HLSLScalarTypeCount][4][4];
 
@@ -2420,6 +2441,9 @@ private:
   QualType m_vectorTypes[HLSLScalarTypeCount][4];
   TypedefDecl* m_vectorTypedefs[HLSLScalarTypeCount][4];
 
+  // BuiltinType for each scalar type.
+  QualType m_baseTypes[HLSLScalarTypeCount];
+
   // Built-in object types declarations, indexed by basic kind constant.
   CXXRecordDecl* m_objectTypeDecls[_countof(g_ArBasicKindsAsTypes)];
   // Map from object decl to the object index.
@@ -2429,6 +2453,9 @@ private:
   uint64_t m_objectTypeLazyInitMask;
 
   UsedIntrinsicStore m_usedIntrinsics;
+
+  /// <summary>Add all base QualTypes for each hlsl scalar types.</summary>
+  void AddBaseTypes();
 
   /// <summary>Adds all supporting declarations to reference scalar types.</summary>
   void AddHLSLScalarTypes();
@@ -2913,8 +2940,7 @@ private:
                    colCount >= 0 && colCount <= 4);
     TypedefDecl *qts = m_vectorTypedefs[scalarType][colCount - 1];
     if (qts == nullptr) {
-
-        QualType type = LookupVectorType(scalarType, colCount);
+      QualType type = LookupVectorType(scalarType, colCount);
       qts = CreateVectorSpecializationShorthand(*m_context, type, scalarType,
                                                 colCount);
       m_vectorTypedefs[scalarType][colCount - 1] = qts;
@@ -2933,6 +2959,9 @@ public:
     memset(m_matrixShorthandTypes, 0, sizeof(m_matrixShorthandTypes));
     memset(m_vectorTypes, 0, sizeof(m_vectorTypes));
     memset(m_vectorTypedefs, 0, sizeof(m_vectorTypedefs));
+    memset(m_scalarTypes, 0, sizeof(m_scalarTypes));
+    memset(m_scalarTypeDefs, 0, sizeof(m_scalarTypeDefs));
+    memset(m_baseTypes, 0, sizeof(m_baseTypes));
   }
 
   ~HLSLExternalSource() { }
@@ -2969,10 +2998,23 @@ public:
     return m_sema;
   }
 
+  TypedefDecl* LookupScalarType(HLSLScalarType scalarType) {
+    if (m_scalarTypes[scalarType].isNull()) {
+      m_scalarTypeDefs[scalarType] = CreateGlobalTypedef(m_context, HLSLScalarTypeNames[scalarType], m_baseTypes[scalarType]);
+      m_scalarTypes[scalarType] = m_context->getTypeDeclType(m_scalarTypeDefs[scalarType]);
+    }
+    DXASSERT(m_scalarTypeDefs[scalarType], "Otherwise we did not build scalar types correctly.");
+    return m_scalarTypeDefs[scalarType];
+  }
+
   QualType LookupMatrixType(HLSLScalarType scalarType, unsigned int rowCount, unsigned int colCount)
   {
     QualType qt = m_matrixTypes[scalarType][rowCount - 1][colCount - 1];
     if (qt.isNull()) {
+      // lazy initialization of scalar types 
+      if (m_scalarTypes[scalarType].isNull()) {
+        LookupScalarType(scalarType);
+      }
       qt = GetOrCreateMatrixSpecialization(*m_context, m_sema, m_matrixTemplateDecl, m_scalarTypes[scalarType], rowCount, colCount);
       m_matrixTypes[scalarType][rowCount - 1][colCount - 1] = qt;
     }
@@ -2983,10 +3025,37 @@ public:
   {
     QualType qt = m_vectorTypes[scalarType][colCount - 1];
     if (qt.isNull()) {
+      if (m_scalarTypes[scalarType].isNull()) {
+        LookupScalarType(scalarType);
+      }
       qt = GetOrCreateVectorSpecialization(*m_context, m_sema, m_vectorTemplateDecl, m_scalarTypes[scalarType], colCount);
       m_vectorTypes[scalarType][colCount - 1] = qt;
     }
     return qt;
+  }
+
+  void WarnMinPrecision(HLSLScalarType type, SourceLocation loc) {
+    // TODO: enalbe this once we introduce precise master option
+    bool isMinPrecisionAllowed = true;
+    if (type == HLSLScalarType_int_min12) {
+      const char *PromotedType = isMinPrecisionAllowed? "min16int" : "int16";
+      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << PromotedType;
+    }
+    else if (type == HLSLScalarType_float_min10) {
+      const char *PromotedType =  isMinPrecisionAllowed? "min16float" : "half";
+      m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << PromotedType;
+    }
+    if (!isMinPrecisionAllowed) {
+      if (type == HLSLScalarType_float_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
+      }
+      else if (type == HLSLScalarType_int_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int16";
+      }
+      else if (type == HLSLScalarType_uint_min16) {
+        m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint16";
+      }
+    }
   }
 
   bool LookupUnqualified(LookupResult &R, Scope *S) override
@@ -3008,32 +3077,26 @@ public:
     HLSLScalarType parsedType;
     int rowCount;
     int colCount;
-    if (TryParseMatrixShorthand(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
-      assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseMatrixShorthand should not have succeeded");
-      QualType qt = LookupMatrixType(parsedType, rowCount, colCount);
-      if (parsedType == HLSLScalarType_int_min12)
-        m_sema->Diag(R.getNameLoc(), diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << "min16int";
-      else if (parsedType == HLSLScalarType_float_min10)
-        m_sema->Diag(R.getNameLoc(), diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << "min16float";
 
-      TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
-
-      R.addDecl(qts);
-      return true;
-    } else if (TryParseVectorShorthand(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &colCount)) {
-      assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseVectorShorthand should not have succeeded");
-      QualType qt = LookupVectorType(parsedType, colCount);
-      if (parsedType == HLSLScalarType_int_min12)
-        m_sema->Diag(R.getNameLoc(), diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << "min16int";
-      else if (parsedType == HLSLScalarType_float_min10)
-        m_sema->Diag(R.getNameLoc(), diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << "min16float";
-
-      TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
-
-      R.addDecl(qts);
+    // Try parsing hlsl scalar types that is not initialized at AST time.
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
+      assert(parsedType != HLSLScalarType_unknown && "otherwise, TryParseHLSLScalarType should not have succeeded.");
+      if (rowCount == 0 && colCount == 0) { // scalar
+        TypedefDecl *typeDecl = LookupScalarType(parsedType);
+        R.addDecl(typeDecl);
+      }
+      else if (rowCount == 0) { // vector
+        QualType qt = LookupVectorType(parsedType, colCount);
+        TypedefDecl *qts = LookupVectorShorthandType(parsedType, colCount);
+        R.addDecl(qts);
+      }
+      else { // matrix
+        QualType qt = LookupMatrixType(parsedType, rowCount, colCount);
+        TypedefDecl* qts = LookupMatrixShorthandType(parsedType, rowCount, colCount);
+        R.addDecl(qts);
+      }
       return true;
     }
-
     return false;
   }
 
@@ -3603,7 +3666,7 @@ public:
                                SourceLocation(), &context.Idents.get("hlsl"),
                                /*PrevDecl*/ nullptr);
     m_hlslNSDecl->setImplicit();
-
+    AddBaseTypes();
     AddHLSLScalarTypes();
 
     AddHLSLVectorTemplate(*m_context, &m_vectorTemplateDecl);
@@ -4350,42 +4413,36 @@ QualType GetFirstElementType(QualType type)
   return QualType();
 }
 
-/// <summary>Creates a Typedef in the specified ASTContext.</summary>
-static
-QualType CreateGlobalTypedef(ASTContext* context, const char* ident, QualType baseType)
+void HLSLExternalSource::AddBaseTypes()
 {
-  DXASSERT_NOMSG(context != nullptr);
-  DXASSERT_NOMSG(ident != nullptr);
-  DXASSERT_NOMSG(!baseType.isNull());
-
-  DeclContext* declContext = context->getTranslationUnitDecl();
-  TypeSourceInfo* typeSource = context->getTrivialTypeSourceInfo(baseType);
-  TypedefDecl* decl = TypedefDecl::Create(*context, declContext, NoLoc, NoLoc, &context->Idents.get(ident), typeSource);
-  declContext->addDecl(decl);
-  decl->setImplicit(true);
-  return context->getTypeDeclType(decl);
+  DXASSERT(m_baseTypes[HLSLScalarType_unknown].isNull(), "otherwise unknown was initialized to an actual type");
+  m_baseTypes[HLSLScalarType_bool] = m_context->BoolTy;
+  m_baseTypes[HLSLScalarType_int] = m_context->IntTy;
+  m_baseTypes[HLSLScalarType_uint] = m_context->UnsignedIntTy;
+  m_baseTypes[HLSLScalarType_dword] = m_context->UnsignedIntTy;
+  m_baseTypes[HLSLScalarType_half] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_float] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
+  m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_float_min16] = m_context->HalfTy;
+  m_baseTypes[HLSLScalarType_int_min12] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_int_min16] = m_context->ShortTy;
+  m_baseTypes[HLSLScalarType_uint_min16] = m_context->UnsignedShortTy;
+  m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
+  m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
+  m_baseTypes[HLSLScalarType_int64] = m_context->LongLongTy;
+  m_baseTypes[HLSLScalarType_uint64] = m_context->UnsignedLongLongTy;
 }
 
 void HLSLExternalSource::AddHLSLScalarTypes()
 {
   DXASSERT(m_scalarTypes[HLSLScalarType_unknown].isNull(), "otherwise unknown was initialized to an actual type");
-
-  m_scalarTypes[HLSLScalarType_bool] = m_context->BoolTy;
-  m_scalarTypes[HLSLScalarType_int] = m_context->IntTy;
-  m_scalarTypes[HLSLScalarType_uint] = CreateGlobalTypedef(m_context, "uint", m_context->UnsignedIntTy);
-  m_scalarTypes[HLSLScalarType_dword] = CreateGlobalTypedef(m_context, "dword", m_context->UnsignedIntTy);
-  m_scalarTypes[HLSLScalarType_half] = CreateGlobalTypedef(m_context, "half", m_context->FloatTy);
-  m_scalarTypes[HLSLScalarType_float] = m_context->FloatTy;
-  m_scalarTypes[HLSLScalarType_double] = m_context->DoubleTy;
-  m_scalarTypes[HLSLScalarType_float_min10] = m_context->Min10FloatTy;
-  m_scalarTypes[HLSLScalarType_float_min16] = CreateGlobalTypedef(m_context, "min16float", m_context->HalfTy);
-  m_scalarTypes[HLSLScalarType_int_min12] = m_context->Min12IntTy;
-  m_scalarTypes[HLSLScalarType_int_min16] = CreateGlobalTypedef(m_context, "min16int", m_context->ShortTy);
-  m_scalarTypes[HLSLScalarType_uint_min16] = CreateGlobalTypedef(m_context, "min16uint", m_context->UnsignedShortTy);
-  m_scalarTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
-  m_scalarTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
-  m_scalarTypes[HLSLScalarType_int64] = CreateGlobalTypedef(m_context, "int64_t", m_context->LongLongTy);
-  m_scalarTypes[HLSLScalarType_uint64] = CreateGlobalTypedef(m_context, "uint64_t", m_context->UnsignedLongLongTy);
+  m_scalarTypes[HLSLScalarType_bool] = m_baseTypes[HLSLScalarType_bool];
+  m_scalarTypes[HLSLScalarType_int] = m_baseTypes[HLSLScalarType_int];
+  m_scalarTypes[HLSLScalarType_float] = m_baseTypes[HLSLScalarType_float];
+  m_scalarTypes[HLSLScalarType_double] = m_baseTypes[HLSLScalarType_double];
+  m_scalarTypes[HLSLScalarType_float_lit] = m_baseTypes[HLSLScalarType_float_lit];
+  m_scalarTypes[HLSLScalarType_int_lit] = m_baseTypes[HLSLScalarType_int_lit];
 }
 
 FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(
@@ -10776,6 +10833,22 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC,
   }
 
   return result;
+}
+
+// Diagnose HLSL types on lookup
+bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {
+  const DeclarationNameInfo declName = R.getLookupNameInfo();
+  IdentifierInfo* idInfo = declName.getName().getAsIdentifierInfo();
+  if (idInfo) {
+    StringRef nameIdentifier = idInfo->getName();
+    HLSLScalarType parsedType;
+    int rowCount, colCount;
+    if (TryParseAny(nameIdentifier.data(), nameIdentifier.size(), &parsedType, &rowCount, &colCount)) {
+      HLSLExternalSource *hlslExternalSource = HLSLExternalSource::FromSema(this);
+      hlslExternalSource->WarnMinPrecision(parsedType, R.getNameLoc());
+    }
+  }
+  return true;
 }
 
 static QualType getUnderlyingType(QualType Type)
