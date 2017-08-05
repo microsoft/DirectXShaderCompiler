@@ -96,7 +96,7 @@ struct DxilFunctionLinkInfo {
 class DxilLib {
 
 public:
-  DxilLib(std::unique_ptr<llvm::Module> pModule, bool bLazy);
+  DxilLib(std::unique_ptr<llvm::Module> pModule);
   virtual ~DxilLib() {}
   bool HasFunction(std::string &name);
   llvm::StringMap<std::unique_ptr<DxilFunctionLinkInfo>> &GetFunctionTable() {
@@ -168,7 +168,7 @@ DxilFunctionLinkInfo::DxilFunctionLinkInfo(Function *F) : func(F) {
 // DxilLib methods.
 //
 
-DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule, bool bLazy)
+DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule)
     : m_pModule(std::move(pModule)), m_DM(m_pModule->GetOrCreateDxilModule()) {
   Module &M = *m_pModule;
   const std::string &MID = M.getModuleIdentifier();
