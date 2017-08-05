@@ -46,6 +46,8 @@ function(llvm_update_compile_flags name)
       message(ERROR "Unimplemented")
     endif (MSVC)
   endif (LLVM_ENABLE_EH)
+  # Disable debug iterators for faster debug and to remove some additional allocations with improper noexcept attribution.
+  add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
   # HLSL Changes End
 
   # Assume that;
