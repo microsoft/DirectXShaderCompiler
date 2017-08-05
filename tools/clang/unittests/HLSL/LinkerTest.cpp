@@ -38,15 +38,6 @@ public:
 
   TEST_CLASS_SETUP(InitSupport);
 
-  TEST_METHOD(RunLinkResourceLazy);
-  TEST_METHOD(RunLinkAllProfilesLazy);
-  TEST_METHOD(RunLinkFailNoDefineLazy);
-  TEST_METHOD(RunLinkFailReDefineLazy);
-  TEST_METHOD(RunLinkGlobalInitLazy);
-  TEST_METHOD(RunLinkNoAllocaLazy);
-  TEST_METHOD(RunLinkFailReDefineGlobalLazy);
-  TEST_METHOD(RunLinkFailProfileMismatchLazy);
-  TEST_METHOD(RunLinkFailEntryNoPropsLazy);
   TEST_METHOD(RunLinkResource);
   TEST_METHOD(RunLinkAllProfiles);
   TEST_METHOD(RunLinkFailNoDefine);
@@ -56,7 +47,6 @@ public:
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
-  TEST_METHOD(RunLinkNoAllocaMixLazy);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -89,9 +79,9 @@ public:
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
   }
 
-  void RegisterDxcModule(LPCWSTR pLibName, IDxcBlob *pBlob, IDxcLinker *pLinker,
-                         bool bLazyLoad) {
-    VERIFY_SUCCEEDED(pLinker->RegisterLibrary(pLibName, pBlob, bLazyLoad));
+  void RegisterDxcModule(LPCWSTR pLibName, IDxcBlob *pBlob,
+                         IDxcLinker *pLinker) {
+    VERIFY_SUCCEEDED(pLinker->RegisterLibrary(pLibName, pBlob));
   }
 
   void Link(LPCWSTR pEntryName, LPCWSTR pShaderModel, IDxcLinker *pLinker,
@@ -135,161 +125,6 @@ bool LinkerTest::InitSupport() {
   return true;
 }
 
-TEST_F(LinkerTest, RunLinkResourceLazy) {
-  CComPtr<IDxcBlob> pResLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_resource2.hlsl", &pResLib);
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_cs_entry.hlsl", &pEntryLib);
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  LPCWSTR libResName = L"res";
-  RegisterDxcModule(libResName, pResLib, pLinker, /*bLazyLoad*/true);
-
-  Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {} ,{});
-}
-
-TEST_F(LinkerTest, RunLinkAllProfilesLazy) {
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib);
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {},{});
-  Link(L"hs_main", L"hs_6_0", pLinker, {libName}, {},{});
-  Link(L"ds_main", L"ds_6_0", pLinker, {libName}, {},{});
-  Link(L"gs_main", L"gs_6_0", pLinker, {libName}, {},{});
-  Link(L"ps_main", L"ps_6_0", pLinker, {libName}, {},{});
-
-  CComPtr<IDxcBlob> pResLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_resource2.hlsl", &pResLib);
-
-  LPCWSTR libResName = L"res";
-  RegisterDxcModule(libResName, pResLib, pLinker, /*bLazyLoad*/true);
-  Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {},{});
-}
-
-TEST_F(LinkerTest, RunLinkFailNoDefineLazy) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_cs_entry.hlsl", &pEntryLib);
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName},
-               {"Cannot find definition of function"});
-}
-
-TEST_F(LinkerTest, RunLinkFailReDefineLazy) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_cs_entry.hlsl", &pEntryLib);
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  LPCWSTR libName2 = L"entry2";
-  RegisterDxcModule(libName2, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName, libName2},
-               {"Definition already exists for function"});
-}
-
-TEST_F(LinkerTest, RunLinkGlobalInitLazy) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global.hlsl", &pEntryLib);
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  Link(L"test", L"ps_6_0", pLinker, {libName},
-       // Make sure cbuffer load is generated.
-       {"dx.op.cbufferLoad"},{});
-}
-
-TEST_F(LinkerTest, RunLinkFailReDefineGlobalLazy) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global2.hlsl", &pEntryLib);
-
-  CComPtr<IDxcBlob> pLib0;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global3.hlsl", &pLib0);
-
-  CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global4.hlsl", &pLib1);
-
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  LPCWSTR libName1 = L"lib0";
-  RegisterDxcModule(libName1, pLib0, pLinker, /*bLazyLoad*/true);
-
-  LPCWSTR libName2 = L"lib1";
-  RegisterDxcModule(libName2, pLib1, pLinker, /*bLazyLoad*/true);
-
-  LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName, libName1, libName2},
-               {"Definition already exists for global variable", "Resource already exists"});
-}
-
-TEST_F(LinkerTest, RunLinkFailProfileMismatchLazy) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global.hlsl", &pEntryLib);
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  LinkCheckMsg(L"test", L"cs_6_0", pLinker, {libName},
-               {"Profile mismatch between entry function and target profile"});
-}
-
-TEST_F(LinkerTest, RunLinkFailEntryNoPropsLazy) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global.hlsl", &pEntryLib);
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  LinkCheckMsg(L"\01?update@@YAXXZ", L"cs_6_0", pLinker, {libName},
-               {"Cannot find function property for entry function"});
-}
-
-TEST_F(LinkerTest, RunLinkNoAllocaLazy) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_no_alloca.hlsl", &pEntryLib);
-  CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_no_alloca.h", &pLib);
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/true);
-
-  LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker, /*bLazyLoad*/true);
-
-  Link(L"ps_main", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
-}
-
 TEST_F(LinkerTest, RunLinkResource) {
   CComPtr<IDxcBlob> pResLib;
   CompileLib(L"..\\CodeGenHLSL\\lib_resource2.hlsl", &pResLib);
@@ -298,10 +133,10 @@ TEST_F(LinkerTest, RunLinkResource) {
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
   LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   LPCWSTR libResName = L"res";
-  RegisterDxcModule(libResName, pResLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libResName, pResLib, pLinker);
 
   Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {} ,{});
 }
@@ -314,7 +149,7 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
 
   CComPtr<IDxcBlob> pEntryLib;
   CompileLib(L"..\\CodeGenHLSL\\lib_entries2.hlsl", &pEntryLib);
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   Link(L"vs_main", L"vs_6_0", pLinker, {libName}, {},{});
   Link(L"hs_main", L"hs_6_0", pLinker, {libName}, {},{});
@@ -326,7 +161,7 @@ TEST_F(LinkerTest, RunLinkAllProfiles) {
   CompileLib(L"..\\CodeGenHLSL\\lib_resource2.hlsl", &pResLib);
 
   LPCWSTR libResName = L"res";
-  RegisterDxcModule(libResName, pResLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libResName, pResLib, pLinker);
   Link(L"cs_main", L"cs_6_0", pLinker, {libName, libResName}, {},{});
 }
 
@@ -337,7 +172,7 @@ TEST_F(LinkerTest, RunLinkFailNoDefine) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName},
                {"Cannot find definition of function"});
@@ -350,10 +185,10 @@ TEST_F(LinkerTest, RunLinkFailReDefine) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   LPCWSTR libName2 = L"entry2";
-  RegisterDxcModule(libName2, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName2, pEntryLib, pLinker);
 
   LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName, libName2},
                {"Definition already exists for function"});
@@ -366,7 +201,7 @@ TEST_F(LinkerTest, RunLinkGlobalInit) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   Link(L"test", L"ps_6_0", pLinker, {libName},
        // Make sure cbuffer load is generated.
@@ -388,13 +223,13 @@ TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   LPCWSTR libName1 = L"lib0";
-  RegisterDxcModule(libName1, pLib0, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName1, pLib0, pLinker);
 
   LPCWSTR libName2 = L"lib1";
-  RegisterDxcModule(libName2, pLib1, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName2, pLib1, pLinker);
 
   LinkCheckMsg(L"entry", L"cs_6_0", pLinker, {libName, libName1, libName2},
                {"Definition already exists for global variable", "Resource already exists"});
@@ -407,7 +242,7 @@ TEST_F(LinkerTest, RunLinkFailProfileMismatch) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   LinkCheckMsg(L"test", L"cs_6_0", pLinker, {libName},
                {"Profile mismatch between entry function and target profile"});
@@ -420,7 +255,7 @@ TEST_F(LinkerTest, RunLinkFailEntryNoProps) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"entry";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   LinkCheckMsg(L"\01?update@@YAXXZ", L"cs_6_0", pLinker, {libName},
                {"Cannot find function property for entry function"});
@@ -436,28 +271,10 @@ TEST_F(LinkerTest, RunLinkNoAlloca) {
   CreateLinker(&pLinker);
 
   LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
+  RegisterDxcModule(libName, pEntryLib, pLinker);
 
   LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker, /*bLazyLoad*/false);
-
-  Link(L"ps_main", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
-}
-
-TEST_F(LinkerTest, RunLinkNoAllocaMixLazy) {
-  CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_no_alloca.hlsl", &pEntryLib);
-  CComPtr<IDxcBlob> pLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_no_alloca.h", &pLib);
-
-  CComPtr<IDxcLinker> pLinker;
-  CreateLinker(&pLinker);
-
-  LPCWSTR libName = L"ps_main";
-  RegisterDxcModule(libName, pEntryLib, pLinker, /*bLazyLoad*/false);
-
-  LPCWSTR libName2 = L"test";
-  RegisterDxcModule(libName2, pLib, pLinker, /*bLazyLoad*/true);
+  RegisterDxcModule(libName2, pLib, pLinker);
 
   Link(L"ps_main", L"ps_6_0", pLinker, {libName, libName2}, {}, {"alloca"});
 }

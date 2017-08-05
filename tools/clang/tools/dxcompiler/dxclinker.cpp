@@ -50,8 +50,7 @@ public:
   // Register a library with name to ref it later.
   __override HRESULT RegisterLibrary(
       _In_opt_ LPCWSTR pLibName, // Name of the library.
-      _In_ IDxcBlob *pLib,       // Library to add.
-      _In_ unsigned bLazyLoad    // Lazy load the lib
+      _In_ IDxcBlob *pLib        // Library to add.
   );
 
   // Links the shader and produces a shader blob that the Direct3D runtime can
@@ -109,8 +108,7 @@ private:
 
 HRESULT
 DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
-                           _In_ IDxcBlob *pBlob,       // Library to add.
-                           _In_ unsigned bLazyLoad     // Lazy load the lib
+                           _In_ IDxcBlob *pBlob       // Library to add.
 ) {
   DXASSERT(m_pLinker.get(), "else Initialize() not called or failed silently");
   DxcThreadMalloc TM(m_pMalloc);
@@ -130,18 +128,13 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
     IFT(CreateMemoryStream(pMalloc, &pDiagStream));
 
     raw_stream_ostream DiagStream(pDiagStream);
-    if (bLazyLoad) {
-      IFR(ValidateLoadModuleFromContainerLazy(
-          pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
-          pDebugModule, m_Ctx, m_Ctx, DiagStream));
-    } else {
-      IFR(ValidateLoadModuleFromContainer(
-          pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
-          pDebugModule, m_Ctx, m_Ctx, DiagStream));
-    }
+
+    IFR(ValidateLoadModuleFromContainerLazy(
+        pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
+        pDebugModule, m_Ctx, m_Ctx, DiagStream));
 
     return m_pLinker->RegisterLib(pUtf8LibName.m_psz, std::move(pModule),
-                                  std::move(pDebugModule), bLazyLoad)
+                                  std::move(pDebugModule))
                ? S_OK
                : E_INVALIDARG;
   } catch (hlsl::Exception &) {

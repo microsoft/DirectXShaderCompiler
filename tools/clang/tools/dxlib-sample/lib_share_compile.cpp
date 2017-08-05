@@ -198,7 +198,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       }
       hashStrList.emplace_back(std::to_wstring(hash));
       hashList.emplace_back(hashStrList.back().c_str());
-      linker->RegisterLibrary(hashList.back(), pOutputBlob, bLazyLoad);
+      linker->RegisterLibrary(hashList.back(), pOutputBlob);
       pOutputBlob.Detach(); // Ownership is in libCache.
     }
     std::wstring wEntry = Unicode::UTF8ToUTF16StringOrThrow(pEntrypoint);
