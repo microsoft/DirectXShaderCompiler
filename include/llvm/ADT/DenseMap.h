@@ -864,6 +864,7 @@ public:
       // temporary storage. Have the loop move the TmpEnd forward as it goes.
       const KeyT EmptyKey = this->getEmptyKey();
       const KeyT TombstoneKey = this->getTombstoneKey();
+      LargeRep LR(allocateBuckets(AtLeast)); // HLSL Change - used to be at 'Now make', but let's fail alloc before invoking .dtors
       for (BucketT *P = getBuckets(), *E = P + InlineBuckets; P != E; ++P) {
         if (!KeyInfoT::isEqual(P->getFirst(), EmptyKey) &&
             !KeyInfoT::isEqual(P->getFirst(), TombstoneKey)) {
@@ -879,7 +880,7 @@ public:
 
       // Now make this map use the large rep, and move all the entries back
       // into it.
-      new (getLargeRepForTransition()) LargeRep(allocateBuckets(AtLeast));
+      *getLargeRepForTransition() = LR; // HLSL Change - assign allocated & init'ed block instead
       Small = false; // HLSL Change - used to be prior to allocation
       this->moveFromOldBuckets(TmpBegin, TmpEnd);
       return;

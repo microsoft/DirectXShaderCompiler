@@ -2259,7 +2259,7 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
   }
 }
 
-static const UINT CaptureStacks = 1; // Set to 1 to enable captures
+static const UINT CaptureStacks = 0; // Set to 1 to enable captures
 static const UINT StackFrameCount = 12;
 static const UINT StackFrameCountForRefs = 4;
 
@@ -2445,13 +2445,11 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
   VERIFY_IS_TRUE(0 == InstrMalloc.GetSize());
   VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
 
-  // In Debug, for the typical configuration, debug iterators will be used;
+  // In Debug, without /D_ITERATOR_DEBUG_LEVEL=0, debug iterators will be used;
   // this causes a problem where std::string is specified as noexcept, and yet
   // a sentinel is allocated that may fail and throw.
-  // Skip the failure tests in Debug, run them in Release.
-  // To run this in Debug without debug iterators, add the following line to the root CMakeLists.txt
-  // add_definitions(/D_ITERATOR_DEBUG_LEVEL=0) 
-
+  // To run this in Debug without debug iterators, uncomment the following line in cmake/modules/AddLLVM.cmake
+  // add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
   if (m_ver.SkipOutOfMemoryTest()) return;
 
   // Now, fail each allocation and make sure we get an error.
