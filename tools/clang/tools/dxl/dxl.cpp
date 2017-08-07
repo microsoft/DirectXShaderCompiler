@@ -70,7 +70,9 @@ void DxlContext::Link() {
   InputFilesRef.split(InputFileList, ";");
 
   std::vector<std::wstring> wInputFiles;
+  wInputFiles.reserve(InputFileList.size());
   std::vector<LPCWSTR> wpInputFiles;
+  wpInputFiles.reserve(InputFileList.size());
   for (auto &file : InputFileList) {
     wInputFiles.emplace_back(StringRefUtf16(file.str()));
     wpInputFiles.emplace_back(wInputFiles.back().c_str());

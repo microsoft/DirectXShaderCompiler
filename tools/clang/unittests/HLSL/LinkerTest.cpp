@@ -79,7 +79,8 @@ public:
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
   }
 
-  void RegisterDxcModule(LPCWSTR pLibName, IDxcBlob *pBlob, IDxcLinker *pLinker) {
+  void RegisterDxcModule(LPCWSTR pLibName, IDxcBlob *pBlob,
+                         IDxcLinker *pLinker) {
     VERIFY_SUCCEEDED(pLinker->RegisterLibrary(pLibName, pBlob));
   }
 
@@ -131,7 +132,6 @@ TEST_F(LinkerTest, RunLinkResource) {
   CompileLib(L"..\\CodeGenHLSL\\lib_cs_entry.hlsl", &pEntryLib);
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
-
   LPCWSTR libName = L"entry";
   RegisterDxcModule(libName, pEntryLib, pLinker);
 
