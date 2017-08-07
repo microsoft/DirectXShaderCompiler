@@ -15,6 +15,8 @@
 #define VERIFY_TYPES(typ, exp) _Static_assert(std::is_same<typ, __decltype(exp)>::value, #typ " == __decltype(" #exp ") failed")
 #endif
 
+#define VERIFY_TYPE_CONVERSION(typ, exp) {typ _tmp_var_ = exp;}
+
 float overload1(float v) { return (float)100; }             /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 int overload1(int v) { return (int)200; }                   /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 uint overload1(uint v) { return (uint)300; }                /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}}  expected-note {{candidate function}}  expected-note {{candidate function}}  expected-note {{candidate function}}  expected-note {{candidate function}}  fxc-pass {{}} */
@@ -141,6 +143,36 @@ float test() {
   // min-precision float matrix to produce min-precision float matrix - ensures that
   // literal combination results in literal that doesn't override the min-precision type.
   VERIFY_TYPES(min16float4x4, m16f4x4 * (0.5 + 1));
+
+  // Ensure Conversion works.
+  VERIFY_TYPE_CONVERSION(min10float, 1.5f);  /* expected-warning {{min10float is promoted to min16float}} */
+  VERIFY_TYPE_CONVERSION(min10float, 0.25l); /* expected-warning {{min10float is promoted to min16float}} */
+
+  VERIFY_TYPE_CONVERSION(min16float, 1.5f);
+  VERIFY_TYPE_CONVERSION(min16float, 2.5l);
+
+  VERIFY_TYPE_CONVERSION(float, 1.5h);
+  VERIFY_TYPE_CONVERSION(float, 1.6l);
+
+  VERIFY_TYPE_CONVERSION(double, 1.65h);
+  VERIFY_TYPE_CONVERSION(double, 0.25f);
+
+  VERIFY_TYPE_CONVERSION(int, 1L);
+  VERIFY_TYPE_CONVERSION(int, 1U);
+  VERIFY_TYPE_CONVERSION(int, 1UL);
+  VERIFY_TYPE_CONVERSION(int, 1LL);
+
+  VERIFY_TYPE_CONVERSION(uint, 1L);
+  VERIFY_TYPE_CONVERSION(uint, 1UL);
+  VERIFY_TYPE_CONVERSION(uint, 1LL);
+
+  VERIFY_TYPE_CONVERSION(min12int, 1L);  /* expected-warning {{min12int is promoted to min16int}} */
+  VERIFY_TYPE_CONVERSION(min12int, 1UL); /* expected-warning {{min12int is promoted to min16int}} */
+  VERIFY_TYPE_CONVERSION(min12int, 1LL); /* expected-warning {{min12int is promoted to min16int}} */
+
+  VERIFY_TYPE_CONVERSION(min16int, 1L);
+  VERIFY_TYPE_CONVERSION(min16int, 1UL);
+  VERIFY_TYPE_CONVERSION(min16int, 1LL);
 
   return 0.0f;
 }
