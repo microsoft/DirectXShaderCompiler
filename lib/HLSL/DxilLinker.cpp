@@ -16,6 +16,7 @@
 #include "dxc/HLSL/DxilSampler.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringSet.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -106,6 +107,10 @@ public:
   DxilResourceBase *GetResource(const llvm::Constant *GV);
 
   DxilModule &GetDxilModule() { return m_DM; }
+  void LazyLoadFunction(Function *F);
+  void BuildGlobalUsage();
+  void CollectUsedInitFunctions(StringSet<> &addedFunctionSet,
+                                SmallVector<StringRef, 4> &workList);
 
 private:
   std::unique_ptr<llvm::Module> m_pModule;
@@ -118,15 +123,15 @@ private:
   std::unordered_set<llvm::Function *> m_initFuncSet;
 };
 
+struct DxilLinkJob;
+
 class DxilLinkerImpl : public hlsl::DxilLinker {
 public:
   DxilLinkerImpl(LLVMContext &Ctx) : DxilLinker(Ctx) {}
   virtual ~DxilLinkerImpl() {}
-
   bool HasLibNameRegistered(StringRef name) override;
-  bool RegisterLib(StringRef name,
-                          std::unique_ptr<llvm::Module> pModule,
-                          std::unique_ptr<llvm::Module> pDebugModule)  override;
+  bool RegisterLib(StringRef name, std::unique_ptr<llvm::Module> pModule,
+                   std::unique_ptr<llvm::Module> pDebugModule) override;
   bool AttachLib(StringRef name) override;
   bool DetachLib(StringRef name) override;
   void DetachAll() override;
@@ -137,6 +142,9 @@ public:
 private:
   bool AttachLib(DxilLib *lib);
   bool DetachLib(DxilLib *lib);
+  bool AddFunctions(SmallVector<StringRef, 4> &workList,
+                    DenseSet<DxilLib *> &libSet, StringSet<> &addedFunctionSet,
+                    DxilLinkJob &linkJob, bool bLazyLoadDone);
   // Attached libs to link.
   std::unordered_set<DxilLib *> m_attachedLibs;
   // Owner of all DxilLib.
@@ -176,55 +184,44 @@ DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule)
     m_functionNameMap[F.getName()] =
         llvm::make_unique<DxilFunctionLinkInfo>(&F);
   }
-  // Build LinkInfo for each define.
-  for (Function &F : M.functions()) {
-    for (User *U : F.users()) {
-      // Skip ConstantStruct user of Construct function for static globals.
-      if (isa<ConstantStruct>(U))
-        continue;
-      CallInst *CI = cast<CallInst>(U);
-      Function *UserF = CI->getParent()->getParent();
 
-      DXASSERT(m_functionNameMap.count(UserF->getName()),
-               "must exist in internal table");
-      DxilFunctionLinkInfo *linkInfo =
-          m_functionNameMap[UserF->getName()].get();
-      linkInfo->usedFunctions.insert(&F);
-    }
-    if (m_DM.HasDxilFunctionProps(&F)) {
-      DxilFunctionProps &props = m_DM.GetDxilFunctionProps(&F);
-      if (props.IsHS()) {
-        // Add patch constant function to usedFunctions of entry.
-        Function *patchConstantFunc = props.ShaderProps.HS.patchConstantFunc;
-        DXASSERT(m_functionNameMap.count(F.getName()),
-                 "must exist in internal table");
-        DxilFunctionLinkInfo *linkInfo = m_functionNameMap[F.getName()].get();
-        linkInfo->usedFunctions.insert(patchConstantFunc);
-      }
-    }
-  }
-
+  // Update internal global name.
   for (GlobalVariable &GV : M.globals()) {
     if (GV.getLinkage() == GlobalValue::LinkageTypes::InternalLinkage) {
       // Add prefix to internal global.
       GV.setName(MID + GV.getName());
     }
-    std::unordered_set<Function *> funcSet;
-    CollectUsedFunctions(&GV, funcSet);
-    for (Function *F : funcSet) {
-      DXASSERT(m_functionNameMap.count(F->getName()), "must exist in table");
-      DxilFunctionLinkInfo *linkInfo = m_functionNameMap[F->getName()].get();
-      linkInfo->usedGVs.insert(&GV);
+  }
+}
+
+void DxilLib::LazyLoadFunction(Function *F) {
+  DXASSERT(m_functionNameMap.count(F->getName()), "else invalid Function");
+  DxilFunctionLinkInfo *linkInfo = m_functionNameMap[F->getName()].get();
+  std::error_code EC = F->materialize();
+  DXASSERT_LOCALVAR(EC, !EC, "else fail to materialize");
+
+  // Build used functions for F.
+  for (auto &BB : F->getBasicBlockList()) {
+    for (auto &I : BB.getInstList()) {
+      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+        linkInfo->usedFunctions.insert(CI->getCalledFunction());
+      }
     }
   }
 
-  // Build resource map.
-  AddResourceMap(m_DM.GetUAVs(), DXIL::ResourceClass::UAV, m_resourceMap, m_DM);
-  AddResourceMap(m_DM.GetSRVs(), DXIL::ResourceClass::SRV, m_resourceMap, m_DM);
-  AddResourceMap(m_DM.GetCBuffers(), DXIL::ResourceClass::CBuffer,
-                 m_resourceMap, m_DM);
-  AddResourceMap(m_DM.GetSamplers(), DXIL::ResourceClass::Sampler,
-                 m_resourceMap, m_DM);
+  if (m_DM.HasDxilFunctionProps(F)) {
+    DxilFunctionProps &props = m_DM.GetDxilFunctionProps(F);
+    if (props.IsHS()) {
+      // Add patch constant function to usedFunctions of entry.
+      Function *patchConstantFunc = props.ShaderProps.HS.patchConstantFunc;
+      linkInfo->usedFunctions.insert(patchConstantFunc);
+    }
+  }
+  // Used globals will be build before link.
+}
+
+void DxilLib::BuildGlobalUsage() {
+  Module &M = *m_pModule;
 
   // Collect init functions for static globals.
   if (GlobalVariable *Ctors = M.getGlobalVariable("llvm.global_ctors")) {
@@ -245,28 +242,56 @@ DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule)
                "function type must be void (void)");
         // Add Ctor.
         m_initFuncSet.insert(Ctor);
+        LazyLoadFunction(Ctor);
       }
     }
+  }
 
-    for (Function *Ctor : m_initFuncSet) {
-      DXASSERT(m_functionNameMap.count(Ctor->getName()),
-               "must exist in internal table");
-      DxilFunctionLinkInfo *linkInfo = m_functionNameMap[Ctor->getName()].get();
-      // If function other than Ctor used GV of Ctor.
-      // Add Ctor to usedFunctions for it.
-      for (GlobalVariable *GV : linkInfo->usedGVs) {
-        std::unordered_set<Function *> funcSet;
-        CollectUsedFunctions(GV, funcSet);
-        for (Function *F : funcSet) {
-          if (F == Ctor)
-            continue;
-          DXASSERT(m_functionNameMap.count(F->getName()),
-                   "must exist in table");
-          DxilFunctionLinkInfo *linkInfo =
-              m_functionNameMap[F->getName()].get();
-          linkInfo->usedFunctions.insert(Ctor);
+  // Build used globals.
+  for (GlobalVariable &GV : M.globals()) {
+    std::unordered_set<Function *> funcSet;
+    CollectUsedFunctions(&GV, funcSet);
+    for (Function *F : funcSet) {
+      DXASSERT(m_functionNameMap.count(F->getName()), "must exist in table");
+      DxilFunctionLinkInfo *linkInfo = m_functionNameMap[F->getName()].get();
+      linkInfo->usedGVs.insert(&GV);
+    }
+  }
+
+  // Build resource map.
+  AddResourceMap(m_DM.GetUAVs(), DXIL::ResourceClass::UAV, m_resourceMap, m_DM);
+  AddResourceMap(m_DM.GetSRVs(), DXIL::ResourceClass::SRV, m_resourceMap, m_DM);
+  AddResourceMap(m_DM.GetCBuffers(), DXIL::ResourceClass::CBuffer,
+                 m_resourceMap, m_DM);
+  AddResourceMap(m_DM.GetSamplers(), DXIL::ResourceClass::Sampler,
+                 m_resourceMap, m_DM);
+}
+
+void DxilLib::CollectUsedInitFunctions(StringSet<> &addedFunctionSet,
+                                       SmallVector<StringRef, 4> &workList) {
+  // Add init functions to used functions.
+  for (Function *Ctor : m_initFuncSet) {
+    DXASSERT(m_functionNameMap.count(Ctor->getName()),
+             "must exist in internal table");
+    DxilFunctionLinkInfo *linkInfo = m_functionNameMap[Ctor->getName()].get();
+    // If function other than Ctor used GV of Ctor.
+    // Add Ctor to usedFunctions for it.
+    for (GlobalVariable *GV : linkInfo->usedGVs) {
+      std::unordered_set<Function *> funcSet;
+      CollectUsedFunctions(GV, funcSet);
+      bool bAdded = false;
+      for (Function *F : funcSet) {
+        if (F == Ctor)
+          continue;
+        // If F is added for link, add init func to workList.
+        if (addedFunctionSet.count(F->getName())) {
+          workList.emplace_back(Ctor->getName());
+          bAdded = true;
+          break;
         }
       }
+      if (bAdded)
+        break;
     }
   }
 }
@@ -714,8 +739,8 @@ bool DxilLinkerImpl::HasLibNameRegistered(StringRef name) {
 }
 
 bool DxilLinkerImpl::RegisterLib(StringRef name,
-                             std::unique_ptr<llvm::Module> pModule,
-                             std::unique_ptr<llvm::Module> pDebugModule) {
+                                 std::unique_ptr<llvm::Module> pModule,
+                                 std::unique_ptr<llvm::Module> pDebugModule) {
   if (m_LibMap.count(name))
     return false;
 
@@ -726,7 +751,8 @@ bool DxilLinkerImpl::RegisterLib(StringRef name,
     return false;
 
   pM->setModuleIdentifier(name);
-  std::unique_ptr<DxilLib> pLib = std::make_unique<DxilLib>(std::move(pM));
+  std::unique_ptr<DxilLib> pLib =
+      std::make_unique<DxilLib>(std::move(pM));
   m_LibMap[name] = std::move(pLib);
   return true;
 }
@@ -815,14 +841,10 @@ bool DxilLinkerImpl::DetachLib(DxilLib *lib) {
   return true;
 }
 
-std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
-                                               StringRef profile) {
-  StringSet<> addedFunctionSet;
-  SmallVector<StringRef, 4> workList;
-  workList.emplace_back(entry);
-
-  DxilLinkJob linkJob(m_ctx);
-
+bool DxilLinkerImpl::AddFunctions(SmallVector<StringRef, 4> &workList,
+                                  DenseSet<DxilLib *> &libSet,
+                                  StringSet<> &addedFunctionSet,
+                                  DxilLinkJob &linkJob, bool bLazyLoadDone) {
   while (!workList.empty()) {
     StringRef name = workList.pop_back_val();
     // Ignore added function.
@@ -831,13 +853,19 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
     if (!m_functionNameMap.count(name)) {
       // Cannot find function, report error.
       m_ctx.emitError(Twine(kUndefFunction) + name);
-      return nullptr;
+      return false;
     }
 
     std::pair<DxilFunctionLinkInfo *, DxilLib *> &linkPair =
         m_functionNameMap[name];
     linkJob.AddFunction(linkPair);
 
+    DxilLib *pLib = linkPair.second;
+    libSet.insert(pLib);
+    if (!bLazyLoadDone) {
+      Function *F = linkPair.first->func;
+      pLib->LazyLoadFunction(F);
+    }
     for (Function *F : linkPair.first->usedFunctions) {
       if (hlsl::OP::IsDxilOpFunc(F)) {
         // Add dxil operations directly.
@@ -850,6 +878,37 @@ std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
 
     addedFunctionSet.insert(name);
   }
+  return true;
+}
+
+std::unique_ptr<llvm::Module> DxilLinkerImpl::Link(StringRef entry,
+                                               StringRef profile) {
+  StringSet<> addedFunctionSet;
+  SmallVector<StringRef, 4> workList;
+  workList.emplace_back(entry);
+
+  DxilLinkJob linkJob(m_ctx);
+
+  DenseSet<DxilLib *> libSet;
+  if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
+                    /*bLazyLoadDone*/ false))
+    return nullptr;
+
+  // Save global users.
+  for (auto &pLib : libSet) {
+    pLib->BuildGlobalUsage();
+  }
+
+  // Save global ctor users.
+  for (auto &pLib : libSet) {
+    pLib->CollectUsedInitFunctions(addedFunctionSet, workList);
+  }
+  // Add init functions if used.
+  // All init function already loaded in BuildGlobalUsage, so set bLazyLoad
+  // false here.
+  if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
+                    /*bLazyLoadDone*/ true))
+    return nullptr;
 
   std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair =
       m_functionNameMap[entry];
