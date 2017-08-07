@@ -33,6 +33,8 @@ add_llvm_library(LLVMHLSL
   DxilShaderModel.cpp
   DxilSignature.cpp
   DxilSignatureElement.cpp
+  DxilTargetLowering.cpp
+  DxilTargetTransformInfo.cpp
   DxilTypeSystem.cpp
   DxilUtil.cpp
   DxilValidation.cpp
