@@ -8405,6 +8405,7 @@ static
 bool IsValueInBasicRange(ArBasicKind basicKind, const APValue& value)
 {
   if (IS_BASIC_FLOAT(basicKind)) {
+
     double val;
     if (value.isInt()) {
       val = value.getInt().getLimitedValue();
@@ -8413,7 +8414,13 @@ bool IsValueInBasicRange(ArBasicKind basicKind, const APValue& value)
       if (!floatValue.isFinite()) {
         return false;
       }
-      val = value.getFloat().convertToDouble();
+      llvm::APFloat valueFloat = value.getFloat();
+      if (&valueFloat.getSemantics() == &llvm::APFloat::IEEEsingle) {
+        val = value.getFloat().convertToFloat();
+      }
+      else {
+        val = value.getFloat().convertToDouble();
+      }
     } else {
       return false;
     }
