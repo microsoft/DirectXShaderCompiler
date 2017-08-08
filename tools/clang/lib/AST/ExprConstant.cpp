@@ -76,6 +76,31 @@ static const FunctionDecl *GetCallExprFunction(const CallExpr *CE) {
 
   return FDecl;
 }
+
+// Returns true if the given InitListExpr is for constructing a HLSL vector
+// with the matching number of initializers and each initializer has the
+// matching element type.
+static bool IsHLSLVecInitList(const Expr* expr) {
+  if (const auto* initExpr = dyn_cast<InitListExpr>(expr)) {
+    const QualType vecType = initExpr->getType();
+    if (!hlsl::IsHLSLVecType(vecType))
+      return false;
+
+    const uint32_t size = hlsl::GetHLSLVecSize(vecType);
+    const QualType elemType = hlsl::GetHLSLVecElementType(vecType).getCanonicalType();
+
+    if (initExpr->getNumInits() != size)
+      return false;
+
+    for (uint32_t i = 0; i < size; ++i)
+      if (initExpr->getInit(i)->getType().getCanonicalType() != elemType)
+        return false;
+
+    return true;
+  }
+
+  return false;
+}
 // HLSL Change Ends
 
 
@@ -4254,7 +4279,7 @@ public:
   bool VisitInitListExpr(const InitListExpr *E) {
     if (E->getNumInits() == 0)
       return DerivedZeroInitialization(E);
-    if (Info.getLangOpts().HLSL) return Error(E); // HLSL Change
+    if (Info.getLangOpts().HLSL && !IsHLSLVecInitList(E)) return Error(E); // HLSL Change
     if (E->getNumInits() == 1)
       return StmtVisitorTy::Visit(E->getInit(0));
     return Error(E);
@@ -4295,9 +4320,13 @@ public:
   }
 
   bool VisitCastExpr(const CastExpr *E) {
-    if (Info.getLangOpts().HLSL && E->getSubExpr()->getStmtClass() == Stmt::InitListExprClass) { // HLSL Change
-      return Error(E);
+    // HLSL Change Begins
+    if (Info.getLangOpts().HLSL) {
+      const auto* subExpr = E->getSubExpr();
+      if (subExpr->getStmtClass() == Stmt::InitListExprClass && !IsHLSLVecInitList(subExpr))
+        return Error(E);
     }
+    // HLSL Change Ends
     switch (E->getCastKind()) {
     default:
       break;
@@ -5557,7 +5586,7 @@ public:
     }
   }
   bool VisitInitListExpr(const InitListExpr *E) {
-    if (Info.getLangOpts().HLSL) return Error(E); // HLSL Change
+    if (Info.getLangOpts().HLSL && !IsHLSLVecInitList(E)) return Error(E); // HLSL Change
     return VisitConstructExpr(E);
   }
   bool VisitCXXConstructExpr(const CXXConstructExpr *E) {
@@ -5643,6 +5672,7 @@ bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
   QualType SETy = SE->getType();
 
   switch (E->getCastKind()) {
+  case CK_HLSLVectorSplat: // HLSL Change
   case CK_VectorSplat: {
     APValue Val = APValue();
     if (SETy->isIntegerType()) {
@@ -8476,12 +8506,10 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
   // In C, function designators are not lvalues, but we evaluate them as if they
   // are.
   // HLSL Change Begins.
-  if (Info.getLangOpts().HLSL && E->getStmtClass() == Stmt::InitListExprClass) { // HLSL Change
-    if (hlsl::IsHLSLVecType(E->getType())) {
-      if (EvaluateVector(E, Result, Info))
+  if (Info.getLangOpts().HLSL) {
+    if (E->isRValue() && hlsl::IsHLSLVecType(E->getType()) && EvaluateVector(E, Result, Info))
         return true;
-    }
-    if (!E->getType()->isScalarType())
+    if (E->getStmtClass() == Stmt::InitListExprClass && !E->getType()->isScalarType())
       return false;
   }
   // HLSL Change Ends.
