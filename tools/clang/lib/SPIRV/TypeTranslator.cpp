@@ -155,6 +155,16 @@ bool TypeTranslator::is1xNMatrixType(QualType type) {
   return rowCount == 1 && colCount > 1;
 }
 
+bool TypeTranslator::isMx1MatrixType(QualType type) {
+  if (!hlsl::IsHLSLMatType(type))
+    return false;
+
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+
+  return rowCount > 1 && colCount == 1;
+}
+
 /// Returns true if the given type is a SPIR-V acceptable matrix type, i.e.,
 /// with floating point elements and greater than 1 row and column counts.
 bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
