@@ -158,6 +158,11 @@ private:
   /// floatN * float.
   uint32_t tryToGenFloatVectorScale(const BinaryOperator *expr);
 
+  /// Translates a floatMxN * float multiplication into SPIR-V instructions and
+  /// returns the <result-id>. Returns 0 if the given binary operation is not
+  /// floatMxN * float.
+  uint32_t tryToGenFloatMatrixScale(const BinaryOperator *expr);
+
   /// Tries to emit instructions for assigning to the given vector element
   /// accessing expression. Returns 0 if the trial fails and no instructions
   /// are generated.
