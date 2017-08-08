@@ -43,6 +43,11 @@ public:
 
   void HandleTranslationUnit(ASTContext &context) override;
 
+  ASTContext &getASTContext() { return astContext; }
+  ModuleBuilder &getModuleBuilder() { return theBuilder; }
+  TypeTranslator &getTypeTranslator() { return typeTranslator; }
+  DiagnosticsEngine &getDiagnosticsEngine() { return diags; }
+
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
   uint32_t doExpr(const Expr *expr);
@@ -56,6 +61,10 @@ public:
   /// HLSLVectorElementExpr since the generated HLSLVectorElementExpr itself can
   /// be lvalue or rvalue.
   uint32_t loadIfGLValue(const Expr *expr);
+
+  /// Casts the given value from fromType to toType. fromType and toType should
+  /// both be scalar or vector types of the same size.
+  uint32_t castToType(uint32_t value, QualType fromType, QualType toType);
 
 private:
   void doFunctionDecl(const FunctionDecl *decl);
@@ -181,13 +190,15 @@ private:
 private:
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.
-  uint32_t castToBool(const Expr *expr, QualType toBoolType);
+  uint32_t castToBool(uint32_t value, QualType fromType, QualType toType);
 
   /// Processes the given expr, casts the result into the given integer (vector)
   /// type and returns the <result-id> of the casted value.
-  uint32_t castToInt(const Expr *expr, QualType toIntType);
+  uint32_t castToInt(uint32_t value, QualType fromType, QualType toType);
 
-  uint32_t castToFloat(const Expr *expr, QualType toFloatType);
+  /// Processes the given expr, casts the result into the given float (vector)
+  /// type and returns the <result-id> of the casted value.
+  uint32_t castToFloat(uint32_t value, QualType fromType, QualType toType);
 
 private:
   uint32_t processIntrinsicCallExpr(const CallExpr *callExpr);
@@ -202,6 +213,10 @@ private:
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   uint32_t getValueZero(QualType type);
+
+  /// Returns the <result-id> for a constant zero vector of the given size and
+  /// element type.
+  uint32_t getVecValueZero(QualType elemType, uint32_t size);
 
   /// Returns the <result-id> for constant value 1 of the given type.
   uint32_t getValueOne(QualType type);
