@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "dxc/HLSL//DxilShaderModel.h"
 #include "spirv/1.0/spirv.hpp11"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/DenseMap.h"
@@ -49,8 +50,8 @@ namespace spirv {
 /// * FieldDecl if the field is attached with a semantic.
 class DeclResultIdMapper {
 public:
-  inline DeclResultIdMapper(spv::ExecutionModel stage, ModuleBuilder &builder,
-                            DiagnosticsEngine &diag);
+  inline DeclResultIdMapper(const hlsl::ShaderModel &stage,
+                            ModuleBuilder &builder, DiagnosticsEngine &diag);
 
   /// \brief Creates the stage variables by parsing the semantics attached to
   /// the given function's return value.
@@ -128,7 +129,7 @@ private:
   std::string getStageVarSemantic(const NamedDecl *decl) const;
 
 private:
-  const spv::ExecutionModel shaderStage;
+  const hlsl::ShaderModel &shaderModel;
   ModuleBuilder &theBuilder;
   TypeTranslator typeTranslator;
 
@@ -151,10 +152,10 @@ private:
   llvm::SmallVector<StageVarIdSemanticPair, 8> stageBuiltins;
 };
 
-DeclResultIdMapper::DeclResultIdMapper(spv::ExecutionModel stage,
+DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ModuleBuilder &builder,
                                        DiagnosticsEngine &diag)
-    : shaderStage(stage), theBuilder(builder), typeTranslator(builder, diag) {}
+    : shaderModel(model), theBuilder(builder), typeTranslator(builder, diag) {}
 
 } // end namespace spirv
 } // end namespace clang
