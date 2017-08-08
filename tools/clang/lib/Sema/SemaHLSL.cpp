@@ -3039,7 +3039,7 @@ public:
     // TODO: enalbe this once we introduce precise master option
     bool NoMinPrecision = m_context->getLangOpts().NoMinPrecision;
     if (type == HLSLScalarType_int_min12) {
-      const char *PromotedType = NoMinPrecision ? "int16": "min16int";
+      const char *PromotedType = "min16int"; // TODO: print int16 once we support true int16/uint16 support.
       m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << PromotedType;
     }
     else if (type == HLSLScalarType_float_min10) {
@@ -3050,12 +3050,15 @@ public:
       if (type == HLSLScalarType_float_min16) {
         m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
       }
+// TODO: Enable this once we support true int16/uint16 support.
+#if 0
       else if (type == HLSLScalarType_int_min16) {
         m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16int" << "int16";
       }
       else if (type == HLSLScalarType_uint_min16) {
         m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16uint" << "uint16";
       }
+#endif
     }
   }
 

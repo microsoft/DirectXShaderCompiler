@@ -1,4 +1,4 @@
-// RUN: %dxc -low-precision -E test -T vs_6_0 %s
+// RUN: %dxc -no-min-precision -E test -T vs_6_0 %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 literals.hlsl

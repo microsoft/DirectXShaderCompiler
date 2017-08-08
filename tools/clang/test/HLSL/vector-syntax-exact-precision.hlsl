@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -low-precision -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -no-min-precision -fsyntax-only -ffreestanding -verify %s
 
 float3 f3_ones = 1.0.xxx;
 float3 f3_ones_exp = 2.0e+2.rrr;
@@ -101,7 +101,7 @@ void vector_unsigned() {
    unsigned bool3 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned half4 halfvector;   /* expected-error {{'half' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned double1 doublevector;                           /* expected-error {{'double' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
-   unsigned min12int2 min12intvector;                       /* expected-error {{'min12int' cannot be signed or unsigned}} expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
+   unsigned min12int2 min12intvector;                       /* expected-warning {{min12int is promoted to min16int}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned min16float3 min16floatvector;                   /* expected-error {{'half' cannot be signed or unsigned}} expected-warning {{min16float is promoted to half}} fxc-error {{X3085: unsigned can not be used with type}} */
 }
 
