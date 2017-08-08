@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <unordered_map>
 
 #include "dxc/HLSL/DxilConstants.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
@@ -22,6 +23,28 @@
 
 namespace clang {
 namespace spirv {
+
+namespace {
+/// \brief Returns the stage variable's semantic for the given Decl.
+llvm::StringRef getStageVarSemantic(const NamedDecl *decl) {
+  for (auto *annotation : decl->getUnusualAnnotations()) {
+    if (auto *semantic = dyn_cast<hlsl::SemanticDecl>(annotation)) {
+      return semantic->SemanticName;
+    }
+  }
+  return {};
+}
+
+/// \brief Returns the stage variable's register assignment for the given Decl.
+const hlsl::RegisterAssignment *getResourceBinding(const VarDecl *decl) {
+  for (auto *annotation : decl->getUnusualAnnotations()) {
+    if (auto *reg = dyn_cast<hlsl::RegisterAssignment>(annotation)) {
+      return reg;
+    }
+  }
+  return nullptr;
+}
+} // anonymous namespace
 
 bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
                                               uint32_t storedValue) {
@@ -81,6 +104,8 @@ uint32_t DeclResultIdMapper::createExternVar(uint32_t varType,
   const uint32_t id = theBuilder.addModuleVar(
       varType, spv::StorageClass::UniformConstant, var->getName(), llvm::None);
   astDecls[var] = {id, spv::StorageClass::UniformConstant};
+  resourceVars.emplace_back(id, getResourceBinding(var),
+                            var->getAttr<VKBindingAttr>());
 
   return id;
 }
@@ -192,6 +217,36 @@ public:
 private:
   llvm::SmallBitVector usedLocs; ///< All previously used locations
   uint32_t nextLoc;              ///< Next available location
+};
+
+/// A class for managing resource bindings to avoid duplicate uses of the same
+/// set and binding number.
+class BindingSet {
+public:
+  BindingSet() : nextBinding(0) {}
+
+  /// Uses the given set and binding number.
+  void useBinding(uint32_t binding, uint32_t set) {
+    bindings[set].insert(binding);
+  }
+
+  /// Uses the next avaiable binding number in set 0.
+  uint32_t useNextBinding() {
+    auto &set0bindings = bindings[0];
+    while (set0bindings.count(nextBinding))
+      nextBinding++;
+    set0bindings.insert(nextBinding);
+    return nextBinding++;
+  }
+
+  /// Returns true if the given set and binding number is already used.
+  bool isBindingUsed(uint32_t binding, uint32_t set) {
+    return bindings[set].count(binding);
+  }
+
+private:
+  std::unordered_map<uint32_t, llvm::SmallSet<uint32_t, 8>> bindings;
+  uint32_t nextBinding; ///< Next available binding number in set 0
 };
 } // namespace
 
@@ -315,6 +370,65 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
   for (const auto *var : vars)
     theBuilder.decorateLocation(var->getSpirvId(), locSet.useNextLoc());
+
+  return true;
+}
+
+bool DeclResultIdMapper::decorateResourceBindings() {
+  // Returns true if the given ResourceVar has explicit descriptor set and
+  // binding specified.
+  const auto bindingAssigned = [](const ResourceVar &var) {
+    return var.getBinding() != nullptr;
+  };
+
+  BindingSet bindingSet;
+  bool noError = true;
+
+  if (std::all_of(resourceVars.begin(), resourceVars.end(), bindingAssigned)) {
+    for (const auto &var : resourceVars) {
+      const auto attrLoc = var.getBinding()->getLocation();
+      const auto set = var.getBinding()->getSet();
+      const auto binding = var.getBinding()->getBinding();
+
+      if (bindingSet.isBindingUsed(binding, set)) {
+        emitError("resource binding #%0 in descriptor set #%1 already assigned",
+                  attrLoc)
+            << binding << set;
+        noError = false;
+      }
+
+      theBuilder.decorateDSetBinding(var.getSpirvId(),
+                                     var.getBinding()->getSet(),
+                                     var.getBinding()->getBinding());
+
+      bindingSet.useBinding(binding, set);
+    }
+    return noError;
+  }
+
+  if (std::any_of(resourceVars.begin(), resourceVars.end(), bindingAssigned)) {
+    // We have checked that not all of the stage variables have explicit
+    // set and binding assignment.
+    emitError("partial explicit resource binding assignment via "
+              "[[vk::binding(X[, Y])]] unsupported");
+    return false;
+  }
+
+  for (const auto &var : resourceVars) {
+    // TODO: we can have duplicated set and binding number because of there are
+    // multiple resource types in the following. E.g., :register(s0) and
+    // :register(t0) will both map to set #0 and binding #0.
+    uint32_t set = 0, binding = 0;
+    if (const auto *reg = var.getRegister()) {
+      set = reg->RegisterSpace;
+      binding = reg->RegisterNumber;
+      bindingSet.useBinding(binding, set);
+    } else {
+      binding = bindingSet.useNextBinding();
+    }
+
+    theBuilder.decorateDSetBinding(var.getSpirvId(), set, binding);
+  }
 
   return true;
 }
@@ -560,15 +674,6 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
   }
 
   return 0;
-}
-
-llvm::StringRef DeclResultIdMapper::getStageVarSemantic(const NamedDecl *decl) {
-  for (auto *annotation : decl->getUnusualAnnotations()) {
-    if (auto *semantic = dyn_cast<hlsl::SemanticDecl>(annotation)) {
-      return semantic->SemanticName;
-    }
-  }
-  return {};
 }
 
 } // end namespace spirv

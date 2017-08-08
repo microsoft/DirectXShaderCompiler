@@ -54,7 +54,7 @@ For example, to specify the layout of Vulkan resources:
 
 .. code:: hlsl
 
-  [[vk::set(X), vk::binding(Y)]]
+  [[vk::binding(X, Y)]]
   tbuffer TbufOne {
     [[vk::offset(Z)]]
     float4 field;
@@ -70,9 +70,12 @@ For example, to specify the layout of Vulkan resources:
 
 The namespace ``vk`` will be used for all Vulkan attributes:
 
-- ``location(X)``: For specifying the location number on stage input/outuput
-  variables. Allowed on function parameters, function returns, and struct
-  fields.
+- ``location(X)``: For specifying the location (``X``) numbers for stage
+  input/output variables. Allowed on function parameters, function returns,
+  and struct fields.
+- ``binding(X[, Y]): For specifying the descriptor set (``Y``) and binding
+  (``X``) numbers for resource variables. The descriptor set (``Y``) is
+  optional; if missing, it will be 0. Allowed on global variables.
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
@@ -378,6 +381,38 @@ flattening all structs if structs are used as function parameters or returns.
 
 There is an exception to the above rule for SV_Target[N]. It will always be
 mapped to ``Location`` number N.
+
+HLSL register and Vulkan binding
+++++++++++++++++++++++++++++++++
+
+In shaders for DirectX, resources are accessed via registers; while in shaders
+for Vulkan, it is done via descriptor set and binding numbers. The developer
+can explicitly annotate variables in HLSL to specify descriptor set and binding
+numbers, or leave it to the compiler to derive implicitly from registers.
+The explicit way has precedence over the implicit way. However, a mix of both
+way is not allowed (yet).
+
+Explicit descriptor set and binding number assignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``[[vk::binding(X[, Y])]]`` can be attached to global variables to specify the
+descriptor set ``Y`` and binding ``X``. The descriptor set number is optional;
+if missing, it will be zero.
+
+Implicit descriptor set and binding number assignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Without explicit annotations, the compiler will try to deduce descriptor set and
+binding numbers in the following way:
+
+If there is ``:register(xX, spaceY)`` specified for the given global variable,
+the corresponding resource will be assigned to descriptor set ``Y`` and binding
+number ``X``, regardless the resource type `x`. (Note that this can cause
+reassignment of the same set and binding number pair. TODO)
+
+If there is no register specification, the corresponding resource will be
+assigned to the next available binding number, starting from 0, in descriptor
+set #0.
 
 HLSL expressions
 ----------------
