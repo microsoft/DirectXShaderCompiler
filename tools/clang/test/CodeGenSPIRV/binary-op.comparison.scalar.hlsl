@@ -5,6 +5,7 @@ void main() {
     int a, b;
     uint i, j;
     float o, p;
+    bool x, y;
 
 // CHECK:      [[a0:%\d+]] = OpLoad %int %a
 // CHECK-NEXT: [[b0:%\d+]] = OpLoad %int %b
@@ -80,4 +81,13 @@ void main() {
 // CHECK-NEXT: [[p5:%\d+]] = OpLoad %float %p
 // CHECK-NEXT: {{%\d+}} = OpFOrdNotEqual %bool [[o5]] [[p5]]
     r = o != p;
+
+// CHECK:      [[x0:%\d+]] = OpLoad %bool %x
+// CHECK-NEXT: [[y0:%\d+]] = OpLoad %bool %y
+// CHECK-NEXT: {{%\d+}} = OpLogicalEqual %bool [[x0]] [[y0]]
+    r = x == y;
+// CHECK:      [[x1:%\d+]] = OpLoad %bool %x
+// CHECK-NEXT: [[y1:%\d+]] = OpLoad %bool %y
+// CHECK-NEXT: {{%\d+}} = OpLogicalNotEqual %bool [[x1]] [[y1]]
+    r = x != y;
 }

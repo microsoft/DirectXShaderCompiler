@@ -1297,6 +1297,28 @@ case BO_##kind : {                                                             \
   break
 
   switch (op) {
+  case BO_EQ: {
+    if (isBoolOrVecMatOfBoolType(type))
+      return spv::Op::OpLogicalEqual;
+    if (isSintType || isUintType)
+      return spv::Op::OpIEqual;
+    if (isFloatType)
+      return spv::Op::OpFOrdEqual;
+  } break;
+  case BO_NE: {
+    if (isBoolOrVecMatOfBoolType(type))
+      return spv::Op::OpLogicalNotEqual;
+    if (isSintType || isUintType)
+      return spv::Op::OpINotEqual;
+    if (isFloatType)
+      return spv::Op::OpFOrdNotEqual;
+  } break;
+  // According to HLSL doc, all sides of the && and || expression are always
+  // evaluated.
+  case BO_LAnd:
+    return spv::Op::OpLogicalAnd;
+  case BO_LOr:
+    return spv::Op::OpLogicalOr;
     BIN_OP_CASE_INT_FLOAT(Add, IAdd, FAdd);
     BIN_OP_CASE_INT_FLOAT(AddAssign, IAdd, FAdd);
     BIN_OP_CASE_INT_FLOAT(Sub, ISub, FSub);
@@ -1328,8 +1350,6 @@ case BO_##kind : {                                                             \
                                 FOrdGreaterThan);
     BIN_OP_CASE_SINT_UINT_FLOAT(GE, SGreaterThanEqual, UGreaterThanEqual,
                                 FOrdGreaterThanEqual);
-    BIN_OP_CASE_INT_FLOAT(EQ, IEqual, FOrdEqual);
-    BIN_OP_CASE_INT_FLOAT(NE, INotEqual, FOrdNotEqual);
     BIN_OP_CASE_SINT_UINT(And, BitwiseAnd, BitwiseAnd);
     BIN_OP_CASE_SINT_UINT(AndAssign, BitwiseAnd, BitwiseAnd);
     BIN_OP_CASE_SINT_UINT(Or, BitwiseOr, BitwiseOr);
@@ -1340,12 +1360,6 @@ case BO_##kind : {                                                             \
     BIN_OP_CASE_SINT_UINT(ShlAssign, ShiftLeftLogical, ShiftLeftLogical);
     BIN_OP_CASE_SINT_UINT(Shr, ShiftRightArithmetic, ShiftRightLogical);
     BIN_OP_CASE_SINT_UINT(ShrAssign, ShiftRightArithmetic, ShiftRightLogical);
-  // According to HLSL doc, all sides of the && and || expression are always
-  // evaluated.
-  case BO_LAnd:
-    return spv::Op::OpLogicalAnd;
-  case BO_LOr:
-    return spv::Op::OpLogicalOr;
   default:
     break;
   }

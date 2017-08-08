@@ -12,6 +12,7 @@ void main() {
     int2   i, j;
     uint3  m, n;
     float4 o, p;
+    bool2  x, y;
 
 // CHECK:      [[a0:%\d+]] = OpLoad %int %a
 // CHECK-NEXT: [[b0:%\d+]] = OpLoad %int %b
@@ -112,4 +113,13 @@ void main() {
 // CHECK-NEXT: [[p5:%\d+]] = OpLoad %v4float %p
 // CHECK-NEXT: {{%\d+}} = OpFOrdNotEqual %v4bool [[o5]] [[p5]]
     r4 = o != p;
+
+// CHECK:      [[x0:%\d+]] = OpLoad %v2bool %x
+// CHECK-NEXT: [[y0:%\d+]] = OpLoad %v2bool %y
+// CHECK-NEXT: {{%\d+}} = OpLogicalEqual %v2bool [[x0]] [[y0]]
+    r2 = x == y;
+// CHECK:      [[x1:%\d+]] = OpLoad %v2bool %x
+// CHECK-NEXT: [[y1:%\d+]] = OpLoad %v2bool %y
+// CHECK-NEXT: {{%\d+}} = OpLogicalNotEqual %v2bool [[x1]] [[y1]]
+    r2 = x != y;
 }
