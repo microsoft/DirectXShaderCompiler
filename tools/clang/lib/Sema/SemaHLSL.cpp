@@ -3037,16 +3037,16 @@ public:
 
   void WarnMinPrecision(HLSLScalarType type, SourceLocation loc) {
     // TODO: enalbe this once we introduce precise master option
-    bool isMinPrecisionAllowed = true;
+    bool NoMinPrecision = m_context->getLangOpts().NoMinPrecision;
     if (type == HLSLScalarType_int_min12) {
-      const char *PromotedType = isMinPrecisionAllowed? "min16int" : "int16";
+      const char *PromotedType = NoMinPrecision ? "int16": "min16int";
       m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min12int" << PromotedType;
     }
     else if (type == HLSLScalarType_float_min10) {
-      const char *PromotedType =  isMinPrecisionAllowed? "min16float" : "half";
+      const char *PromotedType = NoMinPrecision ? "half": "min16float";
       m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min10float" << PromotedType;
     }
-    if (!isMinPrecisionAllowed) {
+    if (NoMinPrecision) {
       if (type == HLSLScalarType_float_min16) {
         m_sema->Diag(loc, diag::warn_hlsl_sema_minprecision_promotion) << "min16float" << "half";
       }
@@ -3284,7 +3284,7 @@ public:
       case BuiltinType::Bool: return AR_BASIC_BOOL;
       case BuiltinType::Double: return AR_BASIC_FLOAT64;
       case BuiltinType::Float: return AR_BASIC_FLOAT32;
-      case BuiltinType::Half: return m_context->getLangOpts().UseLowPrecision ? AR_BASIC_FLOAT16 : AR_BASIC_MIN16FLOAT;
+      case BuiltinType::Half: return m_context->getLangOpts().NoMinPrecision ? AR_BASIC_FLOAT16 : AR_BASIC_MIN16FLOAT;
       case BuiltinType::Int: return AR_BASIC_INT32;
       case BuiltinType::UInt: return AR_BASIC_UINT32;
       case BuiltinType::Short: return AR_BASIC_MIN16INT;    // rather than AR_BASIC_INT16
@@ -3391,7 +3391,7 @@ public:
     case AR_OBJECT_NULL:          return m_context->VoidTy;
     case AR_BASIC_BOOL:           return m_context->BoolTy;
     case AR_BASIC_LITERAL_FLOAT:  return m_context->LitFloatTy;
-    case AR_BASIC_FLOAT16:        return m_context->getLangOpts().UseLowPrecision ? m_context->HalfTy : m_context->FloatTy;
+    case AR_BASIC_FLOAT16:        return m_context->getLangOpts().NoMinPrecision ? m_context->HalfTy : m_context->FloatTy;
     case AR_BASIC_FLOAT32_PARTIAL_PRECISION: return m_context->FloatTy;
     case AR_BASIC_FLOAT32:        return m_context->FloatTy;
     case AR_BASIC_FLOAT64:        return m_context->DoubleTy;
@@ -4421,7 +4421,7 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_int] = m_context->IntTy;
   m_baseTypes[HLSLScalarType_uint] = m_context->UnsignedIntTy;
   m_baseTypes[HLSLScalarType_dword] = m_context->UnsignedIntTy;
-  m_baseTypes[HLSLScalarType_half] = m_context->FloatTy;
+  m_baseTypes[HLSLScalarType_half] = m_context->getLangOpts().NoMinPrecision ? m_context->HalfTy : m_context->FloatTy;
   m_baseTypes[HLSLScalarType_float] = m_context->FloatTy;
   m_baseTypes[HLSLScalarType_double] = m_context->DoubleTy;
   m_baseTypes[HLSLScalarType_float_min10] = m_context->HalfTy;

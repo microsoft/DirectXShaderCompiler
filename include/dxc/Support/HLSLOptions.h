@@ -132,6 +132,7 @@ public:
   bool HLSL2015;  // OPT_hlsl_version (=2015)
   bool HLSL2016;  // OPT_hlsl_version (=2016)
   bool HLSL2017;  // OPT_hlsl_version (=2017)
+  bool NoMinPrecision; // OPT_no_min_precision
   bool OptDump; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
@@ -139,7 +140,6 @@ public:
   bool UseHexLiterals; // OPT_Lx
   bool UseInstructionByteOffsets; // OPT_No
   bool UseInstructionNumbers; // OPT_Ni
-  bool UseLowPrecision; // OPT_low_precision
   bool NotUseLegacyCBufLoad;  // OPT_not_use_legacy_cbuf_load
   bool PackPrefixStable;  // OPT_pack_prefix_stable
   bool PackOptimized;  // OPT_pack_optimized

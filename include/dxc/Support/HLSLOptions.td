@@ -229,8 +229,8 @@ def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Read root signature from a #define">;
-def low_precision : Flag<["-", "/"], "low-precision">, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Use strict low precision, not min precision.">;
+def no_min_precision: Flag<["-", "/"], "no-min-precision">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Do not use min precision but use strict precision types.">;
 //////////////////////////////////////////////////////////////////////////////
 // fxc-based flags that don't match those previously defined.
 

@@ -3370,7 +3370,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     else if (getLangOpts().HLSL && Literal.isLong)
       Ty = Context.DoubleTy;
     else if (getLangOpts().HLSL && Literal.isHalf) {
-      Ty = getLangOpts().UseLowPrecision ? Context.HalfTy : Context.FloatTy;
+      Ty = getLangOpts().NoMinPrecision ? Context.HalfTy : Context.FloatTy;
     }
     // HLSL Change Ends
     else if (!Literal.isLong)

@@ -785,7 +785,7 @@ public:
     compiler.getLangOpts().HLSL2016 = Opts.HLSL2016;
     compiler.getLangOpts().HLSL2017 = Opts.HLSL2017;
 
-    compiler.getLangOpts().UseLowPrecision = Opts.UseLowPrecision;
+    compiler.getLangOpts().NoMinPrecision = Opts.NoMinPrecision;
 
     if (Opts.WarningAsError)
       compiler.getDiagnostics().setWarningsAsErrors(true);
