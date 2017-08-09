@@ -1,7 +1,7 @@
 // Run: %dxc -T vs_6_0 -E VSmain
 
 struct PSInput {
-  float4 position : POSITION;
+  float4 position : SV_POSITION;
   float4 color : COLOR;
 };
 
@@ -21,14 +21,14 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
-// OpEntryPoint Vertex %VSmain "VSmain" %gl_Position %7 %8 %5
+// OpEntryPoint Vertex %VSmain "VSmain" %gl_Position %5 %7 %8
 // OpName %VSmain "VSmain"
 // OpName %bb_entry "bb.entry"
 // OpName %result "result"
 // OpDecorate %gl_Position BuiltIn Position
+// OpDecorate %5 Location 0
 // OpDecorate %7 Location 0
 // OpDecorate %8 Location 1
-// OpDecorate %5 Location 0
 // %int = OpTypeInt 32 1
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4

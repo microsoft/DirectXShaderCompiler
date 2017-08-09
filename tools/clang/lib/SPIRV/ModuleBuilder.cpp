@@ -300,6 +300,7 @@ uint32_t ModuleBuilder::addStageBuiltinVariable(uint32_t type,
   switch (builtin) {
   case spv::BuiltIn::Position:
   case spv::BuiltIn::PointSize:
+  case spv::BuiltIn::FragDepth:
     // TODO: add the rest output builtins
     sc = spv::StorageClass::Output;
     break;

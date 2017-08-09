@@ -364,9 +364,12 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   if (funcName == entryFunctionName) {
     // First create stage variables for the entry point.
-    declIdMapper.createStageVarFromFnReturn(decl);
+    if (!declIdMapper.createStageVarFromFnReturn(decl))
+      return;
+
     for (const auto *param : decl->params())
-      declIdMapper.createStageVarFromFnParam(param);
+      if (!declIdMapper.createStageVarFromFnParam(param))
+        return;
 
     // Construct the function signature.
     const uint32_t voidType = theBuilder.getVoidType();
