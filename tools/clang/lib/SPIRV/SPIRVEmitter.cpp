@@ -240,8 +240,8 @@ uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
           theBuilder.getConstantInt32(fieldDecl->getFieldIndex());
       const uint32_t fieldType =
           typeTranslator.translateType(fieldDecl->getType());
-      const uint32_t ptrType =
-          theBuilder.getPointerType(fieldType, spv::StorageClass::Function);
+      const uint32_t ptrType = theBuilder.getPointerType(
+          fieldType, declIdMapper.resolveStorageClass(memberExpr->getBase()));
       return theBuilder.createAccessChain(ptrType, base, {index});
     } else {
       emitError("Decl '%0' in MemberExpr is not supported yet.")
@@ -754,21 +754,19 @@ void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
     // for returning a struct variable. We need to ignore the cast to avoid
     // creating OpLoad instruction since we need the pointer to the variable
     // for creating access chain later.
-    const uint32_t retValue =
-        doExpr(stmt->getRetValue()->IgnoreParenLValueCasts());
+    const Expr *retValue = stmt->getRetValue()->IgnoreParenLValueCasts();
 
     // Then go through all fields.
     uint32_t fieldIndex = 0;
     for (const auto *field : structType->getDecl()->fields()) {
       // Load the value from the current field.
       const uint32_t valueType = typeTranslator.translateType(field->getType());
-      // TODO: We may need to change the storage class accordingly.
       const uint32_t ptrType = theBuilder.getPointerType(
           typeTranslator.translateType(field->getType()),
-          spv::StorageClass::Function);
+          declIdMapper.resolveStorageClass(retValue));
       const uint32_t indexId = theBuilder.getConstantInt32(fieldIndex++);
       const uint32_t valuePtr =
-          theBuilder.createAccessChain(ptrType, retValue, {indexId});
+          theBuilder.createAccessChain(ptrType, doExpr(retValue), {indexId});
       const uint32_t value = theBuilder.createLoad(valueType, valuePtr);
       // Store it to the corresponding stage variable.
       const uint32_t targetVar = declIdMapper.getDeclResultId(field);
@@ -1133,9 +1131,8 @@ uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
       }
 
       const uint32_t elemType = typeTranslator.translateType(expr->getType());
-      // TODO: select storage type based on the underlying variable
-      const uint32_t ptrType =
-          theBuilder.getPointerType(elemType, spv::StorageClass::Function);
+      const uint32_t ptrType = theBuilder.getPointerType(
+          elemType, declIdMapper.resolveStorageClass(baseExpr));
 
       return theBuilder.createAccessChain(ptrType, base, indices);
     }
@@ -1179,9 +1176,8 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
       for (uint32_t i = 0; i < indices.size(); ++i)
         indices[i] = theBuilder.getConstantInt32(indices[i]);
 
-      // TODO: select storage type based on the underlying variable
-      const uint32_t ptrType =
-          theBuilder.getPointerType(elemType, spv::StorageClass::Function);
+      const uint32_t ptrType = theBuilder.getPointerType(
+          elemType, declIdMapper.resolveStorageClass(baseExpr));
       if (!indices.empty()) {
         // Load the element via access chain
         elem = theBuilder.createAccessChain(ptrType, base, indices);
@@ -1239,9 +1235,8 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
     // instead of the original base here since we can have something like
     // v.xyyz to turn a lvalue v into rvalue.
     if (expr->getBase()->isGLValue()) { // E.g., v.x;
-      // TODO: select the correct storage class
-      const uint32_t ptrType =
-          theBuilder.getPointerType(type, spv::StorageClass::Function);
+      const uint32_t ptrType = theBuilder.getPointerType(
+          type, declIdMapper.resolveStorageClass(baseExpr));
       const uint32_t index = theBuilder.getConstantInt32(accessor.Swz0);
       // We need a lvalue here. Do not try to load.
       return theBuilder.createAccessChain(ptrType, doExpr(baseExpr), {index});
@@ -1952,9 +1947,8 @@ uint32_t SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
     if (accessor.Count > 1)
       rhsElem = theBuilder.createCompositeExtract(elemTypeId, rhs, {i});
 
-    // TODO: select storage type based on the underlying variable
-    const uint32_t ptrType =
-        theBuilder.getPointerType(elemTypeId, spv::StorageClass::Function);
+    const uint32_t ptrType = theBuilder.getPointerType(
+        elemTypeId, declIdMapper.resolveStorageClass(baseMat));
 
     // If the lhs is actually a matrix of size 1x1, we don't need the access
     // chain. base is already the dest pointer.
