@@ -15,6 +15,7 @@
 #define LLVM_CLANG_LIB_SPIRV_SPIRVEMITTER_H
 
 #include <stack>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -114,6 +115,9 @@ private:
                            const uint32_t resultType,
                            uint32_t *lhsResultId = nullptr,
                            const spv::Op mandateGenOpcode = spv::Op::Max);
+
+  /// Generates SPIR-V instructions to initialize the given variable once.
+  void initOnce(std::string varName, uint32_t varPtr, const Expr *varInit);
 
   /// Returns true if the given expression will be translated into a vector
   /// shuffle instruction in SPIR-V.
@@ -413,6 +417,10 @@ private:
   uint32_t entryFunctionId;
   /// The current function under traversal.
   const FunctionDecl *curFunction;
+
+  /// Global variables that should be initialized once at the begining of the
+  /// entry function.
+  llvm::SmallVector<const VarDecl *, 4> toInitGloalVars;
 
   /// For loops, while loops, and switch statements may encounter "break"
   /// statements that alter their control flow. At any point the break statement

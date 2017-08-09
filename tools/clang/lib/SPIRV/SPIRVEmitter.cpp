@@ -153,6 +153,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
       if (funcDecl->getName() == entryFunctionName) {
         workQueue.insert(funcDecl);
       }
+    } else if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
+      doVarDecl(varDecl);
     }
   }
 
@@ -164,8 +166,7 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   }
 
   theBuilder.addEntryPoint(getSpirvShaderStage(shaderModel), entryFunctionId,
-                           entryFunctionName,
-                           declIdMapper.collectStageVariables());
+                           entryFunctionName, declIdMapper.collectStageVars());
 
   AddExecutionModeForEntryPoint(entryFunctionId);
 
@@ -348,7 +349,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   const llvm::StringRef funcName = decl->getName();
 
-  uint32_t funcId;
+  uint32_t funcId = 0;
 
   if (funcName == entryFunctionName) {
     // First create stage variables for the entry point.
@@ -394,7 +395,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
       const ParmVarDecl *paramDecl = decl->getParamDecl(i);
       const uint32_t paramId =
-          theBuilder.addFnParameter(paramTypes[i], paramDecl->getName());
+          theBuilder.addFnParam(paramTypes[i], paramDecl->getName());
       declIdMapper.registerDeclResultId(paramDecl, paramId);
     }
   }
@@ -403,6 +404,12 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // The entry basic block.
     const uint32_t entryLabel = theBuilder.createBasicBlock("bb.entry");
     theBuilder.setInsertPoint(entryLabel);
+
+    // Initialize all global variables at the beginning of the entry function
+    if (funcId == entryFunctionId)
+      for (const VarDecl *varDecl : toInitGloalVars)
+        theBuilder.createStore(declIdMapper.getDeclResultId(varDecl),
+                               doExpr(varDecl->getInit()));
 
     // Process all statments in the body.
     doStmt(decl->getBody());
@@ -420,43 +427,59 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 }
 
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
-  if (decl->isLocalVarDecl()) {
-    const uint32_t ptrType =
-        theBuilder.getPointerType(typeTranslator.translateType(decl->getType()),
-                                  spv::StorageClass::Function);
+  // The contents in externally visible variables can be updated via the
+  // pipeline. They should be handled differently from file and function scope
+  // variables.
+  // File scope variables (static "global" and "local" variables) belongs to
+  // the Private storage class, while function scope variables (normal "local"
+  // variables) belongs to the Function storage class.
+  if (!decl->isExternallyVisible()) {
+    // We already know the variable is not externally visible here. If it does
+    // not have local storage, it should be file scope variable.
+    const bool isFileScopeVar = !decl->hasLocalStorage();
+    const uint32_t varType = typeTranslator.translateType(decl->getType());
 
     // Handle initializer. SPIR-V requires that "initializer must be an <id>
     // from a constant instruction or a global (module scope) OpVariable
     // instruction."
-    llvm::Optional<uint32_t> constInitializer = llvm::None;
-    uint32_t varInitializer = 0;
+    llvm::Optional<uint32_t> constInit;
     if (decl->hasInit()) {
-      const Expr *declInit = decl->getInit();
-
       // First try to evaluate the initializer as a constant expression
       Expr::EvalResult evalResult;
-      if (declInit->EvaluateAsRValue(evalResult, astContext) &&
+      if (decl->getInit()->EvaluateAsRValue(evalResult, astContext) &&
           !evalResult.HasSideEffects) {
-        constInitializer = llvm::Optional<uint32_t>(
+        constInit = llvm::Optional<uint32_t>(
             translateAPValue(evalResult.Val, decl->getType()));
       }
-
-      // If we cannot evaluate the initializer as a constant expression, we'll
-      // need use OpStore to write the initializer to the variable.
-      if (!constInitializer.hasValue()) {
-        varInitializer = doExpr(declInit);
-      }
+    } else if (isFileScopeVar) {
+      // For static variables, if no initializers are provided, we should
+      // initialize them to zero values.
+      constInit = llvm::Optional<uint32_t>(theBuilder.getConstantNull(varType));
     }
 
     const uint32_t varId =
-        theBuilder.addFnVariable(ptrType, decl->getName(), constInitializer);
+        isFileScopeVar
+            ? theBuilder.addFileVar(varType, decl->getName(), constInit)
+            : theBuilder.addFnVar(varType, decl->getName(), constInit);
     declIdMapper.registerDeclResultId(decl, varId);
 
-    if (varInitializer) {
-      theBuilder.createStore(varId, varInitializer);
+    // If we cannot evaluate the initializer as a constant expression, we'll
+    // need to use OpStore to write the initializer to the variable.
+    // Also we should only evaluate the initializer once for a static variable.
+    if (decl->hasInit() && !constInit.hasValue()) {
+      if (isFileScopeVar) {
+        if (decl->isStaticLocal()) {
+          initOnce(decl->getName(), varId, decl->getInit());
+        } else {
+          // Defer to initialize these global variables at the beginning of the
+          // entry function.
+          toInitGloalVars.push_back(decl);
+        }
+      } else {
+        theBuilder.createStore(varId, doExpr(decl->getInit()));
+      }
     }
   } else {
-    // TODO: handle global variables
     emitError("Global variables are not supported yet.");
   }
 }
@@ -972,11 +995,8 @@ uint32_t SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
     for (const auto *arg : callExpr->arguments()) {
       // We need to create variables for holding the values to be used as
       // arguments. The variables themselves are of pointer types.
-      const uint32_t ptrType = theBuilder.getPointerType(
-          typeTranslator.translateType(arg->getType()),
-          spv::StorageClass::Function);
-
-      const uint32_t tempVarId = theBuilder.addFnVariable(ptrType);
+      const uint32_t varType = typeTranslator.translateType(arg->getType());
+      const uint32_t tempVarId = theBuilder.addFnVar(varType);
       theBuilder.createStore(tempVarId, doExpr(arg));
 
       params.push_back(tempVarId);
@@ -1218,9 +1238,7 @@ uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
       // all indices are contant integers.
       if (!baseExpr->isGLValue()) {
         const uint32_t compositeType = typeTranslator.translateType(baseType);
-        const uint32_t ptrType = theBuilder.getPointerType(
-            compositeType, spv::StorageClass::Function);
-        const uint32_t tempVar = theBuilder.addFnVariable(ptrType, "temp.var");
+        const uint32_t tempVar = theBuilder.addFnVar(compositeType, "temp.var");
         theBuilder.createStore(tempVar, base);
         base = tempVar;
       }
@@ -1663,6 +1681,35 @@ uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
   emitError("BinaryOperator '%0' is not supported yet.")
       << BinaryOperator::getOpcodeStr(opcode);
   return 0;
+}
+
+void SPIRVEmitter::initOnce(std::string varName, uint32_t varPtr,
+                            const Expr *varInit) {
+  const uint32_t boolType = theBuilder.getBoolType();
+  varName = "init.done." + varName;
+
+  // Create a file/module visible variable to hold the initialization state.
+  const uint32_t initDoneVar = theBuilder.addFileVar(
+      boolType, varName, theBuilder.getConstantBool(false));
+
+  const uint32_t condition = theBuilder.createLoad(boolType, initDoneVar);
+
+  const uint32_t thenBB = theBuilder.createBasicBlock("if.true");
+  const uint32_t mergeBB = theBuilder.createBasicBlock("if.merge");
+
+  theBuilder.createConditionalBranch(condition, thenBB, mergeBB, mergeBB);
+  theBuilder.addSuccessor(thenBB);
+  theBuilder.addSuccessor(mergeBB);
+  theBuilder.setMergeTarget(mergeBB);
+
+  theBuilder.setInsertPoint(thenBB);
+  // Do initialization and mark done
+  theBuilder.createStore(varPtr, doExpr(varInit));
+  theBuilder.createStore(initDoneVar, theBuilder.getConstantBool(true));
+  theBuilder.createBranch(mergeBB);
+  theBuilder.addSuccessor(mergeBB);
+
+  theBuilder.setInsertPoint(mergeBB);
 }
 
 bool SPIRVEmitter::isVectorShuffle(const Expr *expr) {
@@ -2118,9 +2165,8 @@ uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   case BO_DivAssign:
   case BO_RemAssign: {
     const uint32_t vecType = typeTranslator.getComponentVectorType(lhsType);
-    const auto actOnEachVec = [this, spvOp, rhsVal](uint32_t index,
-                                                    uint32_t vecType,
-                                                    uint32_t lhsVec) {
+    const auto actOnEachVec = [this, spvOp, rhsVal](
+        uint32_t index, uint32_t vecType, uint32_t lhsVec) {
       // For each vector of lhs, we need to load the corresponding vector of
       // rhs and do the operation on them.
       const uint32_t rhsVec =
@@ -2486,9 +2532,8 @@ uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
 
   // For matrices, we can perform the instruction on each vector of the matrix.
   if (TypeTranslator::isSpirvAcceptableMatrixType(argType)) {
-    const auto actOnEachVec = [this, glslInstSetId](uint32_t /*index*/,
-                                                    uint32_t vecType,
-                                                    uint32_t curRowId) {
+    const auto actOnEachVec = [this, glslInstSetId](
+        uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
       return theBuilder.createExtInst(vecType, glslInstSetId,
                                       GLSLstd450::GLSLstd450FSign, {curRowId});
     };
@@ -2516,9 +2561,8 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
-      const auto actOnEachVec = [this, glslInstSetId,
-                                 opcode](uint32_t /*index*/, uint32_t vecType,
-                                         uint32_t curRowId) {
+      const auto actOnEachVec = [this, glslInstSetId, opcode](
+          uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
         return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
                                         {curRowId});
       };
