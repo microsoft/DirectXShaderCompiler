@@ -209,6 +209,10 @@ TEST_F(FileTest, ForStmtNestedForStmt) { runFileTest("for-stmt.nested.hlsl"); }
 TEST_F(FileTest, WhileStmtPlain) { runFileTest("while-stmt.plain.hlsl"); }
 TEST_F(FileTest, WhileStmtNested) { runFileTest("while-stmt.nested.hlsl"); }
 
+// For do statements
+TEST_F(FileTest, DoStmtPlain) { runFileTest("do-stmt.plain.hlsl"); }
+TEST_F(FileTest, DoStmtNested) { runFileTest("do-stmt.nested.hlsl"); }
+
 // For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
 TEST_F(FileTest, ControlFlowLogicalAnd) { runFileTest("cf.logical-and.hlsl"); }

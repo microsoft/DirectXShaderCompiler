@@ -150,16 +150,20 @@ public:
                     uint32_t defaultLabel,
                     llvm::ArrayRef<std::pair<uint32_t, uint32_t>> target);
 
-  // \brief Creates an unconditional branch to the given target label.
-  void createBranch(uint32_t targetLabel);
+  /// \brief Creates an unconditional branch to the given target label.
+  /// If mergeBB and continueBB are non-zero, it creates an OpLoopMerge
+  /// instruction followed by an unconditional branch to the given target label.
+  void createBranch(
+      uint32_t targetLabel, uint32_t mergeBB = 0, uint32_t continueBB = 0,
+      spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone);
 
-  // \brief Creates a conditional branch. An OpSelectionMerge instruction
-  // will be created if mergeLabel is not 0 and continueLabel is 0.
-  // An OpLoopMerge instruction will also be created if both continueLabel
-  // and mergeLabel are not 0. For other cases, mergeLabel and continueLabel
-  // will be ignored. If selection control mask and/or loop control mask are
-  // provided, they will be applied to the corresponding SPIR-V instruction.
-  // Otherwise, MaskNone will be used.
+  /// \brief Creates a conditional branch. An OpSelectionMerge instruction
+  /// will be created if mergeLabel is not 0 and continueLabel is 0.
+  /// An OpLoopMerge instruction will also be created if both continueLabel
+  /// and mergeLabel are not 0. For other cases, mergeLabel and continueLabel
+  /// will be ignored. If selection control mask and/or loop control mask are
+  /// provided, they will be applied to the corresponding SPIR-V instruction.
+  /// Otherwise, MaskNone will be used.
   void createConditionalBranch(
       uint32_t condition, uint32_t trueLabel, uint32_t falseLabel,
       uint32_t mergeLabel = 0, uint32_t continueLabel = 0,
