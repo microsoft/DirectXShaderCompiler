@@ -114,6 +114,12 @@ uint32_t TypeTranslator::translateType(QualType type) {
   return 0;
 }
 
+bool TypeTranslator::isVec1Type(QualType type, QualType *elemType) {
+  uint32_t count = 0;
+  const bool isVec = isVectorType(type, elemType, &count);
+  return isVec && count == 1;
+}
+
 bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
                                   uint32_t *count) {
   if (hlsl::IsHLSLVecType(type)) {
@@ -135,49 +141,113 @@ bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
   return false;
 }
 
-bool TypeTranslator::is1x1MatrixType(QualType type) {
+bool TypeTranslator::is1x1Matrix(QualType type, QualType *elemType) {
   if (!hlsl::IsHLSLMatType(type))
     return false;
 
   uint32_t rowCount = 0, colCount = 0;
   hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
 
-  return rowCount == 1 && colCount == 1;
+  const bool is1x1 = rowCount == 1 && colCount == 1;
+
+  if (!is1x1)
+    return false;
+
+  if (elemType)
+    *elemType = hlsl::GetHLSLMatElementType(type);
+  return true;
 }
 
-bool TypeTranslator::is1xNMatrixType(QualType type) {
+bool TypeTranslator::is1xNMatrix(QualType type, QualType *elemType,
+                                 uint32_t *count) {
   if (!hlsl::IsHLSLMatType(type))
     return false;
 
   uint32_t rowCount = 0, colCount = 0;
   hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
 
-  return rowCount == 1 && colCount > 1;
+  const bool is1xN = rowCount == 1 && colCount > 1;
+
+  if (!is1xN)
+    return false;
+
+  if (elemType)
+    *elemType = hlsl::GetHLSLMatElementType(type);
+  if (count)
+    *count = colCount;
+  return true;
 }
 
-bool TypeTranslator::isMx1MatrixType(QualType type) {
+bool TypeTranslator::isMx1Matrix(QualType type, QualType *elemType,
+                                 uint32_t *count) {
   if (!hlsl::IsHLSLMatType(type))
     return false;
 
   uint32_t rowCount = 0, colCount = 0;
   hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
 
-  return rowCount > 1 && colCount == 1;
+  const bool isMx1 = rowCount > 1 && colCount == 1;
+
+  if (!isMx1)
+    return false;
+
+  if (elemType)
+    *elemType = hlsl::GetHLSLMatElementType(type);
+  if (count)
+    *count = rowCount;
+  return true;
 }
 
-/// Returns true if the given type is a SPIR-V acceptable matrix type, i.e.,
-/// with floating point elements and greater than 1 row and column counts.
+bool TypeTranslator::isMx1Or1xNMatrix(QualType type, QualType *elemType,
+                                      uint32_t *count) {
+  if (!hlsl::IsHLSLMatType(type))
+    return false;
+
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+
+  const bool isSingleRowOrCol =
+      (rowCount == 1 && colCount > 1) || (rowCount > 1 && colCount == 1);
+
+  if (!isSingleRowOrCol)
+    return false;
+
+  if (elemType)
+    *elemType = hlsl::GetHLSLMatElementType(type);
+  if (count)
+    *count = rowCount > 1 ? rowCount : colCount;
+  return true;
+}
+
+bool TypeTranslator::is1x1OrMx1Or1xNMatrix(QualType type) {
+  return is1x1Matrix(type) || isMx1Or1xNMatrix(type);
+}
+
+bool TypeTranslator::isMxNMatrix(QualType type, QualType *elemType,
+                                 uint32_t *numRows, uint32_t *numCols) {
+  if (!hlsl::IsHLSLMatType(type))
+    return false;
+
+  uint32_t rowCount = 0, colCount = 0;
+  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+
+  const bool isMxN = rowCount > 1 && colCount > 1;
+
+  if (!isMxN)
+    return false;
+
+  if (elemType)
+    *elemType = hlsl::GetHLSLMatElementType(type);
+  if (numRows)
+    *numRows = rowCount;
+  if (numCols)
+    *numCols = colCount;
+  return true;
+}
+
 bool TypeTranslator::isSpirvAcceptableMatrixType(QualType type) {
-  if (!hlsl::IsHLSLMatType(type))
-    return false;
-
-  const auto elemType = hlsl::GetHLSLMatElementType(type);
-  if (!elemType->isFloatingType())
-    return false;
-
-  uint32_t rowCount = 0, colCount = 0;
-  hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-  return rowCount > 1 && colCount > 1;
+  QualType elemType = {};
+  return isMxNMatrix(type, &elemType) && elemType->isFloatingType();
 }
 
 uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
