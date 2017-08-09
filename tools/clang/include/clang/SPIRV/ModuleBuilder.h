@@ -210,7 +210,9 @@ public:
   ///
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
-  uint32_t addStageBuiltinVariable(uint32_t type, spv::BuiltIn);
+  uint32_t addStageBuiltinVariable(uint32_t type,
+                                   spv::StorageClass storageClass,
+                                   spv::BuiltIn);
 
   /// \brief Decorates the given target <result-id> with the given location.
   void decorateLocation(uint32_t targetId, uint32_t location);
