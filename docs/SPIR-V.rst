@@ -353,7 +353,7 @@ Please note that "unlike short-circuit evaluation of ``&&``, ``||``, and ``?:`` 
 Unary operators
 +++++++++++++++
 
-FOr `unary operators <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509631(v=vs.85).aspx#Unary_Operators>`_:
+For `unary operators <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509631(v=vs.85).aspx#Unary_Operators>`_:
 
 - ``!`` is translated into ``OpLogicalNot``. Parsing will gurantee the operands are of boolean types by inserting necessary casts.
 - ``+`` requires no additional SPIR-V instructions.
@@ -384,7 +384,31 @@ The ``[]`` operator can also be used to access elements in a matrix or vector. A
 Control flows
 -------------
 
-[TODO]
+Switch Statements
++++++++++++++++++
+
+HLSL `switch statements <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509669(v=vs.85).aspx>`_ are translated into SPIR-V using:
+
+- **OpSwitch**: if (all case values are integer literals or constant integer variables) and (no attribute or the ``forcecase`` attribute is specified)
+- **A series of if statements**: for all other scenarios (e.g., when ``flatten``, ``branch``, or ``call`` attribute is specified)
+
+Loops
++++++
+
+HLSL `for statements <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509602(v=vs.85).aspx>`_ and `while statements <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509708(v=vs.85).aspx>`_ are translated into SPIR-V by constructing all necessary basic blocks and using ``OpLoopMerge`` to organize as structured loops.
+The HLSL attributes for these statements are translated into SPIR-V loop control masks according to the following table:
+
++-------------------------+--------------------------------------------------+
+|   HLSL loop attribute   |            SPIR-V Loop Control Mask              |
++-------------------------+--------------------------------------------------+
+|        ``unroll(x)``    |                ``Unroll``                        |
++-------------------------+--------------------------------------------------+
+|         ``loop``        |              ``DontUnroll``                      |
++-------------------------+--------------------------------------------------+
+|        ``fastopt``      |              ``DontUnroll``                      |
++-------------------------+--------------------------------------------------+
+| ``allow_uav_condition`` |           Currently Unimplemented                |
++-------------------------+--------------------------------------------------+
 
 Functions
 ---------
