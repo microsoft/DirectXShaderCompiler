@@ -15,6 +15,7 @@
 #include "llvm/ADT/STLExtras.h"
 
 namespace clang {
+
 std::unique_ptr<ASTConsumer>
 EmitSPIRVAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   return llvm::make_unique<spirv::SPIRVEmitter>(CI);

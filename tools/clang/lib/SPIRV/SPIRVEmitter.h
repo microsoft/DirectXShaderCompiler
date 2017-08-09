@@ -72,7 +72,8 @@ private:
   void doVarDecl(const VarDecl *decl);
 
   void doBreakStmt(const BreakStmt *stmt);
-  void doForStmt(const ForStmt *forStmt);
+  void doWhileStmt(const WhileStmt *, llvm::ArrayRef<const Attr *> attrs = {});
+  void doForStmt(const ForStmt *, llvm::ArrayRef<const Attr *> attrs = {});
   void doIfStmt(const IfStmt *ifStmt);
   void doReturnStmt(const ReturnStmt *stmt);
   void doSwitchStmt(const SwitchStmt *stmt,
@@ -253,6 +254,10 @@ private:
   /// given targetType.
   uint32_t translateAPFloat(const llvm::APFloat &floatValue,
                             QualType targetType);
+
+  /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
+  /// Emits an error if the given attribute is not a loop attribute.
+  spv::LoopControlMask translateLoopAttribute(const Attr &);
 
 private:
   static spv::ExecutionModel
