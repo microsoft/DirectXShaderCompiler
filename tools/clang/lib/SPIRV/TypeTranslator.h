@@ -37,14 +37,19 @@ public:
   /// on will be generated.
   uint32_t translateType(QualType type);
 
-  /// \breif Returns true if the given type is a vector type (either
-  /// ExtVectorType or HLSL vector type) and writes the element type and count
-  /// into *elementType and *count respectively if they are not nullptr.
-  static bool isVectorType(QualType type, QualType *elemType, uint32_t *count);
+  /// \brief Returns true if the given type will be translated into a SPIR-V
+  /// scalar type. This includes normal scalar types, vectors of size 1, and
+  /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to
+  /// *scalarType.
+  static bool isScalarType(QualType type, QualType *scalarType = nullptr);
 
-  /// \brief Returns true if the given type is a vector type of size 1.
-  /// If elemType is not nullptr, writes the element type to *elemType.
-  static bool isVec1Type(QualType type, QualType *elemType = nullptr);
+  /// \breif Returns true if the given type will be translated into a SPIR-V
+  /// vector type. This includes normal types (either ExtVectorType or HLSL
+  /// vector type) with more than one elements and matrices with exactly one
+  /// row or one column. Writes the element type and count into *elementType and
+  /// *count respectively if they are not nullptr.
+  static bool isVectorType(QualType type, QualType *elemType = nullptr,
+                           uint32_t *count = nullptr);
 
   /// \brief Returns true if the given type is a 1x1 matrix type.
   /// If elemType is not nullptr, writes the element type to *elemType.
@@ -61,16 +66,6 @@ public:
   /// If count is not nullptr, writes the value of M into *count.
   static bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
                           uint32_t *count = nullptr);
-
-  /// \brief Returns true if the given type is a Mx1 (M > 1), or 1xN (N > 1)
-  /// matrix type. If elemType is not nullptr, writes the matrix element type to
-  /// *elemType. If count is not nullptr, writes the size (M or N) into *count.
-  static bool isMx1Or1xNMatrix(QualType type, QualType *elemType = nullptr,
-                               uint32_t *count = nullptr);
-
-  /// \brief Returns true if the given type is a 1x1, or Mx1 (M > 1), or
-  /// 1xN (N > 1) matrix type.
-  static bool is1x1OrMx1Or1xNMatrix(QualType type);
 
   /// \brief returns true if the given type is a matrix with more than 1 row and
   /// more than 1 column.
