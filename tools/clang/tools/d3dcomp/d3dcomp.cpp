@@ -237,6 +237,21 @@ HRESULT WINAPI BridgeD3DReflect(
   return S_OK;
 }
 
+HRESULT WINAPI
+BridgeReadFileToBlob(_In_ LPCWSTR pFileName,
+                     _Out_ ID3DBlob** ppContents) {
+  if (!ppContents)
+    return E_INVALIDARG;
+  *ppContents = nullptr;
+
+  CComPtr<IDxcLibrary> library;
+  IFR(CreateLibrary(&library));
+  IFR(library->CreateBlobFromFile(pFileName, CP_ACP, (IDxcBlobEncoding **)ppContents));
+
+  return S_OK;
+}
+
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
   BOOL result = TRUE;
   if (Reason == DLL_PROCESS_ATTACH) {
