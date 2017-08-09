@@ -141,9 +141,9 @@ void Function::take(InstBuilder *builder) {
   // validation rules.
   std::vector<BasicBlock *> orderedBlocks;
   if (!blocks.empty()) {
-    BlockReadableOrderVisitor([&orderedBlocks](BasicBlock *block) {
-      orderedBlocks.push_back(block);
-    }).visit(blocks.front().get());
+    BlockReadableOrderVisitor(
+        [&orderedBlocks](BasicBlock *block) { orderedBlocks.push_back(block); })
+        .visit(blocks.front().get());
   }
 
   // Write out all basic blocks.
@@ -226,7 +226,7 @@ void SPIRVModule::take(InstBuilder *builder) {
   }
 
   for (auto &inst : extInstSets) {
-    builder->opExtInstImport(inst.resultId, inst.setName).x();
+    builder->opExtInstImport(inst.second, inst.first).x();
   }
 
   if (addressingModel.hasValue() && memoryModel.hasValue()) {
@@ -314,7 +314,7 @@ void SPIRVModule::takeConstantForArrayType(const Type &arrType,
   // If it finds the constant, feeds it into the consumer, and removes it
   // from the constants collection.
   constants.remove_if([&consumer, arrayLengthResultId](
-      std::pair<const Constant *, uint32_t> &item) {
+                          std::pair<const Constant *, uint32_t> &item) {
     const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
     if (isArrayLengthConstant)
       consumer(item.first->withResultId(item.second));
