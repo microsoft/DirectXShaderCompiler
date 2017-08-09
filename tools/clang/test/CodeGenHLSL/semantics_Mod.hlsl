@@ -1,4 +1,4 @@
-// RUN: %dxc -E vain -T ps_6_0 %s
+// RUN: %dxc -E main -T ps_6_0 %s
 
 //////////////////////////////////////////////////////////////////////////////
 // Global variables.
@@ -86,8 +86,28 @@ float fn_foo2(float a : a, float b : b : also_b) : sem_ret : also_ret { return 1
 */
 
 //////////////////////////////////////////////////////////////////////////////
+// Semantics on Resources and Samplers
+Texture2D <float> tex : TEXTURE0;
+SamplerState samp : SAMPLER0;
+cbuffer CBFoo {
+    Texture2D <float> tex1 : TEXTURE1;
+    SamplerState samp1 : SAMPLER1;
+    float cbvalue1;
+}
+struct semantic_on_resource_fields {
+    Texture2D <float> tex : TEXTURE2;
+    SamplerState samp : SAMPLER2;
+    float value1;
+};
+
+// TODO: Fix bug where struct_with_res overlaps bindings of resources in CBFoo
+//semantic_on_resource_fields struct_with_res;
+
+ConstantBuffer<semantic_on_resource_fields> CB[1];
+
+//////////////////////////////////////////////////////////////////////////////
 // Locals.
-void vain() {
+float4 main() : SV_Target {
 
     struct {
         float a : sem_a;
@@ -96,4 +116,10 @@ void vain() {
     struct  anon_semantic {  
         float a : sem_a;
     } s2;
+
+    float f = tex.Sample(samp, float2(0.25,0.5))
+        * tex1.Sample(samp1, float2(0.25,0.5)) * cbvalue1
+//        * struct_with_res.tex.Sample(struct_with_res.samp, float2(0.5,0.25)) * struct_with_res.value1
+        * CB[0].value1;
+    return f;
 }

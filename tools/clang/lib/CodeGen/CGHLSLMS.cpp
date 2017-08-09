@@ -2081,8 +2081,15 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
       hlslRes->SetSpaceID(ra->RegisterSpace);
       break;
     }
+    case hlsl::UnusualAnnotation::UA_SemanticDecl:
+      // Ignore Semantics
+      break;
+    case hlsl::UnusualAnnotation::UA_ConstantPacking:
+      // Should be handled by front-end
+      llvm_unreachable("packoffset on sampler");
+      break;
     default:
-      llvm_unreachable("only register for sampler");
+      llvm_unreachable("unknown UnusualAnnotation on sampler");
       break;
     }
   }
@@ -2337,8 +2344,15 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
       hlslRes->SetSpaceID(ra->RegisterSpace);
       break;
     }
+    case hlsl::UnusualAnnotation::UA_SemanticDecl:
+      // Ignore Semantics
+      break;
+    case hlsl::UnusualAnnotation::UA_ConstantPacking:
+      // Should be handled by front-end
+      llvm_unreachable("packoffset on uav/srv");
+      break;
     default:
-      llvm_unreachable("only register for uav/srv");
+      llvm_unreachable("unknown UnusualAnnotation on uav/srv");
       break;
     }
   }
