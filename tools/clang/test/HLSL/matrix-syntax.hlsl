@@ -67,7 +67,7 @@ void matrix_unsigned() {
    unsigned min16uint4x1 min16uintMatrix;
    unsigned uint64_t2x2 int64uintMatrix;
    unsigned dword3x2 dwordvector; /* fxc-error {{X3000: unrecognized identifier 'dword3x1'}} */
-
+   
    unsigned float2x3 floatMatrix; /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned bool3x4 boolvector;   /* expected-error {{'bool' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
    unsigned half4x1 halfvector;   /* expected-error {{'float' cannot be signed or unsigned}} fxc-error {{X3085: unsigned can not be used with type}} */
