@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "dxc/HLSL/DxilShaderModel.h"
+#include "spirv/1.0/GLSL.std.450.h"
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -209,14 +210,30 @@ private:
   uint32_t castToFloat(uint32_t value, QualType fromType, QualType toType);
 
 private:
-  uint32_t processIntrinsicCallExpr(const CallExpr *callExpr);
+  /// Processes HLSL instrinsic functions.
+  uint32_t processIntrinsicCallExpr(const CallExpr *);
 
-  uint32_t processIntrinsicDot(const CallExpr *callExpr);
+  /// Processes the 'dot' intrinsic function.
+  uint32_t processIntrinsicDot(const CallExpr *);
 
-  uint32_t processIntrinsicAllOrAny(const CallExpr *callExpr, spv::Op spvOp);
+  /// Processes the 'all' and 'any' intrinsic functions.
+  uint32_t processIntrinsicAllOrAny(const CallExpr *, spv::Op);
 
   /// Processes the 'asfloat', 'asint', and 'asuint' intrinsic functions.
-  uint32_t processIntrinsicAsType(const CallExpr *callExpr);
+  uint32_t processIntrinsicAsType(const CallExpr *);
+
+  /// Processes the 'sign' intrinsic function for float types.
+  /// The FSign instruction in the GLSL instruction set returns a floating point
+  /// result. The HLSL sign function, however, returns an integer. An extra
+  /// casting from float to integer is therefore performed by this method.
+  uint32_t processIntrinsicFloatSign(const CallExpr *);
+
+  /// Processes the given intrinsic function call using the given GLSL
+  /// extended instruction. If the given instruction cannot operate on matrices,
+  /// it performs the instruction on each row of the matrix and uses composite
+  /// construction to generate the resulting matrix.
+  uint32_t processIntrinsicUsingGLSLInst(const CallExpr *, GLSLstd450 instr,
+                                         bool canOperateOnMatrix);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
