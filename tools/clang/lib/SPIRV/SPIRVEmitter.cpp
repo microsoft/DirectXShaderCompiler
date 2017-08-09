@@ -27,15 +27,21 @@ namespace {
 
 /// Returns true if the two types are the same scalar or vector type.
 bool isSameScalarOrVecType(QualType type1, QualType type2) {
-  if (type1->isBuiltinType())
-    return type1.getCanonicalType() == type2.getCanonicalType();
+  {
+    QualType scalarType1 = {}, scalarType2 = {};
+    if (TypeTranslator::isScalarType(type1, &scalarType1) &&
+        TypeTranslator::isScalarType(type2, &scalarType2))
+      return scalarType1.getCanonicalType() == scalarType2.getCanonicalType();
+  }
 
-  QualType elemType1 = {}, elemType2 = {};
-  uint32_t count1 = {}, count2 = {};
-  if (TypeTranslator::isVectorType(type1, &elemType1, &count1) &&
-      TypeTranslator::isVectorType(type2, &elemType2, &count2))
-    return count1 == count2 &&
-           elemType1.getCanonicalType() == elemType2.getCanonicalType();
+  {
+    QualType elemType1 = {}, elemType2 = {};
+    uint32_t count1 = {}, count2 = {};
+    if (TypeTranslator::isVectorType(type1, &elemType1, &count1) &&
+        TypeTranslator::isVectorType(type2, &elemType2, &count2))
+      return count1 == count2 &&
+             elemType1.getCanonicalType() == elemType2.getCanonicalType();
+  }
 
   return false;
 }
@@ -43,35 +49,35 @@ bool isSameScalarOrVecType(QualType type1, QualType type2) {
 /// Returns true if the given type is a bool or vector of bool type.
 bool isBoolOrVecOfBoolType(QualType type) {
   QualType elemType = {};
-  return type->isBooleanType() ||
-         (TypeTranslator::isVectorType(type, &elemType, nullptr) &&
-          elemType->isBooleanType());
+  return (TypeTranslator::isScalarType(type, &elemType) ||
+          TypeTranslator::isVectorType(type, &elemType)) &&
+         elemType->isBooleanType();
 }
 
 /// Returns true if the given type is a signed integer or vector of signed
 /// integer type.
 bool isSintOrVecOfSintType(QualType type) {
   QualType elemType = {};
-  return type->isSignedIntegerType() ||
-         (TypeTranslator::isVectorType(type, &elemType, nullptr) &&
-          elemType->isSignedIntegerType());
+  return (TypeTranslator::isScalarType(type, &elemType) ||
+          TypeTranslator::isVectorType(type, &elemType)) &&
+         elemType->isSignedIntegerType();
 }
 
 /// Returns true if the given type is an unsigned integer or vector of unsigned
 /// integer type.
 bool isUintOrVecOfUintType(QualType type) {
   QualType elemType = {};
-  return type->isUnsignedIntegerType() ||
-         (TypeTranslator::isVectorType(type, &elemType, nullptr) &&
-          elemType->isUnsignedIntegerType());
+  return (TypeTranslator::isScalarType(type, &elemType) ||
+          TypeTranslator::isVectorType(type, &elemType)) &&
+         elemType->isUnsignedIntegerType();
 }
 
 /// Returns true if the given type is a float or vector of float type.
 bool isFloatOrVecOfFloatType(QualType type) {
   QualType elemType = {};
-  return type->isFloatingType() ||
-         (TypeTranslator::isVectorType(type, &elemType, nullptr) &&
-          elemType->isFloatingType());
+  return (TypeTranslator::isScalarType(type, &elemType) ||
+          TypeTranslator::isVectorType(type, &elemType)) &&
+         elemType->isFloatingType();
 }
 
 /// Returns true if the given type is a bool or vector/matrix of bool type.
@@ -2137,16 +2143,8 @@ uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
 
 uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,
                                   QualType toBoolType) {
-  // Semantic analysis should already checked the size
-  if (isBoolOrVecOfBoolType(fromType))
+  if (isSameScalarOrVecType(fromType, toBoolType))
     return fromVal;
-
-  // Handle 1x1 bool matrix, Mx1 bool matrix, and 1xN bool matrix.
-  {
-    if (typeTranslator.is1x1OrMx1Or1xNMatrix(fromType) &&
-        hlsl::GetHLSLMatElementType(fromType)->isBooleanType())
-      return fromVal;
-  }
 
   // Converting to bool means comparing with value zero.
   const spv::Op spvOp = translateOp(BO_NE, fromType);
@@ -2384,9 +2382,10 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
   // Handle scalars, vectors of size 1, and 1x1 matrices as arguments.
   // Optimization: can directly cast them to boolean. No need for OpAny/OpAll.
   {
-    if (argType->isBooleanType() || argType->isFloatingType() ||
-        argType->isIntegerType() || TypeTranslator::isVec1Type(argType) ||
-        TypeTranslator::is1x1Matrix(argType))
+    QualType scalarType = {};
+    if (TypeTranslator::isScalarType(argType, &scalarType) &&
+        (scalarType->isBooleanType() || scalarType->isFloatingType() ||
+         scalarType->isIntegerType()))
       return castToBool(doExpr(arg), argType, returnType);
   }
 
@@ -2395,8 +2394,7 @@ uint32_t SPIRVEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
   {
     QualType elemType = {};
     uint32_t size = 0;
-    if (TypeTranslator::isVectorType(argType, &elemType, &size) ||
-        TypeTranslator::isMx1Or1xNMatrix(argType, &elemType, &size)) {
+    if (TypeTranslator::isVectorType(argType, &elemType, &size)) {
       const QualType castToBoolType =
           astContext.getExtVectorType(returnType, size);
       uint32_t castedToBoolId =
@@ -2536,16 +2534,21 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
 }
 
 uint32_t SPIRVEmitter::getValueZero(QualType type) {
-  if (type->isSignedIntegerType()) {
-    return theBuilder.getConstantInt32(0);
-  }
+  {
+    QualType scalarType = {};
+    if (TypeTranslator::isScalarType(type, &scalarType)) {
+      if (scalarType->isSignedIntegerType()) {
+        return theBuilder.getConstantInt32(0);
+      }
 
-  if (type->isUnsignedIntegerType()) {
-    return theBuilder.getConstantUint32(0);
-  }
+      if (scalarType->isUnsignedIntegerType()) {
+        return theBuilder.getConstantUint32(0);
+      }
 
-  if (type->isFloatingType()) {
-    return theBuilder.getConstantFloat32(0.0);
+      if (scalarType->isFloatingType()) {
+        return theBuilder.getConstantFloat32(0.0);
+      }
+    }
   }
 
   {
@@ -2556,17 +2559,7 @@ uint32_t SPIRVEmitter::getValueZero(QualType type) {
     }
   }
 
-  // 1x1, Mx1, and 1xN Matrices
-  {
-    QualType elemType = {};
-    uint32_t size = {};
-    if (TypeTranslator::is1x1Matrix(type, &elemType))
-      return getValueZero(elemType);
-    if (TypeTranslator::isMx1Or1xNMatrix(type, &elemType, &size))
-      return getVecValueZero(elemType, size);
-
-    // TODO: Handle getValueZero for MxN matrices.
-  }
+  // TODO: Handle getValueZero for MxN matrices.
 
   emitError("getting value 0 for type '%0' unimplemented")
       << type.getAsString();
@@ -2587,16 +2580,21 @@ uint32_t SPIRVEmitter::getVecValueZero(QualType elemType, uint32_t size) {
 }
 
 uint32_t SPIRVEmitter::getValueOne(QualType type) {
-  if (type->isSignedIntegerType()) {
-    return theBuilder.getConstantInt32(1);
-  }
+  {
+    QualType scalarType = {};
+    if (TypeTranslator::isScalarType(type, &scalarType)) {
+      if (scalarType->isSignedIntegerType()) {
+        return theBuilder.getConstantInt32(1);
+      }
 
-  if (type->isUnsignedIntegerType()) {
-    return theBuilder.getConstantUint32(1);
-  }
+      if (scalarType->isUnsignedIntegerType()) {
+        return theBuilder.getConstantUint32(1);
+      }
 
-  if (type->isFloatingType()) {
-    return theBuilder.getConstantFloat32(1.0);
+      if (scalarType->isFloatingType()) {
+        return theBuilder.getConstantFloat32(1.0);
+      }
+    }
   }
 
   {
