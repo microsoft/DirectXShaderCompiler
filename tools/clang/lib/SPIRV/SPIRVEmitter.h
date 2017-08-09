@@ -72,12 +72,13 @@ private:
   void doVarDecl(const VarDecl *decl);
 
   void doBreakStmt(const BreakStmt *stmt);
-  void doWhileStmt(const WhileStmt *, llvm::ArrayRef<const Attr *> attrs = {});
+  inline void doDeclStmt(const DeclStmt *stmt);
   void doForStmt(const ForStmt *, llvm::ArrayRef<const Attr *> attrs = {});
   void doIfStmt(const IfStmt *ifStmt);
   void doReturnStmt(const ReturnStmt *stmt);
   void doSwitchStmt(const SwitchStmt *stmt,
                     llvm::ArrayRef<const Attr *> attrs = {});
+  void doWhileStmt(const WhileStmt *, llvm::ArrayRef<const Attr *> attrs = {});
 
   uint32_t doBinaryOperator(const BinaryOperator *expr);
   uint32_t doCallExpr(const CallExpr *callExpr);
@@ -413,6 +414,11 @@ private:
   /// Maps a given statement to the basic block that is associated with it.
   llvm::DenseMap<const Stmt *, uint32_t> stmtBasicBlock;
 };
+
+void SPIRVEmitter::doDeclStmt(const DeclStmt *declStmt) {
+  for (auto *decl : declStmt->decls())
+    doDecl(decl);
+}
 
 } // end namespace spirv
 } // end namespace clang
