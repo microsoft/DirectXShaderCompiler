@@ -54,12 +54,15 @@ public:
 
   /// \brief Registers a function parameter of the given pointer type in the
   /// current function and returns its <result-id>.
-  uint32_t addFnParameter(uint32_t ptrType, llvm::StringRef name = "");
+  uint32_t addFnParam(uint32_t ptrType, llvm::StringRef name = "");
 
-  /// \brief Creates a local variable of the given pointer type in the current
+  /// \brief Creates a local variable of the given type in the current
   /// function and returns its <result-id>.
-  uint32_t addFnVariable(uint32_t ptrType, llvm::StringRef name = "",
-                         llvm::Optional<uint32_t> init = llvm::None);
+  ///
+  /// The corresponding pointer type of the given type will be constructed in
+  /// this method for the variable itself.
+  uint32_t addFnVar(uint32_t valueType, llvm::StringRef name = "",
+                    llvm::Optional<uint32_t> init = llvm::None);
 
   /// \brief Ends building of the current function. Returns true of success,
   /// false on failure. All basic blocks constructed from the beginning or
@@ -208,15 +211,22 @@ public:
   ///
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
-  uint32_t addStageIOVariable(uint32_t type, spv::StorageClass storageClass);
+  uint32_t addStageIOVar(uint32_t type, spv::StorageClass storageClass);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
   ///
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
-  uint32_t addStageBuiltinVariable(uint32_t type,
-                                   spv::StorageClass storageClass,
-                                   spv::BuiltIn);
+  uint32_t addStageBuiltinVar(uint32_t type, spv::StorageClass storageClass,
+                              spv::BuiltIn);
+
+  /// \brief Adds a file/module visible variable. This variable will have
+  /// Private storage class.
+  ///
+  /// The corresponding pointer type of the given type will be constructed in
+  /// this method for the variable itself.
+  uint32_t addFileVar(uint32_t valueType, llvm::StringRef name = "",
+                      llvm::Optional<uint32_t> init = llvm::None);
 
   /// \brief Decorates the given target <result-id> with the given location.
   void decorateLocation(uint32_t targetId, uint32_t location);
@@ -242,6 +252,7 @@ public:
   uint32_t getConstantFloat32(float value);
   uint32_t getConstantComposite(uint32_t typeId,
                                 llvm::ArrayRef<uint32_t> constituents);
+  uint32_t getConstantNull(uint32_t type);
 
 private:
   /// \brief Map from basic blocks' <label-id> to their structured

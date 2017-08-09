@@ -54,7 +54,7 @@ uint32_t ModuleBuilder::beginFunction(uint32_t funcType, uint32_t returnType,
   return fId;
 }
 
-uint32_t ModuleBuilder::addFnParameter(uint32_t ptrType, llvm::StringRef name) {
+uint32_t ModuleBuilder::addFnParam(uint32_t ptrType, llvm::StringRef name) {
   assert(theFunction && "found detached parameter");
 
   const uint32_t paramId = theContext.takeNextId();
@@ -64,10 +64,11 @@ uint32_t ModuleBuilder::addFnParameter(uint32_t ptrType, llvm::StringRef name) {
   return paramId;
 }
 
-uint32_t ModuleBuilder::addFnVariable(uint32_t ptrType, llvm::StringRef name,
-                                      llvm::Optional<uint32_t> init) {
+uint32_t ModuleBuilder::addFnVar(uint32_t varType, llvm::StringRef name,
+                                 llvm::Optional<uint32_t> init) {
   assert(theFunction && "found detached local variable");
 
+  const uint32_t ptrType = getPointerType(varType, spv::StorageClass::Function);
   const uint32_t varId = theContext.takeNextId();
   theFunction->addVariable(ptrType, varId, init);
   theModule.addDebugName(varId, name);
@@ -310,8 +311,8 @@ uint32_t ModuleBuilder::getGLSLExtInstSet() {
   return glslExtSetId;
 }
 
-uint32_t ModuleBuilder::addStageIOVariable(uint32_t type,
-                                           spv::StorageClass storageClass) {
+uint32_t ModuleBuilder::addStageIOVar(uint32_t type,
+                                      spv::StorageClass storageClass) {
   const uint32_t pointerType = getPointerType(type, storageClass);
   const uint32_t varId = theContext.takeNextId();
   instBuilder.opVariable(pointerType, varId, storageClass, llvm::None).x();
@@ -319,9 +320,8 @@ uint32_t ModuleBuilder::addStageIOVariable(uint32_t type,
   return varId;
 }
 
-uint32_t ModuleBuilder::addStageBuiltinVariable(uint32_t type,
-                                                spv::StorageClass sc,
-                                                spv::BuiltIn builtin) {
+uint32_t ModuleBuilder::addStageBuiltinVar(uint32_t type, spv::StorageClass sc,
+                                           spv::BuiltIn builtin) {
   const uint32_t pointerType = getPointerType(type, sc);
   const uint32_t varId = theContext.takeNextId();
   instBuilder.opVariable(pointerType, varId, sc, llvm::None).x();
@@ -331,6 +331,17 @@ uint32_t ModuleBuilder::addStageBuiltinVariable(uint32_t type,
   const Decoration *d = Decoration::getBuiltIn(theContext, builtin);
   theModule.addDecoration(*d, varId);
 
+  return varId;
+}
+
+uint32_t ModuleBuilder::addFileVar(uint32_t type, llvm::StringRef name,
+                                   llvm::Optional<uint32_t> init) {
+  const uint32_t pointerType = getPointerType(type, spv::StorageClass::Private);
+  const uint32_t varId = theContext.takeNextId();
+  instBuilder.opVariable(pointerType, varId, spv::StorageClass::Private, init)
+      .x();
+  theModule.addVariable(std::move(constructSite));
+  theModule.addDebugName(varId, name);
   return varId;
 }
 
@@ -446,6 +457,13 @@ ModuleBuilder::getConstantComposite(uint32_t typeId,
                                     llvm::ArrayRef<uint32_t> constituents) {
   const Constant *constant =
       Constant::getComposite(theContext, typeId, constituents);
+  const uint32_t constId = theContext.getResultIdForConstant(constant);
+  theModule.addConstant(constant, constId);
+  return constId;
+}
+
+uint32_t ModuleBuilder::getConstantNull(uint32_t typeId) {
+  const Constant *constant = Constant::getNull(theContext, typeId);
   const uint32_t constId = theContext.getResultIdForConstant(constant);
   theModule.addConstant(constant, constId);
   return constId;

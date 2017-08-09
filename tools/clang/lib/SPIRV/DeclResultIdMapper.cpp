@@ -21,23 +21,26 @@ namespace spirv {
 bool DeclResultIdMapper::createStageVarFromFnReturn(
     const FunctionDecl *funcDecl) {
   // SemanticDecl for the return value is attached to the FunctionDecl.
-  return createStageVariables(funcDecl, true);
+  return createStageVars(funcDecl, true);
 }
 
 bool DeclResultIdMapper::createStageVarFromFnParam(
     const ParmVarDecl *paramDecl) {
-  return createStageVariables(paramDecl, false);
+  return createStageVars(paramDecl, false);
 }
 
 void DeclResultIdMapper::registerDeclResultId(const NamedDecl *symbol,
                                               uint32_t resultId) {
   auto sc = spv::StorageClass::Function;
-  // TODO: need to fix the storage class for other cases
   if (const auto *varDecl = dyn_cast<VarDecl>(symbol)) {
-    if (!varDecl->isLocalVarDecl()) {
-      // Global variables are by default constant. But the default behavior
-      // can be changed via command line option.
+    if (varDecl->isExternallyVisible()) {
+      // TODO: Global variables are by default constant. But the default
+      // behavior can be changed via command line option. So Uniform may
+      // not be the correct storage class.
       sc = spv::StorageClass::Uniform;
+    } else if (!varDecl->hasLocalStorage()) {
+      // File scope variables
+      sc = spv::StorageClass::Private;
     }
   }
   normalDecls[symbol] = {resultId, sc};
@@ -141,7 +144,7 @@ DeclResultIdMapper::resolveStorageClass(const Decl *decl) const {
   return resolver.get();
 }
 
-std::vector<uint32_t> DeclResultIdMapper::collectStageVariables() const {
+std::vector<uint32_t> DeclResultIdMapper::collectStageVars() const {
   std::vector<uint32_t> vars;
 
   for (const auto &var : stageVars)
@@ -175,8 +178,8 @@ DeclResultIdMapper::getFnParamOrRetType(const DeclaratorDecl *decl) const {
   return decl->getType();
 }
 
-bool DeclResultIdMapper::createStageVariables(const DeclaratorDecl *decl,
-                                              bool forRet) {
+bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
+                                         bool forRet) {
   QualType type = getFnParamOrRetType(decl);
 
   if (type->isVoidType()) {
@@ -228,7 +231,7 @@ bool DeclResultIdMapper::createStageVariables(const DeclaratorDecl *decl,
 
     // Recursively handle all the fields.
     for (const auto *field : structDecl->fields()) {
-      if (!createStageVariables(field, forRet))
+      if (!createStageVars(field, forRet))
         return false;
     }
   }
@@ -261,13 +264,13 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
   case hlsl::Semantic::Kind::Position: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
-      return theBuilder.addStageIOVariable(type, sc);
+      return theBuilder.addStageIOVar(type, sc);
     case hlsl::SigPoint::Kind::VSOut:
       stageVar->setIsSpirvBuiltin();
-      return theBuilder.addStageBuiltinVariable(type, sc, BuiltIn::Position);
+      return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
-      return theBuilder.addStageBuiltinVariable(type, sc, BuiltIn::FragCoord);
+      return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragCoord);
     default:
       emitError("semantic Position for SigPoint %0 unimplemented yet")
           << stageVar->getSigPoint()->GetName();
@@ -277,7 +280,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
   // According to DXIL spec, the VertexID SV can only be used by VSIn.
   case hlsl::Semantic::Kind::VertexID:
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVariable(type, sc, BuiltIn::VertexIndex);
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::VertexIndex);
   // According to DXIL spec, the InstanceID SV can  be used by VSIn, VSOut,
   // HSCPIn, HSCPOut, DSCPIn, DSOut, GSVIn, GSOut, PSIn.
   // According to Vulkan spec, the InstanceIndex can only be used by VSIn.
@@ -285,12 +288,11 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
       stageVar->setIsSpirvBuiltin();
-      return theBuilder.addStageBuiltinVariable(type, sc,
-                                                BuiltIn::InstanceIndex);
+      return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::InstanceIndex);
     case hlsl::SigPoint::Kind::VSOut:
-      return theBuilder.addStageIOVariable(type, sc);
+      return theBuilder.addStageIOVar(type, sc);
     case hlsl::SigPoint::Kind::PSIn:
-      return theBuilder.addStageIOVariable(type, sc);
+      return theBuilder.addStageIOVar(type, sc);
     default:
       emitError("semantic InstanceID for SigPoint %0 unimplemented yet")
           << stageVar->getSigPoint()->GetName();
@@ -300,7 +302,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
   // According to DXIL spec, the Depth SV can only be used by PSOut.
   case hlsl::Semantic::Kind::Depth:
     stageVar->setIsSpirvBuiltin();
-    return theBuilder.addStageBuiltinVariable(type, sc, BuiltIn::FragDepth);
+    return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragDepth);
   // According to DXIL spec, the Target SV can only be used by PSOut.
   // There is no corresponding builtin decoration in SPIR-V. So generate normal
   // Vulkan stage input/output variables.
@@ -308,7 +310,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
   // An arbitrary semantic is defined by users. Generate normal Vulkan stage
   // input/output variables.
   case hlsl::Semantic::Kind::Arbitrary: {
-    return theBuilder.addStageIOVariable(type, sc);
+    return theBuilder.addStageIOVar(type, sc);
     // TODO: patch constant function in hull shader
   }
   default:
