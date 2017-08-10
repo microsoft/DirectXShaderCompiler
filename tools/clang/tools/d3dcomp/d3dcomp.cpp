@@ -35,7 +35,7 @@ HRESULT CreateContainerReflection(IDxcContainerReflection **ppReflection) {
 }
 
 HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
-                        const D3D_SHADER_MACRO *pDefines, ID3DInclude *pInclude,
+                        const D3D_SHADER_MACRO *pDefines, IDxcIncludeHandler *pInclude,
                         LPCSTR pEntrypoint, LPCSTR pTarget, UINT Flags1,
                         UINT Flags2, ID3DBlob **ppCode,
                         ID3DBlob **ppErrorMsgs) {
@@ -105,7 +105,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     IFR(CreateCompiler(&compiler));
     IFR(compiler->Compile(pSource, pSourceName, pEntrypointW, pTargetProfileW,
                           arguments.data(), (UINT)arguments.size(),
-                          defines.data(), (UINT)defines.size(), nullptr,
+                          defines.data(), (UINT)defines.size(), pInclude,
                           &operationResult));
   } catch (const std::bad_alloc &) {
     return E_OUTOFMEMORY;
@@ -131,6 +131,7 @@ HRESULT WINAPI BridgeD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
                                 ID3DBlob **ppCode, ID3DBlob **ppErrorMsgs) {
   CComPtr<IDxcLibrary> library;
   CComPtr<IDxcBlobEncoding> source;
+  CComPtr<IDxcIncludeHandler> includeHandler;
 
   *ppCode = nullptr;
   if (ppErrorMsgs != nullptr)
@@ -140,9 +141,15 @@ HRESULT WINAPI BridgeD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
   IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
 
+  // Until we actually wrap the include handler, fail if there's a user-supplied handler.
+  if (pInclude)
+    return E_INVALIDARG;
+  // Use default file-based include handler
+  IFT(library->CreateIncludeHandler(&includeHandler));
+
   try {
     CA2W pFileName(pSourceName);
-    return CompileFromBlob(source, pFileName, pDefines, pInclude, pEntrypoint,
+    return CompileFromBlob(source, pFileName, pDefines, includeHandler, pEntrypoint,
                            pTarget, Flags1, Flags2, ppCode, ppErrorMsgs);
   } catch (const std::bad_alloc &) {
     return E_OUTOFMEMORY;
@@ -171,6 +178,7 @@ HRESULT WINAPI BridgeD3DCompileFromFile(
     ID3DBlob **ppCode, ID3DBlob **ppErrorMsgs) {
   CComPtr<IDxcLibrary> library;
   CComPtr<IDxcBlobEncoding> source;
+  CComPtr<IDxcIncludeHandler> includeHandler;
   HRESULT hr;
 
   *ppCode = nullptr;
@@ -184,7 +192,13 @@ HRESULT WINAPI BridgeD3DCompileFromFile(
   if (FAILED(hr))
     return hr;
 
-  return CompileFromBlob(source, pFileName, pDefines, pInclude, pEntrypoint,
+  // Until we actually wrap the include handler, fail if there's a user-supplied handler.
+  if (pInclude)
+    return E_INVALIDARG;
+  // Use default file-based include handler
+  IFT(library->CreateIncludeHandler(&includeHandler));
+
+  return CompileFromBlob(source, pFileName, pDefines, includeHandler, pEntrypoint,
                          pTarget, Flags1, Flags2, ppCode, ppErrorMsgs);
 }
 
