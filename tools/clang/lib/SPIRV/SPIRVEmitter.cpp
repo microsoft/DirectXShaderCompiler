@@ -242,21 +242,7 @@ uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
   }
 
   if (const auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
-    const uint32_t base = doExpr(memberExpr->getBase());
-    const auto *memberDecl = memberExpr->getMemberDecl();
-    if (const auto *fieldDecl = dyn_cast<FieldDecl>(memberDecl)) {
-      const auto index =
-          theBuilder.getConstantInt32(fieldDecl->getFieldIndex());
-      const uint32_t fieldType =
-          typeTranslator.translateType(fieldDecl->getType());
-      const uint32_t ptrType = theBuilder.getPointerType(
-          fieldType, declIdMapper.resolveStorageClass(memberExpr->getBase()));
-      return theBuilder.createAccessChain(ptrType, base, {index});
-    } else {
-      emitError("Decl '%0' in MemberExpr is not supported yet.")
-          << memberDecl->getDeclKindName();
-      return 0;
-    }
+    return doMemberExpr(memberExpr);
   }
 
   if (const auto *castExpr = dyn_cast<CastExpr>(expr)) {
@@ -1398,6 +1384,23 @@ uint32_t SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
   }
 
   return InitListHandler(*this).process(expr);
+}
+
+uint32_t SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
+  const uint32_t base = doExpr(expr->getBase());
+  const auto *memberDecl = expr->getMemberDecl();
+  if (const auto *fieldDecl = dyn_cast<FieldDecl>(memberDecl)) {
+    const auto index = theBuilder.getConstantInt32(fieldDecl->getFieldIndex());
+    const uint32_t fieldType =
+        typeTranslator.translateType(fieldDecl->getType());
+    const uint32_t ptrType = theBuilder.getPointerType(
+        fieldType, declIdMapper.resolveStorageClass(expr->getBase()));
+    return theBuilder.createAccessChain(ptrType, base, {index});
+  }
+
+  emitError("Decl '%0' in MemberExpr is not supported yet.")
+      << memberDecl->getDeclKindName();
+  return 0;
 }
 
 uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {

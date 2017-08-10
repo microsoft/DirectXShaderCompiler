@@ -15,7 +15,7 @@
 namespace clang {
 namespace spirv {
 
-uint32_t SPIRVContext::getResultIdForType(const Type *t) {
+uint32_t SPIRVContext::getResultIdForType(const Type *t, bool *isRegistered) {
   assert(t != nullptr);
   uint32_t result_id = 0;
 
@@ -24,8 +24,12 @@ uint32_t SPIRVContext::getResultIdForType(const Type *t) {
     // The Type has not been defined yet. Reserve an ID for it.
     result_id = takeNextId();
     typeResultIdMap[t] = result_id;
+    if (isRegistered)
+      *isRegistered = false;
   } else {
     result_id = iter->second;
+    if (isRegistered)
+      *isRegistered = true;
   }
 
   assert(result_id != 0);

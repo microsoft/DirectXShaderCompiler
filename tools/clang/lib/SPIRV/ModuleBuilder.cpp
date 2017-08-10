@@ -409,10 +409,25 @@ uint32_t ModuleBuilder::getPointerType(uint32_t pointeeType,
   return typeId;
 }
 
-uint32_t ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes) {
+uint32_t
+ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
+                             llvm::StringRef structName,
+                             llvm::ArrayRef<llvm::StringRef> fieldNames) {
   const Type *type = Type::getStruct(theContext, fieldTypes);
-  const uint32_t typeId = theContext.getResultIdForType(type);
+  bool isRegistered = false;
+  const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
+  // TODO: Probably we should check duplication and do nothing if trying to add
+  // the same debug name for the same entity in addDebugName().
+  if (!isRegistered) {
+    theModule.addDebugName(typeId, structName);
+    if (!fieldNames.empty()) {
+      assert(fieldNames.size() == fieldTypes.size());
+      for (uint32_t i = 0; i < fieldNames.size(); ++i)
+        theModule.addDebugName(typeId, fieldNames[i],
+                               llvm::Optional<uint32_t>(i));
+    }
+  }
   return typeId;
 }
 
