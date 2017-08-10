@@ -142,10 +142,11 @@ HRESULT WINAPI BridgeD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
                                                 CP_ACP, &source));
 
   // Until we actually wrap the include handler, fail if there's a user-supplied handler.
-  if (pInclude)
+  if (D3D_COMPILE_STANDARD_FILE_INCLUDE == pInclude) {
+    IFT(library->CreateIncludeHandler(&includeHandler));
+  } else if (pInclude) {
     return E_INVALIDARG;
-  // Use default file-based include handler
-  IFT(library->CreateIncludeHandler(&includeHandler));
+  }
 
   try {
     CA2W pFileName(pSourceName);
@@ -193,10 +194,12 @@ HRESULT WINAPI BridgeD3DCompileFromFile(
     return hr;
 
   // Until we actually wrap the include handler, fail if there's a user-supplied handler.
-  if (pInclude)
+  if (D3D_COMPILE_STANDARD_FILE_INCLUDE == pInclude) {
+    IFT(library->CreateIncludeHandler(&includeHandler));
+  }
+  else if (pInclude) {
     return E_INVALIDARG;
-  // Use default file-based include handler
-  IFT(library->CreateIncludeHandler(&includeHandler));
+  }
 
   return CompileFromBlob(source, pFileName, pDefines, includeHandler, pEntrypoint,
                          pTarget, Flags1, Flags2, ppCode, ppErrorMsgs);
