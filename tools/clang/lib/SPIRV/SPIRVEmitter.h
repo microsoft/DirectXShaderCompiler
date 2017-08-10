@@ -74,6 +74,7 @@ private:
   void doVarDecl(const VarDecl *decl);
 
   void doBreakStmt(const BreakStmt *stmt);
+  void doDiscardStmt(const DiscardStmt *stmt);
   inline void doDeclStmt(const DeclStmt *stmt);
   void doForStmt(const ForStmt *, llvm::ArrayRef<const Attr *> attrs = {});
   void doIfStmt(const IfStmt *ifStmt);
@@ -82,6 +83,7 @@ private:
                     llvm::ArrayRef<const Attr *> attrs = {});
   void doWhileStmt(const WhileStmt *, llvm::ArrayRef<const Attr *> attrs = {});
   void doDoStmt(const DoStmt *, llvm::ArrayRef<const Attr *> attrs = {});
+  void doContinueStmt(const ContinueStmt *);
 
   uint32_t doBinaryOperator(const BinaryOperator *expr);
   uint32_t doCallExpr(const CallExpr *callExpr);
@@ -92,7 +94,14 @@ private:
   uint32_t doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
   uint32_t doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr);
   uint32_t doInitListExpr(const InitListExpr *expr);
+  uint32_t doMemberExpr(const MemberExpr *expr);
   uint32_t doUnaryOperator(const UnaryOperator *expr);
+
+private:
+  /// Translates the return statement into its SPIR-V equivalent. Also generates
+  /// necessary instructions for the entry function ensuring that the signature
+  /// matches the SPIR-V requirements.
+  void processReturnStmt(const ReturnStmt *stmt);
 
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
@@ -375,6 +384,18 @@ private:
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
 private:
+  /// \brief Returns the statement that the given break statement applies to.
+  /// According to the spec, break statements can only apply to loops (do, for,
+  /// while) or case statements inside a switch statement. The frontend ensures
+  /// this is true (errors out otherwise).
+  const Stmt *breakStmtScope(const BreakStmt *);
+
+  /// \brief Returns true if the given BreakStmt is the last statement inside
+  /// its case statement of the given switch statement. Panics if the given
+  /// break statement is not inside the tree of the given switch statement.
+  bool breakStmtIsLastStmtInCaseStmt(const BreakStmt *, const SwitchStmt *);
+
+private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
@@ -436,6 +457,13 @@ private:
   /// <---- ForLoopMergeBB
   /// This stack keeps track of the basic blocks to which branching could occur.
   std::stack<uint32_t> breakStack;
+
+  /// Loops (do, while, for) may encounter "continue" statements that alter
+  /// their control flow. At any point the continue statement is observed, the
+  /// control flow jumps to the inner-most scope's continue block.
+  /// This stack keeps track of the basic blocks to which such branching could
+  /// occur.
+  std::stack<uint32_t> continueStack;
 
   /// Maps a given statement to the basic block that is associated with it.
   llvm::DenseMap<const Stmt *, uint32_t> stmtBasicBlock;

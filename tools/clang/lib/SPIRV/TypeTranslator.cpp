@@ -100,13 +100,15 @@ uint32_t TypeTranslator::translateType(QualType type) {
   if (const auto *structType = dyn_cast<RecordType>(typePtr)) {
     const auto *decl = structType->getDecl();
 
-    // Collect all fields' types.
-    std::vector<uint32_t> fieldTypes;
+    // Collect all fields' types and names.
+    llvm::SmallVector<uint32_t, 4> fieldTypes;
+    llvm::SmallVector<llvm::StringRef, 4> fieldNames;
     for (const auto *field : decl->fields()) {
       fieldTypes.push_back(translateType(field->getType()));
+      fieldNames.push_back(field->getName());
     }
 
-    return theBuilder.getStructType(fieldTypes);
+    return theBuilder.getStructType(fieldTypes, type.getAsString(), fieldNames);
   }
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();

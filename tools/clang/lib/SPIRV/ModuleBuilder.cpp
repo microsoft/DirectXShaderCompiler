@@ -97,15 +97,23 @@ bool ModuleBuilder::endFunction() {
   return true;
 }
 
-uint32_t ModuleBuilder::createBasicBlock(llvm::StringRef name) {
+uint32_t ModuleBuilder::createBasicBlock(llvm::StringRef name,
+                                         bool isReachable) {
   if (theFunction == nullptr) {
     assert(false && "found detached basic block");
     return 0;
   }
 
   const uint32_t labelId = theContext.takeNextId();
-  basicBlocks[labelId] = llvm::make_unique<BasicBlock>(labelId);
-  theModule.addDebugName(labelId, name);
+  basicBlocks[labelId] = llvm::make_unique<BasicBlock>(labelId, isReachable);
+
+  // OpName instructions should not be added for unreachable basic blocks
+  // because such blocks are *not* discovered by BlockReadableOrderVisitor and
+  // therefore they are not emitted.
+  // The newly created basic block is unreachable if specified by the caller,
+  // or, if this block is being created by a block that is already unreachable.
+  if (isReachable && (!insertPoint || insertPoint->isReachable()))
+    theModule.addDebugName(labelId, name);
 
   return labelId;
 }
@@ -232,6 +240,13 @@ void ModuleBuilder::createSwitch(
 
   // Create the OpSwitch.
   instBuilder.opSwitch(selector, defaultLabel, target).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
+void ModuleBuilder::createKill() {
+  assert(insertPoint && "null insert point");
+  assert(!isCurrentBasicBlockTerminated());
+  instBuilder.opKill().x();
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
@@ -409,10 +424,25 @@ uint32_t ModuleBuilder::getPointerType(uint32_t pointeeType,
   return typeId;
 }
 
-uint32_t ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes) {
+uint32_t
+ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
+                             llvm::StringRef structName,
+                             llvm::ArrayRef<llvm::StringRef> fieldNames) {
   const Type *type = Type::getStruct(theContext, fieldTypes);
-  const uint32_t typeId = theContext.getResultIdForType(type);
+  bool isRegistered = false;
+  const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
+  // TODO: Probably we should check duplication and do nothing if trying to add
+  // the same debug name for the same entity in addDebugName().
+  if (!isRegistered) {
+    theModule.addDebugName(typeId, structName);
+    if (!fieldNames.empty()) {
+      assert(fieldNames.size() == fieldTypes.size());
+      for (uint32_t i = 0; i < fieldNames.size(); ++i)
+        theModule.addDebugName(typeId, fieldNames[i],
+                               llvm::Optional<uint32_t>(i));
+    }
+  }
   return typeId;
 }
 

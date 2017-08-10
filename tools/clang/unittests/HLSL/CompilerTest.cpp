@@ -794,6 +794,7 @@ public:
   TEST_METHOD(CodeGenIndexing_Operator_Mod)
   TEST_METHOD(CodeGenIntrinsic_Examples_Mod)
   TEST_METHOD(CodeGenLiterals_Mod)
+  TEST_METHOD(CodeGenLiterals_Exact_Precision_Mod)
   TEST_METHOD(CodeGenMatrix_Assignments_Mod)
   TEST_METHOD(CodeGenMatrix_Syntax_Mod)
   //TEST_METHOD(CodeGenMore_Operators_Mod)
@@ -1333,8 +1334,16 @@ public:
     std::wstring profile =
         Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
 
+    std::vector<std::wstring> argLists;
+    CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argLists);
+
+    std::vector<LPCWSTR> args;
+    args.reserve(argLists.size());
+    for (const std::wstring &a : argLists)
+      args.push_back(a.data());
+
     VERIFY_SUCCEEDED(pCompiler->Compile(
-        pSource, name, entry.c_str(), profile.c_str(), nullptr, 0,
+        pSource, name, entry.c_str(), profile.c_str(), args.data(), args.size(),
         opts.Defines.data(), opts.Defines.size(), nullptr, &pResult));
     HRESULT result;
     VERIFY_SUCCEEDED(pResult->GetStatus(&result));
@@ -3201,11 +3210,11 @@ TEST_F(CompilerTest, CodeGenIf4) { CodeGenTest(L"..\\CodeGenHLSL\\if4.hlsl"); }
 
 TEST_F(CompilerTest, CodeGenIf5) { CodeGenTest(L"..\\CodeGenHLSL\\if5.hlsl"); }
 
-TEST_F(CompilerTest, CodeGenIf6) { CodeGenTest(L"..\\CodeGenHLSL\\if6.hlsl"); }
+TEST_F(CompilerTest, CodeGenIf6) { CodeGenTestCheck(L"..\\CodeGenHLSL\\if6.hlsl"); }
 
-TEST_F(CompilerTest, CodeGenIf7) { CodeGenTest(L"..\\CodeGenHLSL\\if7.hlsl"); }
+TEST_F(CompilerTest, CodeGenIf7) { CodeGenTestCheck(L"..\\CodeGenHLSL\\if7.hlsl"); }
 
-TEST_F(CompilerTest, CodeGenIf8) { CodeGenTest(L"..\\CodeGenHLSL\\if8.hlsl"); }
+TEST_F(CompilerTest, CodeGenIf8) { CodeGenTestCheck(L"..\\CodeGenHLSL\\if8.hlsl"); }
 
 TEST_F(CompilerTest, CodeGenIf9) { CodeGenTestCheck(L"..\\CodeGenHLSL\\if9.hlsl"); }
 
@@ -4226,6 +4235,10 @@ TEST_F(CompilerTest, CodeGenIntrinsic_Examples_Mod) {
 
 TEST_F(CompilerTest, CodeGenLiterals_Mod) {
   CodeGenTest(L"..\\CodeGenHLSL\\literals_Mod.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLiterals_Exact_Precision_Mod) {
+  CodeGenTest(L"..\\CodeGenHLSL\\literals_exact_precision_Mod.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatrix_Assignments_Mod) {

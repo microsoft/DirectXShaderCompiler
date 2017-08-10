@@ -71,7 +71,9 @@ public:
 
   /// \brief Creates a SPIR-V basic block. On success, returns the <label-id>
   /// for the basic block. On failure, returns zero.
-  uint32_t createBasicBlock(llvm::StringRef name = "");
+  /// All basic blocks are reachable by default. If isReachable is set to false,
+  /// a debug name will not be created for the basic block.
+  uint32_t createBasicBlock(llvm::StringRef name = "", bool isReachable = true);
 
   /// \brief Adds the basic block with the given label as a successor to the
   /// current basic block.
@@ -152,6 +154,9 @@ public:
   void createSwitch(uint32_t mergeLabel, uint32_t selector,
                     uint32_t defaultLabel,
                     llvm::ArrayRef<std::pair<uint32_t, uint32_t>> target);
+
+  /// \brief Creates a fragment-shader discard via by emitting OpKill.
+  void createKill();
 
   /// \brief Creates an unconditional branch to the given target label.
   /// If mergeBB and continueBB are non-zero, it creates an OpLoopMerge
@@ -241,7 +246,9 @@ public:
   uint32_t getVecType(uint32_t elemType, uint32_t elemCount);
   uint32_t getMatType(uint32_t colType, uint32_t colCount);
   uint32_t getPointerType(uint32_t pointeeType, spv::StorageClass);
-  uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes);
+  uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
+                         llvm::StringRef structName = "",
+                         llvm::ArrayRef<llvm::StringRef> fieldNames = {});
   uint32_t getFunctionType(uint32_t returnType,
                            llvm::ArrayRef<uint32_t> paramTypes);
 
