@@ -121,7 +121,7 @@ public:
   bool DumpBin;        // OPT_dumpbin
   bool WarningAsError; // OPT__SLASH_WX
   bool IEEEStrict;     // OPT_Gis
-  bool NoLineDirectives; // OPT_NoLineDirectives
+  bool IgnoreLineDirectives; // OPT_IgnoreLineDirectives
   bool DefaultColMajor;  // OPT_Zpc
   bool DefaultRowMajor;  // OPT_Zpr
   bool DisableValidation; // OPT_VD

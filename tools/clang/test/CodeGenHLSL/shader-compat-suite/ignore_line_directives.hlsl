@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_1 -Zi  -NoLineDirectives %s | FileCheck %s
+// RUN: %dxc -T lib_6_1 -Zi  -IgnoreLineDirectives %s | FileCheck %s
 
 // Make sure only 1 DIFile exist in debug info when NoLineDirectives is enabled.
 // CHECK: !DIFile
