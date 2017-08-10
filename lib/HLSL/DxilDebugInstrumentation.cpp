@@ -178,8 +178,6 @@ private:
   CallInst * IndexVariable;
   Value * SelectionCriterion;
   CallInst * HandleForUAV;
-  Value * XAsInt;
-  Value * YAsInt;
 
   struct BuilderContext
   {
@@ -250,7 +248,9 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
   {
   case DXIL::ShaderKind::Pixel:
   {
-    auto Existing_SV_Position = std::find_if(InputElements.begin(), InputElements.end(), [](const std::unique_ptr<DxilSignatureElement> & Element) {
+    auto Existing_SV_Position = std::find_if(
+        InputElements.begin(), InputElements.end(), 
+        [](const std::unique_ptr<DxilSignatureElement> & Element) {
       return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::Position; });
 
     // SV_Position, if present, has to have full mask, so we needn't worry 
@@ -258,7 +258,7 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
     // If not present, we add it.
     if (Existing_SV_Position == InputElements.end()) {
       auto Added_SV_Position = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-      Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4, 0, 0);
+      Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4);
       Added_SV_Position->AppendSemanticIndex(0);
       Added_SV_Position->SetSigPointKind(DXIL::SigPointKind::PSIn);
       Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
@@ -270,12 +270,14 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
       SVIndices.PixelShader.Position = Existing_SV_Position->get()->GetID();
     }
 
-    auto Existing_SV_PrimId = std::find_if(InputElements.begin(), InputElements.end(), [](const std::unique_ptr<DxilSignatureElement> & Element) {
+    auto Existing_SV_PrimId = std::find_if(
+        InputElements.begin(), InputElements.end(), 
+        [](const std::unique_ptr<DxilSignatureElement> & Element) {
       return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::PrimitiveID; });
 
     if (Existing_SV_PrimId == InputElements.end()) {
       auto Added_SV_PrimId = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-      Added_SV_PrimId->Initialize("PrimitiveId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 1, 0, 0);
+      Added_SV_PrimId->Initialize("PrimitiveId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 1);
       Added_SV_PrimId->AppendSemanticIndex(0);
       Added_SV_PrimId->SetSigPointKind(DXIL::SigPointKind::PSIn);
       Added_SV_PrimId->SetKind(hlsl::DXIL::SemanticKind::PrimitiveID);
@@ -302,7 +304,9 @@ Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, Syst
   Constant* One8Arg   = BC.HlslOP->GetI8Const(1);
   UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
-  // Convert SV_POSITION to UINT          
+  // Convert SV_POSITION to UINT        
+  Value * XAsInt;
+  Value * YAsInt;
   {
     auto LoadInputOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getFloatTy(BC.Ctx));
     Constant* LoadInputOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
@@ -316,31 +320,41 @@ Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, Syst
     YAsInt = BC.Builder.CreateCast(Instruction::CastOps::FPToUI, YPos, Type::getInt32Ty(BC.Ctx), "YIndex");
   }
 
-
   // Compare to expected pixel position and primitive ID
   auto CompareToX = BC.Builder.CreateICmpEQ(XAsInt, BC.HlslOP->GetU32Const(Parameters.PixelShader.X), "CompareToX");
   auto CompareToY = BC.Builder.CreateICmpEQ(YAsInt, BC.HlslOP->GetU32Const(Parameters.PixelShader.Y), "CompareToY");
   auto ComparePos = BC.Builder.CreateAnd(CompareToX, CompareToY, "ComparePos");
   
+#if 0
   // Compare primitve ID to expected primitive ID
-  CallInst * PrimitiveId;
   {
     auto LoadInputOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getInt32Ty(BC.Ctx));
     Constant* LoadInputOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
     Constant*  SV_Prim_ID = BC.HlslOP->GetU32Const(SVIndices.PixelShader.PrimitiveId);
-    PrimitiveId = BC.Builder.CreateCall(LoadInputOpFunc,
+    auto PrimitiveId = BC.Builder.CreateCall(LoadInputOpFunc,
       { LoadInputOpcode, SV_Prim_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "PrimitiveId");
   }
-  
+#endif
+
+  return ComparePos;
+
+
+#if 0
   auto CompareToExpectedPrimId = BC.Builder.CreateICmpEQ(PrimitiveId, BC.HlslOP->GetU32Const(Parameters.PixelShader.PrimitiveId), "CompareToPrimId");
-  
+
+  //Test: return just compare to Y
+  //return CompareToY;
+
+  // Test: ignore SV_Position and prim id
+  //return BC.Builder.CreateICmpEQ(BC.HlslOP->GetU32Const(Parameters.PixelShader.X), BC.HlslOP->GetU32Const(Parameters.PixelShader.X), "CompareToX");
+
   // Merge comparisons into one:
   return BC.Builder.CreateAnd(ComparePos, CompareToExpectedPrimId, "ComparePosAndPrimId");
+#endif
 }
 
 CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
 {
-
   // Set up a UAV with structure of a single int
   SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(BC.Ctx) };
   llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "PIX_DebugUAV_Type");
@@ -358,6 +372,8 @@ CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
   pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
 
   auto ID = BC.DM.AddUAV(std::move(pUAV));
+
+  BC.DM.m_ShaderFlags.SetEnableRawAndStructuredBuffers(true);
 
   // Create handle for the newly-added UAV
   Function* CreateHandleOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(BC.Ctx));
