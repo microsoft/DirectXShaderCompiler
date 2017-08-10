@@ -229,6 +229,7 @@ def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Read root signature from a #define">;
+def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
 //////////////////////////////////////////////////////////////////////////////
 // fxc-based flags that don't match those previously defined.
@@ -265,7 +266,6 @@ def Gfp : Flag<["-", "/"], "Gfp">, HelpText<"Prefer flow control constructs">, F
 // /Gdp - disable effect performance mode - unsupported
 def Ges : Flag<["-", "/"], "Ges">, HelpText<"Enable strict mode">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
-def IgnoreLineDirectives : Flag<["-"], "IgnoreLineDirectives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
 def denorm : JoinedOrSeparate<["-", "/"], "denorm">, HelpText<"select denormal value options (any, preserve, ftz). any is the default.">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 

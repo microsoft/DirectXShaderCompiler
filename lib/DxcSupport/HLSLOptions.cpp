@@ -299,7 +299,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.IEEEStrict = Args.hasFlag(OPT_Gis, OPT_INVALID, false);
 
-  opts.IgnoreLineDirectives = Args.hasFlag(OPT_IgnoreLineDirectives, OPT_INVALID, false);
+  opts.IgnoreLineDirectives = Args.hasFlag(OPT_ignore_line_directives, OPT_INVALID, false);
 
   opts.FPDenormalMode = Args.getLastArgValue(OPT_denorm);
   // Check if a given denormalized value is valid
