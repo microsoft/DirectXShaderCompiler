@@ -155,6 +155,9 @@ public:
                     uint32_t defaultLabel,
                     llvm::ArrayRef<std::pair<uint32_t, uint32_t>> target);
 
+  /// \brief Creates a fragment-shader discard via by emitting OpKill.
+  void createKill();
+
   /// \brief Creates an unconditional branch to the given target label.
   /// If mergeBB and continueBB are non-zero, it creates an OpLoopMerge
   /// instruction followed by an unconditional branch to the given target label.
