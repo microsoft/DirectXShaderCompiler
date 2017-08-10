@@ -122,6 +122,56 @@ bool isSpirvMatrixOp(spv::Op opcode) {
   return false;
 }
 
+/// \brief Returns the statement that is the immediate parent AST node of the
+/// given statement. Returns nullptr if there are no parents nodes.
+const Stmt *getImmediateParent(ASTContext &astContext, const Stmt *stmt) {
+  const auto &parents = astContext.getParents(*stmt);
+  return parents.empty() ? nullptr : parents[0].get<Stmt>();
+}
+
+/// \brief Returns true if there are no unreachable statements after the given
+/// statement. A "continue" statement and "break" statement cause a branch to a
+/// loop header and a loop merge block, respectively. A "return" statement
+/// causes a branch out of the function. In such situations, any statement that
+/// follows the break/continue/return will not be executed. When this method
+/// returns false, it indicates that there exists statements that are not going
+/// to be executed.
+bool isLastStmtBeforeControlFlowBranching(ASTContext &astContext,
+                                          const Stmt *stmt) {
+  const Stmt *parent = getImmediateParent(astContext, stmt);
+  if (const auto *parentCS = dyn_cast_or_null<CompoundStmt>(parent)) {
+    if (stmt == *(parentCS->body_rbegin())) {
+      // The current statement is the last child node of the parent.
+
+      // Handle nested compound statements. e.g.
+      // while (cond) {
+      //   StmtA;
+      //   {
+      //      StmtB;
+      //      {{continue;}}
+      //   }
+      //   {StmtC;}
+      //   StmtD;
+      // }
+      //
+      // The continue statement is the last statement in its CompoundStmt scope,
+      // but, if nested compound statements are flattened, the continue
+      // statement is not the last statement in the current loop scope.
+      const Stmt *grandparent = getImmediateParent(astContext, parent);
+      if (grandparent && isa<CompoundStmt>(grandparent))
+        return isLastStmtBeforeControlFlowBranching(astContext, parent);
+
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool isLoopStmt(const Stmt *stmt) {
+  return isa<ForStmt>(stmt) || isa<WhileStmt>(stmt) || isa<DoStmt>(stmt);
+}
+
 } // namespace
 
 SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
@@ -212,6 +262,8 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
     doBreakStmt(breakStmt);
   } else if (const auto *theDoStmt = dyn_cast<DoStmt>(stmt)) {
     doDoStmt(theDoStmt, attrs);
+  } else if (const auto *continueStmt = dyn_cast<ContinueStmt>(stmt)) {
+    doContinueStmt(continueStmt);
   } else if (const auto *whileStmt = dyn_cast<WhileStmt>(stmt)) {
     doWhileStmt(whileStmt, attrs);
   } else if (const auto *forStmt = dyn_cast<ForStmt>(stmt)) {
@@ -531,6 +583,11 @@ void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
   const uint32_t continueBB = theBuilder.createBasicBlock("do_while.continue");
   const uint32_t mergeBB = theBuilder.createBasicBlock("do_while.merge");
 
+  // Make sure any continue statements branch to the continue block, and any
+  // break statements branch to the merge block.
+  continueStack.push(continueBB);
+  breakStack.push(mergeBB);
+
   // Branch from the current insert point to the header block.
   theBuilder.createBranch(headerBB);
   theBuilder.addSuccessor(headerBB);
@@ -550,7 +607,8 @@ void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
   if (const Stmt *body = theDoStmt->getBody()) {
     doStmt(body);
   }
-  theBuilder.createBranch(continueBB);
+  if (!theBuilder.isCurrentBasicBlockTerminated())
+    theBuilder.createBranch(continueBB);
   theBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block. The check for whether the loop should
@@ -571,6 +629,37 @@ void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
 
   // Set insertion point to the <merge> block for subsequent statements
   theBuilder.setInsertPoint(mergeBB);
+
+  // Done with the current scope's continue block and merge block.
+  continueStack.pop();
+  breakStack.pop();
+}
+
+void SPIRVEmitter::doContinueStmt(const ContinueStmt *continueStmt) {
+  assert(!theBuilder.isCurrentBasicBlockTerminated());
+  const uint32_t continueTargetBB = continueStack.top();
+  theBuilder.createBranch(continueTargetBB);
+  theBuilder.addSuccessor(continueTargetBB);
+
+  // If any statements follow a continue statement in a loop, they will not be
+  // executed. For example, StmtB and StmtC below are never executed:
+  //
+  // while (true) {
+  //   StmtA;
+  //   continue;
+  //   StmtB;
+  //   StmtC;
+  // }
+  //
+  // To handle such cases, we do not stop tranlsation. We create a new basic
+  // block in which StmtB and StmtC will be translated.
+  // Note that since this basic block is unreachable, BlockReadableOrderVisitor
+  // will not emit it in the final module binary.
+  if (!isLastStmtBeforeControlFlowBranching(astContext, continueStmt)) {
+    const uint32_t unreachableBB =
+        theBuilder.createBasicBlock("unreachable", /*isReachable*/ false);
+    theBuilder.setInsertPoint(unreachableBB);
+  }
 }
 
 void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
@@ -616,6 +705,11 @@ void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
   const uint32_t continueBB = theBuilder.createBasicBlock("while.continue");
   const uint32_t mergeBB = theBuilder.createBasicBlock("while.merge");
 
+  // Make sure any continue statements branch to the continue block, and any
+  // break statements branch to the merge block.
+  continueStack.push(continueBB);
+  breakStack.push(mergeBB);
+
   // Process the <check> block
   theBuilder.createBranch(checkBB);
   theBuilder.addSuccessor(checkBB);
@@ -651,7 +745,8 @@ void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
   if (const Stmt *body = whileStmt->getBody()) {
     doStmt(body);
   }
-  theBuilder.createBranch(continueBB);
+  if (!theBuilder.isCurrentBasicBlockTerminated())
+    theBuilder.createBranch(continueBB);
   theBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block. While loops do not have an explicit
@@ -662,6 +757,10 @@ void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
 
   // Set insertion point to the <merge> block for subsequent statements
   theBuilder.setInsertPoint(mergeBB);
+
+  // Done with the current scope's continue and merge blocks.
+  continueStack.pop();
+  breakStack.pop();
 }
 
 void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
@@ -709,6 +808,11 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   const uint32_t continueBB = theBuilder.createBasicBlock("for.continue");
   const uint32_t mergeBB = theBuilder.createBasicBlock("for.merge");
 
+  // Make sure any continue statements branch to the continue block, and any
+  // break statements branch to the merge block.
+  continueStack.push(continueBB);
+  breakStack.push(mergeBB);
+
   // Process the <init> block
   if (const Stmt *initStmt = forStmt->getInit()) {
     doStmt(initStmt);
@@ -741,7 +845,8 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
   if (const Stmt *body = forStmt->getBody()) {
     doStmt(body);
   }
-  theBuilder.createBranch(continueBB);
+  if (!theBuilder.isCurrentBasicBlockTerminated())
+    theBuilder.createBranch(continueBB);
   theBuilder.addSuccessor(continueBB);
 
   // Process the <continue> block
@@ -754,6 +859,10 @@ void SPIRVEmitter::doForStmt(const ForStmt *forStmt,
 
   // Set insertion point to the <merge> block for subsequent statements
   theBuilder.setInsertPoint(mergeBB);
+
+  // Done with the current scope's continue block and merge block.
+  continueStack.pop();
+  breakStack.pop();
 }
 
 void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
@@ -882,10 +991,68 @@ void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
   }
 }
 
+bool SPIRVEmitter::breakStmtIsLastStmtInCaseStmt(const BreakStmt *breakStmt,
+                                                 const SwitchStmt *switchStmt) {
+  std::vector<const Stmt *> flatSwitch;
+  flattenSwitchStmtAST(switchStmt->getBody(), &flatSwitch);
+  auto iter =
+      std::find(flatSwitch.begin(), flatSwitch.end(), cast<Stmt>(breakStmt));
+  assert(iter != std::end(flatSwitch));
+
+  // We are interested to know what comes after the BreakStmt.
+  ++iter;
+
+  // The break statement is the last statement in its case statement iff:
+  // it is the last statement in the switch, or,
+  // its next statement is either 'default' or 'case'
+  return iter == flatSwitch.end() || isa<CaseStmt>(*iter) ||
+         isa<DefaultStmt>(*iter);
+}
+
+const Stmt *SPIRVEmitter::breakStmtScope(const BreakStmt *breakStmt) {
+  const Stmt *curNode = breakStmt;
+  do {
+    curNode = getImmediateParent(astContext, curNode);
+  } while (curNode && !isLoopStmt(curNode) && !isa<SwitchStmt>(curNode));
+
+  return curNode;
+}
+
 void SPIRVEmitter::doBreakStmt(const BreakStmt *breakStmt) {
+  assert(!theBuilder.isCurrentBasicBlockTerminated());
   uint32_t breakTargetBB = breakStack.top();
   theBuilder.addSuccessor(breakTargetBB);
   theBuilder.createBranch(breakTargetBB);
+
+  // If any statements follow a break statement in a loop or switch, they will
+  // not be executed. For example, StmtB and StmtC below are never executed:
+  //
+  // while (true) {
+  //   StmtA;
+  //   break;
+  //   StmtB;
+  //   StmtC;
+  // }
+  //
+  // To handle such cases, we do not stop tranlsation. We create a new basic
+  // block in which StmtB and StmtC will be translated.
+  // Note that since this basic block is unreachable, BlockReadableOrderVisitor
+  // will not emit it in the final module binary.
+  const Stmt *scope = breakStmtScope(breakStmt);
+  if (
+      // Have unreachable instructions after a break statement in a case of a
+      // switch statement
+      (isa<SwitchStmt>(scope) &&
+       !breakStmtIsLastStmtInCaseStmt(breakStmt,
+                                      dyn_cast<SwitchStmt>(scope))) ||
+      // Have unreachable instructions after a break statement in a loop
+      // statement
+      (isLoopStmt(scope) &&
+       !isLastStmtBeforeControlFlowBranching(astContext, breakStmt))) {
+    const uint32_t unreachableBB =
+        theBuilder.createBasicBlock("unreachable", false);
+    theBuilder.setInsertPoint(unreachableBB);
+  }
 }
 
 void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
