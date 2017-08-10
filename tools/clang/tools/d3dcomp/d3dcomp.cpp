@@ -46,11 +46,14 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
   // Upconvert legacy targets
   char Target[7] = "?s_6_0";
   Target[6] = 0;
-  Target[0] = pTarget[0];
+  if (pTarget[3] < '6') {
+    Target[0] = pTarget[0];
+    pTarget = Target;
+  }
 
   try {
     CA2W pEntrypointW(pEntrypoint);
-    CA2W pTargetProfileW(Target);
+    CA2W pTargetProfileW(pTarget);
     std::vector<std::wstring> defineValues;
     std::vector<DxcDefine> defines;
     if (pDefines) {
