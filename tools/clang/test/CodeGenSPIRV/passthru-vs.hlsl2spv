@@ -24,6 +24,9 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // OpEntryPoint Vertex %VSmain "VSmain" %gl_Position %5 %7 %8
 // OpName %VSmain "VSmain"
 // OpName %bb_entry "bb.entry"
+// OpName %PSInput "PSInput"
+// OpMemberName %PSInput 0 "position"
+// OpMemberName %PSInput 1 "color"
 // OpName %result "result"
 // OpDecorate %gl_Position BuiltIn Position
 // OpDecorate %5 Location 0
@@ -36,8 +39,8 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // %_ptr_Input_v4float = OpTypePointer Input %v4float
 // %void = OpTypeVoid
 // %10 = OpTypeFunction %void
-// %_struct_13 = OpTypeStruct %v4float %v4float
-// %_ptr_Function__struct_13 = OpTypePointer Function %_struct_13
+// %PSInput = OpTypeStruct %v4float %v4float
+// %_ptr_Function_PSInput = OpTypePointer Function %PSInput
 // %_ptr_Function_v4float = OpTypePointer Function %v4float
 // %int_0 = OpConstant %int 0
 // %int_1 = OpConstant %int 1
@@ -47,7 +50,7 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // %8 = OpVariable %_ptr_Input_v4float Input
 // %VSmain = OpFunction %void None %10
 // %bb_entry = OpLabel
-// %result = OpVariable %_ptr_Function__struct_13 Function
+// %result = OpVariable %_ptr_Function_PSInput Function
 // %16 = OpLoad %v4float %7
 // %20 = OpAccessChain %_ptr_Function_v4float %result %int_0
 // OpStore %20 %16
