@@ -46,12 +46,15 @@ public:
   TEST_METHOD(RunIntrinsicExamples);
   TEST_METHOD(RunMatrixAssignments);
   TEST_METHOD(RunMatrixSyntax);
+  TEST_METHOD(RunMatrixSyntaxExactPrecision);
   TEST_METHOD(RunMoreOperators);
   TEST_METHOD(RunObjectOperators);
   TEST_METHOD(RunPackReg);
   TEST_METHOD(RunScalarAssignments);
+  TEST_METHOD(RunScalarAssignmentsExactPrecision);
   TEST_METHOD(RunScalarOperatorsAssign);
   TEST_METHOD(RunScalarOperators);
+  TEST_METHOD(RunScalarOperatorsExactPrecision);
   TEST_METHOD(RunString);
   TEST_METHOD(RunStructAssignments);
   TEST_METHOD(RunTemplateChecks);
@@ -59,6 +62,7 @@ public:
   TEST_METHOD(RunVectorAssignments);
   TEST_METHOD(RunVectorSyntaxMix);
   TEST_METHOD(RunVectorSyntax);
+  TEST_METHOD(RunVectorSyntaxExactPrecision);
   TEST_METHOD(RunTypemodsSyntax);
   TEST_METHOD(RunSemantics);
   TEST_METHOD(RunImplicitCasts);
@@ -183,6 +187,10 @@ TEST_F(VerifierTest, RunMatrixSyntax) {
   CheckVerifiesHLSL(L"matrix-syntax.hlsl");
 }
 
+TEST_F(VerifierTest, RunMatrixSyntaxExactPrecision) {
+  CheckVerifiesHLSL(L"matrix-syntax-exact-precision.hlsl");
+}
+
 TEST_F(VerifierTest, RunMoreOperators) {
   CheckVerifiesHLSL(L"more-operators.hlsl");
 }
@@ -199,12 +207,20 @@ TEST_F(VerifierTest, RunScalarAssignments) {
   CheckVerifiesHLSL(L"scalar-assignments.hlsl");
 }
 
+TEST_F(VerifierTest, RunScalarAssignmentsExactPrecision) {
+  CheckVerifiesHLSL(L"scalar-assignments-exact-precision.hlsl");
+}
+
 TEST_F(VerifierTest, RunScalarOperatorsAssign) {
   CheckVerifiesHLSL(L"scalar-operators-assign.hlsl");
 }
 
 TEST_F(VerifierTest, RunScalarOperators) {
   CheckVerifiesHLSL(L"scalar-operators.hlsl");
+}
+
+TEST_F(VerifierTest, RunScalarOperatorsExactPrecision) {
+  CheckVerifiesHLSL(L"scalar-operators-exact-precision.hlsl");
 }
 
 TEST_F(VerifierTest, RunString) {
@@ -233,6 +249,10 @@ TEST_F(VerifierTest, RunVectorSyntaxMix) {
 
 TEST_F(VerifierTest, RunVectorSyntax) {
   CheckVerifiesHLSL(L"vector-syntax.hlsl");
+}
+
+TEST_F(VerifierTest, RunVectorSyntaxExactPrecision) {
+  CheckVerifiesHLSL(L"vector-syntax-exact-precision.hlsl");
 }
 
 TEST_F(VerifierTest, RunTypemodsSyntax) {
