@@ -753,6 +753,8 @@ public:
       PPOpts.addMacroDef(defines[i]);
     }
 
+    PPOpts.IgnoreLineDirectives = Opts.NoLineDirectives;
+
     // Pick additional arguments.
     clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();
     HSOpts.UseBuiltinIncludes = 0;

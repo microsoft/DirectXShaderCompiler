@@ -265,6 +265,7 @@ def Gfp : Flag<["-", "/"], "Gfp">, HelpText<"Prefer flow control constructs">, F
 // /Gdp - disable effect performance mode - unsupported
 def Ges : Flag<["-", "/"], "Ges">, HelpText<"Enable strict mode">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
+def NoLineDirectives : Flag<["-"], "NoLineDirectives">, HelpText<"Not use line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
 def denorm : JoinedOrSeparate<["-", "/"], "denorm">, HelpText<"select denormal value options (any, preserve, ftz). any is the default.">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
