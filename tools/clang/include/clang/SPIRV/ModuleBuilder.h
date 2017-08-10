@@ -71,7 +71,9 @@ public:
 
   /// \brief Creates a SPIR-V basic block. On success, returns the <label-id>
   /// for the basic block. On failure, returns zero.
-  uint32_t createBasicBlock(llvm::StringRef name = "");
+  /// All basic blocks are reachable by default. If isReachable is set to false,
+  /// a debug name will not be created for the basic block.
+  uint32_t createBasicBlock(llvm::StringRef name = "", bool isReachable = true);
 
   /// \brief Adds the basic block with the given label as a successor to the
   /// current basic block.

@@ -80,7 +80,9 @@ private:
 class BasicBlock {
 public:
   /// \brief Constructs a basic block with the given <label-id>.
-  inline explicit BasicBlock(uint32_t labelId);
+  /// By default all basic blocks are considered reachable, unless the caller
+  /// specifies otherwise.
+  inline explicit BasicBlock(uint32_t labelId, bool isReachable = true);
 
   // Disable copy constructor/assignment
   BasicBlock(const BasicBlock &) = delete;
@@ -135,6 +137,9 @@ public:
   /// \brief Returns true if this basic block is terminated.
   bool isTerminated() const;
 
+  /// \brief Returns true if this basic block is reachable in the control flow.
+  inline bool isReachable() const;
+
 private:
   uint32_t labelId; ///< The label id for this basic block. Zero means invalid.
   std::deque<Instruction> instructions;
@@ -142,6 +147,7 @@ private:
   llvm::SmallVector<BasicBlock *, 2> successors;
   BasicBlock *mergeTarget;
   BasicBlock *continueTarget;
+  bool reachable;
 };
 
 // === Function definition ===
@@ -351,8 +357,9 @@ std::vector<uint32_t> Instruction::take() { return std::move(words); }
 
 // === Basic block inline implementations ===
 
-BasicBlock::BasicBlock(uint32_t id)
-    : labelId(id), mergeTarget(nullptr), continueTarget(nullptr) {}
+BasicBlock::BasicBlock(uint32_t id, bool isReachable)
+    : labelId(id), mergeTarget(nullptr), continueTarget(nullptr),
+      reachable(isReachable) {}
 
 bool BasicBlock::isEmpty() const {
   return labelId == 0 && instructions.empty();
@@ -383,6 +390,8 @@ void BasicBlock::setContinueTarget(BasicBlock *target) {
 }
 
 BasicBlock *BasicBlock::getContinueTarget() const { return continueTarget; }
+
+bool BasicBlock::isReachable() const { return reachable; }
 
 // === Function inline implementations ===
 
