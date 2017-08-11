@@ -142,7 +142,6 @@ private:
     {
       unsigned X;
       unsigned Y;
-      unsigned PrimitiveId;
     } PixelShader;
     struct VertexShaderParameters
     {
@@ -162,7 +161,6 @@ private:
     struct PixelShaderParameters
     {
       unsigned Position;
-      unsigned PrimitiveId;
     } PixelShader;
     struct VertexShaderParameters
     {
@@ -255,8 +253,8 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
   case DXIL::ShaderKind::Pixel:
   {
     auto Existing_SV_Position = std::find_if(
-        InputElements.begin(), InputElements.end(), 
-        [](const std::unique_ptr<DxilSignatureElement> & Element) {
+      InputElements.begin(), InputElements.end(),
+      [](const std::unique_ptr<DxilSignatureElement> & Element) {
       return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::Position; });
 
     // SV_Position, if present, has to have full mask, so we needn't worry 
@@ -275,24 +273,74 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
     else {
       SVIndices.PixelShader.Position = Existing_SV_Position->get()->GetID();
     }
-
-    auto Existing_SV_PrimId = std::find_if(
-        InputElements.begin(), InputElements.end(), 
+  }
+  break;
+  case DXIL::ShaderKind::Vertex:
+  {
+    {
+      auto Existing_SV_VertexId = std::find_if(
+        InputElements.begin(), InputElements.end(),
         [](const std::unique_ptr<DxilSignatureElement> & Element) {
-      return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::PrimitiveID; });
+        return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::VertexID; });
 
-    if (Existing_SV_PrimId == InputElements.end()) {
-      auto Added_SV_PrimId = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-      Added_SV_PrimId->Initialize("PrimitiveId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 1);
-      Added_SV_PrimId->AppendSemanticIndex(0);
-      Added_SV_PrimId->SetSigPointKind(DXIL::SigPointKind::PSIn);
-      Added_SV_PrimId->SetKind(hlsl::DXIL::SemanticKind::PrimitiveID);
+      if (Existing_SV_VertexId == InputElements.end()) {
+        auto Added_SV_VertexId = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+        Added_SV_VertexId->Initialize("PrimitiveId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 1);
+        Added_SV_VertexId->AppendSemanticIndex(0);
+        Added_SV_VertexId->SetSigPointKind(DXIL::SigPointKind::PSIn);
+        Added_SV_VertexId->SetKind(hlsl::DXIL::SemanticKind::PrimitiveID);
 
-      auto index = InputSignature.AppendElement(std::move(Added_SV_PrimId));
-      SVIndices.PixelShader.PrimitiveId = InputElements[index]->GetID();
+        auto index = InputSignature.AppendElement(std::move(Added_SV_VertexId));
+        SVIndices.VertexShader.VertexId = InputElements[index]->GetID();
+      }
+      else {
+        SVIndices.VertexShader.VertexId = Existing_SV_VertexId->get()->GetID();
+      }
+    }
+    {
+      auto Existing_SV_InstanceId = std::find_if(
+        InputElements.begin(), InputElements.end(),
+        [](const std::unique_ptr<DxilSignatureElement> & Element) {
+        return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::InstanceID; });
+
+      if (Existing_SV_InstanceId == InputElements.end()) {
+        auto Added_SV_InstanceId = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+        Added_SV_InstanceId->Initialize("InstanceId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 1);
+        Added_SV_InstanceId->AppendSemanticIndex(0);
+        Added_SV_InstanceId->SetSigPointKind(DXIL::SigPointKind::PSIn);
+        Added_SV_InstanceId->SetKind(hlsl::DXIL::SemanticKind::PrimitiveID);
+
+        auto index = InputSignature.AppendElement(std::move(Added_SV_InstanceId));
+        SVIndices.VertexShader.InstanceId = InputElements[index]->GetID();
+      }
+      else {
+        SVIndices.VertexShader.InstanceId = Existing_SV_InstanceId->get()->GetID();
+      }
+    }
+  }
+  break;
+  case DXIL::ShaderKind::Compute:
+  {
+    auto Existing_SV_ThreadId = std::find_if(
+      InputElements.begin(), InputElements.end(),
+      [](const std::unique_ptr<DxilSignatureElement> & Element) {
+      return Element->GetSemantic()->GetKind() == hlsl::DXIL::SemanticKind::DispatchThreadID; });
+
+    // SV_Position, if present, has to have full mask, so we needn't worry 
+    // about the shader having selected components that don't include x or y.
+    // If not present, we add it.
+    if (Existing_SV_ThreadId == InputElements.end()) {
+      auto Added_SV_Thread = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+      Added_SV_Thread->Initialize("ThreadId", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4);
+      Added_SV_Thread->AppendSemanticIndex(0);
+      Added_SV_Thread->SetSigPointKind(DXIL::SigPointKind::PSIn);
+      Added_SV_Thread->SetKind(hlsl::DXIL::SemanticKind::Position);
+
+      auto index = InputSignature.AppendElement(std::move(Added_SV_Thread));
+      SVIndices.ComputeShader.ThreadId = InputElements[index]->GetID();
     }
     else {
-      SVIndices.PixelShader.PrimitiveId = Existing_SV_PrimId->get()->GetID();
+      SVIndices.ComputeShader.ThreadId = Existing_SV_ThreadId->get()->GetID();
     }
   }
   break;
