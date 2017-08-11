@@ -44,6 +44,8 @@ TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
 // For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
 TEST_F(FileTest, VectorConstants) { runFileTest("constant.vector.hlsl"); }
+TEST_F(FileTest, MatrixConstants) { runFileTest("constant.matrix.hlsl"); }
+TEST_F(FileTest, StructConstants) { runFileTest("constant.struct.hlsl"); }
 
 // For variables
 TEST_F(FileTest, VarInit) { runFileTest("var.init.hlsl"); }
@@ -51,6 +53,7 @@ TEST_F(FileTest, VarInitMatrixMxN) { runFileTest("var.init.matrix.mxn.hlsl"); }
 TEST_F(FileTest, VarInitMatrixMx1) { runFileTest("var.init.matrix.mx1.hlsl"); }
 TEST_F(FileTest, VarInitMatrix1xN) { runFileTest("var.init.matrix.1xn.hlsl"); }
 TEST_F(FileTest, VarInitMatrix1x1) { runFileTest("var.init.matrix.1x1.hlsl"); }
+TEST_F(FileTest, VarInitStruct) { runFileTest("var.init.struct.hlsl"); }
 TEST_F(FileTest, StaticVar) { runFileTest("var.static.hlsl"); }
 
 // For prefix/postfix increment/decrement
