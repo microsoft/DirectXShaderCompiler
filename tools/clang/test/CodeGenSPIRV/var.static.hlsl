@@ -15,22 +15,23 @@ static bool3 gb;
 // InitListHandler.
 static float2x2 gc = {1, 2, 3, 4};
 
-// CHECK: [[input:%\d+]] = OpVariable %_ptr_Input_int Input
-
 // CHECK: %a = OpVariable %_ptr_Private_uint Private %uint_5
 // CHECK: %b = OpVariable %_ptr_Private_v4float Private [[v4f0]]
 // CHECK: %c = OpVariable %_ptr_Private_int Private
 
 // CHECK: %init_done_c = OpVariable %_ptr_Private_bool Private %false
 
-int main(int input: A) : B {
-// CHECK-LABEL: %bb_entry = OpLabel
-
-    // initialization of gc
+    // initialization of gc appears at the beginning of the entry function wrapper
+// CHECK-LABEL: OpLabel
 // CHECK:      [[v2f12:%\d+]] = OpCompositeConstruct %v2float %float_1 %float_2
 // CHECK-NEXT: [[v2f34:%\d+]] = OpCompositeConstruct %v2float %float_3 %float_4
 // CHECK-NEXT: [[mat1234:%\d+]] = OpCompositeConstruct %mat2v2float [[v2f12]] [[v2f34]]
 // CHECK-NEXT: OpStore %gc [[mat1234]]
+// CHECK:      OpFunctionCall %int %src_main
+// CHECK-LABEL: OpFunctionEnd
+
+int main(int input: A) : B {
+// CHECK-LABEL: %bb_entry = OpLabel
 
     static uint a = 5;    // const init
     static float4 b;      // no init
@@ -39,7 +40,7 @@ int main(int input: A) : B {
 // CHECK-NEXT: OpSelectionMerge %if_merge None
 // CHECK-NEXT: OpBranchConditional [[initdonec]] %if_true %if_merge
 // CHECK-NEXT: %if_true = OpLabel
-// CHECK-NEXT: [[initc:%\d+]] = OpLoad %int [[input]]
+// CHECK-NEXT: [[initc:%\d+]] = OpLoad %int %input
 // CHECK-NEXT: OpStore %c [[initc]]
 // CHECK-NEXT: OpStore %init_done_c %true
 // CHECK-NEXT: OpBranch %if_merge

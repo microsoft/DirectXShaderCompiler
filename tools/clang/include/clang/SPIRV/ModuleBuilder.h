@@ -10,6 +10,7 @@
 #define LLVM_CLANG_SPIRV_MODULEBUILDER_H
 
 #include <memory>
+#include <string>
 
 #include "clang/SPIRV/InstBuilder.h"
 #include "clang/SPIRV/SPIRVContext.h"
@@ -216,7 +217,8 @@ public:
   ///
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
-  uint32_t addStageIOVar(uint32_t type, spv::StorageClass storageClass);
+  uint32_t addStageIOVar(uint32_t type, spv::StorageClass storageClass,
+                         std::string name);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
   ///

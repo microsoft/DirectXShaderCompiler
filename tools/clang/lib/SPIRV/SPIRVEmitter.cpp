@@ -392,69 +392,54 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   curFunction = decl;
 
-  const llvm::StringRef funcName = decl->getName();
+  std::string funcName = decl->getName();
 
   uint32_t funcId = 0;
 
   if (funcName == entryFunctionName) {
-    // First create stage variables for the entry point.
-    if (!declIdMapper.createStageVarFromFnReturn(decl))
-      return;
-
-    for (const auto *param : decl->params())
-      if (!declIdMapper.createStageVarFromFnParam(param))
-        return;
-
-    // Construct the function signature.
-    const uint32_t voidType = theBuilder.getVoidType();
-    const uint32_t funcType = theBuilder.getFunctionType(voidType, {});
-
     // The entry function surely does not have pre-assigned <result-id> for
     // it like other functions that got added to the work queue following
     // function calls.
-    funcId = theBuilder.beginFunction(funcType, voidType, funcName);
+    funcId = theContext.takeNextId();
+    funcName = "src." + funcName;
 
-    // Record the entry function's <result-id>.
-    entryFunctionId = funcId;
+    // Create wrapper for the entry function
+    entryFunctionId = emitEntryFunctionWrapper(decl, funcId);
+    if (entryFunctionId == 0)
+      return;
   } else {
-    const uint32_t retType =
-        typeTranslator.translateType(decl->getReturnType());
-
-    // Construct the function signature.
-    llvm::SmallVector<uint32_t, 4> paramTypes;
-    for (const auto *param : decl->params()) {
-      const uint32_t valueType = typeTranslator.translateType(param->getType());
-      const uint32_t ptrType =
-          theBuilder.getPointerType(valueType, spv::StorageClass::Function);
-      paramTypes.push_back(ptrType);
-    }
-    const uint32_t funcType = theBuilder.getFunctionType(retType, paramTypes);
-
     // Non-entry functions are added to the work queue following function
     // calls. We have already assigned <result-id>s for it when translating
     // its call site. Query it here.
     funcId = declIdMapper.getDeclResultId(decl);
-    theBuilder.beginFunction(funcType, retType, funcName, funcId);
+  }
 
-    // Create all parameters.
-    for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
-      const ParmVarDecl *paramDecl = decl->getParamDecl(i);
-      const uint32_t paramId =
-          theBuilder.addFnParam(paramTypes[i], paramDecl->getName());
-      declIdMapper.registerDeclResultId(paramDecl, paramId);
-    }
+  const uint32_t retType = typeTranslator.translateType(decl->getReturnType());
+
+  // Construct the function signature.
+  llvm::SmallVector<uint32_t, 4> paramTypes;
+  for (const auto *param : decl->params()) {
+    const uint32_t valueType = typeTranslator.translateType(param->getType());
+    const uint32_t ptrType =
+        theBuilder.getPointerType(valueType, spv::StorageClass::Function);
+    paramTypes.push_back(ptrType);
+  }
+
+  const uint32_t funcType = theBuilder.getFunctionType(retType, paramTypes);
+  theBuilder.beginFunction(funcType, retType, funcName, funcId);
+
+  // Create all parameters.
+  for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
+    const ParmVarDecl *paramDecl = decl->getParamDecl(i);
+    const uint32_t paramId =
+        theBuilder.addFnParam(paramTypes[i], paramDecl->getName());
+    declIdMapper.registerDeclResultId(paramDecl, paramId);
   }
 
   if (decl->hasBody()) {
     // The entry basic block.
     const uint32_t entryLabel = theBuilder.createBasicBlock("bb.entry");
     theBuilder.setInsertPoint(entryLabel);
-
-    // Initialize all global variables at the beginning of the entry function
-    if (funcId == entryFunctionId)
-      for (const VarDecl *varDecl : toInitGloalVars)
-        theBuilder.createStore(declIdMapper.getDeclResultId(varDecl),
-                               doExpr(varDecl->getInit()));
 
     // Process all statments in the body.
     doStmt(decl->getBody());
@@ -951,77 +936,16 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
 }
 
 void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
-  processReturnStmt(stmt);
+  if (const auto *retVal = stmt->getRetValue())
+    theBuilder.createReturnValue(doExpr(retVal));
+  else
+    theBuilder.createReturn();
 
   // Handle early returns
   if (!isLastStmtBeforeControlFlowBranching(astContext, stmt)) {
     const uint32_t unreachableBB =
         theBuilder.createBasicBlock("unreachable", /*isReachable*/ false);
     theBuilder.setInsertPoint(unreachableBB);
-  }
-}
-
-void SPIRVEmitter::processReturnStmt(const ReturnStmt *stmt) {
-  // For normal functions, just return in the normal way.
-  if (curFunction->getName() != entryFunctionName) {
-    theBuilder.createReturnValue(doExpr(stmt->getRetValue()));
-    return;
-  }
-
-  // SPIR-V requires the signature of entry functions to be void(), while
-  // in HLSL we can have non-void parameter and return types for entry points.
-  // So we should treat the ReturnStmt in entry functions specially.
-  //
-  // We need to walk through the return type, and for each subtype attached
-  // with semantics, write out the value to the corresponding stage variable
-  // mapped to the semantic.
-
-  const uint32_t stageVarId = declIdMapper.getRemappedDeclResultId(curFunction);
-
-  if (stageVarId) {
-    // The return value is mapped to a single stage variable. We just need
-    // to store the value into the stage variable instead.
-    theBuilder.createStore(stageVarId, doExpr(stmt->getRetValue()));
-    theBuilder.createReturn();
-    return;
-  }
-
-  // RetValue is nullptr when "return;" is used for a void function.
-  if (!stmt->getRetValue()) {
-    theBuilder.createReturn();
-    return;
-  }
-
-  QualType retType = stmt->getRetValue()->getType();
-
-  if (const auto *structType = retType->getAsStructureType()) {
-    // We are trying to return a value of struct type.
-
-    // First get the return value. Clang AST will use an LValueToRValue cast
-    // for returning a struct variable. We need to ignore the cast to avoid
-    // creating OpLoad instruction since we need the pointer to the variable
-    // for creating access chain later.
-    const Expr *retValue = stmt->getRetValue()->IgnoreParenLValueCasts();
-
-    // Then go through all fields.
-    uint32_t fieldIndex = 0;
-    for (const auto *field : structType->getDecl()->fields()) {
-      // Load the value from the current field.
-      const uint32_t valueType = typeTranslator.translateType(field->getType());
-      const uint32_t ptrType = theBuilder.getPointerType(
-          typeTranslator.translateType(field->getType()),
-          declIdMapper.resolveStorageClass(retValue));
-      const uint32_t indexId = theBuilder.getConstantInt32(fieldIndex++);
-      const uint32_t valuePtr =
-          theBuilder.createAccessChain(ptrType, doExpr(retValue), {indexId});
-      const uint32_t value = theBuilder.createLoad(valueType, valuePtr);
-      // Store it to the corresponding stage variable.
-      const uint32_t targetVar = declIdMapper.getDeclResultId(field);
-      theBuilder.createStore(targetVar, value);
-    }
-  } else {
-    emitError("Return type '%0' for entry function is not supported yet.")
-        << retType->getTypeClassName();
   }
 }
 
@@ -1596,6 +1520,7 @@ uint32_t SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   const uint32_t fieldType = typeTranslator.translateType(expr->getType());
   const uint32_t ptrType = theBuilder.getPointerType(
       fieldType, declIdMapper.resolveStorageClass(baseExpr));
+
   return theBuilder.createAccessChain(ptrType, base, indices);
 }
 
@@ -3174,6 +3099,63 @@ void SPIRVEmitter::AddExecutionModeForEntryPoint(uint32_t entryPointId) {
     // TODO: Implement logic for adding proper execution mode for other
     // shader stages. Silently skipping for now.
   }
+}
+
+uint32_t SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
+                                                uint32_t entryFuncId) {
+  // Construct the wrapper function signature.
+  const uint32_t voidType = theBuilder.getVoidType();
+  const uint32_t funcType = theBuilder.getFunctionType(voidType, {});
+
+  // The wrapper entry function surely does not have pre-assigned <result-id>
+  // for it like other functions that got added to the work queue following
+  // function calls.
+  const uint32_t funcId =
+      theBuilder.beginFunction(funcType, voidType, decl->getName());
+
+  // The entry basic block.
+  const uint32_t entryLabel = theBuilder.createBasicBlock();
+  theBuilder.setInsertPoint(entryLabel);
+
+  // Initialize all global variables at the beginning of the entry function
+  for (const VarDecl *varDecl : toInitGloalVars)
+    theBuilder.createStore(declIdMapper.getDeclResultId(varDecl),
+                           doExpr(varDecl->getInit()));
+
+  // Create and read stage input variables
+  // TODO: handle out/inout modifier
+  llvm::SmallVector<uint32_t, 4> params;
+  for (const auto *param : decl->params()) {
+    // Create stage variable(s) from this parameter and load the composite value
+    uint32_t loadedValue = 0;
+    if (!declIdMapper.createStageInputVar(param, &loadedValue))
+      return 0;
+
+    // Create a temporary variable to hold the composite value of the stage
+    // variable
+    const uint32_t typeId = typeTranslator.translateType(param->getType());
+    std::string tempVarName = "param.var." + param->getNameAsString();
+    const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
+    theBuilder.createStore(tempVar, loadedValue);
+
+    params.push_back(tempVar);
+  }
+
+  // Call the original entry function
+  const uint32_t retType = typeTranslator.translateType(decl->getReturnType());
+  const uint32_t retVal =
+      theBuilder.createFunctionCall(retType, entryFuncId, params);
+
+  // Create and write stage output variables
+  // TODO: handle out/inout modifier
+
+  if (!declIdMapper.createStageOutputVar(decl, retVal))
+    return 0;
+
+  theBuilder.createReturn();
+  theBuilder.endFunction();
+
+  return funcId;
 }
 
 bool SPIRVEmitter::allSwitchCasesAreIntegerLiterals(const Stmt *root) {

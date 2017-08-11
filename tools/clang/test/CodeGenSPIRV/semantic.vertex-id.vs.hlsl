@@ -1,6 +1,6 @@
 // Run: %dxc -T vs_6_0 -E main
 
-// CHECK:                   OpEntryPoint Vertex %main "main" {{%\d+}} %gl_VertexIndex
+// CHECK:                   OpEntryPoint Vertex %main "main" %gl_VertexIndex %out_var_A
 
 // CHECK:                   OpDecorate %gl_VertexIndex BuiltIn VertexIndex
 

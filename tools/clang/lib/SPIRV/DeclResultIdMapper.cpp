@@ -18,15 +18,14 @@
 namespace clang {
 namespace spirv {
 
-bool DeclResultIdMapper::createStageVarFromFnReturn(
-    const FunctionDecl *funcDecl) {
-  // SemanticDecl for the return value is attached to the FunctionDecl.
-  return createStageVars(funcDecl, true);
+bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
+                                              uint32_t storedValue) {
+  return createStageVars(decl, &storedValue, false, "out.var");
 }
 
-bool DeclResultIdMapper::createStageVarFromFnParam(
-    const ParmVarDecl *paramDecl) {
-  return createStageVars(paramDecl, false);
+bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
+                                             uint32_t *loadedValue) {
+  return createStageVars(paramDecl, loadedValue, true, "in.var");
 }
 
 void DeclResultIdMapper::registerDeclResultId(const NamedDecl *symbol,
@@ -43,17 +42,13 @@ void DeclResultIdMapper::registerDeclResultId(const NamedDecl *symbol,
       sc = spv::StorageClass::Private;
     }
   }
-  normalDecls[symbol] = {resultId, sc};
+  astDecls[symbol] = {resultId, sc};
 }
 
 const DeclResultIdMapper::DeclSpirvInfo *
 DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
-  auto it = remappedDecls.find(decl);
-  if (it != remappedDecls.end())
-    return &it->second;
-
-  it = normalDecls.find(decl);
-  if (it != normalDecls.end())
+  auto it = astDecls.find(decl);
+  if (it != astDecls.end())
     return &it->second;
 
   return nullptr;
@@ -75,14 +70,6 @@ uint32_t DeclResultIdMapper::getOrRegisterDeclResultId(const NamedDecl *decl) {
   registerDeclResultId(decl, id);
 
   return id;
-}
-
-uint32_t
-DeclResultIdMapper::getRemappedDeclResultId(const NamedDecl *decl) const {
-  auto it = remappedDecls.find(decl);
-  if (it != remappedDecls.end())
-    return it->second.resultId;
-  return 0;
 }
 
 namespace {
@@ -179,23 +166,22 @@ DeclResultIdMapper::getFnParamOrRetType(const DeclaratorDecl *decl) const {
 }
 
 bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
-                                         bool forRet) {
+                                         uint32_t *value, bool asInput,
+                                         const llvm::Twine &namePrefix) {
   QualType type = getFnParamOrRetType(decl);
-
   if (type->isVoidType()) {
     // No stage variables will be created for void type.
     return true;
   }
+  const uint32_t typeId = typeTranslator.translateType(type);
 
   const llvm::StringRef semanticStr = getStageVarSemantic(decl);
   if (!semanticStr.empty()) {
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
-    const uint32_t typeId = typeTranslator.translateType(type);
 
-    // TODO: fix this when supporting parameter in/out qualifiers
     const hlsl::DxilParamInputQual qual =
-        forRet ? hlsl::DxilParamInputQual::Out : hlsl::DxilParamInputQual::In;
+        asInput ? hlsl::DxilParamInputQual::In : hlsl::DxilParamInputQual::Out;
 
     // TODO: use the correct isPC value when supporting patch constant function
     // in hull shader
@@ -216,11 +202,20 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     }
 
     StageVar stageVar(sigPoint, semantic, typeId);
-    const uint32_t varId = createSpirvStageVar(&stageVar);
+    llvm::Twine name = hlsl::Semantic::HasSVPrefix(semanticStr)
+                           // Canonicalize SV semantics
+                           ? namePrefix + "." + semantic->GetName()
+                           : namePrefix + "." + semanticStr;
+    const uint32_t varId = createSpirvStageVar(&stageVar, name);
     stageVar.setSpirvId(varId);
 
     stageVars.push_back(stageVar);
-    remappedDecls[decl] = {varId, stageVar.getStorageClass()};
+
+    if (asInput) {
+      *value = theBuilder.createLoad(typeId, varId);
+    } else {
+      theBuilder.createStore(varId, *value);
+    }
   } else {
     // If the decl itself doesn't have semantic, it should be a struct having
     // all its fields with semantics.
@@ -229,17 +224,36 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
 
     const auto *structDecl = cast<RecordType>(type.getTypePtr())->getDecl();
 
-    // Recursively handle all the fields.
-    for (const auto *field : structDecl->fields()) {
-      if (!createStageVars(field, forRet))
-        return false;
+    if (asInput) {
+      // If this decl translates into multiple stage input variables, we need to
+      // load their values into a composite.
+      llvm::SmallVector<uint32_t, 4> subValues;
+      for (const auto *field : structDecl->fields()) {
+        uint32_t subValue = 0;
+        if (!createStageVars(field, &subValue, true, namePrefix))
+          return false;
+        subValues.push_back(subValue);
+      }
+      *value = theBuilder.createCompositeConstruct(typeId, subValues);
+    } else {
+      // If this decl translates into multiple stage output variables, we need
+      // to store the value components into them.
+      for (const auto *field : structDecl->fields()) {
+        const uint32_t fieldType =
+            typeTranslator.translateType(field->getType());
+        uint32_t subValue = theBuilder.createCompositeExtract(
+            fieldType, *value, {field->getFieldIndex()});
+        if (!createStageVars(field, &subValue, false, namePrefix))
+          return false;
+      }
     }
   }
 
   return true;
 }
 
-uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
+uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
+                                                 const llvm::Twine &name) {
   using spv::BuiltIn;
 
   const auto semanticKind = stageVar->getSemantic()->GetKind();
@@ -264,7 +278,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
   case hlsl::Semantic::Kind::Position: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
-      return theBuilder.addStageIOVar(type, sc);
+      return theBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::VSOut:
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::Position);
@@ -290,9 +304,9 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
       stageVar->setIsSpirvBuiltin();
       return theBuilder.addStageBuiltinVar(type, sc, BuiltIn::InstanceIndex);
     case hlsl::SigPoint::Kind::VSOut:
-      return theBuilder.addStageIOVar(type, sc);
+      return theBuilder.addStageIOVar(type, sc, name.str());
     case hlsl::SigPoint::Kind::PSIn:
-      return theBuilder.addStageIOVar(type, sc);
+      return theBuilder.addStageIOVar(type, sc, name.str());
     default:
       emitError("semantic InstanceID for SigPoint %0 unimplemented yet")
           << stageVar->getSigPoint()->GetName();
@@ -310,7 +324,7 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar) {
   // An arbitrary semantic is defined by users. Generate normal Vulkan stage
   // input/output variables.
   case hlsl::Semantic::Kind::Arbitrary: {
-    return theBuilder.addStageIOVar(type, sc);
+    return theBuilder.addStageIOVar(type, sc, name.str());
     // TODO: patch constant function in hull shader
   }
   default:

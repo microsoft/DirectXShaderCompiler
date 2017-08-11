@@ -8,17 +8,23 @@ void main()
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 5
+// ; Bound: 8
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Fragment %main "main"
 // OpExecutionMode %main OriginUpperLeft
 // OpName %main "main"
+// OpName %src_main "src.main"
 // OpName %bb_entry "bb.entry"
 // %void = OpTypeVoid
-// %2 = OpTypeFunction %void
-// %main = OpFunction %void None %2
+// %3 = OpTypeFunction %void
+// %main = OpFunction %void None %3
+// %5 = OpLabel
+// %6 = OpFunctionCall %void %src_main
+// OpReturn
+// OpFunctionEnd
+// %src_main = OpFunction %void None %3
 // %bb_entry = OpLabel
 // OpReturn
 // OpFunctionEnd
