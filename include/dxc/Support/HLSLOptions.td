@@ -67,6 +67,8 @@ def hlsloptz_Group : OptionGroup<"HLSL Optimization">, HelpText<"Optimization Op
 def hlslutil_Group : OptionGroup<"HLSL Utility">, HelpText<"Utility Options">;
 def hlslcore_Group : OptionGroup<"HLSL Core">, HelpText<"Common Options">;
 
+def spirv_Group : OptionGroup<"SPIR-V CodeGen">, HelpText<"SPIR-V CodeGen Options">; // SPIRV Change
+
 //////////////////////////////////////////////////////////////////////////////
 // Options
 
@@ -209,8 +211,6 @@ def _help_question : Flag<["-", "/"], "?">, Flags<[DriverOption]>, Alias<help>;
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
-def spirv : Flag<["-"], "spirv">, Flags<[CoreOption, DriverOption, HelpHidden]>, // SPIRV change: temporary solution to support
-  HelpText<"Generates SPIR-V binary code">;                                      // SPIRV change: SPIR-V gen in a command line tool
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
 def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
@@ -232,6 +232,13 @@ def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Grou
 def no_min_precision: Flag<["-", "/"], "no-min-precision">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not use min precision but use strict precision types.">;
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
+
+// SPIRV Change Starts
+def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Generate SPIR-V binary code">;
+def fvk_stage_io_order_EQ : Joined<["-"], "fvk-stage-io-order=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Specify Vulkan stage I/O location assignment order">;
+// SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////
 // fxc-based flags that don't match those previously defined.

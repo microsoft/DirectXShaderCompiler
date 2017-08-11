@@ -37,8 +37,8 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // OpName %color "color"
 // OpName %result "result"
 // OpDecorate %gl_Position BuiltIn Position
-// OpDecorate %in_var_COLOR Location 0
-// OpDecorate %in_var_POSITION Location 1
+// OpDecorate %in_var_POSITION Location 0
+// OpDecorate %in_var_COLOR Location 1
 // OpDecorate %out_var_COLOR Location 0
 // %int = OpTypeInt 32 1
 // %void = OpTypeVoid

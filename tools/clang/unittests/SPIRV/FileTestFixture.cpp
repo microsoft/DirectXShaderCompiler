@@ -46,8 +46,8 @@ bool FileTest::parseInputFile() {
   if (runCmdStartPos != std::string::npos) {
     const auto runCmdEndPos = checkCommands.find('\n', runCmdStartPos);
     const auto runCommand = checkCommands.substr(runCmdStartPos, runCmdEndPos);
-    if (!utils::processRunCommandArgs(runCommand, &targetProfile,
-                                      &entryPoint)) {
+    if (!utils::processRunCommandArgs(runCommand, &targetProfile, &entryPoint,
+                                      &restArgs)) {
       // An error has occured when parsing the Run command.
       return false;
     }
@@ -71,7 +71,7 @@ void FileTest::runFileTest(llvm::StringRef filename, bool expectSuccess,
 
   // Feed the HLSL source into the Compiler.
   const bool compileOk = utils::runCompilerWithSpirvGeneration(
-      inputFilePath, entryPoint, targetProfile, &generatedBinary,
+      inputFilePath, entryPoint, targetProfile, restArgs, &generatedBinary,
       &errorMessages);
 
   effcee::Result result(effcee::Result::Status::Ok);

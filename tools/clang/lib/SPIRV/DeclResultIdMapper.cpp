@@ -306,12 +306,13 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     }
   }
 
-  // Sort stage input/output variables alphabetically
-  const auto comp = [](const StageVar *a, const StageVar *b) {
-    return a->getSemanticStr() < b->getSemanticStr();
-  };
-
-  std::sort(vars.begin(), vars.end(), comp);
+  if (spirvOptions.stageIoOrder == "alpha") {
+    // Sort stage input/output variables alphabetically
+    std::sort(vars.begin(), vars.end(),
+              [](const StageVar *a, const StageVar *b) {
+                return a->getSemanticStr() < b->getSemanticStr();
+              });
+  }
 
   for (const auto *var : vars)
     theBuilder.decorateLocation(var->getSpirvId(), locSet.useNextLoc());

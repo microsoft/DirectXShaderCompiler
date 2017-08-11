@@ -11,12 +11,20 @@
 
 #include "clang/Frontend/FrontendAction.h"
 
+#include "clang/SPIRV/EmitSPIRVOptions.h"
+
 namespace clang {
 
 class EmitSPIRVAction : public ASTFrontendAction {
+public:
+  EmitSPIRVAction(const EmitSPIRVOptions &opts) : options(opts) {}
+
 protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  StringRef InFile) override;
+
+private:
+  EmitSPIRVOptions options;
 };
 
 } // end namespace clang

@@ -229,9 +229,6 @@ HLSL variables and resources
 
 This section lists how various HLSL variables and resources are mapped.
 
-Variable definition
-+++++++++++++++++++
-
 Variables are defined in HLSL using the following
 `syntax <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509706(v=vs.85).aspx>`_
 rules::
@@ -328,7 +325,7 @@ to ``Location`` 1.
 
 [TODO] Another explicit way: using command-line options
 
-Please note that the compiler does prohibits mixing the explicit and implicit
+Please note that the compiler prohibits mixing the explicit and implicit
 approach for the same SigPoint to avoid complexity and fallibility. However,
 for a certain shader stage, one SigPoint using the explicit approach while the
 other adopting the implicit approach is permitted.
@@ -372,8 +369,10 @@ corresponding SPIR-V ``Builtin``  decorations according to the above table.
 SV semantic strings not translated into SPIR-V BuiltIn decorations will be
 handled similarly as non-SV (arbitrary) semantic strings: a SPIR-V variable
 of the ``Input``/``Output`` storage class will be created for each entity with
-such semantic string. Then sort all semantic strings alphabetically, and assign
-``Location`` numbers sequentially to each SPIR-V variable. Note that this means
+such semantic string. Then sort all semantic strings according to declaration
+(the default, or if ``-fvk-stage-io-order=decl`` is given) or alphabetical
+(if ``-fvk-stage-io-order=alpha`` is given) order, and assign ``Location``
+numbers sequentially to the corresponding SPIR-V variables. Note that this means
 flattening all structs if structs are used as function parameters or returns.
 
 There is an exception to the above rule for SV_Target[N]. It will always be
