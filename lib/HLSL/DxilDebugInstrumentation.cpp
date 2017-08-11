@@ -175,6 +175,8 @@ private:
     } ComputeShader;
   };
 
+  uint64_t UAVSize = 1024*1024;
+
   CallInst * IndexVariable;
   Value * SelectionCriterion;
   CallInst * HandleForUAV;
@@ -223,6 +225,10 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O)
     else if (0 == option.first.compare("parameter2"))
     {
       Parameters.Parameters[2] = atoi(option.second.data());
+    }
+    else if (0 == option.first.compare("UAVSize"))
+    {
+      UAVSize = std::stoull(option.second.data());
     }
   }
 }
@@ -488,6 +494,8 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * I
 
 void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
 {
+  auto BuilderWasWorkingHere = BC.Builder.GetInsertPoint()->getNextNode();
+
   auto ThenBlockTail = SplitBlockAndInsertIfThen(SelectionCriterion, BC.Builder.GetInsertPoint(), false);
 
   IRBuilder<> ThenBuilder(ThenBlockTail);
@@ -502,6 +510,8 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
   addDebugEntryValue(ThenBuilderContext, StartIndex, ThenBuilderContext.HlslOP->GetU32Const(marker.Header.u32Header));
   auto NextIndex = incrementUAVIndex(ThenBuilderContext, StartIndex);
   addDebugEntryValue(ThenBuilderContext, NextIndex, StartIndex );
+
+  BC.Builder.SetInsertPoint(BuilderWasWorkingHere);
 }
 
 
@@ -520,7 +530,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
   SelectionCriterion = addInvocationSelectionProlog(BC, SystemValues);
 
   addInvocationStartMarker(BC);
-#if 0
+#if 1
   auto FirstInstructionToInstrument = BC.Builder.GetInsertPoint();
 
   auto & Functions = M.getFunctionList();
@@ -536,7 +546,14 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
       if (&f == DM.GetEntryFunction() && &b == &DM.GetEntryFunction()->getEntryBlock())
       {
         // Skip over the instructions we added at the beginning: Don't instrument them.
-        InstructionIterator = FirstInstructionToInstrument;
+        while (InstructionIterator != FirstInstructionToInstrument)
+        {
+          InstructionIterator = InstructionIterator->getNextNode();
+          if (InstructionIterator == Instructions.end())
+          {
+            break;
+          }
+        }
       }
 
       for (; InstructionIterator != Instructions.end(); InstructionIterator = InstructionIterator->getNextNode())

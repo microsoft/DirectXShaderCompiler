@@ -175,7 +175,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
   static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "force-early-z", "add-pixel-cost", "rt-width", "num-pixels" };
-  static const LPCSTR DxilDebugInstrumentationArgs[] = { "parameter0", "parameter1", "parameter2" };
+  static const LPCSTR DxilDebugInstrumentationArgs[] = { "UAVSize", "parameter0", "parameter1", "parameter2" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
@@ -246,7 +246,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR ArgPromotionArgs[] = { "None" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "None", "None", "Control the number of bonus instructions (default = 1)" };
   static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "None", "None", "None", "None" };
-  static const LPCSTR DxilDebugInstrumentationArgs[] = { "None", "None", "None" };
+  static const LPCSTR DxilDebugInstrumentationArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
@@ -331,6 +331,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("TIRA")
     ||  S.equals("TLIImpl")
     ||  S.equals("Threshold")
+    ||  S.equals("UAVSize")
     ||  S.equals("add-pixel-cost")
     ||  S.equals("bonus-inst-threshold")
     ||  S.equals("constant-alpha")
