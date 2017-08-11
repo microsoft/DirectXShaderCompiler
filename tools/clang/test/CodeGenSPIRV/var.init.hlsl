@@ -4,9 +4,6 @@
 // CHECK: [[float4constant:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_4
 // CHECK: [[int2constant:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 
-// Stage IO variables
-// CHECK: [[component:%\d+]] = OpVariable %_ptr_Input_float Input
-
 float4 main(float component: COLOR) : SV_TARGET {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -24,7 +21,7 @@ float4 main(float component: COLOR) : SV_TARGET {
 
 // Initializer already attached to the var definition
     float i = 1. + 2.;   // From const expr
-// CHECK-NEXT: [[component0:%\d+]] = OpLoad %float [[component]]
+// CHECK-NEXT: [[component0:%\d+]] = OpLoad %float %component
 // CHECK-NEXT: OpStore %j [[component0]]
     float j = component; // From stage variable
 

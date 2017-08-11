@@ -80,7 +80,7 @@ void main() {
 // CHECK-NEXT: [[n:%\d+]] = OpBitcast %int [[s2bv]]
 
 // CHECK-NEXT: [[s2c:%\d+]] = OpAccessChain %_ptr_Function_mat2v2float %s2 %int_2
-// CHECK-NEXT: [[o:%\d+]] = OpLoad %mat2v2float %65
+// CHECK-NEXT: [[o:%\d+]] = OpLoad %mat2v2float [[s2c]]
 
 // CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %T [[h]] [[i]] [[j]] [[k]] [[l]] [[m]] [[n]] [[o]]
     T t = {s1,          // Decomposing struct

@@ -20,6 +20,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Twine.h"
 
 #include "TypeTranslator.h"
 
@@ -89,25 +90,23 @@ StageVar::StageVar(const hlsl::SigPoint *sig, const hlsl::Semantic *sema,
 /// single stage variables if it is of non-struct type. If it is of struct
 /// type, the fields with attached semantics will need to be translated into
 /// stage variables per Vulkan's requirements.
-///
-/// In the following class, we call a Decl as *remapped* when it is translated
-/// into a stage variable; otherwise, we call it as *normal*. Remapped decls
-/// include:
-/// * FunctionDecl if the return value is attached with a semantic
-/// * ParmVarDecl if the parameter is attached with a semantic
-/// * FieldDecl if the field is attached with a semantic.
 class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage,
                             ModuleBuilder &builder, DiagnosticsEngine &diag);
 
-  /// \brief Creates the stage variables by parsing the semantics attached to
-  /// the given function's return value and returns true on success.
-  bool createStageVarFromFnReturn(const FunctionDecl *funcDecl);
+  /// \brief Creates the stage output variables by parsing the semantics
+  /// attached to the given function's parameter or return value and returns
+  /// true on success. SPIR-V instructions will also be generated to update the
+  /// contents of the output variables by extracting sub-values from the given
+  /// storedValue.
+  bool createStageOutputVar(const DeclaratorDecl *decl, uint32_t storedValue);
 
-  /// \brief Creates the stage variables by parsing the semantics attached to
-  /// the given function's parameter and returns true on success.
-  bool createStageVarFromFnParam(const ParmVarDecl *paramDecl);
+  /// \brief Creates the stage input variables by parsing the semantics attached
+  /// to the given function's parameter and returns true on success. SPIR-V
+  /// instructions will also be generated to load the contents from the input
+  /// variables and composite them into one and write to *loadedValue.
+  bool createStageInputVar(const ParmVarDecl *paramDecl, uint32_t *loadedValue);
 
   /// \brief Registers a decl's <result-id> without generating any SPIR-V
   /// instruction. The given decl will be treated as normal decl.
@@ -133,10 +132,6 @@ public:
   /// otherwise, treats the given decl as a normal decl and returns a newly
   /// assigned <result-id> for it.
   uint32_t getOrRegisterDeclResultId(const NamedDecl *decl);
-
-  /// \brief Returns the <result-id> for the given remapped decl. Returns zero
-  /// if it is not a registered remapped decl.
-  uint32_t getRemappedDeclResultId(const NamedDecl *decl) const;
 
   /// Returns the storage class for the given expression. The expression is
   /// expected to be an lvalue. Otherwise this method may panic.
@@ -171,12 +166,14 @@ private:
   /// and returns true on success.
   ///
   /// Assumes the decl has semantic attached to itself or to its fields.
-  bool createStageVars(const DeclaratorDecl *decl, bool forReturnValue);
+  bool createStageVars(const DeclaratorDecl *decl, uint32_t *value,
+                       bool asInput, const llvm::Twine &namePrefix);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the <result-id>. Also sets whether the StageVar is a SPIR-V builtin and
-  /// its storage class accordingly.
-  uint32_t createSpirvStageVar(StageVar *);
+  /// its storage class accordingly. name will be used as the debug name when
+  /// creating a stage input/output variable.
+  uint32_t createSpirvStageVar(StageVar *, const llvm::Twine &name);
 
   /// \brief Returns the stage variable's semantic for the given Decl.
   static llvm::StringRef getStageVarSemantic(const NamedDecl *decl);
@@ -187,10 +184,8 @@ private:
   TypeTranslator typeTranslator;
   DiagnosticsEngine &diags;
 
-  /// Mapping of all remapped decls to their <result-id>s.
-  llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> remappedDecls;
-  /// Mapping of all normal decls to their <result-id>s.
-  llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> normalDecls;
+  /// Mapping of all Clang AST decls to their <result-id>s.
+  llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> astDecls;
   /// Vector of all defined stage variables.
   llvm::SmallVector<StageVar, 8> stageVars;
 };

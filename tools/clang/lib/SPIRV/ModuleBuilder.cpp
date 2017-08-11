@@ -327,11 +327,13 @@ uint32_t ModuleBuilder::getGLSLExtInstSet() {
 }
 
 uint32_t ModuleBuilder::addStageIOVar(uint32_t type,
-                                      spv::StorageClass storageClass) {
+                                      spv::StorageClass storageClass,
+                                      std::string name) {
   const uint32_t pointerType = getPointerType(type, storageClass);
   const uint32_t varId = theContext.takeNextId();
   instBuilder.opVariable(pointerType, varId, storageClass, llvm::None).x();
   theModule.addVariable(std::move(constructSite));
+  theModule.addDebugName(varId, name);
   return varId;
 }
 

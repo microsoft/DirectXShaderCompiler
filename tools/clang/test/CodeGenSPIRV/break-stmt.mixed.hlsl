@@ -42,8 +42,7 @@ void main() {
 // CHECK-NEXT: OpBranch %for_check
       default:
       // CHECK-NEXT: %for_check = OpLabel
-      // CHECK-NEXT: {{%\d+}} = OpLoad %int %i
-      // CHECK-NEXT: [[i_lt_10:%\d+]] = OpSLessThan %bool %37 %int_10
+      // CHECK:      [[i_lt_10:%\d+]] = OpSLessThan %bool {{%\d+}} %int_10
       // CHECK-NEXT: OpLoopMerge %for_merge %for_continue None
       // CHECK-NEXT: OpBranchConditional [[i_lt_10]] %for_body %for_merge
         for (int i=0; i<10; ++i) {
@@ -79,7 +78,7 @@ void main() {
 
     // CHECK-NEXT: OpBranch %while_merge
     break; // Break the while loop.
-    
+
   // CHECK-NEXT: %while_continue = OpLabel
   // CHECK-NEXT: OpBranch %while_check
   }
