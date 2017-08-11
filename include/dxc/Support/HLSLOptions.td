@@ -231,6 +231,8 @@ def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Grou
   HelpText<"Read root signature from a #define">;
 def no_min_precision: Flag<["-", "/"], "no-min-precision">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not use min precision but use strict precision types.">;
+def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
+
 //////////////////////////////////////////////////////////////////////////////
 // fxc-based flags that don't match those previously defined.
 
