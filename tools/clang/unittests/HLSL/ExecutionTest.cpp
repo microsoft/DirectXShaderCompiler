@@ -2307,7 +2307,7 @@ TEST_F(ExecutionTest, SaturateTest) {
     0.0f                    // nan
   };
   for (size_t i = 0; i < _countof(ExpectedCases); ++i) {
-    VERIFY_ARE_EQUAL(*pValues, ExpectedCases[i]);
+    VERIFY_IS_TRUE(ifdenorm_flushf_eq(*pValues, ExpectedCases[i]));
     ++pValues;
   }
 }
