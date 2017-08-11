@@ -18,4 +18,8 @@ void main() {
 // CHECK-NEXT: [[cv:%\d+]] = OpConvertSToF %float [[scalar]]
 // CHECK-NEXT: OpStore %mat5 [[cv]]
     float1x1 mat5 = {scalar};
+
+// CHECK-NEXT: [[mat5:%\d+]] = OpLoad %float %mat5
+// CHECK-NEXT: OpStore %mat6 [[mat5]]
+    float1x1 mat6 = {mat5};
 }
