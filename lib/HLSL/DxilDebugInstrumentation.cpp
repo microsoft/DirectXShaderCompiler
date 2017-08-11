@@ -466,7 +466,6 @@ void DxilDebugInstrumentation::recordInputValue(BuilderContext & BC, CallInst * 
       case Type::TypeID::PointerTyID  : OutputDebugStringW(BC.M, "PointerTyID  "); break;
       case Type::TypeID::VectorTyID   : OutputDebugStringW(BC.M, "VectorTyID   "); break;
   }
-  OutputDebugStringW(BC.M, "End of operands\n");
 }
 
 Value * DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices)
@@ -568,6 +567,23 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
   DxilModule &DM = M.GetOrCreateDxilModule();
   LLVMContext & Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
+
+  std::vector<Instruction*> AllInstrucitons;
+  // First record pointers to all instructions in the function:
+  auto & Blocks = DM.GetEntryFunction()->getBasicBlockList();
+  for (auto & b : Blocks)
+  {
+    auto & Instructions = b.getInstList();
+
+    for (
+      Instruction * InstructionIterator = Instructions.begin();
+      InstructionIterator != Instructions.end();
+      InstructionIterator = InstructionIterator->getNextNode())
+    {
+      AllInstrucitons.push_back(InstructionIterator);
+    }
+  }
+
   Instruction* firstInsertionPt = DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt();
   IRBuilder<> Builder(firstInsertionPt);
 
@@ -578,48 +594,21 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
   SelectionCriterion = addInvocationSelectionProlog(BC, SystemValues);
 
   addInvocationStartMarker(BC);
-#if 1
-  auto FirstInstructionToInstrument = BC.Builder.GetInsertPoint();
 
-  auto & Functions = M.getFunctionList();
-  for (auto & f : Functions)
+  for (auto & Inst : AllInstrucitons)
   {
-    auto & Blocks = f.getBasicBlockList();
-    for (auto & b : Blocks)
+    OutputDebugStringW(BC.M, "Instruction begins\n");
+    auto OpIterator = Inst->op_begin();
+    while (OpIterator != Inst->op_end())
     {
-      auto & Instructions = b.getInstList();
+      Value const * operand = *OpIterator;
 
-      Instruction * InstructionIterator = Instructions.begin();
+      recordInputValue(BC, HandleForUAV, operand);
 
-      if (&f == DM.GetEntryFunction() && &b == &DM.GetEntryFunction()->getEntryBlock())
-      {
-        // Skip over the instructions we added at the beginning: Don't instrument them.
-        while (InstructionIterator != FirstInstructionToInstrument)
-        {
-          InstructionIterator = InstructionIterator->getNextNode();
-          if (InstructionIterator == Instructions.end())
-          {
-            break;
-          }
-        }
-      }
-
-      for (; InstructionIterator != Instructions.end(); InstructionIterator = InstructionIterator->getNextNode())
-      {
-        OutputDebugStringW(M, "Beginning of instruction\n");
-        auto OpIterator = InstructionIterator->op_begin();
-        while (OpIterator != InstructionIterator->op_end())
-        {
-          Value const * operand = *OpIterator;
-
-          recordInputValue(BC, HandleForUAV, operand);
-
-          OpIterator++;
-        }
-      }
+      OpIterator++;
     }
+    OutputDebugStringW(BC.M, "End of operands\n");
   }
-#endif
 
   DM.ReEmitDxilResources();
 
