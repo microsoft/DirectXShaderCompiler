@@ -94,7 +94,7 @@ namespace {
       // HLSL Change Starts
       if (OSOverride != nullptr) {
         *OSOverride << "\ngraph: " << "cfg." << F.getName() << ".dot\n";
-        llvm::WriteGraph(*OSOverride, (const Function*)&F, true, F.getName());
+        llvm::WriteGraph(*OSOverride, (const Function*)&F, false, F.getName());
         return false;
       }
       // HLSL Change Ends
