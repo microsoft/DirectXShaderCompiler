@@ -136,8 +136,7 @@
           float zero_idx;
           float oob_idx;
         };
-        // Texture1D<float> g_t1d: register(t0); // alternate binding
-        Buffer<float> g_t1d: register(t0);
+        Texture1D<float> g_t1d: register(t0);
         struct PSInput {
          float4 position : SV_POSITION;
         };
