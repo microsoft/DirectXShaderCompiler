@@ -233,6 +233,9 @@ private:
   /// Processes HLSL instrinsic functions.
   uint32_t processIntrinsicCallExpr(const CallExpr *);
 
+  /// Processes the 'clamp' intrinsic function.
+  uint32_t processIntrinsicClamp(const CallExpr *);
+
   /// Processes the 'mul' intrinsic function.
   uint32_t processIntrinsicMul(const CallExpr *);
 
