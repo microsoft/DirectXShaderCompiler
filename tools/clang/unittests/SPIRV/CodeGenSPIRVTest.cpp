@@ -239,9 +239,14 @@ TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 // For function calls
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
 
+// For function parameters
+TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
+
 // For early returns
 TEST_F(FileTest, EarlyReturn) { runFileTest("cf.return.early.hlsl"); }
-TEST_F(FileTest, EarlyReturnFloat4) { runFileTest("cf.return.early.float4.hlsl"); }
+TEST_F(FileTest, EarlyReturnFloat4) {
+  runFileTest("cf.return.early.float4.hlsl");
+}
 
 // For discard
 TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
@@ -314,6 +319,9 @@ TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 TEST_F(FileTest, SpirvEntryFunctionWrapper) {
   runFileTest("spirv.entry-function.wrapper.hlsl");
+}
+TEST_F(FileTest, SpirvEntryFunctionInOut) {
+  runFileTest("spirv.entry-function.inout.hlsl");
 }
 
 } // namespace

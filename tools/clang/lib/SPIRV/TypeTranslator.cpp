@@ -52,6 +52,17 @@ uint32_t TypeTranslator::translateType(QualType type) {
     return translateType(typedefType->desugar());
   }
 
+  // Reference types
+  if (const auto *refType = dyn_cast<ReferenceType>(typePtr)) {
+    // Note: Pointer/reference types are disallowed in HLSL source code.
+    // Although developers cannot use them directly, they are generated into
+    // the AST by out/inout parameter modifiers in function signatures.
+    // We already pass function arguments via pointers to tempoary local
+    // variables. So it should be fine to drop the pointer type and treat it
+    // as the underlying pointee type here.
+    return translateType(refType->getPointeeType());
+  }
+
   // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
   // We handle them via HLSL type inspection functions.
 
@@ -108,7 +119,7 @@ uint32_t TypeTranslator::translateType(QualType type) {
       fieldNames.push_back(field->getName());
     }
 
-    return theBuilder.getStructType(fieldTypes, type.getAsString(), fieldNames);
+    return theBuilder.getStructType(fieldTypes, decl->getName(), fieldNames);
   }
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
