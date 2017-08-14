@@ -847,6 +847,18 @@ void SPIRVEmitter::doIfStmt(const IfStmt *ifStmt) {
   //         +-> | merge | <-+                  +---> | merge |
   //             +-------+                            +-------+
 
+  { // Try to see if we can const-eval the condition
+    bool condition = false;
+    if (ifStmt->getCond()->EvaluateAsBooleanCondition(condition, astContext)) {
+      if (condition) {
+        doStmt(ifStmt->getThen());
+      } else if (ifStmt->getElse()) {
+        doStmt(ifStmt->getElse());
+      }
+      return;
+    }
+  }
+
   if (const auto *declStmt = ifStmt->getConditionVariableDeclStmt())
     doDeclStmt(declStmt);
 

@@ -200,6 +200,9 @@ TEST_F(FileTest, CastSplatMatrix) { runFileTest("cast.matrix.splat.hlsl"); }
 // For if statements
 TEST_F(FileTest, IfStmtPlainAssign) { runFileTest("if-stmt.plain.hlsl"); }
 TEST_F(FileTest, IfStmtNestedIfStmt) { runFileTest("if-stmt.nested.hlsl"); }
+TEST_F(FileTest, IfStmtConstCondition) {
+  runFileTest("if-stmt.const-cond.hlsl");
+}
 
 // For switch statements
 TEST_F(FileTest, SwitchStmtUsingOpSwitch) {
