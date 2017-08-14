@@ -112,6 +112,8 @@ public:
   /// instruction. The given decl will be treated as normal decl.
   void registerDeclResultId(const NamedDecl *symbol, uint32_t resultId);
 
+  void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
+
 public:
   /// The struct containing SPIR-V information of a AST Decl.
   struct DeclSpirvInfo {
@@ -184,6 +186,8 @@ private:
   TypeTranslator typeTranslator;
   DiagnosticsEngine &diags;
 
+  uint32_t entryFunctionId;
+
   /// Mapping of all Clang AST decls to their <result-id>s.
   llvm::DenseMap<const NamedDecl *, DeclSpirvInfo> astDecls;
   /// Vector of all defined stage variables.
@@ -194,7 +198,7 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ModuleBuilder &builder,
                                        DiagnosticsEngine &diag)
     : shaderModel(model), theBuilder(builder), typeTranslator(builder, diag),
-      diags(diag) {}
+      diags(diag), entryFunctionId(0) {}
 
 } // end namespace spirv
 } // end namespace clang

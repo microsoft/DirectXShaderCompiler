@@ -319,19 +319,23 @@ Firstly, under certain `SigPoints <https://github.com/Microsoft/DirectXShaderCom
 some system-value (SV) semantic strings will be translated into SPIR-V
 ``BuiltIn`` decorations:
 
-+---------------+----------+--------------------+
-| HLSL Semantic | SigPoint | SPIR-V ``BuiltIn`` |
-+===============+==========+====================+
-|               | VSOut    | ``Position``       |
-+ SV_Position   +----------+--------------------+
-|               | PSIn     | ``FragCoord``      |
-+---------------+----------+--------------------+
-| SV_VertexID   | VSIn     | ``VertexIndex``    |
-+---------------+----------+--------------------+
-| SV_InstanceID | VSIn     | ``InstanceIndex``  |
-+---------------+----------+--------------------+
-| SV_Depth      | PSOut    | ``FragDepth``      |
-+---------------+----------+--------------------+
++----------------------+----------+--------------------+-----------------------+
+| HLSL Semantic        | SigPoint | SPIR-V ``BuiltIn`` | SPIR-V Execution Mode |
++======================+==========+====================+=======================+
+|                      | VSOut    | ``Position``       | N/A                   |
+| SV_Position          +----------+--------------------+-----------------------+
+|                      | PSIn     | ``FragCoord``      | N/A                   |
++----------------------+----------+--------------------+-----------------------+
+| SV_VertexID          | VSIn     | ``VertexIndex``    | N/A                   |
++----------------------+----------+--------------------+-----------------------+
+| SV_InstanceID        | VSIn     | ``InstanceIndex``  | N/A                   |
++----------------------+----------+--------------------+-----------------------+
+| SV_Depth             | PSOut    | ``FragDepth``      | N/A                   |
++----------------------+----------+--------------------+-----------------------+
+| SV_DepthGreaterEqual | PSOut    | ``FragDepth``      | ``DepthGreater``      |
++----------------------+----------+--------------------+-----------------------+
+| SV_DepthLessEqual    | PSOut    | ``FragDepth``      | ``DepthLess``         |
++----------------------+----------+--------------------+-----------------------+
 
 [TODO] add other SV semantic strings in the above
 

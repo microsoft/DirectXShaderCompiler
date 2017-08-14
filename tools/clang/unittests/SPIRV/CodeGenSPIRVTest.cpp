@@ -269,6 +269,15 @@ TEST_F(FileTest, SemanticInstanceIDPS) {
 }
 TEST_F(FileTest, SemanticTargetPS) { runFileTest("semantic.target.ps.hlsl"); }
 TEST_F(FileTest, SemanticDepthPS) { runFileTest("semantic.depth.ps.hlsl"); }
+TEST_F(FileTest, SemanticDepthGreaterEqualPS) {
+  runFileTest("semantic.depth-greater-equal.ps.hlsl");
+}
+TEST_F(FileTest, SemanticDepthLessEqualPS) {
+  runFileTest("semantic.depth-less-equal.ps.hlsl");
+}
+TEST_F(FileTest, SemanticIsFrontFacePS) {
+  runFileTest("semantic.is-front-face.ps.hlsl");
+}
 TEST_F(FileTest, SemanticArbitrary) { runFileTest("semantic.arbitrary.hlsl"); }
 
 // For intrinsic functions
