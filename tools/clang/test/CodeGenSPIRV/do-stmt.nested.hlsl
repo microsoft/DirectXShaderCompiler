@@ -5,7 +5,7 @@ void main() {
 
 // CHECK:      OpBranch %do_while_header
 // CHECK-NEXT: %do_while_header = OpLabel
-// CHECK-NEXT: OpLoopMerge %do_while_merge %do_while_continue DontUnroll
+// CHECK-NEXT: OpLoopMerge %do_while_merge_1 %do_while_continue_1 DontUnroll
   [loop] do {
 // CHECK-NEXT: OpBranch %do_while_body
 // CHECK-NEXT: %do_while_body = OpLabel
@@ -23,22 +23,22 @@ void main() {
 // CHECK-NEXT: OpBranch %do_while_header_1
 
 // CHECK-NEXT: %do_while_header_1 = OpLabel
-// CHECK-NEXT: OpLoopMerge %do_while_merge_1 %do_while_continue_1 DontUnroll
+// CHECK-NEXT: OpLoopMerge %do_while_merge %do_while_continue DontUnroll
 // CHECK-NEXT: OpBranch %do_while_body_1
       [fastopt] do {
 // CHECK-NEXT: %do_while_body_1 = OpLabel
 // CHECK-NEXT: [[k0:%\d+]] = OpLoad %int %k
 // CHECK-NEXT: [[k_plus_1:%\d+]] = OpIAdd %int [[k0]] %int_1
 // CHECK-NEXT: OpStore %k [[k_plus_1]]
-// CHECK-NEXT: OpBranch %do_while_continue_1
+// CHECK-NEXT: OpBranch %do_while_continue
         ++k;
-// CHECK-NEXT: %do_while_continue_1 = OpLabel
+// CHECK-NEXT: %do_while_continue = OpLabel
 // CHECK-NEXT: [[k1:%\d+]] = OpLoad %int %k
 // CHECK-NEXT: [[k_lt_30:%\d+]] = OpSLessThan %bool [[k1]] %int_30
-// CHECK-NEXT: OpBranchConditional [[k_lt_30]] %do_while_header_1 %do_while_merge_1
+// CHECK-NEXT: OpBranchConditional [[k_lt_30]] %do_while_header_1 %do_while_merge
       } while (k < 30);
 
-// CHECK-NEXT: %do_while_merge_1 = OpLabel
+// CHECK-NEXT: %do_while_merge = OpLabel
 // CHECK-NEXT: [[j0:%\d+]] = OpLoad %int %j
 // CHECK-NEXT: [[j_plus_1:%\d+]] = OpIAdd %int [[j0]] %int_1
 // CHECK-NEXT: OpStore %j [[j_plus_1]]
@@ -54,15 +54,15 @@ void main() {
 // CHECK-NEXT: [[i0:%\d+]] = OpLoad %int %i
 // CHECK-NEXT: [[i_plus_1:%\d+]] = OpIAdd %int [[i0]] %int_1
 // CHECK-NEXT: OpStore %i [[i_plus_1]]
-// CHECK-NEXT: OpBranch %do_while_continue
+// CHECK-NEXT: OpBranch %do_while_continue_1
     ++i;
 
-// CHECK-NEXT: %do_while_continue = OpLabel
+// CHECK-NEXT: %do_while_continue_1 = OpLabel
 // CHECK-NEXT: [[i1:%\d+]] = OpLoad %int %i
 // CHECK-NEXT: [[i_lt_10:%\d+]] = OpSLessThan %bool [[i1]] %int_10
-// CHECK-NEXT: OpBranchConditional [[i_lt_10]] %do_while_header %do_while_merge
+// CHECK-NEXT: OpBranchConditional [[i_lt_10]] %do_while_header %do_while_merge_1
   } while (i < 10);
-// CHECK-NEXT: %do_while_merge = OpLabel
+// CHECK-NEXT: %do_while_merge_1 = OpLabel
 
 
 // CHECK-NEXT: OpReturn

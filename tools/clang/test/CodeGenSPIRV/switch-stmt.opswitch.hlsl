@@ -262,15 +262,15 @@ void main() {
   ////////////////////////////////////////////////////////////////////////
 
 // CHECK-NEXT: [[a7:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: OpSelectionMerge %switch_merge_6 None
-// CHECK-NEXT: OpSwitch [[a7]] %switch_merge_6 30 %switch_30
+// CHECK-NEXT: OpSelectionMerge %switch_merge_7 None
+// CHECK-NEXT: OpSwitch [[a7]] %switch_merge_7 30 %switch_30
   switch(a) {
 // CHECK-NEXT: %switch_30 = OpLabel
     case 30: {
 // CHECK-NEXT: OpStore %result %int_30
         result = 30;
 // CHECK-NEXT: [[result:%\d+]] = OpLoad %int %result
-// CHECK-NEXT: OpSelectionMerge %switch_merge_7 None
+// CHECK-NEXT: OpSelectionMerge %switch_merge_6 None
 // CHECK-NEXT: OpSwitch [[result]] %switch_default_2 50 %switch_50 51 %switch_51 52 %switch_52 53 %switch_53 54 %switch_54
         switch(result) {
 // CHECK-NEXT: %switch_default_2 = OpLabel
@@ -280,7 +280,7 @@ void main() {
             a = 55;
 // CHECK-NEXT: %switch_50 = OpLabel
 // CHECK-NEXT: OpStore %a %int_50
-// CHECK-NEXT: OpBranch %switch_merge_7
+// CHECK-NEXT: OpBranch %switch_merge_6
           case 50:
             a = 50;
             break;
@@ -294,23 +294,23 @@ void main() {
             a = 52;
 // CHECK-NEXT: %switch_53 = OpLabel
 // CHECK-NEXT: OpStore %a %int_53
-// CHECK-NEXT: OpBranch %switch_merge_7
+// CHECK-NEXT: OpBranch %switch_merge_6
           case 53:
             a = 53;
             break;
 // CHECK-NEXT: %switch_54 = OpLabel
 // CHECK-NEXT: OpStore %a %int_54
-// CHECK-NEXT: OpBranch %switch_merge_7
+// CHECK-NEXT: OpBranch %switch_merge_6
           case 54 : {
             a = 54;
             break;
           }
         }
-// CHECK-NEXT: %switch_merge_7 = OpLabel
-// CHECK-NEXT: OpBranch %switch_merge_6
+// CHECK-NEXT: %switch_merge_6 = OpLabel
+// CHECK-NEXT: OpBranch %switch_merge_7
     }
   }
-// CHECK-NEXT: %switch_merge_6 = OpLabel
+// CHECK-NEXT: %switch_merge_7 = OpLabel
 
 
 

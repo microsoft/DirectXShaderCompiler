@@ -14,9 +14,9 @@ void main()
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Fragment %main "main"
 // OpExecutionMode %main OriginUpperLeft
+// OpName %bb_entry "bb.entry"
 // OpName %main "main"
 // OpName %src_main "src.main"
-// OpName %bb_entry "bb.entry"
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %main = OpFunction %void None %3

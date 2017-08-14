@@ -80,9 +80,7 @@ private:
 class BasicBlock {
 public:
   /// \brief Constructs a basic block with the given <label-id>.
-  /// By default all basic blocks are considered reachable, unless the caller
-  /// specifies otherwise.
-  inline explicit BasicBlock(uint32_t labelId, bool isReachable = true);
+  inline explicit BasicBlock(uint32_t labelId, llvm::StringRef debugName = "");
 
   // Disable copy constructor/assignment
   BasicBlock(const BasicBlock &) = delete;
@@ -134,20 +132,23 @@ public:
   /// OpLoopMerge instruction. Returns nullptr otherwise.
   inline BasicBlock *getContinueTarget() const;
 
+  /// \brief Returns the label id of this basic block.
+  inline uint32_t getLabelId() const;
+
+  /// \brief Returns the debug name of this basic block.
+  inline llvm::StringRef getDebugName() const;
+
   /// \brief Returns true if this basic block is terminated.
   bool isTerminated() const;
 
-  /// \brief Returns true if this basic block is reachable in the control flow.
-  inline bool isReachable() const;
-
 private:
   uint32_t labelId; ///< The label id for this basic block. Zero means invalid.
+  std::string debugName;
   std::deque<Instruction> instructions;
 
   llvm::SmallVector<BasicBlock *, 2> successors;
   BasicBlock *mergeTarget;
   BasicBlock *continueTarget;
-  bool reachable;
 };
 
 // === Function definition ===
@@ -187,6 +188,10 @@ public:
 
   /// \brief Adds a basic block to this function.
   inline void addBasicBlock(std::unique_ptr<BasicBlock> block);
+
+  /// \brief Adds the reachable basic blocks of this function to the given
+  /// vector.
+  void getReachableBasicBlocks(std::vector<BasicBlock *> *) const;
 
 private:
   uint32_t resultType;
@@ -357,9 +362,9 @@ std::vector<uint32_t> Instruction::take() { return std::move(words); }
 
 // === Basic block inline implementations ===
 
-BasicBlock::BasicBlock(uint32_t id, bool isReachable)
-    : labelId(id), mergeTarget(nullptr), continueTarget(nullptr),
-      reachable(isReachable) {}
+BasicBlock::BasicBlock(uint32_t id, llvm::StringRef name)
+    : labelId(id), debugName(name), mergeTarget(nullptr),
+      continueTarget(nullptr) {}
 
 bool BasicBlock::isEmpty() const {
   return labelId == 0 && instructions.empty();
@@ -391,7 +396,8 @@ void BasicBlock::setContinueTarget(BasicBlock *target) {
 
 BasicBlock *BasicBlock::getContinueTarget() const { return continueTarget; }
 
-bool BasicBlock::isReachable() const { return reachable; }
+uint32_t BasicBlock::getLabelId() const { return labelId; }
+llvm::StringRef BasicBlock::getDebugName() const { return debugName; }
 
 // === Function inline implementations ===
 

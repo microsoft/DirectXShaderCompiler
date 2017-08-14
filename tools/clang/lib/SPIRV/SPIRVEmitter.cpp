@@ -129,45 +129,6 @@ const Stmt *getImmediateParent(ASTContext &astContext, const Stmt *stmt) {
   return parents.empty() ? nullptr : parents[0].get<Stmt>();
 }
 
-/// \brief Returns true if there are no unreachable statements after the given
-/// statement. A "continue" statement and "break" statement cause a branch to a
-/// loop header and a loop merge block, respectively. A "return" statement
-/// causes a branch out of the function. In such situations, any statement that
-/// follows the break/continue/return will not be executed. When this method
-/// returns false, it indicates that there exists statements that are not going
-/// to be executed.
-bool isLastStmtBeforeControlFlowBranching(ASTContext &astContext,
-                                          const Stmt *stmt) {
-  const Stmt *parent = getImmediateParent(astContext, stmt);
-  if (const auto *parentCS = dyn_cast_or_null<CompoundStmt>(parent)) {
-    if (stmt == *(parentCS->body_rbegin())) {
-      // The current statement is the last child node of the parent.
-
-      // Handle nested compound statements. e.g.
-      // while (cond) {
-      //   StmtA;
-      //   {
-      //      StmtB;
-      //      {{continue;}}
-      //   }
-      //   {StmtC;}
-      //   StmtD;
-      // }
-      //
-      // The continue statement is the last statement in its CompoundStmt scope,
-      // but, if nested compound statements are flattened, the continue
-      // statement is not the last statement in the current loop scope.
-      const Stmt *grandparent = getImmediateParent(astContext, parent);
-      if (grandparent && isa<CompoundStmt>(grandparent))
-        return isLastStmtBeforeControlFlowBranching(astContext, parent);
-
-      return true;
-    }
-  }
-
-  return false;
-}
-
 bool isLoopStmt(const Stmt *stmt) {
   return isa<ForStmt>(stmt) || isa<WhileStmt>(stmt) || isa<DoStmt>(stmt);
 }
@@ -533,11 +494,11 @@ spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Attr &attr) {
 void SPIRVEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
   assert(!theBuilder.isCurrentBasicBlockTerminated());
   theBuilder.createKill();
-  if (!isLastStmtBeforeControlFlowBranching(astContext, discardStmt)) {
-    const uint32_t unreachableBB =
-        theBuilder.createBasicBlock("unreachable", /*isReachable*/ false);
-    theBuilder.setInsertPoint(unreachableBB);
-  }
+  // Some statements that alter the control flow (break, continue, return, and
+  // discard), require creation of a new basic block to hold any statement that
+  // may follow them.
+  const uint32_t newBB = theBuilder.createBasicBlock();
+  theBuilder.setInsertPoint(newBB);
 }
 
 void SPIRVEmitter::doDoStmt(const DoStmt *theDoStmt,
@@ -643,8 +604,10 @@ void SPIRVEmitter::doContinueStmt(const ContinueStmt *continueStmt) {
   theBuilder.createBranch(continueTargetBB);
   theBuilder.addSuccessor(continueTargetBB);
 
-  // If any statements follow a continue statement in a loop, they will not be
-  // executed. For example, StmtB and StmtC below are never executed:
+  // Some statements that alter the control flow (break, continue, return, and
+  // discard), require creation of a new basic block to hold any statement that
+  // may follow them. For example: StmtB and StmtC below are put inside a new
+  // basic block which is unreachable.
   //
   // while (true) {
   //   StmtA;
@@ -652,16 +615,8 @@ void SPIRVEmitter::doContinueStmt(const ContinueStmt *continueStmt) {
   //   StmtB;
   //   StmtC;
   // }
-  //
-  // To handle such cases, we do not stop tranlsation. We create a new basic
-  // block in which StmtB and StmtC will be translated.
-  // Note that since this basic block is unreachable, BlockReadableOrderVisitor
-  // will not emit it in the final module binary.
-  if (!isLastStmtBeforeControlFlowBranching(astContext, continueStmt)) {
-    const uint32_t unreachableBB =
-        theBuilder.createBasicBlock("unreachable", /*isReachable*/ false);
-    theBuilder.setInsertPoint(unreachableBB);
-  }
+  const uint32_t newBB = theBuilder.createBasicBlock();
+  theBuilder.setInsertPoint(newBB);
 }
 
 void SPIRVEmitter::doWhileStmt(const WhileStmt *whileStmt,
@@ -941,39 +896,12 @@ void SPIRVEmitter::doReturnStmt(const ReturnStmt *stmt) {
   else
     theBuilder.createReturn();
 
-  // Handle early returns
-  if (!isLastStmtBeforeControlFlowBranching(astContext, stmt)) {
-    const uint32_t unreachableBB =
-        theBuilder.createBasicBlock("unreachable", /*isReachable*/ false);
-    theBuilder.setInsertPoint(unreachableBB);
-  }
-}
-
-bool SPIRVEmitter::breakStmtIsLastStmtInCaseStmt(const BreakStmt *breakStmt,
-                                                 const SwitchStmt *switchStmt) {
-  std::vector<const Stmt *> flatSwitch;
-  flattenSwitchStmtAST(switchStmt->getBody(), &flatSwitch);
-  auto iter =
-      std::find(flatSwitch.begin(), flatSwitch.end(), cast<Stmt>(breakStmt));
-  assert(iter != std::end(flatSwitch));
-
-  // We are interested to know what comes after the BreakStmt.
-  ++iter;
-
-  // The break statement is the last statement in its case statement iff:
-  // it is the last statement in the switch, or,
-  // its next statement is either 'default' or 'case'
-  return iter == flatSwitch.end() || isa<CaseStmt>(*iter) ||
-         isa<DefaultStmt>(*iter);
-}
-
-const Stmt *SPIRVEmitter::breakStmtScope(const BreakStmt *breakStmt) {
-  const Stmt *curNode = breakStmt;
-  do {
-    curNode = getImmediateParent(astContext, curNode);
-  } while (curNode && !isLoopStmt(curNode) && !isa<SwitchStmt>(curNode));
-
-  return curNode;
+  // Some statements that alter the control flow (break, continue, return, and
+  // discard), require creation of a new basic block to hold any statement that
+  // may follow them. In this case, the newly created basic block will contain
+  // any statement that may come after an early return.
+  const uint32_t newBB = theBuilder.createBasicBlock();
+  theBuilder.setInsertPoint(newBB);
 }
 
 void SPIRVEmitter::doBreakStmt(const BreakStmt *breakStmt) {
@@ -982,8 +910,10 @@ void SPIRVEmitter::doBreakStmt(const BreakStmt *breakStmt) {
   theBuilder.addSuccessor(breakTargetBB);
   theBuilder.createBranch(breakTargetBB);
 
-  // If any statements follow a break statement in a loop or switch, they will
-  // not be executed. For example, StmtB and StmtC below are never executed:
+  // Some statements that alter the control flow (break, continue, return, and
+  // discard), require creation of a new basic block to hold any statement that
+  // may follow them. For example: StmtB and StmtC below are put inside a new
+  // basic block which is unreachable.
   //
   // while (true) {
   //   StmtA;
@@ -991,26 +921,8 @@ void SPIRVEmitter::doBreakStmt(const BreakStmt *breakStmt) {
   //   StmtB;
   //   StmtC;
   // }
-  //
-  // To handle such cases, we do not stop tranlsation. We create a new basic
-  // block in which StmtB and StmtC will be translated.
-  // Note that since this basic block is unreachable, BlockReadableOrderVisitor
-  // will not emit it in the final module binary.
-  const Stmt *scope = breakStmtScope(breakStmt);
-  if (
-      // Have unreachable instructions after a break statement in a case of a
-      // switch statement
-      (isa<SwitchStmt>(scope) &&
-       !breakStmtIsLastStmtInCaseStmt(breakStmt,
-                                      dyn_cast<SwitchStmt>(scope))) ||
-      // Have unreachable instructions after a break statement in a loop
-      // statement
-      (isLoopStmt(scope) &&
-       !isLastStmtBeforeControlFlowBranching(astContext, breakStmt))) {
-    const uint32_t unreachableBB =
-        theBuilder.createBasicBlock("unreachable", false);
-    theBuilder.setInsertPoint(unreachableBB);
-  }
+  const uint32_t newBB = theBuilder.createBasicBlock();
+  theBuilder.setInsertPoint(newBB);
 }
 
 void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,

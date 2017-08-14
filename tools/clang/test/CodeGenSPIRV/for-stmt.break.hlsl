@@ -37,35 +37,35 @@ void main() {
   ////////////////////////////////////////////////////////////////////////////////
 
 // CHECK-NEXT: %for_check_0 = OpLabel
-// CHECK:      OpLoopMerge %for_merge_0 %for_continue_0 None
-// CHECK-NEXT: OpBranchConditional {{%\d+}} %for_body_0 %for_merge_0
+// CHECK:      OpLoopMerge %for_merge_1 %for_continue_1 None
+// CHECK-NEXT: OpBranchConditional {{%\d+}} %for_body_0 %for_merge_1
   for (int j = 0; j < 10; ++j) {
 // CHECK-NEXT: %for_body_0 = OpLabel
     val = j+5;
 // CHECK:      OpBranch %for_check_1
 
 // CHECK-NEXT: %for_check_1 = OpLabel
-// CHECK:      OpLoopMerge %for_merge_1 %for_continue_1 None
-// CHECK-NEXT: OpBranchConditional {{%\d+}} %for_body_1 %for_merge_1
+// CHECK:      OpLoopMerge %for_merge_0 %for_continue_0 None
+// CHECK-NEXT: OpBranchConditional {{%\d+}} %for_body_1 %for_merge_0
     for ( ; val < 20; ++val) {
 // CHECK-NEXT: %for_body_1 = OpLabel
       int k = val + j;
-// CHECK:      OpBranch %for_merge_1
+// CHECK:      OpBranch %for_merge_0
       {{break;}}
       k++; // No SPIR-V should be emitted for this statement.
 
-// CHECK-NEXT: %for_continue_1 = OpLabel
+// CHECK-NEXT: %for_continue_0 = OpLabel
 // CHECK:      OpBranch %for_check_1
     }
-// CHECK-NEXT: %for_merge_1 = OpLabel
+// CHECK-NEXT: %for_merge_0 = OpLabel
     val--;
-// CHECK:      OpBranch %for_merge_0
+// CHECK:      OpBranch %for_merge_1
     break;
     break;        // No SPIR-V should be emitted for this statement.
     val = val*10; // No SPIR-V should be emitted for this statement.
 
-// CHECK-NEXT: %for_continue_0 = OpLabel
+// CHECK-NEXT: %for_continue_1 = OpLabel
 // CHECK:      OpBranch %for_check_0
   }
-// CHECK-NEXT: %for_merge_0 = OpLabel
+// CHECK-NEXT: %for_merge_1 = OpLabel
 }

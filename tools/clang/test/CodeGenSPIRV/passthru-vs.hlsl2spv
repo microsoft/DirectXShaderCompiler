@@ -17,11 +17,12 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // ; SPIR-V
 // ; Version: 1.0
 // ; Generator: Google spiregg; 0
-// ; Bound: 37
+// ; Bound: 38
 // ; Schema: 0
 // OpCapability Shader
 // OpMemoryModel Logical GLSL450
 // OpEntryPoint Vertex %VSmain "VSmain" %in_var_POSITION %in_var_COLOR %gl_Position %out_var_COLOR
+// OpName %bb_entry "bb.entry"
 // OpName %VSmain "VSmain"
 // OpName %param_var_position "param.var.position"
 // OpName %in_var_POSITION "in.var.POSITION"
@@ -34,7 +35,6 @@ PSInput VSmain(float4 position: POSITION, float4 color: COLOR) {
 // OpName %src_VSmain "src.VSmain"
 // OpName %position "position"
 // OpName %color "color"
-// OpName %bb_entry "bb.entry"
 // OpName %result "result"
 // OpDecorate %gl_Position BuiltIn Position
 // OpDecorate %in_var_POSITION Location 0

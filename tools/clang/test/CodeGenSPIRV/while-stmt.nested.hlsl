@@ -7,8 +7,8 @@ void main() {
 // CHECK-NEXT: %while_check = OpLabel
 // CHECK-NEXT: [[i0:%\d+]] = OpLoad %int %i
 // CHECK-NEXT: [[i_lt_10:%\d+]] = OpSLessThan %bool [[i0]] %int_10
-// CHECK-NEXT: OpLoopMerge %while_merge %while_continue DontUnroll
-// CHECK-NEXT: OpBranchConditional [[i_lt_10]] %while_body %while_merge
+// CHECK-NEXT: OpLoopMerge %while_merge_1 %while_continue_1 DontUnroll
+// CHECK-NEXT: OpBranchConditional [[i_lt_10]] %while_body %while_merge_1
   [loop] while (i < 10) {
 // CHECK-NEXT: %while_body = OpLabel
 // CHECK-NEXT: [[val1:%\d+]] = OpLoad %int %val
@@ -29,8 +29,8 @@ void main() {
 // CHECK-NEXT: %while_check_1 = OpLabel
 // CHECK-NEXT: [[k0:%\d+]] = OpLoad %int %k
 // CHECK-NEXT: [[k_lt_30:%\d+]] = OpSLessThan %bool [[k0]] %int_30
-// CHECK-NEXT: OpLoopMerge %while_merge_1 %while_continue_1 DontUnroll
-// CHECK-NEXT: OpBranchConditional [[k_lt_30]] %while_body_1 %while_merge_1
+// CHECK-NEXT: OpLoopMerge %while_merge %while_continue DontUnroll
+// CHECK-NEXT: OpBranchConditional [[k_lt_30]] %while_body_1 %while_merge
       [fastopt] while (k < 30) {
 // CHECK-NEXT: %while_body_1 = OpLabel
 // CHECK-NEXT: [[val2:%\d+]] = OpLoad %int %val
@@ -42,11 +42,11 @@ void main() {
 // CHECK-NEXT: [[k_plus_1:%\d+]] = OpIAdd %int [[k3]] %int_1
 // CHECK-NEXT: OpStore %k [[k_plus_1]]
         ++k;
-// CHECK-NEXT: OpBranch %while_continue_1
-// CHECK-NEXT: %while_continue_1 = OpLabel
+// CHECK-NEXT: OpBranch %while_continue
+// CHECK-NEXT: %while_continue = OpLabel
 // CHECK-NEXT: OpBranch %while_check_1
       }
-// CHECK-NEXT: %while_merge_1 = OpLabel
+// CHECK-NEXT: %while_merge = OpLabel
 
 // CHECK-NEXT: [[val3:%\d+]] = OpLoad %int %val
 // CHECK-NEXT: [[val_mult_2:%\d+]] = OpIMul %int [[val3]] %int_2
@@ -66,11 +66,11 @@ void main() {
 // CHECK-NEXT: [[i_plus_1:%\d+]] = OpIAdd %int [[i2]] %int_1
 // CHECK-NEXT: OpStore %i [[i_plus_1]]
     ++i;
-// CHECK-NEXT: OpBranch %while_continue
-// CHECK-NEXT: %while_continue = OpLabel
+// CHECK-NEXT: OpBranch %while_continue_1
+// CHECK-NEXT: %while_continue_1 = OpLabel
 // CHECK-NEXT: OpBranch %while_check
   }
-// CHECK-NEXT: %while_merge = OpLabel
+// CHECK-NEXT: %while_merge_1 = OpLabel
 
 
 // CHECK-NEXT: OpReturn

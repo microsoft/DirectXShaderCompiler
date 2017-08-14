@@ -406,18 +406,6 @@ private:
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
 private:
-  /// \brief Returns the statement that the given break statement applies to.
-  /// According to the spec, break statements can only apply to loops (do, for,
-  /// while) or case statements inside a switch statement. The frontend ensures
-  /// this is true (errors out otherwise).
-  const Stmt *breakStmtScope(const BreakStmt *);
-
-  /// \brief Returns true if the given BreakStmt is the last statement inside
-  /// its case statement of the given switch statement. Panics if the given
-  /// break statement is not inside the tree of the given switch statement.
-  bool breakStmtIsLastStmtInCaseStmt(const BreakStmt *, const SwitchStmt *);
-
-private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {

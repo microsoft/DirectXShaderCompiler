@@ -97,24 +97,14 @@ bool ModuleBuilder::endFunction() {
   return true;
 }
 
-uint32_t ModuleBuilder::createBasicBlock(llvm::StringRef name,
-                                         bool isReachable) {
+uint32_t ModuleBuilder::createBasicBlock(llvm::StringRef name) {
   if (theFunction == nullptr) {
     assert(false && "found detached basic block");
     return 0;
   }
 
   const uint32_t labelId = theContext.takeNextId();
-  basicBlocks[labelId] = llvm::make_unique<BasicBlock>(labelId, isReachable);
-
-  // OpName instructions should not be added for unreachable basic blocks
-  // because such blocks are *not* discovered by BlockReadableOrderVisitor and
-  // therefore they are not emitted.
-  // The newly created basic block is unreachable if specified by the caller,
-  // or, if this block is being created by a block that is already unreachable.
-  if (isReachable && (!insertPoint || insertPoint->isReachable()))
-    theModule.addDebugName(labelId, name);
-
+  basicBlocks[labelId] = llvm::make_unique<BasicBlock>(labelId, name);
   return labelId;
 }
 
