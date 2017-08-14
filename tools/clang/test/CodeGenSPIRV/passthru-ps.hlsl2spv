@@ -16,8 +16,8 @@ float4 main(float4 input: COLOR): SV_TARGET
 // OpEntryPoint Fragment %main "main" %in_var_COLOR %out_var_SV_Target
 // OpExecutionMode %main OriginUpperLeft
 // OpName %main "main"
-// OpName %in_var_COLOR "in.var.COLOR"
 // OpName %param_var_input "param.var.input"
+// OpName %in_var_COLOR "in.var.COLOR"
 // OpName %out_var_SV_Target "out.var.SV_Target"
 // OpName %src_main "src.main"
 // OpName %input "input"
@@ -28,8 +28,8 @@ float4 main(float4 input: COLOR): SV_TARGET
 // %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32
 // %v4float = OpTypeVector %float 4
-// %_ptr_Input_v4float = OpTypePointer Input %v4float
 // %_ptr_Function_v4float = OpTypePointer Function %v4float
+// %_ptr_Input_v4float = OpTypePointer Input %v4float
 // %_ptr_Output_v4float = OpTypePointer Output %v4float
 // %16 = OpTypeFunction %v4float %_ptr_Function_v4float
 // %in_var_COLOR = OpVariable %_ptr_Input_v4float Input
@@ -37,8 +37,8 @@ float4 main(float4 input: COLOR): SV_TARGET
 // %main = OpFunction %void None %3
 // %5 = OpLabel
 // %param_var_input = OpVariable %_ptr_Function_v4float Function
-// %10 = OpLoad %v4float %in_var_COLOR
-// OpStore %param_var_input %10
+// %12 = OpLoad %v4float %in_var_COLOR
+// OpStore %param_var_input %12
 // %13 = OpFunctionCall %v4float %src_main %param_var_input
 // OpStore %out_var_SV_Target %13
 // OpReturn

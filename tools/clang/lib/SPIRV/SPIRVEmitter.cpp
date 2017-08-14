@@ -1095,22 +1095,35 @@ uint32_t SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
   }
 
   if (callee) {
-    const uint32_t returnType =
-        typeTranslator.translateType(callExpr->getType());
+    const auto numParams = callee->getNumParams();
 
-    // Get or forward declare the function <result-id>
-    const uint32_t funcId = declIdMapper.getOrRegisterDeclResultId(callee);
+    llvm::SmallVector<uint32_t, 4> params;
+    llvm::SmallVector<uint32_t, 4> args;
 
     // Evaluate parameters
-    llvm::SmallVector<uint32_t, 4> params;
-    for (const auto *arg : callExpr->arguments()) {
+    for (uint32_t i = 0; i < numParams; ++i) {
+      const auto *arg = callExpr->getArg(i);
+      const auto *param = callee->getParamDecl(i);
+
       // We need to create variables for holding the values to be used as
       // arguments. The variables themselves are of pointer types.
       const uint32_t varType = typeTranslator.translateType(arg->getType());
-      const uint32_t tempVarId = theBuilder.addFnVar(varType);
-      theBuilder.createStore(tempVarId, doExpr(arg));
+      const std::string varName = "param.var." + param->getNameAsString();
+      const uint32_t tempVarId = theBuilder.addFnVar(varType, varName);
 
       params.push_back(tempVarId);
+      args.push_back(doExpr(arg));
+
+      if (param->getAttr<HLSLOutAttr>() || param->getAttr<HLSLInOutAttr>()) {
+        // The current parameter is marked as out/inout. The argument then is
+        // essentially passed in by reference. We need to load the value
+        // explicitly here since the AST won't inject LValueToRValue implicit
+        // cast for this case.
+        const uint32_t value = theBuilder.createLoad(varType, args.back());
+        theBuilder.createStore(tempVarId, value);
+      } else {
+        theBuilder.createStore(tempVarId, args.back());
+      }
     }
 
     // Push the callee into the work queue if it is not there.
@@ -1118,7 +1131,24 @@ uint32_t SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
       workQueue.insert(callee);
     }
 
-    return theBuilder.createFunctionCall(returnType, funcId, params);
+    const uint32_t retType = typeTranslator.translateType(callExpr->getType());
+    // Get or forward declare the function <result-id>
+    const uint32_t funcId = declIdMapper.getOrRegisterDeclResultId(callee);
+
+    const uint32_t retVal =
+        theBuilder.createFunctionCall(retType, funcId, params);
+
+    // Go through all parameters and write those marked as out/inout
+    for (uint32_t i = 0; i < numParams; ++i) {
+      const auto *param = callee->getParamDecl(i);
+      if (param->getAttr<HLSLOutAttr>() || param->getAttr<HLSLInOutAttr>()) {
+        const uint32_t typeId = typeTranslator.translateType(param->getType());
+        const uint32_t value = theBuilder.createLoad(typeId, params[i]);
+        theBuilder.createStore(args[i], value);
+      }
+    }
+
+    return retVal;
   }
 
   emitError("calling non-function unimplemented");
@@ -3117,28 +3147,29 @@ uint32_t SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   const uint32_t entryLabel = theBuilder.createBasicBlock();
   theBuilder.setInsertPoint(entryLabel);
 
-  // Initialize all global variables at the beginning of the entry function
+  // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars)
     theBuilder.createStore(declIdMapper.getDeclResultId(varDecl),
                            doExpr(varDecl->getInit()));
 
-  // Create and read stage input variables
-  // TODO: handle out/inout modifier
+  // Create temporary variables for holding function call arguments
   llvm::SmallVector<uint32_t, 4> params;
   for (const auto *param : decl->params()) {
-    // Create stage variable(s) from this parameter and load the composite value
-    uint32_t loadedValue = 0;
-    if (!declIdMapper.createStageInputVar(param, &loadedValue))
-      return 0;
-
-    // Create a temporary variable to hold the composite value of the stage
-    // variable
     const uint32_t typeId = typeTranslator.translateType(param->getType());
     std::string tempVarName = "param.var." + param->getNameAsString();
     const uint32_t tempVar = theBuilder.addFnVar(typeId, tempVarName);
-    theBuilder.createStore(tempVar, loadedValue);
 
     params.push_back(tempVar);
+
+    // Create the stage input variable for parameter not marked as pure out and
+    // initialize the corresponding temporary variable
+    if (!param->getAttr<HLSLOutAttr>()) {
+      uint32_t loadedValue = 0;
+      if (!declIdMapper.createStageInputVar(param, &loadedValue))
+        return 0;
+
+      theBuilder.createStore(tempVar, loadedValue);
+    }
   }
 
   // Call the original entry function
@@ -3146,11 +3177,22 @@ uint32_t SPIRVEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   const uint32_t retVal =
       theBuilder.createFunctionCall(retType, entryFuncId, params);
 
-  // Create and write stage output variables
-  // TODO: handle out/inout modifier
-
+  // Create and write stage output variables for return value
   if (!declIdMapper.createStageOutputVar(decl, retVal))
     return 0;
+
+  // Create and write stage output variables for parameters marked as out/inout
+  for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
+    const auto *param = decl->getParamDecl(i);
+    if (param->getAttr<HLSLOutAttr>() || param->getAttr<HLSLInOutAttr>()) {
+      // Load the value from the parameter after function call
+      const uint32_t typeId = typeTranslator.translateType(param->getType());
+      const uint32_t loadedParam = theBuilder.createLoad(typeId, params[i]);
+
+      if (!declIdMapper.createStageOutputVar(param, loadedParam))
+        return 0;
+    }
+  }
 
   theBuilder.createReturn();
   theBuilder.endFunction();

@@ -22,11 +22,11 @@ void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 // CHECK-NEXT: %v = OpVariable %_ptr_Function_int Function
     int v;
-// CHECK-NEXT: [[oneParam:%\d+]] = OpVariable %_ptr_Function_int Function
-// CHECK-NEXT: [[twoParam1:%\d+]] = OpVariable %_ptr_Function_int Function
-// CHECK-NEXT: [[twoParam2:%\d+]] = OpVariable %_ptr_Function_int Function
-// CHECK-NEXT: [[nestedParam1:%\d+]] = OpVariable %_ptr_Function_int Function
-// CHECK-NEXT: [[nestedParam2:%\d+]] = OpVariable %_ptr_Function_int Function
+// CHECK-NEXT: [[oneParam:%\w+]] = OpVariable %_ptr_Function_int Function
+// CHECK-NEXT: [[twoParam1:%\w+]] = OpVariable %_ptr_Function_int Function
+// CHECK-NEXT: [[twoParam2:%\w+]] = OpVariable %_ptr_Function_int Function
+// CHECK-NEXT: [[nestedParam1:%\w+]] = OpVariable %_ptr_Function_int Function
+// CHECK-NEXT: [[nestedParam2:%\w+]] = OpVariable %_ptr_Function_int Function
 
 // CHECK-NEXT: OpStore [[oneParam]] %int_1
 // CHECK-NEXT: [[call0:%\d+]] = OpFunctionCall %int %fnOneParm [[oneParam]]
