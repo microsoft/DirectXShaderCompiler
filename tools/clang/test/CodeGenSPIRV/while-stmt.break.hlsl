@@ -55,8 +55,8 @@ void main() {
 
 // CHECK-NEXT: OpBranch %while_check_0
 // CHECK-NEXT: %while_check_0 = OpLabel
-// CHECK-NEXT: OpLoopMerge %while_merge_0 %while_continue_0 None
-// CHECK-NEXT: OpBranchConditional %true %while_body_0 %while_merge_0
+// CHECK-NEXT: OpLoopMerge %while_merge_1 %while_continue_1 None
+// CHECK-NEXT: OpBranchConditional %true %while_body_0 %while_merge_1
   while (true) {
 // CHECK-NEXT: %while_body_0 = OpLabel
     i++;
@@ -64,23 +64,23 @@ void main() {
 // CHECK:      OpBranch %while_check_1
 // CHECK-NEXT: %while_check_1 = OpLabel
 // CHECK:      [[i_lt_20:%\d+]] = OpSLessThan %bool {{%\d+}} %int_20
-// CHECK-NEXT: OpLoopMerge %while_merge_1 %while_continue_1 None
-// CHECK-NEXT: OpBranchConditional [[i_lt_20]] %while_body_1 %while_merge_1
+// CHECK-NEXT: OpLoopMerge %while_merge_0 %while_continue_0 None
+// CHECK-NEXT: OpBranchConditional [[i_lt_20]] %while_body_1 %while_merge_0
     while(i<20) {
 // CHECK-NEXT: %while_body_1 = OpLabel
       val = i;
-// CHECK:      OpBranch %while_merge_1
+// CHECK:      OpBranch %while_merge_0
       {{break;}}
-// CHECK-NEXT: %while_continue_1 = OpLabel
+// CHECK-NEXT: %while_continue_0 = OpLabel
 // CHECK-NEXT: OpBranch %while_check_1
     }
-// CHECK-NEXT: %while_merge_1 = OpLabel
+// CHECK-NEXT: %while_merge_0 = OpLabel
     --i;
-// CHECK:      OpBranch %while_merge_0
+// CHECK:      OpBranch %while_merge_1
     break;
-// CHECK-NEXT: %while_continue_0 = OpLabel
+// CHECK-NEXT: %while_continue_1 = OpLabel
 // CHECK-NEXT: OpBranch %while_check_0
   }
-// CHECK-NEXT: %while_merge_0 = OpLabel
+// CHECK-NEXT: %while_merge_1 = OpLabel
 
 }

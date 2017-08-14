@@ -47,12 +47,14 @@ bool Instruction::isTerminator() const {
 // === Basic block implementations ===
 
 BasicBlock::BasicBlock(BasicBlock &&that)
-    : labelId(that.labelId), instructions(std::move(that.instructions)) {
+    : labelId(that.labelId), debugName(that.debugName),
+      instructions(std::move(that.instructions)) {
   that.clear();
 }
 
 BasicBlock &BasicBlock::operator=(BasicBlock &&that) {
   labelId = that.labelId;
+  debugName = that.debugName;
   instructions = std::move(that.instructions);
 
   that.clear();
@@ -62,6 +64,7 @@ BasicBlock &BasicBlock::operator=(BasicBlock &&that) {
 
 void BasicBlock::clear() {
   labelId = 0;
+  debugName = "";
   instructions.clear();
 }
 
@@ -163,6 +166,14 @@ void Function::addVariable(uint32_t varType, uint32_t varId,
           .take());
 }
 
+void Function::getReachableBasicBlocks(std::vector<BasicBlock *> *bbVec) const {
+  if (!blocks.empty()) {
+    BlockReadableOrderVisitor(
+        [&bbVec](BasicBlock *block) { bbVec->push_back(block); })
+        .visit(blocks.front().get());
+  }
+}
+
 // === Module components implementations ===
 
 Header::Header()
@@ -244,6 +255,16 @@ void SPIRVModule::take(InstBuilder *builder) {
     consumer(inst.take());
   }
 
+  // BasicBlock debug names should be emitted only for blocks that are reachable.
+  // The debug name for a basic block is stored in the basic block object.
+  std::vector<BasicBlock*> reachableBasicBlocks;
+  for (const auto& fn : functions)
+    fn->getReachableBasicBlocks(&reachableBasicBlocks);
+  for (BasicBlock *bb : reachableBasicBlocks)
+    if (!bb->getDebugName().empty())
+      builder->opName(bb->getLabelId(), bb->getDebugName()).x();
+
+  // Emit other debug names
   for (auto &inst : debugNames) {
     if (inst.memberIndex.hasValue()) {
       builder
