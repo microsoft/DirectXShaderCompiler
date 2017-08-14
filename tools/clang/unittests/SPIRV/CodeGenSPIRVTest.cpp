@@ -373,6 +373,14 @@ TEST_F(FileTest, IntrinsicsAsin) { runFileTest("intrinsics.asin.hlsl"); }
 TEST_F(FileTest, IntrinsicsAcos) { runFileTest("intrinsics.acos.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
 
+// For attributes
+TEST_F(FileTest, AttributeNumThreads) {
+  runFileTest("attribute.numthreads.hlsl");
+}
+TEST_F(FileTest, AttributeMissingNumThreads) {
+  runFileTest("attribute.numthreads.missing.hlsl");
+}
+
 // Vulkan/SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
 
