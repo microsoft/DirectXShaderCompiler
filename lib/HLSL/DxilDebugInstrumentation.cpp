@@ -178,7 +178,7 @@ private:
   CallInst * IndexVariable;
   Value * SelectionCriterion;
   CallInst * HandleForUAV;
-
+  Value * InvocationId;
   struct BuilderContext
   {
     Module &M;
@@ -206,6 +206,7 @@ private:
   void addInvocationStartMarker(BuilderContext & BC);
   Value * reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
   Value * incrementUAVIndex(BuilderContext & BC, Value * CurrentValue);
+  void addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst);
 };
 
 void DxilDebugInstrumentation::applyOptions(PassOptions O)
@@ -548,19 +549,34 @@ void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
   IRBuilder<> ThenBuilder(ThenBlockTail);
   BuilderContext ThenBuilderContext = { BC.M, BC.DM, BC.Ctx, BC.HlslOP, ThenBuilder };
   
-  auto StartIndex = reserveDebugEntrySpace(ThenBuilderContext, 2);
+  InvocationId = reserveDebugEntrySpace(ThenBuilderContext, 2);
   
   DebugShaderModifierRecordHeader marker{ 0 };
   marker.Header.Details.SizeDwords = 0;
   marker.Header.Details.Flags = 0;
   marker.Header.Details.Type = DebugShaderModifierRecordTypeInvocationStartMarker;
-  addDebugEntryValue(ThenBuilderContext, StartIndex, ThenBuilderContext.HlslOP->GetU32Const(marker.Header.u32Header));
-  auto NextIndex = incrementUAVIndex(ThenBuilderContext, StartIndex);
-  addDebugEntryValue(ThenBuilderContext, NextIndex, StartIndex );
+  addDebugEntryValue(ThenBuilderContext, InvocationId, ThenBuilderContext.HlslOP->GetU32Const(marker.Header.u32Header));
+  auto NextIndex = incrementUAVIndex(ThenBuilderContext, InvocationId);
+  addDebugEntryValue(ThenBuilderContext, NextIndex, InvocationId);
 
   BC.Builder.SetInsertPoint(BuilderWasWorkingHere);
 }
 
+void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
+{
+  DebugShaderModifierRecordStep step = {};
+  step.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(step));
+  step.Header.Details.Flags = 0;
+  step.Header.Details.Type = DebugShaderModifierRecordTypeStep;
+  auto FirstIndex = reserveDebugEntrySpace(BC, 4);
+  addDebugEntryValue(BC, FirstIndex, BC.HlslOP->GetU32Const(step.Header.u32Header));
+  auto SecondIndex = incrementUAVIndex(BC, FirstIndex);
+  addDebugEntryValue(BC, SecondIndex, BC.HlslOP->GetU32Const(InstructionIndex)); //InvocationId);
+  //auto ThirdIndex = incrementUAVIndex(BC, SecondIndex);
+  //addDebugEntryValue(BC, ThirdIndex, BC.HlslOP->GetU32Const(InstructionIndex));
+  //auto FourthIndex = incrementUAVIndex(BC, ThirdIndex);
+  //addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(Inst->getOpcode()));
+}
 
 bool DxilDebugInstrumentation::runOnModule(Module &M)
 {
@@ -584,30 +600,39 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
     }
   }
 
-  Instruction* firstInsertionPt = DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt();
-  IRBuilder<> Builder(firstInsertionPt);
-
-  BuilderContext BC{ M, DM, Ctx, HlslOP, Builder };
-
-  auto SystemValues = addRequiredSystemValues(BC);
-  HandleForUAV = addUAV(BC);
-  SelectionCriterion = addInvocationSelectionProlog(BC, SystemValues);
-
-  addInvocationStartMarker(BC);
-
-  for (auto & Inst : AllInstrucitons)
   {
-    OutputDebugStringW(BC.M, "Instruction begins\n");
-    auto OpIterator = Inst->op_begin();
-    while (OpIterator != Inst->op_end())
+    Instruction* firstInsertionPt = DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt();
+    IRBuilder<> Builder(firstInsertionPt);
+
+    BuilderContext BC{ M, DM, Ctx, HlslOP, Builder };
+
+    auto SystemValues = addRequiredSystemValues(BC);
+    HandleForUAV = addUAV(BC);
+    SelectionCriterion = addInvocationSelectionProlog(BC, SystemValues);
+
+    addInvocationStartMarker(BC);
+  }
+
+  {
+
+    unsigned int InstructionIndex = 0;
+    for (auto & Inst : AllInstrucitons)
     {
-      Value const * operand = *OpIterator;
+      IRBuilder<> Builder(Inst);
+      BuilderContext BC{ M, DM, Ctx, HlslOP, Builder };
+      addStepDebugEntry(BC, InstructionIndex++, Inst);
 
-      recordInputValue(BC, HandleForUAV, operand);
+      auto OpIterator = Inst->op_begin();
+      while (OpIterator != Inst->op_end())
+      {
+        Value const * operand = *OpIterator;
 
-      OpIterator++;
+        recordInputValue(BC, HandleForUAV, operand);
+
+        OpIterator++;
+      }
+      OutputDebugStringW(M, "End of operands\n");
     }
-    OutputDebugStringW(BC.M, "End of operands\n");
   }
 
   DM.ReEmitDxilResources();
