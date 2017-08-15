@@ -1,8 +1,5 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// Note: we need to consider the order of basic blocks. So CHECK-NEXT is used
-// extensively.
-
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
     bool c;
