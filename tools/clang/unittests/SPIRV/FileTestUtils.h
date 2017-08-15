@@ -10,6 +10,7 @@
 #ifndef LLVM_CLANG_UNITTESTS_SPIRV_FILETESTUTILS_H
 #define LLVM_CLANG_UNITTESTS_SPIRV_FILETESTUTILS_H
 
+#include <string>
 #include <vector>
 
 #include "dxc/Support/Global.h"
@@ -51,11 +52,13 @@ std::string getAbsPathOfInputDataFile(const llvm::StringRef filename);
 
 /// \brief Passes the HLSL input file to the DXC compiler with SPIR-V CodeGen.
 /// Returns the generated SPIR-V binary via 'generatedBinary' argument.
-/// Returns true on success, and false on failure.
+/// Returns true on success, and false on failure. Writes error messages to
+/// errorMessages and stderr on failure.
 bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
                                     const llvm::StringRef entryPoint,
                                     const llvm::StringRef targetProfile,
-                                    std::vector<uint32_t> *generatedBinary);
+                                    std::vector<uint32_t> *generatedBinary,
+                                    std::string *errorMessages);
 
 } // end namespace utils
 } // end namespace spirv

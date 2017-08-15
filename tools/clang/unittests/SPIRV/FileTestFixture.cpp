@@ -60,23 +60,40 @@ bool FileTest::parseInputFile() {
   return true;
 }
 
-void FileTest::runFileTest(llvm::StringRef filename, bool runSpirvValidation) {
+void FileTest::runFileTest(llvm::StringRef filename, bool expectSuccess,
+                           bool runSpirvValidation) {
   inputFilePath = utils::getAbsPathOfInputDataFile(filename);
 
   // Parse the input file.
   ASSERT_TRUE(parseInputFile());
 
+  std::string errorMessages;
+
   // Feed the HLSL source into the Compiler.
-  ASSERT_TRUE(utils::runCompilerWithSpirvGeneration(
-      inputFilePath, entryPoint, targetProfile, &generatedBinary));
+  const bool compileOk = utils::runCompilerWithSpirvGeneration(
+      inputFilePath, entryPoint, targetProfile, &generatedBinary,
+      &errorMessages);
 
-  // Disassemble the generated SPIR-V binary.
-  ASSERT_TRUE(utils::disassembleSpirvBinary(generatedBinary, &generatedSpirvAsm,
-                                            true /* generateHeader */));
+  effcee::Result result(effcee::Result::Status::Ok);
 
-  // Run CHECK commands via effcee.
-  auto result = effcee::Match(generatedSpirvAsm, checkCommands,
-                              effcee::Options().SetInputName(filename.str()));
+  if (expectSuccess) {
+    ASSERT_TRUE(compileOk);
+
+    // Disassemble the generated SPIR-V binary.
+    ASSERT_TRUE(utils::disassembleSpirvBinary(
+        generatedBinary, &generatedSpirvAsm, true /* generateHeader */));
+
+    // Run CHECK commands via effcee on disassembly.
+    result = effcee::Match(generatedSpirvAsm, checkCommands,
+                           effcee::Options().SetInputName(filename.str()));
+
+  } else {
+    ASSERT_FALSE(compileOk);
+
+    // Run CHECK commands via effcee on error messages.
+    result = effcee::Match(errorMessages, checkCommands,
+                           effcee::Options().SetInputName("<error-message>"));
+  }
 
   // Print effcee's error message (if any).
   if (result.status() != effcee::Result::Status::Ok) {
@@ -87,7 +104,7 @@ void FileTest::runFileTest(llvm::StringRef filename, bool runSpirvValidation) {
   ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
   // Run SPIR-V validation if requested.
-  if (runSpirvValidation) {
+  if (expectSuccess && runSpirvValidation) {
     EXPECT_TRUE(utils::validateSpirvBinary(generatedBinary));
   }
 }

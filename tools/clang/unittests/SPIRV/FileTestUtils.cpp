@@ -7,9 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "FileTestUtils.h"
+
 #include <algorithm>
 
-#include "FileTestUtils.h"
 #include "SpirvTestOptions.h"
 #include "gtest/gtest.h"
 
@@ -99,7 +100,8 @@ std::string getAbsPathOfInputDataFile(const llvm::StringRef filename) {
 bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
                                     const llvm::StringRef entryPoint,
                                     const llvm::StringRef targetProfile,
-                                    std::vector<uint32_t> *generatedBinary) {
+                                    std::vector<uint32_t> *generatedBinary,
+                                    std::string *errorMessages) {
   std::wstring srcFile(inputFilePath.begin(), inputFilePath.end());
   std::wstring entry(entryPoint.begin(), entryPoint.end());
   std::wstring profile(targetProfile.begin(), targetProfile.end());
@@ -140,6 +142,7 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     const std::string diagnostics((char *)pErrorBuffer->GetBufferPointer(),
                                   pErrorBuffer->GetBufferSize());
     fprintf(stderr, "%s\n", diagnostics.c_str());
+    *errorMessages = diagnostics;
 
     if (SUCCEEDED(resultStatus)) {
       CComPtr<IDxcBlobEncoding> pStdErr;
