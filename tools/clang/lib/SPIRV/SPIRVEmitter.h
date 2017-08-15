@@ -412,6 +412,15 @@ private:
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
 private:
+  /// \brief Loads numWords 32-bit unsigned integers or stores numWords 32-bit
+  /// unsigned integers (based on the doStore parameter) to the given
+  /// ByteAddressBuffer. Loading is allowed from a ByteAddressBuffer or
+  /// RWByteAddressBuffer. Storing is allowed only to RWByteAddressBuffer.
+  /// Panics if it is not the case.
+  uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
+                                             uint32_t numWords, bool doStore);
+
+private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {

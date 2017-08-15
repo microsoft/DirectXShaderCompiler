@@ -43,6 +43,9 @@ TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
 TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
+TEST_F(FileTest, ByteAddressBufferTypes) {
+  runFileTest("type.byte-address-buffer.hlsl");
+}
 
 // For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
@@ -320,6 +323,14 @@ TEST_F(FileTest, TextureArraySampleBias) {
 TEST_F(FileTest, TextureSampleGrad) { runFileTest("texture.sample-grad.hlsl"); }
 TEST_F(FileTest, TextureArraySampleGrad) {
   runFileTest("texture.array.sample-grad.hlsl");
+}
+
+// For ByteAddressBuffer methods
+TEST_F(FileTest, ByteAddressBufferLoad) {
+  runFileTest("method.byte-address-buffer.load.hlsl");
+}
+TEST_F(FileTest, ByteAddressBufferStore) {
+  runFileTest("method.byte-address-buffer.store.hlsl");
 }
 
 // For intrinsic functions

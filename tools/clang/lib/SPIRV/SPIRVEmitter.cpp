@@ -1289,6 +1289,94 @@ uint32_t SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
 }
 
+uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
+    const CXXMemberCallExpr *expr, uint32_t numWords, bool doStore) {
+  uint32_t resultId = 0;
+  const auto object = expr->getImplicitObjectArgument();
+  const auto type = object->getType();
+  const uint32_t objectId = doExpr(object);
+  assert(numWords >= 1 && numWords <= 4);
+  if (doStore) {
+    assert(typeTranslator.isRWByteAddressBuffer(type));
+    assert(expr->getNumArgs() == 2);
+  } else {
+    assert(typeTranslator.isRWByteAddressBuffer(type) ||
+           typeTranslator.isByteAddressBuffer(type));
+    if (expr->getNumArgs() == 2) {
+
+      emitError("Load(in Address, out Status) has not been implemented for "
+                "(RW)ByteAddressBuffer yet.");
+      return 0;
+    }
+  }
+  const Expr *addressExpr = expr->getArg(0);
+  const uint32_t byteAddress = doExpr(addressExpr);
+  const uint32_t addressTypeId =
+      typeTranslator.translateType(addressExpr->getType());
+
+  // Do a OpShiftRightLogical by 2 (divide by 4 to get aligned memory
+  // access). The AST always casts the address to unsinged integer, so shift
+  // by unsinged integer 2.
+  const uint32_t constUint2 = theBuilder.getConstantUint32(2);
+  const uint32_t address = theBuilder.createBinaryOp(
+      spv::Op::OpShiftRightLogical, addressTypeId, byteAddress, constUint2);
+
+  // Perform access chain into the RWByteAddressBuffer.
+  // First index must be zero (member 0 of the struct is a
+  // runtimeArray). The second index passed to OpAccessChain should be
+  // the address.
+  const uint32_t uintTypeId = theBuilder.getUint32Type();
+  const uint32_t ptrType = theBuilder.getPointerType(
+      uintTypeId, declIdMapper.resolveStorageClass(object));
+  const uint32_t constUint0 = theBuilder.getConstantUint32(0);
+
+  if (doStore) {
+    const uint32_t valuesId = doExpr(expr->getArg(1));
+    uint32_t curStoreAddress = address;
+    for (uint32_t wordCounter = 0; wordCounter < numWords; ++wordCounter) {
+      // Extract a 32-bit word from the input.
+      const uint32_t curValue = numWords == 1
+                                    ? valuesId
+                                    : theBuilder.createCompositeExtract(
+                                          uintTypeId, valuesId, {wordCounter});
+
+      // Update the output address if necessary.
+      if (wordCounter > 0) {
+        const uint32_t offset = theBuilder.getConstantUint32(wordCounter);
+        curStoreAddress = theBuilder.createBinaryOp(
+            spv::Op::OpIAdd, addressTypeId, address, offset);
+      }
+
+      // Store the word to the right address at the output.
+      const uint32_t storePtr = theBuilder.createAccessChain(
+          ptrType, objectId, {constUint0, curStoreAddress});
+      theBuilder.createStore(storePtr, curValue);
+    }
+  } else {
+    uint32_t loadPtr =
+        theBuilder.createAccessChain(ptrType, objectId, {constUint0, address});
+    resultId = theBuilder.createLoad(uintTypeId, loadPtr);
+    if (numWords > 1) {
+      // Load word 2, 3, and 4 where necessary. Use OpCompositeConstruct to
+      // return a vector result.
+      llvm::SmallVector<uint32_t, 4> values;
+      values.push_back(resultId);
+      for (uint32_t wordCounter = 2; wordCounter <= numWords; ++wordCounter) {
+        const uint32_t offset = theBuilder.getConstantUint32(wordCounter - 1);
+        const uint32_t newAddress = theBuilder.createBinaryOp(
+            spv::Op::OpIAdd, addressTypeId, address, offset);
+        loadPtr = theBuilder.createAccessChain(ptrType, objectId,
+                                               {constUint0, newAddress});
+        values.push_back(theBuilder.createLoad(uintTypeId, loadPtr));
+      }
+      const uint32_t resultType =
+          theBuilder.getVecType(addressTypeId, numWords);
+      resultId = theBuilder.createCompositeConstruct(resultType, values);
+    }
+  }
+  return resultId;
+}
+
 uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
   using namespace hlsl;
 
@@ -1416,8 +1504,14 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
         return 0;
       }
 
-      const auto *imageExpr = expr->getImplicitObjectArgument();
-      const uint32_t image = loadIfGLValue(imageExpr);
+      const auto *object = expr->getImplicitObjectArgument();
+      const auto objectType = object->getType();
+      if (typeTranslator.isRWByteAddressBuffer(objectType) ||
+          typeTranslator.isByteAddressBuffer(objectType)) {
+        return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
+      }
+
+      const uint32_t image = loadIfGLValue(object);
 
       // The location parameter is a vector that consists of both the coordinate
       // and the mipmap level (via the last vector element). We need to split it
@@ -1433,6 +1527,27 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 
       return theBuilder.createImageFetch(retType, image, coordinate, lod,
                                          offset);
+    }
+    case IntrinsicOp::MOP_Load2: {
+      return processByteAddressBufferLoadStore(expr, 2, /*doStore*/ false);
+    }
+    case IntrinsicOp::MOP_Load3: {
+      return processByteAddressBufferLoadStore(expr, 3, /*doStore*/ false);
+    }
+    case IntrinsicOp::MOP_Load4: {
+      return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ false);
+    }
+    case IntrinsicOp::MOP_Store: {
+      return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ true);
+    }
+    case IntrinsicOp::MOP_Store2: {
+      return processByteAddressBufferLoadStore(expr, 2, /*doStore*/ true);
+    }
+    case IntrinsicOp::MOP_Store3: {
+      return processByteAddressBufferLoadStore(expr, 3, /*doStore*/ true);
+    }
+    case IntrinsicOp::MOP_Store4: {
+      return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ true);
     }
     default:
       emitError("HLSL intrinsic member call unimplemented: %0")

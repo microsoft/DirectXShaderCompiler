@@ -14,9 +14,10 @@
 namespace clang {
 namespace spirv {
 
-Type::Type(spv::Op op, std::vector<uint32_t> arg,
-           std::set<const Decoration *> decs)
-    : opcode(op), args(std::move(arg)), decorations(std::move(decs)) {}
+Type::Type(spv::Op op, std::vector<uint32_t> arg, DecorationSet decs)
+    : opcode(op), args(std::move(arg)) {
+  decorations = llvm::SetVector<const Decoration *>(decs.begin(), decs.end());
+}
 
 const Type *Type::getUniqueType(SPIRVContext &context, const Type &t) {
   return context.registerType(t);
@@ -197,7 +198,7 @@ bool Type::isCompositeType() const {
 bool Type::isImageType() const { return opcode == spv::Op::OpTypeImage; }
 
 bool Type::hasDecoration(const Decoration *d) const {
-  return decorations.find(d) != decorations.end();
+  return decorations.count(d);
 }
 
 std::vector<uint32_t> Type::withResultId(uint32_t resultId) const {

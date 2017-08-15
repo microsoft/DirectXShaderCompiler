@@ -38,6 +38,12 @@ public:
   /// on will be generated.
   uint32_t translateType(QualType type);
 
+  /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
+  bool isByteAddressBuffer(QualType type);
+
+  /// \brief Returns true if the given type is the HLSL RWByteAddressBufferType.
+  bool isRWByteAddressBuffer(QualType type);
+
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and
   /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to

@@ -17,6 +17,7 @@
 #include "clang/SPIRV/Decoration.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SetVector.h"
 
 namespace clang {
 namespace spirv {
@@ -36,11 +37,11 @@ class SPIRVContext;
 /// context).
 class Type {
 public:
-  using DecorationSet = std::set<const Decoration *>;
+  using DecorationSet = llvm::ArrayRef<const Decoration *>;
 
   spv::Op getOpcode() const { return opcode; }
   const std::vector<uint32_t> &getArgs() const { return args; }
-  const DecorationSet &getDecorations() const { return decorations; }
+  const auto &getDecorations() const { return decorations; }
   bool hasDecoration(const Decoration *) const;
 
   bool isBooleanType() const;
@@ -111,8 +112,17 @@ public:
                                        spv::StorageClass storage_class,
                                        DecorationSet decs = {});
   bool operator==(const Type &other) const {
-    return opcode == other.opcode && args == other.args &&
-           decorations == other.decorations;
+    if (opcode == other.opcode && args == other.args &&
+        decorations.size() == other.decorations.size()) {
+      // If two types have the same decorations, but in different order,
+      // they are in fact the same type.
+      for (const Decoration* dec : decorations) {
+        if (other.decorations.count(dec) == 0)
+          return false;
+      }
+      return true;
+    }
+    return false;
   }
 
   // \brief Construct the SPIR-V words for this type with the given <result-id>.
@@ -120,8 +130,7 @@ public:
 
 private:
   /// \brief Private constructor.
-  Type(spv::Op op, std::vector<uint32_t> arg = {},
-       std::set<const Decoration *> dec = {});
+  Type(spv::Op op, std::vector<uint32_t> arg = {}, DecorationSet dec = {});
 
   /// \brief Returns the unique Type pointer within the given context.
   static const Type *getUniqueType(SPIRVContext &, const Type &);
@@ -129,7 +138,12 @@ private:
 private:
   spv::Op opcode;             ///< OpCode of the Type defined in SPIR-V Spec
   std::vector<uint32_t> args; ///< Arguments needed to define the type
-  DecorationSet decorations;  ///< decorations applied to the type
+
+  /// The decorations that are applied to a type.
+  /// Note: we use a SetVector because:
+  /// a) Duplicate decorations should be removed.
+  /// b) Order of insertion matters for deterministic SPIR-V emitting
+  llvm::SetVector<const Decoration *> decorations;
 };
 
 } // end namespace spirv
