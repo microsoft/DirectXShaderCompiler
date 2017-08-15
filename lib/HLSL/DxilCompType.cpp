@@ -298,7 +298,7 @@ const char *CompType::GetName() const {
 static const char *s_TypeKindHLSLNames[(unsigned)CompType::Kind::LastEntry] = {
   "unknown",
   "bool", "min16i", "min16ui", "int", "uint", "int64_t", "uint64_t",
-  "min16f", "float", "double",
+  "half", "float", "double",
   "snorm_min16f", "unorm_min16f", "snorm_float", "unorm_float", "snorm_double", "unorm_double",
 };
 

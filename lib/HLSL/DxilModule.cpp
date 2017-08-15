@@ -125,6 +125,7 @@ DxilModule::ShaderFlags::ShaderFlags():
 , m_bInt64Ops(false)
 , m_bViewID(false)
 , m_bBarycentrics(false)
+, m_bUseStrictHalf(false)
 , m_align0(0)
 , m_align1(0)
 {}
@@ -255,6 +256,7 @@ uint64_t DxilModule::ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bUAVLoadAdditionalFormats ? hlsl::ShaderFeatureInfo_TypedUAVLoadAdditionalFormats : 0;
   Flags |= m_bViewID ? hlsl::ShaderFeatureInfo_ViewID : 0;
   Flags |= m_bBarycentrics ? hlsl::ShaderFeatureInfo_Barycentrics : 0;
+  Flags |= m_bUseStrictHalf ? hlsl::ShaderFeatureInfo_UseStrictHalf : 0;
 
   return Flags;
 }
@@ -339,7 +341,8 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   // fma has dxil op. Others should check IR instruction div/cast.
   bool hasDoubleExtension = false;
   bool has64Int = false;
-  bool has16FloatInt = false;
+  bool has16Float = false;
+  bool has16Int = false;
   bool hasWaveOps = false;
   bool hasCheckAccessFully = false;
   bool hasMSAD = false;
@@ -395,8 +398,8 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           }
         }
         
-        has16FloatInt |= isHalf;
-        has16FloatInt |= isInt16;
+        has16Float|= isHalf;
+        has16Int |= isInt16;
         has64Int |= isInt64;
 
         if (CallInst *CI = dyn_cast<CallInst>(&I)) {
@@ -474,7 +477,7 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
 
   Flags.SetEnableDoublePrecision(hasDouble);
   Flags.SetInt64Ops(has64Int);
-  Flags.SetEnableMinPrecision(has16FloatInt);
+  Flags.SetEnableMinPrecision(has16Int ? true : Flags.GetUseStrictHalf() ? false: has16Float);
   Flags.SetEnableDoubleExtensions(hasDoubleExtension);
   Flags.SetWaveOps(hasWaveOps);
   Flags.SetTiledResources(hasCheckAccessFully);

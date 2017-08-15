@@ -1,19 +1,20 @@
 // RUN: %dxc -E main -T ps_6_0 -no-min-precision %s | FileCheck %s
 
+// CHECK: Strict half
 // CHECK: cbuffer Foo
 // CHECK: {
 // CHECK:   struct dx.alignment.legacy.Foo
 // CHECK:   {
-// CHECK:       min16f h1;                                    ; Offset:    0
-// CHECK:       float3 f3;                                    ; Offset:    4
-// CHECK:       min16f2 h2;                                   ; Offset:   16
-// CHECK:       float3 f3_1;                                  ; Offset:   20
-// CHECK:       float2 f2;                                    ; Offset:   32
-// CHECK:       min16f4 h4;                                   ; Offset:   40
-// CHECK:       min16f2 h2_1;                                 ; Offset:   48
-// CHECK:       min16f3 h3;                                   ; Offset:   52
-// CHECK:       double d1;                                    ; Offset:   64
-// CHECK:   } Foo                                             ; Offset:    0 Size:    72
+// CHECK:       half h1;                                    ; Offset:    0
+// CHECK:       float3 f3;                                  ; Offset:    4
+// CHECK:       half2 h2;                                   ; Offset:   16
+// CHECK:       float3 f3_1;                                ; Offset:   20
+// CHECK:       float2 f2;                                  ; Offset:   32
+// CHECK:       half4 h4;                                   ; Offset:   40
+// CHECK:       half2 h2_1;                                 ; Offset:   48
+// CHECK:       half3 h3;                                   ; Offset:   52
+// CHECK:       double d1;                                  ; Offset:   64
+// CHECK:   } Foo                                           ; Offset:    0 Size:    72
 // CHECK: }
 
 // CHECK: %Foo_buffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)

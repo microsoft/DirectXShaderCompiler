@@ -59,7 +59,8 @@ struct HLOptions {
   unsigned bLegacyCBufferLoad      : 1;
   unsigned PackingStrategy         : 2;
   static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4, "otherwise 2 bits is not enough to store PackingStrategy");
-  unsigned unused                  : 25;
+  unsigned bUseStrictHalf          : 1;
+  unsigned unused                  : 24;
 };
 
 /// Use this class to manipulate HLDXIR of a shader.
