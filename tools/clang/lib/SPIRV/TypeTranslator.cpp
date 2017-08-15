@@ -122,6 +122,14 @@ uint32_t TypeTranslator::translateType(QualType type) {
     return theBuilder.getStructType(fieldTypes, decl->getName(), fieldNames);
   }
 
+  if (const auto *arrayType = dyn_cast<ConstantArrayType>(typePtr)) {
+    const uint32_t elemType = translateType(arrayType->getElementType());
+    const auto size =
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    return theBuilder.getArrayType(elemType,
+                                   theBuilder.getConstantUint32(size));
+  }
+
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
   return 0;
 }
