@@ -232,6 +232,7 @@ def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
 def COnly : LangOpt<"CPlusPlus", 1>;
+def SPIRV : LangOpt<"SPIRV">; // SPIRV Change
 
 // Defines targets for target-specific attributes. The list of strings should
 // specify architectures for which the target applies, based off the ArchType
@@ -851,6 +852,18 @@ def HLSLShader : InheritableAttr {
 }
 
 // HLSL Change Ends
+
+// SPIRV Change Starts
+
+def VKLocation : InheritableAttr {
+  let Spellings = [CXX11<"vk", "location">];
+  let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
+  let Args = [IntArgument<"Number">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+// SPIRV Change Ends
 
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];

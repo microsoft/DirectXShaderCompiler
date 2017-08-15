@@ -10146,7 +10146,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
 	  break;
   default:
     Handled = false;
-    return;
+    break;  // SPIRV Change: was return;
   }
 
   if (declAttr != nullptr)
@@ -10157,7 +10157,29 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     // The attribute has been set but will have no effect. Validation will emit a diagnostic
     // and prevent code generation.
     ValidateAttributeTargetIsFunction(S, D, A);
+
+    return; // SPIRV Change
   }
+
+  // SPIRV Change Starts
+  Handled = true;
+  switch (A.getKind())
+  {
+  case AttributeList::AT_VKLocation:
+	  declAttr = ::new (S.Context) VKLocationAttr(A.getRange(), S.Context,
+		  ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+	  break;
+  default:
+    Handled = false;
+    return;
+  }
+
+  if (declAttr != nullptr)
+  {
+    DXASSERT_NOMSG(Handled);
+    D->addAttr(declAttr);
+  }
+  // SPIRV Change Ends
 }
 
 /// <summary>Processes an attribute for a statement.</summary>

@@ -182,7 +182,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   AddExecutionModeForEntryPoint(entryFunctionId);
 
   // Add Location decorations to stage input/output variables.
-  declIdMapper.finalizeStageIOLocations();
+  if (!declIdMapper.decorateStageIOLocations())
+    return;
 
   // Output the constructed module.
   std::vector<uint32_t> m = theBuilder.takeModule();

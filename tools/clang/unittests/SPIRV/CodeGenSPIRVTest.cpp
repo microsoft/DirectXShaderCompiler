@@ -350,5 +350,21 @@ TEST_F(FileTest, SpirvEntryFunctionWrapper) {
 TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
 }
+TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
+TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
+  runFileTest("vk.location.exp-in.hlsl");
+}
+TEST_F(FileTest, VulkanLocationInputImplicitOutputExplicit) {
+  runFileTest("vk.location.exp-out.hlsl");
+}
+TEST_F(FileTest, VulkanLocationTooLarge) {
+  runFileTest("vk.location.large.hlsl", /*expectSuccess*/ false);
+}
+TEST_F(FileTest, VulkanLocationReassigned) {
+  runFileTest("vk.location.reassign.hlsl", /*expectSuccess*/ false);
+}
+TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
+  runFileTest("vk.location.mixed.hlsl", /*expectSuccess*/ false);
+}
 
 } // namespace
