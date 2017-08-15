@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
-float4 main(float4 input: COLOR): SV_TARGET
+float4 main(float4 input: COLOR): SV_Target
 {
     return input;
 }
@@ -22,8 +22,8 @@ float4 main(float4 input: COLOR): SV_TARGET
 // OpName %out_var_SV_Target "out.var.SV_Target"
 // OpName %src_main "src.main"
 // OpName %input "input"
-// OpDecorate %in_var_COLOR Location 0
 // OpDecorate %out_var_SV_Target Location 0
+// OpDecorate %in_var_COLOR Location 0
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %float = OpTypeFloat 32

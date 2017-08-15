@@ -31,7 +31,8 @@ namespace spirv {
 /// (builtin/input/output) variable.
 class StageVar {
 public:
-  inline StageVar(const hlsl::SigPoint *sig, const hlsl::Semantic *sema,
+  inline StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
+                  const hlsl::Semantic *sema, uint32_t semaIndex,
                   uint32_t type);
 
   const hlsl::SigPoint *getSigPoint() const { return sigPoint; }
@@ -41,6 +42,9 @@ public:
 
   uint32_t getSpirvId() const { return valueId; }
   void setSpirvId(uint32_t id) { valueId = id; }
+
+  llvm::StringRef getSemanticStr() const { return semanticStr; }
+  uint32_t getSemanticIndex() const { return semanticIndex; }
 
   bool isSpirvBuitin() const { return isBuiltin; }
   void setIsSpirvBuiltin() { isBuiltin = true; }
@@ -55,8 +59,12 @@ private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
   /// input or output for each entry point.
   const hlsl::SigPoint *sigPoint;
+  /// Original HLSL semantic string in the source code.
+  llvm::StringRef semanticStr;
   /// HLSL semantic.
   const hlsl::Semantic *semantic;
+  /// HLSL semantic index.
+  uint32_t semanticIndex;
   /// SPIR-V <type-id>.
   uint32_t typeId;
   /// SPIR-V <result-id>.
@@ -69,9 +77,11 @@ private:
   llvm::Optional<uint32_t> location;
 };
 
-StageVar::StageVar(const hlsl::SigPoint *sig, const hlsl::Semantic *sema,
+StageVar::StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
+                   const hlsl::Semantic *sema, uint32_t semaIndex,
                    uint32_t type)
-    : sigPoint(sig), semantic(sema), typeId(type), valueId(0), isBuiltin(false),
+    : sigPoint(sig), semanticStr(semaStr), semantic(sema),
+      semanticIndex(semaIndex), typeId(type), valueId(0), isBuiltin(false),
       storageClass(spv::StorageClass::Max), location(llvm::None) {}
 
 /// \brief The class containing mappings from Clang frontend Decls to their

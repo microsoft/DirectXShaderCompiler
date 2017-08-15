@@ -90,9 +90,12 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
   // Parse the input file.
   ASSERT_TRUE(parseInputFile());
 
+  std::string errorMessages;
+
   // Feed the HLSL source into the Compiler.
   ASSERT_TRUE(utils::runCompilerWithSpirvGeneration(
-      inputFilePath, entryPoint, targetProfile, &generatedBinary));
+      inputFilePath, entryPoint, targetProfile, &generatedBinary,
+      &errorMessages));
 
   // Disassemble the generated SPIR-V binary.
   ASSERT_TRUE(utils::disassembleSpirvBinary(generatedBinary, &generatedSpirvAsm,
