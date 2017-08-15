@@ -16,6 +16,7 @@
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilSigPoint.h"
 #include "spirv/1.0/spirv.hpp11"
+#include "clang/AST/Attr.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
@@ -52,8 +53,8 @@ public:
   spv::StorageClass getStorageClass() const { return storageClass; }
   void setStorageClass(spv::StorageClass sc) { storageClass = sc; }
 
-  bool hasLocation() const { return location.hasValue(); }
-  void setLocation(uint32_t loc) { location = llvm::Optional<uint32_t>(loc); }
+  const VKLocationAttr *getLocationAttr() const { return location; }
+  void setLocationAttr(const VKLocationAttr *loc) { location = loc; }
 
 private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
@@ -74,7 +75,7 @@ private:
   /// SPIR-V storage class this stage variable belongs to.
   spv::StorageClass storageClass;
   /// Location assignment if input/output variable.
-  llvm::Optional<uint32_t> location;
+  const VKLocationAttr *location;
 };
 
 StageVar::StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
@@ -82,7 +83,7 @@ StageVar::StageVar(const hlsl::SigPoint *sig, llvm::StringRef semaStr,
                    uint32_t type)
     : sigPoint(sig), semanticStr(semaStr), semantic(sema),
       semanticIndex(semaIndex), typeId(type), valueId(0), isBuiltin(false),
-      storageClass(spv::StorageClass::Max), location(llvm::None) {}
+      storageClass(spv::StorageClass::Max), location(nullptr) {}
 
 /// \brief The class containing mappings from Clang frontend Decls to their
 /// corresponding SPIR-V <result-id>s.
@@ -155,20 +156,34 @@ public:
   std::vector<uint32_t> collectStageVars() const;
 
   /// \brief Decorates all stage input and output variables with proper
-  /// location.
+  /// location and returns true on success.
   ///
-  /// This method will writes the location assignment into the module under
+  /// This method will write the location assignment into the module under
   /// construction.
-  void finalizeStageIOLocations();
+  inline bool decorateStageIOLocations();
 
 private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
-  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              SourceLocation loc = {}) {
     const auto diagId =
         diags.getCustomDiagID(clang::DiagnosticsEngine::Error, message);
-    return diags.Report(diagId);
+    return diags.Report(loc, diagId);
   }
+
+  /// \brief Checks whether some semantic is used more than once and returns
+  /// true if no such cases. Returns false otherwise.
+  bool checkSemanticDuplication(bool forInput);
+
+  /// \brief Decorates all stage input (if forInput is true) or output (if
+  /// forInput is false) variables with proper location and returns true on
+  /// success.
+  ///
+  /// This method will write the location assignment into the module under
+  /// construction.
+  bool finalizeStageIOLocations(bool forInput);
 
   /// Returns the type of the given decl. If the given decl is a FunctionDecl,
   /// returns its result type.
@@ -209,6 +224,11 @@ DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        DiagnosticsEngine &diag)
     : shaderModel(model), theBuilder(builder), typeTranslator(builder, diag),
       diags(diag), entryFunctionId(0) {}
+
+bool DeclResultIdMapper::decorateStageIOLocations() {
+  // Try both input and output even if input location assignment failed
+  return finalizeStageIOLocations(true) & finalizeStageIOLocations(false);
+}
 
 } // end namespace spirv
 } // end namespace clang

@@ -150,10 +150,12 @@ namespace {
 /// the same location.
 class LocationSet {
 public:
+  /// Maximum number of locations supported
   // Typically we won't have that many stage input or output variables.
   // Using 64 should be fine here.
-  // TODO: Emit errors if we need more than 64.
-  LocationSet() : usedLocs(64, false), nextLoc(0) {}
+  const static uint32_t kMaxLoc = 64;
+
+  LocationSet() : usedLocs(kMaxLoc, false), nextLoc(0) {}
 
   /// Uses the given location.
   void useLoc(uint32_t loc) { usedLocs.set(loc); }
@@ -166,72 +168,137 @@ public:
     return nextLoc++;
   }
 
+  /// Returns true if the given location number is already used.
+  bool isLocUsed(uint32_t loc) { return usedLocs[loc]; }
+
 private:
   llvm::SmallBitVector usedLocs; ///< All previously used locations
   uint32_t nextLoc;              ///< Next available location
 };
 } // namespace
 
-void DeclResultIdMapper::finalizeStageIOLocations() {
-  { // Check semantic duplication
-    llvm::StringSet<> seenInputSemantics;
-    llvm::StringSet<> seenOutputSemantics;
-    bool success = true;
+bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
+  llvm::StringSet<> seenSemantics;
+  bool success = true;
 
-    for (const auto &var : stageVars) {
-      auto s = var.getSemanticStr();
-      if (var.getSigPoint()->IsInput()) {
-        if (seenInputSemantics.count(s)) {
-          emitError("input semantic '%0' used more than once") << s;
-          success = false;
-        }
-        seenInputSemantics.insert(s);
-      } else {
-        if (seenOutputSemantics.count(s)) {
-          emitError("output semantic '%0' used more than once") << s;
-          success = false;
-        }
-        seenOutputSemantics.insert(s);
+  for (const auto &var : stageVars) {
+    auto s = var.getSemanticStr();
+
+    if (forInput && var.getSigPoint()->IsInput()) {
+      if (seenSemantics.count(s)) {
+        emitError("input semantic '%0' used more than once") << s;
+        success = false;
       }
+      seenSemantics.insert(s);
+    } else if (!forInput && var.getSigPoint()->IsOutput()) {
+      if (seenSemantics.count(s)) {
+        emitError("output semantic '%0' used more than once") << s;
+        success = false;
+      }
+      seenSemantics.insert(s);
     }
-
-    if (!success)
-      return;
   }
 
-  std::vector<const StageVar *> inputVars;
-  std::vector<const StageVar *> outputVars;
+  return success;
+}
 
-  LocationSet inputLocs;
-  LocationSet outputLocs;
+bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
+  if (!checkSemanticDuplication(forInput))
+    return false;
 
-  for (const auto &var : stageVars)
+  // Returns false if the given StageVar is an input/output variable without
+  // explicit location assignment. Otherwise, returns true.
+  const auto locAssigned = [forInput](const StageVar &v) {
+    if (forInput ? v.getSigPoint()->IsInput() : v.getSigPoint()->IsOutput())
+      // No need to assign location for builtins. Treat as assigned.
+      return v.isSpirvBuitin() || v.getLocationAttr() != nullptr;
+    // For the ones we don't care, treat as assigned.
+    return true;
+  };
+
+  // If we have explicit location specified for all input/output variables,
+  // use them instead assign by ourselves.
+  if (std::all_of(stageVars.begin(), stageVars.end(), locAssigned)) {
+    LocationSet locSet;
+    bool noError = true;
+
+    for (const auto &var : stageVars) {
+      // Skip those stage variables we are not handling for this call
+      if ((forInput ? !var.getSigPoint()->IsInput()
+                    : !var.getSigPoint()->IsOutput()))
+        continue;
+
+      // Skip builtins
+      if (var.isSpirvBuitin())
+        continue;
+
+      const auto *attr = var.getLocationAttr();
+      const auto loc = attr->getNumber();
+      const auto attrLoc = attr->getLocation(); // Attr source code location
+
+      if (loc >= LocationSet::kMaxLoc) {
+        emitError("stage %select{output|input}0 location #%1 too large",
+                  attrLoc)
+            << forInput << loc;
+        return false;
+      }
+
+      // Make sure the same location is not assigned more than once
+      if (locSet.isLocUsed(loc)) {
+        emitError("stage %select{output|input}0 location #%1 already assigned",
+                  attrLoc)
+            << forInput << loc;
+        noError = false;
+      }
+      locSet.useLoc(loc);
+
+      theBuilder.decorateLocation(var.getSpirvId(), loc);
+    }
+
+    return noError;
+  }
+
+  std::vector<const StageVar *> vars;
+  LocationSet locSet;
+
+  for (const auto &var : stageVars) {
+    if ((forInput ? !var.getSigPoint()->IsInput()
+                  : !var.getSigPoint()->IsOutput()))
+      continue;
+
     if (!var.isSpirvBuitin()) {
+      if (var.getLocationAttr() != nullptr) {
+        // We have checked that not all of the stage variables have explicit
+        // location assignment.
+        emitError("partial explicit stage %select{output|input}0 location "
+                  "assignment via [[vk::location(X)]] unsupported")
+            << forInput;
+        return false;
+      }
+
       // Only SV_Target, SV_Depth, SV_DepthLessEqual, SV_DepthGreaterEqual,
       // SV_StencilRef, SV_Coverage are allowed in the pixel shader.
       // Arbitrary semantics are disallowed in pixel shader.
       if (var.getSemantic()->GetKind() == hlsl::Semantic::Kind::Target) {
         theBuilder.decorateLocation(var.getSpirvId(), var.getSemanticIndex());
-        outputLocs.useLoc(var.getSemanticIndex());
-      } else if (var.getSigPoint()->IsInput()) {
-        inputVars.push_back(&var);
-      } else if (var.getSigPoint()->IsOutput()) {
-        outputVars.push_back(&var);
+        locSet.useLoc(var.getSemanticIndex());
+      } else {
+        vars.push_back(&var);
       }
     }
+  }
 
   // Sort stage input/output variables alphabetically
   const auto comp = [](const StageVar *a, const StageVar *b) {
     return a->getSemanticStr() < b->getSemanticStr();
   };
 
-  std::sort(inputVars.begin(), inputVars.end(), comp);
-  std::sort(outputVars.begin(), outputVars.end(), comp);
+  std::sort(vars.begin(), vars.end(), comp);
 
-  for (const auto *var : inputVars)
-    theBuilder.decorateLocation(var->getSpirvId(), inputLocs.useNextLoc());
-  for (const auto *var : outputVars)
-    theBuilder.decorateLocation(var->getSpirvId(), outputLocs.useNextLoc());
+  for (const auto *var : vars)
+    theBuilder.decorateLocation(var->getSpirvId(), locSet.useNextLoc());
+
+  return true;
 }
 
 QualType
@@ -290,6 +357,7 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
       return false;
 
     stageVar.setSpirvId(varId);
+    stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
 
     stageVars.push_back(stageVar);
 
