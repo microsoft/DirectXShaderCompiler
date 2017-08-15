@@ -56,4 +56,4 @@ cbuffer Foo {
 
 float4 main() : SV_Target {
   return h1 + f3.x + h2.x + h2.y + f3_1.z + f2.x + h4.x + h4.y + h4.z + h4.w + h2_1.x + h2_1.y + h3.x + h3.y + h3.z + d1;
-}}
+}
