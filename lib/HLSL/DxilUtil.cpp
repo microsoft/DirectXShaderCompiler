@@ -40,7 +40,8 @@ GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
   }
 
   // Bytes.
-  unsigned compSize = fieldAnnotation.GetCompType().Is64Bit()?8:4;
+  CompType compType = fieldAnnotation.GetCompType();
+  unsigned compSize = compType.Is64Bit() ? 8 : compType.Is16Bit() ? 2 : 4;
   unsigned fieldSize = compSize;
   if (Ty->isVectorTy()) {
     fieldSize *= Ty->getVectorNumElements();

@@ -155,6 +155,19 @@ bool CompType::Is64Bit() const {
   }
 }
 
+bool CompType::Is16Bit() const {
+  switch (m_Kind) {
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::SNormF16:
+  case DXIL::ComponentType::UNormF16:
+  case DXIL::ComponentType::U16:
+    return true;
+  default:
+    return false;
+  }
+}
+
 CompType CompType::GetBaseCompType() const {
   switch (m_Kind) {
   case Kind::I1:        return CompType(Kind::I1);

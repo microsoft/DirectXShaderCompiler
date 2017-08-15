@@ -940,15 +940,22 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
   if (m_pCBufferRetType[TypeSlot] == nullptr) {
     string TypeName("dx.types.CBufRet.");
     TypeName += GetOverloadTypeName(TypeSlot);
-    if (!pOverloadType->isDoubleTy()) {
-      Type *FieldTypes[4] = { pOverloadType, pOverloadType, pOverloadType, pOverloadType };
-      m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
-    } else {
+    if (pOverloadType->isDoubleTy()) {
       Type *FieldTypes[2] = { pOverloadType, pOverloadType };
       m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
     }
+    else if (pOverloadType->isHalfTy()) {
+      Type *FieldTypes[8] = {
+          pOverloadType, pOverloadType, pOverloadType, pOverloadType,
+          pOverloadType, pOverloadType, pOverloadType, pOverloadType,
+      };
+      m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+    }
+    else {
+      Type *FieldTypes[4] = { pOverloadType, pOverloadType, pOverloadType, pOverloadType };
+      m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+    }
   }
-
   return m_pCBufferRetType[TypeSlot];
 }
 
