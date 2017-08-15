@@ -40,6 +40,7 @@ public:
   TEST_METHOD(RunConstAssign);
   TEST_METHOD(RunConstDefault);
   TEST_METHOD(RunCppErrors);
+  TEST_METHOD(RunCXX11Attributes);
   TEST_METHOD(RunEnums);
   TEST_METHOD(RunFunctions);
   TEST_METHOD(RunIndexingOperator);
@@ -161,6 +162,10 @@ TEST_F(VerifierTest, RunConstDefault) {
 
 TEST_F(VerifierTest, RunCppErrors) {
   CheckVerifiesHLSL(L"cpp-errors.hlsl");
+}
+
+TEST_F(VerifierTest, RunCXX11Attributes) {
+  CheckVerifiesHLSL(L"cxx11-attributes.hlsl");
 }
 
 TEST_F(VerifierTest, RunEnums) {

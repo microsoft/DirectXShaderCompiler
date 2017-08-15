@@ -158,6 +158,8 @@ public:
   bool IsHLSLLibrary;
   bool NoMinPrecision; // use strict precision, not min precision.
   // MS Change Ends
+
+  bool SPIRV = false;  // SPIRV Change
   
   bool isSignedOverflowDefined() const {
     return getSignedOverflowBehavior() == SOB_Defined;

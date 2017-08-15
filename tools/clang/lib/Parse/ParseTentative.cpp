@@ -498,12 +498,6 @@ bool Parser::isCXXTypeId(TentativeCXXTypeIdContext Context, bool &isAmbiguous) {
 Parser::CXX11AttributeKind
 Parser::isCXX11AttributeSpecifier(bool Disambiguate,
                                   bool OuterMightBeMessageSend) {
-  // HLSL Change Starts
-  if (getLangOpts().HLSL) {
-    return CAK_NotAttributeSpecifier;
-  }
-  // HLSL Change Ends
-
   if (Tok.is(tok::kw_alignas))
     return CAK_AttributeSpecifier;
 

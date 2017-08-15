@@ -3817,7 +3817,6 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
 ///         identifier
 void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
                                           SourceLocation *endLoc) {
-  assert(!getLangOpts().HLSL && "unreachable code in HLSL, no parsing of C++11-style attributes"); // HLSL Change
   if (Tok.is(tok::kw_alignas)) {
     Diag(Tok.getLocation(), diag::warn_cxx98_compat_alignas);
     ParseAlignmentSpecifier(attrs, endLoc);
@@ -3898,7 +3897,7 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
 ///       attribute-specifier-seq[opt] attribute-specifier
 void Parser::ParseCXX11Attributes(ParsedAttributesWithRange &attrs,
                                   SourceLocation *endLoc) {
-  assert(getLangOpts().CPlusPlus11);
+  assert(getLangOpts().CPlusPlus11 || getLangOpts().HLSL); // HLSL Change
 
   SourceLocation StartLoc = Tok.getLocation(), Loc;
   if (!endLoc)

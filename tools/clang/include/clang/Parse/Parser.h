@@ -2132,7 +2132,9 @@ private:
   IdentifierLoc *ParseIdentifierLoc();
 
   void MaybeParseCXX11Attributes(Declarator &D) {
-    if (getLangOpts().CPlusPlus11 && isCXX11AttributeSpecifier()) {
+    if ((getLangOpts().CPlusPlus11 ||
+         getLangOpts().HLSL) && // HLSL change
+        isCXX11AttributeSpecifier()) {
       ParsedAttributesWithRange attrs(AttrFactory);
       SourceLocation endLoc;
       ParseCXX11Attributes(attrs, &endLoc);
@@ -2141,7 +2143,9 @@ private:
   }
   void MaybeParseCXX11Attributes(ParsedAttributes &attrs,
                                  SourceLocation *endLoc = nullptr) {
-    if (getLangOpts().CPlusPlus11 && isCXX11AttributeSpecifier()) {
+    if ((getLangOpts().CPlusPlus11 ||
+         getLangOpts().HLSL) && // HLSL change
+        isCXX11AttributeSpecifier()) {
       ParsedAttributesWithRange attrsWithRange(AttrFactory);
       ParseCXX11Attributes(attrsWithRange, endLoc);
       attrs.takeAllFrom(attrsWithRange);
@@ -2150,7 +2154,8 @@ private:
   void MaybeParseCXX11Attributes(ParsedAttributesWithRange &attrs,
                                  SourceLocation *endLoc = nullptr,
                                  bool OuterMightBeMessageSend = false) {
-    if (getLangOpts().CPlusPlus11 &&
+    if ((getLangOpts().CPlusPlus11 ||
+         getLangOpts().HLSL) && // HLSL change
         isCXX11AttributeSpecifier(false, OuterMightBeMessageSend))
       ParseCXX11Attributes(attrs, endLoc);
   }

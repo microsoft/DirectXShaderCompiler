@@ -789,6 +789,12 @@ public:
 
     compiler.getLangOpts().NoMinPrecision = Opts.NoMinPrecision;
 
+// SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+    compiler.getLangOpts().SPIRV = Opts.GenSPIRV;
+#endif
+// SPIRV change ends
+
     if (Opts.WarningAsError)
       compiler.getDiagnostics().setWarningsAsErrors(true);
 
