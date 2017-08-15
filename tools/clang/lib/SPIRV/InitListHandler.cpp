@@ -67,7 +67,6 @@ void InitListHandler::flatten(const InitListExpr *expr) {
 
 void InitListHandler::decompose(const Expr *expr) {
   const QualType type = expr->getType();
-  assert(!type->isBuiltinType()); // Cannot decompose builtin types
 
   if (hlsl::IsHLSLVecType(type)) {
     const uint32_t vec = theEmitter.loadIfGLValue(expr);
@@ -94,10 +93,8 @@ void InitListHandler::decompose(const Expr *expr) {
           scalars.emplace_back(element, elemType);
         }
     }
-  } else if (type->isStructureType()) {
-    llvm_unreachable("struct initializer should already been handled");
   } else {
-    emitError("decomposing type %0 in initializer list unimplemented") << type;
+    llvm_unreachable("decompose() should only handle vector or matrix types");
   }
 }
 
@@ -116,14 +113,14 @@ void InitListHandler::decomposeVector(uint32_t vec, QualType elemType,
   }
 }
 
-void InitListHandler::tryToSplitStruct() {
+bool InitListHandler::tryToSplitStruct() {
   if (initializers.empty())
-    return;
+    return false;
 
   auto *init = const_cast<Expr *>(initializers.back());
   const QualType initType = init->getType();
   if (!initType->isStructureType())
-    return;
+    return false;
 
   // We are certain the current intializer will be replaced by now.
   initializers.pop_back();
@@ -145,6 +142,47 @@ void InitListHandler::tryToSplitStruct() {
 
   // Push in the reverse order
   initializers.insert(initializers.end(), fields.rbegin(), fields.rend());
+
+  return true;
+}
+
+bool InitListHandler::tryToSplitConstantArray() {
+  if (initializers.empty())
+    return false;
+
+  auto *init = const_cast<Expr *>(initializers.back());
+  const QualType initType = init->getType();
+  if (!initType->isConstantArrayType())
+    return false;
+
+  // We are certain the current intializer will be replaced by now.
+  initializers.pop_back();
+
+  const auto &context = theEmitter.getASTContext();
+  const auto u32Type = context.getIntTypeForBitwidth(32, /*sigined*/ 0);
+
+  const auto *arrayType = context.getAsConstantArrayType(initType);
+  const auto elemType = arrayType->getElementType();
+  // TODO: handle (unlikely) extra large array size?
+  const auto size = static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+
+  // Create ArraySubscriptExpr for each element of the array
+  // TODO: It will generate lots of elements if the array size is very large.
+  // But do we have a better solution?
+  llvm::SmallVector<const Expr *, 4> elements;
+  for (uint32_t i = 0; i < size; ++i) {
+    const auto iVal =
+        llvm::APInt(/*numBits*/ 32, uint64_t(i), /*isSigned*/ false);
+    auto *index = IntegerLiteral::Create(context, iVal, u32Type, {});
+    const auto *element = new (context)
+        ArraySubscriptExpr(init, index, elemType, VK_LValue, OK_Ordinary, {});
+    elements.push_back(element);
+  }
+
+  // Push in the reverse order
+  initializers.insert(initializers.end(), elements.rbegin(), elements.rend());
+
+  return true;
 }
 
 uint32_t InitListHandler::createInitForType(QualType type) {
@@ -168,7 +206,10 @@ uint32_t InitListHandler::createInitForType(QualType type) {
   if (type->isStructureType())
     return createInitForStructType(type);
 
-  emitError("unimplemented initializer for type '%0'") << type;
+  if (type->isConstantArrayType())
+    return createInitForConstantArrayType(type);
+
+  emitError("unimplemented initializer for type %0") << type;
   return 0;
 }
 
@@ -181,7 +222,9 @@ uint32_t InitListHandler::createInitForBuiltinType(QualType type) {
     return theEmitter.castToType(init.first, init.second, type);
   }
 
-  tryToSplitStruct();
+  // Keep splitting structs or vectors
+  while (tryToSplitStruct() || tryToSplitConstantArray())
+    ;
 
   const Expr *init = initializers.back();
   initializers.pop_back();
@@ -202,8 +245,9 @@ uint32_t InitListHandler::createInitForVectorType(QualType elemType,
   // directly. For all other cases, we need to construct a new vector as the
   // initializer.
   if (scalars.empty()) {
-    // A struct may contain a whole vector.
-    tryToSplitStruct();
+    // Keep splitting structs or vectors
+    while (tryToSplitStruct() || tryToSplitConstantArray())
+      ;
 
     const Expr *init = initializers.back();
 
@@ -244,8 +288,9 @@ uint32_t InitListHandler::createInitForMatrixType(QualType elemType,
   // Same as the vector case, first try to see if we already have a matrix at
   // the beginning of the initializer queue.
   if (scalars.empty()) {
-    // A struct may contain a whole matrix.
-    tryToSplitStruct();
+    // Keep splitting structs or vectors
+    while (tryToSplitStruct() || tryToSplitConstantArray())
+      ;
 
     const Expr *init = initializers.back();
 
@@ -283,9 +328,15 @@ uint32_t InitListHandler::createInitForMatrixType(QualType elemType,
 }
 
 uint32_t InitListHandler::createInitForStructType(QualType type) {
+  assert(type->isStructureType());
+
   // Same as the vector case, first try to see if we already have a struct at
   // the beginning of the initializer queue.
   if (scalars.empty()) {
+    // Keep splitting arrays
+    while (tryToSplitConstantArray())
+      ;
+
     const Expr *init = initializers.back();
     // We can only avoid decomposing and reconstructing when the type is
     // exactly the same.
@@ -295,7 +346,9 @@ uint32_t InitListHandler::createInitForStructType(QualType type) {
     }
 
     // Otherwise, if the next initializer is a struct, it is not of the same
-    // type as we expected. Split it.
+    // type as we expected. Split it. Just need to do one iteration since a
+    // field in the next struct initializer may be of the same struct type as
+    // a field we are about the construct.
     tryToSplitStruct();
   }
 
@@ -307,6 +360,45 @@ uint32_t InitListHandler::createInitForStructType(QualType type) {
   const uint32_t typeId = typeTranslator.translateType(type);
   // TODO: use OpConstantComposite when all components are constants
   return theBuilder.createCompositeConstruct(typeId, fields);
+}
+
+uint32_t InitListHandler::createInitForConstantArrayType(QualType type) {
+  assert(type->isConstantArrayType());
+
+  // Same as the vector case, first try to see if we already have an array at
+  // the beginning of the initializer queue.
+  if (scalars.empty()) {
+    // Keep splitting structs
+    while (tryToSplitStruct())
+      ;
+
+    const Expr *init = initializers.back();
+    // We can only avoid decomposing and reconstructing when the type is
+    // exactly the same.
+    if (type.getCanonicalType() == init->getType().getCanonicalType()) {
+      initializers.pop_back();
+      return theEmitter.loadIfGLValue(init);
+    }
+
+    // Otherwise, if the next initializer is an array, it is not of the same
+    // type as we expected. Split it. Just need to do one iteration since the
+    // next array initializer may have the same element type as the one we
+    // are about to construct but with different size.
+    tryToSplitConstantArray();
+  }
+
+  const auto *arrType = theEmitter.getASTContext().getAsConstantArrayType(type);
+  const auto elemType = arrType->getElementType();
+  // TODO: handle (unlikely) extra large array size?
+  const auto size = static_cast<uint32_t>(arrType->getSize().getZExtValue());
+
+  llvm::SmallVector<uint32_t, 4> elements;
+  for (uint32_t i = 0; i < size; ++i)
+    elements.push_back(createInitForType(elemType));
+
+  const uint32_t typeId = typeTranslator.translateType(type);
+  // TODO: use OpConstantComposite when all components are constants
+  return theBuilder.createCompositeConstruct(typeId, elements);
 }
 
 } // end namespace spirv

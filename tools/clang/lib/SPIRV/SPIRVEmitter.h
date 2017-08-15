@@ -85,6 +85,7 @@ private:
   void doDoStmt(const DoStmt *, llvm::ArrayRef<const Attr *> attrs = {});
   void doContinueStmt(const ContinueStmt *);
 
+  uint32_t doArraySubscriptExpr(const ArraySubscriptExpr *expr);
   uint32_t doBinaryOperator(const BinaryOperator *expr);
   uint32_t doCallExpr(const CallExpr *callExpr);
   uint32_t doCastExpr(const CastExpr *expr);
