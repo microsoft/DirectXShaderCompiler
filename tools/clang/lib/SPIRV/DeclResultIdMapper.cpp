@@ -356,6 +356,39 @@ bool DeclResultIdMapper::createStageVars(const DeclaratorDecl *decl,
     if (varId == 0)
       return false;
 
+    // Decorate with interpolation modes for pixel shader input variables
+    if (shaderModel.IsPS() && sigPoint->IsInput()) {
+      const QualType elemType = typeTranslator.getElementType(type);
+
+      if (elemType->isBooleanType() || elemType->isIntegerType()) {
+        // TODO: Probably we can call hlsl::ValidateSignatureElement() for the
+        // following check.
+        if (decl->getAttr<HLSLLinearAttr>() ||
+            decl->getAttr<HLSLCentroidAttr>() ||
+            decl->getAttr<HLSLNoPerspectiveAttr>() ||
+            decl->getAttr<HLSLSampleAttr>()) {
+          emitError("only nointerpolation mode allowed for integer input "
+                    "parameters in pixel shader",
+                    decl->getLocation());
+        } else {
+          theBuilder.decorate(varId, spv::Decoration::Flat);
+        }
+      } else {
+        // Do nothing for HLSLLinearAttr since its the default
+        // Attributes can be used together. So cannot use else if.
+        if (decl->getAttr<HLSLCentroidAttr>())
+          theBuilder.decorate(varId, spv::Decoration::Centroid);
+        if (decl->getAttr<HLSLNoInterpolationAttr>())
+          theBuilder.decorate(varId, spv::Decoration::Flat);
+        if (decl->getAttr<HLSLNoPerspectiveAttr>())
+          theBuilder.decorate(varId, spv::Decoration::NoPerspective);
+        if (decl->getAttr<HLSLSampleAttr>()) {
+          theBuilder.requireCapability(spv::Capability::SampleRateShading);
+          theBuilder.decorate(varId, spv::Decoration::Sample);
+        }
+      }
+    }
+
     stageVar.setSpirvId(varId);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
 

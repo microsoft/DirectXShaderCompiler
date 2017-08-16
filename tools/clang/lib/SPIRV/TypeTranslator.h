@@ -81,6 +81,10 @@ public:
   /// counts.
   static bool isSpirvAcceptableMatrixType(QualType type);
 
+  /// \brief Returns the the element type for the given scalar/vector/matrix
+  /// type. Returns empty QualType for other cases.
+  QualType getElementType(QualType type);
+
   /// \brief Generates the corresponding SPIR-V vector type for the given Clang
   /// frontend matrix type's vector component and returns the <result-id>.
   ///
