@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: Minimum-precision data types
+// CHECK: Low precision data types present
 // CHECK: icmp eq i16
 
 float main(min16int a : A) : SV_Target

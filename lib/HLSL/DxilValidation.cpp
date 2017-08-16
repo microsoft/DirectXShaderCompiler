@@ -2111,8 +2111,8 @@ static bool IsPrecise(Instruction &I, ValidationContext &ValCtx) {
   return false;
 }
 
-static bool IsValueMinPrec(DxilModule &DxilMod, Value *V) {
-  DXASSERT(DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision,
+static bool IsValueLowPrec(DxilModule &DxilMod, Value *V) {
+  DXASSERT(DxilMod.GetGlobalFlags() & DXIL::kLowPrecisionPresent,
            "else caller didn't check - currently this path should never be hit "
            "otherwise");
   (DxilMod);
@@ -2322,7 +2322,7 @@ static void ValidateFunctionMetadata(Function *F, ValidationContext &ValCtx) {
 
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
-      ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
+      ValCtx.DxilMod.GetGlobalFlags() & DXIL::kLowPrecisionPresent;
   SmallVector<CallInst *, 16> gradientOps;
   SmallVector<CallInst *, 16> barriers;
   for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
@@ -2344,7 +2344,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       if (SupportsMinPrecision) {
         if (IsPrecise(I, ValCtx)) {
           for (auto &O : I.operands()) {
-            if (IsValueMinPrec(ValCtx.DxilMod, O)) {
+            if (IsValueLowPrec(ValCtx.DxilMod, O)) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::InstrMinPrecisionNotPrecise);
               break;
@@ -2974,7 +2974,8 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
     unsigned offset = fieldAnnotation.GetCBufferOffset();
 
     unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
-        fieldAnnotation, EltTy, typeSys);
+        fieldAnnotation, EltTy, typeSys,
+        ValCtx.DxilMod.m_ShaderFlags.GetUseStrictPrecision());
 
     bool bOutOfBound = false;
     if (!EltTy->isAggregateType()) {
@@ -3129,9 +3130,6 @@ static void ValidateResources(ValidationContext &ValCtx) {
 
 static void ValidateShaderFlags(ValidationContext &ValCtx) {
   DxilModule::ShaderFlags calcFlags;
-  // Need to get strict half info for collecting min precision flag correctly.
-  // TODO: Change this stateful behavior once no-min-precision trully means no min precision support at all.
-  calcFlags.SetUseStrictHalf(ValCtx.DxilMod.m_ShaderFlags.GetUseStrictHalf());
   ValCtx.DxilMod.CollectShaderFlags(calcFlags);
   const uint64_t mask = DxilModule::ShaderFlags::GetShaderFlagsRawForCollection();
   uint64_t declaredFlagsRaw = ValCtx.DxilMod.m_ShaderFlags.GetShaderFlagsRaw();

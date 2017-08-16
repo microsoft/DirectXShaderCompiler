@@ -62,6 +62,9 @@ public:
   // Return false if the given function is not a dxil function.
   bool GetOpCodeClass(const llvm::Function *F, OpCodeClass &opClass);
 
+  // To check if operation uses strict precision types
+  bool UseStrictPrecision() const;
+
   // LLVM helpers. Perhaps, move to a separate utility class.
   llvm::Constant *GetI1Const(bool v);
   llvm::Constant *GetI8Const(char v);

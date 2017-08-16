@@ -11,6 +11,8 @@
 
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/Support/Global.h"
+#include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/HLModule.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/LLVMContext.h"
@@ -783,6 +785,18 @@ bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
   return true;
 }
 
+bool OP::UseStrictPrecision() const {
+  bool useStrictPrecision = false;
+  if (&m_pModule->GetDxilModule()) {
+    useStrictPrecision = m_pModule->GetDxilModule().m_ShaderFlags.GetUseStrictPrecision();
+  }
+  else {
+    DXASSERT(&m_pModule->GetHLModule(), "otherwise module doesn't contain either HLModule or Dxil Module.");
+    useStrictPrecision = m_pModule->GetHLModule().GetHLOptions().bUseStrictPrecision;
+  }
+  return useStrictPrecision;
+}
+
 llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   DXASSERT(F, "not work on nullptr");
   Type *Ty = F->getReturnType();
@@ -944,7 +958,8 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
       Type *FieldTypes[2] = { pOverloadType, pOverloadType };
       m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
     }
-    else if (pOverloadType->isHalfTy()) {
+    else if (UseStrictPrecision() && pOverloadType->isHalfTy()) {
+      TypeName += ".8"; // dx.types.CBufRet.fp16.8 for buffer of 8 halves
       Type *FieldTypes[8] = {
           pOverloadType, pOverloadType, pOverloadType, pOverloadType,
           pOverloadType, pOverloadType, pOverloadType, pOverloadType,

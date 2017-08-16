@@ -34,14 +34,14 @@ Type *GetArrayEltTy(Type *Ty) {
 unsigned
 GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                            llvm::Type *Ty,
-                                           DxilTypeSystem &typeSys) {
+                                           DxilTypeSystem &typeSys, bool useStrictPrecision) {
   while (isa<ArrayType>(Ty)) {
     Ty = Ty->getArrayElementType();
   }
 
   // Bytes.
   CompType compType = fieldAnnotation.GetCompType();
-  unsigned compSize = compType.Is64Bit() ? 8 : compType.Is16Bit() ? 2 : 4;
+  unsigned compSize = compType.Is64Bit() ? 8 : compType.Is16Bit() && useStrictPrecision ? 2 : 4;
   unsigned fieldSize = compSize;
   if (Ty->isVectorTy()) {
     fieldSize *= Ty->getVectorNumElements();

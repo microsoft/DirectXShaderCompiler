@@ -91,7 +91,7 @@ static const uint64_t ShaderFeatureInfo_Doubles = 0x0001;
 static const uint64_t ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X = 0x0002;
 static const uint64_t ShaderFeatureInfo_UAVsAtEveryStage = 0x0004;
 static const uint64_t ShaderFeatureInfo_64UAVs = 0x0008;
-static const uint64_t ShaderFeatureInfo_MininumPrecision = 0x0010;
+static const uint64_t ShaderFeatureInfo_LowPrecision = 0x0010;
 static const uint64_t ShaderFeatureInfo_11_1_DoubleExtensions = 0x0020;
 static const uint64_t ShaderFeatureInfo_11_1_ShaderExtensions = 0x0040;
 static const uint64_t ShaderFeatureInfo_LEVEL9ComparisonFiltering = 0x0080;
@@ -105,7 +105,7 @@ static const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
 static const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
 static const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
 static const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
-static const uint64_t ShaderFeatureInfo_UseStrictHalf = 0x40000;
+static const uint64_t ShaderFeatureInfo_UseStrictPrecision = 0x40000;
 
 static const unsigned ShaderFeatureInfoCount = 19;
 
