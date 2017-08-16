@@ -311,7 +311,7 @@ void clang::CompileRootSignature(
 //
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()), EntryFunc(nullptr),
-      TheModule(CGM.getModule()), legacyLayout(HLModule::GetLegacyDataLayoutDesc()),
+      TheModule(CGM.getModule()), legacyLayout(HLModule::GetLegacyDataLayoutDesc(), CGM.getLangOpts().NoMinPrecision),
       CBufferType(
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
   const hlsl::ShaderModel *SM =
@@ -348,6 +348,9 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
+
+  opts.bUseStrictHalf = CGM.getLangOpts().NoMinPrecision;
+
   m_pHLModule->SetHLOptions(opts);
 
   m_pHLModule->SetValidatorVersion(CGM.getCodeGenOpts().HLSLValidatorMajorVer, CGM.getCodeGenOpts().HLSLValidatorMinorVer);
@@ -385,6 +388,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
 
   // set Float Denorm Mode
   m_pHLModule->SetFPDenormMode(CGM.getCodeGenOpts().HLSLFlushFPDenorm);
+
 }
 
 bool CGMSHLSLRuntime::IsHlslObjectType(llvm::Type *Ty) {

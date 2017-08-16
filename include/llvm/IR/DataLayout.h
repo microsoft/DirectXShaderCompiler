@@ -129,6 +129,8 @@ private:
   typedef SmallVector<PointerAlignElem, 8> PointersTy;
   PointersTy Pointers;
 
+  bool NoMinPrecision; // HLSL Change
+
   PointersTy::const_iterator
   findPointerLowerBound(uint32_t AddressSpace) const {
     return const_cast<DataLayout *>(this)->findPointerLowerBound(AddressSpace);
@@ -185,7 +187,12 @@ public:
   explicit DataLayout(StringRef LayoutDescription) : LayoutMap(nullptr) {
     reset(LayoutDescription);
   }
-
+  // HLSL Change Begin: Need min precision support info for layout
+  explicit DataLayout(StringRef LayoutDescription, bool noMinPrecision) : LayoutMap(nullptr) {
+    NoMinPrecision = noMinPrecision;
+    reset(LayoutDescription);
+  }
+  // HLSL Chane End
   /// Initialize target data from properties stored in the module.
   explicit DataLayout(const Module *M);
 
@@ -460,6 +467,9 @@ public:
   ///
   /// This includes an explicitly requested alignment (if the global has one).
   unsigned getPreferredAlignmentLog(const GlobalVariable *GV) const;
+
+  // HLSL Change - get no min precision
+  bool IsNoMinPrecision() const { return NoMinPrecision; }
 };
 
 inline DataLayout *unwrap(LLVMTargetDataRef P) {
@@ -539,7 +549,21 @@ inline uint64_t DataLayout::getTypeSizeInBits(Type *Ty) const {
     VectorType *VTy = cast<VectorType>(Ty);
     // HLSL Change Begins.
     // HLSL vector use aligned size. 
-    return VTy->getNumElements() * getTypeAllocSizeInBits(VTy->getElementType());
+    // For 2 halves in half2, half3, half4, we can pack them into DWORD
+    Type *elementType = VTy->getElementType();
+    unsigned typeSize = VTy->getNumElements() * getTypeAllocSizeInBits(elementType);
+    if (NoMinPrecision &&
+      elementType->getTypeID() == Type::HalfTyID) {
+      // half2, half4
+      if (VTy->getNumElements() % 2 == 0) {
+        typeSize /= 2;
+      }
+      // half3. first 2 halves packed and next half padded to DWORD.
+      else if (VTy->getNumElements() == 3) {
+        typeSize = typeSize / 3 * 2;
+      }
+    }
+    return typeSize;
     // HLSL Change Ends.
   }
   default:

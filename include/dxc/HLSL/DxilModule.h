@@ -275,6 +275,9 @@ public:
     void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
     bool GetBarycentrics() const { return m_bBarycentrics; }
 
+    void SetUseStrictHalf(bool flag) { m_bUseStrictHalf = flag; }
+    bool GetUseStrictHalf() const { return m_bUseStrictHalf; }
+
     static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
     uint64_t GetShaderFlagsRaw() const;
     void SetShaderFlagsRaw(uint64_t data);
@@ -310,7 +313,9 @@ public:
     unsigned m_bViewID : 1;           // SHADER_FEATURE_VIEWID
     unsigned m_bBarycentrics : 1;     // SHADER_FEATURE_BARYCENTRICS
 
-    unsigned m_align0 : 9;        // align to 32 bit.
+    unsigned m_bUseStrictHalf : 1; // TODO: comment corresponding shader feature enum name
+
+    unsigned m_align0 : 8;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 

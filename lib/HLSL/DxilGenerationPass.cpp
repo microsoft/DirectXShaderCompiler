@@ -177,6 +177,8 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
+  M.m_ShaderFlags.SetUseStrictHalf(H.GetHLOptions().bUseStrictHalf);
+
   if (FnProps)
     M.SetShaderProperties(FnProps);
 

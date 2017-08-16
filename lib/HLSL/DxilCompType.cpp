@@ -155,6 +155,19 @@ bool CompType::Is64Bit() const {
   }
 }
 
+bool CompType::Is16Bit() const {
+  switch (m_Kind) {
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::SNormF16:
+  case DXIL::ComponentType::UNormF16:
+  case DXIL::ComponentType::U16:
+    return true;
+  default:
+    return false;
+  }
+}
+
 CompType CompType::GetBaseCompType() const {
   switch (m_Kind) {
   case Kind::I1:        return CompType(Kind::I1);
@@ -285,7 +298,7 @@ const char *CompType::GetName() const {
 static const char *s_TypeKindHLSLNames[(unsigned)CompType::Kind::LastEntry] = {
   "unknown",
   "bool", "min16i", "min16ui", "int", "uint", "int64_t", "uint64_t",
-  "min16f", "float", "double",
+  "half", "float", "double",
   "snorm_min16f", "unorm_min16f", "snorm_float", "unorm_float", "snorm_double", "unorm_double",
 };
 

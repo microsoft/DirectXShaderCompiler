@@ -313,6 +313,7 @@ PCSTR g_pFeatureInfoNames[] = {
     "64-Bit integer",
     "View Instancing",
     "Barycentrics",
+    "Strict half"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
