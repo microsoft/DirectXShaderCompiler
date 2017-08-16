@@ -39,7 +39,7 @@ public:
   void Initialize(llvm::StringRef Name, const CompType &ElementType, const InterpolationMode &InterpMode, 
                   unsigned Rows, unsigned Cols, 
                   int StartRow = Semantic::kUndefinedRow, int StartCol = Semantic::kUndefinedCol,
-                  unsigned ID = kUndefinedID, const std::vector<unsigned> &IndexVector = std::vector<unsigned>());
+                  unsigned ID = kUndefinedID, const std::vector<unsigned> &IndexVector = std::vector<unsigned>(), bool useStrictPrecision);
 
   unsigned GetID() const;
   void SetID(unsigned ID);
@@ -98,6 +98,7 @@ protected:
   llvm::StringRef m_SemanticName;
   unsigned m_SemanticStartIndex;
   CompType m_CompType;
+  bool m_UseStrictPrecision;
   InterpolationMode m_InterpMode;
   std::vector<unsigned> m_SemanticIndex;
   unsigned m_Rows;
@@ -117,6 +118,16 @@ public:
   __override DXIL::SemanticKind GetKind() const { return m_pSE->GetKind(); }
   __override DXIL::InterpolationMode GetInterpolationMode() const { return m_pSE->GetInterpolationMode()->GetKind(); }
   __override DXIL::SemanticInterpretationKind GetInterpretation() const { return m_pSE->GetInterpretation(); }
+  __override DXIL::SignatureDataWidth GetDataWidth() const {
+    uint8_t size = m_pSE->GetCompType().GetSize();
+    if (size == 16) {
+      return DXIL::SignatureDataWidth::SIXTEEN;
+    }
+    else if (size == 32) {
+      return DXIL::SignatureDataWidth::THIRTYTWO;
+    }
+    return DXIL::SignatureDataWidth::UNDEFINED;
+  }
   __override uint32_t GetRows() const { return m_pSE->GetRows(); }
   __override uint32_t GetCols() const { return m_pSE->GetCols(); }
   __override bool IsAllocated() const { return m_pSE->IsAllocated(); }

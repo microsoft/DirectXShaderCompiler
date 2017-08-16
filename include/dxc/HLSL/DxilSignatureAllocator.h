@@ -25,6 +25,7 @@ public:
     virtual DXIL::SemanticKind GetKind() const = 0;
     virtual DXIL::InterpolationMode GetInterpolationMode() const = 0;
     virtual DXIL::SemanticInterpretationKind GetInterpretation() const = 0;
+    virtual DXIL::SignatureDataWidth GetDataWidth() const = 0;
     virtual uint32_t GetRows() const = 0;
     virtual uint32_t GetCols() const = 0;
     virtual bool IsAllocated() const = 0;
@@ -42,6 +43,7 @@ public:
     DXIL::SemanticKind kind;
     DXIL::InterpolationMode interpolation;
     DXIL::SemanticInterpretationKind interpretation;
+    DXIL::SignatureDataWidth dataWidth;
     uint32_t indexFlags;
 
   public:
@@ -49,6 +51,7 @@ public:
       kind(DXIL::SemanticKind::Arbitrary),
       interpolation(DXIL::InterpolationMode::Undefined),
       interpretation(DXIL::SemanticInterpretationKind::Arb),
+      dataWidth(DXIL::SignatureDataWidth::UNDEFINED),
       indexFlags(0)
     {}
     __override ~DummyElement() {}
@@ -56,6 +59,7 @@ public:
     __override DXIL::SemanticKind GetKind() const { return kind; }
     __override DXIL::InterpolationMode GetInterpolationMode() const { return interpolation; }
     __override DXIL::SemanticInterpretationKind GetInterpretation() const { return interpretation; }
+    __override DXIL::SignatureDataWidth GetDataWidth() const { return dataWidth; }
     __override uint32_t GetRows() const { return rows; }
     __override uint32_t GetCols() const { return cols; }
     __override bool IsAllocated() const { return row != (uint32_t)-1; }
@@ -98,6 +102,7 @@ public:
     kOverlapElement,
     kIllegalComponentOrder,
     kConflictFit,
+    kConflictDataWidth,
   };
 
   struct PackedRegister {
@@ -108,11 +113,12 @@ public:
     DXIL::InterpolationMode Interp : 4;
     uint8_t IndexFlags : 2;
     uint8_t IndexingFixed : 1;
+    DXIL::SignatureDataWidth DataWidth; // length of each scalar type in bytes. (2 or 4 for now)
 
     PackedRegister();
-    ConflictType DetectRowConflict(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned width);
+    ConflictType DetectRowConflict(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned width, DXIL::SignatureDataWidth dataWidth);
     ConflictType DetectColConflict(uint8_t flags, unsigned col, unsigned width);
-    void PlaceElement(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned col, unsigned width);
+    void PlaceElement(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned col, unsigned width, DXIL::SignatureDataWidth dataWidth);
   };
 
   DxilSignatureAllocator(unsigned numRegisters);
