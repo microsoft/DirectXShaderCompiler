@@ -20,6 +20,8 @@ Texture2D<float4> texture1;
 [[vk::binding(2, 2)]]
 Texture3D<float4> texture2 : register(t0, space0);
 
+// TODO: support [[vk::binding()]] on cbuffer
+
 float4 main() : SV_Target {
     return 1.0;
 }

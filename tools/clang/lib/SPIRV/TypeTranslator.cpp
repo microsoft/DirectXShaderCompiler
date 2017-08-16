@@ -9,23 +9,47 @@
 
 #include "TypeTranslator.h"
 
+#include <algorithm>
+#include <tuple>
+
 #include "dxc/HLSL/DxilConstants.h"
+#include "clang/AST/Attr.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/HlslTypes.h"
 
 namespace clang {
 namespace spirv {
 
-uint32_t TypeTranslator::translateType(QualType type) {
+namespace {
+/// The alignment for 4-component float vectors.
+constexpr uint32_t kStd140Vec4Alignment = 16u;
+
+/// Returns true if the given value is a power of 2.
+inline bool isPow2(int val) { return (val & (val - 1)) == 0; }
+
+/// Rounds the given value up to the given power of 2.
+inline void roundToPow2(uint32_t *val, uint32_t pow2) {
+  assert(pow2 != 0);
+  *val = (*val + pow2 - 1) & ~(pow2 - 1);
+}
+} // anonymous namespace
+
+uint32_t TypeTranslator::translateType(QualType type, bool decorateLayout,
+                                       bool isRowMajor) {
+  // We can only apply row_major to matrices or arrays of matrices.
+  if (isRowMajor)
+    assert(isMxNMatrix(type) || type->isArrayType());
+
   // Try to translate the canonical type first
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return translateType(canonicalType);
+    return translateType(canonicalType, decorateLayout, isRowMajor);
 
   // Primitive types
   {
     QualType ty = {};
     if (isScalarType(type, &ty))
-      if (const auto *builtinType = cast<BuiltinType>(ty.getTypePtr()))
+      if (const auto *builtinType = ty->getAs<BuiltinType>())
         switch (builtinType->getKind()) {
         case BuiltinType::Void:
           return theBuilder.getVoidType();
@@ -45,9 +69,8 @@ uint32_t TypeTranslator::translateType(QualType type) {
   }
 
   // Typedefs
-  if (const auto *typedefType = type->getAs<TypedefType>()) {
-    return translateType(typedefType->desugar());
-  }
+  if (const auto *typedefType = type->getAs<TypedefType>())
+    return translateType(typedefType->desugar(), decorateLayout, isRowMajor);
 
   // Reference types
   if (const auto *refType = type->getAs<ReferenceType>()) {
@@ -57,7 +80,7 @@ uint32_t TypeTranslator::translateType(QualType type) {
     // We already pass function arguments via pointers to tempoary local
     // variables. So it should be fine to drop the pointer type and treat it
     // as the underlying pointee type here.
-    return translateType(refType->getPointeeType());
+    return translateType(refType->getPointeeType(), decorateLayout, isRowMajor);
   }
 
   // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
@@ -67,41 +90,32 @@ uint32_t TypeTranslator::translateType(QualType type) {
   {
     QualType elemType = {};
     uint32_t elemCount = {};
-    if (TypeTranslator::isVectorType(type, &elemType, &elemCount)) {
-      // In SPIR-V, vectors must have two or more elements. So translate vectors
-      // of size 1 into the underlying primitive types directly.
-      if (elemCount == 1) {
-        return translateType(elemType);
-      }
+    if (isVectorType(type, &elemType, &elemCount))
       return theBuilder.getVecType(translateType(elemType), elemCount);
-    }
   }
 
   // Matrix types
-  if (hlsl::IsHLSLMatType(type)) {
-    // The other cases should already be handled in the above.
-    assert(isMxNMatrix(type));
-
-    const auto elemTy = hlsl::GetHLSLMatElementType(type);
-    // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
-    // Validation Rules":
-    //   Matrix types can only be parameterized with floating-point types.
-    //
-    // So we need special handling of non-fp matrices, probably by emulating
-    // them using other types. But for now just disable them.
-    if (!elemTy->isFloatingType()) {
-      emitError("Non-floating-point matrices not supported yet");
-      return 0;
-    }
-
-    const auto elemType = translateType(elemTy);
+  {
+    QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+      // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
+      // Validation Rules":
+      //   Matrix types can only be parameterized with floating-point types.
+      //
+      // So we need special handling of non-fp matrices, probably by emulating
+      // them using other types. But for now just disable them.
+      if (!elemType->isFloatingType()) {
+        emitError("Non-floating-point matrices not supported yet");
+        return 0;
+      }
 
-    // HLSL matrices are row major, while SPIR-V matrices are column major.
-    // We are mapping what HLSL semantically mean a row into a column here.
-    const uint32_t vecType = theBuilder.getVecType(elemType, colCount);
-    return theBuilder.getMatType(vecType, rowCount);
+      // HLSL matrices are row major, while SPIR-V matrices are column major.
+      // We are mapping what HLSL semantically mean a row into a column here.
+      const uint32_t vecType =
+          theBuilder.getVecType(translateType(elemType), colCount);
+      return theBuilder.getMatType(vecType, rowCount);
+    }
   }
 
   // Struct type
@@ -119,20 +133,37 @@ uint32_t TypeTranslator::translateType(QualType type) {
     llvm::SmallVector<uint32_t, 4> fieldTypes;
     llvm::SmallVector<llvm::StringRef, 4> fieldNames;
     for (const auto *field : decl->fields()) {
-      fieldTypes.push_back(translateType(field->getType()));
+      fieldTypes.push_back(translateType(field->getType(), decorateLayout,
+                                         field->hasAttr<HLSLRowMajorAttr>()));
       fieldNames.push_back(field->getName());
     }
 
-    return theBuilder.getStructType(fieldTypes, decl->getName(), fieldNames);
+    llvm::SmallVector<const Decoration *, 4> decorations;
+    if (decorateLayout) {
+      decorations = getLayoutDecorations(decl);
+    }
+
+    return theBuilder.getStructType(fieldTypes, decl->getName(), fieldNames,
+                                    decorations);
   }
 
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
-    const uint32_t elemType = translateType(arrayType->getElementType());
+    const uint32_t elemType =
+        translateType(arrayType->getElementType(), decorateLayout, isRowMajor);
     // TODO: handle extra large array size?
     const auto size =
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
-    return theBuilder.getArrayType(elemType,
-                                   theBuilder.getConstantUint32(size));
+
+    llvm::SmallVector<const Decoration *, 4> decorations;
+    if (decorateLayout) {
+      uint32_t stride = 0;
+      (void)getAlignmentAndSize(type, &stride, isRowMajor);
+      decorations.push_back(
+          Decoration::getArrayStride(*theBuilder.getSPIRVContext(), stride));
+    }
+
+    return theBuilder.getArrayType(elemType, theBuilder.getConstantUint32(size),
+                                   decorations);
   }
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
@@ -316,6 +347,68 @@ uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
   return theBuilder.getVecType(elemType, colCount);
 }
 
+llvm::SmallVector<const Decoration *, 4>
+TypeTranslator::getLayoutDecorations(const DeclContext *decl) {
+  const auto spirvContext = theBuilder.getSPIRVContext();
+  llvm::SmallVector<const Decoration *, 4> decorations;
+  uint32_t offset = 0, index = 0;
+
+  for (const auto *field : decl->decls()) {
+    if (const auto *f = dyn_cast<CXXRecordDecl>(field)) {
+      // Implicit generated struct declarations should be ignored.
+      if (f->isImplicit())
+        continue;
+    }
+
+    // The field can only be FieldDecl (for normal structs) or VarDecl (for
+    // HLSLBufferDecls).
+    auto fieldType = cast<DeclaratorDecl>(field)->getType();
+    const bool isRowMajor = field->hasAttr<HLSLRowMajorAttr>();
+
+    uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
+    std::tie(memberAlignment, memberSize) =
+        getAlignmentAndSize(fieldType, &stride, isRowMajor);
+
+    // Each structure-type member must have an Offset Decoration.
+    roundToPow2(&offset, memberAlignment);
+    decorations.push_back(Decoration::getOffset(*spirvContext, offset, index));
+    offset += memberSize;
+
+    // Each structure-type member that is a matrix or array-of-matrices must be
+    // decorated with
+    // * A MatrixStride decoration, and
+    // * one of the RowMajor or ColMajor Decorations.
+    if (const auto *arrayType = astContext.getAsConstantArrayType(fieldType)) {
+      // We have an array of matrices as a field, we need to decorate
+      // MatrixStride on the field. So skip possible arrays here.
+      fieldType = arrayType->getElementType();
+    }
+    if (isMxNMatrix(fieldType)) {
+      memberAlignment = memberSize = stride = 0;
+      std::tie(memberAlignment, memberSize) =
+          getAlignmentAndSize(fieldType, &stride, isRowMajor);
+
+      decorations.push_back(
+          Decoration::getMatrixStride(*spirvContext, stride, index));
+
+      // We need to swap the RowMajor and ColMajor decorations since HLSL
+      // matrices are conceptually row-major while SPIR-V are conceptually
+      // column-major.
+      if (isRowMajor) {
+        decorations.push_back(Decoration::getColMajor(*spirvContext, index));
+      } else {
+        // If the source code has neither row_major nor column_major annotated,
+        // it should be treated as column_major since that's the default.
+        decorations.push_back(Decoration::getRowMajor(*spirvContext, index));
+      }
+    }
+
+    ++index;
+  }
+
+  return decorations;
+}
+
 uint32_t TypeTranslator::translateResourceType(QualType type) {
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
@@ -358,6 +451,168 @@ uint32_t TypeTranslator::translateResourceType(QualType type) {
   }
 
   return 0;
+}
+
+std::pair<uint32_t, uint32_t>
+TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
+                                    const bool isRowMajor) {
+  // std140 layout rules:
+
+  // 1. If the member is a scalar consuming N basic machine units, the base
+  //    alignment is N.
+  //
+  // 2. If the member is a two- or four-component vector with components
+  //    consuming N basic machine units, the base alignment is 2N or 4N,
+  //    respectively.
+  //
+  // 3. If the member is a three-component vector with components consuming N
+  //    basic machine units, the base alignment is 4N.
+  //
+  // 4. If the member is an array of scalars or vectors, the base alignment and
+  //    array stride are set to match the base alignment of a single array
+  //    element, according to rules (1), (2), and (3), and rounded up to the
+  //    base alignment of a vec4. The array may have padding at the end; the
+  //    base offset of the member following the array is rounded up to the next
+  //    multiple of the base alignment.
+  //
+  // 5. If the member is a column-major matrix with C columns and R rows, the
+  //    matrix is stored identically to an array of C column vectors with R
+  //    components each, according to rule (4).
+  //
+  // 6. If the member is an array of S column-major matrices with C columns and
+  //    R rows, the matrix is stored identically to a row of S X C column
+  //    vectors with R components each, according to rule (4).
+  //
+  // 7. If the member is a row-major matrix with C columns and R rows, the
+  //    matrix is stored identically to an array of R row vectors with C
+  //    components each, according to rule (4).
+  //
+  // 8. If the member is an array of S row-major matrices with C columns and R
+  //    rows, the matrix is stored identically to a row of S X R row vectors
+  //    with C
+  //    components each, according to rule (4).
+  //
+  // 9. If the member is a structure, the base alignment of the structure is N,
+  //    where N is the largest base alignment value of any of its members, and
+  //    rounded up to the base alignment of a vec4. The individual members of
+  //    this substructure are then assigned offsets by applying this set of
+  //    rules recursively, where the base offset of the first member of the
+  //    sub-structure is equal to the aligned offset of the structure. The
+  //    structure may have padding at the end; the base offset of the member
+  //    following the sub-structure is rounded up to the next multiple of the
+  //    base alignment of the structure.
+  //
+  // 10. If the member is an array of S structures, the S elements of the array
+  //     are laid out in order, according to rule (9).
+  const auto canonicalType = type.getCanonicalType();
+  if (canonicalType != type)
+    return getAlignmentAndSize(canonicalType, stride, isRowMajor);
+
+  if (const auto *typedefType = type->getAs<TypedefType>())
+    return getAlignmentAndSize(typedefType->desugar(), stride, isRowMajor);
+
+  { // Rule 1
+    QualType ty = {};
+    if (isScalarType(type, &ty))
+      if (const auto *builtinType = ty->getAs<BuiltinType>())
+        switch (builtinType->getKind()) {
+        case BuiltinType::Void:
+          return {0, 0};
+        case BuiltinType::Bool:
+        case BuiltinType::Int:
+        case BuiltinType::UInt:
+        case BuiltinType::Float:
+          return {4, 4};
+        default:
+          emitError("Primitive type '%0' is not supported yet.")
+              << builtinType->getTypeClassName();
+          return {0, 0};
+        }
+  }
+
+  { // Rule 2 and 3
+    QualType elemType = {};
+    uint32_t elemCount = {};
+    if (isVectorType(type, &elemType, &elemCount)) {
+      uint32_t size = 0;
+      std::tie(std::ignore, size) =
+          getAlignmentAndSize(elemType, stride, isRowMajor);
+
+      return {(elemCount == 3 ? 4 : elemCount) * size, elemCount * size};
+    }
+  }
+
+  { // Rule 5 and 7
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+      uint32_t alignment = 0, size = 0;
+      std::tie(alignment, std::ignore) =
+          getAlignmentAndSize(elemType, stride, isRowMajor);
+
+      // Matrices are treated as arrays of vectors:
+      // The base alignment and array stride are set to match the base alignment
+      // of a single array element, according to rules 1, 2, and 3, and rounded
+      // up to the base alignment of a vec4.
+      const uint32_t vecStorageSize = isRowMajor ? colCount : rowCount;
+      alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
+      roundToPow2(&alignment, kStd140Vec4Alignment);
+      *stride = alignment;
+      size = (isRowMajor ? rowCount : colCount) * alignment;
+
+      return {alignment, size};
+    }
+  }
+
+  // Rule 9
+  if (const auto *structType = type->getAs<RecordType>()) {
+    uint32_t maxAlignment = 0;
+    uint32_t structSize = 0;
+
+    for (const auto *field : structType->getDecl()->fields()) {
+      uint32_t memberAlignment = 0, memberSize = 0;
+      std::tie(memberAlignment, memberSize) = getAlignmentAndSize(
+          field->getType(), stride, field->hasAttr<HLSLRowMajorAttr>());
+
+      // The base alignment of the structure is N, where N is the largest
+      // base alignment value of any of its members...
+      maxAlignment = std::max(maxAlignment, memberAlignment);
+      roundToPow2(&structSize, memberAlignment);
+      structSize += memberSize;
+    }
+
+    // ... and rounded up to the base alignment of a vec4.
+    roundToPow2(&maxAlignment, kStd140Vec4Alignment);
+    // The base offset of the member following the sub-structure is rounded up
+    // to the next multiple of the base alignment of the structure.
+    roundToPow2(&structSize, maxAlignment);
+    return {maxAlignment, structSize};
+  }
+
+  // Rule 4, 6, 8, and 10
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    uint32_t alignment = 0, size = 0;
+    std::tie(alignment, size) =
+        getAlignmentAndSize(arrayType->getElementType(), stride, isRowMajor);
+
+    // The base alignment and array stride are set to match the base alignment
+    // of a single array element, according to rules 1, 2, and 3, and rounded
+    // up to the base alignment of a vec4.
+    roundToPow2(&alignment, kStd140Vec4Alignment);
+    // Need to round size up considering stride for scalar types
+    roundToPow2(&size, alignment);
+    *stride = size; // Use size instead of alignment here for Rule 10
+    // TODO: handle extra large array size?
+    size *= static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    // The base offset of the member following the array is rounded up to the
+    // next multiple of the base alignment.
+    roundToPow2(&size, alignment);
+
+    return {alignment, size};
+  }
+
+  emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  return {0, 0};
 }
 
 } // end namespace spirv
