@@ -477,7 +477,9 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
 
   Flags.SetEnableDoublePrecision(hasDouble);
   Flags.SetInt64Ops(has64Int);
+// TODO: min precision and strict half has to be mutually exclusive once we introduce true i16
   Flags.SetEnableMinPrecision(has16Int ? true : Flags.GetUseStrictHalf() ? false: has16Float);
+  Flags.SetUseStrictHalf(Flags.GetUseStrictHalf() ? has16Float : false);
   Flags.SetEnableDoubleExtensions(hasDoubleExtension);
   Flags.SetWaveOps(hasWaveOps);
   Flags.SetTiledResources(hasCheckAccessFully);
