@@ -379,8 +379,8 @@ public:
     /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
 
   __override STDMETHODIMP findInjectedSource(
-    /* [in] */ LPCOLESTR srcFile,
-    /* [out] */ IDiaEnumInjectedSources **ppResult) { return E_NOTIMPL; }
+      /* [in] */ LPCOLESTR srcFile,
+      /* [out] */ IDiaEnumInjectedSources **ppResult);
 
   __override STDMETHODIMP getEnumDebugStreams(
     /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) { return E_NOTIMPL; }
@@ -1975,6 +1975,7 @@ public:
       }
       return S_OK;
     }
+
     cbData = std::min((DWORD)Content().size(), cbData);
     memcpy(pbData, Content().begin(), cbData);
     if (pcbData) {
@@ -1994,12 +1995,30 @@ public:
   }
 
   __override HRESULT GetItem(DWORD index, IDiaInjectedSource **ppItem) {
-    *ppItem = CreateOnMalloc<DxcDiaInjectedSource>(m_pMalloc, m_pSession, index);
+    if (index >= m_count)
+      return E_INVALIDARG;
+    unsigned itemIndex = index;
+    if (m_count == m_indexList.size())
+      itemIndex = m_indexList[index];
+    *ppItem = CreateOnMalloc<DxcDiaInjectedSource>(m_pMalloc, m_pSession, itemIndex);
     if (*ppItem == nullptr)
       return E_OUTOFMEMORY;
     (*ppItem)->AddRef();
     return S_OK;
   }
+  void Init(StringRef filename) {
+    for (unsigned i = 0; i < m_pSession->Contents()->getNumOperands(); ++i) {
+      StringRef fn =
+          dyn_cast<MDString>(m_pSession->Contents()->getOperand(i)->getOperand(0))
+              ->getString();
+      if (fn.equals(filename)) {
+        m_indexList.emplace_back(i);
+      }
+    }
+    m_count = m_indexList.size();
+  }
+private:
+  std::vector<unsigned> m_indexList;
 };
 
 class DxcDiaTableFrameData : public DxcDiaTableBase<IDiaEnumFrameData, IDiaFrameData> {
@@ -2024,6 +2043,29 @@ public:
   DxcDiaTableInputAssemblyFile(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::InputAssemblyFile) { }
   // HLSL is not based on IL, so no data to return.
 };
+
+__override STDMETHODIMP DxcDiaSession::findInjectedSource(
+    /* [in] */ LPCOLESTR srcFile,
+    /* [out] */ IDiaEnumInjectedSources **ppResult) {
+  if (Contents() != nullptr) {
+    CW2A pUtf8FileName(srcFile);
+    for (unsigned i = 0; i < Contents()->getNumOperands(); ++i) {
+      StringRef fn =
+          dyn_cast<MDString>(Contents()->getOperand(i)->getOperand(0))
+              ->getString();
+      if (fn.equals(pUtf8FileName.m_psz)) {
+        DxcThreadMalloc TM(m_pMalloc);
+        IDiaTable *pTable;
+        IFT(CreateDxcDiaTable(this, DiaTableKind::InjectedSource, &pTable));
+        DxcDiaTableInjectedSource *pInjectedSource = dynamic_cast<DxcDiaTableInjectedSource*>(pTable);
+        pInjectedSource->Init(fn);
+        *ppResult = pInjectedSource;
+        return S_OK;
+      }
+    }
+  }
+  return S_FALSE;
+}
 
 static
 HRESULT CreateDxcDiaTable(DxcDiaSession *pSession, DiaTableKind kind, IDiaTable **ppTable) {
