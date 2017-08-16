@@ -3129,6 +3129,9 @@ static void ValidateResources(ValidationContext &ValCtx) {
 
 static void ValidateShaderFlags(ValidationContext &ValCtx) {
   DxilModule::ShaderFlags calcFlags;
+  // Need to get strict half info for collecting min precision flag correctly.
+  // TODO: Change this stateful behavior once no-min-precision trully means no min precision support at all.
+  calcFlags.SetUseStrictHalf(ValCtx.DxilMod.m_ShaderFlags.GetUseStrictHalf());
   ValCtx.DxilMod.CollectShaderFlags(calcFlags);
   const uint64_t mask = DxilModule::ShaderFlags::GetShaderFlagsRawForCollection();
   uint64_t declaredFlagsRaw = ValCtx.DxilMod.m_ShaderFlags.GetShaderFlagsRaw();
