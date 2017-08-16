@@ -366,5 +366,11 @@ TEST_F(FileTest, VulkanLocationReassigned) {
 TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
   runFileTest("vk.location.mixed.hlsl", /*expectSuccess*/ false);
 }
+TEST_F(FileTest, SpirvInterpolation) {
+  runFileTest("spirv.interpolation.hlsl");
+}
+TEST_F(FileTest, SpirvInterpolationError) {
+  runFileTest("spirv.interpolation.error.hlsl", /*expectSuccess*/ false);
+}
 
 } // namespace
