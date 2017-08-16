@@ -1288,7 +1288,7 @@ public:
   std::wstring GetDebugFileContent(_In_ IDiaDataSource *pDataSource) {
     CComPtr<IDiaSession> pSession;
     CComPtr<IDiaTable> pTable;
-    CComPtr<IDiaTable> pSymbolTable;
+
     CComPtr<IDiaTable> pSourcesTable;
 
     CComPtr<IDiaEnumTables> pEnumTables;
@@ -1301,11 +1301,6 @@ public:
     while (pEnumTables->Next(1, &pTable, &fetched) == S_OK && fetched == 1) {
       CComBSTR name;
       IFT(pTable->get_name(&name));
-
-      if (wcscmp(name, L"Symbols") == 0) {
-        pSymbolTable = pTable.Detach();
-        continue;
-      }
 
       if (wcscmp(name, L"SourceFiles") == 0) {
         pSourcesTable = pTable.Detach();

@@ -2049,20 +2049,14 @@ __override STDMETHODIMP DxcDiaSession::findInjectedSource(
     /* [out] */ IDiaEnumInjectedSources **ppResult) {
   if (Contents() != nullptr) {
     CW2A pUtf8FileName(srcFile);
-    for (unsigned i = 0; i < Contents()->getNumOperands(); ++i) {
-      StringRef fn =
-          dyn_cast<MDString>(Contents()->getOperand(i)->getOperand(0))
-              ->getString();
-      if (fn.equals(pUtf8FileName.m_psz)) {
-        DxcThreadMalloc TM(m_pMalloc);
-        IDiaTable *pTable;
-        IFT(CreateDxcDiaTable(this, DiaTableKind::InjectedSource, &pTable));
-        DxcDiaTableInjectedSource *pInjectedSource = dynamic_cast<DxcDiaTableInjectedSource*>(pTable);
-        pInjectedSource->Init(fn);
-        *ppResult = pInjectedSource;
-        return S_OK;
-      }
-    }
+    DxcThreadMalloc TM(m_pMalloc);
+    IDiaTable *pTable;
+    IFT(CreateDxcDiaTable(this, DiaTableKind::InjectedSource, &pTable));
+    DxcDiaTableInjectedSource *pInjectedSource =
+        dynamic_cast<DxcDiaTableInjectedSource *>(pTable);
+    pInjectedSource->Init(pUtf8FileName.m_psz);
+    *ppResult = pInjectedSource;
+    return S_OK;
   }
   return S_FALSE;
 }
