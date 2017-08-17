@@ -41,6 +41,8 @@ TEST_F(FileTest, MatrixTypes) { runFileTest("type.matrix.hlsl"); }
 TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
+TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
+TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
 
 // For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }

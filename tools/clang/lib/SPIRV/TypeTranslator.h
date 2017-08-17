@@ -26,8 +26,9 @@ namespace spirv {
 /// DiagnosticEngine passed into the constructor.
 class TypeTranslator {
 public:
-  TypeTranslator(ModuleBuilder &builder, DiagnosticsEngine &diag)
-      : theBuilder(builder), diags(diag) {}
+  TypeTranslator(ASTContext &context, ModuleBuilder &builder,
+                 DiagnosticsEngine &diag)
+      : astContext(context), theBuilder(builder), diags(diag) {}
 
   /// \brief Generates the corresponding SPIR-V type for the given Clang
   /// frontend type and returns the type's <result-id>. On failure, reports
@@ -101,7 +102,12 @@ private:
     return diags.Report(diagId);
   }
 
+  /// \brief Translates the given HLSL resource type into its SPIR-V
+  /// instructions and returns the <result-id>. Returns 0 on failure.
+  uint32_t translateResourceType(QualType type);
+
 private:
+  ASTContext &astContext;
   ModuleBuilder &theBuilder;
   DiagnosticsEngine &diags;
 };

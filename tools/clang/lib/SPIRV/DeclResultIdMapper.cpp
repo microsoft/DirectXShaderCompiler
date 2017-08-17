@@ -33,23 +33,6 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   return createStageVars(paramDecl, loadedValue, true, "in.var");
 }
 
-void DeclResultIdMapper::registerDeclResultId(const NamedDecl *symbol,
-                                              uint32_t resultId) {
-  auto sc = spv::StorageClass::Function;
-  if (const auto *varDecl = dyn_cast<VarDecl>(symbol)) {
-    if (varDecl->isExternallyVisible()) {
-      // TODO: Global variables are by default constant. But the default
-      // behavior can be changed via command line option. So Uniform may
-      // not be the correct storage class.
-      sc = spv::StorageClass::Uniform;
-    } else if (!varDecl->hasLocalStorage()) {
-      // File scope variables
-      sc = spv::StorageClass::Private;
-    }
-  }
-  astDecls[symbol] = {resultId, sc};
-}
-
 const DeclResultIdMapper::DeclSpirvInfo *
 DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
   auto it = astDecls.find(decl);
@@ -67,12 +50,47 @@ uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) const {
   return 0;
 }
 
-uint32_t DeclResultIdMapper::getOrRegisterDeclResultId(const NamedDecl *decl) {
-  if (const auto *info = getDeclSpirvInfo(decl))
+uint32_t DeclResultIdMapper::createFnParam(uint32_t paramType,
+                                           const ParmVarDecl *param) {
+  const uint32_t id = theBuilder.addFnParam(paramType, param->getName());
+  astDecls[param] = {id, spv::StorageClass::Function};
+
+  return id;
+}
+
+uint32_t DeclResultIdMapper::createFnVar(uint32_t varType, const VarDecl *var,
+                                         llvm::Optional<uint32_t> init) {
+  const uint32_t id = theBuilder.addFnVar(varType, var->getName(), init);
+  astDecls[var] = {id, spv::StorageClass::Function};
+
+  return id;
+}
+
+uint32_t DeclResultIdMapper::createFileVar(uint32_t varType, const VarDecl *var,
+                                           llvm::Optional<uint32_t> init) {
+  const uint32_t id = theBuilder.addModuleVar(
+      varType, spv::StorageClass::Private, var->getName(), init);
+  astDecls[var] = {id, spv::StorageClass::Private};
+
+  return id;
+}
+
+uint32_t DeclResultIdMapper::createExternVar(uint32_t varType,
+                                             const VarDecl *var) {
+  // TODO: storage class can also be Uniform
+  const uint32_t id = theBuilder.addModuleVar(
+      varType, spv::StorageClass::UniformConstant, var->getName(), llvm::None);
+  astDecls[var] = {id, spv::StorageClass::UniformConstant};
+
+  return id;
+}
+
+uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
+  if (const auto *info = getDeclSpirvInfo(fn))
     return info->resultId;
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
-  registerDeclResultId(decl, id);
+  astDecls[fn] = {id, spv::StorageClass::Function};
 
   return id;
 }
