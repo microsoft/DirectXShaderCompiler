@@ -351,7 +351,7 @@ public:
 
   __override STDMETHODIMP findInjectedSource(
     /* [in] */ LPCOLESTR srcFile,
-    /* [out] */ IDiaEnumInjectedSources **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumInjectedSources **ppResult);
 
   __override STDMETHODIMP getEnumDebugStreams(
     /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) { return E_NOTIMPL; }
@@ -1856,12 +1856,30 @@ public:
   }
 
   __override HRESULT GetItem(DWORD index, IDiaInjectedSource **ppItem) {
-    *ppItem = new (std::nothrow)DxcDiaInjectedSource(m_pSession, index);
+    if (index >= m_count)
+      return E_INVALIDARG;
+    unsigned itemIndex = index;
+    if (m_count == m_indexList.size())
+      itemIndex = m_indexList[index];
+    *ppItem = new (std::nothrow)DxcDiaInjectedSource(m_pSession, itemIndex);
     if (*ppItem == nullptr)
       return E_OUTOFMEMORY;
     (*ppItem)->AddRef();
     return S_OK;
   }
+  void Init(StringRef filename) {
+    for (unsigned i = 0; i < m_pSession->Contents()->getNumOperands(); ++i) {
+      StringRef fn =
+          dyn_cast<MDString>(m_pSession->Contents()->getOperand(i)->getOperand(0))
+              ->getString();
+      if (fn.equals(filename)) {
+        m_indexList.emplace_back(i);
+      }
+    }
+    m_count = m_indexList.size();
+  }
+private:
+  std::vector<unsigned> m_indexList;
 };
 
 class DxcDiaTableFrameData : public DxcDiaTableBase<IDiaEnumFrameData, IDiaFrameData> {
@@ -1886,6 +1904,22 @@ public:
   DxcDiaTableInputAssemblyFile(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::InputAssemblyFile) { }
   // HLSL is not based on IL, so no data to return.
 };
+
+__override STDMETHODIMP DxcDiaSession::findInjectedSource(
+    /* [in] */ LPCOLESTR srcFile,
+    /* [out] */ IDiaEnumInjectedSources **ppResult) {
+  if (Contents() != nullptr) {
+    CW2A pUtf8FileName(srcFile);
+    IDiaTable *pTable;
+    IFT(CreateDxcDiaTable(this, DiaTableKind::InjectedSource, &pTable));
+    DxcDiaTableInjectedSource *pInjectedSource =
+        dynamic_cast<DxcDiaTableInjectedSource *>(pTable);
+    pInjectedSource->Init(pUtf8FileName.m_psz);
+    *ppResult = pInjectedSource;
+    return S_OK;
+  }
+  return S_FALSE;
+}
 
 static
 HRESULT CreateDxcDiaTable(DxcDiaSession *pSession, DiaTableKind kind, IDiaTable **ppTable) {
