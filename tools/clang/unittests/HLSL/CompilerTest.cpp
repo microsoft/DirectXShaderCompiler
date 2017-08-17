@@ -193,10 +193,6 @@ bool VersionSupportInfo::SkipDxilVersion(unsigned major, unsigned minor) {
   return false;
 }
 bool VersionSupportInfo::SkipOutOfMemoryTest() {
-  if (m_CompilerIsDebugBuild) { // same detection logic at the moment
-    WEX::Logging::Log::Comment(L"Test skipped due to out-of-memory robustness requirement.");
-    return true;
-  }
   return false;
 }
 
@@ -2533,8 +2529,6 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
   // In Debug, without /D_ITERATOR_DEBUG_LEVEL=0, debug iterators will be used;
   // this causes a problem where std::string is specified as noexcept, and yet
   // a sentinel is allocated that may fail and throw.
-  // To run this in Debug without debug iterators, uncomment the following line in cmake/modules/AddLLVM.cmake
-  // add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
   if (m_ver.SkipOutOfMemoryTest()) return;
 
   // Now, fail each allocation and make sure we get an error.
