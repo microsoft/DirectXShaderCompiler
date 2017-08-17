@@ -189,10 +189,35 @@ User-defined types
 are type aliases introduced by typedef. No new types are introduced and we can
 rely on Clang to resolve to the original types.
 
-Samplers and textures
-+++++++++++++++++++++
+Samplers
+++++++++
 
-[TODO]
+All `sampler types <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509644(v=vs.85).aspx>`_
+will be translated into SPIR-V ``OpTypeSampler``.
+
+SPIR-V ``OpTypeSampler`` is an opaque type that cannot be parameterized;
+therefore state assignments on sampler types is not supported (yet).
+
+Textures
+++++++++
+
+`Texture types <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509700(v=vs.85).aspx>`_
+are translated into SPIR-V ``OpTypeImage``, with parameters:
+
+====================   ==== ===== ======= == ======= ============
+HLSL Texture Type      Dim  Depth Arrayed MS Sampled Image Format
+====================   ==== ===== ======= == ======= ============
+``Texture1D``          1D    0       0    0    1       Unknown
+``Texture2D``          2D    0       0    0    1       Unknown
+``Texture3D``          3D    0       0    0    1       Unknown
+``TextureCube``        Cube  0       0    0    1       Unknown
+``Texture1DArray``     1D    0       1    0    1       Unknown
+``Texture2DArray``     2D    0       1    0    1       Unknown
+``TextureCubeArray``   3D    0       1    0    1       Unknown
+====================   ==== ===== ======= == ======= ============
+
+The meanings of the headers in the above table is explained in ``OpTypeImage``
+of the SPIR-V spec.
 
 Buffers
 +++++++

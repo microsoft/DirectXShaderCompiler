@@ -226,13 +226,14 @@ public:
   uint32_t addStageBuiltinVar(uint32_t type, spv::StorageClass storageClass,
                               spv::BuiltIn);
 
-  /// \brief Adds a file/module visible variable. This variable will have
-  /// Private storage class.
+  /// \brief Adds a module variable. This variable should not have the Function
+  /// storage class.
   ///
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
-  uint32_t addFileVar(uint32_t valueType, llvm::StringRef name = "",
-                      llvm::Optional<uint32_t> init = llvm::None);
+  uint32_t addModuleVar(uint32_t valueType, spv::StorageClass storageClass,
+                        llvm::StringRef name = "",
+                        llvm::Optional<uint32_t> init = llvm::None);
 
   /// \brief Decorates the given target <result-id> with the given location.
   void decorateLocation(uint32_t targetId, uint32_t location);
@@ -257,6 +258,8 @@ public:
   uint32_t getArrayType(uint32_t elemType, uint32_t count);
   uint32_t getFunctionType(uint32_t returnType,
                            llvm::ArrayRef<uint32_t> paramTypes);
+  uint32_t getImageType(uint32_t sampledType, spv::Dim, bool isArray);
+  uint32_t getSamplerType();
 
   // === Constant ===
   uint32_t getConstantBool(bool value);

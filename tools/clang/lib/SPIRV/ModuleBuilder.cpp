@@ -341,12 +341,15 @@ uint32_t ModuleBuilder::addStageBuiltinVar(uint32_t type, spv::StorageClass sc,
   return varId;
 }
 
-uint32_t ModuleBuilder::addFileVar(uint32_t type, llvm::StringRef name,
-                                   llvm::Optional<uint32_t> init) {
-  const uint32_t pointerType = getPointerType(type, spv::StorageClass::Private);
+uint32_t ModuleBuilder::addModuleVar(uint32_t type, spv::StorageClass sc,
+                                     llvm::StringRef name,
+                                     llvm::Optional<uint32_t> init) {
+  assert(sc != spv::StorageClass::Function);
+
+  // TODO: basically duplicated code of addFileVar()
+  const uint32_t pointerType = getPointerType(type, sc);
   const uint32_t varId = theContext.takeNextId();
-  instBuilder.opVariable(pointerType, varId, spv::StorageClass::Private, init)
-      .x();
+  instBuilder.opVariable(pointerType, varId, sc, init).x();
   theModule.addVariable(std::move(constructSite));
   theModule.addDebugName(varId, name);
   return varId;
@@ -471,6 +474,55 @@ uint32_t ModuleBuilder::getFunctionType(uint32_t returnType,
   const Type *type = Type::getFunction(theContext, returnType, paramTypes);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
+                                     bool isArray) {
+  const Type *type = Type::getImage(theContext, sampledType, dim,
+                                    /*depth*/ 0, isArray, /*ms*/ 0,
+                                    /*sampled*/ 1, spv::ImageFormat::Unknown);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+
+  const char *dimStr = "";
+  switch (dim) {
+  case spv::Dim::Dim1D:
+    dimStr = "1d.";
+    break;
+  case spv::Dim::Dim2D:
+    dimStr = "2d.";
+    break;
+  case spv::Dim::Dim3D:
+    dimStr = "3d.";
+    break;
+  case spv::Dim::Cube:
+    dimStr = "cube.";
+    break;
+  case spv::Dim::Rect:
+    dimStr = "rect.";
+    break;
+  case spv::Dim::Buffer:
+    dimStr = "buffer.";
+    break;
+  case spv::Dim::SubpassData:
+    dimStr = "subpass.";
+    break;
+  default:
+    break;
+  }
+  std::string name =
+      std::string("type.") + dimStr + "image" + (isArray ? ".array" : "");
+  theModule.addDebugName(typeId, name);
+
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getSamplerType() {
+  const Type *type = Type::getSampler(theContext);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  theModule.addDebugName(typeId, "type.sampler");
   return typeId;
 }
 

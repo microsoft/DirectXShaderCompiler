@@ -142,8 +142,8 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), theBuilder(&theContext),
-      declIdMapper(shaderModel, theBuilder, diags),
-      typeTranslator(theBuilder, diags), entryFunctionId(0),
+      declIdMapper(shaderModel, astContext, theBuilder, diags),
+      typeTranslator(astContext, theBuilder, diags), entryFunctionId(0),
       curFunction(nullptr) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0") << shaderModel.GetName();
@@ -247,9 +247,7 @@ void SPIRVEmitter::doStmt(const Stmt *stmt,
 uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
   if (const auto *delRefExpr = dyn_cast<DeclRefExpr>(expr)) {
     // Returns the <result-id> of the referenced Decl.
-    const NamedDecl *referredDecl = delRefExpr->getFoundDecl();
-    assert(referredDecl && "found non-NamedDecl referenced");
-    return declIdMapper.getDeclResultId(referredDecl);
+    return declIdMapper.getDeclResultId(delRefExpr->getFoundDecl());
   }
 
   if (const auto *parenExpr = dyn_cast<ParenExpr>(expr)) {
@@ -396,9 +394,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Create all parameters.
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
-    const uint32_t paramId =
-        theBuilder.addFnParam(paramTypes[i], paramDecl->getName());
-    declIdMapper.registerDeclResultId(paramDecl, paramId);
+    (void)declIdMapper.createFnParam(paramTypes[i], paramDecl);
   }
 
   if (decl->hasBody()) {
@@ -422,6 +418,8 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 }
 
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
+  const uint32_t varType = typeTranslator.translateType(decl->getType());
+
   // The contents in externally visible variables can be updated via the
   // pipeline. They should be handled differently from file and function scope
   // variables.
@@ -432,7 +430,6 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
-    const uint32_t varType = typeTranslator.translateType(decl->getType());
 
     // Handle initializer. SPIR-V requires that "initializer must be an <id>
     // from a constant instruction or a global (module scope) OpVariable
@@ -452,11 +449,11 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       constInit = llvm::Optional<uint32_t>(theBuilder.getConstantNull(varType));
     }
 
-    const uint32_t varId =
-        isFileScopeVar
-            ? theBuilder.addFileVar(varType, decl->getName(), constInit)
-            : theBuilder.addFnVar(varType, decl->getName(), constInit);
-    declIdMapper.registerDeclResultId(decl, varId);
+    uint32_t varId;
+    if (isFileScopeVar)
+      varId = declIdMapper.createFileVar(varType, decl, constInit);
+    else
+      varId = declIdMapper.createFnVar(varType, decl, constInit);
 
     // If we cannot evaluate the initializer as a constant expression, we'll
     // need to use OpStore to write the initializer to the variable.
@@ -475,7 +472,7 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       }
     }
   } else {
-    emitError("Global variables are not supported yet.");
+    (void)declIdMapper.createExternVar(varType, decl);
   }
 }
 
@@ -1078,7 +1075,7 @@ uint32_t SPIRVEmitter::doCallExpr(const CallExpr *callExpr) {
 
     const uint32_t retType = typeTranslator.translateType(callExpr->getType());
     // Get or forward declare the function <result-id>
-    const uint32_t funcId = declIdMapper.getOrRegisterDeclResultId(callee);
+    const uint32_t funcId = declIdMapper.getOrRegisterFnResultId(callee);
 
     const uint32_t retVal =
         theBuilder.createFunctionCall(retType, funcId, params);
@@ -1788,8 +1785,9 @@ void SPIRVEmitter::initOnce(std::string varName, uint32_t varPtr,
   varName = "init.done." + varName;
 
   // Create a file/module visible variable to hold the initialization state.
-  const uint32_t initDoneVar = theBuilder.addFileVar(
-      boolType, varName, theBuilder.getConstantBool(false));
+  const uint32_t initDoneVar =
+      theBuilder.addModuleVar(boolType, spv::StorageClass::Private, varName,
+                              theBuilder.getConstantBool(false));
 
   const uint32_t condition = theBuilder.createLoad(boolType, initDoneVar);
 

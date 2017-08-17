@@ -9,6 +9,7 @@
 
 #include "TypeTranslator.h"
 
+#include "dxc/HLSL/DxilConstants.h"
 #include "clang/AST/HlslTypes.h"
 
 namespace clang {
@@ -23,8 +24,8 @@ uint32_t TypeTranslator::translateType(QualType type) {
   // Primitive types
   {
     QualType ty = {};
-    if (isScalarType(type, &ty)) {
-      if (const auto *builtinType = cast<BuiltinType>(ty.getTypePtr())) {
+    if (isScalarType(type, &ty))
+      if (const auto *builtinType = cast<BuiltinType>(ty.getTypePtr()))
         switch (builtinType->getKind()) {
         case BuiltinType::Void:
           return theBuilder.getVoidType();
@@ -41,19 +42,15 @@ uint32_t TypeTranslator::translateType(QualType type) {
               << builtinType->getTypeClassName();
           return 0;
         }
-      }
-    }
   }
 
-  const auto *typePtr = type.getTypePtr();
-
   // Typedefs
-  if (const auto *typedefType = dyn_cast<TypedefType>(typePtr)) {
+  if (const auto *typedefType = type->getAs<TypedefType>()) {
     return translateType(typedefType->desugar());
   }
 
   // Reference types
-  if (const auto *refType = dyn_cast<ReferenceType>(typePtr)) {
+  if (const auto *refType = type->getAs<ReferenceType>()) {
     // Note: Pointer/reference types are disallowed in HLSL source code.
     // Although developers cannot use them directly, they are generated into
     // the AST by out/inout parameter modifiers in function signatures.
@@ -108,8 +105,15 @@ uint32_t TypeTranslator::translateType(QualType type) {
   }
 
   // Struct type
-  if (const auto *structType = dyn_cast<RecordType>(typePtr)) {
+  if (const auto *structType = type->getAs<RecordType>()) {
     const auto *decl = structType->getDecl();
+
+    // HLSL resource types are also represented as RecordType in the AST.
+    // (ClassTemplateSpecializationDecl is a subclass of CXXRecordDecl, which is
+    // then a subclass of RecordDecl.) So we need to check them before checking
+    // the general struct type.
+    if (const auto id = translateResourceType(type))
+      return id;
 
     // Collect all fields' types and names.
     llvm::SmallVector<uint32_t, 4> fieldTypes;
@@ -122,8 +126,9 @@ uint32_t TypeTranslator::translateType(QualType type) {
     return theBuilder.getStructType(fieldTypes, decl->getName(), fieldNames);
   }
 
-  if (const auto *arrayType = dyn_cast<ConstantArrayType>(typePtr)) {
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
     const uint32_t elemType = translateType(arrayType->getElementType());
+    // TODO: handle extra large array size?
     const auto size =
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
     return theBuilder.getArrayType(elemType,
@@ -295,6 +300,41 @@ uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
   hlsl::GetHLSLMatRowColCount(matrixType, rowCount, colCount);
 
   return theBuilder.getVecType(elemType, colCount);
+}
+
+uint32_t TypeTranslator::translateResourceType(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  assert(recordType);
+  const llvm::StringRef name = recordType->getDecl()->getName();
+
+  // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.
+
+  { // Texture types
+    spv::Dim dim = {};
+    bool isArray = {};
+
+    if ((dim = spv::Dim::Dim1D, isArray = false, name == "Texture1D") ||
+        (dim = spv::Dim::Dim2D, isArray = false, name == "Texture2D") ||
+        (dim = spv::Dim::Dim3D, isArray = false, name == "Texture3D") ||
+        (dim = spv::Dim::Cube, isArray = false, name == "TextureCube") ||
+        (dim = spv::Dim::Dim1D, isArray = true, name == "Texture1DArray") ||
+        (dim = spv::Dim::Dim2D, isArray = true, name == "Texture2DArray") ||
+        // There is no Texture3DArray
+        (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
+      if (dim == spv::Dim::Dim1D)
+        theBuilder.requireCapability(spv::Capability::Sampled1D);
+      const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+      return theBuilder.getImageType(translateType(getElementType(sampledType)),
+                                     dim, isArray);
+    }
+  }
+
+  // Sampler types
+  if (name == "SamplerState" || name == "SamplerComparisonState") {
+    return theBuilder.getSamplerType();
+  }
+
+  return 0;
 }
 
 } // end namespace spirv
