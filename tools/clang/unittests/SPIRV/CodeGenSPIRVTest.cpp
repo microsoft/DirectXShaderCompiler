@@ -295,6 +295,9 @@ TEST_F(FileTest, SemanticArbitraryAlphaLocation) {
 TEST_F(FileTest, SemanticDuplication) {
   runFileTest("semantic.duplication.hlsl", /*expectSuccess*/ false);
 }
+TEST_F(FileTest, SemanticDispatchThreadId) {
+  runFileTest("semantic.dispatch-thread-id.cs.hlsl");
+}
 
 // For texture methods
 TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }
