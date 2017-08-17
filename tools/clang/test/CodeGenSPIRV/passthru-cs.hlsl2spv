@@ -1,0 +1,100 @@
+// Run: %dxc -T cs_6_0 -E main
+
+// Source: https://msdn.microsoft.com/en-us/library/windows/desktop/ff476330(v=vs.85).aspx
+
+//--------------------------------------------------------------------------------------
+// This file contains the Compute Shader to perform out = in
+// Uses RAW Buffers
+//--------------------------------------------------------------------------------------
+
+ByteAddressBuffer Buffer0 : register(t0);
+RWByteAddressBuffer BufferOut : register(u0);
+
+[numthreads(1, 1, 1)]
+void main( uint3 DTid : SV_DispatchThreadID )
+{
+  uint word = Buffer0.Load( DTid.x*4 );
+  BufferOut.Store(DTid.x*4, word);
+}
+
+// CHECK-WHOLE-SPIR-V:
+// ; SPIR-V
+// ; Version: 1.0
+// ; Generator: Google spiregg; 0
+// ; Bound: 44
+// ; Schema: 0
+// OpCapability Shader
+// OpMemoryModel Logical GLSL450
+// OpEntryPoint GLCompute %main "main" %gl_GlobalInvocationID
+// OpExecutionMode %main LocalSize 1 1 1
+// OpName %bb_entry "bb.entry"
+// OpName %type_ByteAddressBuffer "type.ByteAddressBuffer"
+// OpName %Buffer0 "Buffer0"
+// OpName %type_RWByteAddressBuffer "type.RWByteAddressBuffer"
+// OpName %BufferOut "BufferOut"
+// OpName %main "main"
+// OpName %param_var_DTid "param.var.DTid"
+// OpName %src_main "src.main"
+// OpName %DTid "DTid"
+// OpName %word "word"
+// OpDecorate %_runtimearr_uint ArrayStride 4
+// OpDecorate %type_ByteAddressBuffer BufferBlock
+// OpMemberDecorate %type_ByteAddressBuffer 0 Offset 0
+// OpMemberDecorate %type_ByteAddressBuffer 0 NonWritable
+// OpDecorate %type_RWByteAddressBuffer BufferBlock
+// OpMemberDecorate %type_RWByteAddressBuffer 0 Offset 0
+// OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
+// OpDecorate %Buffer0 DescriptorSet 0
+// OpDecorate %Buffer0 Binding 0
+// OpDecorate %BufferOut DescriptorSet 0
+// OpDecorate %BufferOut Binding 0
+// %uint = OpTypeInt 32 0
+// %int = OpTypeInt 32 1
+// %_runtimearr_uint = OpTypeRuntimeArray %uint
+// %type_ByteAddressBuffer = OpTypeStruct %_runtimearr_uint
+// %_ptr_Uniform_type_ByteAddressBuffer = OpTypePointer Uniform %type_ByteAddressBuffer
+// %type_RWByteAddressBuffer = OpTypeStruct %_runtimearr_uint
+// %_ptr_Uniform_type_RWByteAddressBuffer = OpTypePointer Uniform %type_RWByteAddressBuffer
+// %void = OpTypeVoid
+// %11 = OpTypeFunction %void
+// %v3uint = OpTypeVector %uint 3
+// %_ptr_Function_v3uint = OpTypePointer Function %v3uint
+// %_ptr_Input_v3uint = OpTypePointer Input %v3uint
+// %21 = OpTypeFunction %void %_ptr_Function_v3uint
+// %_ptr_Function_uint = OpTypePointer Function %uint
+// %_ptr_Uniform_uint = OpTypePointer Uniform %uint
+// %int_0 = OpConstant %int 0
+// %uint_4 = OpConstant %uint 4
+// %uint_2 = OpConstant %uint 2
+// %uint_0 = OpConstant %uint 0
+// %Buffer0 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
+// %BufferOut = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
+// %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
+// %main = OpFunction %void None %11
+// %13 = OpLabel
+// %param_var_DTid = OpVariable %_ptr_Function_v3uint Function
+// %19 = OpLoad %v3uint %gl_GlobalInvocationID
+// OpStore %param_var_DTid %19
+// %20 = OpFunctionCall %void %src_main %param_var_DTid
+// OpReturn
+// OpFunctionEnd
+// %src_main = OpFunction %void None %21
+// %DTid = OpFunctionParameter %_ptr_Function_v3uint
+// %bb_entry = OpLabel
+// %word = OpVariable %_ptr_Function_uint Function
+// %28 = OpAccessChain %_ptr_Function_uint %DTid %int_0
+// %29 = OpLoad %uint %28
+// %31 = OpIMul %uint %29 %uint_4
+// %33 = OpShiftRightLogical %uint %31 %uint_2
+// %36 = OpAccessChain %_ptr_Uniform_uint %Buffer0 %uint_0 %33
+// %37 = OpLoad %uint %36
+// OpStore %word %37
+// %38 = OpAccessChain %_ptr_Function_uint %DTid %int_0
+// %39 = OpLoad %uint %38
+// %40 = OpIMul %uint %39 %uint_4
+// %41 = OpShiftRightLogical %uint %40 %uint_2
+// %42 = OpLoad %uint %word
+// %43 = OpAccessChain %_ptr_Uniform_uint %BufferOut %uint_0 %41
+// OpStore %43 %42
+// OpReturn
+// OpFunctionEnd
