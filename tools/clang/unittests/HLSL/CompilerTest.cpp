@@ -1285,7 +1285,82 @@ public:
 
     return o.str();
   }
-  
+  std::wstring GetDebugFileContent(_In_ IDiaDataSource *pDataSource) {
+    CComPtr<IDiaSession> pSession;
+    CComPtr<IDiaTable> pTable;
+
+    CComPtr<IDiaTable> pSourcesTable;
+
+    CComPtr<IDiaEnumTables> pEnumTables;
+    std::wstringstream o;
+
+    VERIFY_SUCCEEDED(pDataSource->openSession(&pSession));
+    VERIFY_SUCCEEDED(pSession->getEnumTables(&pEnumTables));
+
+    ULONG fetched = 0;
+    while (pEnumTables->Next(1, &pTable, &fetched) == S_OK && fetched == 1) {
+      CComBSTR name;
+      IFT(pTable->get_name(&name));
+
+      if (wcscmp(name, L"SourceFiles") == 0) {
+        pSourcesTable = pTable.Detach();
+        continue;
+      }
+
+      pTable.Release();
+    }
+
+    if (!pSourcesTable) {
+      return L"cannot find source";
+    }
+
+    // Get source file contents.
+    // NOTE: "SourceFiles" has the root file first while "InjectedSources" is in
+    // alphabetical order.
+    //       It is important to keep the root file first for recompilation, so
+    //       iterate "SourceFiles" and look up the corresponding injected
+    //       source.
+    LONG count;
+    IFT(pSourcesTable->get_Count(&count));
+
+    CComPtr<IDiaSourceFile> pSourceFile;
+    CComBSTR pName;
+    CComPtr<IUnknown> pSymbolUnk;
+    CComPtr<IDiaEnumInjectedSources> pEnumInjectedSources;
+    CComPtr<IDiaInjectedSource> pInjectedSource;
+    std::wstring sourceText, sourceFilename;
+
+    while (SUCCEEDED(pSourcesTable->Next(1, &pSymbolUnk, &fetched)) &&
+           fetched == 1) {
+      sourceText = sourceFilename = L"";
+
+      IFT(pSymbolUnk->QueryInterface(&pSourceFile));
+      IFT(pSourceFile->get_fileName(&pName));
+
+      IFT(pSession->findInjectedSource(pName, &pEnumInjectedSources));
+
+      if (SUCCEEDED(pEnumInjectedSources->get_Count(&count)) && count == 1) {
+        IFT(pEnumInjectedSources->Item(0, &pInjectedSource));
+
+        DWORD cbData = 0;
+        std::string tempString;
+        CComBSTR bstr;
+        IFT(pInjectedSource->get_filename(&bstr));
+        IFT(pInjectedSource->get_source(0, &cbData, nullptr));
+
+        tempString.resize(cbData);
+        IFT(pInjectedSource->get_source(
+            cbData, &cbData, reinterpret_cast<BYTE *>(&tempString[0])));
+
+        CA2W tempWString(tempString.data());
+        o << tempWString.m_psz;
+      }
+      pSymbolUnk.Release();
+    }
+
+    return o.str();
+  }
+
   struct LineNumber { DWORD line; DWORD rva; };
   std::vector<LineNumber> ReadLineNumbers(IDiaEnumLineNumbers *pEnumLineNumbers) {
     std::vector<LineNumber> lines;
@@ -1588,7 +1663,8 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
-
+  std::wstring diaFileContent = GetDebugFileContent(pDiaSource).c_str();
+  VERIFY_IS_NOT_NULL(wcsstr(diaFileContent.c_str(), L"loat4 main(float4 pos : SV_Position) : SV_Target"));
 #if SUPPORT_FXC_PDB
   // Now, fake it by loading from a .pdb!
   VERIFY_SUCCEEDED(CoInitializeEx(0, COINITBASE_MULTITHREADED));
