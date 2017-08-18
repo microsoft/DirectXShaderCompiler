@@ -2035,7 +2035,7 @@ struct DxilInst_Bfi {
     arg_width = 1,
     arg_offset = 2,
     arg_value = 3,
-    arg_replaceCount = 4,
+    arg_replacedValue = 4,
   };
   // Accessors
   llvm::Value *get_width() const { return Instr->getOperand(1); }
@@ -2044,8 +2044,8 @@ struct DxilInst_Bfi {
   void set_offset(llvm::Value *val) { Instr->setOperand(2, val); }
   llvm::Value *get_value() const { return Instr->getOperand(3); }
   void set_value(llvm::Value *val) { Instr->setOperand(3, val); }
-  llvm::Value *get_replaceCount() const { return Instr->getOperand(4); }
-  void set_replaceCount(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_replacedValue() const { return Instr->getOperand(4); }
+  void set_replacedValue(llvm::Value *val) { Instr->setOperand(4, val); }
 };
 
 /// This instruction Two-dimensional vector dot-product
