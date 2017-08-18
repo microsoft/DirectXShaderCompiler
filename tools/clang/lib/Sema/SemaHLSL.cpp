@@ -10409,6 +10409,13 @@ HLSLBufferDecl::Create(ASTContext &C, DeclContext *lexicalParent, bool cbuffer,
   return result;
 }
 
+const char *HLSLBufferDecl::getDeclKindName() const {
+  static const char *HLSLBufferNames[] = {"tbuffer", "cbuffer", "TextureBuffer",
+                                          "ConstantBuffer"};
+  unsigned index = isCBuffer() | (isConstantBufferView()) << 1;
+  return HLSLBufferNames[index];
+}
+
 void Sema::TransferUnusualAttributes(Declarator &D, NamedDecl *NewDecl) {
   assert(NewDecl != nullptr);
 
