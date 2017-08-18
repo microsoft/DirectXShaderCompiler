@@ -24,13 +24,12 @@ float main(                    in  uint   m: M,
     return 1.0;
 }
 
-// Alphabetical assignment
-// CHECK: OpDecorate %in_var_A Location 0
+// Declaration order assignment
+// CHECK: OpDecorate %in_var_M Location 0
 // CHECK: OpDecorate %in_var_B Location 1
-// CHECK: OpDecorate %in_var_M Location 2
+// CHECK: OpDecorate %in_var_A Location 2
 
 // Explicit assignment
 // CHECK: OpDecorate %out_var_R Location 2
 // CHECK: OpDecorate %out_var_N Location 0
 // CHECK: OpDecorate %out_var_C Location 1
-

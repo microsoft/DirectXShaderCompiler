@@ -17,6 +17,7 @@
 #include "dxc/HLSL/DxilSigPoint.h"
 #include "spirv/1.0/spirv.hpp11"
 #include "clang/AST/Attr.h"
+#include "clang/SPIRV/EmitSPIRVOptions.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
@@ -115,7 +116,8 @@ private:
 class DeclResultIdMapper {
 public:
   inline DeclResultIdMapper(const hlsl::ShaderModel &stage, ASTContext &context,
-                            ModuleBuilder &builder, DiagnosticsEngine &diag);
+                            ModuleBuilder &builder, DiagnosticsEngine &diag,
+                            const EmitSPIRVOptions &spirvOptions);
 
   /// \brief Creates the stage output variables by parsing the semantics
   /// attached to the given function's parameter or return value and returns
@@ -236,8 +238,10 @@ private:
 private:
   const hlsl::ShaderModel &shaderModel;
   ModuleBuilder &theBuilder;
-  TypeTranslator typeTranslator;
+  const EmitSPIRVOptions &spirvOptions;
   DiagnosticsEngine &diags;
+
+  TypeTranslator typeTranslator;
 
   uint32_t entryFunctionId;
 
@@ -252,9 +256,10 @@ private:
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,
                                        ASTContext &context,
                                        ModuleBuilder &builder,
-                                       DiagnosticsEngine &diag)
-    : shaderModel(model), theBuilder(builder),
-      typeTranslator(context, builder, diag), diags(diag), entryFunctionId(0) {}
+                                       DiagnosticsEngine &diag,
+                                       const EmitSPIRVOptions &options)
+    : shaderModel(model), theBuilder(builder), spirvOptions(options),
+      diags(diag), typeTranslator(context, builder, diag), entryFunctionId(0) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   // Try both input and output even if input location assignment failed

@@ -10,6 +10,7 @@
 #include "FileTestUtils.h"
 
 #include <algorithm>
+#include <sstream>
 
 #include "SpirvTestOptions.h"
 #include "gtest/gtest.h"
@@ -40,24 +41,29 @@ bool validateSpirvBinary(std::vector<uint32_t> &binary) {
 }
 
 bool processRunCommandArgs(const llvm::StringRef runCommandLine,
-                           std::string *targetProfile,
-                           std::string *entryPoint) {
+                           std::string *targetProfile, std::string *entryPoint,
+                           std::string *restArgs) {
   std::istringstream buf(runCommandLine);
   std::istream_iterator<std::string> start(buf), end;
   std::vector<std::string> tokens(start, end);
-  if (tokens[1].find("Run") == std::string::npos ||
+  if (tokens.size() < 3 || tokens[1].find("Run") == std::string::npos ||
       tokens[2].find("%dxc") == std::string::npos) {
     fprintf(stderr, "The only supported format is: \"// Run: %%dxc -T "
                     "<profile> -E <entry>\"\n");
     return false;
   }
 
-  for (size_t i = 0; i < tokens.size(); ++i) {
-    if (tokens[i] == "-T" && i + 1 < tokens.size())
-      *targetProfile = tokens[i + 1];
-    else if (tokens[i] == "-E" && i + 1 < tokens.size())
-      *entryPoint = tokens[i + 1];
+  std::ostringstream rest;
+  for (uint32_t i = 3; i < tokens.size(); ++i) {
+    if (tokens[i] == "-T" && (++i) < tokens.size())
+      *targetProfile = tokens[i];
+    else if (tokens[i] == "-E" && (++i) < tokens.size())
+      *entryPoint = tokens[i];
+    else
+      rest << (restArgs->empty() ? "" : " ") << tokens[i];
   }
+  *restArgs = rest.str();
+
   if (targetProfile->empty()) {
     fprintf(stderr, "Error: Missing target profile argument (-T).\n");
     return false;
@@ -100,11 +106,13 @@ std::string getAbsPathOfInputDataFile(const llvm::StringRef filename) {
 bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
                                     const llvm::StringRef entryPoint,
                                     const llvm::StringRef targetProfile,
+                                    const llvm::StringRef restArgs,
                                     std::vector<uint32_t> *generatedBinary,
                                     std::string *errorMessages) {
   std::wstring srcFile(inputFilePath.begin(), inputFilePath.end());
   std::wstring entry(entryPoint.begin(), entryPoint.end());
   std::wstring profile(targetProfile.begin(), targetProfile.end());
+  std::wstring rest(restArgs.begin(), restArgs.end());
   bool success = true;
 
   try {
@@ -126,6 +134,7 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     flags.push_back(L"-T");
     flags.push_back(profile.c_str());
     flags.push_back(L"-spirv");
+    flags.push_back(rest.c_str());
 
     IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     IFT(pLibrary->CreateBlobFromFile(srcFile.c_str(), nullptr, &pSource));

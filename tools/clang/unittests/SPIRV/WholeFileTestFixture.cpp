@@ -31,7 +31,8 @@ bool WholeFileTest::parseInputFile() {
     for (std::string line; std::getline(inputFile, line);) {
       if (line.find(hlslStartLabel) != std::string::npos) {
         foundRunCommand = true;
-        if (!utils::processRunCommandArgs(line, &targetProfile, &entryPoint)) {
+        if (!utils::processRunCommandArgs(line, &targetProfile, &entryPoint,
+                                          &restArgs)) {
           // An error has occured when parsing the Run command.
           return false;
         }
@@ -94,7 +95,7 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
 
   // Feed the HLSL source into the Compiler.
   ASSERT_TRUE(utils::runCompilerWithSpirvGeneration(
-      inputFilePath, entryPoint, targetProfile, &generatedBinary,
+      inputFilePath, entryPoint, targetProfile, restArgs, &generatedBinary,
       &errorMessages));
 
   // Disassemble the generated SPIR-V binary.

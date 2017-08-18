@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// Run: %dxc -T vs_6_0 -E main -fvk-stage-io-order=alpha
 
 struct S {
     float c: C;
