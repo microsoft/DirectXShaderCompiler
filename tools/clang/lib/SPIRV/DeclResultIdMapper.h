@@ -146,7 +146,7 @@ public:
                          llvm::Optional<uint32_t> init);
 
   /// \brief Creates an external-visible variable and returns its <result-id>.
-  uint32_t createExternVar(uint32_t varType, const VarDecl *var);
+  uint32_t createExternVar(const VarDecl *var);
 
   /// \brief Creates a cbuffer/tbuffer from the given decl.
   ///

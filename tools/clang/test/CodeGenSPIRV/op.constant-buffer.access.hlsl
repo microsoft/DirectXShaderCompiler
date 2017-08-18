@@ -23,8 +23,7 @@ float main() : A {
 // CHECK-NEXT: [[b0:%\d+]] = OpAccessChain %_ptr_Uniform_float [[b]] %int_0
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[b0]]
 
-// CHECK:      [[c:%\d+]] = OpAccessChain %_ptr_Uniform_mat3v4float %MyCbuffer %int_2
-// CHECK-NEXT: [[c12:%\d+]] = OpAccessChain %_ptr_Uniform_float [[c]] %uint_1 %uint_2
+// CHECK:      [[c12:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyCbuffer %int_2 %uint_1 %uint_2
 // CHECK-NEXT: {{%\d+}} = OpLoad %float [[c12]]
 
 // CHECK:      [[s:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyCbuffer %int_3 %int_0

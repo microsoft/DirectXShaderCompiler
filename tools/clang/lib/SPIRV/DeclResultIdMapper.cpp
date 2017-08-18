@@ -77,7 +77,9 @@ uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          /*decorateLayout*/ true);
+          // According to the Vulkan spec, cbuffer should follow standrad
+          // uniform buffer layout, which GLSL std140 rules statisfies.
+          LayoutRule::GLSLStd140);
       return theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->storageClass),
           info->resultId, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
@@ -114,17 +116,24 @@ uint32_t DeclResultIdMapper::createFileVar(uint32_t varType, const VarDecl *var,
   return id;
 }
 
-uint32_t DeclResultIdMapper::createExternVar(uint32_t varType,
-                                             const VarDecl *var) {
+uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
+  auto rule = LayoutRule::Void;
 
   // TODO: Figure out other cases where the storage class should be Uniform.
   if (auto *t = var->getType()->getAs<RecordType>()) {
     const llvm::StringRef typeName = t->getDecl()->getName();
-    if (typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer")
+    if (typeName == "StructuredBuffer" || typeName == "RWStructuredBuffer" ||
+        typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer") {
+      // These types are all translated into OpTypeStruct with BufferBlock
+      // decoration. They should follow standard storage buffer layout,
+      // which GLSL std430 rules statisfies.
       storageClass = spv::StorageClass::Uniform;
+      rule = LayoutRule::GLSLStd430;
+    }
   }
 
+  const auto varType = typeTranslator.translateType(var->getType(), rule);
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
   astDecls[var] = {id, storageClass, -1};
@@ -155,13 +164,18 @@ DeclResultIdMapper::createVarOfExplicitLayoutStruct(const DeclContext *decl,
     auto varType = declDecl->getType();
     varType.removeLocalConst();
 
-    fieldTypes.push_back(typeTranslator.translateType(
-        varType, true, declDecl->hasAttr<HLSLRowMajorAttr>()));
+    fieldTypes.push_back(
+        typeTranslator.translateType(varType, LayoutRule::GLSLStd140,
+                                     declDecl->hasAttr<HLSLRowMajorAttr>()));
     fieldNames.push_back(declDecl->getName());
   }
 
   // Get the type for the whole buffer
-  auto decorations = typeTranslator.getLayoutDecorations(decl);
+  // cbuffers are translated into OpTypeStruct with Block decoration. They
+  // should follow standard uniform buffer layout according to the Vulkan spec.
+  // GLSL std140 rules satisfies.
+  auto decorations =
+      typeTranslator.getLayoutDecorations(decl, LayoutRule::GLSLStd140);
   decorations.push_back(Decoration::getBlock(*theBuilder.getSPIRVContext()));
   const uint32_t structType =
       theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
@@ -229,6 +243,11 @@ public:
   explicit StorageClassResolver(const DeclResultIdMapper &mapper)
       : declIdMapper(mapper), storageClass(spv::StorageClass::Max) {}
 
+  bool TraverseCXXMemberCallExpr(CXXMemberCallExpr *expr) {
+    // For method calls, the storage class should follow the object.
+    return TraverseStmt(expr->getImplicitObjectArgument());
+  }
+
   // For querying the storage class of a remapped decl
 
   // Semantics may be attached to FunctionDecl, ParmVarDecl, and FieldDecl.
@@ -246,6 +265,10 @@ public:
   }
 
   bool processDecl(NamedDecl *decl) {
+    // Calling C++ methods like operator[] is also represented as DeclRefExpr.
+    if (isa<CXXMethodDecl>(decl))
+      return true;
+
     const auto *info = declIdMapper.getDeclSpirvInfo(decl);
     assert(info);
     if (storageClass == spv::StorageClass::Max) {

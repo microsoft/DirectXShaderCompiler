@@ -289,6 +289,8 @@ public:
                          Type::DecorationSet decorations = {});
   uint32_t getArrayType(uint32_t elemType, uint32_t count,
                         Type::DecorationSet decorations = {});
+  uint32_t getRuntimeArrayType(uint32_t elemType,
+                               Type::DecorationSet decorations = {});
   uint32_t getFunctionType(uint32_t returnType,
                            llvm::ArrayRef<uint32_t> paramTypes);
   uint32_t getImageType(uint32_t sampledType, spv::Dim, uint32_t depth,

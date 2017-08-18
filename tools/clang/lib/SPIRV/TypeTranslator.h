@@ -19,6 +19,13 @@
 namespace clang {
 namespace spirv {
 
+/// Memory layout rules
+enum class LayoutRule {
+  Void,
+  GLSLStd140,
+  GLSLStd430,
+};
+
 /// The class responsible to translate Clang frontend types into SPIR-V type
 /// instructions.
 ///
@@ -36,14 +43,15 @@ public:
   /// frontend type and returns the type's <result-id>. On failure, reports
   /// the error and returns 0. If decorateLayout is true, layout decorations
   /// (Offset, MatrixStride, ArrayStride, RowMajor, ColMajor) will be attached
-  /// to the struct or array types. If decorateLayout is true and type is a
+  /// to the struct or array types. If layoutRule is not Void and type is a
   /// matrix or array of matrix type, isRowMajor will indicate whether it is
   /// decorated with row_major in the source code.
   ///
   /// The translation is recursive; all the types that the target type depends
   /// on will be generated and all with layout decorations (if decorateLayout
   /// is true).
-  uint32_t translateType(QualType type, bool decorateLayout = false,
+  uint32_t translateType(QualType type,
+                         LayoutRule layoutRule = LayoutRule::Void,
                          bool isRowMajor = false);
 
   /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
@@ -121,7 +129,7 @@ public:
   /// according to the spec, must be attached to the array type itself instead
   /// of a struct member.
   llvm::SmallVector<const Decoration *, 4>
-  getLayoutDecorations(const DeclContext *decl);
+  getLayoutDecorations(const DeclContext *decl, LayoutRule rule);
 
 private:
   /// \brief Wrapper method to create an error message and report it
@@ -134,10 +142,10 @@ private:
 
   /// \brief Translates the given HLSL resource type into its SPIR-V
   /// instructions and returns the <result-id>. Returns 0 on failure.
-  uint32_t translateResourceType(QualType type);
+  uint32_t translateResourceType(QualType type, LayoutRule rule);
 
   /// \brief Returns the alignment and size in bytes for the given type
-  /// according to std140.
+  /// according to the given LayoutRule.
 
   /// If the type is an array/matrix type, writes the array/matrix stride to
   /// stride. If the type is a matrix, isRowMajor will be used to indicate
@@ -147,8 +155,10 @@ private:
   /// will occupy in memory; rather it is used in conjunction with alignment
   /// to get the next available location (alignment + size), which means
   /// size contains post-paddings required by the given type.
-  std::pair<uint32_t, uint32_t>
-  getAlignmentAndSize(QualType type, uint32_t *stride, bool isRowMajor);
+  std::pair<uint32_t, uint32_t> getAlignmentAndSize(QualType type,
+                                                    LayoutRule rule,
+                                                    bool isRowMajor,
+                                                    uint32_t *stride);
 
   /// \bried For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
