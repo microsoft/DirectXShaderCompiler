@@ -91,18 +91,13 @@ private:
   uint32_t doCastExpr(const CastExpr *expr);
   uint32_t doCompoundAssignOperator(const CompoundAssignOperator *expr);
   uint32_t doConditionalOperator(const ConditionalOperator *expr);
+  uint32_t doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
   uint32_t doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr);
   uint32_t doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
   uint32_t doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr);
   uint32_t doInitListExpr(const InitListExpr *expr);
   uint32_t doMemberExpr(const MemberExpr *expr);
   uint32_t doUnaryOperator(const UnaryOperator *expr);
-
-private:
-  /// Translates the return statement into its SPIR-V equivalent. Also generates
-  /// necessary instructions for the entry function ensuring that the signature
-  /// matches the SPIR-V requirements.
-  void processReturnStmt(const ReturnStmt *stmt);
 
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
@@ -170,6 +165,11 @@ private:
   /// nullptr, writes true to it if the generated instruction is a constant.
   uint32_t createVectorSplat(const Expr *scalarExpr, uint32_t size,
                              bool *resultIsConstant = nullptr);
+
+  /// Splits the given vector into the last element and the rest (as a new
+  /// vector).
+  void splitVecLastElement(QualType vecType, uint32_t vec, uint32_t *residual,
+                           uint32_t *lastElement);
 
   /// Translates a floatN * float multiplication into SPIR-V instructions and
   /// returns the <result-id>. Returns 0 if the given binary operation is not
