@@ -877,7 +877,7 @@ static const char *OpCodeSignatures[] = {
   "(a,b,c)",  // Msad
   "(a,b,c)",  // Ibfe
   "(a,b,c)",  // Ubfe
-  "(width,offset,value,replaceCount)",  // Bfi
+  "(width,offset,value,replacedValue)",  // Bfi
   "(ax,ay,bx,by)",  // Dot2
   "(ax,ay,az,bx,by,bz)",  // Dot3
   "(ax,ay,az,aw,bx,by,bz,bw)",  // Dot4

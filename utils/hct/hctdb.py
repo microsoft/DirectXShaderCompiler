@@ -510,7 +510,7 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "width", "the bitfield width to take from the value"),
             db_dxil_param(3, "$o", "offset", "the bitfield offset to replace in the value"),
             db_dxil_param(4, "$o", "value", "the number the bits are taken from"),
-            db_dxil_param(5, "$o", "replaceCount", "the number of bits to be replaced")])
+            db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")])
         next_op_idx += 1
 
         # Dot.
