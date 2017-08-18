@@ -3857,7 +3857,7 @@ public:
   virtual SourceRange getSourceRange() const LLVM_READONLY{
     return SourceRange(getLocStart(), RBraceLoc);
   }
-
+  const char *getDeclKindName() const;
   SourceLocation getLocStart() const LLVM_READONLY{ return KwLoc; }
   SourceLocation getRBraceLoc() const { return RBraceLoc; }
   void setRBraceLoc(SourceLocation L) { RBraceLoc = L; }

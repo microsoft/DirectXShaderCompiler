@@ -232,8 +232,12 @@ static string trim(string value) {
       IFT(pResult->GetStatus(&resultStatus));
       if (SUCCEEDED(resultStatus)) {
         IFT(pResult->GetResult(&pCompiledBlob));
-        IFT(pCompiler->Disassemble(pCompiledBlob, &pDisassembly));
-        StdOut = BlobToUtf8(pDisassembly);
+        if (!opts.AstDump) {
+          IFT(pCompiler->Disassemble(pCompiledBlob, &pDisassembly));
+          StdOut = BlobToUtf8(pDisassembly);
+        } else {
+          StdOut = BlobToUtf8(pCompiledBlob);
+        }
         CComPtr<IDxcBlobEncoding> pStdErr;
         IFT(pResult->GetErrorBuffer(&pStdErr));
         StdErr = BlobToUtf8(pStdErr);
