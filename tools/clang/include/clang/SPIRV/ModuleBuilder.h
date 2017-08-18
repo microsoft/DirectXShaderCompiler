@@ -144,6 +144,31 @@ public:
   uint32_t createBinaryOp(spv::Op op, uint32_t resultType, uint32_t lhs,
                           uint32_t rhs);
 
+  /// \brief Creates SPIR-V instructions for sampling the given image.
+  ///
+  /// If lod or grad is given a non-zero value, *ExplicitLod variants of
+  /// OpImageSample* will be generated; otherwise, *ImplicitLod variant will
+  /// be generated.
+  ///
+  /// If bias, lod, or grad is given a non-zero value, an additional image
+  /// operands, Bias, Lod, or Grad, will be attached to the current instruction,
+  /// respectively.
+  uint32_t createImageSample(uint32_t texelType, uint32_t imageType,
+                             uint32_t image, uint32_t sampler,
+                             uint32_t coordinate, uint32_t bias, uint32_t lod,
+                             std::pair<uint32_t, uint32_t> grad,
+                             uint32_t offset);
+
+  /// \brief Creates SPIR-V instructions for fetching the given image.
+  uint32_t createImageFetch(uint32_t texelType, uint32_t image,
+                            uint32_t coordinate, uint32_t lod, uint32_t offset);
+
+  /// \brief Creates SPIR-V instructions for sampling the given image.
+  uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
+                             uint32_t image, uint32_t sampler,
+                             uint32_t coordinate, uint32_t component,
+                             uint32_t offset);
+
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.
   uint32_t createSelect(uint32_t resultType, uint32_t condition,
@@ -260,6 +285,7 @@ public:
                            llvm::ArrayRef<uint32_t> paramTypes);
   uint32_t getImageType(uint32_t sampledType, spv::Dim, bool isArray);
   uint32_t getSamplerType();
+  uint32_t getSampledImageType(uint32_t imageType);
 
   // === Constant ===
   uint32_t getConstantBool(bool value);

@@ -293,6 +293,32 @@ TEST_F(FileTest, SemanticDuplication) {
   runFileTest("semantic.duplication.hlsl", /*expectSuccess*/ false);
 }
 
+// For texture methods
+TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }
+TEST_F(FileTest, TextureArraySample) {
+  runFileTest("texture.array.sample.hlsl");
+}
+TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.hlsl"); }
+TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
+TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
+TEST_F(FileTest, TextureArrayGather) {
+  runFileTest("texture.array.gather.hlsl");
+}
+TEST_F(FileTest, TextureSampleLevel) {
+  runFileTest("texture.sample-level.hlsl");
+}
+TEST_F(FileTest, TextureArraySampleLevel) {
+  runFileTest("texture.array.sample-level.hlsl");
+}
+TEST_F(FileTest, TextureSampleBias) { runFileTest("texture.sample-bias.hlsl"); }
+TEST_F(FileTest, TextureArraySampleBias) {
+  runFileTest("texture.array.sample-bias.hlsl");
+}
+TEST_F(FileTest, TextureSampleGrad) { runFileTest("texture.sample-grad.hlsl"); }
+TEST_F(FileTest, TextureArraySampleGrad) {
+  runFileTest("texture.array.sample-grad.hlsl");
+}
+
 // For intrinsic functions
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }
 TEST_F(FileTest, IntrinsicsMul) { runFileTest("intrinsics.mul.hlsl"); }
