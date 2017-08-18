@@ -473,6 +473,15 @@ uint32_t ModuleBuilder::addModuleVar(uint32_t type, spv::StorageClass sc,
   return varId;
 }
 
+void ModuleBuilder::decorateDSetBinding(uint32_t targetId, uint32_t setNumber,
+                                        uint32_t bindingNumber) {
+  const auto *d = Decoration::getDescriptorSet(theContext, setNumber);
+  theModule.addDecoration(*d, targetId);
+
+  d = Decoration::getBinding(theContext, bindingNumber);
+  theModule.addDecoration(*d, targetId);
+}
+
 void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   const Decoration *d =
       Decoration::getLocation(theContext, location, llvm::None);

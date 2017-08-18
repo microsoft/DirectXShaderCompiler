@@ -372,12 +372,14 @@ TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
 
 // Vulkan/SPIR-V specific
 TEST_F(FileTest, SpirvStorageClass) { runFileTest("spirv.storage-class.hlsl"); }
+
 TEST_F(FileTest, SpirvEntryFunctionWrapper) {
   runFileTest("spirv.entry-function.wrapper.hlsl");
 }
 TEST_F(FileTest, SpirvEntryFunctionInOut) {
   runFileTest("spirv.entry-function.inout.hlsl");
 }
+
 TEST_F(FileTest, VulkanLocation) { runFileTest("vk.location.hlsl"); }
 TEST_F(FileTest, VulkanLocationInputExplicitOutputImplicit) {
   runFileTest("vk.location.exp-in.hlsl");
@@ -394,11 +396,28 @@ TEST_F(FileTest, VulkanLocationReassigned) {
 TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
   runFileTest("vk.location.mixed.hlsl", /*expectSuccess*/ false);
 }
+
 TEST_F(FileTest, SpirvInterpolation) {
   runFileTest("spirv.interpolation.hlsl");
 }
 TEST_F(FileTest, SpirvInterpolationError) {
   runFileTest("spirv.interpolation.error.hlsl", /*expectSuccess*/ false);
+}
+
+TEST_F(FileTest, VulkanExplicitBinding) {
+  // Resource binding from [[vk::binding()]]
+  runFileTest("vk.binding.explicit.hlsl");
+}
+TEST_F(FileTest, VulkanImplicitBinding) {
+  // Resource binding from neither [[vk::binding()]] or :register()
+  runFileTest("vk.binding.implicit.hlsl");
+}
+TEST_F(FileTest, VulkanRegisterBinding) {
+  // Resource binding from :register()
+  runFileTest("vk.binding.register.hlsl");
+}
+TEST_F(FileTest, VulkanExplicitBindingReassigned) {
+  runFileTest("vk.binding.explicit.error.hlsl", /*expectSuccess*/ false);
 }
 
 } // namespace
