@@ -26,6 +26,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/SPIRV/EmitSPIRVOptions.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
@@ -42,7 +43,7 @@ namespace spirv {
 /// through the AST is done manually instead of using ASTConsumer's harness.
 class SPIRVEmitter : public ASTConsumer {
 public:
-  explicit SPIRVEmitter(CompilerInstance &ci);
+  explicit SPIRVEmitter(CompilerInstance &ci, const EmitSPIRVOptions &options);
 
   void HandleTranslationUnit(ASTContext &context) override;
 
@@ -432,6 +433,8 @@ private:
   CompilerInstance &theCompilerInstance;
   ASTContext &astContext;
   DiagnosticsEngine &diags;
+
+  EmitSPIRVOptions spirvOptions;
 
   /// Entry function name and shader stage. Both of them are derived from the
   /// command line and should be const.

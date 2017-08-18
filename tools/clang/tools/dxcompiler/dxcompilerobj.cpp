@@ -462,7 +462,9 @@ public:
       // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (opts.GenSPIRV) {
-          clang::EmitSPIRVAction action;
+          clang::EmitSPIRVOptions spirvOpts;
+          spirvOpts.stageIoOrder = opts.VkStageIoOrder;
+          clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
           action.BeginSourceFile(compiler, file);
           action.Execute();

@@ -135,14 +135,15 @@ bool isLoopStmt(const Stmt *stmt) {
 
 } // namespace
 
-SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci)
+SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
+                           const EmitSPIRVOptions &options)
     : theCompilerInstance(ci), astContext(ci.getASTContext()),
-      diags(ci.getDiagnostics()),
+      diags(ci.getDiagnostics()), spirvOptions(options),
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction),
       shaderModel(*hlsl::ShaderModel::GetByName(
           ci.getCodeGenOpts().HLSLProfile.c_str())),
       theContext(), theBuilder(&theContext),
-      declIdMapper(shaderModel, astContext, theBuilder, diags),
+      declIdMapper(shaderModel, astContext, theBuilder, diags, spirvOptions),
       typeTranslator(astContext, theBuilder, diags), entryFunctionId(0),
       curFunction(nullptr) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)

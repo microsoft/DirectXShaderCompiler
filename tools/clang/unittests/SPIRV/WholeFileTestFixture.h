@@ -58,6 +58,7 @@ private:
 
   std::string targetProfile;             ///< Target profile (argument of -T)
   std::string entryPoint;                ///< Entry point name (argument of -E)
+  std::string restArgs;                  ///< All the other arguments
   std::string inputFilePath;             ///< Path to the input test file
   std::vector<uint32_t> generatedBinary; ///< The generated SPIR-V Binary
   std::string expectedSpirvAsm;          ///< Expected SPIR-V parsed from input

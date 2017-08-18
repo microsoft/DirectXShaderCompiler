@@ -286,8 +286,11 @@ TEST_F(FileTest, SemanticIsFrontFacePS) {
   runFileTest("semantic.is-front-face.ps.hlsl");
 }
 TEST_F(FileTest, SemanticArbitrary) { runFileTest("semantic.arbitrary.hlsl"); }
-TEST_F(FileTest, SemanticArbitraryLocation) {
-  runFileTest("semantic.arbitrary.location.hlsl");
+TEST_F(FileTest, SemanticArbitraryDeclLocation) {
+  runFileTest("semantic.arbitrary.location.decl.hlsl");
+}
+TEST_F(FileTest, SemanticArbitraryAlphaLocation) {
+  runFileTest("semantic.arbitrary.location.alpha.hlsl");
 }
 TEST_F(FileTest, SemanticDuplication) {
   runFileTest("semantic.duplication.hlsl", /*expectSuccess*/ false);

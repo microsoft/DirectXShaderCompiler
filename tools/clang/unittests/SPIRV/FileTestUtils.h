@@ -35,10 +35,11 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
 bool validateSpirvBinary(std::vector<uint32_t> &binary);
 
 /// \brief Parses the Target Profile and Entry Point from the Run command
-/// Returns the target profile and entry point via arguments.
+/// Returns the target profile, entry point, and the rest via arguments.
 /// Returns true on success, and false otherwise.
 bool processRunCommandArgs(const llvm::StringRef runCommandLine,
-                           std::string *targetProfile, std::string *entryPoint);
+                           std::string *targetProfile, std::string *entryPoint,
+                           std::string *restArgs);
 
 /// \brief Converts an IDxcBlob into a vector of 32-bit unsigned integers which
 /// is returned via the 'binaryWords' argument.
@@ -57,6 +58,7 @@ std::string getAbsPathOfInputDataFile(const llvm::StringRef filename);
 bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
                                     const llvm::StringRef entryPoint,
                                     const llvm::StringRef targetProfile,
+                                    const llvm::StringRef restArgs,
                                     std::vector<uint32_t> *generatedBinary,
                                     std::string *errorMessages);
 

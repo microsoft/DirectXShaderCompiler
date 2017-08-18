@@ -28,7 +28,7 @@ float main([[vk::location(0)]] in  uint   m: M, // On function parameter --- M -
 // CHECK: OpDecorate %in_var_B Location 1
 // CHECK: OpDecorate %in_var_A Location 2
 
-// Alphabetical assignment
-// CHECK: OpDecorate %out_var_C Location 0
+// Declaration order assignment
+// CHECK: OpDecorate %out_var_R Location 0
 // CHECK: OpDecorate %out_var_N Location 1
-// CHECK: OpDecorate %out_var_R Location 2
+// CHECK: OpDecorate %out_var_C Location 2
