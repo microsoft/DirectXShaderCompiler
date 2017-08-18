@@ -863,6 +863,14 @@ def VKLocation : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKBinding : InheritableAttr {
+  let Spellings = [CXX11<"vk", "binding">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag, "ExpectedVariable">;
+  let Args = [IntArgument<"Binding">, DefaultIntArgument<"Set", 0>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 // SPIRV Change Ends
 
 def C11NoReturn : InheritableAttr {

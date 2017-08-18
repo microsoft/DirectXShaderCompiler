@@ -185,6 +185,10 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
   if (!declIdMapper.decorateStageIOLocations())
     return;
 
+  // Add descriptor set and binding decorations to resource variables.
+  if (!declIdMapper.decorateResourceBindings())
+    return;
+
   // Output the constructed module.
   std::vector<uint32_t> m = theBuilder.takeModule();
   theCompilerInstance.getOutStream()->write(
