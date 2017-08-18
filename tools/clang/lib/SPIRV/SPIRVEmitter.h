@@ -213,10 +213,11 @@ private:
                                  const BinaryOperatorKind opcode);
 
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
-  /// and writes into indices. Returns the real base (the first Expr that is not
-  /// a MemberExpr).
-  const Expr *collectStructIndices(const MemberExpr *expr,
-                                   llvm::SmallVectorImpl<uint32_t> *indices);
+  /// or ArraySubscriptExprs and writes into indices. Returns the real base
+  /// (the first Expr that is not a MemberExpr or ArraySubscriptExpr).
+  const Expr *
+  collectArrayStructIndices(const Expr *expr,
+                            llvm::SmallVectorImpl<uint32_t> *indices);
 
 private:
   /// Processes the given expr, casts the result into the given bool (vector)

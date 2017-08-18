@@ -31,6 +31,7 @@ Buffer<int> myBuffer : register(t1, space0);
 RWBuffer<float4> myRWBuffer : register(u0, space1);
 
 // TODO: support [[vk::binding()]] on cbuffer
+// TODO: support [[vk::binding()]] on ConstantBuffer
 
 float4 main() : SV_Target {
     return 1.0;

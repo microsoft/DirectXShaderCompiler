@@ -42,6 +42,18 @@ Buffer<int> myBuffer : register(t3, space0);
 // CHECK-NEXT: OpDecorate %myRWBuffer Binding 4
 RWBuffer<float4> myRWBuffer : register(u4, space1);
 
+struct S {
+    float4 f;
+};
+
+// CHECK:      OpDecorate %myCbuffer2 DescriptorSet 2
+// CHECK-NEXT: OpDecorate %myCbuffer2 Binding 2
+ConstantBuffer<S> myCbuffer2 : register(b2, space2);
+
+// CHECK:      OpDecorate %myCbuffer3 DescriptorSet 3
+// CHECK-NEXT: OpDecorate %myCbuffer3 Binding 2
+ConstantBuffer<S> myCbuffer3 : register(b2, space3);
+
 float4 main() : SV_Target {
     return 1.0;
 }

@@ -30,6 +30,14 @@ Buffer<int> myBuffer;
 // CHECK-NEXT: OpDecorate %myRWBuffer Binding 6
 RWBuffer<float4> myRWBuffer;
 
+struct S {
+    float4 f;
+};
+
+// CHECK:      OpDecorate %myCbuffer2 DescriptorSet 0
+// CHECK-NEXT: OpDecorate %myCbuffer2 Binding 7
+ConstantBuffer<S> myCbuffer2;
+
 float4 main() : SV_Target {
     return 1.0;
 }

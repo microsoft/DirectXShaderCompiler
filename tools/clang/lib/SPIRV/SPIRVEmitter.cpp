@@ -166,9 +166,15 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
         workQueue.insert(funcDecl);
       }
     } else if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      doVarDecl(varDecl);
+      if (isa<HLSLBufferDecl>(varDecl->getDeclContext())) {
+        // This is a VarDecl of a ConstantBuffer/TextureBuffer type.
+        (void)declIdMapper.createCTBuffer(varDecl);
+      } else {
+        doVarDecl(varDecl);
+      }
     } else if (auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
-      (void)declIdMapper.createExternVar(bufferDecl);
+      // This is a cbuffer/tbuffer decl.
+      (void)declIdMapper.createCTBuffer(bufferDecl);
     }
   }
 
@@ -993,20 +999,14 @@ void SPIRVEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 }
 
 uint32_t SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
-  // The base of an ArraySubscriptExpr has a wrapping LValueToRValue implicit
-  // cast. We need to ingore it to avoid creating OpLoad.
-  const auto *baseExpr = expr->getBase()->IgnoreParenLValueCasts();
+  llvm::SmallVector<uint32_t, 4> indices;
+  const auto *base = collectArrayStructIndices(expr, &indices);
 
-  const uint32_t valType = typeTranslator.translateType(
-      // TODO: handle non-constant array types
-      astContext.getAsConstantArrayType(baseExpr->getType())->getElementType());
-  const uint32_t ptrType = theBuilder.getPointerType(
-      valType, declIdMapper.resolveStorageClass(baseExpr));
+  const uint32_t ptrType =
+      theBuilder.getPointerType(typeTranslator.translateType(expr->getType()),
+                                declIdMapper.resolveStorageClass(base));
 
-  const uint32_t base = doExpr(baseExpr);
-  const uint32_t index = doExpr(expr->getIdx());
-
-  return theBuilder.createAccessChain(ptrType, base, {index});
+  return theBuilder.createAccessChain(ptrType, doExpr(base), indices);
 }
 
 uint32_t SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
@@ -1769,15 +1769,13 @@ uint32_t SPIRVEmitter::doInitListExpr(const InitListExpr *expr) {
 
 uint32_t SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
+  const Expr *base = collectArrayStructIndices(expr, &indices);
 
-  const Expr *baseExpr = collectStructIndices(expr, &indices);
-  const uint32_t base = doExpr(baseExpr);
+  const uint32_t ptrType =
+      theBuilder.getPointerType(typeTranslator.translateType(expr->getType()),
+                                declIdMapper.resolveStorageClass(base));
 
-  const uint32_t fieldType = typeTranslator.translateType(expr->getType());
-  const uint32_t ptrType = theBuilder.getPointerType(
-      fieldType, declIdMapper.resolveStorageClass(baseExpr));
-
-  return theBuilder.createAccessChain(ptrType, base, indices);
+  return theBuilder.createAccessChain(ptrType, doExpr(base), indices);
 }
 
 uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
@@ -2590,25 +2588,30 @@ uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
   return 0;
 }
 
-const Expr *
-SPIRVEmitter::collectStructIndices(const MemberExpr *expr,
-                                   llvm::SmallVectorImpl<uint32_t> *indices) {
-  const Expr *base = expr->getBase();
-  if (const auto *memExpr = dyn_cast<MemberExpr>(base)) {
-    base = collectStructIndices(memExpr, indices);
-  } else {
-    indices->clear();
-  }
+const Expr *SPIRVEmitter::collectArrayStructIndices(
+    const Expr *expr, llvm::SmallVectorImpl<uint32_t> *indices) {
+  if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
+    const Expr *base = collectArrayStructIndices(indexing->getBase(), indices);
 
-  const auto *memberDecl = expr->getMemberDecl();
-  if (const auto *fieldDecl = dyn_cast<FieldDecl>(memberDecl)) {
+    // Append the index of the current level
+    const auto *fieldDecl = cast<FieldDecl>(indexing->getMemberDecl());
+    assert(fieldDecl);
     indices->push_back(theBuilder.getConstantInt32(fieldDecl->getFieldIndex()));
-  } else {
-    emitError("Decl '%0' in MemberExpr is not supported yet.")
-        << memberDecl->getDeclKindName();
+
+    return base;
   }
 
-  return base;
+  if (const auto *indexing = dyn_cast<ArraySubscriptExpr>(expr)) {
+    // The base of an ArraySubscriptExpr has a wrapping LValueToRValue implicit
+    // cast. We need to ingore it to avoid creating OpLoad.
+    const Expr *thisBase = indexing->getBase()->IgnoreParenLValueCasts();
+    const Expr *base = collectArrayStructIndices(thisBase, indices);
+    indices->push_back(doExpr(indexing->getIdx()));
+    return base;
+  }
+
+  // This the deepest we can go. No more array or struct indexing.
+  return expr;
 }
 
 uint32_t SPIRVEmitter::castToBool(const uint32_t fromVal, QualType fromType,

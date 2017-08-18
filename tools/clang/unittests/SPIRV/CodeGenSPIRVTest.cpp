@@ -49,6 +49,9 @@ TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
 TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
 TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
+TEST_F(FileTest, ConstantBufferType) {
+  runFileTest("type.constant-buffer.hlsl");
+}
 TEST_F(FileTest, ByteAddressBufferTypes) {
   runFileTest("type.byte-address-buffer.hlsl");
 }
@@ -194,8 +197,11 @@ TEST_F(FileTest, OpMatrixAccess1x1) {
 
 // For struct & array accessing operator
 TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
+TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
-TEST_F(FileTest, OpStructArray) { runFileTest("op.array.access.hlsl"); }
+TEST_F(FileTest, OpConstantBufferAccess) {
+  runFileTest("op.constant-buffer.access.hlsl");
+}
 
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }

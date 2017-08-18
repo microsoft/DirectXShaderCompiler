@@ -17,20 +17,14 @@ float main(float val: A, uint index: B) : C {
 
 // CHECK:       [[val:%\d+]] = OpLoad %float %val
 // CHECK-NEXT:  [[idx:%\d+]] = OpLoad %uint %index
-// CHECK-NEXT: [[ptr0:%\d+]] = OpAccessChain %_ptr_Function__arr_S_uint_16 %var [[idx]]
-// CHECK-NEXT: [[ptr1:%\d+]] = OpAccessChain %_ptr_Function_S [[ptr0]] %int_1
-// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Function__arr_float_uint_4 [[ptr1]] %int_0
-// CHECK-NEXT: [[ptr3:%\d+]] = OpAccessChain %_ptr_Function_float [[ptr2]] %int_2
-// CHECK-NEXT:                 OpStore [[ptr3]] [[val]]
+// CHECK-NEXT: [[ptr0:%\d+]] = OpAccessChain %_ptr_Function_float %var [[idx]] %int_1 %int_0 %int_2
+// CHECK-NEXT:                 OpStore [[ptr0]] [[val]]
 
     var[index][1].f[2] = val;
-// CHECK:      [[ptr0:%\d+]] = OpAccessChain %_ptr_Function__arr_S_uint_16 %var %int_0
-// CHECK-NEXT:  [[idx:%\d+]] = OpLoad %uint %index
-// CHECK-NEXT: [[ptr1:%\d+]] = OpAccessChain %_ptr_Function_S [[ptr0]] [[idx]]
-// CHECK-NEXT: [[ptr2:%\d+]] = OpAccessChain %_ptr_Function__arr_float_uint_4 [[ptr1]] %int_1
-// CHECK-NEXT:  [[idx:%\d+]] = OpLoad %uint %index
-// CHECK-NEXT: [[ptr3:%\d+]] = OpAccessChain %_ptr_Function_float [[ptr2]] [[idx]]
-// CHECK-NEXT: [[load:%\d+]] = OpLoad %float [[ptr3]]
+// CHECK-NEXT: [[idx0:%\d+]] = OpLoad %uint %index
+// CHECK-NEXT: [[idx1:%\d+]] = OpLoad %uint %index
+// CHECK:      [[ptr0:%\d+]] = OpAccessChain %_ptr_Function_float %var %int_0 [[idx0]] %int_1 [[idx1]]
+// CHECK-NEXT: [[load:%\d+]] = OpLoad %float [[ptr0]]
 // CHECK-NEXT:                 OpStore %r [[load]]
     r = var[0][index].g[index];
 

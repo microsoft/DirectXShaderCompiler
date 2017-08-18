@@ -354,11 +354,9 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl) {
   uint32_t offset = 0, index = 0;
 
   for (const auto *field : decl->decls()) {
-    if (const auto *f = dyn_cast<CXXRecordDecl>(field)) {
-      // Implicit generated struct declarations should be ignored.
-      if (f->isImplicit())
-        continue;
-    }
+    // Implicit generated struct declarations should be ignored.
+    if (isa<CXXRecordDecl>(field) && field->isImplicit())
+      continue;
 
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
