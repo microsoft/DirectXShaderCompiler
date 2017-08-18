@@ -410,6 +410,7 @@ public:
   TEST_METHOD(CompileHlsl2016ThenOK)
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
+  TEST_METHOD(CompileCBufferTBufferASTDump)
 
   TEST_METHOD(DiaLoadBadBitcodeThenFail)
   TEST_METHOD(DiaLoadDebugThenOK)
@@ -2727,6 +2728,10 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   LPCSTR pErrorMsg = "Unknown HLSL version";
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
+
+TEST_F(CompilerTest, CompileCBufferTBufferASTDump) {
+  CodeGenTestCheck(L"ctbuf.hlsl");
 }
 
 TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
