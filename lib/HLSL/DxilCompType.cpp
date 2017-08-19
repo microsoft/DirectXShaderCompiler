@@ -297,13 +297,20 @@ const char *CompType::GetName() const {
 
 static const char *s_TypeKindHLSLNames[(unsigned)CompType::Kind::LastEntry] = {
   "unknown",
-  "bool", "min16i", "min16ui", "int", "uint", "int64_t", "uint64_t",
+  "bool", "short", "unsigned short", "int", "uint", "int64_t", "uint64_t",
   "half", "float", "double",
+  "snorm_half", "unorm_half", "snorm_float", "unorm_float", "snorm_double", "unorm_double",
+};
+
+static const char *s_TypeKindHLSLNamesMinPrecision[(unsigned)CompType::Kind::LastEntry] = {
+  "unknown",
+  "bool", "min16i", "min16ui", "int", "uint", "int64_t", "uint64_t",
+  "min16float", "float", "double",
   "snorm_min16f", "unorm_min16f", "snorm_float", "unorm_float", "snorm_double", "unorm_double",
 };
 
-const char *CompType::GetHLSLName() const {
-  return s_TypeKindHLSLNames[(unsigned)m_Kind];
+const char *CompType::GetHLSLName(bool MinPrecision) const {
+  return MinPrecision ? s_TypeKindHLSLNamesMinPrecision[(unsigned)m_Kind] : s_TypeKindHLSLNames[(unsigned)m_Kind];
 }
 
 } // namespace hlsl

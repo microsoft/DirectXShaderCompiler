@@ -129,8 +129,6 @@ private:
   typedef SmallVector<PointerAlignElem, 8> PointersTy;
   PointersTy Pointers;
 
-  bool UseMinPrecision; // HLSL Change
-
   PointersTy::const_iterator
   findPointerLowerBound(uint32_t AddressSpace) const {
     return const_cast<DataLayout *>(this)->findPointerLowerBound(AddressSpace);
@@ -187,12 +185,7 @@ public:
   explicit DataLayout(StringRef LayoutDescription) : LayoutMap(nullptr) {
     reset(LayoutDescription);
   }
-  // HLSL Change Begin: Need min precision support info for layout
-  explicit DataLayout(StringRef LayoutDescription, bool useMinPrecision) : LayoutMap(nullptr) {
-    UseMinPrecision = useMinPrecision;
-    reset(LayoutDescription);
-  }
-  // HLSL Chane End
+
   /// Initialize target data from properties stored in the module.
   explicit DataLayout(const Module *M);
 
@@ -546,23 +539,7 @@ inline uint64_t DataLayout::getTypeSizeInBits(Type *Ty) const {
     VectorType *VTy = cast<VectorType>(Ty);
     // HLSL Change Begins.
     // HLSL vector use aligned size. 
-    // For 2 halves in half2, half3, half4, we can pack them into DWORD
-    Type *elementType = VTy->getElementType();
-    unsigned typeSize = VTy->getNumElements() * getTypeAllocSizeInBits(elementType);
-#if 0
-    if (!UseMinPrecision &&
-      elementType->getTypeID() == Type::HalfTyID) {
-      // half2, half4
-      if (VTy->getNumElements() % 2 == 0) {
-        typeSize /= 2;
-      }
-      // half3. first 2 halves packed and next half padded to DWORD.
-      else if (VTy->getNumElements() == 3) {
-        typeSize = typeSize / 3 * 2;
-      }
-    }
-#endif
-    return typeSize;
+    return VTy->getNumElements() * getTypeAllocSizeInBits(VTy->getElementType());
     // HLSL Change Ends.
   }
   default:

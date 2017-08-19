@@ -5,21 +5,21 @@
 // CHECK: {
 // CHECK:   struct dx.alignment.legacy.Foo
 // CHECK:   {
-// CHECK:       half h1;                                      ; Offset:    0
+// CHECK:       min16float h1;                                ; Offset:    0
 // CHECK:       float3 f3;                                    ; Offset:    4
-// CHECK:       half2 h2;                                     ; Offset:   16
+// CHECK:       min16float2 h2;                               ; Offset:   16
 // CHECK:       float3 f3_1;                                  ; Offset:   32
 // CHECK:       float2 f2;                                    ; Offset:   48
-// CHECK:       half4 h4;                                     ; Offset:   64
-// CHECK:       half2 h2_1;                                   ; Offset:   80
-// CHECK:       half3 h3;                                     ; Offset:   96
+// CHECK:       min16float4 h4;                               ; Offset:   64
+// CHECK:       min16float2 h2_1;                             ; Offset:   80
+// CHECK:       min16float3 h3;                               ; Offset:   96
 // CHECK:       double d1;                                    ; Offset:  112
 // CHECK:   } Foo                                             ; Offset:    0 Size:   120
 // CHECK: }
 
 // CHECK: %dx.types.CBufRet.f16 = type { half, half, half, half }
 
-// CHECK:  {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
+// CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f16 @dx.op.cbufferLoadLegacy.f16(i32 59, %dx.types.Handle %Foo_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f16 {{%[0-9]+}}, 0
 // CHECK: {{%[0-9]+}} = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %Foo_buffer, i32 0)  ; CBufferLoadLegacy(handle,regIndex)
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f32 {{%[0-9]+}}, 1

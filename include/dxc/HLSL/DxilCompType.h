@@ -84,7 +84,7 @@ public:
   static CompType GetCompType(llvm::Type * type);
 
   const char *GetName() const;
-  const char *GetHLSLName() const;
+  const char *GetHLSLName(bool MinPrecision) const;
 
 private:
   Kind m_Kind;
