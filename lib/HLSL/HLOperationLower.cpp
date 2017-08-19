@@ -4656,7 +4656,7 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
         DXASSERT(fieldAnnotation, "must be a field");
         if (ArrayType *AT = dyn_cast<ArrayType>(EltTy)) {
           unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
-              *fieldAnnotation, EltTy, dxilTypeSys, DL.IsNoMinPrecision());
+              *fieldAnnotation, EltTy, dxilTypeSys);
 
           // Decide the nested array size.
           unsigned nestedArraySize = 1;
@@ -4693,7 +4693,7 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
     } else if (GEPIt->isArrayTy()) {
       DXASSERT(fieldAnnotation != nullptr, "must a field");
       unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
-              *fieldAnnotation, *GEPIt, dxilTypeSys, DL.IsNoMinPrecision());
+              *fieldAnnotation, *GEPIt, dxilTypeSys);
       // Decide the nested array size.
       unsigned nestedArraySize = 1;
 
@@ -4796,7 +4796,7 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
 
   bool isBool = EltTy == i1Ty;
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
-  bool is16 = EltTy == halfTy && hlslOP->UseStrictPrecision();
+  bool is16 = EltTy == halfTy && !hlslOP->UseMinPrecision();
   bool isNormal = !isBool && !is64 && !is16;
   DXASSERT(is16 || (channelOffset + vecSize) <= 4, "legacy cbuffer don't across 16 bytes register.");
   if (isNormal) {
@@ -5159,7 +5159,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         DXASSERT(fieldAnnotation, "must be a field");
         if (ArrayType *AT = dyn_cast<ArrayType>(EltTy)) {
           unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
-              *fieldAnnotation, EltTy, dxilTypeSys, DL.IsNoMinPrecision());
+              *fieldAnnotation, EltTy, dxilTypeSys);
 
           // Decide the nested array size.
           unsigned nestedArraySize = 1;
@@ -5210,7 +5210,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
     } else if (GEPIt->isArrayTy()) {
       DXASSERT(fieldAnnotation != nullptr, "must a field");
       unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
-              *fieldAnnotation, *GEPIt, dxilTypeSys, DL.IsNoMinPrecision());
+              *fieldAnnotation, *GEPIt, dxilTypeSys);
       // Decide the nested array size.
       unsigned nestedArraySize = 1;
 

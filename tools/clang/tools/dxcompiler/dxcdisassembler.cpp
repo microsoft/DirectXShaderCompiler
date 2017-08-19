@@ -298,7 +298,7 @@ PCSTR g_pFeatureInfoNames[] = {
     "Raw and Structured buffers",
     "UAVs at every shader stage",
     "64 UAV slots",
-    "Low precision data types present",
+    "Minimum-precision data types",
     "Double-precision extensions for 11.1",
     "Shader extensions for 11.1",
     "Comparison filtering for feature level 9",
@@ -313,7 +313,7 @@ PCSTR g_pFeatureInfoNames[] = {
     "64-Bit integer",
     "View Instancing",
     "Barycentrics",
-    "Use strict precision"
+    "Use native low precision"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 

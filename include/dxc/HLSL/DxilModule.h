@@ -275,8 +275,8 @@ public:
     void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
     bool GetBarycentrics() const { return m_bBarycentrics; }
 
-    void SetUseStrictPrecision(bool flag) { m_bUseStrictPrecision = flag; }
-    bool GetUseStrictPrecision() const { return m_bUseStrictPrecision; }
+    void SetUseNativeLowPrecision(bool flag) { m_bUseNativeLowPrecision = flag; }
+    bool GetUseNativeLowPrecision() const { return m_bUseNativeLowPrecision; }
 
     static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
     uint64_t GetShaderFlagsRaw() const;
@@ -313,7 +313,7 @@ public:
     unsigned m_bViewID : 1;           // SHADER_FEATURE_VIEWID
     unsigned m_bBarycentrics : 1;     // SHADER_FEATURE_BARYCENTRICS
 
-    unsigned m_bUseStrictPrecision : 1; // TODO: comment corresponding shader feature enum name
+    unsigned m_bUseNativeLowPrecision : 1;
 
     unsigned m_align0 : 8;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.

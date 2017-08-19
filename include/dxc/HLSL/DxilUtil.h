@@ -26,7 +26,7 @@ class DxilTypeSystem;
 namespace dxilutil {
   unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
-                                   llvm::Type *Ty, DxilTypeSystem &typeSys, bool useStrictPrecision);
+                                   llvm::Type *Ty, DxilTypeSystem &typeSys);
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
 
   bool IsStaticGlobal(llvm::GlobalVariable *GV);

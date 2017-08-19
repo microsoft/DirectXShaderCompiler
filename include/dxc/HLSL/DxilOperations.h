@@ -63,7 +63,7 @@ public:
   bool GetOpCodeClass(const llvm::Function *F, OpCodeClass &opClass);
 
   // To check if operation uses strict precision types
-  bool UseStrictPrecision() const;
+  bool UseMinPrecision();
 
   // LLVM helpers. Perhaps, move to a separate utility class.
   llvm::Constant *GetI1Const(bool v);
@@ -107,6 +107,8 @@ private:
   llvm::Type *m_pBinaryWithTwoOutputsType;
   llvm::Type *m_pSplitDoubleType;
   llvm::Type *m_pInt4Type;
+
+  DXIL::LowPrecisionMode m_LowPrecisionMode;
 
   static const unsigned kNumTypeOverloads = 9;
 

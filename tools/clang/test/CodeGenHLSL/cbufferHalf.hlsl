@@ -1,21 +1,47 @@
 // RUN: %dxc -E main -T ps_6_0 -no-min-precision %s | FileCheck %s
 
-// CHECK: Low precision data types present
-// CHECK: Use strict precision
+// CHECK: Use native low precision
 // CHECK: cbuffer Foo
 // CHECK: {
 // CHECK:   struct dx.alignment.legacy.Foo
 // CHECK:   {
-// CHECK:       half h1;                                    ; Offset:    0
-// CHECK:       float3 f3;                                  ; Offset:    4
-// CHECK:       half2 h2;                                   ; Offset:   16
-// CHECK:       float3 f3_1;                                ; Offset:   20
-// CHECK:       float2 f2;                                  ; Offset:   32
-// CHECK:       half4 h4;                                   ; Offset:   40
-// CHECK:       half2 h2_1;                                 ; Offset:   48
-// CHECK:       half3 h3;                                   ; Offset:   52
-// CHECK:       double d1;                                  ; Offset:   64
+// CHECK:       half f_h1;                                    ; Offset:    0
+// CHECK:       float3 f_f3;                                  ; Offset:    4
+
+// CHECK:       half2 f_h2;                                   ; Offset:   16
+// CHECK:       float3 f_f3_1;                                ; Offset:   20
+
+// CHECK:       float2 f_f2;                                  ; Offset:   32
+// CHECK:       half4 f_h4;                                   ; Offset:   40
+
+// CHECK:       half2 f_h2_1;                                 ; Offset:   48
+// CHECK:       half3 f_h3;                                   ; Offset:   52
+
+// CHECK:       double f_d1;                                  ; Offset:   64
 // CHECK:   } Foo                                           ; Offset:    0 Size:    72
+// CHECK: }
+
+// CHECK: cbuffer Bar
+// CHECK: {
+// CHECK:   struct dx.alignment.legacy.Bar
+// CHECK:   {
+// CHECK:       half b_h1;                                    ; Offset:    0
+// CHECK:       half b_h2;                                    ; Offset:    2
+// CHECK:       half b_h3;                                    ; Offset:    4
+// CHECK:       half2 b_h4;                                   ; Offset:    6
+// CHECK:       half3 b_h5;                                   ; Offset:   10
+
+// CHECK:       half3 b_h7;                                   ; Offset:   16
+// CHECK:       half4 b_h8;                                   ; Offset:   22
+// CHECK:       half b_h9;                                    ; Offset:   30
+
+// CHECK:       half4 b_h10;                                  ; Offset:   32
+// CHECK:       half3 b_h11;                                  ; Offset:   40
+
+// CHECK:       half2 b_h12;                                  ; Offset:   48
+// CHECK:       half3 b_h13;                                  ; Offset:   52
+// CHECK:       half2 b_h14;                                  ; Offset:   58
+// CHECK:   } Bar                                             ; Offset:    0 Size:    62
 // CHECK: }
 
 // CHECK: %dx.types.CBufRet.f16.8 = type { half, half, half, half, half, half, half, half }
@@ -47,17 +73,38 @@
 // CHECK: {{%[0-9]+}} = extractvalue %dx.types.CBufRet.f64 {{%[0-9]+}}, 0
 
 cbuffer Foo {
-  half h1;
-  float3 f3;
-  half2 h2;
-  float3 f3_1;
-  float2 f2;
-  half4 h4;
-  half2 h2_1;
-  half3 h3;
-  double d1;
+  half f_h1;
+  float3 f_f3;
+  half2 f_h2;
+  float3 f_f3_1;
+  float2 f_f2;
+  half4 f_h4;
+  half2 f_h2_1;
+  half3 f_h3;
+  double f_d1;
+}
+
+cbuffer Bar {
+  half b_h1;
+  half b_h2;
+  half b_h3;
+  half2 b_h4;
+  half3 b_h5;
+  
+  half3 b_h7;
+  half4 b_h8;
+  half b_h9;
+
+  half4 b_h10;
+  half3 b_h11;
+  
+  half2 b_h12;
+  half3 b_h13;
+  half2 b_h14;
 }
 
 float4 main() : SV_Target {
-  return h1 + f3.x + h2.x + h2.y + f3_1.z + f2.x + h4.x + h4.y + h4.z + h4.w + h2_1.x + h2_1.y + h3.x + h3.y + h3.z + d1;
+  return f_h1 + f_f3.x + f_h2.x + f_h2.y + f_f3_1.z + f_f2.x + f_h4.x + f_h4.y 
+  + f_h4.z + f_h4.w + f_h2_1.x + f_h2_1.y + f_h3.x + f_h3.y + f_h3.z + f_d1
+  + b_h1;
 }

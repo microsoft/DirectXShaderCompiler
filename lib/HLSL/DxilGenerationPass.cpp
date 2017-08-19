@@ -176,7 +176,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
-  M.m_ShaderFlags.SetUseStrictPrecision(H.GetHLOptions().bUseStrictPrecision);
+  M.m_ShaderFlags.SetUseNativeLowPrecision(!H.GetHLOptions().bUseMinPrecision);
 
   if (FnProps)
     M.SetShaderProperties(FnProps);

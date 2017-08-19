@@ -2111,8 +2111,8 @@ static bool IsPrecise(Instruction &I, ValidationContext &ValCtx) {
   return false;
 }
 
-static bool IsValueLowPrec(DxilModule &DxilMod, Value *V) {
-  DXASSERT(DxilMod.GetGlobalFlags() & DXIL::kLowPrecisionPresent,
+static bool IsValueMinPrec(DxilModule &DxilMod, Value *V) {
+  DXASSERT(DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision,
            "else caller didn't check - currently this path should never be hit "
            "otherwise");
   (DxilMod);
@@ -2322,7 +2322,7 @@ static void ValidateFunctionMetadata(Function *F, ValidationContext &ValCtx) {
 
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
-      ValCtx.DxilMod.GetGlobalFlags() & DXIL::kLowPrecisionPresent;
+      ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
   SmallVector<CallInst *, 16> gradientOps;
   SmallVector<CallInst *, 16> barriers;
   for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
@@ -2344,7 +2344,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       if (SupportsMinPrecision) {
         if (IsPrecise(I, ValCtx)) {
           for (auto &O : I.operands()) {
-            if (IsValueLowPrec(ValCtx.DxilMod, O)) {
+            if (IsValueMinPrec(ValCtx.DxilMod, O)) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::InstrMinPrecisionNotPrecise);
               break;
@@ -2974,8 +2974,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
     unsigned offset = fieldAnnotation.GetCBufferOffset();
 
     unsigned EltSize = dxilutil::GetLegacyCBufferFieldElementSize(
-        fieldAnnotation, EltTy, typeSys,
-        ValCtx.DxilMod.m_ShaderFlags.GetUseStrictPrecision());
+        fieldAnnotation, EltTy, typeSys);
 
     bool bOutOfBound = false;
     if (!EltTy->isAggregateType()) {

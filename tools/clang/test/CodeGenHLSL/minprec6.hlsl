@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: Low precision data types present
+// CHECK: Minimum-precision data types
 
 // CHECK: add nsw i16
 // CHECK: icmp eq i16

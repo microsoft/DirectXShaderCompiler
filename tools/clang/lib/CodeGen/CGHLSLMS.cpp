@@ -311,7 +311,7 @@ void clang::CompileRootSignature(
 //
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()), EntryFunc(nullptr),
-      TheModule(CGM.getModule()), legacyLayout(HLModule::GetLegacyDataLayoutDesc(), CGM.getLangOpts().NoMinPrecision),
+      TheModule(CGM.getModule()), legacyLayout(CGM.getLangOpts().UseMinPrecision ? HLModule::GetLegacyDataLayoutDesc() : HLModule::GetNewDataLayoutDesc()),
       CBufferType(
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
   const hlsl::ShaderModel *SM =
@@ -349,7 +349,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
 
-  opts.bUseStrictPrecision = CGM.getLangOpts().NoMinPrecision;
+  opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
 
   m_pHLModule->SetHLOptions(opts);
 
@@ -488,7 +488,7 @@ StringToTessOutputPrimitive(StringRef primitive) {
 }
 
 static unsigned AlignTo8Bytes(unsigned offset, bool b8BytesAlign) {
-  DXASSERT((offset & 0x3) == 0, "offset should be divisible by 4");
+  DXASSERT((offset & 0x1) == 0, "offset should be divisible by 2");
   if (!b8BytesAlign)
     return offset;
   else if ((offset & 0x7) == 0)
@@ -2595,10 +2595,15 @@ void CGMSHLSLRuntime::SetEntryFunction() {
 
 // Here the size is CB size. So don't need check type.
 static unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty) {
+  DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
   // offset is already 4 bytes aligned.
   bool b8BytesAlign = Ty->isDoubleTy();
   if (llvm::IntegerType *IT = dyn_cast<llvm::IntegerType>(Ty)) {
     b8BytesAlign = IT->getBitWidth() > 32;
+  }
+  // If offset is divisible by 2 and not 4, then increase the offset by 2 for dword alignment.
+  if (!Ty->getScalarType()->isHalfTy() && (offset & 0x2)) {
+    offset += 2;
   }
 
   // Align it to 4 x 4bytes.

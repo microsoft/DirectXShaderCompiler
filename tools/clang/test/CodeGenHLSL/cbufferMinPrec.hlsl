@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: Low precision data types present
+// CHECK: Minimum-precision data types
 // CHECK: cbuffer Foo
 // CHECK: {
 // CHECK:   struct dx.alignment.legacy.Foo

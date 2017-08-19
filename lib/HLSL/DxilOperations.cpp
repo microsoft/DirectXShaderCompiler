@@ -432,7 +432,8 @@ static Type *GetOrCreateStructType(LLVMContext &Ctx, ArrayRef<Type*> types, Stri
 //
 OP::OP(LLVMContext &Ctx, Module *pModule)
 : m_Ctx(Ctx)
-, m_pModule(pModule) {
+, m_pModule(pModule)
+, m_LowPrecisionMode(DXIL::LowPrecisionMode::Undefined) {
   memset(m_pResRetType, 0, sizeof(m_pResRetType));
   memset(m_pCBufferRetType, 0, sizeof(m_pCBufferRetType));
   memset(m_OpCodeClassCache, 0, sizeof(m_OpCodeClassCache));
@@ -785,16 +786,21 @@ bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
   return true;
 }
 
-bool OP::UseStrictPrecision() const {
-  bool useStrictPrecision = false;
-  if (&m_pModule->GetDxilModule()) {
-    useStrictPrecision = m_pModule->GetDxilModule().m_ShaderFlags.GetUseStrictPrecision();
+bool OP::UseMinPrecision() {
+  if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
+    if (&m_pModule->GetDxilModule()) {
+      m_LowPrecisionMode = m_pModule->GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision() ?
+        DXIL::LowPrecisionMode::UseNativeLowPrecision : DXIL::LowPrecisionMode::UseMinPrecision;
+    }
+    else if (&m_pModule->GetHLModule()) {
+      m_LowPrecisionMode = m_pModule->GetHLModule().GetHLOptions().bUseMinPrecision ?
+        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
+    }
+    else {
+      DXASSERT(false, "otherwise module doesn't contain either HLModule or Dxil Module.");
+    }
   }
-  else {
-    DXASSERT(&m_pModule->GetHLModule(), "otherwise module doesn't contain either HLModule or Dxil Module.");
-    useStrictPrecision = m_pModule->GetHLModule().GetHLOptions().bUseStrictPrecision;
-  }
-  return useStrictPrecision;
+  return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
 }
 
 llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
@@ -958,7 +964,7 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
       Type *FieldTypes[2] = { pOverloadType, pOverloadType };
       m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
     }
-    else if (UseStrictPrecision() && pOverloadType->isHalfTy()) {
+    else if (!UseMinPrecision() && pOverloadType->isHalfTy()) {
       TypeName += ".8"; // dx.types.CBufRet.fp16.8 for buffer of 8 halves
       Type *FieldTypes[8] = {
           pOverloadType, pOverloadType, pOverloadType, pOverloadType,

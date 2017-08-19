@@ -125,7 +125,7 @@ DxilModule::ShaderFlags::ShaderFlags():
 , m_bInt64Ops(false)
 , m_bViewID(false)
 , m_bBarycentrics(false)
-, m_bUseStrictPrecision(false)
+, m_bUseNativeLowPrecision(false)
 , m_align0(0)
 , m_align1(0)
 {}
@@ -229,7 +229,7 @@ unsigned DxilModule::ShaderFlags::GetGlobalFlags() const {
   Flags |= m_bEnableDoublePrecision ? DXIL::kEnableDoublePrecision : 0;
   Flags |= m_bForceEarlyDepthStencil ? DXIL::kForceEarlyDepthStencil : 0;
   Flags |= m_bEnableRawAndStructuredBuffers ? DXIL::kEnableRawAndStructuredBuffers : 0;
-  Flags |= m_bLowPrecisionPresent? DXIL::kLowPrecisionPresent : 0;
+  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision? DXIL::kEnableMinPrecision : 0;
   Flags |= m_bEnableDoubleExtensions ? DXIL::kEnableDoubleExtensions : 0;
   Flags |= m_bEnableMSAD ? DXIL::kEnableMSAD : 0;
   Flags |= m_bAllResourcesBound ? DXIL::kAllResourcesBound : 0;
@@ -239,7 +239,8 @@ unsigned DxilModule::ShaderFlags::GetGlobalFlags() const {
 uint64_t DxilModule::ShaderFlags::GetFeatureInfo() const {
   uint64_t Flags = 0;
   Flags |= m_bEnableDoublePrecision ? hlsl::ShaderFeatureInfo_Doubles : 0;
-  Flags |= m_bLowPrecisionPresent ? hlsl::ShaderFeatureInfo_LowPrecision: 0;
+  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision ? hlsl::ShaderFeatureInfo_MinimumPrecision: 0;
+  Flags |= m_bLowPrecisionPresent && m_bUseNativeLowPrecision ? hlsl::ShaderFeatureInfo_NativeLowPrecision : 0;
   Flags |= m_bEnableDoubleExtensions ? hlsl::ShaderFeatureInfo_11_1_DoubleExtensions : 0;
   Flags |= m_bWaveOps ? hlsl::ShaderFeatureInfo_WaveOps : 0;
   Flags |= m_bInt64Ops ? hlsl::ShaderFeatureInfo_Int64Ops : 0;
@@ -256,7 +257,6 @@ uint64_t DxilModule::ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bUAVLoadAdditionalFormats ? hlsl::ShaderFeatureInfo_TypedUAVLoadAdditionalFormats : 0;
   Flags |= m_bViewID ? hlsl::ShaderFeatureInfo_ViewID : 0;
   Flags |= m_bBarycentrics ? hlsl::ShaderFeatureInfo_Barycentrics : 0;
-  Flags |= m_bUseStrictPrecision ? hlsl::ShaderFeatureInfo_UseStrictPrecision : 0;
 
   return Flags;
 }
@@ -1498,10 +1498,10 @@ MDTuple *DxilModule::EmitDxilShaderProperties() {
   vector<Metadata *> MDVals;
 
   // DXIL shader flags.
-  uint64_t Flags = m_ShaderFlags.GetShaderFlagsRaw();
-  if (Flags != 0) {
+  uint64_t flag = m_ShaderFlags.GetShaderFlagsRaw();
+  if (flag != 0) {
     MDVals.emplace_back(m_pMDHelper->Uint32ToConstMD(DxilMDHelper::kDxilShaderFlagsTag));
-    MDVals.emplace_back(m_pMDHelper->Uint64ToConstMD(Flags));
+    MDVals.emplace_back(m_pMDHelper->Uint64ToConstMD(flag));
   }
 
   // Compute shader.

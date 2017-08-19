@@ -129,7 +129,7 @@ private:
   typedef SmallVector<PointerAlignElem, 8> PointersTy;
   PointersTy Pointers;
 
-  bool NoMinPrecision; // HLSL Change
+  bool UseMinPrecision; // HLSL Change
 
   PointersTy::const_iterator
   findPointerLowerBound(uint32_t AddressSpace) const {
@@ -188,8 +188,8 @@ public:
     reset(LayoutDescription);
   }
   // HLSL Change Begin: Need min precision support info for layout
-  explicit DataLayout(StringRef LayoutDescription, bool noMinPrecision) : LayoutMap(nullptr) {
-    NoMinPrecision = noMinPrecision;
+  explicit DataLayout(StringRef LayoutDescription, bool useMinPrecision) : LayoutMap(nullptr) {
+    UseMinPrecision = useMinPrecision;
     reset(LayoutDescription);
   }
   // HLSL Chane End
@@ -467,9 +467,6 @@ public:
   ///
   /// This includes an explicitly requested alignment (if the global has one).
   unsigned getPreferredAlignmentLog(const GlobalVariable *GV) const;
-
-  // HLSL Change - get no min precision
-  bool IsNoMinPrecision() const { return NoMinPrecision; }
 };
 
 inline DataLayout *unwrap(LLVMTargetDataRef P) {
@@ -552,7 +549,8 @@ inline uint64_t DataLayout::getTypeSizeInBits(Type *Ty) const {
     // For 2 halves in half2, half3, half4, we can pack them into DWORD
     Type *elementType = VTy->getElementType();
     unsigned typeSize = VTy->getNumElements() * getTypeAllocSizeInBits(elementType);
-    if (NoMinPrecision &&
+#if 0
+    if (!UseMinPrecision &&
       elementType->getTypeID() == Type::HalfTyID) {
       // half2, half4
       if (VTy->getNumElements() % 2 == 0) {
@@ -563,6 +561,7 @@ inline uint64_t DataLayout::getTypeSizeInBits(Type *Ty) const {
         typeSize = typeSize / 3 * 2;
       }
     }
+#endif
     return typeSize;
     // HLSL Change Ends.
   }

@@ -59,7 +59,7 @@ struct HLOptions {
   unsigned bLegacyCBufferLoad      : 1;
   unsigned PackingStrategy         : 2;
   static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4, "otherwise 2 bits is not enough to store PackingStrategy");
-  unsigned bUseStrictPrecision     : 1;
+  unsigned bUseMinPrecision        : 1;
   unsigned unused                  : 24;
 };
 
@@ -164,6 +164,7 @@ public:
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
   static const char *GetLegacyDataLayoutDesc();
+  static const char *GetNewDataLayoutDesc();
 
   static void MergeGepUse(llvm::Value *V);
 

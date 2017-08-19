@@ -1939,7 +1939,7 @@ UINT64 DxilShaderReflection::GetRequiresFlags() {
   if (features & ShaderFeatureInfo_Doubles) result |= D3D_SHADER_REQUIRES_DOUBLES;
   if (features & ShaderFeatureInfo_UAVsAtEveryStage) result |= D3D_SHADER_REQUIRES_UAVS_AT_EVERY_STAGE;
   if (features & ShaderFeatureInfo_64UAVs) result |= D3D_SHADER_REQUIRES_64_UAVS;
-  if (features & ShaderFeatureInfo_LowPrecision) result |= D3D_SHADER_REQUIRES_MINIMUM_PRECISION;
+  if (features & ShaderFeatureInfo_MinimumPrecision) result |= D3D_SHADER_REQUIRES_MINIMUM_PRECISION;
   if (features & ShaderFeatureInfo_11_1_DoubleExtensions) result |= D3D_SHADER_REQUIRES_11_1_DOUBLE_EXTENSIONS;
   if (features & ShaderFeatureInfo_11_1_ShaderExtensions) result |= D3D_SHADER_REQUIRES_11_1_SHADER_EXTENSIONS;
   if (features & ShaderFeatureInfo_LEVEL9ComparisonFiltering) result |= D3D_SHADER_REQUIRES_LEVEL_9_COMPARISON_FILTERING;

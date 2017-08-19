@@ -8,6 +8,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/HLModule.h"
 #include "dxc/Support/Global.h"
 
 #include "llvm/IR/Module.h"
@@ -194,8 +196,8 @@ void DxilFunctionFPFlag::SetFlagValue(const uint32_t flag) {
 // DxilStructAnnotationSystem class methods.
 //
 DxilTypeSystem::DxilTypeSystem(Module *pModule)
-: m_pModule(pModule) {
-}
+    : m_pModule(pModule),
+      m_LowPrecisionMode(DXIL::LowPrecisionMode::Undefined) {}
 
 DxilStructAnnotation *DxilTypeSystem::AddStructAnnotation(const StructType *pStructType) {
   DXASSERT_NOMSG(m_StructAnnotations.find(pStructType) == m_StructAnnotations.end());
@@ -449,6 +451,23 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
     break;
   }
   return DXIL::SigPointKind::Invalid;
+}
+
+bool DxilTypeSystem::UseMinPrecision() {
+  if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
+    if (&m_pModule->GetDxilModule()) {
+      m_LowPrecisionMode = m_pModule->GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision() ?
+        DXIL::LowPrecisionMode::UseNativeLowPrecision : DXIL::LowPrecisionMode::UseMinPrecision;
+    }
+    else if (&m_pModule->GetHLModule()) {
+      m_LowPrecisionMode = m_pModule->GetHLModule().GetHLOptions().bUseMinPrecision ?
+        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
+    }
+    else {
+      DXASSERT(false, "otherwise module doesn't contain either HLModule or Dxil Module.");
+    }
+  }
+  return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
 }
 
 } // namespace hlsl
