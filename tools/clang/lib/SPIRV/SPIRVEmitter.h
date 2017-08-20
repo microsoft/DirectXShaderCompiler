@@ -101,6 +101,11 @@ private:
   uint32_t doUnaryOperator(const UnaryOperator *expr);
 
 private:
+  /// Returns the proper type for the given expr. This method is used to please
+  /// expressions derived from global resource variables, when we must construct
+  /// the type with correct layout decorations.
+  uint32_t getType(const Expr *expr);
+
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type);
@@ -108,8 +113,15 @@ private:
   /// Generates the necessary instructions for assigning rhs to lhs. If lhsPtr
   /// is not zero, it will be used as the pointer from lhs instead of evaluating
   /// lhs again.
-  uint32_t processAssignment(const Expr *lhs, const uint32_t rhs,
-                             bool isCompoundAssignment, uint32_t lhsPtr = 0);
+  uint32_t processAssignment(const Expr *lhs, uint32_t rhs,
+                             bool isCompoundAssignment, uint32_t lhsPtr = 0,
+                             LayoutRule rhsLayout = LayoutRule::Void);
+
+  /// Generates SPIR-V instructions to store rhsVal into lhsPtr. This will be
+  /// recursive if valType is a composite type.
+  void storeValue(uint32_t lhsPtr, uint32_t rhsVal, QualType valType,
+                  spv::StorageClass lhsSc, LayoutRule lhsLayout,
+                  LayoutRule rhsLayout);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
@@ -117,10 +129,9 @@ private:
   /// mandateGenOpcode is not spv::Op::Max, it will used as the SPIR-V opcode
   /// instead of deducing from Clang frontend opcode.
   uint32_t processBinaryOp(const Expr *lhs, const Expr *rhs,
-                           const BinaryOperatorKind opcode,
-                           const uint32_t resultType,
+                           BinaryOperatorKind opcode, uint32_t resultType,
                            uint32_t *lhsResultId = nullptr,
-                           const spv::Op mandateGenOpcode = spv::Op::Max);
+                           spv::Op mandateGenOpcode = spv::Op::Max);
 
   /// Generates SPIR-V instructions to initialize the given variable once.
   void initOnce(std::string varName, uint32_t varPtr, const Expr *varInit);
