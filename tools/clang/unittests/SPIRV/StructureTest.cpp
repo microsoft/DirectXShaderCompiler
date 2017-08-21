@@ -166,7 +166,7 @@ TEST(Structure, TakeModuleHaveAllContents) {
   sib.inst(spv::Op::OpName,
            {entryPointId, mainWord, /* additional null in name */ 0});
 
-  m.addDecoration(*Decoration::getRelaxedPrecision(context), entryPointId);
+  m.addDecoration(Decoration::getRelaxedPrecision(context), entryPointId);
   sib.inst(
       spv::Op::OpDecorate,
       {entryPointId, static_cast<uint32_t>(spv::Decoration::RelaxedPrecision)});
@@ -269,7 +269,7 @@ TEST(Structure, TakeModuleWithArrayAndConstantDependency) {
       Type::getArray(context, i32Id, constantId, {arrStride});
   const uint32_t secondArrId = context.getResultIdForType(arrType);
   m.addType(secondArrType, secondArrId);
-  m.addDecoration(*arrStride, secondArrId);
+  m.addDecoration(arrStride, secondArrId);
   m.setBound(context.getNextId());
 
   // Decorations

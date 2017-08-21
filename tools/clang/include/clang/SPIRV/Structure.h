@@ -303,8 +303,13 @@ public:
   // TODO: source code debug information
   inline void addDebugName(uint32_t targetId, llvm::StringRef name,
                            llvm::Optional<uint32_t> memberIndex = llvm::None);
-  inline void addDecoration(const Decoration &decoration, uint32_t targetId);
+  /// \brief Adds a decoration to the given target.
+  inline void addDecoration(const Decoration *decoration, uint32_t targetId);
+  /// \brief Adds a type to the module. Also adds the type's decorations to the
+  /// set of decorations of the module.
   inline void addType(const Type *type, uint32_t resultId);
+  /// \brief Adds a constant to the module. Also adds the constant's decorations
+  /// to the set of decorations of the module.
   inline void addConstant(const Constant *constant, uint32_t resultId);
   inline void addVariable(Instruction &&);
   inline void addFunction(std::unique_ptr<Function>);
@@ -340,7 +345,8 @@ private:
   std::vector<Instruction> executionModes;
   // TODO: source code debug information
   std::vector<DebugName> debugNames;
-  std::vector<DecorationIdPair> decorations;
+  llvm::SetVector<std::pair<uint32_t, const Decoration *>> decorations;
+
   // Note that types and constants are interdependent; Types like arrays have
   // <result-id>s for constants in their definition, and constants all have
   // their corresponding types. We store types and constants separately, but
@@ -487,17 +493,23 @@ void SPIRVModule::addDebugName(uint32_t targetId, llvm::StringRef name,
   }
 }
 
-void SPIRVModule::addDecoration(const Decoration &decoration,
+void SPIRVModule::addDecoration(const Decoration *decoration,
                                 uint32_t targetId) {
-  decorations.emplace_back(decoration, targetId);
+  decorations.insert(std::make_pair(targetId, decoration));
 }
 
 void SPIRVModule::addType(const Type *type, uint32_t resultId) {
   types.insert(std::make_pair(type, resultId));
+  for (const Decoration *d : type->getDecorations()) {
+    addDecoration(d, resultId);
+  }
 }
 
 void SPIRVModule::addConstant(const Constant *constant, uint32_t resultId) {
   constants.insert(std::make_pair(constant, resultId));
+  for (const Decoration *d : constant->getDecorations()) {
+    addDecoration(d, resultId);
+  }
 };
 
 void SPIRVModule::addVariable(Instruction &&var) {

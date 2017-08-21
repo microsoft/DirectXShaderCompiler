@@ -100,10 +100,18 @@ uint32_t DeclResultIdMapper::createFileVar(uint32_t varType, const VarDecl *var,
 
 uint32_t DeclResultIdMapper::createExternVar(uint32_t varType,
                                              const VarDecl *var) {
-  // TODO: storage class can also be Uniform
-  const uint32_t id = theBuilder.addModuleVar(
-      varType, spv::StorageClass::UniformConstant, var->getName(), llvm::None);
-  astDecls[var] = {id, spv::StorageClass::UniformConstant};
+  auto storageClass = spv::StorageClass::UniformConstant;
+
+  // TODO: Figure out other cases where the storage class should be Uniform.
+  if (auto *t = var->getType()->getAs<RecordType>()) {
+    const llvm::StringRef typeName = t->getDecl()->getName();
+    if (typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer")
+      storageClass = spv::StorageClass::Uniform;
+  }
+
+  const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
+                                              var->getName(), llvm::None);
+  astDecls[var] = {id, storageClass};
   resourceVars.emplace_back(id, getResourceBinding(var),
                             var->getAttr<VKBindingAttr>());
 

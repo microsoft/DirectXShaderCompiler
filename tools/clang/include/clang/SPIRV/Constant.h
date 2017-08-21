@@ -17,6 +17,7 @@
 #include "clang/SPIRV/Decoration.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SetVector.h"
 
 namespace clang {
 namespace spirv {
@@ -37,12 +38,12 @@ class SPIRVContext;
 /// context).
 class Constant {
 public:
-  using DecorationSet = std::set<const Decoration *>;
+  using DecorationSet = llvm::ArrayRef<const Decoration *>;
 
   spv::Op getOpcode() const { return opcode; }
   uint32_t getTypeId() const { return typeId; }
   const std::vector<uint32_t> &getArgs() const { return args; }
-  const DecorationSet &getDecorations() const { return decorations; }
+  const auto &getDecorations() const { return decorations; }
   bool hasDecoration(const Decoration *) const;
 
   // OpConstantTrue and OpConstantFalse are boolean.
@@ -95,8 +96,17 @@ public:
                                           DecorationSet dec = {});
 
   bool operator==(const Constant &other) const {
-    return opcode == other.opcode && typeId == other.typeId &&
-           args == other.args && decorations == other.decorations;
+    if (opcode == other.opcode && typeId == other.typeId &&
+        args == other.args && decorations.size() == other.decorations.size()) {
+      // If two constants have the same decorations, but in different order,
+      // they are in fact the same.
+      for (const Decoration *dec : decorations) {
+        if (other.decorations.count(dec) == 0)
+          return false;
+      }
+      return true;
+    }
+    return false;
   }
 
   // \brief Construct the SPIR-V words for this constant with the given
@@ -106,7 +116,7 @@ public:
 private:
   /// \brief Private constructor.
   Constant(spv::Op, uint32_t type, llvm::ArrayRef<uint32_t> arg = {},
-           std::set<const Decoration *> dec = {});
+           DecorationSet dec = {});
 
   /// \brief Returns the unique constant pointer within the given context.
   static const Constant *getUniqueConstant(SPIRVContext &, const Constant &);
@@ -115,7 +125,12 @@ private:
   spv::Op opcode;             ///< OpCode of the constant
   uint32_t typeId;            ///< <result-id> of the type of the constant
   std::vector<uint32_t> args; ///< Arguments needed to define the constant
-  DecorationSet decorations;  ///< Decorations applied to the constant
+
+  /// The decorations that are applied to a constant.
+  /// Note: we use a SetVector because:
+  /// a) Duplicate decorations should be removed.
+  /// b) Order of insertion matters for deterministic SPIR-V emitting
+  llvm::SetVector<const Decoration *> decorations;
 };
 
 } // end namespace spirv

@@ -15,8 +15,10 @@ namespace clang {
 namespace spirv {
 
 Constant::Constant(spv::Op op, uint32_t type, llvm::ArrayRef<uint32_t> arg,
-                   std::set<const Decoration *> decs)
-    : opcode(op), typeId(type), args(arg), decorations(decs) {}
+                   DecorationSet decs)
+    : opcode(op), typeId(type), args(arg) {
+  decorations = llvm::SetVector<const Decoration *>(decs.begin(), decs.end());
+}
 
 const Constant *Constant::getUniqueConstant(SPIRVContext &context,
                                             const Constant &c) {
@@ -121,7 +123,7 @@ Constant::getSpecComposite(SPIRVContext &ctx, uint32_t type_id,
 }
 
 bool Constant::hasDecoration(const Decoration *d) const {
-  return decorations.find(d) != decorations.end();
+  return decorations.count(d);
 }
 
 bool Constant::isBoolean() const {
