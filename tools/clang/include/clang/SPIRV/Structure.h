@@ -30,6 +30,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace clang {
@@ -327,7 +328,7 @@ private:
 
 private:
   Header header; ///< SPIR-V module header.
-  std::vector<spv::Capability> capabilities;
+  llvm::SetVector<spv::Capability> capabilities;
   std::vector<std::string> extensions;
   llvm::MapVector<const char *, uint32_t> extInstSets;
   // Addressing and memory model must exist for a valid SPIR-V module.
@@ -443,7 +444,7 @@ SPIRVModule::SPIRVModule()
 void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
 
 void SPIRVModule::addCapability(spv::Capability cap) {
-  capabilities.push_back(cap);
+  capabilities.insert(cap);
 }
 
 void SPIRVModule::addExtension(std::string ext) {
