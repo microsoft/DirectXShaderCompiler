@@ -789,7 +789,7 @@ public:
     compiler.getLangOpts().HLSL2016 = Opts.HLSL2016;
     compiler.getLangOpts().HLSL2017 = Opts.HLSL2017;
 
-    compiler.getLangOpts().NoMinPrecision = Opts.NoMinPrecision;
+    compiler.getLangOpts().UseMinPrecision = !Opts.NoMinPrecision;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN

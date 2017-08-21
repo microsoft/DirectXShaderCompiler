@@ -1999,7 +1999,8 @@ static bool IsDxilBuiltinStructType(StructType *ST, hlsl::OP *hlslOP) {
   unsigned EltNum = ST->getNumElements();
   switch (EltNum) {
   case 2:
-  case 4: {
+  case 4:
+  case 8: { // 2 for doubles, 8 for halfs.
     Type *EltTy = ST->getElementType(0);
     return ST == hlslOP->GetCBufferRetType(EltTy);
   } break;

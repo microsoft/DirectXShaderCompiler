@@ -156,7 +156,7 @@ public:
   unsigned RootSigMajor;
   unsigned RootSigMinor;
   bool IsHLSLLibrary;
-  bool NoMinPrecision; // use strict precision, not min precision.
+  bool UseMinPrecision; // use min precision, not native precision.
   // MS Change Ends
 
   bool SPIRV = false;  // SPIRV Change

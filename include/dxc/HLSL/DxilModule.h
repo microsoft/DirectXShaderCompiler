@@ -220,8 +220,8 @@ public:
     void SetEnableRawAndStructuredBuffers(bool flag) { m_bEnableRawAndStructuredBuffers = flag; }
     bool GetEnableRawAndStructuredBuffers() const { return m_bEnableRawAndStructuredBuffers; }
 
-    void SetEnableMinPrecision(bool flag) { m_bEnableMinPrecision = flag; }
-    bool GetEnableMinPrecision() const { return m_bEnableMinPrecision; }
+    void SetLowPrecisionPresent(bool flag) { m_bLowPrecisionPresent = flag; }
+    bool GetLowPrecisionPresent() const { return m_bLowPrecisionPresent; }
 
     void SetEnableDoubleExtensions(bool flag) { m_bEnableDoubleExtensions = flag; }
     bool GetEnableDoubleExtensions() const { return m_bEnableDoubleExtensions; }
@@ -275,6 +275,9 @@ public:
     void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
     bool GetBarycentrics() const { return m_bBarycentrics; }
 
+    void SetUseNativeLowPrecision(bool flag) { m_bUseNativeLowPrecision = flag; }
+    bool GetUseNativeLowPrecision() const { return m_bUseNativeLowPrecision; }
+
     static uint64_t GetShaderFlagsRawForCollection(); // some flags are collected (eg use 64-bit), some provided (eg allow refactoring)
     uint64_t GetShaderFlagsRaw() const;
     void SetShaderFlagsRaw(uint64_t data);
@@ -285,7 +288,7 @@ public:
     unsigned m_bEnableDoublePrecision :1; // D3D11_SB_GLOBAL_FLAG_ENABLE_DOUBLE_PRECISION_FLOAT_OPS
     unsigned m_bForceEarlyDepthStencil :1; // D3D11_SB_GLOBAL_FLAG_FORCE_EARLY_DEPTH_STENCIL
     unsigned m_bEnableRawAndStructuredBuffers :1; // D3D11_SB_GLOBAL_FLAG_ENABLE_RAW_AND_STRUCTURED_BUFFERS
-    unsigned m_bEnableMinPrecision :1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_MINIMUM_PRECISION
+    unsigned m_bLowPrecisionPresent :1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_MINIMUM_PRECISION
     unsigned m_bEnableDoubleExtensions :1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_DOUBLE_EXTENSIONS
     unsigned m_bEnableMSAD :1;        // D3D11_1_SB_GLOBAL_FLAG_ENABLE_SHADER_EXTENSIONS
     unsigned m_bAllResourcesBound :1; // D3D12_SB_GLOBAL_FLAG_ALL_RESOURCES_BOUND
@@ -310,7 +313,9 @@ public:
     unsigned m_bViewID : 1;           // SHADER_FEATURE_VIEWID
     unsigned m_bBarycentrics : 1;     // SHADER_FEATURE_BARYCENTRICS
 
-    unsigned m_align0 : 9;        // align to 32 bit.
+    unsigned m_bUseNativeLowPrecision : 1;
+
+    unsigned m_align0 : 8;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 
