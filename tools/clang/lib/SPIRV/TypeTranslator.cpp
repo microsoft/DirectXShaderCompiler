@@ -170,6 +170,18 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
   return 0;
 }
 
+uint32_t TypeTranslator::getACSBufferCounter() {
+  auto &context = *theBuilder.getSPIRVContext();
+  const uint32_t i32Type = theBuilder.getInt32Type();
+
+  llvm::SmallVector<const Decoration *, 4> decorations;
+  decorations.push_back(Decoration::getOffset(context, 0, 0));
+  decorations.push_back(Decoration::getBufferBlock(context));
+
+  return theBuilder.getStructType(i32Type, "type.ACSBuffer.counter", {},
+                                  decorations);
+}
+
 bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
   bool isScalar = false;
   QualType ty = {};
@@ -476,14 +488,20 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
     return theBuilder.getSamplerType();
   }
 
-  if (name == "StructuredBuffer" || name == "RWStructuredBuffer") {
+  if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+      name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
     auto &context = *theBuilder.getSPIRVContext();
     // StructureBuffer<S> will be translated into an OpTypeStruct with one
     // field, which is an OpTypeRuntimeArray of OpTypeStruct (S).
 
     const auto s = hlsl::GetHLSLResourceResultType(type);
     const uint32_t structType = translateType(s, rule);
-    const auto structName = s->getAs<RecordType>()->getDecl()->getName();
+    std::string structName;
+    const auto innerType = hlsl::GetHLSLResourceResultType(type);
+    if (innerType->isStructureType())
+      structName = innerType->getAs<RecordType>()->getDecl()->getName();
+    else
+      structName = getName(innerType);
 
     llvm::SmallVector<const Decoration *, 4> decorations;
     // The stride for the runtime array is the size of S.
@@ -496,10 +514,10 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
 
     decorations.clear();
     decorations.push_back(Decoration::getOffset(context, 0, 0));
-    if (!name.startswith("RW"))
+    if (name == "StructuredBuffer")
       decorations.push_back(Decoration::getNonWritable(context, 0));
     decorations.push_back(Decoration::getBufferBlock(context));
-    const std::string typeName = "type." + name.str() + "." + structName.str();
+    const std::string typeName = "type." + name.str() + "." + structName;
     return theBuilder.getStructType(raType, typeName, {}, decorations);
   }
 
@@ -719,6 +737,48 @@ TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
   return {0, 0};
+}
+
+std::string TypeTranslator::getName(QualType type) {
+  {
+    QualType ty = {};
+    if (isScalarType(type, &ty))
+      if (const auto *builtinType = ty->getAs<BuiltinType>())
+        switch (builtinType->getKind()) {
+        case BuiltinType::Void:
+          return "void";
+        case BuiltinType::Bool:
+          return "bool";
+        case BuiltinType::Int:
+          return "int";
+        case BuiltinType::UInt:
+          return "uint";
+        case BuiltinType::Float:
+          return "float";
+        default:
+          return "";
+        }
+  }
+
+  {
+    QualType elemType = {};
+    uint32_t elemCount = {};
+    if (isVectorType(type, &elemType, &elemCount))
+      return "v" + std::to_string(elemCount) + getName(elemType);
+  }
+
+  {
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
+      return "mat" + std::to_string(rowCount) + "v" + std::to_string(colCount) +
+             getName(elemType);
+  }
+
+  if (const auto *structType = type->getAs<RecordType>())
+    return structType->getDecl()->getName();
+
+  return "";
 }
 
 } // end namespace spirv

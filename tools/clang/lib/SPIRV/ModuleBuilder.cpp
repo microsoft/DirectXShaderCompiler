@@ -210,6 +210,21 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   return id;
 }
 
+uint32_t ModuleBuilder::createAtomicIAdd(uint32_t resultType,
+                                         uint32_t orignalValuePtr,
+                                         uint32_t scopeId,
+                                         uint32_t memorySemanticsId,
+                                         uint32_t valueToAdd) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  instBuilder
+      .opAtomicIAdd(resultType, id, orignalValuePtr, scopeId, memorySemanticsId,
+                    valueToAdd)
+      .x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
     uint32_t bias, uint32_t lod, const std::pair<uint32_t, uint32_t> &grad,
     uint32_t constOffset, uint32_t varOffset,

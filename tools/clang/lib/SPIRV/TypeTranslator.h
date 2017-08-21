@@ -54,6 +54,11 @@ public:
                          LayoutRule layoutRule = LayoutRule::Void,
                          bool isRowMajor = false);
 
+  /// \brief Generates the SPIR-V type for the counter associated with a
+  /// {Append|Consume}StructuredBuffer: an OpTypeStruct with a single 32-bit
+  /// integer value. This type will be decorated with BufferBlock.
+  uint32_t getACSBufferCounter();
+
   /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
   bool isByteAddressBuffer(QualType type);
 
@@ -166,6 +171,9 @@ private:
   /// \bried For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
   spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
+
+  /// \brief Returns a string name for the given type.
+  static std::string getName(QualType type);
 
 private:
   ASTContext &astContext;

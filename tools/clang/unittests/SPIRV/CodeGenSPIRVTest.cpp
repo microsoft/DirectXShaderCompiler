@@ -56,6 +56,12 @@ TEST_F(FileTest, ConstantBufferType) {
 TEST_F(FileTest, StructuredBufferType) {
   runFileTest("type.structured-buffer.hlsl");
 }
+TEST_F(FileTest, AppendStructuredBufferType) {
+  runFileTest("type.append-structured-buffer.hlsl");
+}
+TEST_F(FileTest, ConsumeStructuredBufferType) {
+  runFileTest("type.consume-structured-buffer.hlsl");
+}
 TEST_F(FileTest, ByteAddressBufferTypes) {
   runFileTest("type.byte-address-buffer.hlsl");
 }
@@ -360,6 +366,12 @@ TEST_F(FileTest, TextureArraySampleGrad) {
 TEST_F(FileTest, StructuredBufferLoad) {
   runFileTest("method.structured-buffer.load.hlsl");
 }
+TEST_F(FileTest, AppendStructuredBufferAppend) {
+  runFileTest("method.append-structured-buffer.append.hlsl");
+}
+TEST_F(FileTest, ConsumeStructuredBufferConsume) {
+  runFileTest("method.consume-structured-buffer.consume.hlsl");
+}
 // For ByteAddressBuffer methods
 TEST_F(FileTest, ByteAddressBufferLoad) {
   runFileTest("method.byte-address-buffer.load.hlsl");
@@ -491,6 +503,12 @@ TEST_F(FileTest, VulkanLayoutSBufferStd430) {
 }
 TEST_F(FileTest, VulkanLayoutSBufferNestedStd430) {
   runFileTest("vk.layout.sbuffer.nested.std430.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutAppendSBufferStd430) {
+  runFileTest("vk.layout.asbuffer.std430.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutConsumeSBufferStd430) {
+  runFileTest("vk.layout.csbuffer.std430.hlsl");
 }
 
 } // namespace

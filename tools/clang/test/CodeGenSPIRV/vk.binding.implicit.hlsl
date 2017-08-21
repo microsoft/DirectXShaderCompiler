@@ -45,6 +45,18 @@ ConstantBuffer<S> myCbuffer2;
 // CHECK-NEXT: OpDecorate %sbuffer2 Binding 9
 RWStructuredBuffer<S> sbuffer2;
 
+// CHECK:      OpDecorate %abuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %abuffer Binding 10
+// CHECK-NEXT: OpDecorate %counter_var_abuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %counter_var_abuffer Binding 11
+AppendStructuredBuffer<S> abuffer;
+
+// CHECK:      OpDecorate %csbuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %csbuffer Binding 12
+// CHECK-NEXT: OpDecorate %counter_var_csbuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %counter_var_csbuffer Binding 13
+ConsumeStructuredBuffer<S> csbuffer;
+
 float4 main() : SV_Target {
     return 1.0;
 }

@@ -1508,6 +1508,69 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
   return theBuilder.createAccessChain(ptrType, doExpr(buffer), {zero, index});
 }
 
+uint32_t
+SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
+  const bool isAppend = expr->getNumArgs() == 1;
+
+  const uint32_t u32Type = theBuilder.getUint32Type();
+  const uint32_t one = theBuilder.getConstantUint32(1);  // As scope: Device
+  const uint32_t zero = theBuilder.getConstantUint32(0); // As memory sema: None
+
+  const auto *object = expr->getImplicitObjectArgument();
+  const auto *buffer = cast<DeclRefExpr>(object)->getDecl();
+
+  // Calculate the index we should use for appending the value
+  const uint32_t counterVar = declIdMapper.getCounterId(cast<VarDecl>(buffer));
+  const uint32_t counterPtrType = theBuilder.getPointerType(
+      theBuilder.getInt32Type(), spv::StorageClass::Uniform);
+  const uint32_t counterPtr =
+      theBuilder.createAccessChain(counterPtrType, counterVar, {zero});
+  uint32_t index = 0;
+  if (isAppend) {
+    // For append, we add one to the counter.
+    index = theBuilder.createAtomicIAdd(u32Type, counterPtr, one, zero, one);
+  } else {
+    // For consume, we substract one from the counter. Note that OpAtomicIAdd
+    // returns the value before the addition; so we need to do substraction
+    // again with OpAtomicIAdd's return value.
+    const uint32_t negOne = theBuilder.getConstantInt32(-1);
+    const auto prevIndex =
+        theBuilder.createAtomicIAdd(u32Type, counterPtr, one, zero, negOne);
+    index =
+        theBuilder.createBinaryOp(spv::Op::OpIAdd, u32Type, prevIndex, negOne);
+  }
+
+  LayoutRule lhsLayout = LayoutRule::Void;
+  const auto lhsSc = declIdMapper.resolveStorageInfo(object, &lhsLayout);
+
+  const auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
+  const uint32_t bufferElemType =
+      typeTranslator.translateType(bufferElemTy, lhsLayout);
+  // Get the pointer inside the {Append|Consume}StructuredBuffer
+  const uint32_t bufferElemPtrType =
+      theBuilder.getPointerType(bufferElemType, lhsSc);
+  const uint32_t bufferElemPtr = theBuilder.createAccessChain(
+      bufferElemPtrType, declIdMapper.getDeclResultId(buffer), {zero, index});
+
+  if (isAppend) {
+    LayoutRule rhsLayout = LayoutRule::Void;
+    (void)declIdMapper.resolveStorageInfo(expr->getArg(0), &rhsLayout);
+    // Write out the value
+    storeValue(bufferElemPtr, doExpr(expr->getArg(0)), bufferElemTy, lhsSc,
+               lhsLayout, rhsLayout);
+
+    return 0;
+  } else {
+    // Somehow if the element type is not a structure type, the return value
+    // of .Consume() is not labelled as xvalue. That will cause OpLoad
+    // instruction missing. Load directly here.
+    if (bufferElemTy->isStructureType())
+      return bufferElemPtr;
+    else
+      return theBuilder.createLoad(bufferElemType, bufferElemPtr);
+  }
+}
+
 uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
   using namespace hlsl;
 
@@ -1688,6 +1751,10 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
     }
     case IntrinsicOp::MOP_Store4: {
       return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ true);
+    }
+    case IntrinsicOp::MOP_Append:
+    case IntrinsicOp::MOP_Consume: {
+      return processACSBufferAppendConsume(expr);
     }
     default:
       emitError("HLSL intrinsic member call unimplemented: %0")
@@ -1955,6 +2022,13 @@ uint32_t SPIRVEmitter::getType(const Expr *expr) {
   LayoutRule rule = LayoutRule::Void;
   (void)declIdMapper.resolveStorageInfo(expr, &rule);
   return typeTranslator.translateType(expr->getType(), rule);
+}
+
+uint32_t SPIRVEmitter::getPointerType(const Expr *expr) {
+  LayoutRule rule = LayoutRule::Void;
+  const auto sc = declIdMapper.resolveStorageInfo(expr, &rule);
+  return theBuilder.getPointerType(
+      typeTranslator.translateType(expr->getType(), rule), sc);
 }
 
 spv::Op SPIRVEmitter::translateOp(BinaryOperator::Opcode op, QualType type) {
