@@ -157,17 +157,18 @@ public:
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t bias, uint32_t lod,
                              std::pair<uint32_t, uint32_t> grad,
-                             uint32_t offset);
+                             uint32_t constOffset, uint32_t varOffset);
 
   /// \brief Creates SPIR-V instructions for fetching the given image.
   uint32_t createImageFetch(uint32_t texelType, uint32_t image,
-                            uint32_t coordinate, uint32_t lod, uint32_t offset);
+                            uint32_t coordinate, uint32_t lod,
+                            uint32_t constOffset, uint32_t varOffset);
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
                              uint32_t coordinate, uint32_t component,
-                             uint32_t offset);
+                             uint32_t constOffset, uint32_t varOffset);
 
   /// \brief Creates a select operation with the given values for true and false
   /// cases and returns the <result-id> for the result.
@@ -313,6 +314,14 @@ private:
 
   /// \brief Returns the basic block with the given <label-id>.
   BasicBlock *getBasicBlock(uint32_t label);
+
+  /// \brief Returns the composed ImageOperandsMask from non-zero parameters
+  /// and pushes non-zero parameters to *orderedParams in the expected order.
+  spv::ImageOperandsMask
+  composeImageOperandsMask(uint32_t bias, uint32_t lod,
+                           const std::pair<uint32_t, uint32_t> &grad,
+                           uint32_t constOffset, uint32_t varOffset,
+                           llvm::SmallVectorImpl<uint32_t> *orderedParams);
 
   SPIRVContext &theContext; ///< The SPIR-V context.
   SPIRVModule theModule;    ///< The module under building.
