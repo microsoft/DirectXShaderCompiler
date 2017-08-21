@@ -292,6 +292,7 @@ public:
   uint32_t getImageType(uint32_t sampledType, spv::Dim, bool isArray);
   uint32_t getSamplerType();
   uint32_t getSampledImageType(uint32_t imageType);
+  uint32_t getByteAddressBufferType(bool isRW);
 
   // === Constant ===
   uint32_t getConstantBool(bool value);

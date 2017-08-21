@@ -275,8 +275,8 @@ void SPIRVModule::take(InstBuilder *builder) {
     }
   }
 
-  for (const auto &d : decorations) {
-    consumer(d.decoration.withTargetId(d.targetId));
+  for (const auto &idDecorPair : decorations) {
+    consumer(idDecorPair.second->withTargetId(idDecorPair.first));
   }
 
   // Note on interdependence of types and constants:

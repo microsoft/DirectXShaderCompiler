@@ -166,6 +166,20 @@ bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
   return isScalar;
 }
 
+bool TypeTranslator::isRWByteAddressBuffer(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "RWByteAddressBuffer";
+  }
+  return false;
+}
+
+bool TypeTranslator::isByteAddressBuffer(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "ByteAddressBuffer";
+  }
+  return false;
+}
+
 bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
                                   uint32_t *elemCount) {
   bool isVec = false;
@@ -332,6 +346,15 @@ uint32_t TypeTranslator::translateResourceType(QualType type) {
   // Sampler types
   if (name == "SamplerState" || name == "SamplerComparisonState") {
     return theBuilder.getSamplerType();
+  }
+
+  // ByteAddressBuffer types.
+  if (name == "ByteAddressBuffer") {
+    return theBuilder.getByteAddressBufferType(/*isRW*/ false);
+  }
+  // RWByteAddressBuffer types.
+  if (name == "RWByteAddressBuffer") {
+    return theBuilder.getByteAddressBufferType(/*isRW*/ true);
   }
 
   return 0;

@@ -466,7 +466,7 @@ uint32_t ModuleBuilder::addStageBuiltinVar(uint32_t type, spv::StorageClass sc,
 
   // Decorate with the specified Builtin
   const Decoration *d = Decoration::getBuiltIn(theContext, builtin);
-  theModule.addDecoration(*d, varId);
+  theModule.addDecoration(d, varId);
 
   return varId;
 }
@@ -488,16 +488,16 @@ uint32_t ModuleBuilder::addModuleVar(uint32_t type, spv::StorageClass sc,
 void ModuleBuilder::decorateDSetBinding(uint32_t targetId, uint32_t setNumber,
                                         uint32_t bindingNumber) {
   const auto *d = Decoration::getDescriptorSet(theContext, setNumber);
-  theModule.addDecoration(*d, targetId);
+  theModule.addDecoration(d, targetId);
 
   d = Decoration::getBinding(theContext, bindingNumber);
-  theModule.addDecoration(*d, targetId);
+  theModule.addDecoration(d, targetId);
 }
 
 void ModuleBuilder::decorateLocation(uint32_t targetId, uint32_t location) {
   const Decoration *d =
       Decoration::getLocation(theContext, location, llvm::None);
-  theModule.addDecoration(*d, targetId);
+  theModule.addDecoration(d, targetId);
 }
 
 void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
@@ -518,7 +518,7 @@ void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
   }
 
   assert(d && "unimplemented decoration");
-  theModule.addDecoration(*d, targetId);
+  theModule.addDecoration(d, targetId);
 }
 
 #define IMPL_GET_PRIMITIVE_TYPE(ty)                                            \
@@ -665,11 +665,39 @@ uint32_t ModuleBuilder::getSamplerType() {
   return typeId;
 }
 
+
 uint32_t ModuleBuilder::getSampledImageType(uint32_t imageType) {
   const Type *type = Type::getSampledImage(theContext, imageType);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
   theModule.addDebugName(typeId, "type.sampled.image");
+  return typeId;
+}
+
+uint32_t ModuleBuilder::getByteAddressBufferType(bool isRW) {
+  // Create a uint RuntimeArray with Array Stride of 4.
+  const uint32_t uintType = getUint32Type();
+  const auto *arrStride4 = Decoration::getArrayStride(theContext, 4u);
+  const Type *raType =
+      Type::getRuntimeArray(theContext, uintType, {arrStride4});
+  const uint32_t raTypeId = theContext.getResultIdForType(raType);
+  theModule.addType(raType, raTypeId);
+
+  // Create a struct containing the runtime array as its only member.
+  // The struct must also be decorated as BufferBlock. The offset decoration
+  // should also be applied to the first (only) member. NonWritable decoration
+  // should also be applied to the first member if isRW is true.
+  llvm::SmallVector<const Decoration*, 3> typeDecs;
+  typeDecs.push_back(Decoration::getBufferBlock(theContext));
+  typeDecs.push_back(Decoration::getOffset(theContext, 0, 0));
+  if (!isRW)
+    typeDecs.push_back(Decoration::getNonWritable(theContext, 0));
+
+  const Type *type = Type::getStruct(theContext, {raTypeId}, typeDecs);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  theModule.addDebugName(typeId, isRW ? "type.RWByteAddressBuffer"
+                                      : "type.ByteAddressBuffer");
   return typeId;
 }
 
