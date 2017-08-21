@@ -211,10 +211,14 @@ public:
                               const llvm::Function *pSrcFunction,
                               const DxilTypeSystem &src);
 
+  bool UseMinPrecision();
+
 private:
   llvm::Module *m_pModule;
   StructAnnotationMap m_StructAnnotations;
   FunctionAnnotationMap m_FunctionAnnotations;
+
+  DXIL::LowPrecisionMode m_LowPrecisionMode;
 
   llvm::StructType *GetNormFloatType(CompType CT, unsigned NumComps);
 };

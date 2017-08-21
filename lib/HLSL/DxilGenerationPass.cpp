@@ -169,13 +169,14 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   //bool m_bDisableMathRefactoring;
   //bool m_bEnableDoublePrecision;
   //bool m_bEnableDoubleExtensions;
-  //bool m_bEnableMinPrecision;
   //M.CollectShaderFlags();
 
   //bool m_bForceEarlyDepthStencil;
   //bool m_bEnableRawAndStructuredBuffers;
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
+
+  M.m_ShaderFlags.SetUseNativeLowPrecision(!H.GetHLOptions().bUseMinPrecision);
 
   if (FnProps)
     M.SetShaderProperties(FnProps);

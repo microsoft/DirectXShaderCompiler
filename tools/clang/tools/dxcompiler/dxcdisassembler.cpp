@@ -313,6 +313,7 @@ PCSTR g_pFeatureInfoNames[] = {
     "64-Bit integer",
     "View Instancing",
     "Barycentrics",
+    "Use native low precision"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
@@ -565,12 +566,12 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
                               unsigned sizeOfStruct = 0);
 
 void PrintTypeAndName(llvm::Type *Ty, DxilFieldAnnotation &annotation,
-                             std::string &StreamStr, unsigned arraySize) {
+                             std::string &StreamStr, unsigned arraySize, bool minPrecision) {
   raw_string_ostream Stream(StreamStr);
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
 
-  const char *compTyName = annotation.GetCompType().GetHLSLName();
+  const char *compTyName = annotation.GetCompType().GetHLSLName(minPrecision);
   if (annotation.HasMatrixAnnotation()) {
     const DxilMatrixAnnotation &Matrix = annotation.GetMatrixAnnotation();
     switch (Matrix.Orientation) {
@@ -650,7 +651,7 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
     } else {
       (OS << comment).indent(indent);
       std::string NameTypeStr;
-      PrintTypeAndName(Ty, annotation, NameTypeStr, arraySize);
+      PrintTypeAndName(Ty, annotation, NameTypeStr, arraySize, typeSys.UseMinPrecision());
       OS << left_justify(NameTypeStr, offsetIndent);
 
       // Offset

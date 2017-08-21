@@ -13,6 +13,7 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "dxc/HLSL/DxilTypeSystem.h"
 #include "dxc/HLSL/DxilUtil.h"
+#include "dxc/HLSL/DxilModule.h"
 #include "llvm/IR/Module.h"
 
 using namespace llvm;
@@ -35,12 +36,14 @@ unsigned
 GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                            llvm::Type *Ty,
                                            DxilTypeSystem &typeSys) {
+
   while (isa<ArrayType>(Ty)) {
     Ty = Ty->getArrayElementType();
   }
 
   // Bytes.
-  unsigned compSize = fieldAnnotation.GetCompType().Is64Bit()?8:4;
+  CompType compType = fieldAnnotation.GetCompType();
+  unsigned compSize = compType.Is64Bit() ? 8 : compType.Is16Bit() && !typeSys.UseMinPrecision() ? 2 : 4;
   unsigned fieldSize = compSize;
   if (Ty->isVectorTy()) {
     fieldSize *= Ty->getVectorNumElements();

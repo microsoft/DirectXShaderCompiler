@@ -914,6 +914,13 @@ namespace DXIL {
   const uint8_t kCompMask_W     = 0x8;
   const uint8_t kCompMask_All   = 0xF;
 
+
+  enum class LowPrecisionMode {
+    Undefined = 0,
+    UseMinPrecision,
+    UseNativeLowPrecision
+  };
+
 } // namespace DXIL
 
 } // namespace hlsl
