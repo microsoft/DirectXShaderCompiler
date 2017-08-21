@@ -676,6 +676,13 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     return theBuilder.addStageIOVar(type, sc, name.str());
     // TODO: patch constant function in hull shader
   }
+  case hlsl::Semantic::Kind::DispatchThreadID: {
+    // DispatchThreadID semantic is only valid for compute shaders, and it is
+    // always an input.
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+                                         BuiltIn::GlobalInvocationId);
+  }
   default:
     emitError("semantic %0 unimplemented yet")
         << stageVar->getSemantic()->GetName();
