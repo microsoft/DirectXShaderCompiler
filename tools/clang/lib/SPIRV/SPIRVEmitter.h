@@ -153,6 +153,14 @@ private:
                         const Expr **base, const Expr **index0,
                         const Expr **index1);
 
+  /// \brief Returns true if the given CXXOperatorCallExpr is indexing into a
+  /// Buffer/RWBuffer using operator[].
+  /// On success, writes the base buffer into *base if base is not nullptr, and
+  /// writes the index into *index if index is not nullptr.
+  bool isBufferIndexing(const CXXOperatorCallExpr *,
+                        const Expr **base = nullptr,
+                        const Expr **index = nullptr);
+
   /// Condenses a sequence of HLSLVectorElementExpr starting from the given
   /// expr into one. Writes the original base into *basePtr and the condensed
   /// accessor into *flattenedAccessor.
@@ -424,10 +432,10 @@ private:
   uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
                                              uint32_t numWords, bool doStore);
 
-  /// \brief Loads one element from the given Buffer/RWBuffer. The type of the
-  /// loaded element matches the type in the declaration for the (RW)Buffer
-  /// object.
-  uint32_t processBufferLoad(const CXXMemberCallExpr *);
+  /// \brief Loads one element from the given Buffer/RWBuffer object at the
+  /// given location. The type of the loaded element matches the type in the
+  /// declaration for the (RW)Buffer object.
+  uint32_t processBufferLoad(const Expr *object, const Expr *address);
 
 private:
   /// \brief Wrapper method to create an error message and report it

@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// Run: %dxc -T ps_6_0 -E main
 
 Buffer<int> intbuf;
 Buffer<uint> uintbuf;
@@ -13,7 +13,6 @@ RWBuffer<int4> int4buf;
 RWBuffer<uint4> uint4buf;
 RWBuffer<float4> float4buf;
 
-[numthreads(1, 1, 1)]
 void main() {
   int address;
 
@@ -30,42 +29,27 @@ void main() {
   float float1 = floatbuf.Load(address);
 
 // CHECK:      [[f4:%\d+]] = OpImageFetch %v4int %int2buf {{%\d+}} None
-// CHECK-NEXT: [[e1:%\d+]] = OpCompositeExtract %int [[f4]] 0
-// CHECK-NEXT: [[e2:%\d+]] = OpCompositeExtract %int [[f4]] 1
-// CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %v2int [[e1]] [[e2]]
-
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v2int [[f4]] [[f4]] 0 1
   int2 int2 = int2buf.Load(address);
+
 // CHECK:      [[f5:%\d+]] = OpImageFetch %v4uint %uint2buf {{%\d+}} None
-// CHECK-NEXT: [[e3:%\d+]] = OpCompositeExtract %uint [[f5]] 0
-// CHECK-NEXT: [[e4:%\d+]] = OpCompositeExtract %uint [[f5]] 1
-// CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %v2uint [[e3]] [[e4]]
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v2uint [[f5]] [[f5]] 0 1
   uint2 uint2 = uint2buf.Load(address);
 
 // CHECK:      [[f6:%\d+]] = OpImageFetch %v4float %float2buf {{%\d+}} None
-// CHECK-NEXT: [[e5:%\d+]] = OpCompositeExtract %float [[f6]] 0
-// CHECK-NEXT: [[e6:%\d+]] = OpCompositeExtract %float [[f6]] 1
-// CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %v2float [[e5]] [[e6]]
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v2float [[f6]] [[f6]] 0 1
   float2 float2 = float2buf.Load(address);
 
 // CHECK:      [[f7:%\d+]] = OpImageFetch %v4int %int3buf {{%\d+}} None
-// CHECK-NEXT: [[e7:%\d+]] = OpCompositeExtract %int [[f7]] 0
-// CHECK-NEXT: [[e8:%\d+]] = OpCompositeExtract %int [[f7]] 1
-// CHECK-NEXT: [[e9:%\d+]] = OpCompositeExtract %int [[f7]] 2
-// CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %v3int [[e7]] [[e8]] [[e9]]
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v3int [[f7]] [[f7]] 0 1 2
   int3 int3 = int3buf.Load(address);
 
 // CHECK:      [[f8:%\d+]] = OpImageFetch %v4uint %uint3buf {{%\d+}} None
-// CHECK-NEXT: [[e10:%\d+]] = OpCompositeExtract %uint [[f8]] 0
-// CHECK-NEXT: [[e11:%\d+]] = OpCompositeExtract %uint [[f8]] 1
-// CHECK-NEXT: [[e12:%\d+]] = OpCompositeExtract %uint [[f8]] 2
-// CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %v3uint [[e10]] [[e11]] [[e12]]
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v3uint [[f8]] [[f8]] 0 1 2
   uint3 uint3 = uint3buf.Load(address);
 
 // CHECK:      [[f9:%\d+]] = OpImageFetch %v4float %float3buf {{%\d+}} None
-// CHECK-NEXT: [[e13:%\d+]] = OpCompositeExtract %float [[f9]] 0
-// CHECK-NEXT: [[e14:%\d+]] = OpCompositeExtract %float [[f9]] 1
-// CHECK-NEXT: [[e15:%\d+]] = OpCompositeExtract %float [[f9]] 2
-// CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %v3float [[e13]] [[e14]] [[e15]]
+// CHECK-NEXT: {{%\d+}} = OpVectorShuffle %v3float [[f9]] [[f9]] 0 1 2
   float3 float3 = float3buf.Load(address);
 
 // CHECK:      {{%\d+}} = OpImageFetch %v4int %int4buf {{%\d+}} None

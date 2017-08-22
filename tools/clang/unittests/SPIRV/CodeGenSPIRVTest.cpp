@@ -345,6 +345,9 @@ TEST_F(FileTest, ByteAddressBufferStore) {
 
 // For Buffer/RWBuffer methods
 TEST_F(FileTest, BufferLoad) { runFileTest("buffer.load.hlsl"); }
+TEST_F(FileTest, BufferOperatorBrackets) {
+  runFileTest("buffer.operator-brackets.hlsl");
+}
 
 // For intrinsic functions
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }
