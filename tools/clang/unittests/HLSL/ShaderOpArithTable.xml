@@ -2410,6 +2410,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -2419,6 +2420,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveSum(pts.input);
                         }
@@ -2453,6 +2455,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -2462,6 +2465,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveProduct(pts.input);
                         }
@@ -2496,6 +2500,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -2505,6 +2510,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveCountBits(pts.input > 3);
                         }
@@ -2544,6 +2550,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -2553,6 +2560,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveMax(pts.input);
                         }
@@ -2592,6 +2600,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -2601,6 +2610,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveMin(pts.input);
                         }
@@ -2646,6 +2656,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -2655,6 +2666,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveAllEqual(pts.input);
                         }
@@ -2690,6 +2702,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         bool input;
                         bool output;
@@ -2699,6 +2712,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveAnyTrue(pts.input);
                         }
@@ -2731,6 +2745,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         bool input;
                         bool output;
@@ -2740,6 +2755,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveAllTrue(pts.input);
                         }
@@ -2784,6 +2800,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -2793,6 +2810,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveSum(pts.input);
                         }
@@ -2827,6 +2845,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -2836,6 +2855,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveProduct(pts.input);
                         }
@@ -2870,6 +2890,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -2879,6 +2900,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveMax(pts.input);
                         }
@@ -2913,6 +2935,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -2922,6 +2945,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveMin(pts.input);
                         }
@@ -2962,6 +2986,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -2971,6 +2996,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveBitOr(pts.input);
                         }
@@ -3016,6 +3042,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -3025,6 +3052,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveBitAnd(pts.input);
                         }
@@ -3070,6 +3098,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -3079,6 +3108,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WaveActiveBitXor(pts.input);
                         }
@@ -3135,6 +3165,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -3144,6 +3175,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WavePrefixCountBits(pts.input > 3);
                         }
@@ -3184,6 +3216,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -3193,6 +3226,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WavePrefixSum(pts.input);
                         }
@@ -3230,6 +3264,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         int input;
                         int output;
@@ -3239,6 +3274,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WavePrefixProduct(pts.input);
                         }
@@ -3287,6 +3323,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -3296,6 +3333,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WavePrefixCountBits(pts.input > 3);
                         }
@@ -3333,6 +3371,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -3342,6 +3381,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WavePrefixSum(pts.input);
                         }
@@ -3378,6 +3418,7 @@
                 <![CDATA[
                     struct PerThreadData {
                         int firstLaneId;
+                        int laneIndex;
                         int mask;
                         uint input;
                         uint output;
@@ -3387,6 +3428,7 @@
                     void main(uint GI : SV_GroupIndex) {
                         PerThreadData pts = g_sb[GI];
                         pts.firstLaneId = WaveReadLaneFirst(GI);
+                        pts.laneIndex = WaveGetLaneIndex();
                         if (pts.mask != 0) {
                             pts.output = WavePrefixProduct(pts.input);
                         }
