@@ -211,6 +211,20 @@ bool TypeTranslator::isByteAddressBuffer(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isRWBuffer(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "RWBuffer";
+  }
+  return false;
+}
+
+bool TypeTranslator::isBuffer(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == "Buffer";
+  }
+  return false;
+}
+
 bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
                                   uint32_t *elemCount) {
   bool isVec = false;

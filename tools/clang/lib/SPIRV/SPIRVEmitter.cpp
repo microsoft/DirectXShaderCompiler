@@ -1288,6 +1288,58 @@ uint32_t SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
 }
 
+uint32_t SPIRVEmitter::processBufferLoad(const CXXMemberCallExpr *expr) {
+  // Loading for Buffer and RWBuffer translates to an OpImageFetch.
+  // The result type of an OpImageFetch must be a vec4 of float or int.
+  // Therefore, we must also use OpCompositeExtract where necessary.
+  const auto object = expr->getImplicitObjectArgument();
+  const auto type = object->getType();
+  const uint32_t objectId = doExpr(object);
+  assert(expr->getNumArgs() == 1);
+  const Expr *addressExpr = expr->getArg(0);
+  const uint32_t address = doExpr(addressExpr);
+  const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+  QualType elemType = sampledType;
+  uint32_t elemCount = 1;
+  uint32_t elemTypeId = 0;
+  (void)TypeTranslator::isVectorType(sampledType, &elemType, &elemCount);
+  if (elemType->isFloatingType()) {
+    elemTypeId = theBuilder.getFloat32Type();
+  } else if (elemType->isSignedIntegerType()) {
+    elemTypeId = theBuilder.getInt32Type();
+  } else if (elemType->isUnsignedIntegerType()) {
+    elemTypeId = theBuilder.getUint32Type();
+  } else {
+    emitError("Unimplemented Buffer type");
+    return 0;
+  }
+  const uint32_t resultTypeId =
+      elemCount == 1 ? elemTypeId
+                     : theBuilder.getVecType(elemTypeId, elemCount);
+
+  // Always need to fetch 4 elements.
+  const uint32_t fetchTypeId = theBuilder.getVecType(elemTypeId, 4u);
+  const uint32_t imageFetchResult =
+      theBuilder.createImageFetch(fetchTypeId, objectId, address, 0, 0, 0);
+
+  // For the case of buffer elements being vec4, there's no need for extraction
+  // and composition.
+  if (elemCount == 4)
+    return imageFetchResult;
+
+  // Do composite extraction.
+  llvm::SmallVector<uint32_t, 4> fetchedElements;
+  for (uint32_t i = 0; i < elemCount; ++i)
+    fetchedElements.push_back(
+        theBuilder.createCompositeExtract(elemTypeId, imageFetchResult, {i}));
+
+  // Do composite construction if we have more than 1 element.
+  if (elemCount == 1)
+    return fetchedElements[0];
+  else
+    return theBuilder.createCompositeConstruct(resultTypeId, fetchedElements);
+}
+
 uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
     const CXXMemberCallExpr *expr, uint32_t numWords, bool doStore) {
   uint32_t resultId = 0;
@@ -1517,6 +1569,9 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
           typeTranslator.isByteAddressBuffer(objectType)) {
         return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
       }
+      if (typeTranslator.isBuffer(objectType) ||
+          typeTranslator.isRWBuffer(objectType))
+        return processBufferLoad(expr);
 
       const uint32_t image = loadIfGLValue(object);
 

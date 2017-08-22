@@ -424,6 +424,11 @@ private:
   uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
                                              uint32_t numWords, bool doStore);
 
+  /// \brief Loads one element from the given Buffer/RWBuffer. The type of the
+  /// loaded element matches the type in the declaration for the (RW)Buffer
+  /// object.
+  uint32_t processBufferLoad(const CXXMemberCallExpr *);
+
 private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
