@@ -291,7 +291,9 @@ public:
                         Type::DecorationSet decorations = {});
   uint32_t getFunctionType(uint32_t returnType,
                            llvm::ArrayRef<uint32_t> paramTypes);
-  uint32_t getImageType(uint32_t sampledType, spv::Dim, bool isArray);
+  uint32_t getImageType(uint32_t sampledType, spv::Dim, uint32_t depth,
+                        bool isArray, uint32_t ms = 0, uint32_t sampled = 1,
+                        spv::ImageFormat format = spv::ImageFormat::Unknown);
   uint32_t getSamplerType();
   uint32_t getSampledImageType(uint32_t imageType);
   uint32_t getByteAddressBufferType(bool isRW);

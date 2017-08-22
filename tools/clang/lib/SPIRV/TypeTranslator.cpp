@@ -432,7 +432,7 @@ uint32_t TypeTranslator::translateResourceType(QualType type) {
         theBuilder.requireCapability(spv::Capability::Sampled1D);
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return theBuilder.getImageType(translateType(getElementType(sampledType)),
-                                     dim, isArray);
+                                     dim, /*depth*/ 0, isArray);
     }
   }
 
@@ -450,7 +450,44 @@ uint32_t TypeTranslator::translateResourceType(QualType type) {
     return theBuilder.getByteAddressBufferType(/*isRW*/ true);
   }
 
+  // Buffer and RWBuffer types
+  if (name == "Buffer" || name == "RWBuffer") {
+    theBuilder.requireCapability(spv::Capability::SampledBuffer);
+    const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+    const auto format = translateSampledTypeToImageFormat(sampledType);
+    return theBuilder.getImageType(
+        translateType(getElementType(sampledType)), spv::Dim::Buffer,
+        /*depth*/ 0, /*isArray*/ 0, /*ms*/ 0,
+        /*sampled*/ name == "Buffer" ? 1 : 2, format);
+  }
   return 0;
+}
+
+spv::ImageFormat
+TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
+  uint32_t elemCount = 1;
+  QualType ty = {};
+  if (isScalarType(sampledType, &ty) ||
+      isVectorType(sampledType, &ty, &elemCount)) {
+    if (const auto *builtinType = ty->getAs<BuiltinType>()) {
+      switch (builtinType->getKind()) {
+      case BuiltinType::Int:
+        return elemCount == 1 ? spv::ImageFormat::R32i
+                              : elemCount == 2 ? spv::ImageFormat::Rg32i
+                                               : spv::ImageFormat::Rgba32i;
+      case BuiltinType::UInt:
+        return elemCount == 1 ? spv::ImageFormat::R32ui
+                              : elemCount == 2 ? spv::ImageFormat::Rg32ui
+                                               : spv::ImageFormat::Rgba32ui;
+      case BuiltinType::Float:
+        return elemCount == 1 ? spv::ImageFormat::R32f
+                              : elemCount == 2 ? spv::ImageFormat::Rg32f
+                                               : spv::ImageFormat::Rgba32f;
+      }
+    }
+  }
+  emitError("Unimplemented resource result type was used.");
+  return spv::ImageFormat::Unknown;
 }
 
 std::pair<uint32_t, uint32_t>

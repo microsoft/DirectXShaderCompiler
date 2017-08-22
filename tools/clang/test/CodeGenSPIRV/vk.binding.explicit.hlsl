@@ -20,6 +20,16 @@ Texture2D<float4> texture1;
 [[vk::binding(2, 2)]]
 Texture3D<float4> texture2 : register(t0, space0);
 
+// CHECK:      OpDecorate %myBuffer DescriptorSet 2
+// CHECK-NEXT: OpDecorate %myBuffer Binding 3
+[[vk::binding(3, 2)]]
+Buffer<int> myBuffer : register(t1, space0);
+
+// CHECK: OpDecorate %myRWBuffer DescriptorSet 1
+// CHECK-NEXT: OpDecorate %myRWBuffer Binding 4
+[[vk::binding(4, 1)]]
+RWBuffer<float4> myRWBuffer : register(u0, space1);
+
 // TODO: support [[vk::binding()]] on cbuffer
 
 float4 main() : SV_Target {
