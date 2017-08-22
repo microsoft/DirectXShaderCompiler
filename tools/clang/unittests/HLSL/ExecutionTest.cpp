@@ -434,8 +434,7 @@ static int MaskEveryOther(int i) {
 static int MaskEveryThird(int i) {
   return i % 3 == 0 ? 1 : 0;
 }
-// TODO: It seems there is an issue with WARP with controlling active lanes
-// Add more masks when this is resolved
+
 typedef int(*MaskFunction)(int);
 static MaskFunction MaskFunctionTable[] = {
   MaskAll, MaskEveryOther, MaskEveryThird
@@ -3936,6 +3935,8 @@ TEST_F(ExecutionTest, Msad4Test) {
     }
 }
 
+// A framework for testing individual wave intrinsics tests.
+// This test case is assuming that functions 1) WaveIsFirstLane and 2) WaveGetLaneIndex are correct for all lanes.
 template <class T1, class T2>
 void ExecutionTest::WaveIntrinsicsActivePrefixTest(
     TableParameter *pParameterList, size_t numParameter, bool isPrefix) {
@@ -3943,8 +3944,11 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
 
   // Resource representation for compute shader
   // firstLaneId is used to group different waves
+  // laneIndex is used to identify lane within the wave.
+  // Lane ids are not necessarily in same order as thread ids.
   struct PerThreadData {
       int firstLaneId;
+      int laneIndex;
       int mask;
       T1 input;
       T2 output;
@@ -3978,12 +3982,12 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
 
   // Obtain the list of input lists
   typedef WEX::TestExecution::TestDataArray<T1> DataArray;
-  std::vector<DataArray*> InputList;
+  std::vector<DataArray*> InputDataList;
   for (unsigned int i = 0;
     i < numInputSet; ++i) {
     std::wstring inputName = L"Validation.InputSet";
     inputName.append(std::to_wstring(i + 1));
-    InputList.push_back(handler.GetDataArray<T1>(inputName.data()));
+    InputDataList.push_back(handler.GetDataArray<T1>(inputName.data()));
   }
   CW2A Text(handler.GetTableParamByName(L"ShaderOp.text")->m_str);
 
@@ -4004,9 +4008,11 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
         PerThreadData *pPrimitives = (PerThreadData*)Data.data();
         // 4 different inputs for each operation test
         size_t index = 0;
+        DataArray *IntList = InputDataList[setIndex];
         while (index < ThreadCount) {
           PerThreadData *p = &pPrimitives[index];
-          DataArray *IntList = InputList[setIndex];
+          p->firstLaneId = 0xFFFFBFFF;
+          p->laneIndex = 0xFFFFBFFF;
           p->mask = MaskFunctionTable[maskIndex](index);
           p->input = (*IntList)[index % IntList->GetSize()];
           p->output = 0xFFFFBFFF;
@@ -4048,25 +4054,41 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
         // collect inputs and masks for a given wave
         std::vector<PerThreadData *> *waveData = waves[firstLaneIds.at(i)].get();
         std::vector<T1> inputList(waveData->size());
-        std::vector<int> maskList(waveData->size());
-        std::wstring inputStr = L"Wave Inputs: ";
-        std::wstring maskStr =  L"Wave Mask:   ";
-        for (size_t j = 0; j < waveData->size(); ++j) {
-          inputList.at(j) = (waveData->at(j)->input);
-          maskList.at(j) = (waveData->at(j)->mask);
-          inputStr.append(std::to_wstring(waveData->at(j)->input));
-          inputStr.append(L" ");
-          maskStr.append(std::to_wstring(waveData->at(j)->mask));
-          maskStr.append(L" ");
+        std::vector<int> maskList(waveData->size(), -1);
+        std::vector<T2> outputList(waveData->size());
+        // sort inputList and masklist by lane id. input for each lane can be computed for its group index
+        for (size_t j = 0, end = waveData->size(); j < end; ++j) {
+          int laneID = waveData->at(j)->laneIndex;
+          // ensure that each lane ID is unique and within the range
+          VERIFY_IS_TRUE(0 <= laneID && laneID < waveData->size());
+          VERIFY_IS_TRUE(maskList.at(laneID) == -1);
+          maskList.at(laneID) = waveData->at(j)->mask;
+          inputList.at(laneID) = waveData->at(j)->input;
+          outputList.at(laneID) = waveData->at(j)->output;
         }
+        std::wstring inputStr = L"Wave Inputs:  ";
+        std::wstring maskStr =  L"Wave Masks:   ";
+        std::wstring outputStr = L"Wave Outputs: ";
+        // append input string and mask string in lane id order
+        for (size_t j = 0, end = waveData->size(); j < end; ++j) {
+          maskStr.append(std::to_wstring(maskList.at(j)));
+          maskStr.append(L" ");
+          inputStr.append(std::to_wstring(inputList.at(j)));
+          inputStr.append(L" ");
+          outputStr.append(std::to_wstring(outputList.at(j)));
+          outputStr.append(L" ");
+        }
+
         LogCommentFmt(inputStr.data());
         LogCommentFmt(maskStr.data());
+        LogCommentFmt(outputStr.data());
+        LogCommentFmt(L"\n");
         // Compute expected output for a given inputs, masks, and index
-        for (size_t laneIndex = 0; laneIndex < waveData->size(); ++laneIndex) {
+        for (size_t laneIndex = 0, laneEnd = inputList.size(); laneIndex < laneEnd; ++laneIndex) {
           T2 expected;
           // WaveActive is equivalent to WavePrefix lane # lane count
-          unsigned int index = isPrefix ? laneIndex : waveData->size();
-          if (waveData->at(laneIndex)->mask == 1) {
+          unsigned index = isPrefix ? laneIndex : inputList.size();
+          if (maskList.at(laneIndex) == 1) {
             expected = computeExpectedWithShaderOp<T1, T2>(
               inputList, maskList, 1, index,
               handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
@@ -4077,9 +4099,9 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
               handler.GetTableParamByName(L"ShaderOp.Name")->m_str);
           }
           // TODO: use different comparison for floating point inputs
-          bool equal = waveData->at(laneIndex)->output == expected;
+          bool equal = outputList.at(laneIndex) == expected;
           if (!equal) {
-            LogCommentFmt(L"lane%d: %4d, Expected : %4d", laneIndex, waveData->at(laneIndex)->output, expected);
+            LogCommentFmt(L"lane%d: %4d, Expected : %4d", laneIndex, outputList.at(laneIndex), expected);
           }
           VERIFY_IS_TRUE(equal);
         }
