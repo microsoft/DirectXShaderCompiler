@@ -144,6 +144,10 @@ private:
   std::pair<uint32_t, uint32_t>
   getAlignmentAndSize(QualType type, uint32_t *stride, bool isRowMajor);
 
+  /// \bried For the given sampled type, returns the corresponding image format
+  /// that can be used to create an image object.
+  spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
+
 private:
   ASTContext &astContext;
   ModuleBuilder &theBuilder;
