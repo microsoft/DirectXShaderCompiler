@@ -287,6 +287,13 @@ uint32_t ModuleBuilder::createImageSample(uint32_t texelType,
   return texelId;
 }
 
+void ModuleBuilder::createImageWrite(uint32_t imageId, uint32_t coordId,
+                                     uint32_t texelId) {
+  assert(insertPoint && "null insert point");
+  instBuilder.opImageWrite(imageId, coordId, texelId, llvm::None).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
 uint32_t ModuleBuilder::createImageFetch(uint32_t texelType, uint32_t image,
                                          uint32_t coordinate, uint32_t lod,
                                          uint32_t constOffset,

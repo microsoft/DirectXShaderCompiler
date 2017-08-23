@@ -164,6 +164,9 @@ public:
                             uint32_t coordinate, uint32_t lod,
                             uint32_t constOffset, uint32_t varOffset);
 
+  /// \brief Creates SPIR-V instructions for writing to the given image.
+  void createImageWrite(uint32_t imageId, uint32_t coordId, uint32_t texelId);
+
   /// \brief Creates SPIR-V instructions for sampling the given image.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
                              uint32_t image, uint32_t sampler,
