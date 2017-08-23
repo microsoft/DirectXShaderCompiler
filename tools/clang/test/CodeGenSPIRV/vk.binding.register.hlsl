@@ -34,6 +34,14 @@ cbuffer myCbuffer : register(b1, space3) {
     float4 stuff;
 }
 
+// CHECK:      OpDecorate %myBuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %myBuffer Binding 3
+Buffer<int> myBuffer : register(t3, space0);
+
+// CHECK: OpDecorate %myRWBuffer DescriptorSet 1
+// CHECK-NEXT: OpDecorate %myRWBuffer Binding 4
+RWBuffer<float4> myRWBuffer : register(u4, space1);
+
 float4 main() : SV_Target {
     return 1.0;
 }

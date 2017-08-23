@@ -622,12 +622,46 @@ uint32_t ModuleBuilder::getFunctionType(uint32_t returnType,
 }
 
 uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
-                                     bool isArray) {
-  const Type *type = Type::getImage(theContext, sampledType, dim,
-                                    /*depth*/ 0, isArray, /*ms*/ 0,
-                                    /*sampled*/ 1, spv::ImageFormat::Unknown);
+                                     uint32_t depth, bool isArray, uint32_t ms,
+                                     uint32_t sampled,
+                                     spv::ImageFormat format) {
+  const Type *type = Type::getImage(theContext, sampledType, dim, depth,
+                                    isArray, ms, sampled, format);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
+
+  switch (format) {
+  case spv::ImageFormat::Rg32f:
+  case spv::ImageFormat::Rg16f:
+  case spv::ImageFormat::R11fG11fB10f:
+  case spv::ImageFormat::R16f:
+  case spv::ImageFormat::Rgba16:
+  case spv::ImageFormat::Rgb10A2:
+  case spv::ImageFormat::Rg16:
+  case spv::ImageFormat::Rg8:
+  case spv::ImageFormat::R16:
+  case spv::ImageFormat::R8:
+  case spv::ImageFormat::Rgba16Snorm:
+  case spv::ImageFormat::Rg16Snorm:
+  case spv::ImageFormat::Rg8Snorm:
+  case spv::ImageFormat::R16Snorm:
+  case spv::ImageFormat::R8Snorm:
+  case spv::ImageFormat::Rg32i:
+  case spv::ImageFormat::Rg16i:
+  case spv::ImageFormat::Rg8i:
+  case spv::ImageFormat::R16i:
+  case spv::ImageFormat::R8i:
+  case spv::ImageFormat::Rgb10a2ui:
+  case spv::ImageFormat::Rg32ui:
+  case spv::ImageFormat::Rg16ui:
+  case spv::ImageFormat::Rg8ui:
+  case spv::ImageFormat::R16ui:
+  case spv::ImageFormat::R8ui:
+    requireCapability(spv::Capability::StorageImageExtendedFormats);
+  }
+
+  if (dim == spv::Dim::Buffer)
+    requireCapability(spv::Capability::SampledBuffer);
 
   const char *dimStr = "";
   switch (dim) {

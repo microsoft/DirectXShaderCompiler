@@ -22,6 +22,14 @@ cbuffer myCbuffer {
     float4 stuff;
 }
 
+// CHECK:      OpDecorate %myBuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %myBuffer Binding 5
+Buffer<int> myBuffer;
+
+// CHECK:      OpDecorate %myRWBuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %myRWBuffer Binding 6
+RWBuffer<float4> myRWBuffer;
+
 float4 main() : SV_Target {
     return 1.0;
 }
