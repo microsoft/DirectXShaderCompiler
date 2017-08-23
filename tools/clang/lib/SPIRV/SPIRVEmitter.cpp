@@ -1113,12 +1113,15 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
     const uint32_t fromValue = doExpr(subExpr);
     if (isVectorShuffle(subExpr) || isa<ExtMatrixElementExpr>(subExpr) ||
         isBufferIndexing(dyn_cast<CXXOperatorCallExpr>(subExpr))) {
-      // By reaching here, it means the vector/matrix element accessing
-      // operation is an lvalue. For vector element accessing, if we generated
-      // a vector shuffle for it and trying to use it as a rvalue, we cannot
-      // do the load here as normal. Need the upper nodes in the AST tree to
-      // handle it properly. For matrix element accessing, load should have
+      // By reaching here, it means the vector/matrix/Buffer/RWBuffer element
+      // accessing operation is an lvalue. For vector element accessing, if we
+      // generated a vector shuffle for it and trying to use it as a rvalue, we
+      // cannot do the load here as normal. Need the upper nodes in the AST tree
+      // to handle it properly. For matrix element accessing, load should have
       // already happened after creating access chain for each element.
+      // For (RW)Buffer element accessing, load should have already happened
+      // using OpImageFetch.
+
       return fromValue;
     }
 
@@ -1566,8 +1569,8 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
           typeTranslator.isByteAddressBuffer(objectType)) {
         return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
       }
-      if (typeTranslator.isBuffer(objectType) ||
-          typeTranslator.isRWBuffer(objectType))
+      if (TypeTranslator::isBuffer(objectType) ||
+          TypeTranslator::isRWBuffer(objectType))
         return processBufferLoad(expr->getImplicitObjectArgument(),
                                  expr->getArg(0));
 

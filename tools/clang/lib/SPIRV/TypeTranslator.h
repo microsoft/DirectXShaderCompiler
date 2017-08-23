@@ -53,10 +53,10 @@ public:
   bool isRWByteAddressBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL Buffer type.
-  bool isBuffer(QualType type);
+  static bool isBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL RWBuffer type.
-  bool isRWBuffer(QualType type);
+  static bool isRWBuffer(QualType type);
 
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and
