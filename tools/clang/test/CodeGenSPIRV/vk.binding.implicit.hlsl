@@ -16,6 +16,11 @@ Texture3D<float4> texture2;
 // CHECK-NEXT: OpDecorate %sampler2 Binding 3
 SamplerState sampler2;
 
+// CHECK:      OpDecorate %var_myCbuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %var_myCbuffer Binding 4
+cbuffer myCbuffer {
+    float4 stuff;
+}
 
 float4 main() : SV_Target {
     return 1.0;

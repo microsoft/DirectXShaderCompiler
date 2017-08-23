@@ -28,6 +28,11 @@ SamplerState sampler3;
 // CHECK-NEXT: OpDecorate %sampler4 Binding 2
 SamplerState sampler4;
 
+// CHECK:      OpDecorate %var_myCbuffer DescriptorSet 3
+// CHECK-NEXT: OpDecorate %var_myCbuffer Binding 1
+cbuffer myCbuffer : register(b1, space3) {
+    float4 stuff;
+}
 
 float4 main() : SV_Target {
     return 1.0;
