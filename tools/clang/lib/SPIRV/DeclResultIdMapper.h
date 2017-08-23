@@ -147,6 +147,7 @@ public:
 
   /// \brief Creates an external-visible variable and returns its <result-id>.
   uint32_t createExternVar(uint32_t varType, const VarDecl *var);
+  uint32_t createExternVar(const HLSLBufferDecl *decl);
 
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
@@ -165,7 +166,7 @@ public:
   /// \brief Returns the <result-id> for the given decl.
   ///
   /// This method will panic if the given decl is not registered.
-  uint32_t getDeclResultId(const NamedDecl *decl) const;
+  uint32_t getDeclResultId(const NamedDecl *decl);
 
   /// \brief Returns the <result-id> for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and

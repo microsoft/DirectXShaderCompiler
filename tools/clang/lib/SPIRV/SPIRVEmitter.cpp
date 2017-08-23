@@ -167,6 +167,8 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
       }
     } else if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
       doVarDecl(varDecl);
+    } else if (auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl)) {
+      (void)declIdMapper.createExternVar(bufferDecl);
     }
   }
 
@@ -201,6 +203,8 @@ void SPIRVEmitter::doDecl(const Decl *decl) {
     doVarDecl(varDecl);
   } else if (const auto *funcDecl = dyn_cast<FunctionDecl>(decl)) {
     doFunctionDecl(funcDecl);
+  } else if (dyn_cast<HLSLBufferDecl>(decl)) {
+    llvm_unreachable("HLSLBufferDecl should not be handled here");
   } else {
     // TODO: Implement handling of other Decl types.
     emitWarning("Decl type '%0' is not supported yet.")

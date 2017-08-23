@@ -36,7 +36,7 @@ llvm::StringRef getStageVarSemantic(const NamedDecl *decl) {
 }
 
 /// \brief Returns the stage variable's register assignment for the given Decl.
-const hlsl::RegisterAssignment *getResourceBinding(const VarDecl *decl) {
+const hlsl::RegisterAssignment *getResourceBinding(const NamedDecl *decl) {
   for (auto *annotation : decl->getUnusualAnnotations()) {
     if (auto *reg = dyn_cast<hlsl::RegisterAssignment>(annotation)) {
       return reg;
@@ -65,9 +65,33 @@ DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
   return nullptr;
 }
 
-uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) const {
+uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
   if (const auto *info = getDeclSpirvInfo(decl))
-    return info->resultId;
+    if (const auto *bufferDecl =
+            dyn_cast<HLSLBufferDecl>(decl->getDeclContext())) {
+      // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
+      // OpAccessChain to get the pointer to the variable since we created
+      // a single variable for the whole buffer object.
+
+      uint32_t index = 0;
+      for (const auto *subDecl : bufferDecl->decls()) {
+        if (subDecl == decl)
+          break;
+        ++index;
+      }
+
+      const uint32_t varType = typeTranslator.translateType(
+          // Should only have VarDecls in a HLSLBufferDecl.
+          cast<VarDecl>(decl)->getType(),
+          // We need to set decorateLayout here to avoid creating SPIR-V
+          // instructions for the current type without decorations.
+          /*decorateLayout*/ true);
+      return theBuilder.createAccessChain(
+          theBuilder.getPointerType(varType, info->storageClass),
+          info->resultId, {theBuilder.getConstantInt32(index)});
+    } else {
+      return info->resultId;
+    }
 
   assert(false && "found unregistered decl");
   return 0;
@@ -116,6 +140,55 @@ uint32_t DeclResultIdMapper::createExternVar(uint32_t varType,
                             var->getAttr<VKBindingAttr>());
 
   return id;
+}
+
+uint32_t DeclResultIdMapper::createExternVar(const HLSLBufferDecl *decl) {
+  // In the AST, cbuffer/tbuffer is represented as a HLSLBufferDecl, which is
+  // a DeclContext, and all fields in the buffer are represented as VarDecls.
+  // We cannot do the normal translation path, which will translate a field
+  // into a standalone variable. We need to create a single SPIR-V variable
+  // for the whole buffer.
+
+  // Collect the type and name for each field
+  llvm::SmallVector<uint32_t, 4> fieldTypes;
+  llvm::SmallVector<llvm::StringRef, 4> fieldNames;
+  for (const auto *subDecl : decl->decls()) {
+    // All the fields should be VarDecls.
+    const auto *varDecl = cast<VarDecl>(subDecl);
+    // All fields are qualified with const. It will affect the debug name.
+    // We don't need it here.
+    auto varType = varDecl->getType();
+    varType.removeLocalConst();
+
+    fieldTypes.push_back(typeTranslator.translateType(
+        varType, true, varDecl->hasAttr<HLSLRowMajorAttr>()));
+    fieldNames.push_back(varDecl->getName());
+  }
+
+  // Get the type for the whole buffer
+  const std::string structName = "type." + decl->getName().str();
+  auto decorations = typeTranslator.getLayoutDecorations(decl);
+  decorations.push_back(Decoration::getBlock(*theBuilder.getSPIRVContext()));
+  const uint32_t structType =
+      theBuilder.getStructType(fieldTypes, structName, fieldNames, decorations);
+
+  // Create the variable for the whole buffer
+  const std::string varName = "var." + decl->getName().str();
+  const uint32_t bufferVar =
+      theBuilder.addModuleVar(structType, spv::StorageClass::Uniform, varName);
+
+  // We still register all VarDecls seperately here. All the VarDecls are
+  // mapped to the <result-id> of the buffer object, which means when querying
+  // querying the <result-id> for a certain VarDecl, we need to do an extra
+  // OpAccessChain.
+  for (const auto *subDecl : decl->decls()) {
+    const auto *varDecl = cast<VarDecl>(subDecl);
+    astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform};
+  }
+  resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
+                            decl->getAttr<VKBindingAttr>());
+
+  return bufferVar;
 }
 
 uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {

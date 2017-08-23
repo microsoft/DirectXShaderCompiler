@@ -285,8 +285,10 @@ public:
   uint32_t getPointerType(uint32_t pointeeType, spv::StorageClass);
   uint32_t getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
                          llvm::StringRef structName = "",
-                         llvm::ArrayRef<llvm::StringRef> fieldNames = {});
-  uint32_t getArrayType(uint32_t elemType, uint32_t count);
+                         llvm::ArrayRef<llvm::StringRef> fieldNames = {},
+                         Type::DecorationSet decorations = {});
+  uint32_t getArrayType(uint32_t elemType, uint32_t count,
+                        Type::DecorationSet decorations = {});
   uint32_t getFunctionType(uint32_t returnType,
                            llvm::ArrayRef<uint32_t> paramTypes);
   uint32_t getImageType(uint32_t sampledType, spv::Dim, bool isArray);

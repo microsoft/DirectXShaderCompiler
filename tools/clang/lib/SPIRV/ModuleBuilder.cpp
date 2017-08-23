@@ -515,6 +515,9 @@ void ModuleBuilder::decorate(uint32_t targetId, spv::Decoration decoration) {
   case spv::Decoration::Sample:
     d = Decoration::getSample(theContext);
     break;
+  case spv::Decoration::Block:
+    d = Decoration::getBlock(theContext);
+    break;
   }
 
   assert(d && "unimplemented decoration");
@@ -582,8 +585,9 @@ uint32_t ModuleBuilder::getPointerType(uint32_t pointeeType,
 uint32_t
 ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
                              llvm::StringRef structName,
-                             llvm::ArrayRef<llvm::StringRef> fieldNames) {
-  const Type *type = Type::getStruct(theContext, fieldTypes);
+                             llvm::ArrayRef<llvm::StringRef> fieldNames,
+                             Type::DecorationSet decorations) {
+  const Type *type = Type::getStruct(theContext, fieldTypes, decorations);
   bool isRegistered = false;
   const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
@@ -601,8 +605,9 @@ ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
   return typeId;
 }
 
-uint32_t ModuleBuilder::getArrayType(uint32_t elemType, uint32_t count) {
-  const Type *type = Type::getArray(theContext, elemType, count);
+uint32_t ModuleBuilder::getArrayType(uint32_t elemType, uint32_t count,
+                                     Type::DecorationSet decorations) {
+  const Type *type = Type::getArray(theContext, elemType, count, decorations);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
   return typeId;
@@ -665,7 +670,6 @@ uint32_t ModuleBuilder::getSamplerType() {
   return typeId;
 }
 
-
 uint32_t ModuleBuilder::getSampledImageType(uint32_t imageType) {
   const Type *type = Type::getSampledImage(theContext, imageType);
   const uint32_t typeId = theContext.getResultIdForType(type);
@@ -687,7 +691,7 @@ uint32_t ModuleBuilder::getByteAddressBufferType(bool isRW) {
   // The struct must also be decorated as BufferBlock. The offset decoration
   // should also be applied to the first (only) member. NonWritable decoration
   // should also be applied to the first member if isRW is true.
-  llvm::SmallVector<const Decoration*, 3> typeDecs;
+  llvm::SmallVector<const Decoration *, 3> typeDecs;
   typeDecs.push_back(Decoration::getBufferBlock(theContext));
   typeDecs.push_back(Decoration::getOffset(theContext, 0, 0));
   if (!isRW)
@@ -696,8 +700,8 @@ uint32_t ModuleBuilder::getByteAddressBufferType(bool isRW) {
   const Type *type = Type::getStruct(theContext, {raTypeId}, typeDecs);
   const uint32_t typeId = theContext.getResultIdForType(type);
   theModule.addType(type, typeId);
-  theModule.addDebugName(typeId, isRW ? "type.RWByteAddressBuffer"
-                                      : "type.ByteAddressBuffer");
+  theModule.addDebugName(
+      typeId, isRW ? "type.RWByteAddressBuffer" : "type.ByteAddressBuffer");
   return typeId;
 }
 

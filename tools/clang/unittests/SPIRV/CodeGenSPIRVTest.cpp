@@ -43,6 +43,7 @@ TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
 TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
+TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, ByteAddressBufferTypes) {
   runFileTest("type.byte-address-buffer.hlsl");
 }
@@ -188,6 +189,7 @@ TEST_F(FileTest, OpMatrixAccess1x1) {
 
 // For struct & array accessing operator
 TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
+TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpStructArray) { runFileTest("op.array.access.hlsl"); }
 
 // For casting
@@ -443,6 +445,12 @@ TEST_F(FileTest, VulkanRegisterBinding) {
 }
 TEST_F(FileTest, VulkanExplicitBindingReassigned) {
   runFileTest("vk.binding.explicit.error.hlsl", /*expectSuccess*/ false);
+}
+TEST_F(FileTest, VulkanLayoutCBufferStd140) {
+  runFileTest("vk.layout.cbuffer.std140.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutCBufferNestedStd140) {
+  runFileTest("vk.layout.cbuffer.nested.std140.hlsl");
 }
 
 } // namespace
