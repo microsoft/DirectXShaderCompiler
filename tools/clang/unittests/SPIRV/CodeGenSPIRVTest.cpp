@@ -28,6 +28,10 @@ TEST_F(WholeFileTest, PassThruVertexShader) {
   runWholeFileTest("passthru-vs.hlsl2spv", /*generateHeader*/ true);
 }
 
+TEST_F(WholeFileTest, PassThruComputeShader) {
+  runWholeFileTest("passthru-cs.hlsl2spv", /*generateHeader*/ true);
+}
+
 TEST_F(WholeFileTest, ConstantPixelShader) {
   runWholeFileTest("constant-ps.hlsl2spv", /*generateHeader*/ true);
 }
