@@ -67,18 +67,10 @@ DeclResultIdMapper::getDeclSpirvInfo(const NamedDecl *decl) const {
 
 uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
   if (const auto *info = getDeclSpirvInfo(decl))
-    if (const auto *bufferDecl =
-            dyn_cast<HLSLBufferDecl>(decl->getDeclContext())) {
+    if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
       // OpAccessChain to get the pointer to the variable since we created
       // a single variable for the whole buffer object.
-
-      uint32_t index = 0;
-      for (const auto *subDecl : bufferDecl->decls()) {
-        if (subDecl == decl)
-          break;
-        ++index;
-      }
 
       const uint32_t varType = typeTranslator.translateType(
           // Should only have VarDecls in a HLSLBufferDecl.
@@ -88,7 +80,7 @@ uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
           /*decorateLayout*/ true);
       return theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->storageClass),
-          info->resultId, {theBuilder.getConstantInt32(index)});
+          info->resultId, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
     } else {
       return info->resultId;
     }
@@ -100,7 +92,7 @@ uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
 uint32_t DeclResultIdMapper::createFnParam(uint32_t paramType,
                                            const ParmVarDecl *param) {
   const uint32_t id = theBuilder.addFnParam(paramType, param->getName());
-  astDecls[param] = {id, spv::StorageClass::Function};
+  astDecls[param] = {id, spv::StorageClass::Function, -1};
 
   return id;
 }
@@ -108,7 +100,7 @@ uint32_t DeclResultIdMapper::createFnParam(uint32_t paramType,
 uint32_t DeclResultIdMapper::createFnVar(uint32_t varType, const VarDecl *var,
                                          llvm::Optional<uint32_t> init) {
   const uint32_t id = theBuilder.addFnVar(varType, var->getName(), init);
-  astDecls[var] = {id, spv::StorageClass::Function};
+  astDecls[var] = {id, spv::StorageClass::Function, -1};
 
   return id;
 }
@@ -117,7 +109,7 @@ uint32_t DeclResultIdMapper::createFileVar(uint32_t varType, const VarDecl *var,
                                            llvm::Optional<uint32_t> init) {
   const uint32_t id = theBuilder.addModuleVar(
       varType, spv::StorageClass::Private, var->getName(), init);
-  astDecls[var] = {id, spv::StorageClass::Private};
+  astDecls[var] = {id, spv::StorageClass::Private, -1};
 
   return id;
 }
@@ -135,57 +127,86 @@ uint32_t DeclResultIdMapper::createExternVar(uint32_t varType,
 
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
-  astDecls[var] = {id, storageClass};
+  astDecls[var] = {id, storageClass, -1};
   resourceVars.emplace_back(id, getResourceBinding(var),
                             var->getAttr<VKBindingAttr>());
 
   return id;
 }
 
-uint32_t DeclResultIdMapper::createExternVar(const HLSLBufferDecl *decl) {
-  // In the AST, cbuffer/tbuffer is represented as a HLSLBufferDecl, which is
-  // a DeclContext, and all fields in the buffer are represented as VarDecls.
-  // We cannot do the normal translation path, which will translate a field
-  // into a standalone variable. We need to create a single SPIR-V variable
-  // for the whole buffer.
-
+uint32_t
+DeclResultIdMapper::createVarOfExplicitLayoutStruct(const DeclContext *decl,
+                                                    llvm::StringRef typeName,
+                                                    llvm::StringRef varName) {
   // Collect the type and name for each field
   llvm::SmallVector<uint32_t, 4> fieldTypes;
   llvm::SmallVector<llvm::StringRef, 4> fieldNames;
   for (const auto *subDecl : decl->decls()) {
-    // All the fields should be VarDecls.
-    const auto *varDecl = cast<VarDecl>(subDecl);
+    // Implicit generated struct declarations should be ignored.
+    if (isa<CXXRecordDecl>(subDecl) && subDecl->isImplicit())
+      continue;
+
+    // The field can only be FieldDecl (for normal structs) or VarDecl (for
+    // HLSLBufferDecls).
+    assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
+    const auto *declDecl = cast<DeclaratorDecl>(subDecl);
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
-    auto varType = varDecl->getType();
+    auto varType = declDecl->getType();
     varType.removeLocalConst();
 
     fieldTypes.push_back(typeTranslator.translateType(
-        varType, true, varDecl->hasAttr<HLSLRowMajorAttr>()));
-    fieldNames.push_back(varDecl->getName());
+        varType, true, declDecl->hasAttr<HLSLRowMajorAttr>()));
+    fieldNames.push_back(declDecl->getName());
   }
 
   // Get the type for the whole buffer
-  const std::string structName = "type." + decl->getName().str();
   auto decorations = typeTranslator.getLayoutDecorations(decl);
   decorations.push_back(Decoration::getBlock(*theBuilder.getSPIRVContext()));
   const uint32_t structType =
-      theBuilder.getStructType(fieldTypes, structName, fieldNames, decorations);
+      theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
 
   // Create the variable for the whole buffer
+  return theBuilder.addModuleVar(structType, spv::StorageClass::Uniform,
+                                 varName);
+}
+
+uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+  const std::string structName = "type." + decl->getName().str();
   const std::string varName = "var." + decl->getName().str();
   const uint32_t bufferVar =
-      theBuilder.addModuleVar(structType, spv::StorageClass::Uniform, varName);
+      createVarOfExplicitLayoutStruct(decl, structName, varName);
 
   // We still register all VarDecls seperately here. All the VarDecls are
   // mapped to the <result-id> of the buffer object, which means when querying
   // querying the <result-id> for a certain VarDecl, we need to do an extra
   // OpAccessChain.
+  int index = 0;
   for (const auto *subDecl : decl->decls()) {
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform};
+    astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform, index++};
   }
   resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
+                            decl->getAttr<VKBindingAttr>());
+
+  return bufferVar;
+}
+
+uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
+  const auto *recordType = decl->getType()->getAs<RecordType>();
+  assert(recordType);
+  const auto *context = cast<HLSLBufferDecl>(decl->getDeclContext());
+  const bool isCBuffer = context->isCBuffer();
+
+  const std::string structName =
+      "type." + std::string(isCBuffer ? "ConstantBuffer." : "TextureBuffer") +
+      recordType->getDecl()->getName().str();
+  const uint32_t bufferVar = createVarOfExplicitLayoutStruct(
+      recordType->getDecl(), structName, decl->getName());
+
+  // We register the VarDecl here.
+  astDecls[decl] = {bufferVar, spv::StorageClass::Uniform, -1};
+  resourceVars.emplace_back(bufferVar, getResourceBinding(context),
                             decl->getAttr<VKBindingAttr>());
 
   return bufferVar;
@@ -196,7 +217,7 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
     return info->resultId;
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
-  astDecls[fn] = {id, spv::StorageClass::Function};
+  astDecls[fn] = {id, spv::StorageClass::Function, -1};
 
   return id;
 }
