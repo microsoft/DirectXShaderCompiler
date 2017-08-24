@@ -16,9 +16,9 @@ float4 main(): SV_Target
 // OpEntryPoint Fragment %main "main" %out_var_SV_Target
 // OpExecutionMode %main OriginUpperLeft
 // OpName %bb_entry "bb.entry"
+// OpName %src_main "src.main"
 // OpName %main "main"
 // OpName %out_var_SV_Target "out.var.SV_Target"
-// OpName %src_main "src.main"
 // OpDecorate %out_var_SV_Target Location 0
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void

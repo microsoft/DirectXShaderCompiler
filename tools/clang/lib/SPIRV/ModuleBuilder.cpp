@@ -591,8 +591,6 @@ ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
   bool isRegistered = false;
   const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
-  // TODO: Probably we should check duplication and do nothing if trying to add
-  // the same debug name for the same entity in addDebugName().
   if (!isRegistered) {
     theModule.addDebugName(typeId, structName);
     if (!fieldNames.empty()) {
@@ -627,7 +625,8 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
                                      spv::ImageFormat format) {
   const Type *type = Type::getImage(theContext, sampledType, dim, depth,
                                     isArray, ms, sampled, format);
-  const uint32_t typeId = theContext.getResultIdForType(type);
+  bool isRegistered = false;
+  const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
 
   switch (format) {
@@ -663,35 +662,39 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
   if (dim == spv::Dim::Buffer)
     requireCapability(spv::Capability::SampledBuffer);
 
-  const char *dimStr = "";
-  switch (dim) {
-  case spv::Dim::Dim1D:
-    dimStr = "1d.";
-    break;
-  case spv::Dim::Dim2D:
-    dimStr = "2d.";
-    break;
-  case spv::Dim::Dim3D:
-    dimStr = "3d.";
-    break;
-  case spv::Dim::Cube:
-    dimStr = "cube.";
-    break;
-  case spv::Dim::Rect:
-    dimStr = "rect.";
-    break;
-  case spv::Dim::Buffer:
-    dimStr = "buffer.";
-    break;
-  case spv::Dim::SubpassData:
-    dimStr = "subpass.";
-    break;
-  default:
-    break;
+  // Skip constructing the debug name if we have already done it before.
+  if (!isRegistered) {
+    const char *dimStr = "";
+    switch (dim) {
+    case spv::Dim::Dim1D:
+      dimStr = "1d.";
+      break;
+    case spv::Dim::Dim2D:
+      dimStr = "2d.";
+      break;
+    case spv::Dim::Dim3D:
+      dimStr = "3d.";
+      break;
+    case spv::Dim::Cube:
+      dimStr = "cube.";
+      break;
+    case spv::Dim::Rect:
+      dimStr = "rect.";
+      break;
+    case spv::Dim::Buffer:
+      dimStr = "buffer.";
+      break;
+    case spv::Dim::SubpassData:
+      dimStr = "subpass.";
+      break;
+    default:
+      break;
+    }
+
+    std::string name =
+        std::string("type.") + dimStr + "image" + (isArray ? ".array" : "");
+    theModule.addDebugName(typeId, name);
   }
-  std::string name =
-      std::string("type.") + dimStr + "image" + (isArray ? ".array" : "");
-  theModule.addDebugName(typeId, name);
 
   return typeId;
 }

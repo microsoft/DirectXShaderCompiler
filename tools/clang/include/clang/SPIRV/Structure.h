@@ -20,6 +20,7 @@
 
 #include <deque>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -240,6 +241,9 @@ struct DebugName {
   inline DebugName(uint32_t id, std::string targetName,
                    llvm::Optional<uint32_t> index = llvm::None);
 
+  bool operator==(const DebugName &that) const;
+  bool operator<(const DebugName &that) const;
+
   const uint32_t targetId;
   const std::string name;
   const llvm::Optional<uint32_t> memberIndex;
@@ -344,7 +348,7 @@ private:
   std::vector<EntryPoint> entryPoints;
   std::vector<Instruction> executionModes;
   // TODO: source code debug information
-  std::vector<DebugName> debugNames;
+  std::set<DebugName> debugNames;
   llvm::SetVector<std::pair<uint32_t, const Decoration *>> decorations;
 
   // Note that types and constants are interdependent; Types like arrays have
@@ -488,8 +492,9 @@ void SPIRVModule::addExecutionMode(Instruction &&execMode) {
 
 void SPIRVModule::addDebugName(uint32_t targetId, llvm::StringRef name,
                                llvm::Optional<uint32_t> memberIndex) {
+
   if (!name.empty()) {
-    debugNames.emplace_back(targetId, name, memberIndex);
+    debugNames.insert(DebugName(targetId, name, memberIndex));
   }
 }
 
