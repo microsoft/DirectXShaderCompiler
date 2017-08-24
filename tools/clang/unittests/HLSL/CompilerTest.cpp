@@ -3054,6 +3054,7 @@ TEST_F(CompilerTest, CodeGenCbufferAllocLegacy) {
 }
 
 TEST_F(CompilerTest, CodeGenCbufferHalf) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferHalf.hlsl");
 }
 
