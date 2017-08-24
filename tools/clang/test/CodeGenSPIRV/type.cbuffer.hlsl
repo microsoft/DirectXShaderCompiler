@@ -1,9 +1,5 @@
 // Run: %dxc -T vs_6_0 -E main
 
-// CHECK:      OpName %S "S"
-// CHECK-NEXT: OpMemberName %S 0 "f1"
-// CHECK-NEXT: OpMemberName %S 1 "f2"
-
 // CHECK:      OpName %type_MyCbuffer "type.MyCbuffer"
 // CHECK-NEXT: OpMemberName %type_MyCbuffer 0 "a"
 // CHECK-NEXT: OpMemberName %type_MyCbuffer 1 "b"

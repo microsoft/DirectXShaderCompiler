@@ -147,7 +147,27 @@ public:
 
   /// \brief Creates an external-visible variable and returns its <result-id>.
   uint32_t createExternVar(uint32_t varType, const VarDecl *var);
-  uint32_t createExternVar(const HLSLBufferDecl *decl);
+
+  /// \brief Creates a cbuffer/tbuffer from the given decl.
+  ///
+  /// In the AST, cbuffer/tbuffer is represented as a HLSLBufferDecl, which is
+  /// a DeclContext, and all fields in the buffer are represented as VarDecls.
+  /// We cannot do the normal translation path, which will translate a field
+  /// into a standalone variable. We need to create a single SPIR-V variable
+  /// for the whole buffer. When we refer to the field VarDecl later, we need
+  /// to do an extra OpAccessChain to get its pointer from the SPIR-V variable
+  /// standing for the whole buffer.
+  uint32_t createCTBuffer(const HLSLBufferDecl *decl);
+
+  /// \brief Creates a cbuffer/tbuffer from the given decl.
+  ///
+  /// In the AST, a variable whose type is ConstantBuffer/TextureBuffer is
+  /// represented as a VarDecl whose DeclContext is a HLSLBufferDecl. These
+  /// VarDecl's type is labelled as the struct upon which ConstantBuffer/
+  /// TextureBuffer is parameterized. For a such VarDecl, we need to create
+  /// a corresponding SPIR-V variable for it. Later referencing of such a
+  /// VarDecl does not need an extra OpAccessChain.
+  uint32_t createCTBuffer(const VarDecl *decl);
 
   /// \brief Sets the <result-id> of the entry function.
   void setEntryFunctionId(uint32_t id) { entryFunctionId = id; }
@@ -157,6 +177,9 @@ public:
   struct DeclSpirvInfo {
     uint32_t resultId;
     spv::StorageClass storageClass;
+    /// Value >= 0 means that this decl is a VarDecl inside a cbuffer/tbuffer
+    /// and this is the index; value < 0 means this is just a standalone decl.
+    int indexInCTBuffer;
   };
 
   /// \brief Returns the SPIR-V information for the given decl.
@@ -222,6 +245,16 @@ private:
   /// Returns the type of the given decl. If the given decl is a FunctionDecl,
   /// returns its result type.
   QualType getFnParamOrRetType(const DeclaratorDecl *decl) const;
+
+  /// Creates a variable of struct type with explicit layout decorations.
+  /// The sub-Decls in the given DeclContext will be treated as the struct
+  /// fields. The struct type will be named as typeName, and the variable
+  /// will be named as varName.
+  ///
+  /// Panics if the DeclContext is neither HLSLBufferDecl or RecordDecl.
+  uint32_t createVarOfExplicitLayoutStruct(const DeclContext *decl,
+                                           llvm::StringRef typeName,
+                                           llvm::StringRef varName);
 
   /// Creates all the stage variables mapped from semantics on the given decl
   /// and returns true on success.
