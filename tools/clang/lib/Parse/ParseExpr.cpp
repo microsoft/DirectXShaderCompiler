@@ -1212,8 +1212,6 @@ HLSLReservedKeyword:
   case tok::kw___int64:
   case tok::kw___int128:
   // HLSL Change Starts
-  case tok::kw_min10float:
-  case tok::kw_min12int:
   case tok::kw_column_major:
   case tok::kw_row_major:
   case tok::kw_snorm:

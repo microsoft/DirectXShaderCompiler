@@ -28,6 +28,7 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h" // HLSL Change
+#include "dxc/HLSL/ComputeViewIdState.h" // HLSL Change
 
 using namespace llvm;
 
@@ -53,12 +54,6 @@ UseGVNAfterVectorization("use-gvn-after-vectorization",
 static cl::opt<bool> ExtraVectorizerPasses(
     "extra-vectorizer-passes", cl::init(false), cl::Hidden,
     cl::desc("Run cleanup optimization passes after vectorization."));
-
-#else
-
-// Don't declare the 'false' counterparts - simply avoid altogether.
-
-#endif // HLSL Change - don't build vectorization passes
 
 static cl::opt<bool> UseNewSROA("use-new-sroa",
   cl::init(true), cl::Hidden,
@@ -98,6 +93,21 @@ static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
 
+#else
+
+// Don't declare the 'false' counterparts - simply avoid altogether.
+
+static const bool UseNewSROA = true;
+static const bool RunLoopRerolling = false;
+static const bool RunFloat2Int = true;
+static const bool RunLoadCombine = false;
+static const bool RunSLPAfterLoopVectorization = true;
+static const bool UseCFLAA = false;
+static const bool EnableMLSM = true;
+static const bool EnableLoopInterchange = false;
+static const bool EnableLoopDistribute = false;
+#endif // HLSL Change - don't build vectorization passes
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -126,15 +136,19 @@ PassManagerBuilder::~PassManagerBuilder() {
   delete Inliner;
 }
 
+#if 0 // HLSL Change Starts - no global extensions
 /// Set of global extensions, automatically added as part of the standard set.
 static ManagedStatic<SmallVector<std::pair<PassManagerBuilder::ExtensionPointTy,
    PassManagerBuilder::ExtensionFn>, 8> > GlobalExtensions;
+#endif // HLSL Change Ends
 
+#if 0 // HLSL Change Starts - no global extensions
 void PassManagerBuilder::addGlobalExtension(
     PassManagerBuilder::ExtensionPointTy Ty,
     PassManagerBuilder::ExtensionFn Fn) {
   GlobalExtensions->push_back(std::make_pair(Ty, Fn));
 }
+#endif // HLSL Change Ends
 
 void PassManagerBuilder::addExtension(ExtensionPointTy Ty, ExtensionFn Fn) {
   Extensions.push_back(std::make_pair(Ty, Fn));
@@ -142,12 +156,14 @@ void PassManagerBuilder::addExtension(ExtensionPointTy Ty, ExtensionFn Fn) {
 
 void PassManagerBuilder::addExtensionsToPM(ExtensionPointTy ETy,
                                            legacy::PassManagerBase &PM) const {
+#if 0 // HLSL Change Starts - no global extensions
   for (unsigned i = 0, e = GlobalExtensions->size(); i != e; ++i)
     if ((*GlobalExtensions)[i].first == ETy)
       (*GlobalExtensions)[i].second(*this, PM);
   for (unsigned i = 0, e = Extensions.size(); i != e; ++i)
     if (Extensions[i].first == ETy)
       Extensions[i].second(*this, PM);
+#endif // HLSL Change Ends
 }
 
 void PassManagerBuilder::addInitialAliasAnalysisPasses(
@@ -182,7 +198,7 @@ void PassManagerBuilder::populateFunctionPassManager(
     FPM.add(createSROAPass());
   else
     FPM.add(createScalarReplAggregatesPass());
-  FPM.add(createEarlyCSEPass());
+  // HLSL Change. FPM.add(createEarlyCSEPass());
   FPM.add(createLowerExpectIntrinsicPass());
 }
 
@@ -194,6 +210,10 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
     return;
   }
 
+  if (!NoOpt) {
+    MPM.add(createHLDeadFunctionEliminationPass());
+  }
+
   // Split struct and array of parameter.
   MPM.add(createSROA_Parameter_HLSL());
 
@@ -202,21 +222,35 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
                                              /*Promote*/ !NoOpt));
 
   MPM.add(createHLMatrixLowerPass());
+  MPM.add(createResourceToHandlePass());
   // DCE should after SROA to remove unused element.
   MPM.add(createDeadCodeEliminationPass());
   MPM.add(createGlobalDCEPass());
 
+  if (NoOpt) {
+    // If not run mem2reg, try to promote allocas used by EvalOperations.
+    // Do this before change vector to array.
+    MPM.add(createDxilLegalizeEvalOperationsPass());
+  }
+
   // Change dynamic indexing vector to array.
   MPM.add(createDynamicIndexingVectorToArrayPass(NoOpt));
 
-  MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
-
-  MPM.add(createSimplifyInstPass());
-
   if (!NoOpt) {
+    MPM.add(createLowerStaticGlobalIntoAlloca());
     // mem2reg
     MPM.add(createPromoteMemoryToRegisterPass());
   }
+
+  MPM.add(createSimplifyInstPass());
+  MPM.add(createCFGSimplificationPass());
+
+  MPM.add(createDxilLegalizeResourceUsePass());
+  MPM.add(createDxilLegalizeStaticResourceUsePass());
+  MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
+  MPM.add(createDxilLoadMetadataPass()); // Ensure DxilModule is loaded for optimizations.
+
+  MPM.add(createSimplifyInstPass());
 
   // Propagate precise attribute.
   MPM.add(createDxilPrecisePropagatePass());
@@ -253,7 +287,7 @@ void PassManagerBuilder::populateModulePassManager(
     // builds. The function merging pass is 
     if (MergeFunctions)
       MPM.add(createMergeFunctionsPass());
-    else if (!GlobalExtensions->empty() || !Extensions.empty())
+    else if (!Extensions.empty()) // HLSL Change - GlobalExtensions not considered
       MPM.add(createBarrierNoopPass());
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
@@ -262,6 +296,10 @@ void PassManagerBuilder::populateModulePassManager(
     if (!HLSLHighLevel) {
       MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
       MPM.add(createDxilCondenseResourcesPass()); // HLSL Change
+      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+      MPM.add(createDxilFinalizeModulePass());      // HLSL Change
+      MPM.add(createComputeViewIdStatePass());    // HLSL Change
+      MPM.add(createDxilDeadFunctionEliminationPass()); // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
     // HLSL Change Ends.
@@ -321,7 +359,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createSROAPass(/*RequiresDomTree*/ false));
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
-  MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
+  // HLSL Change. MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
@@ -336,7 +374,7 @@ void PassManagerBuilder::populateModulePassManager(
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
   MPM.add(createLICMPass());                  // Hoist loop invariants
-  MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3));
+  //MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3)); // HLSL Change - may move barrier inside divergent if.
   MPM.add(createInstructionCombiningPass());
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
@@ -401,6 +439,8 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (LoadCombine)
     MPM.add(createLoadCombinePass());
+
+  MPM.add(createHoistConstantArrayPass()); // HLSL change
 
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
   MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
@@ -527,6 +567,11 @@ void PassManagerBuilder::populateModulePassManager(
   if (!HLSLHighLevel) {
     MPM.add(createMultiDimArrayToOneDimArrayPass());// HLSL Change
     MPM.add(createDxilCondenseResourcesPass());
+    if (DisableUnrollLoops)
+      MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
+    MPM.add(createDxilFinalizeModulePass());
+    MPM.add(createComputeViewIdStatePass()); // HLSL Change
+    MPM.add(createDxilDeadFunctionEliminationPass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.

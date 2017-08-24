@@ -1,4 +1,4 @@
-
+// Rewrite unchanged result:
 int includedFunc(int a) {
   return a + 50;
 }
@@ -27,6 +27,5 @@ int func2(int d) {
 int func3(int f) {
   return includedFunc3(f);
 }
-
 
 

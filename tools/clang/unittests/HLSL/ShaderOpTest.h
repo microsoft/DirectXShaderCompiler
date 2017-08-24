@@ -88,7 +88,7 @@ private:
 #ifdef _HASH_SEQ_DEFINED
       return std::_Hash_seq((const unsigned char *)a, strlen(a));
 #else
-#error Pick a hash function for this platform.
+      return std::_Hash_array_representation((const unsigned char *)a, strlen(a));
 #endif
     }
   };
@@ -142,6 +142,7 @@ public:
   D3D12_RESOURCE_STATES TransitionTo;           // State to transition before running shader.
   BOOL                  ReadBack;               // TRUE to read back to CPU after operations are done.
   std::vector<BYTE>     InitBytes;              // Byte payload for initialization.
+  D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology;     // Primitive topology.
 };
 
 // Use this class to represent a shader.
@@ -177,7 +178,8 @@ public:
   LPCWSTR AdapterName = nullptr;
   LPCSTR CS = nullptr, VS = nullptr, PS = nullptr;
   UINT DispatchX = 1, DispatchY = 1, DispatchZ = 1;
-  D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; // TODO: parse from file
+  D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
   UINT SampleMask = UINT_MAX; // TODO: parse from file
   DXGI_FORMAT RTVFormats[8]; // TODO: parse from file
   bool IsCompute() const {
@@ -230,11 +232,12 @@ struct CommandListRefs {
 // Use this class to run the operation described in a ShaderOp object.
 class ShaderOpTest {
 public:
-  typedef std::function<void(LPCSTR Name, std::vector<BYTE> &Data)> TInitCallbackFn;
+  typedef std::function<void(LPCSTR Name, std::vector<BYTE> &Data, ShaderOp *pShaderOp)> TInitCallbackFn;
   void GetPipelineStats(D3D12_QUERY_DATA_PIPELINE_STATISTICS *pStats);
   void GetReadBackData(LPCSTR pResourceName, MappedData *pData);
   void RunShaderOp(ShaderOp *pShaderOp);
   void RunShaderOp(std::shared_ptr<ShaderOp> pShaderOp);
+  void SetDevice(ID3D12Device* pDevice);
   void SetDxcSupport(dxc::DxcDllSupport *pDxcSupport);
   void SetInitCallback(TInitCallbackFn InitCallbackFn);
   void SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,

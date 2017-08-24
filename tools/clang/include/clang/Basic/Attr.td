@@ -232,6 +232,7 @@ def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
 def COnly : LangOpt<"CPlusPlus", 1>;
+def SPIRV : LangOpt<"SPIRV">; // SPIRV Change
 
 // Defines targets for target-specific attributes. The list of strings should
 // specify architectures for which the target applies, based off the ArchType
@@ -838,7 +839,39 @@ def HLSLTriangleAdj : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLGloballyCoherent : InheritableAttr {
+  let Spellings = [CXX11<"", "globallycoherent", 2015>];
+  let Subjects = SubjectList<[Var]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLShader : InheritableAttr {
+  let Spellings = [CXX11<"", "shader", 2017>];
+  let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geomery
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
+
+// SPIRV Change Starts
+
+def VKLocation : InheritableAttr {
+  let Spellings = [CXX11<"vk", "location">];
+  let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
+  let Args = [IntArgument<"Number">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKBinding : InheritableAttr {
+  let Spellings = [CXX11<"vk", "binding">];
+  let Subjects = SubjectList<[GlobalVar], ErrorDiag, "ExpectedVariable">;
+  let Args = [IntArgument<"Binding">, DefaultIntArgument<"Set", 0>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+// SPIRV Change Ends
 
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];

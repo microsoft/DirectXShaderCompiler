@@ -8230,6 +8230,7 @@ bool Sema::CheckParmsForFunctionDef(ParmVarDecl *const *P,
     //
     // This is also C++ [dcl.fct]p6.
     if (!Param->isInvalidDecl() &&
+        !(getLangOpts().HLSL && Param->getType()->isIncompleteArrayType()) &&  // HLSL Change: allow incomplete array type
         RequireCompleteType(Param->getLocation(), Param->getType(),
                             diag::err_typecheck_decl_incomplete_type)) {
       Param->setInvalidDecl();
@@ -8377,6 +8378,7 @@ static bool IsTailPaddedMemberArray(Sema &S, llvm::APInt Size,
       return false;
   return true;
 }
+
 
 void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
                             const ArraySubscriptExpr *ASE,
@@ -8531,6 +8533,14 @@ void Sema::CheckArrayAccess(const Expr *expr) {
           CheckArrayAccess(rhs);
         return;
       }
+      // HLSL Change Starts : Access checking for HLSL vector and matrix array subscript
+      case Stmt::CXXOperatorCallExprClass : {
+        if (getLangOpts().HLSL) {
+            CheckHLSLArrayAccess(expr);
+        }
+        return;
+      }
+      // HLSL Change Ends
       default:
         return;
     }

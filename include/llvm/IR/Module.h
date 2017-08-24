@@ -697,7 +697,7 @@ public:
   void ResetHLModule();
   bool HasDxilModule() const { return TheDxilModule != nullptr; }
   void SetDxilModule(hlsl::DxilModule *pValue) { TheDxilModule = pValue; }
-  hlsl::DxilModule &GetDxilModule() { return *TheDxilModule; }
+  hlsl::DxilModule &GetDxilModule() const { return *TheDxilModule; }
   hlsl::DxilModule &GetOrCreateDxilModule(bool skipInit = false);
   void ResetDxilModule();
   // HLSL Change end

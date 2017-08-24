@@ -6986,7 +6986,12 @@ public:
   DXILTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
     BigEndian = false;
     TLSSupported = false;
-    LongWidth = LongAlign = 64;
+    LongWidth = LongAlign = 32;
+    LongDoubleWidth = LongDoubleAlign = 64;
+    LongDoubleFormat = &llvm::APFloat::IEEEdouble;
+    BoolWidth = 32;
+    // To avoid member for alignment.
+    BoolAlign = 8;
 
     // using the Microsoft ABI.
     TheCXXABI.set(TargetCXXABI::Microsoft);
@@ -7029,8 +7034,6 @@ class DXIL_32TargetInfo : public DXILTargetInfo {
 
 public:
   DXIL_32TargetInfo(const llvm::Triple &Triple) : DXILTargetInfo(Triple) {
-    LongDoubleWidth = LongDoubleAlign = 64;
-    LongDoubleFormat = &llvm::APFloat::IEEEdouble;
     // TODO: Update Description for DXIL
     DescriptionString = "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32";
   }

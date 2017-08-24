@@ -194,6 +194,7 @@ private:
 
 public:
   hlsl::DxcLangExtensionsHelperApply *HlslLangExtensions; // HLSL Change
+
   class PreambleData {
     const FileEntry *File;
     std::vector<char> Buffer;

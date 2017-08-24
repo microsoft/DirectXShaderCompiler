@@ -100,9 +100,39 @@ inline std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
 
 std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob);
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
+bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
+                              const LPCSTR *pErrorMsgs, size_t errorMsgCount,
+                              bool maySucceedAnyway, bool bRegex);
+bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
+               size_t errorMsgCount, bool bRegex);
 std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, LPCWSTR pArgs,
+                     _Outptr_ IDxcBlob **ppResult);
+void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
+                     LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+                     _Outptr_ IDxcBlob **ppResult);
+
+class VersionSupportInfo {
+private:
+  bool m_CompilerIsDebugBuild;
+public:
+  bool m_InternalValidator;
+  unsigned m_DxilMajor, m_DxilMinor;
+  unsigned m_ValMajor, m_ValMinor;
+
+  VersionSupportInfo();
+  // Initialize version info structure.  TODO: add device shader model support
+  void Initialize(dxc::DxcDllSupport &dllSupport);
+  // Return true if IR sensitive test should be skipped, and log comment
+  bool SkipIRSensitiveTest();
+  // Return true if test requiring DXIL of given version should be skipped, and log comment
+  bool SkipDxilVersion(unsigned major, unsigned minor);
+  // Return true if out-of-memory test should be skipped, and log comment
+  bool SkipOutOfMemoryTest();
+};

@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
 
-// CHECK: error: object types not supported in global aggregate instances, cbuffers, or tbuffers.
+// CHECK: var.res.Tex1
 
 struct Resource
 {
@@ -26,5 +26,5 @@ tbuffer TB
 
 float4 main(int4 a : A, float4 coord : TEXCOORD) : SV_TARGET
 {
-  return var.res.Tex1.Sample(Samp, coord.xy) * var.foo;
+  return var.res.Tex1.Sample(Samp, coord.xy) * var.res.foo;
 }

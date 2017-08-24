@@ -74,16 +74,21 @@ long msf_lseek(int fd, long offset, int origin);
 class AutoPerThreadSystem
 {
 private:
-  const std::error_code ec;
+  ::llvm::sys::fs::MSFileSystem* m_pOrigValue;
+  std::error_code ec;
 public:
-  AutoPerThreadSystem(_In_ ::llvm::sys::fs::MSFileSystem* value)
-    : ec(::llvm::sys::fs::SetCurrentThreadFileSystem(value))
-  {
+  AutoPerThreadSystem(_In_ ::llvm::sys::fs::MSFileSystem *value)
+      : m_pOrigValue(::llvm::sys::fs::GetCurrentThreadFileSystem()) {
+    SetCurrentThreadFileSystem(nullptr);
+    ec = ::llvm::sys::fs::SetCurrentThreadFileSystem(value);
   }
 
   ~AutoPerThreadSystem()
   {
-    if (!ec) {
+    if (m_pOrigValue) {
+      ::llvm::sys::fs::SetCurrentThreadFileSystem(nullptr);
+      ::llvm::sys::fs::SetCurrentThreadFileSystem(m_pOrigValue);
+    } else if (!ec) {
       ::llvm::sys::fs::SetCurrentThreadFileSystem(nullptr);
     }
   }

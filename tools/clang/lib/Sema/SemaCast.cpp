@@ -2104,12 +2104,14 @@ void CastOperation::CheckCXXCStyleCast(bool FunctionalStyle,
   }
 
   // HLSL Change Starts
-  // Check for HLSL vector or matrix shrinking.
+  // Check for HLSL vector/matrix/array/struct shrinking.
   if (ValueKind == VK_RValue && 
+      !FunctionalStyle &&
       !isPlaceholder(BuiltinType::Overload) &&
       Self.getLangOpts().HLSL &&
       SrcExpr.get()->isLValue() &&
-      hlsl::IsHLSLVecMatType(SrcExpr.get()->getType()) &&
+      // Cannot use casts on basic type l-values
+      !SrcExpr.get()->getType().getCanonicalType()->isBuiltinType() &&
       hlsl::IsConversionToLessOrEqualElements(&Self, SrcExpr, DestType, true)) {
     ValueKind = VK_LValue;
   }

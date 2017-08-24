@@ -758,6 +758,11 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
                                               : Sema::PCC_Namespace);
     cutOffParsing();
     return DeclGroupPtrTy();
+  // HLSL Change Starts: Ignore shared keyword for now
+  case tok::kw_shared:
+      ConsumeToken();
+      return ParseExternalDeclaration(attrs);
+  // HLSL Change Ends
   // HLSL Change Starts: Start parsing declaration of cbuffer and tbuffers
   case tok::kw_cbuffer:
   case tok::kw_tbuffer:
@@ -829,7 +834,7 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     if (getLangOpts().HLSL) goto dont_know; // HLSL Change - skip unsupported processing
     ParseMicrosoftIfExistsExternalDeclaration();
     return DeclGroupPtrTy();
-      
+
   default:
   dont_know:
     // We can't tell whether this is a function-definition or declaration yet.

@@ -16,13 +16,12 @@ if not exist "%HLSL_BLD_DIR%\LLVM.sln" (
 )
 
 if not exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe" (
-  echo Missing Visual Studio at "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe"
-  exit /b 1
+  start %HLSL_BLD_DIR%\LLVM.sln
+) else (
+  start "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe" %HLSL_BLD_DIR%\LLVM.sln
 )
 
-start "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe" %HLSL_BLD_DIR%\LLVM.sln
-
-exit /b 0
+goto :eof
 
 :showhelp
 echo Launches Visual Studio and opens the solution file.

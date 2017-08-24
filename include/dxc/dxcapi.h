@@ -1,3 +1,4 @@
+
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
 // dxcapi.h                                                                  //
@@ -16,6 +17,7 @@
 #define DXC_API_IMPORT __declspec(dllimport)
 #endif
 
+struct IMalloc;
 struct IDxcIncludeHandler;
 
 /// <summary>
@@ -41,6 +43,13 @@ typedef HRESULT (__stdcall *DxcCreateInstanceProc)(
     _Out_ LPVOID*   ppv
 );
 
+typedef HRESULT(__stdcall *DxcCreateInstance2Proc)(
+  _In_ IMalloc    *pMalloc,
+  _In_ REFCLSID   rclsid,
+  _In_ REFIID     riid,
+  _Out_ LPVOID*   ppv
+  );
+
 /// <summary>
 /// Creates a single uninitialized object of the class associated with a specified CLSID.
 /// </summary>
@@ -63,6 +72,13 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(
   _In_ REFIID     riid,
   _Out_ LPVOID*   ppv
   );
+
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(
+  _In_ IMalloc    *pMalloc,
+  _In_ REFCLSID   rclsid,
+  _In_ REFIID     riid,
+  _Out_ LPVOID*   ppv
+);
 
 
 // IDxcBlob is an alias of ID3D10Blob and ID3DBlob
@@ -155,15 +171,62 @@ IDxcCompiler : public IUnknown {
     _COM_Outptr_ IDxcOperationResult **ppResult   // Preprocessor output status, buffer, and errors
   ) = 0;
 
+  // Disassemble a program.
   virtual HRESULT STDMETHODCALLTYPE Disassemble(
     _In_ IDxcBlob *pSource,                         // Program to disassemble.
     _COM_Outptr_ IDxcBlobEncoding **ppDisassembly   // Disassembly text.
     ) = 0;
 };
 
+struct __declspec(uuid("A005A9D9-B8BB-4594-B5C9-0E633BEC4D37"))
+IDxcCompiler2 : public IDxcCompiler {
+  // Compile a single entry point to the target shader model with debug information.
+  virtual HRESULT STDMETHODCALLTYPE CompileWithDebug(
+    _In_ IDxcBlob *pSource,                       // Source text to compile
+    _In_opt_ LPCWSTR pSourceName,                 // Optional file name for pSource. Used in errors and include handlers.
+    _In_ LPCWSTR pEntryPoint,                     // Entry point name
+    _In_ LPCWSTR pTargetProfile,                  // Shader profile to compile
+    _In_count_(argCount) LPCWSTR *pArguments,     // Array of pointers to arguments
+    _In_ UINT32 argCount,                         // Number of arguments
+    _In_count_(defineCount) const DxcDefine *pDefines,  // Array of defines
+    _In_ UINT32 defineCount,                      // Number of defines
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
+    _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
+    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob.
+    _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
+  ) = 0;
+};
+
+struct __declspec(uuid("F1B5BE2A-62DD-4327-A1C2-42AC1E1E78E6"))
+IDxcLinker : public IUnknown {
+public:
+  // Register a library with name to ref it later.
+  virtual HRESULT RegisterLibrary(
+      _In_opt_ LPCWSTR pLibName,         // Name of the library.
+      _In_ IDxcBlob *pLib                // Library blob.
+  ) = 0;
+
+  // Links the shader and produces a shader blob that the Direct3D runtime can
+  // use.
+  virtual HRESULT STDMETHODCALLTYPE Link(
+      _In_opt_ LPCWSTR pEntryName, // Entry point name
+      _In_ LPCWSTR pTargetProfile, // shader profile to link
+      _In_count_(libCount)
+          const LPCWSTR *pLibNames, // Array of library names to link
+      UINT32 libCount,              // Number of libraries to link
+      _In_count_(argCount)
+          const LPCWSTR *pArguments, // Array of pointers to arguments
+      _In_ UINT32 argCount,          // Number of arguments
+      _COM_Outptr_ IDxcOperationResult *
+          *ppResult // Linker output status, buffer, and errors
+  ) = 0;
+};
+
 static const UINT32 DxcValidatorFlags_Default = 0;
 static const UINT32 DxcValidatorFlags_InPlaceEdit = 1;  // Validator is allowed to update shader blob in-place.
-static const UINT32 DxcValidatorFlags_ValidMask = 0x1;
+static const UINT32 DxcValidatorFlags_RootSignatureOnly = 2;
+static const UINT32 DxcValidatorFlags_ModuleOnly = 4;
+static const UINT32 DxcValidatorFlags_ValidMask = 0x7;
 
 struct __declspec(uuid("A6E82BD2-1FD7-4826-9811-2857E797F49A"))
 IDxcValidator : public IUnknown {
@@ -173,6 +236,14 @@ IDxcValidator : public IUnknown {
     _In_ UINT32 Flags,                            // Validation flags.
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
     ) = 0;
+};
+
+struct __declspec(uuid("334b1f50-2292-4b35-99a1-25588d8c17fe"))
+IDxcContainerBuilder : public IUnknown {
+  virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader) = 0;                // Loads DxilContainer to the builder
+  virtual HRESULT STDMETHODCALLTYPE AddPart(_In_ UINT32 fourCC, _In_ IDxcBlob *pSource) = 0;      // Part to add to the container
+  virtual HRESULT STDMETHODCALLTYPE RemovePart(_In_ UINT32 fourCC) = 0;                           // Remove the part with fourCC
+  virtual HRESULT STDMETHODCALLTYPE SerializeContainer(_Out_ IDxcOperationResult **ppResult) = 0; // Builds a container of the given container builder state
 };
 
 struct __declspec(uuid("091f7a26-1c1f-4948-904b-e6e3a8a771d5"))
@@ -215,6 +286,7 @@ IDxcOptimizer : public IUnknown {
 
 static const UINT32 DxcVersionInfoFlags_None = 0;
 static const UINT32 DxcVersionInfoFlags_Debug = 1; // Matches VS_FF_DEBUG
+static const UINT32 DxcVersionInfoFlags_Internal = 2; // Internal Validator (non-signing)
 
 struct __declspec(uuid("b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e"))
 IDxcVersionInfo : public IUnknown {
@@ -228,6 +300,14 @@ __declspec(selectany) extern const CLSID CLSID_DxcCompiler = {
   0xe6ce,
   0x47f3,
   { 0xb5, 0xbf, 0xf0, 0x66, 0x4f, 0x39, 0xc1, 0xb0 }
+};
+
+// {EF6A8087-B0EA-4D56-9E45-D07E1A8B7806}
+__declspec(selectany) extern const GUID CLSID_DxcLinker = {
+    0xef6a8087,
+    0xb0ea,
+    0x4d56,
+    {0x9e, 0x45, 0xd0, 0x7e, 0x1a, 0x8b, 0x78, 0x6}
 };
 
 // {CD1F6B73-2AB0-484D-8EDC-EBE7A43CA09F}
@@ -278,4 +358,11 @@ __declspec(selectany) extern const GUID CLSID_DxcOptimizer = {
     {0x9b, 0x6b, 0xb1, 0x24, 0xe7, 0xa5, 0x20, 0x4c}
 };
 
+// {94134294-411f-4574-b4d0-8741e25240d2}
+__declspec(selectany) extern const GUID CLSID_DxcContainerBuilder = {
+  0x94134294,
+  0x411f,
+  0x4574,  
+  { 0xb4, 0xd0, 0x87, 0x41, 0xe2, 0x52, 0x40, 0xd2 }
+};
 #endif

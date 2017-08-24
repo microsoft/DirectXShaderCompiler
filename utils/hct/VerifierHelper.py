@@ -50,6 +50,7 @@ HlslBinDir = os.path.expandvars(r'${HLSL_BLD_DIR}\Debug\bin')
 VerifierTests = {
     'RunAttributes': "attributes.hlsl",
 #    'RunCppErrors': "cpp-errors.hlsl",             # This test doesn't work properly in HLSL (fxc mode)
+    'RunEnums' : "enums.hlsl",
     'RunIndexingOperator': "indexing-operator.hlsl",
     'RunIntrinsicExamples': "intrinsic-examples.hlsl",
     'RunMatrixAssignments': "matrix-assignments.hlsl",
@@ -552,8 +553,9 @@ class File(object):
 ##        result = os.system('%s\\clang.exe -cc1 -fsyntax-only -ast-dump %s 1>"%s.ast_dump" 2>"%s.log"' %
         result = os.system('%s\\dxc.exe -ast-dump %s -E main -T ps_5_0 1>"%s.ast_dump" 2>"%s.log"' %
                            (HlslBinDir, self.filename, temp_filename, temp_filename))
-        if result or not os.path.isfile(temp_filename+'.ast_dump'):
-            print 'ast-dump failed and exited with error code %d, see log:\n  %s.log' % (result, temp_filename)
+        # dxc dumps ast even if there exists any syntax error. If there is any error, dxc returns some nonzero errorcode.
+        if not os.path.isfile(temp_filename+'.ast_dump'):
+            print 'ast-dump failed, see log:\n  %s.log' % (temp_filename)
             return
 ##        elif result:
 ##            print 'ast-dump succeeded, but exited with error code %d, see log:\n  %s.log' % (result, temp_filename)

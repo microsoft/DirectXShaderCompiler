@@ -15,6 +15,7 @@
 #include "dxc/HLSL/DxilSemantic.h"
 #include "dxc/HLSL/DxilInterpolationMode.h"
 #include "dxc/HLSL/DxilCompType.h"
+#include "dxc/HLSL/DxilSignatureAllocator.h"
 #include <string>
 #include <vector>
 
@@ -86,6 +87,8 @@ public:
   void SetCompType(CompType CT);
   uint8_t GetColsAsMask() const;
   bool IsAllocated() const;
+  unsigned GetDynIdxCompMask() const;
+  void SetDynIdxCompMask(unsigned DynIdxCompMask);
 
 protected:
   DXIL::SigPointKind m_sigPointKind;
@@ -102,6 +105,34 @@ protected:
   int m_StartRow;
   int m_StartCol;
   unsigned m_OutputStream;
+  unsigned m_DynIdxCompMask;
+};
+
+class DxilPackElement : public DxilSignatureAllocator::PackElement {
+  DxilSignatureElement *m_pSE;
+public:
+  DxilPackElement(DxilSignatureElement *pSE) : m_pSE(pSE) {}
+  __override ~DxilPackElement() {}
+  __override uint32_t GetID() const { return m_pSE->GetID(); }
+  __override DXIL::SemanticKind GetKind() const { return m_pSE->GetKind(); }
+  __override DXIL::InterpolationMode GetInterpolationMode() const { return m_pSE->GetInterpolationMode()->GetKind(); }
+  __override DXIL::SemanticInterpretationKind GetInterpretation() const { return m_pSE->GetInterpretation(); }
+  __override uint32_t GetRows() const { return m_pSE->GetRows(); }
+  __override uint32_t GetCols() const { return m_pSE->GetCols(); }
+  __override bool IsAllocated() const { return m_pSE->IsAllocated(); }
+  __override uint32_t GetStartRow() const { return m_pSE->GetStartRow(); }
+  __override uint32_t GetStartCol() const { return m_pSE->GetStartCol(); }
+
+  __override void ClearLocation() {
+    m_pSE->SetStartRow(-1);
+    m_pSE->SetStartCol(-1);
+  }
+  __override void SetLocation(uint32_t Row, uint32_t Col) {
+    m_pSE->SetStartRow(Row);
+    m_pSE->SetStartCol(Col);
+  }
+
+  DxilSignatureElement *Get() { return m_pSE; }
 };
 
 } // namespace hlsl

@@ -38,20 +38,52 @@ namespace llvm {
 /// \brief Create and return a pass that tranform the module into a DXIL module
 /// Note that this pass is designed for use with the legacy pass manager.
 ModulePass *createDxilCondenseResourcesPass();
+ModulePass *createDxilEliminateOutputDynamicIndexingPass();
 ModulePass *createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper);
 ModulePass *createHLEmitMetadataPass();
 ModulePass *createHLEnsureMetadataPass();
+ModulePass *createDxilFinalizeModulePass();
 ModulePass *createDxilEmitMetadataPass();
+FunctionPass *createDxilExpandTrigIntrinsicsPass();
+ModulePass *createDxilLoadMetadataPass();
+ModulePass *createDxilDeadFunctionEliminationPass();
+ModulePass *createHLDeadFunctionEliminationPass();
 ModulePass *createDxilPrecisePropagatePass();
+FunctionPass *createDxilPreserveAllOutputsPass();
+FunctionPass *createDxilLegalizeResourceUsePass();
+ModulePass *createDxilLegalizeStaticResourceUsePass();
+ModulePass *createDxilLegalizeEvalOperationsPass();
+FunctionPass *createDxilLegalizeSampleOffsetPass();
 FunctionPass *createSimplifyInstPass();
+ModulePass *createDxilAddPixelHitInstrumentationPass();
+ModulePass *createDxilOutputColorBecomesConstantPass();
+ModulePass *createDxilRemoveDiscardsPass();
+ModulePass *createDxilReduceMSAAToSingleSamplePass();
+ModulePass *createDxilForceEarlyZPass();
 
 void initializeDxilCondenseResourcesPass(llvm::PassRegistry&);
+void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
 void initializeDxilGenerationPassPass(llvm::PassRegistry&);
 void initializeHLEnsureMetadataPass(llvm::PassRegistry&);
 void initializeHLEmitMetadataPass(llvm::PassRegistry&);
+void initializeDxilFinalizeModulePass(llvm::PassRegistry&);
 void initializeDxilEmitMetadataPass(llvm::PassRegistry&);
+void initializeDxilExpandTrigIntrinsicsPass(llvm::PassRegistry&);
+void initializeDxilLoadMetadataPass(llvm::PassRegistry&);
+void initializeDxilDeadFunctionEliminationPass(llvm::PassRegistry&);
+void initializeHLDeadFunctionEliminationPass(llvm::PassRegistry&);
 void initializeDxilPrecisePropagatePassPass(llvm::PassRegistry&);
+void initializeDxilPreserveAllOutputsPass(llvm::PassRegistry&);
+void initializeDxilLegalizeResourceUsePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeStaticResourceUsePassPass(llvm::PassRegistry&);
+void initializeDxilLegalizeEvalOperationsPass(llvm::PassRegistry&);
+void initializeDxilLegalizeSampleOffsetPassPass(llvm::PassRegistry&);
 void initializeSimplifyInstPass(llvm::PassRegistry&);
+void initializeDxilAddPixelHitInstrumentationPass(llvm::PassRegistry&);
+void initializeDxilOutputColorBecomesConstantPass(llvm::PassRegistry&);
+void initializeDxilRemoveDiscardsPass(llvm::PassRegistry&);
+void initializeDxilReduceMSAAToSingleSamplePass(llvm::PassRegistry&);
+void initializeDxilForceEarlyZPass(llvm::PassRegistry&);
 
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 

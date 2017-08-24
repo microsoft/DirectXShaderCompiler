@@ -11,18 +11,19 @@
 
 #pragma once
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/MapVector.h"
 #include "dxc/HLSL/DxilCompType.h"
 #include "dxc/HLSL/DxilInterpolationMode.h"
 
 #include <memory>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace llvm {
 class LLVMContext;
 class Module;
 class Function;
+class MDNode;
 class Type;
 class StructType;
 class StringRef;
@@ -53,6 +54,10 @@ public:
   const DxilMatrixAnnotation &GetMatrixAnnotation() const;
   void SetMatrixAnnotation(const DxilMatrixAnnotation &MA);
 
+  bool HasResourceAttribute() const;
+  llvm::MDNode *GetResourceAttribute() const;
+  void SetResourceAttribute(llvm::MDNode *MD);
+
   bool HasCBufferOffset() const;
   unsigned GetCBufferOffset() const;
   void SetCBufferOffset(unsigned Offset);
@@ -78,6 +83,7 @@ private:
   bool m_bPrecise;
   CompType m_CompType;
   DxilMatrixAnnotation m_Matrix;
+  llvm::MDNode *m_ResourceAttribute;
   unsigned m_CBufferOffset;
   std::string m_Semantic;
   InterpolationMode m_InterpMode;
@@ -122,7 +128,7 @@ enum class DxilParamInputQual {
 class DxilParameterAnnotation : public DxilFieldAnnotation {
 public:
   DxilParameterAnnotation();
-  const DxilParamInputQual GetParamInputQual() const;
+  DxilParamInputQual GetParamInputQual() const;
   void SetParamInputQual(DxilParamInputQual qual);
   const std::vector<unsigned> &GetSemanticIndexVec() const;
   void SetSemanticIndexVec(const std::vector<unsigned> &Vec);
@@ -130,6 +136,25 @@ public:
 private:
   DxilParamInputQual m_inputQual;
   std::vector<unsigned> m_semanticIndex;
+};
+
+/// Use this class to represent floating point operations flags for LLVM function
+class DxilFunctionFPFlag {
+  friend class DxilFunctionAnnotation;
+public:
+  static const unsigned kFPDenormMask      = 0x00000007;
+  static const unsigned kFPDenormOffset    = 0;
+
+  void SetFP32DenormMode(const DXIL::FPDenormMode mode);
+  DXIL::FPDenormMode GetFP32DenormMode();
+
+  uint32_t GetFlagValue();
+  const uint32_t GetFlagValue() const;
+  void SetFlagValue(const uint32_t flag);
+
+  DxilFunctionFPFlag(uint32_t flag = 0) : m_flag(flag) {}
+private:
+  uint32_t m_flag;
 };
 
 /// Use this class to represent LLVM function annotation.
@@ -143,28 +168,34 @@ public:
   const llvm::Function *GetFunction() const;
   DxilParameterAnnotation &GetRetTypeAnnotation();
   const DxilParameterAnnotation &GetRetTypeAnnotation() const;
+  DxilFunctionFPFlag &GetFlag();
+  const DxilFunctionFPFlag &GetFlag() const;
 private:
   const llvm::Function *m_pFunction;
   std::vector<DxilParameterAnnotation> m_parameterAnnotations;
   DxilParameterAnnotation m_retTypeAnnotation;
+  DxilFunctionFPFlag m_fpFlag;
 };
 
 /// Use this class to represent structure type annotations in HL and DXIL.
 class DxilTypeSystem {
 public:
-  using StructAnnotationMap = std::map<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
-  using FunctionAnnotationMap = std::map<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
+  using StructAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
+  using FunctionAnnotationMap = llvm::MapVector<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
 
   DxilTypeSystem(llvm::Module *pModule);
 
   DxilStructAnnotation *AddStructAnnotation(const llvm::StructType *pStructType);
   DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType);
+  const DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType) const;
   void EraseStructAnnotation(const llvm::StructType *pStructType);
 
   StructAnnotationMap &GetStructAnnotationMap();
 
   DxilFunctionAnnotation *AddFunctionAnnotation(const llvm::Function *pFunction);
+  DxilFunctionAnnotation *AddFunctionAnnotationWithFPFlag(const llvm::Function *pFunction, const DxilFunctionFPFlag *flag);
   DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction);
+  const DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction) const;
   void EraseFunctionAnnotation(const llvm::Function *pFunction);
 
   FunctionAnnotationMap &GetFunctionAnnotationMap();
@@ -174,10 +205,20 @@ public:
   llvm::StructType *GetSNormF32Type(unsigned NumComps);
   llvm::StructType *GetUNormF32Type(unsigned NumComps);
 
+  // Methods to copy annotation from another DxilTypeSystem.
+  void CopyTypeAnnotation(const llvm::Type *Ty, const DxilTypeSystem &src);
+  void CopyFunctionAnnotation(const llvm::Function *pDstFunction,
+                              const llvm::Function *pSrcFunction,
+                              const DxilTypeSystem &src);
+
+  bool UseMinPrecision();
+
 private:
   llvm::Module *m_pModule;
   StructAnnotationMap m_StructAnnotations;
   FunctionAnnotationMap m_FunctionAnnotations;
+
+  DXIL::LowPrecisionMode m_LowPrecisionMode;
 
   llvm::StructType *GetNormFloatType(CompType CT, unsigned NumComps);
 };

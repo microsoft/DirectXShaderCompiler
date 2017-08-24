@@ -10,10 +10,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include <unordered_set>
 
 namespace llvm {
 class Instruction;
 class Value;
+class LoadInst;
 class Function;
 }
 
@@ -23,7 +25,7 @@ class DxilResourceBase;
 class HLSLExtensionsCodegenHelper;
 
 void TranslateBuiltinOperations(
-    HLModule &HLM,
-    std::unordered_map<llvm::Instruction *, llvm::Value *> &handleMap,
-    HLSLExtensionsCodegenHelper *extCodegenHelper);
+    HLModule &HLM, HLSLExtensionsCodegenHelper *extCodegenHelper,
+    std::unordered_set<llvm::LoadInst *> &UpdateCounterSet,
+    std::unordered_set<llvm::Value *> &NonUniformSet);
 }

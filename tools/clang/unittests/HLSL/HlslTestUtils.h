@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include "dxc/Support/Unicode.h"
+#include <dxgiformat.h>
 
 // If TAEF verify macros are available, use them to alias other legacy
 // comparison macros that don't have a direct translation.
@@ -78,6 +79,14 @@ inline void LogCommentFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...)
   std::wstring buf(vFormatToWString(fmt, args));
   va_end(args);
   WEX::Logging::Log::Comment(buf.data());
+}
+
+inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    std::wstring buf(vFormatToWString(fmt, args));
+    va_end(args);
+    WEX::Logging::Log::Error(buf.data());
 }
 
 inline std::wstring GetPathToHlslDataFile(const wchar_t* relative) {
@@ -172,6 +181,134 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
 }
 
 }
+
+inline bool isdenorm(float f) {
+  return FP_SUBNORMAL == fpclassify(f);
+}
+
+inline bool isdenorm(double d) {
+  return FP_SUBNORMAL == fpclassify(d);
+}
+
+inline float ifdenorm_flushf(float a) {
+  return isdenorm(a) ? copysign(0.0f, a) : a;
+}
+
+inline bool ifdenorm_flushf_eq(float a, float b) {
+  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
+}
+
+inline bool ifdenorm_flushf_eq_or_nans(float a, float b) {
+  if (isnan(a) && isnan(b)) return true;
+  return ifdenorm_flushf(a) == ifdenorm_flushf(b);
+}
+
+inline bool CompareFloatULP(const float &fsrc, const float &fref, int ULPTolerance) {
+    if (isnan(fsrc)) {
+        return isnan(fref);
+    }
+    if (isdenorm(fref)) { // Arithmetic operations of denorm may flush to sign-preserved zero
+        return (isdenorm(fsrc) || fsrc == 0) && (signbit(fsrc) == signbit(fref));
+    }
+    if (fsrc == fref) {
+        return true;
+    }
+    int diff = *((DWORD *)&fsrc) - *((DWORD *)&fref);
+    unsigned int uDiff = diff < 0 ? -diff : diff;
+    return uDiff <= (unsigned int)ULPTolerance;
+}
+
+inline bool CompareFloatEpsilon(const float &fsrc, const float &fref, float epsilon) {
+    if (isnan(fsrc)) {
+        return isnan(fref);
+    }
+    if (isdenorm(fref)) { // Arithmetic operations of denorm may flush to sign-preserved zero
+        return (isdenorm(fsrc) || fsrc == 0) && (signbit(fsrc) == signbit(fref));
+    }
+    return fsrc == fref || fabsf(fsrc - fref) < epsilon;
+}
+
+// Compare using relative error (relative error < 2^{nRelativeExp})
+inline bool CompareFloatRelativeEpsilon(const float &fsrc, const float &fref, int nRelativeExp) {
+    return CompareFloatULP(fsrc, fref, 23 - nRelativeExp);
+}
+
+// returns the number of bytes per pixel for a given dxgi format
+// add more cases if different format needed to copy back resources
+inline UINT GetByteSizeForFormat(DXGI_FORMAT value) {
+    switch (value) {
+    case DXGI_FORMAT_R32G32B32A32_TYPELESS: return 16;
+    case DXGI_FORMAT_R32G32B32A32_FLOAT: return 16;
+    case DXGI_FORMAT_R32G32B32A32_UINT: return 16;
+    case DXGI_FORMAT_R32G32B32A32_SINT: return 16;
+    case DXGI_FORMAT_R32G32B32_TYPELESS: return 12;
+    case DXGI_FORMAT_R32G32B32_FLOAT: return 12;
+    case DXGI_FORMAT_R32G32B32_UINT: return 12;
+    case DXGI_FORMAT_R32G32B32_SINT: return 12;
+    case DXGI_FORMAT_R16G16B16A16_TYPELESS: return 8;
+    case DXGI_FORMAT_R16G16B16A16_FLOAT: return 8;
+    case DXGI_FORMAT_R16G16B16A16_UNORM: return 8;
+    case DXGI_FORMAT_R16G16B16A16_UINT: return 8;
+    case DXGI_FORMAT_R16G16B16A16_SNORM: return 8;
+    case DXGI_FORMAT_R16G16B16A16_SINT: return 8;
+    case DXGI_FORMAT_R32G32_TYPELESS: return 8;
+    case DXGI_FORMAT_R32G32_FLOAT: return 8;
+    case DXGI_FORMAT_R32G32_UINT: return 8;
+    case DXGI_FORMAT_R32G32_SINT: return 8;
+    case DXGI_FORMAT_R32G8X24_TYPELESS: return 8;
+    case DXGI_FORMAT_D32_FLOAT_S8X24_UINT: return 4;
+    case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS: return 4;
+    case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT: return 4;
+    case DXGI_FORMAT_R10G10B10A2_TYPELESS: return 4;
+    case DXGI_FORMAT_R10G10B10A2_UNORM: return 4;
+    case DXGI_FORMAT_R10G10B10A2_UINT: return 4;
+    case DXGI_FORMAT_R11G11B10_FLOAT: return 4;
+    case DXGI_FORMAT_R8G8B8A8_TYPELESS: return 4;
+    case DXGI_FORMAT_R8G8B8A8_UNORM: return 4;
+    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB: return 4;
+    case DXGI_FORMAT_R8G8B8A8_UINT: return 4;
+    case DXGI_FORMAT_R8G8B8A8_SNORM: return 4;
+    case DXGI_FORMAT_R8G8B8A8_SINT: return 4;
+    case DXGI_FORMAT_R16G16_TYPELESS: return 4;
+    case DXGI_FORMAT_R16G16_FLOAT: return 4;
+    case DXGI_FORMAT_R16G16_UNORM: return 4;
+    case DXGI_FORMAT_R16G16_UINT: return 4;
+    case DXGI_FORMAT_R16G16_SNORM: return 4;
+    case DXGI_FORMAT_R16G16_SINT: return 4;
+    case DXGI_FORMAT_R32_TYPELESS: return 4;
+    case DXGI_FORMAT_D32_FLOAT: return 4;
+    case DXGI_FORMAT_R32_FLOAT: return 4;
+    case DXGI_FORMAT_R32_UINT: return 4;
+    case DXGI_FORMAT_R32_SINT: return 4;
+    case DXGI_FORMAT_R24G8_TYPELESS: return 4;
+    case DXGI_FORMAT_D24_UNORM_S8_UINT: return 4;
+    case DXGI_FORMAT_R24_UNORM_X8_TYPELESS: return 4;
+    case DXGI_FORMAT_X24_TYPELESS_G8_UINT: return 4;
+    case DXGI_FORMAT_R8G8_TYPELESS: return 2;
+    case DXGI_FORMAT_R8G8_UNORM: return 2;
+    case DXGI_FORMAT_R8G8_UINT: return 2;
+    case DXGI_FORMAT_R8G8_SNORM: return 2;
+    case DXGI_FORMAT_R8G8_SINT: return 2;
+    case DXGI_FORMAT_R16_TYPELESS: return 2;
+    case DXGI_FORMAT_R16_FLOAT: return 2;
+    case DXGI_FORMAT_D16_UNORM: return 2;
+    case DXGI_FORMAT_R16_UNORM: return 2;
+    case DXGI_FORMAT_R16_UINT: return 2;
+    case DXGI_FORMAT_R16_SNORM: return 2;
+    case DXGI_FORMAT_R16_SINT: return 2;
+    case DXGI_FORMAT_R8_TYPELESS: return 1;
+    case DXGI_FORMAT_R8_UNORM: return 1;
+    case DXGI_FORMAT_R8_UINT: return 1;
+    case DXGI_FORMAT_R8_SNORM: return 1;
+    case DXGI_FORMAT_R8_SINT: return 1;
+    case DXGI_FORMAT_A8_UNORM: return 1;
+    case DXGI_FORMAT_R1_UNORM: return 1;
+    default:
+        VERIFY_FAILED(E_INVALIDARG);
+        return 0;
+    }
+}
+
 
 #define SIMPLE_IUNKNOWN_IMPL1(_IFACE_) \
   private: volatile ULONG m_dwRef; \

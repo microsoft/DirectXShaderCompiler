@@ -66,6 +66,8 @@ enum HLSLScalarType {
   HLSLScalarType_uint64,
 };
 
+HLSLScalarType MakeUnsigned(HLSLScalarType T);
+
 static const HLSLScalarType HLSLScalarType_minvalid = HLSLScalarType_bool;
 static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_uint64;
 static const size_t HLSLScalarTypeCount = static_cast<size_t>(HLSLScalarType_max) + 1;
@@ -205,18 +207,18 @@ struct RegisterAssignment : public UnusualAnnotation
 {
   /// <summary>Initializes a new RegisterAssignment in invalid state.</summary>
   RegisterAssignment() : UnusualAnnotation(UA_RegisterAssignment),
-    ShaderProfile(),
-    RegisterType(0), RegisterNumber(0), RegisterSpace(0), RegisterOffset(0), IsValid(false)
+    ShaderProfile(), IsValid(false),
+    RegisterType(0), RegisterNumber(0), RegisterSpace(0), RegisterOffset(0)
   {
   }
 
   RegisterAssignment(const RegisterAssignment& other) : UnusualAnnotation(UA_RegisterAssignment, other.Loc),
     ShaderProfile(other.ShaderProfile),
+    IsValid(other.IsValid),
     RegisterType(other.RegisterType),
     RegisterNumber(other.RegisterNumber),
-    RegisterOffset(other.RegisterOffset),
     RegisterSpace(other.RegisterSpace),
-    IsValid(other.IsValid)
+    RegisterOffset(other.RegisterOffset)
   {
   }
 
@@ -358,7 +360,7 @@ bool IsHLSLPointStreamType(clang::QualType type);
 bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
-bool IsHLSLResouceType(clang::QualType type);
+bool IsHLSLResourceType(clang::QualType type);
 clang::QualType GetHLSLResourceResultType(clang::QualType type);
 bool IsIncompleteHLSLResourceArrayType(clang::ASTContext& context, clang::QualType type);
 clang::QualType GetHLSLInputPatchElementType(clang::QualType type);
@@ -419,6 +421,32 @@ bool TryParseVectorShorthand(
   _Out_     HLSLScalarType* parsedType,
   _Out_     int* elementCount);
 
-}
+_Success_(return != false)
+bool TryParseScalar(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _Out_     HLSLScalarType *parsedType
+);
 
+_Success_(return != false)
+bool TryParseAny(
+  _In_count_(typenameLen)
+  const char* typeName,
+  size_t typeNameLen,
+  _Out_ HLSLScalarType *parsedType,
+  _Out_ int *rowCount,
+  _Out_ int *colCount
+);
+
+_Success_(return != false)
+bool TryParseMatrixOrVectorDimension(
+  _In_count_(typeNameLen)
+  const char *typeName,
+  size_t typeNameLen,
+  _Out_opt_ int *rowCount,
+  _Out_opt_ int *colCount
+);
+
+} // end hlsl namespace
 #endif

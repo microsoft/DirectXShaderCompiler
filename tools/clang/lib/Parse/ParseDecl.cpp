@@ -215,7 +215,8 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
   DXASSERT_NOMSG(diagId != nullptr);
 
   if (*name != 'b' && *name != 'c' && *name != 'i' && *name != 's' &&
-      *name != 't' && *name != 'u') {
+      *name != 't' && *name != 'u' && *name != 'B' && *name != 'C' &&
+	  *name != 'I' && *name != 'S' && *name != 'T' && *name != 'U') {
     *diagId = diag::err_hlsl_unsupported_register_type;
     *registerType = 0;
     *registerNumber = 0;
@@ -250,7 +251,7 @@ void ParsePackSubcomponent(_In_z_ const char* name, _Out_ unsigned* subcomponent
 
   char registerType;
   ParseRegisterNumberForHLSL(name, &registerType, subcomponent, diagId);
-  if (registerType != 'c')
+  if (registerType != 'c' && registerType != 'C')
   {
     *diagId = diag::err_hlsl_unsupported_register_type;
         return;
@@ -705,6 +706,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLLoop:
     case AttributeList::AT_HLSLMaxTessFactor:
     case AttributeList::AT_HLSLNumThreads:
+    case AttributeList::AT_HLSLShader:
     case AttributeList::AT_HLSLRootSignature:
     case AttributeList::AT_HLSLOutputControlPoints:
     case AttributeList::AT_HLSLOutputTopology:
@@ -1889,7 +1891,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   Decl *OwnedType = nullptr;
   switch (Tok.getKind()) {
   case tok::kw_template:
-  case tok::kw_export:
     // HLSL Change Starts
     if (getLangOpts().HLSL) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
@@ -1900,6 +1901,14 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
     ProhibitAttributes(attrs);
     SingleDecl = ParseDeclarationStartingWithTemplate(Context, DeclEnd);
     break;
+    // HLSL Change Begin.
+  case tok::kw_export:
+    // Ignore export for now.
+    ConsumeToken();
+    return ParseSimpleDeclaration(Context, DeclEnd, attrs,
+                                  true);
+    break;
+    // HLSL Change End.
   case tok::kw_inline:
     // Could be the start of an inline namespace. Allowed as an ext in C++03.
     if (getLangOpts().CPlusPlus && NextToken().is(tok::kw_namespace) && !getLangOpts().HLSL) { // HLSL Change - disallowed in HLSL
@@ -2166,6 +2175,51 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     SkipMalformedDecl();
     return DeclGroupPtrTy();
   }
+
+  // HLSL Change Starts: change global variables that will be in constant buffer to be constant by default 
+  // Global variables that are groupshared, static, or typedef 
+  // will not be part of constant buffer and therefore should not be const by default.
+  if (getLangOpts().HLSL && !D.isFunctionDeclarator() &&
+      D.getContext() == Declarator::TheContext::FileContext &&
+      DS.getStorageClassSpec() != DeclSpec::SCS::SCS_static &&
+      DS.getStorageClassSpec() != DeclSpec::SCS::SCS_typedef
+      ) {
+
+    // Check whether or not there is a 'groupshared' attribute
+    AttributeList *attrList = DS.getAttributes().getList();
+    bool isGroupShared = false;
+    while (attrList) {
+        if (attrList->getName()->getName().compare(
+            StringRef(tok::getTokenName(tok::kw_groupshared))) == 0) {
+            isGroupShared = true;
+            break;
+        }
+      attrList = attrList->getNext();
+    }
+    if (!isGroupShared) {
+      // check whether or not the given data is the typename or primitive types
+      if (DS.isTypeRep()) {
+        QualType type = DS.getRepAsType().get();
+        // canonical types of HLSL Object types are not canonical for some
+        // reason. other HLSL Object types of vector/matrix/array should be
+        // treated as const.
+        if (type.getCanonicalType().isCanonical() &&
+            IsTypeNumeric(&Actions, type)) {
+          unsigned int diagID;
+          const char *prevSpec;
+          DS.SetTypeQual(DeclSpec::TQ_const, D.getDeclSpec().getLocStart(),
+                         prevSpec, diagID, getLangOpts());
+        }
+      } else {
+        // If not a typename, it is a basic type and should be treated as const.
+        unsigned int diagID;
+        const char *prevSpec;
+        DS.SetTypeQual(DeclSpec::TQ_const, D.getDeclSpec().getLocStart(),
+                       prevSpec, diagID, getLangOpts());
+      }
+    }
+  }
+  // HLSL Change Ends
 
   // Save late-parsed attributes for now; they need to be parsed in the
   // appropriate function scope after the function Decl has been constructed.
@@ -2493,6 +2547,16 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         return nullptr;
       }
 
+
+      // HLSL Change Begin.
+      // Skip the initializer of effect object.
+      if (D.isInvalidType()) {
+        SkipUntil(tok::semi, StopBeforeMatch); // skip until ';'
+        Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
+        return nullptr;
+      }
+      // HLSL Change End.
+
       ExprResult Init(ParseInitializer());
 
       // If this is the only decl in (possibly) range based for statement,
@@ -2598,8 +2662,11 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     Diag(Tok.getLocation(), diag::warn_hlsl_effect_state_block);
     ConsumeBrace();
     SkipUntil(tok::r_brace); // skip until '}'
+    // Braces could have been used to initialize an array.
+    // In this case we require users to use braces with the equal sign.
+    // Otherwise, the array will be treated as an uninitialized declaration.
+    Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
     // HLSL Change Ends
-
   } else {
     Actions.ActOnUninitializedDecl(ThisDecl, TypeContainsAuto);
   }
@@ -3466,9 +3533,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           Actions.isCurrentClassName(*Tok.getIdentifierInfo(), getCurScope()) &&
           isConstructorDeclarator(/*Unqualified*/true))
         goto DoneWithDeclSpec;
-
+      // HLSL Change start - modify TypeRep for unsigned vectors/matrix
+      QualType qt = TypeRep.get();
+      QualType newType = ApplyTypeSpecSignToParsedType(&Actions, qt, DS.getTypeSpecSign(), Loc);
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec,
-                                     DiagID, TypeRep, Policy);
+                                     DiagID, ParsedType::make(newType), Policy);
+      // HLSL Change end
       if (isInvalid)
         break;
 
@@ -3621,6 +3691,7 @@ HLSLReservedKeyword:
     case tok::kw_precise:
     case tok::kw_shared:
     case tok::kw_groupshared:
+    case tok::kw_globallycoherent:
     case tok::kw_uniform:
     case tok::kw_in:
     case tok::kw_out:
@@ -3811,19 +3882,6 @@ HLSLReservedKeyword:
                                      DiagID, Policy);
       break;
     // HLSL Change Starts
-    case tok::kw_min10float:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_min10float, Loc, PrevSpec,
-                                     DiagID, Policy);
-      if (!isInvalid)
-        Diag(Tok, diag::warn_hlsl_minprecision_promotion) << "min10float" << "min16float";
-      break;
-    case tok::kw_min12int:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_min12int, Loc, PrevSpec,
-                                     DiagID, Policy);
-      if (!isInvalid)
-        Diag(Tok, diag::warn_hlsl_minprecision_promotion) << "min12int" << "min16int";
-      break;
-    // HLSL Change Ends
     case tok::kw_half:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_half, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -4335,9 +4393,8 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
                                 const ParsedTemplateInfo &TemplateInfo,
                                 AccessSpecifier AS, DeclSpecContext DSC) {
   // HLSL Change Starts
-  if (getLangOpts().HLSL) {
-    Diag(Tok, diag::err_hlsl_unsupported_construct) << "enum";
-
+  if (getLangOpts().HLSL && !getLangOpts().HLSL2017) {
+    Diag(Tok, diag::err_hlsl_enum);
     // Skip the rest of this declarator, up until the comma or semicolon.
     SkipUntil(tok::comma, StopAtSemi);
     return;
@@ -4356,15 +4413,17 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
   MaybeParseGNUAttributes(attrs);
   MaybeParseCXX11Attributes(attrs);
   MaybeParseMicrosoftDeclSpecs(attrs);
-  assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - enums not allowed
+  MaybeParseHLSLAttributes(attrs);
 
   SourceLocation ScopedEnumKWLoc;
   bool IsScopedUsingClassTag = false;
 
   // In C++11, recognize 'enum class' and 'enum struct'.
   if (Tok.isOneOf(tok::kw_class, tok::kw_struct)) {
-    Diag(Tok, getLangOpts().CPlusPlus11 ? diag::warn_cxx98_compat_scoped_enum
-                                        : diag::ext_scoped_enum);
+    // HLSL Change: Supress C++11 warning
+    if (!getLangOpts().HLSL)
+      Diag(Tok, getLangOpts().CPlusPlus11 ? diag::warn_cxx98_compat_scoped_enum
+                                          : diag::ext_scoped_enum);
     IsScopedUsingClassTag = Tok.is(tok::kw_class);
     ScopedEnumKWLoc = ConsumeToken();
 
@@ -4394,7 +4453,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 
   bool AllowFixedUnderlyingType = AllowDeclaration &&
     (getLangOpts().CPlusPlus11 || getLangOpts().MicrosoftExt ||
-     getLangOpts().ObjC2);
+     getLangOpts().ObjC2 || getLangOpts().HLSL2017);
 
   CXXScopeSpec &SS = DS.getTypeSpecScope();
   if (getLangOpts().CPlusPlus) {
@@ -4696,7 +4755,7 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
 ///         identifier
 ///
 void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
-  assert(getLangOpts().HLSL && "HLSL does not support enums"); // HLSL Change
+  assert(getLangOpts().HLSL2017 && "HLSL does not support enums before 2017"); // HLSL Change
 
   // Enter the scope of the enum body and start the definition.
   ParseScope EnumScope(this, Scope::DeclScope | Scope::EnumScope);
@@ -4738,7 +4797,7 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
             << 1 /*enumerator*/;
       ParseCXX11Attributes(attrs);
     }
-    assert(!getLangOpts().HLSL); // HLSL Change: in lieu of MaybeParseHLSLAttributes - enums not allowed
+    MaybeParseHLSLAttributes(attrs);
 
     SourceLocation EqualLoc;
     ExprResult AssignedVal;
@@ -4898,11 +4957,6 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
     // enum-specifier
   case tok::kw_enum:
 
-    // HLSL Change Starts - HLSL types
-  case tok::kw_min10float:
-  case tok::kw_min12int:
-    // HLSL Change Ends
-
     // typedef-name
   case tok::annot_typename:
     return true;
@@ -4988,8 +5042,6 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::annot_typename:
 
     // HLSL Change Starts
-  case tok::kw_min10float:
-  case tok::kw_min12int:
   case tok::kw_column_major:
   case tok::kw_row_major:
   case tok::kw_snorm:
@@ -5086,6 +5138,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_precise:
   case tok::kw_shared:
   case tok::kw_groupshared:
+  case tok::kw_globallycoherent:
   case tok::kw_uniform:
   case tok::kw_in:
   case tok::kw_out:
@@ -5095,8 +5148,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_noperspective:
   case tok::kw_sample:
   case tok::kw_centroid:
-  case tok::kw_min10float:
-  case tok::kw_min12int:
   case tok::kw_column_major:
   case tok::kw_row_major:
   case tok::kw_snorm:

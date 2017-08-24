@@ -346,8 +346,9 @@ void DeclarationName::dump() const {
 }
 
 DeclarationNameTable::DeclarationNameTable(const ASTContext &C) : Ctx(C) {
-  CXXSpecialNamesImpl = new llvm::FoldingSet<CXXSpecialName>;
-  CXXLiteralOperatorNames = new llvm::FoldingSet<CXXLiteralOperatorIdName>;
+  // HLSL Change Starts - use std::unique_ptr to avoid leaks
+  std::unique_ptr<llvm::FoldingSet<CXXSpecialName> > CXXSpecialNamesImplPtr(new llvm::FoldingSet<CXXSpecialName>());
+  std::unique_ptr<llvm::FoldingSet<CXXLiteralOperatorIdName> > CXXLiteralOperatorNamesPtr(new llvm::FoldingSet<CXXLiteralOperatorIdName>());
 
   // Initialize the overloaded operator names.
   CXXOperatorNames = new (Ctx) CXXOperatorIdName[NUM_OVERLOADED_OPERATORS];
@@ -356,6 +357,10 @@ DeclarationNameTable::DeclarationNameTable(const ASTContext &C) : Ctx(C) {
       = Op + DeclarationNameExtra::CXXConversionFunction;
     CXXOperatorNames[Op].FETokenInfo = nullptr;
   }
+
+  CXXSpecialNamesImpl = CXXSpecialNamesImplPtr.release();
+  CXXLiteralOperatorNames = CXXLiteralOperatorNamesPtr.release();
+  // HLSL Change Ends - use std::unique_ptr to avoid leaks
 }
 
 DeclarationNameTable::~DeclarationNameTable() {

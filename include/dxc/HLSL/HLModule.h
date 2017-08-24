@@ -19,6 +19,7 @@
 #include "dxc/HLSL/DxilSampler.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilSignature.h"
+#include "dxc/HLSL/DxilFunctionProps.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,6 +30,7 @@ class LLVMContext;
 class Module;
 class Function;
 class Instruction;
+class CallInst;
 class MDTuple;
 class MDNode;
 class GlobalVariable;
@@ -43,51 +45,10 @@ class ShaderModel;
 class OP;
 class RootSignatureHandle;
 
-struct HLFunctionProps {
-  union {
-    // TODO: not every function need this union.
-    // Compute shader.
-    struct {
-      unsigned numThreads[3];
-    } CS;
-    // Geometry shader.
-    struct {
-      DXIL::InputPrimitive inputPrimitive;
-      unsigned maxVertexCount;
-      unsigned instanceCount;
-      DXIL::PrimitiveTopology streamPrimitiveTopologies[DXIL::kNumOutputStreams];
-    } GS;
-    // Hull shader.
-    struct {
-      llvm::Function *patchConstantFunc;
-      DXIL::TessellatorDomain domain;
-      DXIL::TessellatorPartitioning partition;
-      DXIL::TessellatorOutputPrimitive outputPrimitive;
-      unsigned inputControlPoints;
-      unsigned outputControlPoints;
-      float    maxTessFactor;
-    } HS;
-    // Domain shader.
-    struct {
-      DXIL::TessellatorDomain domain;
-      unsigned inputControlPoints;
-    } DS;
-    // Vertex shader.
-    struct {
-      llvm::Constant *clipPlanes[DXIL::kNumClipPlanes];
-    } VS;
-    // Pixel shader.
-    struct {
-      bool EarlyDepthStencil;
-    } PS;
-  } ShaderProps;
-  DXIL::ShaderKind shaderKind;
-};
-
 struct HLOptions {
   HLOptions()
       : bDefaultRowMajor(false), bIEEEStrict(false), bDisableOptimizations(false),
-        bLegacyCBufferLoad(false), unused(0) {
+        bLegacyCBufferLoad(false), PackingStrategy(0), unused(0) {
   }
   uint32_t GetHLOptionsRaw() const;
   void SetHLOptionsRaw(uint32_t data);
@@ -96,7 +57,10 @@ struct HLOptions {
   unsigned bAllResourcesBound      : 1;
   unsigned bDisableOptimizations   : 1;
   unsigned bLegacyCBufferLoad      : 1;
-  unsigned unused                  : 27;
+  unsigned PackingStrategy         : 2;
+  static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4, "otherwise 2 bits is not enough to store PackingStrategy");
+  unsigned bUseMinPrecision        : 1;
+  unsigned unused                  : 24;
 };
 
 /// Use this class to manipulate HLDXIR of a shader.
@@ -111,6 +75,8 @@ public:
   OP *GetOP() const;
   void SetShaderModel(const ShaderModel *pSM);
   const ShaderModel *GetShaderModel() const;
+  void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
+  void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
 
   // HLOptions
   void SetHLOptions(HLOptions &opts);
@@ -121,6 +87,7 @@ public:
   void SetEntryFunction(llvm::Function *pEntryFunc);
   const std::string &GetEntryFunctionName() const;
   void SetEntryFunctionName(const std::string &name);
+  llvm::Function *GetPatchConstantFunction();
 
   // Resources.
   unsigned AddCBuffer(std::unique_ptr<DxilCBuffer> pCB);
@@ -154,23 +121,25 @@ public:
   void AddGroupSharedVariable(llvm::GlobalVariable *GV);
 
   // Signatures.
-  DxilSignature &GetInputSignature();
-  DxilSignature &GetOutputSignature();
-  DxilSignature &GetPatchConstantSignature();
   RootSignatureHandle &GetRootSignature();
 
-  // HLFunctionProps.
-  bool HasHLFunctionProps(llvm::Function *F);
-  HLFunctionProps &GetHLFunctionProps(llvm::Function *F);
-  void AddHLFunctionProps(llvm::Function *F, std::unique_ptr<HLFunctionProps> &info);
+  // DxilFunctionProps.
+  bool HasDxilFunctionProps(llvm::Function *F);
+  DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
+  void AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
 
   DxilFunctionAnnotation *GetFunctionAnnotation(llvm::Function *F);
   DxilFunctionAnnotation *AddFunctionAnnotation(llvm::Function *F);
+  DxilFunctionAnnotation *AddFunctionAnnotationWithFPDenormMode(llvm::Function *F, DXIL::FPDenormMode mode);
 
   void AddResourceTypeAnnotation(llvm::Type *Ty, DXIL::ResourceClass resClass,
                                  DXIL::ResourceKind kind);
   DXIL::ResourceClass GetResourceClass(llvm::Type *Ty);
   DXIL::ResourceKind  GetResourceKind(llvm::Type *Ty);
+
+  // Float Denorm mode.
+  void SetFPDenormMode(const DXIL::FPDenormMode mode);
+  DXIL::FPDenormMode GetFPDenormMode() const;
 
   // HLDXIR metadata manipulation.
   /// Serialize HLDXIR in-memory form to metadata form.
@@ -179,24 +148,29 @@ public:
   void LoadHLMetadata();
   /// Delete any HLDXIR from the specified module.
   static void ClearHLMetadata(llvm::Module &M);
+  /// Create Metadata from a resource.
+  llvm::MDNode *DxilSamplerToMDNode(const DxilSampler &S);
+  llvm::MDNode *DxilSRVToMDNode(const DxilResource &SRV);
+  llvm::MDNode *DxilUAVToMDNode(const DxilResource &UAV);
+  llvm::MDNode *DxilCBufferToMDNode(const DxilCBuffer &CB);
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
+  void AddResourceWithGlobalVariableAndMDNode(llvm::Constant *GV,
+                                              llvm::MDNode *MD);
 
   // Type related methods.
   static bool IsStreamOutputPtrType(llvm::Type *Ty);
   static bool IsStreamOutputType(llvm::Type *Ty);
   static bool IsHLSLObjectType(llvm::Type *Ty);
-  static unsigned
-  GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
-                                   llvm::Type *Ty, DxilTypeSystem &typeSys);
-
-  static bool IsStaticGlobal(llvm::GlobalVariable *GV);
-  static bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
   static const char *GetLegacyDataLayoutDesc();
+  static const char *GetNewDataLayoutDesc();
+
+  static void MergeGepUse(llvm::Value *V);
 
   // HL code gen.
   template<class BuilderTy>
-  static llvm::Value *EmitHLOperationCall(BuilderTy &Builder,
+  static llvm::CallInst *EmitHLOperationCall(BuilderTy &Builder,
                                           HLOpcodeGroup group, unsigned opcode,
                                           llvm::Type *RetType,
                                           llvm::ArrayRef<llvm::Value *> paramList,
@@ -215,6 +189,12 @@ public:
   static void MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
                                                         llvm::Module &M);
   static bool HasPreciseAttribute(llvm::Function *F);
+  // Resource attribute.
+  static void  MarkDxilResourceAttrib(llvm::Function *F, llvm::MDNode *MD);
+  static llvm::MDNode *GetDxilResourceAttrib(llvm::Function *F);
+  void MarkDxilResourceAttrib(llvm::Argument *Arg, llvm::MDNode *MD);
+  llvm::MDNode *GetDxilResourceAttrib(llvm::Argument *Arg);
+  static llvm::MDNode *GetDxilResourceAttrib(llvm::Type *Ty, llvm::Module &M);
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
@@ -224,11 +204,11 @@ public:
   std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
 
   // Release functions used to transfer ownership.
-  DxilSignature *ReleaseInputSignature();
-  DxilSignature *ReleaseOutputSignature();
-  DxilSignature *ReleasePatchConstantSignature();
   DxilTypeSystem *ReleaseTypeSystem();
+  OP *ReleaseOP();
   RootSignatureHandle *ReleaseRootSignature();
+  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>> &&
+  ReleaseFunctionPropsMap();
 
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
   static llvm::DIGlobalVariable *
@@ -248,9 +228,6 @@ public:
 
 private:
   // Signatures.
-  std::unique_ptr<DxilSignature> m_InputSignature;
-  std::unique_ptr<DxilSignature> m_OutputSignature;
-  std::unique_ptr<DxilSignature> m_PatchConstantSignature;
   std::unique_ptr<RootSignatureHandle> m_RootSignature;
 
   // Shader resources.
@@ -263,7 +240,7 @@ private:
   std::vector<llvm::GlobalVariable*>  m_TGSMVariables;
 
   // High level function info.
-  std::unordered_map<llvm::Function *, std::unique_ptr<HLFunctionProps>>  m_HLFunctionPropsMap;
+  std::unordered_map<llvm::Function *, std::unique_ptr<DxilFunctionProps>>  m_DxilFunctionPropsMap;
 
   // Resource type annotation.
   std::unordered_map<llvm::Type *, std::pair<DXIL::ResourceClass, DXIL::ResourceKind>> m_ResTypeAnnotation;
@@ -278,6 +255,9 @@ private:
   const ShaderModel *m_pSM;
   unsigned m_DxilMajor;
   unsigned m_DxilMinor;
+  unsigned m_ValMajor;
+  unsigned m_ValMinor;
+  DXIL::FPDenormMode m_FPDenormMode;
   HLOptions m_Options;
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;
@@ -305,6 +285,7 @@ private:
 class HLExtraPropertyHelper : public DxilExtraPropertyHelper {
 public:
   HLExtraPropertyHelper(llvm::Module *pModule);
+  virtual ~HLExtraPropertyHelper() {}
 
   virtual void EmitSignatureElementProperties(const DxilSignatureElement &SE, std::vector<llvm::Metadata *> &MDVals);
   virtual void LoadSignatureElementProperties(const llvm::MDOperand &MDO, DxilSignatureElement &SE);

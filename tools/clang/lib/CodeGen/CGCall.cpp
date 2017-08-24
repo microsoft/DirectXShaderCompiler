@@ -2429,6 +2429,18 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
   case ABIArgInfo::Direct:
     if (RetAI.getCoerceToType() == ConvertType(RetTy) &&
         RetAI.getDirectOffset() == 0) {
+      // HLSL Change Begin.
+      // If optimization is disabled, just load return value.
+      if (CGM.getCodeGenOpts().DisableLLVMOpts) {
+        // HLSL Change Begins
+        if (hlsl::IsHLSLMatType(RetTy))
+          RV = CGM.getHLSLRuntime().EmitHLSLMatrixLoad(*this, ReturnValue,
+                                                       RetTy);
+        else
+          // HLSL Change Ends
+          RV = Builder.CreateLoad(ReturnValue);
+      } else {
+      // HLSL Change End.
       // The internal return value temp always will have pointer-to-return-type
       // type, just do a load.
 
@@ -2461,6 +2473,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
           // HLSL Change Ends
           RV = Builder.CreateLoad(ReturnValue);
       }
+      } // HLSL Change
     } else {
       llvm::Value *V = ReturnValue;
       CharUnits Align = getContext().getTypeAlignInChars(RetTy);
@@ -3017,7 +3030,10 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     LValue L = EmitLValue(cast<CastExpr>(E)->getSubExpr());
     assert(L.isSimple());
     if (L.getAlignment() >= getContext().getTypeAlignInChars(type)) {
-      args.add(L.asAggregateRValue(), type, /*NeedsCopy*/true);
+      // HLSL Change Begin - don't copy input arg.
+      // Copy for out param is done at CGMSHLSLRuntime::EmitHLSLOutParamConversion*.
+      args.add(L.asAggregateRValue(), type); // /*NeedsCopy*/true);
+      // HLSL Change End
     } else {
       // We can't represent a misaligned lvalue in the CallArgList, so copy
       // to an aligned temporary now.

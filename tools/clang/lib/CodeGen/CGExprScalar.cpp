@@ -1818,6 +1818,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   }
   case CK_HLSLCC_IntegralToBoolean:
     return EmitIntToBoolConversion(Visit(E));
+  case CK_HLSLCC_FloatingToBoolean:
+    return EmitFloatToBoolConversion(Visit(E));
   // HLSL Change Ends
   }
 
@@ -3376,8 +3378,15 @@ Value *ScalarExprEmitter::VisitBinLAnd(const BinaryOperator *E) {
     }
 
     // 0 && RHS: If it is safe, just elide the RHS, and return 0/false.
-    if (!CGF.ContainsLabel(E->getRHS()))
+    if (!CGF.ContainsLabel(E->getRHS())) {
+      // HLSL Change Begins.
+      if (CGF.getLangOpts().HLSL) {
+        // HLSL does not short circuit.
+        Visit(E->getRHS());
+      }
+      // HLSL Change Ends.
       return llvm::Constant::getNullValue(ResTy);
+    }
   }
 
   // HLSL Change Begins.
@@ -3474,8 +3483,15 @@ Value *ScalarExprEmitter::VisitBinLOr(const BinaryOperator *E) {
     }
 
     // 1 || RHS: If it is safe, just elide the RHS, and return 1/true.
-    if (!CGF.ContainsLabel(E->getRHS()))
+    if (!CGF.ContainsLabel(E->getRHS())) {
+      // HLSL Change Begins.
+      if (CGF.getLangOpts().HLSL) {
+        // HLSL does not short circuit.
+        Visit(E->getRHS());
+      }
+      // HLSL Change Ends.
       return llvm::ConstantInt::get(ResTy, 1);
+    }
   }
 
   // HLSL Change Begins.

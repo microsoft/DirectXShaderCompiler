@@ -11,6 +11,7 @@
 #include "dxc/HLSL/DxilSignature.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include "dxc/HLSL/DxilSigPoint.h"
+#include "llvm/ADT/STLExtras.h"
 
 using std::vector;
 using std::unique_ptr;
@@ -28,6 +29,19 @@ DxilSignature::DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind si
 DxilSignature::DxilSignature(DXIL::SigPointKind sigPointKind)
 : m_sigPointKind(sigPointKind) {}
 
+DxilSignature::DxilSignature(const DxilSignature &src)
+    : m_sigPointKind(src.m_sigPointKind) {
+  const bool bSetID = false;
+  for (auto &Elt : src.GetElements()) {
+    std::unique_ptr<DxilSignatureElement> newElt = CreateElement();
+    newElt->Initialize(Elt->GetName(), Elt->GetCompType(),
+                       Elt->GetInterpolationMode()->GetKind(), Elt->GetRows(),
+                       Elt->GetCols(), Elt->GetStartRow(), Elt->GetStartCol(),
+                       Elt->GetID(), Elt->GetSemanticIndexVec());
+    AppendElement(std::move(newElt), bSetID);
+  }
+}
+
 DxilSignature::~DxilSignature() {
 }
 
@@ -40,7 +54,7 @@ bool DxilSignature::IsOutput() const {
 }
 
 unique_ptr<DxilSignatureElement> DxilSignature::CreateElement() {
-  return unique_ptr<DxilSignatureElement>(new DxilSignatureElement(m_sigPointKind));
+  return llvm::make_unique<DxilSignatureElement>(m_sigPointKind);
 }
 
 unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE, bool bSetID) {
@@ -54,11 +68,11 @@ unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE,
 }
 
 DxilSignatureElement &DxilSignature::GetElement(unsigned idx) {
-  return *m_Elements[idx].get();
+  return *m_Elements[idx];
 }
 
 const DxilSignatureElement &DxilSignature::GetElement(unsigned idx) const {
-  return *m_Elements[idx].get();
+  return *m_Elements[idx];
 }
 
 const std::vector<std::unique_ptr<DxilSignatureElement> > &DxilSignature::GetElements() const {
@@ -75,6 +89,8 @@ static bool ShouldBeAllocated(const DxilSignatureElement *SE) {
   case DXIL::SemanticInterpretationKind::NotPacked:
   case DXIL::SemanticInterpretationKind::Shadow:
     return false;
+  default:
+    break;
   }
   return true;
 }
@@ -82,7 +98,7 @@ static bool ShouldBeAllocated(const DxilSignatureElement *SE) {
 } // anonymous namespace
 
 
-bool DxilSignature::IsFullyAllocated() {
+bool DxilSignature::IsFullyAllocated() const {
   for (auto &SE : m_Elements) {
     if (!ShouldBeAllocated(SE.get()))
       continue;
@@ -92,21 +108,45 @@ bool DxilSignature::IsFullyAllocated() {
   return true;
 }
 
-unsigned DxilSignature::PackElements() {
+unsigned DxilSignature::NumVectorsUsed(unsigned streamIndex) const {
+  unsigned NumVectors = 0;
+  for (auto &SE : m_Elements) {
+    if (SE->IsAllocated() && SE->GetOutputStream() == streamIndex)
+      NumVectors = std::max(NumVectors, (unsigned)SE->GetStartRow() + SE->GetRows());
+  }
+  return NumVectors;
+}
+
+unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
   unsigned rowsUsed = 0;
+
+  // Transfer to elements derived from DxilSignatureAllocator::PackElement
+  std::vector<DxilPackElement> packElements;
+  for (auto &SE : m_Elements) {
+    if (ShouldBeAllocated(SE.get()))
+      packElements.emplace_back(SE.get());
+  }
 
   if (m_sigPointKind == DXIL::SigPointKind::GSOut) {
     // Special case due to support for multiple streams
     DxilSignatureAllocator alloc[4] = {32, 32, 32, 32};
-    std::vector<DxilSignatureElement*> elements[4];
-    for (auto &SE : m_Elements) {
-      if (!ShouldBeAllocated(SE.get()))
-        continue;
-      elements[SE->GetOutputStream()].push_back(SE.get());
+    std::vector<DxilSignatureAllocator::PackElement*> elements[4];
+    for (auto &SE : packElements) {
+      elements[SE.Get()->GetOutputStream()].push_back(&SE);
     }
     for (unsigned i = 0; i < 4; ++i) {
       if (!elements[i].empty()) {
-        unsigned streamRowsUsed = alloc[i].PackMain(elements[i], 0, 32);
+        unsigned streamRowsUsed = 0;
+        switch (packing) {
+        case DXIL::PackingStrategy::PrefixStable:
+          streamRowsUsed = alloc[i].PackPrefixStable(elements[i], 0, 32);
+          break;
+        case DXIL::PackingStrategy::Optimized:
+          streamRowsUsed = alloc[i].PackOptimized(elements[i], 0, 32);
+          break;
+        default:
+          DXASSERT(false, "otherwise, invalid packing strategy supplied");
+        }
         if (streamRowsUsed > rowsUsed)
           rowsUsed = streamRowsUsed;
       }
@@ -125,40 +165,43 @@ unsigned DxilSignature::PackElements() {
 
   case DXIL::PackingKind::InputAssembler:
     // incrementally assign each element that belongs in the signature to the start of the next free row
-    for (auto &SE : m_Elements) {
-      if (!ShouldBeAllocated(SE.get()))
-        continue;
-      SE->SetStartRow(rowsUsed);
-      SE->SetStartCol(0);
-      rowsUsed += SE->GetRows();
+    for (auto &SE : packElements) {
+      SE.SetLocation(rowsUsed, 0);
+      rowsUsed += SE.GetRows();
     }
     break;
 
   case DXIL::PackingKind::Vertex:
   case DXIL::PackingKind::PatchConstant: {
       DxilSignatureAllocator alloc(32);
-      std::vector<DxilSignatureElement*> elements;
-      elements.reserve(m_Elements.size());
-      for (auto &SE : m_Elements){
-        if (!ShouldBeAllocated(SE.get()))
-          continue;
-        elements.push_back(SE.get());
+      std::vector<DxilSignatureAllocator::PackElement*> elements;
+      elements.reserve(packElements.size());
+      for (auto &SE : packElements){
+        elements.push_back(&SE);
       }
-      rowsUsed = alloc.PackMain(elements, 0, 32);
+      switch (packing) {
+      case DXIL::PackingStrategy::PrefixStable:
+        rowsUsed = alloc.PackPrefixStable(elements, 0, 32);
+        break;
+      case DXIL::PackingStrategy::Optimized:
+        rowsUsed = alloc.PackOptimized(elements, 0, 32);
+        break;
+      default:
+        DXASSERT(false, "otherwise, invalid packing strategy supplied");
+      }
     }
     break;
 
   case DXIL::PackingKind::Target:
     // for SV_Target, assign rows according to semantic index, the rest are unassigned (-1)
     // Note: Overlapping semantic indices should be checked elsewhere
-    for (auto &SE : m_Elements) {
-      if (SE->GetKind() != DXIL::SemanticKind::Target)
+    for (auto &SE : packElements) {
+      if (SE.GetKind() != DXIL::SemanticKind::Target)
         continue;
-      unsigned row = SE->GetSemanticStartIndex();
-      SE->SetStartRow(row);
-      SE->SetStartCol(0);
-      DXASSERT(SE->GetRows() == 1, "otherwise, SV_Target output not broken into separate rows earlier");
-      row += SE->GetRows();
+      unsigned row = SE.Get()->GetSemanticStartIndex();
+      SE.SetLocation(row, 0);
+      DXASSERT(SE.GetRows() == 1, "otherwise, SV_Target output not broken into separate rows earlier");
+      row += SE.GetRows();
       if (rowsUsed < row)
         rowsUsed = row;
     }
@@ -172,4 +215,19 @@ unsigned DxilSignature::PackElements() {
   return rowsUsed;
 }
 
+//------------------------------------------------------------------------------
+//
+// EntrySingnature methods.
+//
+DxilEntrySignature::DxilEntrySignature(const DxilEntrySignature &src)
+    : InputSignature(src.InputSignature), OutputSignature(src.OutputSignature),
+      PatchConstantSignature(src.PatchConstantSignature) {}
+
 } // namespace hlsl
+
+#include <algorithm>
+#include "dxc/HLSL/DxilSignatureAllocator.inl"
+#include "dxc/HLSL/DxilSigPoint.inl"
+#include "dxc/HLSL/DxilPipelineStateValidation.h"
+#include <functional>
+#include "dxc/HLSL/ViewIDPipelineValidation.inl"

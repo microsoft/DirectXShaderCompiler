@@ -63,7 +63,7 @@ public:
   TEST_METHOD(VerifyVersionedSemantics)
   TEST_METHOD(VerifyMissingSemanticFailure)
 
-  void CompileHLSLTemplate(CComPtr<IDxcOperationResult> &pResult, DXIL::SigPointKind sigPointKind, DXIL::SemanticKind semKind, bool addArb, unsigned Major = 6, unsigned Minor = 0) {
+  void CompileHLSLTemplate(CComPtr<IDxcOperationResult> &pResult, DXIL::SigPointKind sigPointKind, DXIL::SemanticKind semKind, bool addArb, unsigned Major = 0, unsigned Minor = 0) {
     const Semantic *sem = Semantic::Get(semKind);
     const char* pSemName = sem->GetName();
     std::wstring sigDefValue(L"");
@@ -82,7 +82,7 @@ public:
     return CompileHLSLTemplate(pResult, sigPointKind, sigDefValue, Major, Minor);
   }
 
-  void CompileHLSLTemplate(CComPtr<IDxcOperationResult> &pResult, DXIL::SigPointKind sigPointKind, const std::wstring &sigDefValue, unsigned Major = 6, unsigned Minor = 0) {
+  void CompileHLSLTemplate(CComPtr<IDxcOperationResult> &pResult, DXIL::SigPointKind sigPointKind, const std::wstring &sigDefValue, unsigned Major = 0, unsigned Minor = 0) {
     const SigPoint * sigPoint = SigPoint::GetSigPoint(sigPointKind);
     DXIL::ShaderKind shaderKind = sigPoint->GetShaderKind();
 
@@ -98,22 +98,26 @@ public:
       IFT(library->CreateBlobFromFile(path.c_str(), nullptr, &m_pSource));
     }
 
-    std::string entry, profile;
+    LPCWSTR entry, profile;
+    wchar_t profile_buf[] = L"vs_6_1";
     switch(shaderKind) {
-      case DXIL::ShaderKind::Vertex: entry = "VSMain"; profile = "vs_6_0"; break;
-      case DXIL::ShaderKind::Pixel: entry = "PSMain"; profile = "ps_6_0"; break;
-      case DXIL::ShaderKind::Geometry: entry = "GSMain"; profile = "gs_6_0"; break;
-      case DXIL::ShaderKind::Hull: entry = "HSMain"; profile = "hs_6_0"; break;
-      case DXIL::ShaderKind::Domain: entry = "DSMain"; profile = "ds_6_0"; break;
-      case DXIL::ShaderKind::Compute: entry = "CSMain"; profile = "cs_6_0"; break;
+      case DXIL::ShaderKind::Vertex:    entry = L"VSMain"; profile = L"vs_6_1"; break;
+      case DXIL::ShaderKind::Pixel:     entry = L"PSMain"; profile = L"ps_6_1"; break;
+      case DXIL::ShaderKind::Geometry:  entry = L"GSMain"; profile = L"gs_6_1"; break;
+      case DXIL::ShaderKind::Hull:      entry = L"HSMain"; profile = L"hs_6_1"; break;
+      case DXIL::ShaderKind::Domain:    entry = L"DSMain"; profile = L"ds_6_1"; break;
+      case DXIL::ShaderKind::Compute:   entry = L"CSMain"; profile = L"cs_6_1"; break;
     }
-    if (Major != 6 || Minor != 0) {
-      llvm::Twine p = llvm::Twine(profile.substr(0, 3)) + llvm::Twine(Major) + " " + llvm::Twine(Minor);
-      profile = p.str();
+    if (Major == 0) {
+      Major = m_HighestMajor;
+      Minor = m_HighestMinor;
     }
-
-    CA2W entryW(entry.c_str(), CP_UTF8);
-    CA2W profileW(profile.c_str(), CP_UTF8);
+    if (Major != 6 || Minor != 1) {
+      profile_buf[0] = profile[0];
+      profile_buf[3] = L'0' + (wchar_t)Major;
+      profile_buf[5] = L'0' + (wchar_t)Minor;
+      profile = profile_buf;
+    }
 
     CA2W sigPointNameW(sigPoint->GetName(), CP_UTF8);
     // Strip SV_ from semantic name
@@ -123,8 +127,8 @@ public:
     define.Name = sigDefName.c_str();
     define.Value = sigDefValue.c_str();
 
-    VERIFY_SUCCEEDED(pCompiler->Compile(m_pSource, path.c_str(), entryW,
-                                        profileW, nullptr, 0, &define, 1,
+    VERIFY_SUCCEEDED(pCompiler->Compile(m_pSource, path.c_str(), entry,
+                                        profile, nullptr, 0, &define, 1,
                                         nullptr, &pResult));
   }
 
@@ -153,12 +157,22 @@ public:
   }
 
   dxc::DxcDllSupport m_dllSupport;
+  VersionSupportInfo m_ver;
+  unsigned m_HighestMajor, m_HighestMinor;  // Shader Model Supported
+
   CComPtr<IDxcBlobEncoding> m_pSource;
 };
 
 bool SystemValueTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_ver.Initialize(m_dllSupport);
+    m_HighestMajor = 6;
+    m_HighestMinor = 0;
+    if ((m_ver.m_DxilMajor > 1 || (m_ver.m_DxilMajor == 1 && m_ver.m_DxilMinor > 1)) &&
+        (m_ver.m_ValMajor > 1 || (m_ver.m_ValMajor == 1 && m_ver.m_ValMinor > 1))) {
+      m_HighestMinor = 1;
+    }
   }
   return true;
 }
@@ -182,6 +196,7 @@ static bool ArbAllowed(DXIL::SigPointKind sp) {
 }
 
 TEST_F(SystemValueTest, VerifyArbitrarySupport) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     CComPtr<IDxcOperationResult> pResult;
     CompileHLSLTemplate(pResult, sp, DXIL::SemanticKind::Invalid, true);
@@ -210,7 +225,7 @@ TEST_F(SystemValueTest, VerifyNotAvailableFail) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, 6, 0);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NA) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -237,7 +252,7 @@ TEST_F(SystemValueTest, VerifySVAsArbitrary) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, 6, 0);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::Arb) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -255,7 +270,7 @@ TEST_F(SystemValueTest, VerifySVAsSV) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, 6, 0);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::SV || interpretation == DXIL::SemanticInterpretationKind::SGV) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -273,7 +288,7 @@ TEST_F(SystemValueTest, VerifySGV) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, 6, 0);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::SGV) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, true);
@@ -292,7 +307,7 @@ TEST_F(SystemValueTest, VerifySVNotPacked) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, 6, 0);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NotPacked) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -307,9 +322,10 @@ TEST_F(SystemValueTest, VerifySVNotPacked) {
 }
 
 TEST_F(SystemValueTest, VerifySVNotInSig) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, 6, 0);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::NotInSig) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -366,9 +382,10 @@ TEST_F(SystemValueTest, VerifyTessFactors) {
 }
 
 TEST_F(SystemValueTest, VerifyShadowEntries) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     for (DXIL::SemanticKind sv = (DXIL::SemanticKind)((unsigned)DXIL::SemanticKind::Arbitrary + 1); sv < DXIL::SemanticKind::Invalid; sv = (DXIL::SemanticKind)((unsigned)sv + 1)) {
-      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, 6, 0);
+      DXIL::SemanticInterpretationKind interpretation = hlsl::SigPoint::GetInterpretation(sv, sp, m_HighestMajor, m_HighestMinor);
       if (interpretation == DXIL::SemanticInterpretationKind::Shadow) {
         CComPtr<IDxcOperationResult> pResult;
         CompileHLSLTemplate(pResult, sp, sv, false);
@@ -383,12 +400,13 @@ TEST_F(SystemValueTest, VerifyShadowEntries) {
 }
 
 TEST_F(SystemValueTest, VerifyVersionedSemantics) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   struct TestInfo {
     DXIL::SigPointKind sp;
     DXIL::SemanticKind sv;
     unsigned Major, Minor;
   };
-  const unsigned kNumTests = 7;
+  const unsigned kNumTests = 13;
   TestInfo info[kNumTests] = {
     {DXIL::SigPointKind::PSIn, DXIL::SemanticKind::SampleIndex, 4, 1 },
     {DXIL::SigPointKind::PSIn, DXIL::SemanticKind::Coverage, 5, 0 },
@@ -397,6 +415,12 @@ TEST_F(SystemValueTest, VerifyVersionedSemantics) {
     {DXIL::SigPointKind::PSOut, DXIL::SemanticKind::DepthLessEqual, 5, 0 },
     {DXIL::SigPointKind::PSOut, DXIL::SemanticKind::DepthGreaterEqual, 5, 0 },
     {DXIL::SigPointKind::PSOut, DXIL::SemanticKind::StencilRef, 5, 0 },
+    {DXIL::SigPointKind::VSIn, DXIL::SemanticKind::ViewID, 6, 1 },
+    {DXIL::SigPointKind::HSIn, DXIL::SemanticKind::ViewID, 6, 1 },
+    {DXIL::SigPointKind::PCIn, DXIL::SemanticKind::ViewID, 6, 1 },
+    {DXIL::SigPointKind::DSIn, DXIL::SemanticKind::ViewID, 6, 1 },
+    {DXIL::SigPointKind::GSIn, DXIL::SemanticKind::ViewID, 6, 1 },
+    {DXIL::SigPointKind::PSIn, DXIL::SemanticKind::ViewID, 6, 1 },
   };
 
   for (unsigned i = 0; i < kNumTests; i++) {
@@ -412,7 +436,15 @@ TEST_F(SystemValueTest, VerifyVersionedSemantics) {
     VERIFY_IS_TRUE(SI != DXIL::SemanticInterpretationKind::NA);
     DXIL::SemanticInterpretationKind SILower = hlsl::SigPoint::GetInterpretation(test.sv, test.sp, MajorLower, MinorLower);
     VERIFY_IS_TRUE(SILower == DXIL::SemanticInterpretationKind::NA);
-#ifdef _VERIFY_VERSIONED_SEMANTICS_
+
+    // Don't try compiling to pre-dxil targets:
+    if (MajorLower < 6)
+      continue;
+
+    // Don't try targets our compiler/validator combination do not support.
+    if (test.Major > m_HighestMajor || test.Minor > m_HighestMinor)
+      continue;
+
     {
       CComPtr<IDxcOperationResult> pResult;
       CompileHLSLTemplate(pResult, test.sp, test.sv, false, test.Major, test.Minor);
@@ -422,21 +454,21 @@ TEST_F(SystemValueTest, VerifyVersionedSemantics) {
     }
     {
       CComPtr<IDxcOperationResult> pResult;
-      CompileHLSLTemplate(pResult, test.sp, test.sv, false, test.Major, test.Minor);
+      CompileHLSLTemplate(pResult, test.sp, test.sv, false, MajorLower, MinorLower);
       HRESULT result;
       VERIFY_SUCCEEDED(pResult->GetStatus(&result));
       VERIFY_FAILED(result);
-      // TODO: Verify error message
       const char *Errors[] = {
-        "TODO: fill this in."
+        "is invalid for shader model",
+        "error: invalid semantic"
       };
       CheckAnyOperationResultMsg(pResult, Errors, _countof(Errors));
     }
-#endif //_VERIFY_VERSIONED_SEMANTICS_
   }
 }
 
 TEST_F(SystemValueTest, VerifyMissingSemanticFailure) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   for (DXIL::SigPointKind sp = (DXIL::SigPointKind)0; sp < DXIL::SigPointKind::Invalid; sp = (DXIL::SigPointKind)((unsigned)sp + 1)) {
     std::wstring sigDefValue(L"Def_Arb_NoSem(uint, arb0)");
     CComPtr<IDxcOperationResult> pResult;

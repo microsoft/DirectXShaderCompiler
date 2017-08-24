@@ -232,8 +232,12 @@ static string trim(string value) {
       IFT(pResult->GetStatus(&resultStatus));
       if (SUCCEEDED(resultStatus)) {
         IFT(pResult->GetResult(&pCompiledBlob));
-        IFT(pCompiler->Disassemble(pCompiledBlob, &pDisassembly));
-        StdOut = BlobToUtf8(pDisassembly);
+        if (!opts.AstDump) {
+          IFT(pCompiler->Disassemble(pCompiledBlob, &pDisassembly));
+          StdOut = BlobToUtf8(pDisassembly);
+        } else {
+          StdOut = BlobToUtf8(pCompiledBlob);
+        }
         CComPtr<IDxcBlobEncoding> pStdErr;
         IFT(pResult->GetErrorBuffer(&pStdErr));
         StdErr = BlobToUtf8(pStdErr);
@@ -341,8 +345,11 @@ static string trim(string value) {
       for (llvm::StringRef S : splitArgs) {
         optionStrings.push_back(
             Unicode::UTF8ToUTF16StringOrThrow(trim(S.str()).c_str()));
-        options.push_back(optionStrings.back().c_str());
       }
+
+      // Add the options outside the above loop in case the vector is resized.
+      for (const std::wstring& str : optionStrings)
+        options.push_back(str.c_str());
 
       IFT(pOptimizer->RunOptimizer(pSource, options.data(), options.size(),
                                    &pOutputModule, &pOutputText));

@@ -20,6 +20,7 @@ namespace llvm {
 class LLVMContext;
 class Module;
 class Function;
+class Instruction;
 class Value;
 class MDOperand;
 class Metadata;
@@ -34,6 +35,7 @@ namespace hlsl {
 
 class ShaderModel;
 class DxilSignature;
+struct DxilEntrySignature;
 class DxilSignatureElement;
 class DxilModule;
 class DxilResourceBase;
@@ -45,8 +47,10 @@ class DxilStructAnnotation;
 class DxilFieldAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
+class DxilFunctionFPFlag;
 class RootSignatureHandle;
-
+class DxilViewIdState;
+struct DxilFunctionProps;
 
 /// Use this class to manipulate DXIL-spcific metadata.
 // In our code, only DxilModule and HLModule should use this class.
@@ -71,6 +75,16 @@ public:
 
   // Entry points.
   static const char kDxilEntryPointsMDName[];
+
+  // Root Signature, for intermediate use, not valid in final DXIL module.
+  static const char kDxilRootSignatureMDName[];
+
+  // ViewId state.
+  static const char kDxilViewIdStateMDName[];
+
+  // Function props.
+  static const char kDxilFunctionPropertiesMDName[];
+  static const char kDxilEntrySignaturesMDName[];
 
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
@@ -100,11 +114,13 @@ public:
   static const unsigned kDxilSignatureElementNameValueList  = 10;  // Name-value list for extended properties.
 
   // Signature Element Extended Properties.
-  static const unsigned kDxilSignatureElementOutputStreamTag = 0;
-  static const unsigned kHLSignatureElementGlobalSymbolTag   = 1;
+  static const unsigned kDxilSignatureElementOutputStreamTag    = 0;
+  static const unsigned kHLSignatureElementGlobalSymbolTag      = 1;
+  static const unsigned kDxilSignatureElementDynIdxCompMaskTag  = 2;
 
   // Resources.
   static const char kDxilResourcesMDName[];
+  static const char kDxilResourcesLinkInfoMDName[];
   static const unsigned kDxilNumResourceFields              = 4;
   static const unsigned kDxilResourceSRVs                   = 0;
   static const unsigned kDxilResourceUAVs                   = 1;
@@ -155,7 +171,8 @@ public:
   static const char kDxilTypeSystemMDName[];
   static const char kDxilTypeSystemHelperVariablePrefix[];
   static const unsigned kDxilTypeSystemStructTag                  = 0;
-  static const unsigned kDxilTypeSystemFunctionTag                = 1;
+  static const unsigned kDxilTypeSystemFunctionTag                = 1; // For DXIL <= 1.1
+  static const unsigned kDxilTypeSystemFunction2Tag               = 2; // For DXIL >= 1.2
   static const unsigned kDxilFieldAnnotationSNormTag              = 0;
   static const unsigned kDxilFieldAnnotationUNormTag              = 1;
   static const unsigned kDxilFieldAnnotationMatrixTag             = 2;
@@ -169,11 +186,18 @@ public:
   // Control flow hint.
   static const char kDxilControlFlowHintMDName[];
 
+  // Resource attribute.
+  static const char kHLDxilResourceAttributeMDName[];
+  static const unsigned kHLDxilResourceAttributeNumFields = 2;
+  static const unsigned kHLDxilResourceAttributeClass = 0;
+  static const unsigned kHLDxilResourceAttributeMeta = 1;
+
   // Precise attribute.
   static const char kDxilPreciseAttributeMDName[];
 
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
+  // Validator version uses the same constants for fields as kDxilVersion*
 
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag     = 0;
@@ -181,7 +205,6 @@ public:
   static const unsigned kDxilDSStateTag         = 2;
   static const unsigned kDxilHSStateTag         = 3;
   static const unsigned kDxilNumThreadsTag      = 4;
-  static const unsigned kDxilRootSignatureTag   = 5;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;
@@ -211,6 +234,7 @@ public:
   class ExtraPropertyHelper {
   public:
     ExtraPropertyHelper(llvm::Module *pModule);
+    virtual ~ExtraPropertyHelper() {}
 
     virtual void EmitSRVProperties(const DxilResource &SRV, std::vector<llvm::Metadata *> &MDVals) = 0;
     virtual void LoadSRVProperties(const llvm::MDOperand &MDO, DxilResource &SRV) = 0;
@@ -243,12 +267,17 @@ public:
   void EmitDxilVersion(unsigned Major, unsigned Minor);
   void LoadDxilVersion(unsigned &Major, unsigned &Minor);
 
+  // Validator version.
+  void EmitValidatorVersion(unsigned Major, unsigned Minor);
+  void LoadValidatorVersion(unsigned &Major, unsigned &Minor);
+
   // Shader model.
   void EmitDxilShaderModel(const ShaderModel *pSM);
   void LoadDxilShaderModel(const ShaderModel *&pSM);
 
   // Entry points.
   void EmitDxilEntryPoints(std::vector<llvm::MDNode *> &MDEntries);
+  void UpdateDxilEntryPoints(std::vector<llvm::MDNode *> &MDEntries);
   const llvm::NamedMDNode *GetDxilEntryPoints();
   llvm::MDTuple *EmitDxilEntryPointTuple(llvm::Function *pFunc, const std::string &Name, llvm::MDTuple *pSignatures,
                                          llvm::MDTuple *pResources, llvm::MDTuple *pProperties);
@@ -257,21 +286,30 @@ public:
                          const llvm::MDOperand *&pProperties);
 
   // Signatures.
-  llvm::MDTuple *EmitDxilSignatures(const DxilSignature &InputSig, const DxilSignature &OutputSig, const DxilSignature &PCSig);
-  void LoadDxilSignatures(const llvm::MDOperand &MDO, DxilSignature &InputSig, 
-                          DxilSignature &OutputSig, DxilSignature &PCSig);
+  llvm::MDTuple *EmitDxilSignatures(const DxilEntrySignature &EntrySig);
+  void LoadDxilSignatures(const llvm::MDOperand &MDO,
+                          DxilEntrySignature &EntrySig);
   llvm::MDTuple *EmitSignatureMetadata(const DxilSignature &Sig);
-  llvm::Metadata *EmitRootSignature(RootSignatureHandle &RootSig);
+  void EmitRootSignature(RootSignatureHandle &RootSig);
   void LoadSignatureMetadata(const llvm::MDOperand &MDO, DxilSignature &Sig);
   llvm::MDTuple *EmitSignatureElement(const DxilSignatureElement &SE);
   void LoadSignatureElement(const llvm::MDOperand &MDO, DxilSignatureElement &SE);
-  void LoadRootSignature(const llvm::MDOperand &MDO, RootSignatureHandle &RootSig);
+  void LoadRootSignature(RootSignatureHandle &RootSig);
 
   // Resources.
   llvm::MDTuple *EmitDxilResourceTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs, 
                                        llvm::MDTuple *pCBuffers, llvm::MDTuple *pSamplers);
+  void EmitDxilResources(llvm::MDTuple *pDxilResourceTuple);
+  void UpdateDxilResources(llvm::MDTuple *pDxilResourceTuple);
   void GetDxilResources(const llvm::MDOperand &MDO, const llvm::MDTuple *&pSRVs, const llvm::MDTuple *&pUAVs, 
                         const llvm::MDTuple *&pCBuffers, const llvm::MDTuple *&pSamplers);
+  void EmitDxilResourceLinkInfoTuple(llvm::MDTuple *pSRVs, llvm::MDTuple *pUAVs,
+                                 llvm::MDTuple *pCBuffers,
+                                 llvm::MDTuple *pSamplers);
+  void LoadDxilResourceLinkInfoTuple(const llvm::MDTuple *&pSRVs,
+                                 const llvm::MDTuple *&pUAVs,
+                                 const llvm::MDTuple *&pCBuffers,
+                                 const llvm::MDTuple *&pSamplers);
   void EmitDxilResourceBase(const DxilResourceBase &R, llvm::Metadata *ppMDVals[]);
   void LoadDxilResourceBase(const llvm::MDOperand &MDO, DxilResourceBase &R);
   llvm::MDTuple *EmitDxilSRV(const DxilResource &SRV);
@@ -282,6 +320,10 @@ public:
   void LoadDxilCBuffer(const llvm::MDOperand &MDO, DxilCBuffer &CB);
   llvm::MDTuple *EmitDxilSampler(const DxilSampler &S);
   void LoadDxilSampler(const llvm::MDOperand &MDO, DxilSampler &S);
+  const llvm::MDOperand &GetResourceClass(llvm::MDNode *MD, DXIL::ResourceClass &RC);
+  void LoadDxilResourceBaseFromMDNode(llvm::MDNode *MD, DxilResourceBase &R);
+  void LoadDxilResourceFromMDNode(llvm::MDNode *MD, DxilResource &R);
+  void LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S);
 
   // Type system.
   void EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, std::vector<llvm::GlobalVariable *> &LLVMUsed);
@@ -293,8 +335,24 @@ public:
   void LoadDxilFieldAnnotation(const llvm::MDOperand &MDO, DxilFieldAnnotation &FA);
   llvm::Metadata *EmitDxilFunctionAnnotation(const DxilFunctionAnnotation &FA);
   void LoadDxilFunctionAnnotation(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
+  llvm::Metadata *EmitDxilFunctionAnnotation2(const DxilFunctionAnnotation &FA);
+  void LoadDxilFunctionAnnotation2(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
   llvm::Metadata *EmitDxilParamAnnotation(const DxilParameterAnnotation &PA);
   void LoadDxilParamAnnotation(const llvm::MDOperand &MDO, DxilParameterAnnotation &PA);
+  llvm::Metadata *EmitDxilParamAnnotations(const DxilFunctionAnnotation &FA);
+  void LoadDxilParamAnnotations(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
+  llvm::Metadata *EmitDxilFunctionFPFlag(const DxilFunctionFPFlag &flag);
+  void LoadDxilFunctionFPFlag(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
+
+  // Function props.
+  llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
+                                       llvm::Function *F);
+  llvm::Function *LoadDxilFunctionProps(llvm::MDTuple *pProps,
+                                        hlsl::DxilFunctionProps *props);
+
+  // ViewId state.
+  void EmitDxilViewIdState(DxilViewIdState &ViewIdState);
+  void LoadDxilViewIdState(DxilViewIdState &ViewIdState);
 
   // Control flow hints.
   static llvm::MDNode *EmitControlFlowHints(llvm::LLVMContext &Ctx, std::vector<DXIL::ControlFlowHint> &hints);
@@ -351,6 +409,8 @@ public:
   static llvm::Value *ValueMDToValue(const llvm::MDOperand &MDO);
   llvm::MDTuple *Uint32VectorToConstMDTuple(const std::vector<unsigned> &Vec);
   void ConstMDTupleToUint32Vector(llvm::MDTuple *pTupleMD, std::vector<unsigned> &Vec);
+  static bool IsMarkedPrecise(const llvm::Instruction *inst);
+  static void MarkPrecise(llvm::Instruction *inst);
 
 private:
   llvm::LLVMContext &m_Ctx;
@@ -364,6 +424,7 @@ private:
 class DxilExtraPropertyHelper : public DxilMDHelper::ExtraPropertyHelper {
 public:
   DxilExtraPropertyHelper(llvm::Module *pModule);
+  virtual ~DxilExtraPropertyHelper() {}
 
   virtual void EmitSRVProperties(const DxilResource &SRV, std::vector<llvm::Metadata *> &MDVals);
   virtual void LoadSRVProperties(const llvm::MDOperand &MDO, DxilResource &SRV);

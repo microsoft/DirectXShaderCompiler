@@ -57,6 +57,7 @@ using namespace PatternMatch;
 // a select, so the "clamp" idiom (of a min followed by a max) will be caught.
 // To catch this, we need to fold a compare and a select, hence '2' being the
 // minimum reasonable default.
+#if 0 // HLSL Change Starts - option pending
 static cl::opt<unsigned>
 PHINodeFoldingThreshold("phi-node-folding-threshold", cl::Hidden, cl::init(2),
    cl::desc("Control the amount of phi node folding to perform (default = 2)"));
@@ -67,11 +68,17 @@ DupRet("simplifycfg-dup-ret", cl::Hidden, cl::init(false),
 
 static cl::opt<bool>
 SinkCommon("simplifycfg-sink-common", cl::Hidden, cl::init(true),
-       cl::desc("Sink common instructions down to the end block"));
+           cl::desc("Sink common instructions down to the end block"));
 
 static cl::opt<bool> HoistCondStores(
     "simplifycfg-hoist-cond-stores", cl::Hidden, cl::init(true),
     cl::desc("Hoist conditional stores if an unconditional store precedes"));
+#else
+static const unsigned PHINodeFoldingThreshold = 2;
+static const bool DupRet = false;
+static const bool SinkCommon = true;
+static const bool HoistCondStores = true;
+#endif // HLSL Change Ends
 
 STATISTIC(NumBitMaps, "Number of switch instructions turned into bitmaps");
 STATISTIC(NumLinearMaps, "Number of switch instructions turned into linear mapping");
@@ -1054,9 +1061,9 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I);
 static bool HoistThenElseCodeToIf(BranchInst *BI,
                                   const TargetTransformInfo &TTI) {
   // HLSL Change Begins.
-  // Skip block with control flow hint.
-  if (BI->hasMetadata())
-    return false;
+  // Leave CSE to target backend.
+  // Also wave operations should not be CSEed.
+  return false;
   // HLSL Change Ends.
 
   // This does very trivial matching, with limited scanning, to find identical
@@ -1328,7 +1335,7 @@ static bool SinkThenElseCodeToEnd(BranchInst *BI1) {
     // HLSL Change Begin.
     // Don't sink struct type which will generate struct PhiNode to make sure
     // struct type value only used by Extract/InsertValue.
-    if (DifferentOp1->getType()->isStructTy())
+    if (DifferentOp1 && DifferentOp1->getType()->isStructTy())
       return Changed;
     // HLSL Change End.
 

@@ -1,14 +1,14 @@
 // Rewrite unchanged result:
-float f_arr_empty_init[] = { 1, 2, 3 };
+const float f_arr_empty_init[] = { 1, 2, 3 };
 struct s_arr_i_f {
   int i;
   float f;
 };
-s_arr_i_f arr_struct_none[] = {  };
-s_arr_i_f arr_struct_one[] = { 1, 2 };
-s_arr_i_f arr_struct_two[] = { 1, 2, 3, 4 };
-int g_int;
-unsigned int g_unsigned_int;
+const s_arr_i_f arr_struct_none[] = {  };
+const s_arr_i_f arr_struct_one[] = { 1, 2 };
+const s_arr_i_f arr_struct_two[] = { 1, 2, 3, 4 };
+const int g_int;
+const unsigned int g_unsigned_int;
 struct s_with_bitfield {
   int f_bitfield : 3;
 };
@@ -36,7 +36,7 @@ float4 fn_with_semantic_arg(float4 arg : SV_SOMETHING) : SV_Target0 {
 namespace MyNS {
 }
 namespace MyNs {
-  int my_ns_extension;
+  const int my_ns_extension;
 }
 namespace MyNs2 {
   float outsideFunc(int x);
@@ -75,13 +75,13 @@ struct forward_struct;
 struct my_struct_type_decl {
   int a;
 };
-struct my_struct_type_decl my_struct_var_decl;
+const struct my_struct_type_decl my_struct_var_decl;
 struct my_struct_type_init {
   int a;
 };
-struct my_struct_type_init my_struct_type_init_one = { 1 };
-struct my_struct_type_init my_struct_type_init_two = { 2 };
-struct {
+const struct my_struct_type_init my_struct_type_init_one = { 1 };
+const struct my_struct_type_init my_struct_type_init_two = { 2 };
+const struct {
   int my_anon_struct_field;
 } my_anon_struct_type;
 void fn_my_struct_type_decl() {
@@ -219,7 +219,7 @@ void expressions() {
 }
 
 
-int unused_i;
+const int unused_i;
 float4 plain(float4 param4) {
   return is_supported();
 }

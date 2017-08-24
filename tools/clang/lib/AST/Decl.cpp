@@ -1950,6 +1950,7 @@ VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
       getTemplateSpecializationKind() != TSK_ExplicitSpecialization)
     return DeclarationOnly;
 
+  if (!getASTContext().getLangOpts().HLSL) // HLSL Change - take extern as define to match fxc.
   if (hasExternalStorage())
     return DeclarationOnly;
 
@@ -2361,6 +2362,10 @@ void ParmVarDecl::updateOutParamToRefType(ASTContext &C) {
   if ((!getType()->isArrayType() && !getType()->isRecordType()) ||
       hlsl::IsHLSLVecMatType(getType()))
     setType(C.getLValueReferenceType(getType(), false));
+  // Add restrict to out param.
+  QualType QT = getType();
+  QT.addRestrict();
+  setType(QT);
 }
 // HLSL Change Ends
 

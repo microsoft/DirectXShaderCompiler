@@ -80,8 +80,8 @@
 namespace Intrinsics {
 
 int<4> [[rn]] D3DCOLORtoUBYTE4(in $match<0, 1> float<4> x) : d3dcolortoubyte4;
-uint [[]]  GetRenderTargetSampleCount() : rtsampleinfo;
-float<2> [[]] GetRenderTargetSamplePosition(in int s) : rtsamplepos;
+uint [[rn]]  GetRenderTargetSampleCount() : rtsampleinfo;
+float<2> [[rn]] GetRenderTargetSamplePosition(in int s) : rtsamplepos;
 void [[]]   abort();
 $type1 [[rn]] abs(in numeric<> x);
 $type1 [[rn]] acos(in float_like<> x);
@@ -121,10 +121,12 @@ $type1 [[rn]] dst(in numeric<4> a, in $type1 b);
 $type1 [[rn]] EvaluateAttributeAtSample(in numeric<> value, in uint index);
 $type1 [[rn]] EvaluateAttributeCentroid(in numeric<> value);
 $type1 [[rn]] EvaluateAttributeSnapped(in numeric<> value, in int<2> offset);
+$type1 [[rn]] GetAttributeAtVertex(in numeric<> value, in uint VertexID);
 $type1 [[rn]] exp(in float_like<> x);
 $type1 [[rn]] exp2(in float_like<> x);
 float<> [[rn]] f16tof32(in uint<> x);
-uint<> [[rn]] f32tof16(in float_like<> x);
+// Use float for DXIL don't support f16 on f32tof16.
+uint<> [[rn]] f32tof16(in float<> x);
 $type1 [[rn]] faceforward(in float_like<c> N, in $type1 I, in $type1 Ng);
 $match<1, 0> uint<> [[rn,unsigned_op=ufirstbithigh,overload=0]] firstbithigh(in any_int<> x);
 $match<1, 0> uint<> [[rn]] firstbitlow(in u32_64<> x);
@@ -164,18 +166,17 @@ $type1 [[rn]] log2(in float_like<> x);
 $type1 [[rn,unsigned_op=umad]] mad(in numeric<> a, in $type1 b, in $type1 c);
 $type1 [[rn,unsigned_op=umax]] max(in numeric<> a, in $type1 b);
 $type1 [[rn,unsigned_op=umin]] min(in numeric<> a, in $type1 b);
-$type1 [[rn]] modf(in float_like<> x, out $type1 ip);
+$type1 [[]] modf(in float_like<> x, out $type1 ip);
 uint<4> [[rn]] msad4(in uint reference, in uint<2> source, in uint<4> accum);
 numeric [[rn]] mul(in $match<1, 0> numeric a, in $match<2, 0> numeric b) : mul_ss;
 numeric<c2> [[rn]] mul(in $match<1, 0> numeric a, in $match<2, 0> numeric<c2> b) : mul_sv;
 numeric<r2, c2> [[rn]] mul(in $match<1, 0> numeric a, in $match<2, 0> numeric<r2, c2> b) : mul_sm;
 numeric<c> [[rn]] mul(in $match<1, 0> numeric<c> a, in $match<2, 0> numeric b) : mul_vs;
 numeric [[rn]] mul(in $match<1, 0> numeric<c> a, in $match<2, 0> numeric<c> b) : mul_vv;
-numeric<c2> [[rn]] mul(in $match<1, 0> numeric<c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_vm;
+numeric<c2> [[rn,unsigned_op=umul]] mul(in $match<1, 0> numeric<c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_vm;
 numeric<r, c> [[rn]] mul(in $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric b) : mul_ms;
-numeric<r> [[rn]] mul(in row_major $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric<c> b) : mul_mv;
-numeric<r, c2> [[rn]] mul(in row_major $match<1, 0> numeric<r, c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_mm;
-$match<0, 1> float_like [[rn]] noise(in float_like<c> x);
+numeric<r> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in $match<2, 0> numeric<c> b) : mul_mv;
+numeric<r, c2> [[rn,unsigned_op=umul]] mul(in row_major $match<1, 0> numeric<r, c> a, in col_major $match<2, 0> numeric<c, c2> b) : mul_mm;
 $type1 [[rn]] normalize(in float_like<c> x);
 $type1 [[rn]] pow(in float_like<> x, in $type1 y);
 // void printf(in string Format, ...);
@@ -238,30 +239,30 @@ uint<c> [[rn]] AddUint64(in $match<1, 0> uint<c> a, in $match<2, 0> uint<c> b) :
 $type1 [[rn]] NonUniformResourceIndex(in any<> index) : nonuniform_resource_index;
 
 // Wave intrinsics.
-bool   [[rn]] WaveIsFirstLane();
+bool   [[]] WaveIsFirstLane();
 uint   [[rn]] WaveGetLaneIndex();
 uint   [[rn]] WaveGetLaneCount();
-bool   [[rn]] WaveActiveAnyTrue(in bool cond);
-bool   [[rn]] WaveActiveAllTrue(in bool cond);
-$match<1, 0> bool<> [[rn]] WaveActiveAllEqual(in numeric<> value);
-uint<4> [[rn]] WaveActiveBallot(in bool cond);
-$type1 [[rn]] WaveReadLaneAt(in numeric<> value, in uint lane);
-$type1 [[rn]] WaveReadLaneFirst(in numeric<> value);
-uint   [[rn]] WaveActiveCountBits(in bool value);
-$type1 [[rn,unsigned_op=WaveActiveUSum]] WaveActiveSum(in numeric<> value);
-$type1 [[rn,unsigned_op=WaveActiveUProduct]] WaveActiveProduct(in numeric<> value);
-$type1 [[rn]] WaveActiveBitAnd(in uint_only<> value);
-$type1 [[rn]] WaveActiveBitOr(in uint_only<> value);
-$type1 [[rn]] WaveActiveBitXor(in uint_only<> value);
-$type1 [[rn,unsigned_op=WaveActiveUMin]] WaveActiveMin(in numeric<> value);
-$type1 [[rn,unsigned_op=WaveActiveUMax]] WaveActiveMax(in numeric<> value);
-uint   [[rn]] WavePrefixCountBits(in bool value);
-$type1 [[rn,unsigned_op=WavePrefixUSum]] WavePrefixSum(in numeric<> value);
-$type1 [[rn,unsigned_op=WavePrefixUProduct]] WavePrefixProduct(in numeric<> value);
-$type1 [[rn]] QuadReadLaneAt(in numeric<> value, in uint quadLane);
-$type1 [[rn]] QuadReadAcrossX(in numeric<> value);
-$type1 [[rn]] QuadReadAcrossY(in numeric<> value);
-$type1 [[rn]] QuadReadAcrossDiagonal(in numeric<> value);
+bool   [[]] WaveActiveAnyTrue(in bool cond);
+bool   [[]] WaveActiveAllTrue(in bool cond);
+$match<1, 0> bool<> [[]] WaveActiveAllEqual(in numeric<> value);
+uint<4> [[]] WaveActiveBallot(in bool cond);
+$type1 [[]] WaveReadLaneAt(in numeric<> value, in uint lane);
+$type1 [[]] WaveReadLaneFirst(in numeric<> value);
+uint   [[]] WaveActiveCountBits(in bool value);
+$type1 [[unsigned_op=WaveActiveUSum]] WaveActiveSum(in numeric<> value);
+$type1 [[unsigned_op=WaveActiveUProduct]] WaveActiveProduct(in numeric<> value);
+$type1 [[]] WaveActiveBitAnd(in uint_only<> value);
+$type1 [[]] WaveActiveBitOr(in uint_only<> value);
+$type1 [[]] WaveActiveBitXor(in uint_only<> value);
+$type1 [[unsigned_op=WaveActiveUMin]] WaveActiveMin(in numeric<> value);
+$type1 [[unsigned_op=WaveActiveUMax]] WaveActiveMax(in numeric<> value);
+uint   [[]] WavePrefixCountBits(in bool value);
+$type1 [[unsigned_op=WavePrefixUSum]] WavePrefixSum(in numeric<> value);
+$type1 [[unsigned_op=WavePrefixUProduct]] WavePrefixProduct(in numeric<> value);
+$type1 [[]] QuadReadLaneAt(in numeric<> value, in uint quadLane);
+$type1 [[]] QuadReadAcrossX(in numeric<> value);
+$type1 [[]] QuadReadAcrossY(in numeric<> value);
+$type1 [[]] QuadReadAcrossDiagonal(in numeric<> value);
 
 } namespace
 
@@ -273,9 +274,9 @@ void [[]] RestartStrip() : stream_restart;
 } namespace
 
 namespace Texture1DMethods {
-
-float [[ro]] CalculateLevelOfDetail(in sampler1d s, in float_like<1> x) : tex1d_t_calc_lod;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<1> x) : tex1d_t_calc_lod_unclamped;
+// Use float for DXIL don't support f16 on CalcLOD.
+float [[ro]] CalculateLevelOfDetail(in sampler1d s, in float<1> x) : tex1d_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<1> x) : tex1d_t_calc_lod_unclamped;
 void [[]] GetDimensions(in uint x, out uint_only width, out $type2 levels) : resinfo_uint;
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width) : resinfo_o;
@@ -304,13 +305,13 @@ $unspec [[]] SampleLevel(in sampler s, in float_like<1> x, in float lod, in int<
 $unspec [[ro]] SampleBias(in sampler s, in float_like<1> x, in float bias, in int<1> o, in float clamp) : tex1d_t_bias_o_cl;
 $unspec [[]] SampleBias(in sampler s, in float_like<1> x, in float bias, in int<1> o, in float clamp, out uint_only status) : tex1d_t_bias_o_cl_s;
 $unspec [[]] SampleGrad(in sampler s, in float_like<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp) : tex1d_t_dd_o_cl;
-$unspec [[ro]] SampleGrad(in sampler s, in float_like<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_o_cl_s;
+$unspec [[]] SampleGrad(in sampler s, in float_like<1> x, in $type2 ddx, in $type2 ddy, in int<1> o, in float clamp, out uint_only status) : tex1d_t_dd_o_cl_s;
 } namespace
 
 namespace Texture1DArrayMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<1> x) : tex1d_t_calc_lod_array;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<1> x) : tex1d_t_calc_lod_unclamped_array;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<1> x) : tex1d_t_calc_lod_array;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<1> x) : tex1d_t_calc_lod_unclamped_array;
 void [[]] GetDimensions(in uint x, out uint_only width, out $type2 elements, out $type2 levels) : resinfo_uint;
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 elements, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 elements) : resinfo_uint_o;
@@ -344,8 +345,8 @@ $unspec [[]] SampleGrad(in sampler s, in float_like<2> x, in $match<2, 2> float_
 
 namespace Texture2DMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<2> x) : tex2d_t_calc_lod;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<2> x) : tex2d_t_calc_lod_unclamped;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<2> x) : tex2d_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<2> x) : tex2d_t_calc_lod_unclamped;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<2> x) : tex2d_t_gather;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<2> x, in int<2> o) : tex2d_t_gather_o;
 $match<0, -1> void<4> [[ro]] GatherAlpha(in sampler s, in float_like<2> x) : tex2d_t_gather_alpha;
@@ -432,14 +433,14 @@ void [[]] GetDimensions(out float_like width, out $type1 height, out $type2 samp
 float_like<2> [[ro]] GetSamplePosition(in int s) : samplepos;
 $unspec [[]] Load(in int<2> x, in int s) : texture2d_ms;
 $unspec [[]] Load(in int<2> x, in int s, in int<2> o) : texture2d_ms_o;
-$unspec [[ro]] Load(in int<2> x, in int s, in int<2> o, out uint_only status) : texture2d_ms_o_s;
+$unspec [[]] Load(in int<2> x, in int s, in int<2> o, out uint_only status) : texture2d_ms_o_s;
 
 } namespace
 
 namespace Texture2DArrayMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<2> x) : tex2d_t_calc_lod_array;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<2> x) : tex2d_t_calc_lod_unclamped_array;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<2> x) : tex2d_t_calc_lod_array;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<2> x) : tex2d_t_calc_lod_unclamped_array;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<3> x) : tex2d_t_gather_array;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<3> x, in int<2> o) : tex2d_t_gather_array_o;
 $match<0, -1> void<4> [[ro]] GatherAlpha(in sampler s, in float_like<3> x) : tex2d_t_gather_alpha_array;
@@ -530,8 +531,8 @@ $unspec [[]] Load(in int<3> x, in int s, in int<2> o, out uint_only status) : te
 
 namespace Texture3DMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<3> x) : tex3d_t_calc_lod;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<3> x) : tex3d_t_calc_lod_unclamped;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<3> x) : tex3d_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<3> x) : tex3d_t_calc_lod_unclamped;
 void [[]] GetDimensions(in uint x, out uint_only width, out $type2 height, out $type2 depth, out $type2 levels) : resinfo_uint;
 void [[]] GetDimensions(in uint x, out float_like width, out $type2 height, out $type2 depth, out $type2 levels) : resinfo;
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 depth) : resinfo_uint_o;
@@ -558,8 +559,8 @@ $unspec [[]] SampleGrad(in sampler s, in float_like<3> x, in $type2 ddx, in $typ
 
 namespace TextureCUBEMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<3> x) : texcube_t_calc_lod;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<3> x) : texcube_t_calc_lod_unclamped;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<3> x) : texcube_t_calc_lod;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<3> x) : texcube_t_calc_lod_unclamped;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<3> x) : texcube_t_gather;
 $match<0, -1> void<4> [[ro]] GatherAlpha(in sampler s, in float_like<3> x) : texcube_t_gather_alpha;
 $match<0, -1> void<4> [[ro]] GatherBlue(in sampler s, in float_like<3> x) : texcube_t_gather_blue;
@@ -604,8 +605,8 @@ $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float_like<3> x, 
 
 namespace TextureCUBEArrayMethods {
 
-float [[ro]] CalculateLevelOfDetail(in sampler s, in float_like<3> x) : texcube_t_calc_lod_array;
-float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float_like<3> x) : texcube_t_calc_lod_unclamped_array;
+float [[ro]] CalculateLevelOfDetail(in sampler s, in float<3> x) : texcube_t_calc_lod_array;
+float [[ro]] CalculateLevelOfDetailUnclamped(in sampler s, in float<3> x) : texcube_t_calc_lod_unclamped_array;
 $match<0, -1> void<4> [[ro]] Gather(in sampler s, in float_like<4> x) : texcube_t_gather_array;
 $match<0, -1> void<4> [[ro]] GatherAlpha(in sampler s, in float_like<4> x) : texcube_t_gather_alpha_array;
 $match<0, -1> void<4> [[ro]] GatherBlue(in sampler s, in float_like<4> x) : texcube_t_gather_blue_array;
@@ -630,7 +631,7 @@ $unspec [[ro]] Sample(in sampler s, in float_like<4> x, in float clamp) : texcub
 $unspec [[]] Sample(in sampler s, in float_like<4> x, in float clamp, out uint_only status) : texcube_t_array_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float_like<4> x, in float compareValue, in float clamp) : texcube_t_comp_array_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float_like<4> x, in float compareValue, in float clamp, out uint_only status) : texcube_t_comp_array_cl_s;
-float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float_like<4> x, in float compareValue, out uint_only status) : texcube_t_comp_array_s;
+float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float_like<4> x, in float compareValue, out uint_only status) : texcube_t_comp_array_s;
 $unspec [[]] SampleLevel(in sampler s, in float_like<4> x, in float lod, out uint_only status) : texcube_t_lod_array_s;
 $unspec [[ro]] SampleBias(in sampler s, in float_like<4> x, in float bias, in float clamp) : texcube_t_bias_array_cl;
 $unspec [[]] SampleBias(in sampler s, in float_like<4> x, in float bias, in float clamp, out uint_only status) : texcube_t_bias_array_cl_s;

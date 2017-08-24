@@ -33,6 +33,7 @@ class MSFileSysTest
 {
 public:
   BEGIN_TEST_CLASS(MSFileSysTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 

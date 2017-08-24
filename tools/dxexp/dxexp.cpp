@@ -14,7 +14,14 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <Windows.h>
+#include <dxgi1_4.h>
+#include <d3d12.h>
+#include <atlbase.h>
 #include <stdio.h>
+
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
 
 // A more recent Windows SDK than currently required is needed for these.
 typedef HRESULT (WINAPI *D3D12EnableExperimentalFeaturesFn)(
@@ -30,6 +37,136 @@ static const GUID D3D12ExperimentalShaderModelsID = { /* 76f5573e-f13a-40f5-b297
     { 0xb2, 0x97, 0x81, 0xce, 0x9e, 0x18, 0x93, 0x3f }
 };
 
+static HRESULT AtlCheck(HRESULT hr) {
+  if (FAILED(hr))
+    AtlThrow(hr);
+  return hr;
+}
+
+// Not defined in Creators Update version of d3d12.h:
+#ifndef D3D12_FEATURE_DATA_D3D12_OPTIONS3
+#define D3D_SHADER_MODEL_6_1 ((D3D_SHADER_MODEL)0x61)
+#define D3D12_FEATURE_D3D12_OPTIONS3 ((D3D12_FEATURE)21)
+typedef
+enum D3D12_COMMAND_LIST_SUPPORT_FLAGS
+{
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_NONE = 0,
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_DIRECT = (1 << D3D12_COMMAND_LIST_TYPE_DIRECT),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_BUNDLE = (1 << D3D12_COMMAND_LIST_TYPE_BUNDLE),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_COMPUTE = (1 << D3D12_COMMAND_LIST_TYPE_COMPUTE),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_COPY = (1 << D3D12_COMMAND_LIST_TYPE_COPY),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_DECODE = (1 << 4),
+  D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_PROCESS = (1 << 5)
+} 	D3D12_COMMAND_LIST_SUPPORT_FLAGS;
+
+typedef
+enum D3D12_VIEW_INSTANCING_TIER
+{
+  D3D12_VIEW_INSTANCING_TIER_NOT_SUPPORTED = 0,
+  D3D12_VIEW_INSTANCING_TIER_1 = 1,
+  D3D12_VIEW_INSTANCING_TIER_2 = 2,
+  D3D12_VIEW_INSTANCING_TIER_3 = 3
+} 	D3D12_VIEW_INSTANCING_TIER;
+
+typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS3
+{
+  _Out_  BOOL CopyQueueTimestampQueriesSupported;
+  _Out_  BOOL CastingFullyTypedFormatSupported;
+  _Out_  DWORD WriteBufferImmediateSupportFlags;
+  _Out_  D3D12_VIEW_INSTANCING_TIER ViewInstancingTier;
+  _Out_  BOOL BarycentricsSupported;
+} 	D3D12_FEATURE_DATA_D3D12_OPTIONS3;
+#endif
+
+static char *BoolToStrJson(bool value) {
+  return value ? "true" : "false";
+}
+
+static char *BoolToStrText(bool value) {
+  return value ? "YES" : "NO";
+}
+
+static char *(*BoolToStr)(bool value);
+static bool IsOutputJson;
+
+#define json_printf(...) if (IsOutputJson) { printf(__VA_ARGS__); }
+#define text_printf(...) if (!IsOutputJson) { printf(__VA_ARGS__); }
+
+static char *ShaderModelToStr(D3D_SHADER_MODEL SM) {
+  switch ((UINT32)SM) {
+  case D3D_SHADER_MODEL_5_1: return "5.1";
+  case D3D_SHADER_MODEL_6_0: return "6.0";
+  case D3D_SHADER_MODEL_6_1: return "6.1";
+  default: return "ERROR";
+  }
+}
+
+static char *ViewInstancingTierToStr(D3D12_VIEW_INSTANCING_TIER Tier) {
+  switch (Tier) {
+  case D3D12_VIEW_INSTANCING_TIER_NOT_SUPPORTED: return "NO";
+  case D3D12_VIEW_INSTANCING_TIER_1: return "Tier1";
+  case D3D12_VIEW_INSTANCING_TIER_2: return "Tier2";
+  case D3D12_VIEW_INSTANCING_TIER_3: return "Tier3";
+  default: return "ERROR";
+  }
+}
+
+static HRESULT PrintAdapters() {
+  HRESULT hr = S_OK;
+  char comma = ' ';
+  json_printf("{ \"adapters\" : [\n");
+  try {
+    CComPtr<IDXGIFactory2> pFactory;
+    AtlCheck(CreateDXGIFactory2(0, IID_PPV_ARGS(&pFactory)));
+    UINT AdapterIndex = 0;
+    for (;;) {
+      CComPtr<IDXGIAdapter1> pAdapter;
+      CComPtr<ID3D12Device> pDevice;
+      HRESULT hrEnum = pFactory->EnumAdapters1(AdapterIndex, &pAdapter);
+      if (hrEnum == DXGI_ERROR_NOT_FOUND)
+        break;
+      AtlCheck(hrEnum);
+      DXGI_ADAPTER_DESC1 AdapterDesc;
+      D3D12_FEATURE_DATA_D3D12_OPTIONS1 DeviceOptions;
+      D3D12_FEATURE_DATA_D3D12_OPTIONS3 DeviceOptions3;
+      memset(&DeviceOptions, 0, sizeof(DeviceOptions));
+      memset(&DeviceOptions3, 0, sizeof(DeviceOptions3));
+      D3D12_FEATURE_DATA_SHADER_MODEL DeviceSM;
+      AtlCheck(pAdapter->GetDesc1(&AdapterDesc));
+      AtlCheck(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
+      AtlCheck(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &DeviceOptions, sizeof(DeviceOptions)));
+      DeviceSM.HighestShaderModel = D3D_SHADER_MODEL_6_0;
+      // CheckFeatureSupport with D3D12_FEATURE_D3D12_OPTIONS3 will fail on Creators Update,
+      // but succeed on newer versions of Windows.  Use this to control the initial value
+      // for highest shader model.
+      if (SUCCEEDED(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS3, &DeviceOptions3, sizeof(DeviceOptions3))))
+        DeviceSM.HighestShaderModel = D3D_SHADER_MODEL_6_1;
+      AtlCheck(pDevice->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &DeviceSM, sizeof(DeviceSM)));
+      const char *Format = IsOutputJson ?
+        "%c { \"name\": \"%S\", \"sm\": \"%s\", \"wave\": %s, \"i64\": %s, \"bary\": %s, \"view-inst\": \"%s\" }\n" :
+        "%c %S - Highest SM [%s] Wave [%s] I64 [%s] Barycentrics [%s] View Instancing [%s]\n";
+      printf(Format,
+             comma,
+             AdapterDesc.Description,
+             ShaderModelToStr(DeviceSM.HighestShaderModel),
+             BoolToStr(DeviceOptions.WaveOps),
+             BoolToStr(DeviceOptions.Int64ShaderOps),
+             BoolToStr(DeviceOptions3.BarycentricsSupported),
+             ViewInstancingTierToStr(DeviceOptions3.ViewInstancingTier));
+      AdapterIndex++;
+      comma = IsOutputJson ? ',' : ' ';
+    }
+  }
+  catch (ATL::CAtlException &e) {
+    hr = e.m_hr;
+    json_printf("%c { \"err\": \"unable to print information for adapters - 0x%08x\" }\n", comma, hr);
+    text_printf("%s", "Unable to print information for adapters.\n");
+  }
+  json_printf("  ] }\n");
+  return hr;
+}
+
+
 // Return codes:
 // 0 - experimental mode worked
 // 1 - cannot load d3d12.dll
@@ -37,21 +174,47 @@ static const GUID D3D12ExperimentalShaderModelsID = { /* 76f5573e-f13a-40f5-b297
 // 3 - experimental shader mode interface unsupported
 // 4 - other error
 int main(int argc, const char *argv[]) {
+  BoolToStr = BoolToStrText;
+  IsOutputJson = false;
+
   if (argc > 1) {
     const char *pArg = argv[1];
-    if (0 == strcmp(pArg, "-?") || 0 == strcmp(pArg, "/?") || 0 == strcmp(pArg, "/?")) {
+    if (0 == strcmp(pArg, "-?") || 0 == strcmp(pArg, "--?") || 0 == strcmp(pArg, "/?")) {
       printf("Checks the available of D3D support for experimental shader models.\n\n");
-      printf("dxexp\n\n");
+      printf("dxexp [-json]\n\n");
       printf("Sets errorlevel to 0 on success, non-zero for failure cases.\n");
+      return 4;
+    }
+    else if (0 == strcmp(pArg, "-json") || 0 == strcmp(pArg, "/json")) {
+      IsOutputJson = true;
+      BoolToStr = BoolToStrJson;
     }
     else {
       printf("Unrecognized command line arguments.\n");
+      return 4;
     }
-    return 4;
   }
 
   DWORD err;
   HMODULE hRuntime;
+  hRuntime = LoadLibraryW(L"d3d12.dll");
+  if (hRuntime == NULL) {
+    err = GetLastError();
+    printf("Failed to load library d3d12.dll - Win32 error %u\n", err);
+    return 1;
+  }
+
+  json_printf("{ \"noexp\":\n");
+  text_printf("Adapter feature support without experimental shaders enabled:\n");
+
+  if (FAILED(PrintAdapters())) {
+    return 4;
+  }
+  FreeLibrary(hRuntime);
+
+  json_printf(" , \"exp\":");
+  text_printf("-------------------------------------------------------------\n");
+
   hRuntime = LoadLibraryW(L"d3d12.dll");
   if (hRuntime == NULL) {
     err = GetLastError();
@@ -66,31 +229,40 @@ int main(int argc, const char *argv[]) {
     printf("Failed to find export 'D3D12EnableExperimentalFeatures' in "
            "d3d12.dll - Win32 error %u%s\n", err,
            err == ERROR_PROC_NOT_FOUND ? " (The specified procedure could not be found.)" : "");
-    printf("Consider verifying the operating system version - a recent "
-           "flighting build is currently required.\n");
+    printf("Consider verifying the operating system version - Creators Update or newer "
+           "is currently required.\n");
+    PrintAdapters();
     return 2;
   }
 
   HRESULT hr = pD3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
   if (SUCCEEDED(hr)) {
-    printf("Experimental shader model feature succeeded.\n");
-    return 0;
+    text_printf("Experimental shader model feature succeeded.\n");
+    hr = PrintAdapters();
+    json_printf("\n}\n");
+    return (SUCCEEDED(hr)) ? 0 : 4;
   }
   else if (hr == E_NOINTERFACE) {
-    printf("Experimental shader model feature failed with error E_NOINTERFACE.\n");
-    printf("The most likely cause is that Windows Developer mode is not on.\n");
-    printf("See https://msdn.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development\n");
+    text_printf("Experimental shader model feature failed with error E_NOINTERFACE.\n");
+    text_printf("The most likely cause is that Windows Developer mode is not on.\n");
+    text_printf("See https://msdn.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development\n");
+    json_printf("{ \"err\": \"E_NOINTERFACE\" }");
+    json_printf("\n}\n");
     return 3;
   }
   else if (hr == E_INVALIDARG) {
-    printf("Experimental shader model feature failed with error E_INVALIDARG.\n");
-    printf("This means the configuration of a feature is incorrect, the set of features passed\n"
+    text_printf("Experimental shader model feature failed with error E_INVALIDARG.\n");
+    text_printf("This means the configuration of a feature is incorrect, the set of features passed\n"
       "in are known to be incompatible with each other, or other errors occured,\n"
       "and is generally unexpected for the experimental shader model feature.\n");
+    json_printf("{ \"err\": \"E_INVALIDARG\" }");
+    json_printf("\n}\n");
     return 4;
   }
   else {
-    printf("Experimental shader model feature failed with unexpected HRESULT 0x%08x.\n", hr);
+    text_printf("Experimental shader model feature failed with unexpected HRESULT 0x%08x.\n", hr);
+    json_printf("{ \"err\": \"0x%08x\" }", hr);
+    json_printf("\n}\n");
     return 4;
   }
 }

@@ -37,6 +37,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#include "clang/Sema/SemaHLSL.h" // HLSL Change
 using namespace clang;
 using namespace sema;
 
@@ -391,7 +392,7 @@ Sema::ActOnCaseStmt(SourceLocation CaseLoc, Expr *LHSVal,
     return StmtError();
   LHSVal = LHS.get();
 
-  if (!getLangOpts().CPlusPlus11) {
+  if (!getLangOpts().CPlusPlus11 && !getLangOpts().HLSL2017) {
     // C99 6.8.4.2p3: The expression shall be an integer constant.
     // However, GCC allows any evaluatable integer expression.
     if (!LHSVal->isTypeDependent() && !LHSVal->isValueDependent()) {
@@ -523,7 +524,9 @@ Sema::ActOnIfStmt(SourceLocation IfLoc, FullExprArg CondVal, Decl *CondVar,
   Expr *ConditionExpr = CondResult.getAs<Expr>();
   if (!ConditionExpr)
     return StmtError();
-
+  // HLSL Change Begin.
+  hlsl::DiagnoseControlFlowConditionForHLSL(this, ConditionExpr, "if");
+  // HLSL Change End.
   DiagnoseUnusedExprResult(thenStmt);
 
   if (!elseStmt) {
@@ -857,7 +860,7 @@ Sema::ActOnFinishSwitchStmt(SourceLocation SwitchLoc, Stmt *Switch,
 
       llvm::APSInt LoVal;
 
-      if (getLangOpts().CPlusPlus11) {
+      if (getLangOpts().CPlusPlus11 || getLangOpts().HLSL2017) {
         // C++11 [stmt.switch]p2: the constant-expression shall be a converted
         // constant expression of the promoted type of the switch condition.
         ExprResult ConvLo =
@@ -1267,6 +1270,11 @@ Sema::ActOnWhileStmt(SourceLocation WhileLoc, FullExprArg Cond,
   Expr *ConditionExpr = CondResult.get();
   if (!ConditionExpr)
     return StmtError();
+
+  // HLSL Change Begin.
+  hlsl::DiagnoseControlFlowConditionForHLSL(this, ConditionExpr, "while");
+  // HLSL Change End.
+
   CheckBreakContinueBinding(ConditionExpr);
 
   DiagnoseUnusedExprResult(Body);
@@ -1294,6 +1302,11 @@ Sema::ActOnDoStmt(SourceLocation DoLoc, Stmt *Body,
   if (CondResult.isInvalid())
     return StmtError();
   Cond = CondResult.get();
+  // HLSL Change Begin.
+  if (Cond) {
+    hlsl::DiagnoseControlFlowConditionForHLSL(this, Cond, "do-while");
+  }
+  // HLSL Change End.
 
   DiagnoseUnusedExprResult(Body);
 
@@ -1670,7 +1683,12 @@ Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
     if (SecondResult.isInvalid())
       return StmtError();
   }
-
+  // HLSL Change Begin.
+  Expr *Cond = SecondResult.get();
+  if (Cond) {
+    hlsl::DiagnoseControlFlowConditionForHLSL(this, Cond, "for");
+  }
+  // HLSL Change End.
   Expr *Third  = third.release().getAs<Expr>();
 
   DiagnoseUnusedExprResult(First);
@@ -1680,7 +1698,7 @@ Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
   if (isa<NullStmt>(Body))
     getCurCompoundScope().setHasEmptyLoopBodies();
 
-  return new (Context) ForStmt(Context, First, SecondResult.get(), ConditionVar,
+  return new (Context) ForStmt(Context, First, Cond, ConditionVar,
                                Third, Body, ForLoc, LParenLoc, RParenLoc);
 }
 

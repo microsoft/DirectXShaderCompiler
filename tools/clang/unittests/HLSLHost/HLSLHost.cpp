@@ -129,12 +129,14 @@ static const DWORD StopRendererMsgId = 4;
 static const DWORD SetPayloadMsgId = 5;
 static const DWORD ReadLogMsgId = 6;
 static const DWORD SetSizeMsgId = 7;
+static const DWORD SetParentWndMsgId = 8;
 static const DWORD GetPidMsgReplyId = 100 + GetPidMsgId;
 static const DWORD StartRendererMsgReplyId = 100 + StartRendererMsgId;
 static const DWORD StopRendererMsgReplyId = 100 + StopRendererMsgId;
 static const DWORD SetPayloadMsgReplyId = 100 + SetPayloadMsgId;
 static const DWORD ReadLogMsgReplyId = 100 + ReadLogMsgId;
 static const DWORD SetSizeMsgReplyId = 100 + SetSizeMsgId;
+static const DWORD SetParentWndMsgReplyId = 100 + SetParentWndMsgId;
 
 struct HhMessageHeader {
   DWORD Length;
@@ -147,6 +149,10 @@ struct HhSetSizeMessage {
   HhMessageHeader Header;
   DWORD Width;
   DWORD Height;
+};
+struct HhSetParentWndMessage {
+  HhMessageHeader Header;
+  UINT64 Handle;
 };
 struct HhGetPidReply {
   HhMessageHeader Header;
@@ -218,6 +224,7 @@ private:
   CComPtr<ID3D12CommandQueue> m_commandQueue;
   CComPtr<IDXGISwapChain3> m_swapChain;
   UINT FrameCount = 2;
+  UINT m_TargetDeviceIndex = 0;
   UINT m_frameIndex;
   UINT m_renderCount = 0;
   HMODULE m_TestDLL = NULL;
@@ -267,6 +274,22 @@ private:
     MessageBox(m_hwnd, OpMessage, "Resource Copy", MessageType);
   }
 
+  void HandleDeviceCycle() {
+    ReleaseD3DResources();
+    ++m_TargetDeviceIndex;
+    SetupD3D();
+  }
+
+  void HandleHelp() {
+    MessageBoxW(m_hwnd, L"Commands:\r\n"
+      L"(C)opy Results\r\n"
+      L"(D)evice Cycle\r\n"
+      L"(H)elp (show this message)\r\n"
+      L"(R)un\r\n"
+      L"(Q)uit",
+      L"HLSL Host Help", MB_OK);
+  }
+
   HRESULT HandlePayload() {
     CComPtr<ID3D12Resource> pRT;
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
@@ -296,6 +319,13 @@ private:
     }
     return S_OK;
   }
+
+  void ReleaseD3DResources() {
+    m_device.Release();
+    m_commandQueue.Release();
+    m_swapChain.Release();
+  }
+
   HRESULT SetupD3D() {
     IFR(LoadTestDll());
 
@@ -307,11 +337,25 @@ private:
     CComPtr<IDXGIFactory4> factory;
     IFR(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
 
-    // TODO: make this configurable, don't just use WARP all the time.
-    CComPtr<IDXGIAdapter> warpAdapter;
-    IFR(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
+    CComPtr<IDXGIAdapter> adapter;
+    if (m_TargetDeviceIndex > 0) {
+      UINT hardwareIndex = m_TargetDeviceIndex - 1;
+      HRESULT hrEnum = factory->EnumAdapters(hardwareIndex, &adapter);
+      if (hrEnum == DXGI_ERROR_NOT_FOUND) {
+        m_TargetDeviceIndex = 0; // cycle to WARP
+      }
+      else {
+        IFR(hrEnum);
+      }
+    }
+    if (m_TargetDeviceIndex == 0) {
+      IFR(factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter)));
+    }
 
-    IFR(D3D12CreateDevice(warpAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
+    HRESULT hrCreate = D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0,
+                                         IID_PPV_ARGS(&m_device));
+    IFR(SetWindowTextToDevice(hrCreate, m_hwnd, adapter, m_device));
+    IFR(hrCreate);
 
     // Describe and create the command queue.
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -340,6 +384,27 @@ private:
     IFR(swapChain.QueryInterface(&m_swapChain));
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
+    return S_OK;
+  }
+
+  HRESULT SetWindowTextToDevice(HRESULT hrCreate, HWND hwnd, IDXGIAdapter *pAdapter, ID3D12Device *pDevice) {
+    DXGI_ADAPTER_DESC AdapterDesc;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS1 DeviceOptions;
+    D3D12_FEATURE_DATA_SHADER_MODEL DeviceSM;
+    wchar_t title[200];
+    IFR(pAdapter->GetDesc(&AdapterDesc));
+    IFR(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &DeviceOptions, sizeof(DeviceOptions)));
+    DeviceSM.HighestShaderModel = D3D_SHADER_MODEL_6_0;
+    IFR(pDevice->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &DeviceSM, sizeof(DeviceSM)));
+    IFR(StringCchPrintfW(
+        title, _countof(title),
+        L"%s%s - caps:%s%s%s",
+        SUCCEEDED(hrCreate) ? L"" : L"(cannot create D3D12 device)",
+        AdapterDesc.Description,
+        (DeviceSM.HighestShaderModel >= D3D_SHADER_MODEL_6_0) ? L" SM6" : L"",
+        DeviceOptions.WaveOps ? L" WaveOps" : L"",
+        DeviceOptions.Int64ShaderOps ? L" I64" : L""));
+    SetWindowTextW(hwnd, title);
     return S_OK;
   }
 public:
@@ -431,6 +496,22 @@ public:
       client.bottom - client.top, SWP_NOZORDER);
     return S_OK;
   }
+  HRESULT SetParentHwnd(HWND handle) {
+    HWND prior = SetParent(m_hwnd, handle);
+    if (prior == NULL) {
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
+    if (handle == NULL) {
+      // Top-level, so restore original style.
+      SetWindowLong(m_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+    }
+    else {
+      // Child window, so set new style and reset position.
+      SetWindowPos(m_hwnd, 0, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+      SetWindowLong(m_hwnd, GWL_STYLE, WS_CHILD | WS_VISIBLE);
+    }
+    return S_OK;
+  }
   void Stop() {
     if (m_hwnd != NULL) {
       PostMessage(m_hwnd, WM_RENDERER_QUIT, 0, 0);
@@ -445,7 +526,9 @@ public:
   LRESULT HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_SHOWWINDOW:
-      SetupD3D();
+      if (m_device == nullptr) {
+        SetupD3D();
+      }
       break;
     case WM_SIZE:
       if (m_device) {
@@ -468,6 +551,12 @@ public:
       if (wParam == 'C') {
         HandleCopy();
       }
+      if (wParam == 'H') {
+        HandleHelp();
+      }
+      if (wParam == 'D') {
+        HandleDeviceCycle();
+      }
       if (wParam == '2') {
         DXGI_MODE_DESC d;
         ZeroMemory(&d, sizeof(d));
@@ -477,9 +566,7 @@ public:
       }
       break;
     case WM_DESTROY:
-      m_device.Release();
-      m_commandQueue.Release();
-      m_swapChain.Release();
+      ReleaseD3DResources();
       PostQuitMessage(0);
       break;
     case WM_RENDERER_SETPAYLOAD:
@@ -635,6 +722,15 @@ public:
       const HhSetSizeMessage *pSetSize = (const HhSetSizeMessage *)pHeader;
       WriteRequestResultReply(MsgKind,
         m_renderer.SetSize(pSetSize->Width, pSetSize->Height));
+    }
+    case SetParentWndMsgId: {
+      if (cb < sizeof(HhSetParentWndMessage)) {
+        WriteRequestResultReply(MsgKind, E_INVALIDARG);
+        return;
+      }
+      const HhSetParentWndMessage *pSetParent = (const HhSetParentWndMessage *)pHeader;
+      WriteRequestResultReply(MsgKind,
+        m_renderer.SetParentHwnd((HWND)pSetParent->Handle));
     }
     }
   }

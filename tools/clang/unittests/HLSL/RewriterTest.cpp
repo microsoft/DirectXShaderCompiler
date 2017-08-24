@@ -31,6 +31,7 @@
 #include "HLSLTestData.h"
 #include "WexTestClass.h"
 #include "HlslTestUtils.h"
+#include "DxcTestUtils.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/dxctools.h"
@@ -43,17 +44,21 @@ using namespace hlsl_test;
 class RewriterTest {
 public:
   BEGIN_TEST_CLASS(RewriterTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
   TEST_METHOD(RunAttributes);
+  TEST_METHOD(RunAnonymousStruct);
   TEST_METHOD(RunCppErrors);
+  TEST_METHOD(RunForceExtern);
   TEST_METHOD(RunIndexingOperator);
   TEST_METHOD(RunIntrinsicExamples);
   TEST_METHOD(RunMatrixAssignments);
   TEST_METHOD(RunMatrixSyntax);
   TEST_METHOD(RunPackReg);
   TEST_METHOD(RunScalarAssignments);
+  TEST_METHOD(RunShared);
   TEST_METHOD(RunStructAssignments);
   TEST_METHOD(RunTemplateChecks);
   TEST_METHOD(RunTypemodsSyntax);
@@ -61,7 +66,7 @@ public:
   TEST_METHOD(RunVectorAssignments);
   TEST_METHOD(RunVectorSyntaxMix);
   TEST_METHOD(RunVectorSyntax);
-  //TEST_METHOD(RunIncludes);  // TODO: Includes have not been implemented yet; uncomment when they have
+  TEST_METHOD(RunIncludes);
   TEST_METHOD(RunStructMethods);
   TEST_METHOD(RunPredefines);
   TEST_METHOD(RunUTF16OneByte);
@@ -69,8 +74,15 @@ public:
   TEST_METHOD(RunUTF16ThreeByteBadChar);
   TEST_METHOD(RunUTF16ThreeByte);
   TEST_METHOD(RunNonUnicode);
+  TEST_METHOD(RunEffect);
+  TEST_METHOD(RunSemanticDefines);
+  TEST_METHOD(RunNoFunctionBody);
+  TEST_METHOD(RunNoFunctionBodyInclude);
+  TEST_METHOD(RunNoStatic);
+  TEST_METHOD(RunKeepUserMacro);
 
   dxc::DxcDllSupport m_dllSupport;
+  CComPtr<IDxcIncludeHandler> m_pIncludeHandler;
 
   struct VerifyResult {
     std::string warnings; // warnings from first compilation
@@ -100,7 +112,10 @@ public:
   VerifyResult CheckVerifies(LPCWSTR path, LPCWSTR goldPath) {   
     CComPtr<IDxcRewriter> pRewriter;
     VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
-    
+    return CheckVerifies(pRewriter, path, goldPath);
+  }
+
+  VerifyResult CheckVerifies(IDxcRewriter *pRewriter, LPCWSTR path, LPCWSTR goldPath) {
     CComPtr<IDxcOperationResult> pRewriteResult;
     RewriteCompareGold(path, goldPath, &pRewriteResult, pRewriter);
 
@@ -120,8 +135,22 @@ public:
   HRESULT CreateRewriter(IDxcRewriter** pRewriter) {
     if (!m_dllSupport.IsEnabled()) {
       VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+
+      CComPtr<IDxcLibrary> library;
+      VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
+      VERIFY_SUCCEEDED(library->CreateIncludeHandler(&m_pIncludeHandler));
     }
     return m_dllSupport.CreateInstance(CLSID_DxcRewriter, pRewriter);
+  }
+
+  HRESULT CreateRewriterWithSemanticDefines(IDxcRewriter** pRewriter, std::vector<LPCWSTR> defines) {
+    VERIFY_SUCCEEDED(CreateRewriter(pRewriter));
+    CComPtr<IDxcLangExtensions> pLangExtensions;
+    VERIFY_SUCCEEDED((*pRewriter)->QueryInterface(&pLangExtensions));
+    for (LPCWSTR define : defines)
+      VERIFY_SUCCEEDED(pLangExtensions->RegisterSemanticDefine(define));
+
+    return S_OK;
   }
 
   VerifyResult CheckVerifiesHLSL(LPCWSTR name, LPCWSTR goldName) {
@@ -145,29 +174,7 @@ public:
     }
   };
 
-  // Note: Previous versions of this file included a RewriteCompareRewrite method here that rewrote twice and compared  
-  // to check for stable output.  It has now been replaced by a new test that checks against a gold baseline.
-
-  void RewriteCompareGold(LPCWSTR path, LPCWSTR goldPath,
-                          _COM_Outptr_ IDxcOperationResult **ppResult,
-                          _In_ IDxcRewriter *rewriter) {
-    // Get the source text from a file
-    FileWithBlob source(m_dllSupport, path);
-
-    const int myDefinesCount = 3;
-    DxcDefine myDefines[myDefinesCount] = { 
-      { L"myDefine", L"2" }, 
-      { L"myDefine3", L"1994" }, 
-      { L"myDefine4", nullptr }
-    };
-
-    // Run rewrite unchanged on the source code
-    VERIFY_SUCCEEDED(rewriter->RewriteUnchanged(source.BlobEncoding, myDefines, myDefinesCount, ppResult));
-
-    CComPtr<IDxcBlob> pRewriteResult;
-    IFT((*ppResult)->GetResult(&pRewriteResult));
-    std::string firstPass = BlobToUtf8(pRewriteResult);
-
+  bool CompareGold(std::string &firstPass, LPCWSTR goldPath) {
     HANDLE goldHandle = CreateFileW(goldPath, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
     VERIFY_ARE_NOT_EQUAL(goldHandle, INVALID_HANDLE_VALUE);
     CHandle checkedGoldHandle(goldHandle);
@@ -194,8 +201,31 @@ public:
       //  }
       //  atChar++;
       //}
-      
-    if (firstPass.compare(gold) == 0) {
+    return firstPass.compare(gold) == 0;
+  }
+
+  // Note: Previous versions of this file included a RewriteCompareRewrite method here that rewrote twice and compared  
+  // to check for stable output.  It has now been replaced by a new test that checks against a gold baseline.
+
+  void RewriteCompareGold(LPCWSTR path, LPCWSTR goldPath,
+                          _COM_Outptr_ IDxcOperationResult **ppResult,
+                          _In_ IDxcRewriter *rewriter) {
+    // Get the source text from a file
+    FileWithBlob source(m_dllSupport, path);
+
+    const int myDefinesCount = 3;
+    DxcDefine myDefines[myDefinesCount] = {
+        {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+    // Run rewrite unchanged on the source code
+    VERIFY_SUCCEEDED(rewriter->RewriteUnchanged(source.BlobEncoding, myDefines,
+                                                myDefinesCount, ppResult));
+
+    CComPtr<IDxcBlob> pRewriteResult;
+    IFT((*ppResult)->GetResult(&pRewriteResult));
+    std::string firstPass = BlobToUtf8(pRewriteResult);
+
+    if (CompareGold(firstPass, goldPath)) {
       return;
     }
 
@@ -224,10 +254,42 @@ public:
           L"diff " << goldPath << L" " << PrintName << L"\n";
     ::WEX::Logging::Log::Error(ss.str().c_str());
   }
+
+  bool RewriteCompareGoldInclude(LPCWSTR path, LPCWSTR goldPath,
+                                 unsigned rewriteOption) {
+    CComPtr<IDxcRewriter> pRewriter;
+    VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+    CComPtr<IDxcOperationResult> pRewriteResult;
+
+    std::wstring fileName = GetPathToHlslDataFile(path);
+
+    // Get the source text from a file
+    FileWithBlob source(m_dllSupport, fileName.c_str());
+
+    const int myDefinesCount = 3;
+    DxcDefine myDefines[myDefinesCount] = {
+        {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+    // Run rewrite no function body on the source code
+    VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+        source.BlobEncoding, fileName.c_str(), myDefines, myDefinesCount,
+        m_pIncludeHandler, rewriteOption, &pRewriteResult));
+
+    CComPtr<IDxcBlob> result;
+    VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+
+    std::string rewriteText = BlobToUtf8(result);
+
+    return CompareGold(rewriteText, GetPathToHlslDataFile(goldPath).c_str());
+  }
 };
 
 TEST_F(RewriterTest, RunAttributes) {
     CheckVerifiesHLSL(L"rewriter\\attributes_noerr.hlsl", L"rewriter\\correct_rewrites\\attributes_gold.hlsl");
+}
+
+TEST_F(RewriterTest, RunAnonymousStruct) {
+    CheckVerifiesHLSL(L"rewriter\\anonymous_struct.hlsl", L"rewriter\\correct_rewrites\\anonymous_struct_gold.hlsl");
 }
 
 TEST_F(RewriterTest, RunCppErrors) {
@@ -258,6 +320,10 @@ TEST_F(RewriterTest, RunScalarAssignments) {
     CheckVerifiesHLSL(L"rewriter\\scalar-assignments_noerr.hlsl", L"rewriter\\correct_rewrites\\scalar-assignments_gold.hlsl");
 }
 
+TEST_F(RewriterTest, RunShared) {
+    CheckVerifiesHLSL(L"rewriter\\shared.hlsl", L"rewriter\\correct_rewrites\\shared.hlsl");
+}
+
 TEST_F(RewriterTest, RunStructAssignments) {
     CheckVerifiesHLSL(L"rewriter\\struct-assignments_noerr.hlsl", L"rewriter\\correct_rewrites\\struct-assignments_gold.hlsl");
 }
@@ -286,10 +352,19 @@ TEST_F(RewriterTest, RunVectorSyntax) {
     CheckVerifiesHLSL(L"rewriter\\vector-syntax_noerr.hlsl", L"rewriter\\correct_rewrites\\vector-syntax_gold.hlsl");
 }
 
-// TODO: Includes have not been implemented yet; uncomment when they have
-//TEST_F(RewriterTest, RunIncludes) {
-//  CheckVerifiesHLSL(L"rewriter\\includes.hlsl", L"rewriter\\correct_rewrites\\includes_gold.hlsl");
-//}
+TEST_F(RewriterTest, RunIncludes) {
+  VERIFY_IS_TRUE(RewriteCompareGoldInclude(
+      L"rewriter\\includes.hlsl",
+      L"rewriter\\correct_rewrites\\includes_gold.hlsl",
+      RewriterOptionMask::Default));
+}
+
+TEST_F(RewriterTest, RunNoFunctionBodyInclude) {
+  VERIFY_IS_TRUE(RewriteCompareGoldInclude(
+      L"rewriter\\includes.hlsl",
+      L"rewriter\\correct_rewrites\\includes_gold_nobody.hlsl",
+      RewriterOptionMask::SkipFunctionBody));
+}
 
 TEST_F(RewriterTest, RunStructMethods) {
   CheckVerifiesHLSL(L"rewriter\\struct-methods.hlsl", L"rewriter\\correct_rewrites\\struct-methods_gold.hlsl");
@@ -316,7 +391,7 @@ TEST_F(RewriterTest, RunUTF16OneByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\x69\x3b\n") == 0); 
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\x69\x3b\n") == 0); // const added by default
 }
 
 TEST_F(RewriterTest, RunUTF16TwoByte) {
@@ -334,7 +409,7 @@ TEST_F(RewriterTest, RunUTF16TwoByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xc3\xad\xc3\xb1\xc5\xa7\x3b\n") == 0);
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xc3\xad\xc3\xb1\xc5\xa7\x3b\n") == 0); // const added by default
 }
 
 TEST_F(RewriterTest, RunUTF16ThreeByteBadChar) {
@@ -352,7 +427,7 @@ TEST_F(RewriterTest, RunUTF16ThreeByteBadChar) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\x41\x3b\n") == 0); //"int A;" -> should remove the weird characters
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\x41\x3b\n") == 0); //"const int A;" -> should remove the weird characters
 }
 
 TEST_F(RewriterTest, RunUTF16ThreeByte) {
@@ -370,7 +445,7 @@ TEST_F(RewriterTest, RunUTF16ThreeByte) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xe1\xba\x8b\x3b\n") == 0);
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xe1\xba\x8b\x3b\n") == 0); // const added by default
 }
 
 TEST_F(RewriterTest, RunNonUnicode) {
@@ -388,6 +463,149 @@ TEST_F(RewriterTest, RunNonUnicode) {
   CComPtr<IDxcBlob> result;
   VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
 
-  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x69\x6e\x74\x20\xce\xb1\xce\xb2\xce\xb3\x3b\n") == 0);
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(), "// Rewrite unchanged result:\n\x63\x6f\x6e\x73\x74\x20\x69\x6e\x74\x20\xce\xb1\xce\xb2\xce\xb3\x3b\n") == 0); // const added by default
 }
 
+TEST_F(RewriterTest, RunEffect) {
+  CheckVerifiesHLSL(L"rewriter\\effects-syntax.hlsl", L"rewriter\\correct_rewrites\\effects-syntax_gold.hlsl");
+}
+
+TEST_F(RewriterTest, RunSemanticDefines) {
+  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriterWithSemanticDefines(&pRewriter, {L"SD_*"}));
+  CheckVerifies(pRewriter, hlsl_test::GetPathToHlslDataFile(L"rewriter\\semantic-defines.hlsl").c_str(),
+                           hlsl_test::GetPathToHlslDataFile(L"rewriter\\correct_rewrites\\semantic-defines_gold.hlsl").c_str());
+}
+
+TEST_F(RewriterTest, RunNoFunctionBody) {
+  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\vector-assignments_noerr.hlsl")
+          .c_str());
+
+  const int myDefinesCount = 3;
+  DxcDefine myDefines[myDefinesCount] = {
+      {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+  // Run rewrite no function body on the source code
+  VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+      source.BlobEncoding, L"vector-assignments_noerr.hlsl", myDefines,
+      myDefinesCount, /*pIncludeHandler*/ nullptr, RewriterOptionMask::SkipFunctionBody,
+      &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  // Function decl only.
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
+                        "// Rewrite unchanged result:\nfloat pick_one(float2 "
+                        "f2);\nvoid main();\n") == 0);
+}
+
+TEST_F(RewriterTest, RunNoStatic) {
+  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\attributes_noerr.hlsl")
+          .c_str());
+
+  const int myDefinesCount = 3;
+  DxcDefine myDefines[myDefinesCount] = {
+      {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+  // Run rewrite no function body on the source code
+  VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+      source.BlobEncoding, L"attributes_noerr.hlsl", myDefines, myDefinesCount,
+      /*pIncludeHandler*/ nullptr,
+      RewriterOptionMask::SkipFunctionBody | RewriterOptionMask::SkipStatic,
+      &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  std::string strResult = BlobToUtf8(result);
+  // No static.
+  VERIFY_IS_TRUE(strResult.find("static") == std::string::npos);
+}
+
+TEST_F(RewriterTest, RunForceExtern) {  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\force_extern.hlsl")
+          .c_str());
+
+  const int myDefinesCount = 3;
+  DxcDefine myDefines[myDefinesCount] = {
+      {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+  // Run rewrite no function body on the source code
+  VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+      source.BlobEncoding, L"vector-assignments_noerr.hlsl", myDefines,
+      myDefinesCount, /*pIncludeHandler*/ nullptr,
+      RewriterOptionMask::SkipFunctionBody |
+          RewriterOptionMask::GlobalExternByDefault,
+      &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  // Function decl only.
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
+      "// Rewrite unchanged result:\n\
+extern const float a;\n\
+namespace b {\n\
+  extern const float c;\n\
+  namespace d {\n\
+    extern const float e;\n\
+  }\n\
+}\n\
+static int f;\n\
+float4 main() : SV_Target;\n") == 0);
+}
+
+TEST_F(RewriterTest, RunKeepUserMacro) {  CComPtr<IDxcRewriter> pRewriter;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\predefines2.hlsl")
+          .c_str());
+
+  const int myDefinesCount = 3;
+  DxcDefine myDefines[myDefinesCount] = {
+      {L"myDefine", L"2"}, {L"myDefine3", L"1994"}, {L"myDefine4", nullptr}};
+
+  // Run rewrite no function body on the source code
+  VERIFY_SUCCEEDED(pRewriter->RewriteUnchangedWithInclude(
+      source.BlobEncoding, L"vector-assignments_noerr.hlsl", myDefines,
+      myDefinesCount, /*pIncludeHandler*/ nullptr,
+      RewriterOptionMask::KeepUserMacro,
+      &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  // Function decl only.
+  VERIFY_IS_TRUE(strcmp(BlobToUtf8(result).c_str(),
+      "// Rewrite unchanged result:\n\
+const float x = 1;\n\
+float test(float a, float b) {\n\
+  return ((a) + (b));\n\
+}\n\
+\n\n\n\
+// Macros:\n\
+#define X 1\n\
+#define Y(A, B)  ( ( A ) + ( B ) )\n\
+") == 0);
+}

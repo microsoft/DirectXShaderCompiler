@@ -19,6 +19,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Sema/SemaConsumer.h"
@@ -39,6 +40,7 @@
 #include "dxc/dxctools.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
+#include "dxc/Support/dxcfilesystem.h"
 
 #define CP_UTF16 1200
 
@@ -116,6 +118,8 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
   compiler.createFileManager();
   compiler.createSourceManager(compiler.getFileManager());
   compiler.setTarget(TargetInfo::CreateTargetInfo(compiler.getDiagnostics(), targetOptions));
+  // Not use builtin includes.
+  compiler.getHeaderSearchOpts().UseBuiltinIncludes = false;
 
   PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
   if (rewrite != nullptr) {
@@ -157,15 +161,21 @@ bool MacroPairCompareIsLessThan(const std::pair<const IdentifierInfo*, const Mac
   return left.first->getName().compare(right.first->getName()) < 0;
 }
 
+
 static
-void WriteSemanticDefines(CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper, raw_string_ostream &o) {
-  ParsedSemanticDefineList macros = CollectSemanticDefinesParsedByCompiler(compiler, helper);
+void WriteMacroDefines(ParsedSemanticDefineList &macros, raw_string_ostream &o) {
   if (!macros.empty()) {
     o << "\n// Macros:\n";
     for (auto&& m : macros) {
       o << "#define " << m.Name << " " << m.Value << "\n";
     }
   }
+}
+
+static
+void WriteSemanticDefines(CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper, raw_string_ostream &o) {
+  ParsedSemanticDefineList macros = CollectSemanticDefinesParsedByCompiler(compiler, helper);
+  WriteMacroDefines(macros, o);
 }
 
 ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(CompilerInstance &compiler, _In_ DxcLangExtensionsHelper *helper) {
@@ -180,14 +190,14 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(CompilerIn
   // This is very inefficient in general, but in practice we either have
   // no semantic defines, or we have a star define for a some reserved prefix. These will be
   // sorted so rewrites are stable.
-  std::vector<std::pair<const IdentifierInfo*, const MacroInfo*> > macros;
+  std::vector<std::pair<const IdentifierInfo*, MacroInfo*> > macros;
   Preprocessor& pp = compiler.getPreprocessor();
   Preprocessor::macro_iterator end = pp.macro_end();
   for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
     if (!i->second.getLatest()->isDefined()) {
       continue;
     }
-    const MacroInfo* mi = i->second.getLatest()->getMacroInfo();
+    MacroInfo* mi = i->second.getLatest()->getMacroInfo();
     if (mi->isFunctionLike()) {
       continue;
     }
@@ -211,41 +221,104 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(CompilerIn
         continue;
       }
 
-      macros.push_back(std::pair<const IdentifierInfo*, const MacroInfo*>(ii, mi));
+      macros.push_back(std::pair<const IdentifierInfo*, MacroInfo*>(ii, mi));
     }
   }
 
   if (!macros.empty()) {
     std::sort(macros.begin(), macros.end(), MacroPairCompareIsLessThan);
-    SmallVector<std::string, 8> tokens;
-    for (auto&& m : macros) {
-      std::string name = m.first->getName();
-      // Collect all macro token values into a vector.
-      // Put them in a vector to avoid repeated copying of data when appending strings.
-      tokens.clear();
-      tokens.reserve(m.second->getNumTokens());
-      for (MacroInfo::tokens_iterator ti = m.second->tokens_begin(), tiEnd = m.second->tokens_end(); ti != tiEnd; ++ti) {
-        if (ti->hasLeadingSpace())
-          tokens.push_back(" ");
-        tokens.push_back(pp.getSpelling(*ti));
-      }
-
-      // Compute total size of defined string value.
-      size_t size = 0;
-      for (const std::string &s : tokens)
-        size += s.size();
-
-      // Concatenate all values into a single string.
-      std::string value;
-      value.reserve(size);
-      for (const std::string &s : tokens)
-        value.append(s);
-
-      parsedDefines.emplace_back(ParsedSemanticDefine{ name, value, m.second->getDefinitionLoc().getRawEncoding() });
+    MacroExpander expander(pp);
+    for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
+      std::string expandedValue;
+      expander.ExpandMacro(m.second, &expandedValue);
+      parsedDefines.emplace_back(ParsedSemanticDefine{ m.first->getName(), expandedValue, m.second->getDefinitionLoc().getRawEncoding() });
     }
   }
 
   return parsedDefines;
+}
+
+static ParsedSemanticDefineList CollectUserMacrosParsedByCompiler(CompilerInstance &compiler) {
+  ParsedSemanticDefineList parsedDefines;
+  // This is very inefficient in general, but in practice we either have
+  // no semantic defines, or we have a star define for a some reserved prefix. These will be
+  // sorted so rewrites are stable.
+  std::vector<std::pair<const IdentifierInfo*, MacroInfo*> > macros;
+  Preprocessor& pp = compiler.getPreprocessor();
+  Preprocessor::macro_iterator end = pp.macro_end();
+  SourceManager &SM = compiler.getSourceManager();
+  FileID PredefineFileID = pp.getPredefinesFileID();
+
+  for (Preprocessor::macro_iterator i = pp.macro_begin(); i != end; ++i) {
+    if (!i->second.getLatest()->isDefined()) {
+      continue;
+    }
+    MacroInfo* mi = i->second.getLatest()->getMacroInfo();
+    if (mi->getDefinitionLoc().isInvalid()) {
+      continue;
+    }
+    FileID FID = SM.getFileID(mi->getDefinitionEndLoc());
+    if (FID == PredefineFileID)
+      continue;
+
+    const IdentifierInfo* ii = i->first;
+
+    macros.push_back(std::pair<const IdentifierInfo*, MacroInfo*>(ii, mi));
+  }
+
+  if (!macros.empty()) {
+    std::sort(macros.begin(), macros.end(), MacroPairCompareIsLessThan);
+    MacroExpander expander(pp);
+    for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
+      std::string expandedValue;
+      MacroInfo* mi = m.second;
+      if (!mi->isFunctionLike()) {
+        expander.ExpandMacro(m.second, &expandedValue);
+        parsedDefines.emplace_back(ParsedSemanticDefine{ m.first->getName(), expandedValue, m.second->getDefinitionLoc().getRawEncoding() });
+      } else {
+        std::string macroStr;
+        raw_string_ostream macro(macroStr);
+        macro << m.first->getName();
+        auto args = mi->args();
+
+        macro << "(";
+        for (unsigned I = 0; I != mi->getNumArgs(); ++I) {
+          if (I)
+            macro << ", ";
+          macro << args[I]->getName();
+        }
+        macro << ")";
+        macro.flush();
+
+        std::string macroValStr;
+        raw_string_ostream macroVal(macroValStr);
+        for (const Token &Tok : mi->tokens()) {
+          macroVal << " ";
+          if (const char *Punc = tok::getPunctuatorSpelling(Tok.getKind()))
+            macroVal << Punc;
+          else if (const char *Kwd = tok::getKeywordSpelling(Tok.getKind()))
+            macroVal << Kwd;
+          else if (Tok.is(tok::identifier))
+            macroVal << Tok.getIdentifierInfo()->getName();
+          else if (Tok.isLiteral() && Tok.getLiteralData())
+            macroVal << StringRef(Tok.getLiteralData(), Tok.getLength());
+          else
+            macroVal << Tok.getName();
+        }
+        macroVal.flush();
+        parsedDefines.emplace_back(ParsedSemanticDefine{ macroStr, macroValStr, m.second->getDefinitionLoc().getRawEncoding() });
+      }
+    }
+  }
+
+  return parsedDefines;
+}
+
+
+static
+void WriteUserMacroDefines(CompilerInstance &compiler, raw_string_ostream &o) {
+  ParsedSemanticDefineList macros = CollectUserMacrosParsedByCompiler(compiler);
+  WriteMacroDefines(macros, o);
 }
 
 static
@@ -367,15 +440,60 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
   return S_OK;
 }
 
+static void RemoveStaticDecls(DeclContext &Ctx) {
+  for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ) {
+    auto cur = it++;
+    if (VarDecl *VD = dyn_cast<VarDecl>(*cur)) {
+      if (VD->getStorageClass() == SC_Static || VD->isInAnonymousNamespace()) {
+        Ctx.removeDecl(VD);
+      }
+    }
+    if (FunctionDecl *FD = dyn_cast<FunctionDecl>(*cur)) {
+      if (isa<CXXMethodDecl>(FD))
+        continue;
+      if (FD->getStorageClass() == SC_Static || FD->isInAnonymousNamespace()) {
+        Ctx.removeDecl(FD);
+      }
+    }
+
+    if (DeclContext *DC = dyn_cast<DeclContext>(*cur)) {
+      RemoveStaticDecls(*DC);
+    }
+  }
+}
+
+static void GlobalVariableAsExternByDefault(DeclContext &Ctx) {
+  for (auto it = Ctx.decls_begin(); it != Ctx.decls_end(); ) {
+    auto cur = it++;
+    if (VarDecl *VD = dyn_cast<VarDecl>(*cur)) {
+      bool isInternal = VD->getStorageClass() == SC_Static || VD->isInAnonymousNamespace();
+      if (!isInternal) {
+        VD->setStorageClass(StorageClass::SC_Extern);
+      }
+    }
+    // Only iterate on namespaces.
+    if (NamespaceDecl *DC = dyn_cast<NamespaceDecl>(*cur)) {
+      GlobalVariableAsExternByDefault(*DC);
+    }
+  }
+}
+
+
 static
-HRESULT DoUnparse(_In_ DxcLangExtensionsHelper *pHelper,
+HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pFileName,
                _In_ ASTUnit::RemappedFile *pRemap,
                _In_ LPCSTR pDefines,
+               _In_ UINT32 rewriteOption,
                _Outptr_result_z_ LPSTR *pWarnings,
                _Outptr_result_z_ LPSTR *pResult) {
   if (pWarnings != nullptr) *pWarnings = nullptr;
   if (pResult != nullptr) *pResult = nullptr;
+
+  bool bSkipFunctionBody = rewriteOption & RewriterOptionMask::SkipFunctionBody;
+  bool bSkipStatic = rewriteOption & RewriterOptionMask::SkipStatic;
+  bool bGlobalExternByDefault = rewriteOption & RewriterOptionMask::GlobalExternByDefault;
+  bool bKeepUserMacro = rewriteOption & RewriterOptionMask::KeepUserMacro;
 
   std::string s, warnings;
   raw_string_ostream o(s);
@@ -389,10 +507,20 @@ HRESULT DoUnparse(_In_ DxcLangExtensionsHelper *pHelper,
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
-  ParseAST(compiler.getSema(), false, false);
+
+  ParseAST(compiler.getSema(), false, bSkipFunctionBody);
 
   ASTContext& C = compiler.getASTContext();
   TranslationUnitDecl *tu = C.getTranslationUnitDecl();
+
+  if (bSkipStatic && bSkipFunctionBody) {
+    // Remove static functions and globals.
+    RemoveStaticDecls(*tu);
+  }
+
+  if (bGlobalExternByDefault) {
+    GlobalVariableAsExternByDefault(*tu);
+  }
 
   o << "// Rewrite unchanged result:\n";
   PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
@@ -400,6 +528,8 @@ HRESULT DoUnparse(_In_ DxcLangExtensionsHelper *pHelper,
   tu->print(o, p);
 
   WriteSemanticDefines(compiler, pHelper, o);
+  if (bKeepUserMacro)
+    WriteUserMacroDefines(compiler, o);
 
   // Flush and return results.
   raw_string_ostream_to_CoString(o, pResult);
@@ -412,15 +542,15 @@ HRESULT DoUnparse(_In_ DxcLangExtensionsHelper *pHelper,
 
 class DxcRewriter : public IDxcRewriter, public IDxcLangExtensions {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
 public:
-
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcRewriter)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
   }
 
   __override HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(_In_ IDxcBlobEncoding *pSource,
@@ -435,13 +565,15 @@ public:
 
     *ppResult = nullptr;
 
+    DxcThreadMalloc TM(m_pMalloc);
+
     CComPtr<IDxcBlobEncoding> utf8Source;
     IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
     LPCSTR fakeName = "input.hlsl";
 
     try {
-      ::llvm::sys::fs::MSFileSystem *msfPtr;
+      ::llvm::sys::fs::MSFileSystem* msfPtr;
       IFT(CreateMSFileSystemForDisk(&msfPtr));
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
@@ -476,6 +608,8 @@ public:
 
     *ppResult = nullptr;
 
+    DxcThreadMalloc TM(m_pMalloc);
+
     CComPtr<IDxcBlobEncoding> utf8Source;
     IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
@@ -497,9 +631,59 @@ public:
 
       LPSTR errors = nullptr;
       LPSTR rewrite = nullptr;
-      HRESULT status = DoUnparse(
-          &m_langExtensionsHelper, fakeName, pRemap.get(),
-          defineCount > 0 ? definesStr.c_str() : nullptr, &errors, &rewrite);
+      HRESULT status =
+          DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(),
+                          defineCount > 0 ? definesStr.c_str() : nullptr,
+                          RewriterOptionMask::Default, &errors, &rewrite);
+
+      return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
+                                                       ppResult);
+    }
+    CATCH_CPP_RETURN_HRESULT();
+
+  }
+
+  __override HRESULT STDMETHODCALLTYPE RewriteUnchangedWithInclude(
+      _In_ IDxcBlobEncoding *pSource,
+      // Optional file name for pSource. Used in errors and include handlers.
+      _In_opt_ LPCWSTR pSourceName, _In_count_(defineCount) DxcDefine *pDefines,
+      _In_ UINT32 defineCount,
+      // user-provided interface to handle #include directives (optional)
+      _In_opt_ IDxcIncludeHandler *pIncludeHandler,
+      _In_ UINT32 rewriteOption,
+      _COM_Outptr_ IDxcOperationResult **ppResult) {
+    if (pSource == nullptr || ppResult == nullptr || (defineCount > 0 && pDefines == nullptr))
+      return E_POINTER;
+
+    *ppResult = nullptr;
+
+    DxcThreadMalloc TM(m_pMalloc);
+
+    CComPtr<IDxcBlobEncoding> utf8Source;
+    IFR(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
+
+    CW2A utf8SourceName(pSourceName, CP_UTF8);
+    LPCSTR fName = utf8SourceName.m_psz;
+
+    try {
+      dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(utf8Source, pSourceName, pIncludeHandler);
+      std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+      ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+      IFTLLVM(pts.error_code());
+
+      StringRef Data((LPCSTR)utf8Source->GetBufferPointer(), utf8Source->GetBufferSize());
+      std::unique_ptr<llvm::MemoryBuffer> pBuffer(llvm::MemoryBuffer::getMemBufferCopy(Data, fName));
+      std::unique_ptr<ASTUnit::RemappedFile> pRemap(new ASTUnit::RemappedFile(fName, pBuffer.release()));
+
+      std::string definesStr = DefinesToString(pDefines, defineCount);
+
+      LPSTR errors = nullptr;
+      LPSTR rewrite = nullptr;
+      HRESULT status =
+          DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(),
+                          defineCount > 0 ? definesStr.c_str() : nullptr,
+                          rewriteOption, &errors, &rewrite);
 
       return DxcOperationResult::CreateFromUtf8Strings(errors, rewrite, status,
                                                        ppResult);
@@ -525,11 +709,7 @@ public:
 };
 
 HRESULT CreateDxcRewriter(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcRewriter> isense = new (std::nothrow) DxcRewriter();
-  if (isense == nullptr) {
-    *ppv = nullptr;
-    return E_OUTOFMEMORY;
-  }
-
+  CComPtr<DxcRewriter> isense = DxcRewriter::Alloc(DxcGetThreadMallocNoRef());
+  IFROOM(isense.p);
   return isense.p->QueryInterface(riid, ppv);
 }

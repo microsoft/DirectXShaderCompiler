@@ -16,11 +16,15 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
 #include "dxc/HLSL/DxilShaderModel.h"
 #include "dxc/HLSL/DxilModule.h"
+#include "dxc/Support/Global.h"
 #include "dia2.h"
 
 #include "dxc/dxcapi.internal.h"
@@ -34,6 +38,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include <algorithm>
 #include <comdef.h>
+#include "dxcutil.h"
 
 using namespace llvm;
 using namespace clang;
@@ -132,29 +137,39 @@ static HRESULT StringRefToBSTR(llvm::StringRef value, BSTR *pRetVal) {
 
 static HRESULT CreateDxcDiaEnumTables(DxcDiaSession *, IDiaEnumTables **);
 static HRESULT CreateDxcDiaTable(DxcDiaSession *, DiaTableKind kind, IDiaTable **ppTable);
+static HRESULT DxcDiaFindLineNumbersByRVA(DxcDiaSession *, DWORD rva, DWORD length, IDiaEnumLineNumbers **);
 
 class DxcDiaSession : public IDiaSession {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   std::shared_ptr<llvm::LLVMContext> m_context;
   std::shared_ptr<llvm::Module> m_module;
   std::shared_ptr<llvm::DebugInfoFinder> m_finder;
-  DxilModule m_dxilModule;
+  std::unique_ptr<DxilModule> m_dxilModule;
   llvm::NamedMDNode *m_contents;
   llvm::NamedMDNode *m_defines;
   llvm::NamedMDNode *m_mainFileName;
   llvm::NamedMDNode *m_arguments;
   std::vector<const Instruction *> m_instructions;
   std::vector<const Instruction *> m_instructionLines; // Instructions with line info.
+  typedef unsigned RVA;
+  std::unordered_map<const Instruction *, RVA> m_rvaMap; // Map instruction to its RVA.
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcDiaSession)
 
-  DxcDiaSession(std::shared_ptr<llvm::LLVMContext> context,
-                std::shared_ptr<llvm::Module> module,
-                std::shared_ptr<llvm::DebugInfoFinder> finder)
-      : m_module(module), m_context(context), m_finder(finder), m_dwRef(0), m_dxilModule(module.get()) {
+  IMalloc *GetMallocNoRef() { return m_pMalloc.p; }
+
+  void Init(std::shared_ptr<llvm::LLVMContext> context,
+      std::shared_ptr<llvm::Module> module,
+      std::shared_ptr<llvm::DebugInfoFinder> finder) {
+    m_module = module;
+    m_context = context;
+    m_finder = finder;
+    m_dxilModule = std::make_unique<DxilModule>(module.get());
+  
     // Extract HLSL metadata.
-    m_dxilModule.LoadDxilMetadata();
+    m_dxilModule->LoadDxilMetadata();
 
     // Get file contents.
     m_contents = m_module->getNamedMetadata("llvm.dbg.contents");
@@ -164,32 +179,39 @@ public:
     // Build up a linear list of instructions. The index will be used as the
     // RVA. Debug instructions are ommitted from this enumeration.
     for (const Function &fn : m_module->functions()) {
-      for (const BasicBlock &bb : fn.getBasicBlockList()) {
-        for (const Instruction &i : bb.getInstList()) {
-          if (i.getOpcode() == Instruction::Call) {
-            Value *pFn = i.getOperand(0);
-            if (pFn->getName().startswith("llvm.dbg.")) {
-              continue;
-            }
-          }
-
-          m_instructions.push_back(&i);
-          if (i.getDebugLoc()) {
-            m_instructionLines.push_back(&i);
+      for (const_inst_iterator it = inst_begin(fn), end = inst_end(fn); it != end; ++it) {
+        const Instruction &i = *it;
+        if (const CallInst *call = dyn_cast<const CallInst>(&i)) {
+          const Function *pFn = call->getCalledFunction();
+          if (pFn && pFn->getName().startswith("llvm.dbg.")) {
+            continue;
           }
         }
+
+        m_rvaMap.insert({ &i, static_cast<RVA>(m_instructions.size()) });
+        m_instructions.push_back(&i);
+        if (i.getDebugLoc()) {
+          m_instructionLines.push_back(&i);
+        }
       }
+    }
+
+    // Sanity check to make sure rva map is same as instruction index.
+    for (size_t i = 0, e = m_instructions.size(); i < e; ++i) {
+      DXASSERT(m_rvaMap.find(m_instructions[i]) != m_rvaMap.end(), "instruction not mapped to rva");
+      DXASSERT(m_rvaMap[m_instructions[i]] == i, "instruction mapped to wrong rva");
     }
   }
   llvm::NamedMDNode *Contents() { return m_contents; }
   llvm::NamedMDNode *Defines() { return m_defines; }
   llvm::NamedMDNode *MainFileName() { return m_mainFileName; }
   llvm::NamedMDNode *Arguments() { return m_arguments; }
-  hlsl::DxilModule &DxilModuleRef() { return m_dxilModule; }
+  hlsl::DxilModule &DxilModuleRef() { return *m_dxilModule.get(); }
   llvm::Module &ModuleRef() { return *m_module.get(); }
   llvm::DebugInfoFinder &InfoRef() { return *m_finder.get(); }
   std::vector<const Instruction *> &InstructionsRef() { return m_instructions; }
   std::vector<const Instruction *> &InstructionLinesRef() { return m_instructionLines; }
+  std::unordered_map<const Instruction *, RVA> &RvaMapRef() { return m_rvaMap; }
 
   HRESULT getSourceFileIdByName(StringRef fileName, DWORD *pRetVal) {
     if (Contents() != nullptr) {
@@ -225,6 +247,7 @@ public:
 
   __override STDMETHODIMP getEnumTables(
     _COM_Outptr_ IDiaEnumTables **ppEnumTables) {
+    DxcThreadMalloc TM(m_pMalloc);
     return CreateDxcDiaEnumTables(this, ppEnumTables);
   }
 
@@ -330,12 +353,18 @@ public:
     /* [in] */ DWORD seg,
     /* [in] */ DWORD offset,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) {
+      DxcThreadMalloc TM(m_pMalloc);
+      return DxcDiaFindLineNumbersByRVA(this, offset, length, ppResult);
+    }
 
   __override STDMETHODIMP findLinesByRVA(
     /* [in] */ DWORD rva,
     /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
+    /* [out] */ IDiaEnumLineNumbers **ppResult) {
+    DxcThreadMalloc TM(m_pMalloc);
+    return DxcDiaFindLineNumbersByRVA(this, rva, length, ppResult);
+  }
 
   __override STDMETHODIMP findLinesByVA(
     /* [in] */ ULONGLONG va,
@@ -350,8 +379,8 @@ public:
     /* [out] */ IDiaEnumLineNumbers **ppResult) { return E_NOTIMPL; }
 
   __override STDMETHODIMP findInjectedSource(
-    /* [in] */ LPCOLESTR srcFile,
-    /* [out] */ IDiaEnumInjectedSources **ppResult) { return E_NOTIMPL; }
+      /* [in] */ LPCOLESTR srcFile,
+      /* [out] */ IDiaEnumInjectedSources **ppResult);
 
   __override STDMETHODIMP getEnumDebugStreams(
     /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) { return E_NOTIMPL; }
@@ -520,19 +549,19 @@ public:
 
 class DxcDiaEnumTables : public IDiaEnumTables {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
 protected:
   CComPtr<DxcDiaSession> m_pSession;
   unsigned m_next;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDiaEnumTables>(this, iid, ppvObject);
   }
 
-  DxcDiaEnumTables(DxcDiaSession *pSession)
-      : m_pSession(pSession), m_dwRef(0), m_next(0) {}
+  DxcDiaEnumTables(IMalloc *pMalloc, DxcDiaSession *pSession)
+      : m_pMalloc(pMalloc), m_pSession(pSession), m_dwRef(0), m_next(0) {}
 
   __override STDMETHODIMP get__NewEnum(
     /* [retval][out] */ IUnknown **pRetVal) { return E_NOTIMPL; }
@@ -544,12 +573,31 @@ public:
 
   __override STDMETHODIMP Item(
     /* [in] */ VARIANT index,
-    /* [retval][out] */ IDiaTable **table) { return E_NOTIMPL; }
+    /* [retval][out] */ IDiaTable **table) {
+    // Avoid pulling in additional variant support (could have used VariantChangeType instead).
+    DWORD indexVal;
+    switch (index.vt) {
+    case VT_UI4:
+      indexVal = index.uintVal;
+      break;
+    case VT_I4:
+      IFR(IntToDWord(index.intVal, &indexVal));
+      break;
+    default:
+      return E_INVALIDARG;
+    }
+    if (indexVal > (unsigned)LastTableKind) {
+      return E_INVALIDARG;
+    }
+    DxcThreadMalloc TM(m_pMalloc);
+    return CreateDxcDiaTable(m_pSession, (DiaTableKind)indexVal, table);
+  }
 
   __override STDMETHODIMP Next(
     ULONG celt,
     IDiaTable **rgelt,
     ULONG *pceltFetched) {
+    DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next <= (unsigned)LastTableKind) {
       HRESULT hr = CreateDxcDiaTable(m_pSession, (DiaTableKind)m_next, &rgelt[fetched]);
@@ -573,7 +621,7 @@ public:
 };
 
 static HRESULT CreateDxcDiaEnumTables(DxcDiaSession *pSession, IDiaEnumTables **ppEnumTables) {
-  *ppEnumTables = new (std::nothrow)DxcDiaEnumTables(pSession);
+  *ppEnumTables = CreateOnMalloc<DxcDiaEnumTables>(pSession->GetMallocNoRef(), pSession);
   if (*ppEnumTables == nullptr)
     return E_OUTOFMEMORY;
   (*ppEnumTables)->AddRef();
@@ -583,25 +631,32 @@ static HRESULT CreateDxcDiaEnumTables(DxcDiaSession *pSession, IDiaEnumTables **
 template<typename T, typename TItem>
 class DxcDiaTableBase : public IDiaTable, public T {
 protected:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcDiaSession> m_pSession;
   unsigned m_next;
   unsigned m_count;
   DiaTableKind m_kind;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface3<IDiaTable, T, IEnumUnknown>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDiaTable, T, IEnumUnknown>(this, iid, ppvObject);
   }
 
-  DxcDiaTableBase(DxcDiaSession *pSession, DiaTableKind kind)
-      : m_pSession(pSession), m_dwRef(0), m_next(0), m_count(0), m_kind(kind) {}
+  DxcDiaTableBase(IMalloc *pMalloc, DxcDiaSession *pSession, DiaTableKind kind) {
+    m_pMalloc = pMalloc;
+    m_pSession = pSession;
+    m_kind = kind;
+    m_next = 0;
+    m_count = 0;
+  }
 
   // IEnumUnknown implementation.
   __override STDMETHODIMP Next(
     _In_  ULONG celt,
     _Out_writes_to_(celt, *pceltFetched)  IUnknown **rgelt,
     _Out_opt_  ULONG *pceltFetched) {
+    DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next < m_count) {
       HRESULT hr = Item(m_next, &rgelt[fetched]);
@@ -662,6 +717,7 @@ public:
     /* [in] */ ULONG celt,
     /* [out] */ TItem **rgelt,
     /* [out] */ ULONG *pceltFetched) {
+    DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next < m_count) {
       HRESULT hr = GetItem(m_next, &rgelt[fetched]);
@@ -677,9 +733,10 @@ public:
   __override STDMETHODIMP Item(
     /* [in] */ DWORD index,
     /* [retval][out] */ TItem **ppItem) {
+    DxcThreadMalloc TM(m_pMalloc);
     if (index >= m_count)
-      return GetItem(index, ppItem);
-    return E_INVALIDARG;
+      return E_INVALIDARG;
+    return GetItem(index, ppItem);
   }
 
   virtual HRESULT GetItem(DWORD index, TItem **ppItem) {
@@ -690,7 +747,7 @@ public:
 };
 
 class DxcDiaSymbol : public IDiaSymbol {
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcDiaSession> m_pSession;
   DWORD m_index;
   DWORD m_symTag;
@@ -700,13 +757,25 @@ class DxcDiaSymbol : public IDiaSymbol {
   CComBSTR m_name;
   CComVariant m_value;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcDiaSymbol)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDiaSymbol>(this, iid, ppvObject);
   }
 
-  DxcDiaSymbol(DxcDiaSession *pSession, DWORD index, DWORD symTag)
-    : m_pSession(pSession), m_dwRef(0), m_index(index), m_symTag(symTag) {}
+  static HRESULT Create(IMalloc *pMalloc, DxcDiaSession *pSession, DWORD index, DWORD symTag, DxcDiaSymbol **pSymbol) {
+    *pSymbol = Alloc(pMalloc);
+    if (*pSymbol == nullptr) return E_OUTOFMEMORY;
+    (*pSymbol)->AddRef();
+    (*pSymbol)->Init(pSession, index, symTag);
+    return S_OK;
+  }
+
+  void Init(DxcDiaSession *pSession, DWORD index, DWORD symTag) {
+    m_pSession = pSession;
+    m_index = index;
+    m_symTag = symTag;
+  }
 
   void SetDataKind(DWORD value) { m_dataKind = value; }
   void SetLexicalParent(DWORD value) { m_lexicalParent = value; }
@@ -1495,7 +1564,7 @@ public:
 
 class DxcDiaTableSymbols : public DxcDiaTableBase<IDiaEnumSymbols, IDiaSymbol> {
 public:
-  DxcDiaTableSymbols(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::Symbols) {
+  DxcDiaTableSymbols(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::Symbols) {
     // The count is as follows:
     // One symbol for the program.
     // One Compiland per compilation unit.
@@ -1510,17 +1579,19 @@ public:
   }
 
   __override HRESULT GetItem(DWORD index, IDiaSymbol **ppItem) {
+    DxcThreadMalloc TM(m_pMalloc);
+
     // Ids are one-based, so adjust the index.
     ++index;
 
     // Program symbol.
     CComPtr<DxcDiaSymbol> item;
     if (index == HlslProgramId) {
-      item = new DxcDiaSymbol(m_pSession, index, SymTagExe);
+      IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagExe, &item));
       item->SetName(L"HLSL");
     }
     else if (index == HlslCompilandId) {
-      item = new DxcDiaSymbol(m_pSession, index, SymTagCompiland);
+      IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompiland, &item));
       item->SetName(L"main");
       item->SetLexicalParent(HlslProgramId);
       if (m_pSession->MainFileName()) {
@@ -1530,31 +1601,31 @@ public:
       }
     }
     else if (index == HlslCompilandDetailsId) {
-      item = new DxcDiaSymbol(m_pSession, index, SymTagCompilandDetails);
+      IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompilandDetails, &item));
       item->SetLexicalParent(HlslCompilandId);
       // TODO: complete the rest of the compiland details
       // platform: 256, language: 16, frontEndMajor: 6, frontEndMinor: 3, value: 0, hasDebugInfo: 1, compilerName: comiler string goes here
     }
     else if (index == HlslCompilandEnvFlagsId) {
-      item = new DxcDiaSymbol(m_pSession, index, SymTagCompilandEnv);
+      IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompilandEnv, &item));
       item->SetLexicalParent(HlslCompilandId);
       item->SetName(L"hlslFlags");
       item->SetValue(m_pSession->DxilModuleRef().GetGlobalFlags());
     }
     else if (index == HlslCompilandEnvTargetId) {
-      item = new DxcDiaSymbol(m_pSession, index, SymTagCompilandEnv);
+      IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompilandEnv, &item));
       item->SetLexicalParent(HlslCompilandId);
       item->SetName(L"hlslTarget");
       item->SetValue(m_pSession->DxilModuleRef().GetShaderModel()->GetName());
     }
     else if (index == HlslCompilandEnvEntryId) {
-      item = new DxcDiaSymbol(m_pSession, index, SymTagCompilandEnv);
+      IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompilandEnv, &item));
       item->SetLexicalParent(HlslCompilandId);
       item->SetName(L"hlslEntry");
       item->SetValue(m_pSession->DxilModuleRef().GetEntryFunctionName().c_str());
     }
     else if (index == HlslCompilandEnvDefinesId) {
-      item = new DxcDiaSymbol(m_pSession, index, SymTagCompilandEnv);
+      IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompilandEnv, &item));
       item->SetLexicalParent(HlslCompilandId);
       item->SetName(L"hlslDefines");
       UINT32 charSize = 0;
@@ -1575,7 +1646,7 @@ public:
       item->SetValue(&Variant);
     }
     else if (index == HlslCompilandEnvArgumentsId) {
-      item = new DxcDiaSymbol(m_pSession, index, SymTagCompilandEnv);
+      IFR(DxcDiaSymbol::Create(m_pMalloc, m_pSession, index, SymTagCompilandEnv, &item));
       item->SetLexicalParent(HlslCompilandId);
       item->SetName(L"hlslArguments");
       StringRef strRef = dyn_cast<MDString>(m_pSession->Arguments()->getOperand(0)->getOperand(0))->getString();
@@ -1590,17 +1661,17 @@ public:
 };
 
 class DxcDiaSourceFile : public IDiaSourceFile {
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcDiaSession> m_pSession;
   DWORD m_index;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDiaSourceFile>(this, iid, ppvObject);
   }
 
-  DxcDiaSourceFile(DxcDiaSession *pSession, DWORD index)
-    : m_pSession(pSession), m_dwRef(0), m_index(index) {}
+  DxcDiaSourceFile(IMalloc *pMalloc, DxcDiaSession *pSession, DWORD index)
+    : m_pSession(pSession), m_index(index) {}
 
   llvm::MDTuple *NameContent() {
     return cast<llvm::MDTuple>(m_pSession->Contents()->getOperand(m_index));
@@ -1617,6 +1688,7 @@ public:
 
   __override STDMETHODIMP get_fileName(
     /* [retval][out] */ BSTR *pRetVal) {
+    DxcThreadMalloc TM(m_pMalloc);
     return StringRefToBSTR(Name(), pRetVal);
   }
 
@@ -1640,13 +1712,13 @@ public:
 
 class DxcDiaTableSourceFiles : public DxcDiaTableBase<IDiaEnumSourceFiles, IDiaSourceFile> {
 public:
-  DxcDiaTableSourceFiles(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::SourceFiles) { 
+  DxcDiaTableSourceFiles(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::SourceFiles) { 
     m_count =
       (m_pSession->Contents() == nullptr) ? 0 : m_pSession->Contents()->getNumOperands();
   }
 
   __override HRESULT GetItem(DWORD index, IDiaSourceFile **ppItem) {
-    *ppItem = new (std::nothrow)DxcDiaSourceFile(m_pSession, index);
+    *ppItem = CreateOnMalloc<DxcDiaSourceFile>(m_pMalloc, m_pSession, index);
     if (*ppItem == nullptr)
       return E_OUTOFMEMORY;
     (*ppItem)->AddRef();
@@ -1655,20 +1727,21 @@ public:
 };
 
 class DxcDiaLineNumber : public IDiaLineNumber {
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcDiaSession> m_pSession;
-  DWORD m_index;
+  const Instruction *m_inst;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDiaLineNumber>(this, iid, ppvObject);
   }
 
-  DxcDiaLineNumber(DxcDiaSession *pSession, DWORD index)
-    : m_pSession(pSession), m_dwRef(0), m_index(index) {}
+  DxcDiaLineNumber(IMalloc *pMalloc, DxcDiaSession *pSession, const Instruction * inst)
+    : m_pMalloc(pMalloc), m_pSession(pSession), m_inst(inst) {}
 
   const llvm::DebugLoc &DL() {
-    return m_pSession->InstructionLinesRef()[m_index]->getDebugLoc();
+    DXASSERT(bool(m_inst->getDebugLoc()), "Trying to read line info from invalid debug location");
+    return m_inst->getDebugLoc();
   }
 
   __override STDMETHODIMP get_compiland(
@@ -1709,7 +1782,7 @@ public:
 
   __override STDMETHODIMP get_relativeVirtualAddress(
     /* [retval][out] */ DWORD *pRetVal) { 
-    *pRetVal = m_index;
+    *pRetVal = m_pSession->RvaMapRef()[m_inst];
     return S_OK;
   }
 
@@ -1747,24 +1820,88 @@ public:
   }
 };
 
+// This class implements the line number table for dxc.
+//
+// It keeps a reference to the list of instructions that contain
+// line number debug info. By default, it points to the full list
+// of instructions that contain line info.
+//
+// It can also be passed a list of instructions that contain line info so
+// that we can iterate over a subset of lines. When passed an explicit list
+// it takes ownership of the list and points its reference to the internal
+// copy of the list.
 class DxcDiaTableLineNumbers : public DxcDiaTableBase<IDiaEnumLineNumbers, IDiaLineNumber> {
 public:
-  DxcDiaTableLineNumbers(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::LineNumbers) {
-    m_count = pSession->InstructionLinesRef().size();
+  DxcDiaTableLineNumbers(IMalloc *pMalloc, DxcDiaSession *pSession) 
+    : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::LineNumbers)
+    , m_instructions(pSession->InstructionLinesRef())
+  {
+    m_count = m_instructions.size();
   }
+  
+  DxcDiaTableLineNumbers(IMalloc *pMalloc, DxcDiaSession *pSession, std::vector<const Instruction*> &&instructions) 
+    : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::LineNumbers)
+    , m_instructions(m_instructionsStorage)
+    , m_instructionsStorage(std::move(instructions))
+  {
+    m_count = m_instructions.size();
+  }
+  
 
   __override HRESULT GetItem(DWORD index, IDiaLineNumber **ppItem) {
-    *ppItem = new (std::nothrow)DxcDiaLineNumber(m_pSession, index);
+    if (index >= m_instructions.size())
+      return E_INVALIDARG;
+    *ppItem = CreateOnMalloc<DxcDiaLineNumber>(m_pMalloc, m_pSession, m_instructions[index]);
     if (*ppItem == nullptr)
       return E_OUTOFMEMORY;
     (*ppItem)->AddRef();
     return S_OK;
   }
+
+private:
+  // Keep a reference to the instructions that contain the line numbers.
+  const std::vector<const Instruction *> &m_instructions;
+  
+  // Provide storage space for instructions for when the table contains
+  // a subset of all instructions.
+  std::vector<const Instruction *> m_instructionsStorage;
 };
+
+static HRESULT DxcDiaFindLineNumbersByRVA(
+  DxcDiaSession *pSession,
+  DWORD rva,
+  DWORD length,
+  IDiaEnumLineNumbers **ppResult) 
+{
+  if (!ppResult)
+    return E_POINTER;
+
+  std::vector<const Instruction*> instructions;
+  const std::vector<const Instruction*> &allInstructions = pSession->InstructionsRef();
+
+  // Gather the list of insructions that map to the given rva range.
+  for (DWORD i = rva; i < rva + length; ++i) {
+    if (i >= allInstructions.size())
+      return E_INVALIDARG;
+
+    // Only include the instruction if it has debug info for line mappings.
+    const Instruction *inst = allInstructions[i];
+    if (inst->getDebugLoc())
+      instructions.push_back(inst);
+  }
+
+  // Create line number table from explicit instruction list.
+  IMalloc *pMalloc = pSession->GetMallocNoRef();
+  *ppResult = CreateOnMalloc<DxcDiaTableLineNumbers>(pMalloc, pSession, std::move(instructions));
+  if (*ppResult == nullptr)
+    return E_OUTOFMEMORY;
+  (*ppResult)->AddRef();
+  return S_OK;
+}
 
 class DxcDiaTableSections : public DxcDiaTableBase<IDiaEnumSectionContribs, IDiaSectionContrib> {
 public:
-  DxcDiaTableSections(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::Sections) { }
+  DxcDiaTableSections(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::Sections) { }
   __override HRESULT GetItem(DWORD index, IDiaSectionContrib **ppItem) {
     *ppItem = nullptr;
     return E_FAIL;
@@ -1773,7 +1910,7 @@ public:
 
 class DxcDiaTableSegmentMap : public DxcDiaTableBase<IDiaEnumSegments, IDiaSegment> {
 public:
-  DxcDiaTableSegmentMap(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::SegmentMap) { }
+  DxcDiaTableSegmentMap(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::SegmentMap) { }
   __override HRESULT GetItem(DWORD index, IDiaSegment **ppItem) {
     *ppItem = nullptr;
     return E_FAIL;
@@ -1781,17 +1918,17 @@ public:
 };
 
 class DxcDiaInjectedSource : public IDiaInjectedSource {
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcDiaSession> m_pSession;
   DWORD m_index;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDiaInjectedSource>(this, iid, ppvObject);
   }
 
-  DxcDiaInjectedSource(DxcDiaSession *pSession, DWORD index)
-    : m_pSession(pSession), m_dwRef(0), m_index(index) {}
+  DxcDiaInjectedSource(IMalloc *pMalloc, DxcDiaSession *pSession, DWORD index)
+    : m_pMalloc(pMalloc), m_pSession(pSession), m_index(index) {}
 
   llvm::MDTuple *NameContent() {
     return cast<llvm::MDTuple>(m_pSession->Contents()->getOperand(m_index));
@@ -1812,6 +1949,7 @@ public:
   }
 
   __override STDMETHODIMP get_filename(BSTR *pRetVal) {
+    DxcThreadMalloc TM(m_pMalloc);
     return StringRefToBSTR(Name(), pRetVal);
   }
 
@@ -1837,6 +1975,7 @@ public:
       }
       return S_OK;
     }
+
     cbData = std::min((DWORD)Content().size(), cbData);
     memcpy(pbData, Content().begin(), cbData);
     if (pcbData) {
@@ -1848,7 +1987,7 @@ public:
 
 class DxcDiaTableInjectedSource : public DxcDiaTableBase<IDiaEnumInjectedSources, IDiaInjectedSource> {
 public:
-  DxcDiaTableInjectedSource(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::InjectedSource) {
+  DxcDiaTableInjectedSource(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::InjectedSource) {
     // Count the number of source files available.
     // m_count = m_pSession->InfoRef().compile_unit_count();
     m_count =
@@ -1856,17 +1995,35 @@ public:
   }
 
   __override HRESULT GetItem(DWORD index, IDiaInjectedSource **ppItem) {
-    *ppItem = new (std::nothrow)DxcDiaInjectedSource(m_pSession, index);
+    if (index >= m_count)
+      return E_INVALIDARG;
+    unsigned itemIndex = index;
+    if (m_count == m_indexList.size())
+      itemIndex = m_indexList[index];
+    *ppItem = CreateOnMalloc<DxcDiaInjectedSource>(m_pMalloc, m_pSession, itemIndex);
     if (*ppItem == nullptr)
       return E_OUTOFMEMORY;
     (*ppItem)->AddRef();
     return S_OK;
   }
+  void Init(StringRef filename) {
+    for (unsigned i = 0; i < m_pSession->Contents()->getNumOperands(); ++i) {
+      StringRef fn =
+          dyn_cast<MDString>(m_pSession->Contents()->getOperand(i)->getOperand(0))
+              ->getString();
+      if (fn.equals(filename)) {
+        m_indexList.emplace_back(i);
+      }
+    }
+    m_count = m_indexList.size();
+  }
+private:
+  std::vector<unsigned> m_indexList;
 };
 
 class DxcDiaTableFrameData : public DxcDiaTableBase<IDiaEnumFrameData, IDiaFrameData> {
 public:
-  DxcDiaTableFrameData(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::FrameData) { }
+  DxcDiaTableFrameData(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::FrameData) { }
   // HLSL inlines functions for a program, so no data to return.
   __override STDMETHODIMP frameByRVA(
     /* [in] */ DWORD relativeVirtualAddress,
@@ -1883,22 +2040,40 @@ public:
 
 class DxcDiaTableInputAssemblyFile : public DxcDiaTableBase<IDiaEnumInputAssemblyFiles, IDiaInputAssemblyFile> {
 public:
-  DxcDiaTableInputAssemblyFile(DxcDiaSession *pSession) : DxcDiaTableBase(pSession, DiaTableKind::InputAssemblyFile) { }
+  DxcDiaTableInputAssemblyFile(IMalloc *pMalloc, DxcDiaSession *pSession) : DxcDiaTableBase(pMalloc, pSession, DiaTableKind::InputAssemblyFile) { }
   // HLSL is not based on IL, so no data to return.
 };
+
+__override STDMETHODIMP DxcDiaSession::findInjectedSource(
+    /* [in] */ LPCOLESTR srcFile,
+    /* [out] */ IDiaEnumInjectedSources **ppResult) {
+  if (Contents() != nullptr) {
+    CW2A pUtf8FileName(srcFile);
+    DxcThreadMalloc TM(m_pMalloc);
+    IDiaTable *pTable;
+    IFT(CreateDxcDiaTable(this, DiaTableKind::InjectedSource, &pTable));
+    DxcDiaTableInjectedSource *pInjectedSource =
+        dynamic_cast<DxcDiaTableInjectedSource *>(pTable);
+    pInjectedSource->Init(pUtf8FileName.m_psz);
+    *ppResult = pInjectedSource;
+    return S_OK;
+  }
+  return S_FALSE;
+}
 
 static
 HRESULT CreateDxcDiaTable(DxcDiaSession *pSession, DiaTableKind kind, IDiaTable **ppTable) {
   *ppTable = nullptr;
+  IMalloc *pMalloc = pSession->GetMallocNoRef();
   switch (kind) {
-  case DiaTableKind::Symbols: *ppTable = new (std::nothrow)DxcDiaTableSymbols(pSession); break;
-  case DiaTableKind::SourceFiles: *ppTable = new (std::nothrow)DxcDiaTableSourceFiles(pSession); break;
-  case DiaTableKind::LineNumbers: *ppTable = new (std::nothrow)DxcDiaTableLineNumbers(pSession); break;
-  case DiaTableKind::Sections: *ppTable = new (std::nothrow)DxcDiaTableSections(pSession); break;
-  case DiaTableKind::SegmentMap: *ppTable = new (std::nothrow)DxcDiaTableSegmentMap(pSession); break;
-  case DiaTableKind::InjectedSource: *ppTable = new (std::nothrow)DxcDiaTableInjectedSource(pSession); break;
-  case DiaTableKind::FrameData: *ppTable = new (std::nothrow)DxcDiaTableFrameData(pSession); break;
-  case DiaTableKind::InputAssemblyFile: *ppTable = new (std::nothrow)DxcDiaTableInputAssemblyFile(pSession); break;
+  case DiaTableKind::Symbols: *ppTable = CreateOnMalloc<DxcDiaTableSymbols>(pMalloc, pSession); break;
+  case DiaTableKind::SourceFiles: *ppTable = CreateOnMalloc<DxcDiaTableSourceFiles>(pMalloc, pSession); break;
+  case DiaTableKind::LineNumbers: *ppTable = CreateOnMalloc<DxcDiaTableLineNumbers>(pMalloc, pSession); break;
+  case DiaTableKind::Sections: *ppTable = CreateOnMalloc<DxcDiaTableSections>(pMalloc, pSession); break;
+  case DiaTableKind::SegmentMap: *ppTable = CreateOnMalloc<DxcDiaTableSegmentMap>(pMalloc, pSession); break;
+  case DiaTableKind::InjectedSource: *ppTable = CreateOnMalloc<DxcDiaTableInjectedSource>(pMalloc, pSession); break;
+  case DiaTableKind::FrameData: *ppTable = CreateOnMalloc<DxcDiaTableFrameData>(pMalloc, pSession); break;
+  case DiaTableKind::InputAssemblyFile: *ppTable = CreateOnMalloc<DxcDiaTableInputAssemblyFile>(pMalloc, pSession); break;
   default: return E_FAIL;
   }
   if (*ppTable == nullptr)
@@ -1909,18 +2084,18 @@ HRESULT CreateDxcDiaTable(DxcDiaSession *pSession, DiaTableKind kind, IDiaTable 
 
 class DxcDiaDataSource : public IDiaDataSource {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
   std::shared_ptr<llvm::Module> m_module;
   std::shared_ptr<llvm::LLVMContext> m_context;
   std::shared_ptr<llvm::DebugInfoFinder> m_finder;
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDiaDataSource>(this, iid, ppvObject);
   }
 
-  DxcDiaDataSource() : m_dwRef(0) {}
+  DxcDiaDataSource(IMalloc *pMalloc) : m_pMalloc(pMalloc) {}
   ~DxcDiaDataSource() {
     // These are cross-referenced, so let's be explicit.
     m_finder.reset();
@@ -1930,7 +2105,7 @@ public:
 
   __override HRESULT STDMETHODCALLTYPE get_lastError(BSTR *pRetVal) {
     *pRetVal = nullptr;
-    return E_NOTIMPL;
+    return S_OK;
   }
 
   __override HRESULT STDMETHODCALLTYPE loadDataFromPdb(_In_ LPCOLESTR pdbPath) {
@@ -1953,6 +2128,7 @@ public:
   }
 
   __override STDMETHODIMP loadDataFromIStream(_In_ IStream *pIStream) {
+    DxcThreadMalloc TM(m_pMalloc);
     if (m_module.get() != nullptr) {
       return E_FAIL;
     }
@@ -1960,30 +2136,63 @@ public:
     m_finder.reset();
     try {
       m_context = std::make_shared<LLVMContext>();
+      MemoryBuffer *pBitcodeBuffer;
+      std::unique_ptr<MemoryBuffer> pEmbeddedBuffer;
       std::unique_ptr<MemoryBuffer> pBuffer =
           getMemBufferFromStream(pIStream, "data");
-      ErrorOr<std::unique_ptr<llvm::Module>> module =
-          parseBitcodeFile(pBuffer->getMemBufferRef(), *m_context.get());
-      if (!module)
+      size_t bufferSize = pBuffer->getBufferSize();
+
+      // The buffer can hold LLVM bitcode for a module, or the ILDB
+      // part from a container.
+      if (bufferSize < sizeof(UINT32)) {
+        return DXC_E_MALFORMED_CONTAINER;
+      }
+      const UINT32 BC_C0DE = ((INT32)(INT8)'B' | (INT32)(INT8)'C' << 8 | (INT32)0xDEC0 << 16); // BC0xc0de in big endian
+      if (BC_C0DE == *(const UINT32*)pBuffer->getBufferStart()) {
+        pBitcodeBuffer = pBuffer.get();
+      }
+      else {
+        if (bufferSize <= sizeof(hlsl::DxilProgramHeader)) {
+          return DXC_E_MALFORMED_CONTAINER;
+        }
+
+        hlsl::DxilProgramHeader *pDxilProgramHeader = (hlsl::DxilProgramHeader *)pBuffer->getBufferStart();
+        if (pDxilProgramHeader->BitcodeHeader.DxilMagic != DxilMagicValue) {
+          return DXC_E_MALFORMED_CONTAINER;
+        }
+
+        UINT32 BlobSize;
+        const char *pBitcode = nullptr;
+        hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &BlobSize);
+        UINT32 offset = (UINT32)(pBitcode - (const char *)pDxilProgramHeader);
+        std::unique_ptr<MemoryBuffer> p = MemoryBuffer::getMemBuffer(
+            StringRef(pBitcode, bufferSize - offset), "data");
+        pEmbeddedBuffer.swap(p);
+        pBitcodeBuffer = pEmbeddedBuffer.get();
+      }
+
+      std::string DiagStr;
+      std::unique_ptr<llvm::Module> pModule = dxcutil::LoadModuleFromBitcode(
+          pBitcodeBuffer, *m_context.get(), DiagStr);
+      if (!pModule.get())
         return E_FAIL;
       m_finder = std::make_shared<DebugInfoFinder>();
-      m_finder->processModule(*module.get().get());
-      m_module.reset(module.get().release());
+      m_finder->processModule(*pModule.get());
+      m_module.reset(pModule.release());
     }
     CATCH_CPP_RETURN_HRESULT();
     return S_OK;
   }
 
   __override STDMETHODIMP openSession(_COM_Outptr_ IDiaSession **ppSession) {
+    DxcThreadMalloc TM(m_pMalloc);
     *ppSession = nullptr;
     if (m_module.get() == nullptr)
       return E_FAIL;
-    DxcDiaSession *pSession =
-        new (std::nothrow) DxcDiaSession(m_context, m_module, m_finder);
-    if (pSession == nullptr)
-      return E_OUTOFMEMORY;
-    (*ppSession) = pSession;
-    pSession->AddRef();
+    CComPtr<DxcDiaSession> pSession = DxcDiaSession::Alloc(DxcGetThreadMallocNoRef());
+    IFROOM(pSession.p);
+    pSession->Init(m_context, m_module, m_finder);
+    *ppSession = pSession.Detach();
     return S_OK;
   }
 
@@ -2010,7 +2219,7 @@ public:
 };
 
 HRESULT CreateDxcDiaDataSource(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcDiaDataSource> result = new (std::nothrow) DxcDiaDataSource();
+  CComPtr<DxcDiaDataSource> result = CreateOnMalloc<DxcDiaDataSource>(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;
     return E_OUTOFMEMORY;

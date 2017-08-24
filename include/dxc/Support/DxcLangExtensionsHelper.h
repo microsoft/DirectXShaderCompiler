@@ -122,6 +122,17 @@ public:
       return "";
   }
 
+  // Get the dxil opcode for the extension opcode if one exists.
+  // Return true if the opcode was mapped successfully.
+  bool GetDxilOpCode(UINT opcode, UINT &dxilOpcode) {
+    for (IDxcIntrinsicTable *table : m_intrinsicTables) {
+      if (SUCCEEDED(table->GetDxilOpCode(opcode, &dxilOpcode))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Result of validating a semantic define.
   // Stores any warning or error messages produced by the validator.
   // Successful validation means that there are no warning or error messages.
@@ -210,21 +221,27 @@ public:
 // Note that QueryInterface still needs to return the vtable.
 #define DXC_LANGEXTENSIONS_HELPER_IMPL(_helper_field_) \
   __override HRESULT STDMETHODCALLTYPE RegisterIntrinsicTable(_In_ IDxcIntrinsicTable *pTable) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterIntrinsicTable(pTable); \
   } \
   __override HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterSemanticDefine(name); \
   } \
   __override HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterSemanticDefineExclusion(name); \
   } \
   __override HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterDefine(name); \
   } \
   __override HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).SetSemanticDefineValidator(pValidator); \
   } \
   __override HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) { \
+    DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).SetSemanticDefineMetaDataName(name); \
   } \
 

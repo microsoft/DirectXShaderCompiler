@@ -37,7 +37,7 @@ function(llvm_update_compile_flags name)
       list(APPEND LLVM_COMPILE_FLAGS "/GR-")
     endif ()
   endif()
-  
+
   # HLSL Changes Start
   if (LLVM_ENABLE_EH)
     if (MSVC)
@@ -46,6 +46,7 @@ function(llvm_update_compile_flags name)
       message(ERROR "Unimplemented")
     endif (MSVC)
   endif (LLVM_ENABLE_EH)
+  add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
   # HLSL Changes End
 
   # Assume that;
@@ -749,11 +750,12 @@ endfunction(add_llvm_implicit_external_projects)
 
 # Generic support for adding a unittest.
 function(add_unittest test_suite test_name)
-  if( NOT LLVM_BUILD_TESTS )
+  if( NOT LLVM_BUILD_TESTS AND NOT SPIRV_BUILD_TESTS ) # SPIRV change
     set(EXCLUDE_FROM_ALL ON)
   endif()
 
-  include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
+  include_directories(${DXC_GTEST_DIR}/googletest/include) # SPIRV change
+  include_directories(${DXC_GTEST_DIR}/googlemock/include) # SPIRV change
   if (NOT LLVM_ENABLE_THREADS)
     list(APPEND LLVM_COMPILE_DEFINITIONS GTEST_HAS_PTHREAD=0)
   endif ()
@@ -769,7 +771,7 @@ function(add_unittest test_suite test_name)
   set_output_directory(${test_name} ${outdir} ${outdir})
   target_link_libraries(${test_name}
     gtest
-    gtest_main
+    # gtest_main # SPIRV change
     LLVMSupport # gtest needs it for raw_ostream.
     )
 
@@ -949,3 +951,23 @@ function(add_lit_testsuites project directory)
     endforeach()
   endif()
 endfunction()
+
+# HLSL Change Starts
+function(hlsl_update_product_ver RC_INTERNAL_NAME)
+  if (HLSL_ENABLE_FIXED_VER)
+    set_property(SOURCE ${windows_resource_file}
+                 PROPERTY COMPILE_DEFINITIONS
+                 "RC_COMPANY_NAME=\"Microsoft(r) Corporation\""
+                 "RC_VERSION_FIELD_1=0"
+                 "RC_VERSION_FIELD_2=2017"
+                 "RC_VERSION_FIELD_3=6"
+                 "RC_VERSION_FIELD_4=0"
+                 "RC_FILE_VERSION=\"0.2017.6.0\""
+                 "RC_FILE_DESCRIPTION=\"DirectX Compiler - Out Of Band\""
+                 "RC_INTERNAL_NAME=\"${RC_INTERNAL_NAME}\""
+                 "RC_COPYRIGHT=\"(c) Microsoft Corporation. All rights reserved.\""
+                 "RC_PRODUCT_NAME=\"Microsoft(r) DirectX for Windows(r) - Out Of Band\""
+                 "RC_PRODUCT_VERSION=\"0.2017.6.0\"")
+  endif (HLSL_ENABLE_FIXED_VER)
+endfunction(hlsl_update_product_ver)
+# HLSL Change Ends

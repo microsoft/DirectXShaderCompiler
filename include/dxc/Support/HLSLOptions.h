@@ -39,7 +39,7 @@ enum HlslFlags {
   DriverOption = (1 << 13),
   NoArgumentUnused = (1 << 14),
   CoreOption = (1 << 15),
-  ISenseOption = (1 << 15),
+  ISenseOption = (1 << 16),
 };
 
 enum ID {
@@ -52,6 +52,8 @@ enum ID {
   };
 
 const llvm::opt::OptTable *getHlslOptTable();
+std::error_code initHlslOptTable();
+void cleanupHlslOptTable();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Helper classes to deal with options.
@@ -93,7 +95,7 @@ public:
   llvm::StringRef EntryPoint;   // OPT_entrypoint
   llvm::StringRef ExternalFn;   // OPT_external_fn
   llvm::StringRef ExternalLib;  // OPT_external_lib
-  llvm::StringRef ExtractRootSignatureFile; // OPT_extractrootsignature
+  llvm::StringRef ExtractPrivateFile; // OPT_getprivate
   llvm::StringRef ForceRootSigVer; // OPT_force_rootsig_ver
   llvm::StringRef InputFile; // OPT_INPUT
   llvm::StringRef OutputHeader; // OPT_Fh
@@ -102,16 +104,23 @@ public:
   llvm::StringRef Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
+  llvm::StringRef PrivateSource; // OPT_setprivate
+  llvm::StringRef RootSignatureSource; // OPT_setrootsignature
+  llvm::StringRef VerifyRootSignatureSource; //OPT_verifyrootsignature
+  llvm::StringRef RootSignatureDefine; // OPT_rootsig_define
+  llvm::StringRef FPDenormalMode; // OPT_fdenormal-fp-math
 
   bool AllResourcesBound; // OPT_all_resources_bound
   bool AstDump; // OPT_ast_dump
   bool ColorCodeAssembly; // OPT_Cc
   bool CodeGenHighLevel; // OPT_fcgl
   bool DebugInfo; // OPT__SLASH_Zi
+  bool DebugNameForBinary; // OPT_Zsb
+  bool DebugNameForSource; // OPT_Zss
   bool DumpBin;        // OPT_dumpbin
-  bool EnableUnboundedDescriptorTables; // OPT_enable_unbounded_descriptor_tables
   bool WarningAsError; // OPT__SLASH_WX
   bool IEEEStrict;     // OPT_Gis
+  bool IgnoreLineDirectives; // OPT_ignore_line_directives
   bool DefaultColMajor;  // OPT_Zpc
   bool DefaultRowMajor;  // OPT_Zpr
   bool DisableValidation; // OPT_VD
@@ -122,6 +131,8 @@ public:
   bool EnableStrictMode;     // OPT_Ges
   bool HLSL2015;  // OPT_hlsl_version (=2015)
   bool HLSL2016;  // OPT_hlsl_version (=2016)
+  bool HLSL2017;  // OPT_hlsl_version (=2017)
+  bool NoMinPrecision; // OPT_no_min_precision
   bool OptDump; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
@@ -130,8 +141,28 @@ public:
   bool UseInstructionByteOffsets; // OPT_No
   bool UseInstructionNumbers; // OPT_Ni
   bool NotUseLegacyCBufLoad;  // OPT_not_use_legacy_cbuf_load
+  bool PackPrefixStable;  // OPT_pack_prefix_stable
+  bool PackOptimized;  // OPT_pack_optimized
   bool DisplayIncludeProcess; // OPT__vi
   bool RecompileFromBinary; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
+  bool StripDebug; // OPT Qstrip_debug
+  bool StripRootSignature; // OPT_Qstrip_rootsignature
+  bool StripPrivate; // OPT_Qstrip_priv
+  bool StripReflection; // OPT_Qstrip_reflect
+  bool ExtractRootSignature; // OPT_extractrootsignature
+  bool DisassembleColorCoded; // OPT_Cc
+  bool DisassembleInstNumbers; //OPT_Ni
+  bool DisassembleByteOffset; //OPT_No
+  bool DisaseembleHex; //OPT_Lx
+  bool IsRootSignatureProfile();
+  bool IsLibraryProfile();
+
+  // SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  bool GenSPIRV; // OPT_spirv
+  llvm::StringRef VkStageIoOrder;
+#endif
+  // SPIRV Change Ends
 };
 
 /// Use this class to capture, convert and handle the lifetime for the

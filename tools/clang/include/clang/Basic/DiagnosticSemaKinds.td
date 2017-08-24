@@ -7227,6 +7227,7 @@ def warn_sync_fetch_and_nand_semantics_change : Warning<
   InGroup<DiagGroup<"sync-fetch-and-nand-semantics-changed">>;
 
 // Type
+def err_sema_invalid_sign_spec : Error<"'%0' cannot be signed or unsigned">;
 def ext_invalid_sign_spec : Extension<"'%0' cannot be signed or unsigned">;
 def warn_receiver_forward_class : Warning<
     "receiver %0 is a forward class and corresponding @interface may not exist">,
@@ -7453,6 +7454,8 @@ def err_hlsl_matrix_member_mixing_refs: Error<
   "matrix subscript '%0' mixes one-based and zero-based references">;
 def err_hlsl_matrix_member_out_of_bounds: Error<
   "matrix subscript '%0' is out of bounds">;
+def err_hlsl_matrix_row_index_out_of_bounds: Error<
+  "matrix row index '%0' is out of bounds">;
 def err_hlsl_matrix_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
 def err_hlsl_matrix_member_zero_in_one_based: Error<
@@ -7463,6 +7466,8 @@ def err_hlsl_vector_member_empty: Error<
   "vector swizzle is empty '%0'">;
 def err_hlsl_vector_member_out_of_bounds: Error<
   "vector swizzle '%0' is out of bounds">;
+def err_hlsl_vector_element_index_out_of_bounds: Error<
+  "vector element index '%0' is out of bounds">;
 def err_hlsl_vector_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
 def err_hlsl_missing_type_specifier : Error< // Patterened after err_missing_type_specifier
@@ -7505,6 +7510,8 @@ def err_hlsl_unsupported_array_size: Error<
   "array dimension must be between 1 and 65536">;
 def err_hlsl_unsupported_bool_lvalue_op : Error<
   "operator cannot be used with a bool lvalue">;
+def err_hlsl_unsupported_lvalue_cast_op : Error<
+  "cannot truncate lvalue vector/matrix">;
 def err_hlsl_unsupported_buffer_packoffset : Error<
   "packoffset is only allowed within a constant buffer, not on the constant buffer declaration">;
 def err_hlsl_unsupported_cbuffer_register : Error<
@@ -7554,6 +7561,8 @@ def err_hlsl_vla : Error< // Patterened after err_opencl_vla
   "variable length arrays are not supported in HLSL">;
 def err_hlsl_type_empty_init : Error<
   "%0 cannot have an explicit empty initializer">;
+def err_hlsl_control_flow_cond_not_scalar : Error<
+  "%0 statement conditional expressions must evaluate to a scalar">;
 def err_hlsl_unsupportedvectortype : Error<
   "%0 is declared with type %1, but only primitive scalar values are supported">;
 def err_hlsl_unsupportedvectorsize : Error<
@@ -7630,6 +7639,8 @@ def warn_hlsl_unused_call : Warning<
   "ignoring return value of function that only reads data">,
   InGroup<UnusedValue>;
 }
+def err_hlsl_func_in_func_decl : Error<
+   "function declaration is not allowed in function parameters">;
 // HLSL Change Ends
 
 let CategoryName = "OpenMP Issue" in {

@@ -6181,7 +6181,14 @@ public:
   ABIArgInfo classifyReturnType(QualType RetTy) const {
     if (RetTy->isVoidType())
       return ABIArgInfo::getIgnore();
-    // do not create SRet for HLSL
+    if (isAggregateTypeForABI(RetTy))
+      return ABIArgInfo::getIndirect(0);
+
+    // Treat an enum type as its underlying type.
+    if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
+      RetTy = EnumTy->getDecl()->getIntegerType();
+
+    // do not use extend for hlsl.
     return ABIArgInfo::getDirect(CGT.ConvertType(RetTy));
   }
 
@@ -6208,16 +6215,26 @@ ABIArgInfo MSDXILABIInfo::classifyArgumentType(QualType Ty) const {
   if (const EnumType *EnumTy = Ty->getAs<EnumType>())
     Ty = EnumTy->getDecl()->getIntegerType();
 
-  // Return aggregates type as indirect by value
+  // Return aggregates type as indirect by ref.
+  // By val not work for out param.
   if (isAggregateTypeForABI(Ty))
-    return ABIArgInfo::getIndirect(0, /* byval */ true);
+    return ABIArgInfo::getIndirect(0, /* byval */ false);
 
   return (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
                                         : ABIArgInfo::getDirect());
 }
 
 void MSDXILABIInfo::computeInfo(CGFunctionInfo &FI) const {
-  FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
+  QualType RetTy = FI.getReturnType();
+  if (RetTy->isVoidType()) {
+    FI.getReturnInfo() = ABIArgInfo::getIgnore();
+  } else if (isAggregateTypeForABI(RetTy)) {
+    if (!getCXXABI().classifyReturnType(FI))
+      FI.getReturnInfo() = classifyReturnType(RetTy);
+  } else {
+    // Make vector and matrix direct ret.
+    FI.getReturnInfo() = classifyReturnType(RetTy);
+  }
   for (auto &I : FI.arguments()) {
     I.info = classifyArgumentType(I.type);
     // Do not flat matrix
@@ -7187,8 +7204,8 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
   const llvm::Triple &Triple = getTarget().getTriple();
   switch (Triple.getArch()) {
   default:
-    return *(TheTargetCodeGenInfo = new DefaultTargetCodeGenInfo(Types));
-
+    TheTargetCodeGenInfo.reset(new DefaultTargetCodeGenInfo(Types)); break; // HLSL Change - reset
+#if 0 // HLSL Change Starts
   case llvm::Triple::le32:
     return *(TheTargetCodeGenInfo = new PNaClTargetCodeGenInfo(Types));
   case llvm::Triple::mips:
@@ -7317,10 +7334,13 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
     return *(TheTargetCodeGenInfo = new SparcV9TargetCodeGenInfo(Types));
   case llvm::Triple::xcore:
     return *(TheTargetCodeGenInfo = new XCoreTargetCodeGenInfo(Types));
+#endif // HLSL Change Ends
   // HLSL Change Begins
   case llvm::Triple::dxil:
   case llvm::Triple::dxil64:
-    return *(TheTargetCodeGenInfo = new MSDXILTargetCodeGenInfo(Types));
+    TheTargetCodeGenInfo.reset(new MSDXILTargetCodeGenInfo(Types));
+    break;
   // HLSL Change Ends
   }
+  return *(TheTargetCodeGenInfo.get());
 }

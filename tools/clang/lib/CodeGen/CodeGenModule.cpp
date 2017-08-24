@@ -125,14 +125,22 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
     createOpenMPRuntime();
   if (LangOpts.CUDA)
     createCUDARuntime();
-  if (LangOpts.HLSL)         // HLSL Change 
-    createHLSLRuntime();     // HLSL Change
+  // HLSL Change Starts
+  std::unique_ptr<CGHLSLRuntime> RuntimePtr;
+  std::unique_ptr<CodeGenTBAA> TBAAPtr;
+  std::unique_ptr<CGDebugInfo> DebugInfoPtr;
+  if (LangOpts.HLSL) {
+    createHLSLRuntime();
+    RuntimePtr.reset(HLSLRuntime);
+  }
+  // HLSL Change Ends
 
   // Enable TBAA unless it's suppressed. ThreadSanitizer needs TBAA even at O0.
   if (LangOpts.Sanitize.has(SanitizerKind::Thread) ||
       (!CodeGenOpts.RelaxedAliasing && CodeGenOpts.OptimizationLevel > 0))
     TBAA = new CodeGenTBAA(Context, VMContext, CodeGenOpts, getLangOpts(),
                            getCXXABI().getMangleContext());
+  TBAAPtr.reset(TBAA); // HLSL Change
 
   // If debug info or coverage generation is enabled, create the CGDebugInfo
   // object.
@@ -140,12 +148,15 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
       CodeGenOpts.EmitGcovArcs ||
       CodeGenOpts.EmitGcovNotes)
     DebugInfo = new CGDebugInfo(*this);
+  DebugInfoPtr.reset(DebugInfo); // HLSL Change
 
   Block.GlobalUniqueCount = 0;
 
+#if 0 // HLSL Change Starts - no ARC support
   if (C.getLangOpts().ObjCAutoRefCount)
     ARCData = new ARCEntrypoints();
   RRData = new RREntrypoints();
+#endif // HLSL Change Ends - no ARC support
 
   if (!CodeGenOpts.InstrProfileInput.empty()) {
     auto ReaderOrErr =
@@ -163,6 +174,12 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
   // CoverageMappingModuleGen object.
   if (CodeGenOpts.CoverageMapping)
     CoverageMapping.reset(new CoverageMappingModuleGen(*this, *CoverageInfo));
+
+  // HLSL Change Starts - release acquired pointers
+  RuntimePtr.release();
+  TBAAPtr.release();
+  DebugInfoPtr.release();
+  // HLSL Change Ends
 }
 
 CodeGenModule::~CodeGenModule() {
@@ -171,7 +188,7 @@ CodeGenModule::~CodeGenModule() {
   delete OpenMPRuntime;
   delete CUDARuntime;
   delete HLSLRuntime;  // HLSL Change
-  delete TheTargetCodeGenInfo;
+  TheTargetCodeGenInfo.reset(nullptr); // HLSL Change
   delete TBAA;
   delete DebugInfo;
   delete ARCData;
@@ -1626,6 +1643,7 @@ CodeGenModule::GetOrCreateLLVMFunction(StringRef MangledName,
     IsIncompleteFunction = true;
   }
   
+  // HLSL Change: unique_ptr for F
   llvm::Function *F = llvm::Function::Create(FTy,
                                              llvm::Function::ExternalLinkage,
                                              MangledName, &getModule());
@@ -2036,12 +2054,6 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
 
   const VarDecl *InitDecl;
   const Expr *InitExpr = D->getAnyInitializer(InitDecl);
-
-  // HLSL Change Begins.
-  if (D->getType()->isIncompleteArrayType() && getLangOpts().HLSL) {
-    getHLSLRuntime().UpdateHLSLIncompleteArrayType(const_cast<VarDecl&>(*D));
-  }
-  // HLSL Change Ends.
 
   if (!InitExpr) {
     // This is a tentative definition; tentative definitions are
@@ -3705,21 +3717,6 @@ void CodeGenModule::EmitVersionIdentMetadata() {
 
   llvm::Metadata *IdentNode[] = {llvm::MDString::get(Ctx, Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(Ctx, IdentNode));
-
-  // HLSL Change Starts
-  if (getCodeGenOpts().HLSLValidatorMajorVer != 0 ||
-      getCodeGenOpts().HLSLValidatorMinorVer != 0) {
-    llvm::NamedMDNode *VerMetadata =
-        TheModule.getOrInsertNamedMetadata("dx.valver");
-    llvm::Metadata *VerValues[] = {
-        llvm::ValueAsMetadata::get(llvm::ConstantInt::get(
-            Ctx, llvm::APInt(32, getCodeGenOpts().HLSLValidatorMajorVer))),
-        llvm::ValueAsMetadata::get(llvm::ConstantInt::get(
-            Ctx, llvm::APInt(32, getCodeGenOpts().HLSLValidatorMinorVer)))};
-    llvm::MDTuple *VerNode = llvm::MDTuple::get(Ctx, VerValues);
-    VerMetadata->addOperand(VerNode);
-  }
-  // HLSL Change Ends
 }
 
 void CodeGenModule::EmitTargetMetadata() {

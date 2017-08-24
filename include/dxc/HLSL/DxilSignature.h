@@ -26,6 +26,7 @@ public:
 
   DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind);
   DxilSignature(DXIL::SigPointKind sigPointKind);
+  DxilSignature(const DxilSignature &src);
   virtual ~DxilSignature();
 
   bool IsInput() const;
@@ -40,14 +41,29 @@ public:
   const std::vector<std::unique_ptr<DxilSignatureElement> > &GetElements() const;
 
   // Packs the signature elements per DXIL constraints and returns the number of rows used for the signature
-  unsigned PackElements();
+  unsigned PackElements(DXIL::PackingStrategy packing);
 
   // Returns true if all signature elements that should be allocated are allocated
-  bool IsFullyAllocated();
+  bool IsFullyAllocated() const;
+
+  // Returns the number of allocated vectors used to contain signature
+  unsigned NumVectorsUsed(unsigned streamIndex =  0) const;
 
 private:
   DXIL::SigPointKind m_sigPointKind;
   std::vector<std::unique_ptr<DxilSignatureElement> > m_Elements;
+};
+
+struct DxilEntrySignature {
+  DxilEntrySignature(DXIL::ShaderKind shaderKind)
+      : InputSignature(shaderKind, DxilSignature::Kind::Input),
+        OutputSignature(shaderKind, DxilSignature::Kind::Output),
+        PatchConstantSignature(shaderKind, DxilSignature::Kind::PatchConstant) {
+  }
+  DxilEntrySignature(const DxilEntrySignature &src);
+  DxilSignature InputSignature;
+  DxilSignature OutputSignature;
+  DxilSignature PatchConstantSignature;
 };
 
 } // namespace hlsl

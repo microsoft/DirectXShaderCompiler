@@ -155,6 +155,19 @@ bool CompType::Is64Bit() const {
   }
 }
 
+bool CompType::Is16Bit() const {
+  switch (m_Kind) {
+  case DXIL::ComponentType::F16:
+  case DXIL::ComponentType::I16:
+  case DXIL::ComponentType::SNormF16:
+  case DXIL::ComponentType::UNormF16:
+  case DXIL::ComponentType::U16:
+    return true;
+  default:
+    return false;
+  }
+}
+
 CompType CompType::GetBaseCompType() const {
   switch (m_Kind) {
   case Kind::I1:        return CompType(Kind::I1);
@@ -173,8 +186,9 @@ CompType CompType::GetBaseCompType() const {
   case Kind::SNormF64:  __fallthrough;
   case Kind::UNormF64:  __fallthrough;
   case Kind::F64:       return CompType(Kind::F64);
+  default:
+    DXASSERT(false, "invalid type kind");
   }
-  DXASSERT(false, "invalid type kind");
   return CompType();
 }
 
@@ -222,8 +236,9 @@ Type *CompType::GetLLVMType(LLVMContext &Ctx) const {
   case Kind::SNormF64:
   case Kind::UNormF64:
   case Kind::F64:       return Type::getDoubleTy(Ctx);
+  default:
+    DXASSERT(false, "invalid type kind");
   }
-  DXASSERT(false, "invalid type kind");
   return nullptr;
 }
 
@@ -245,8 +260,9 @@ PointerType *CompType::GetLLVMPtrType(LLVMContext &Ctx, const unsigned AddrSpace
   case Kind::SNormF64:
   case Kind::UNormF64:
   case Kind::F64:       return Type::getDoublePtrTy(Ctx, AddrSpace);
+  default:
+    DXASSERT(false, "invalid type kind");
   }
-  DXASSERT(false, "invalid type kind");
   return nullptr;
 }
 
@@ -281,13 +297,20 @@ const char *CompType::GetName() const {
 
 static const char *s_TypeKindHLSLNames[(unsigned)CompType::Kind::LastEntry] = {
   "unknown",
-  "bool", "min16i", "min16i", "int", "uint", "int64_t", "uint64_t",
-  "min16f", "float", "double",
+  "bool", "short", "unsigned short", "int", "uint", "int64_t", "uint64_t",
+  "half", "float", "double",
+  "snorm_half", "unorm_half", "snorm_float", "unorm_float", "snorm_double", "unorm_double",
+};
+
+static const char *s_TypeKindHLSLNamesMinPrecision[(unsigned)CompType::Kind::LastEntry] = {
+  "unknown",
+  "bool", "min16i", "min16ui", "int", "uint", "int64_t", "uint64_t",
+  "min16float", "float", "double",
   "snorm_min16f", "unorm_min16f", "snorm_float", "unorm_float", "snorm_double", "unorm_double",
 };
 
-const char *CompType::GetHLSLName() const {
-  return s_TypeKindHLSLNames[(unsigned)m_Kind];
+const char *CompType::GetHLSLName(bool MinPrecision) const {
+  return MinPrecision ? s_TypeKindHLSLNamesMinPrecision[(unsigned)m_Kind] : s_TypeKindHLSLNames[(unsigned)m_Kind];
 }
 
 } // namespace hlsl

@@ -38,6 +38,16 @@ endif (CLANG_INCLUDE_TESTS) # HLSL Change
 if (HLSL_INCLUDE_TESTS) 
   add_subdirectory(HLSL)
   add_subdirectory(HLSLHost)
+  add_subdirectory(dxc_batch)
 endif (HLSL_INCLUDE_TESTS)
 
 # HLSL Change Ends
+
+
+# SPIRV Change Starts
+
+if (SPIRV_BUILD_TESTS)
+  add_subdirectory(SPIRV)
+endif (SPIRV_BUILD_TESTS)
+
+# SPIRV Change Ends

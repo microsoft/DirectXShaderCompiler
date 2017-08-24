@@ -409,7 +409,8 @@ void AggExprEmitter::EmitArrayInit(llvm::Value *DestPtr, llvm::ArrayType *AType,
 
   uint64_t NumArrayElements = AType->getNumElements();
   // HLSL Change Starts
-  if (CGF.getLangOpts().HLSL) {
+  if (CGF.getLangOpts().HLSL &&
+      !CGF.CGM.getHLSLRuntime().IsTrivalInitListExpr(CGF, E)) {
     // Generate dx.hl.init for every array, not only matrix array.
     CGF.CGM.getHLSLRuntime().EmitHLSLInitListExpr(CGF, E, DestPtr);
     return;
@@ -1123,6 +1124,13 @@ AggExprEmitter::EmitInitializationToLValue(Expr *E, LValue LV) {
                                                Dest.isZeroed()));
     return;
   case TEK_Scalar:
+    // HLSL Change Begins.
+    if (hlsl::IsHLSLMatType(LV.getType())) {
+      llvm::Value *V = CGF.EmitScalarExpr(E);
+      llvm::Value *Ptr = LV.getAddress();
+      CGF.CGM.getHLSLRuntime().EmitHLSLMatrixStore(CGF, V, Ptr, LV.getType());
+    } else
+    // HLSL Change Ends.
     if (LV.isSimple()) {
       CGF.EmitScalarInit(E, /*D=*/nullptr, LV, /*Captured=*/false);
     } else {
@@ -1253,7 +1261,8 @@ void AggExprEmitter::VisitInitListExpr(InitListExpr *E) {
   }
 
   // HLSL Change Begins
-  if (CGF.getLangOpts().HLSL) {
+  if (CGF.getLangOpts().HLSL &&
+      !CGF.CGM.getHLSLRuntime().IsTrivalInitListExpr(CGF, E)) {
     CGF.CGM.getHLSLRuntime().EmitHLSLInitListExpr(CGF, E, Dest.getAddr());
     return;
   }

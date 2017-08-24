@@ -343,12 +343,6 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
   llvm::Value *&DMEntry = LocalDeclMap[&D];
   assert(!DMEntry && "Decl already exists in localdeclmap!");
 
-  // HLSL Change Begins.
-  if (D.getType()->isIncompleteArrayType() && getLangOpts().HLSL) {
-    CGM.getHLSLRuntime().UpdateHLSLIncompleteArrayType(const_cast<VarDecl&>(D));
-  }
-  // HLSL Change Ends.
-
   // Check to see if we already have a global variable for this
   // declaration.  This can happen when double-emitting function
   // bodies, e.g. with complete and base constructors.
@@ -910,12 +904,6 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   // If the type is variably-modified, emit all the VLA sizes for it.
   if (Ty->isVariablyModifiedType())
     EmitVariablyModifiedType(Ty);
-
-  // HLSL Change Begins.
-  if (Ty->isIncompleteArrayType() && getLangOpts().HLSL) {
-    Ty = CGM.getHLSLRuntime().UpdateHLSLIncompleteArrayType(const_cast<VarDecl&>(D));
-  }
-  // HLSL Change Ends.
 
   llvm::Value *DeclPtr;
   if (Ty->isConstantSizeType()) {
@@ -1707,6 +1695,14 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, llvm::Value *Arg,
   Arg->setName(D.getName());
 
   QualType Ty = D.getType();
+  // HLSL Change Begin - add noalias for all out param.
+  if (Ty.isRestrictQualified() && isa<llvm::Argument>(Arg)) {
+    llvm::Argument *AI = cast<llvm::Argument>(Arg);
+    if (!AI->hasNoAliasAttr())
+      AI->addAttr(llvm::AttributeSet::get(getLLVMContext(), AI->getArgNo() + 1,
+                                          llvm::Attribute::NoAlias));
+  }
+  // HLSL Change End
 
   // Use better IR generation for certain implicit parameters.
   if (isa<ImplicitParamDecl>(D)) {

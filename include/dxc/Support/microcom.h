@@ -73,31 +73,60 @@ public:
   }
 };
 
-#define DXC_MICROCOM_REF_FIELD(m_dwRef) volatile ULONG m_dwRef;
-    
-#define DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef) \
-    bool HasSingleRef() { return 1 == m_dwRef; } \
-    ULONG STDMETHODCALLTYPE AddRef()  {\
+#define DXC_MICROCOM_REF_FIELD(m_dwRef) volatile ULONG m_dwRef = 0;
+#define DXC_MICROCOM_ADDREF_IMPL(m_dwRef) \
+    ULONG STDMETHODCALLTYPE AddRef() {\
         return InterlockedIncrement(&m_dwRef); \
-    } \
+    }
+#define DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef) \
+    DXC_MICROCOM_ADDREF_IMPL(m_dwRef) \
     ULONG STDMETHODCALLTYPE Release() { \
         ULONG result = InterlockedDecrement(&m_dwRef); \
         if (result == 0) delete this; \
         return result; \
     }
 
+template <typename T, typename... Args>
+inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
+  void *P = pMalloc->Alloc(sizeof(T)); \
+  if (P) new (P)T(pMalloc, std::forward<Args>(args)...); \
+  return (T *)P; \
+}
+
+// The "TM" version keep an IMalloc field that, if not null, indicate
+// ownership of 'this' and of any allocations used during release.
+#define DXC_MICROCOM_TM_REF_FIELDS() \
+  volatile ULONG m_dwRef = 0;\
+  CComPtr<IMalloc> m_pMalloc;
+#define DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL() \
+    DXC_MICROCOM_ADDREF_IMPL(m_dwRef) \
+    ULONG STDMETHODCALLTYPE Release() { \
+      ULONG result = InterlockedDecrement(&m_dwRef); \
+      if (result == 0) { \
+        CComPtr<IMalloc> pTmp(m_pMalloc); \
+        DxcThreadMalloc M(pTmp); delete this; \
+      } \
+      return result; \
+    }
+#define DXC_MICROCOM_TM_CTOR(T) \
+  T(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) { } \
+  static T* Alloc(IMalloc *pMalloc) { \
+    void *P = pMalloc->Alloc(sizeof(T)); \
+    try { if (P) new (P)T(pMalloc); } catch (...) { operator delete(P); throw; } \
+    return (T *)P; \
+  }
+
 /// <summary>
 /// Provides a QueryInterface implementation for a class that supports
-/// a single interface in addition to IUnknown.
+/// any number of interfaces in addition to IUnknown.
 /// </summary>
 /// <remarks>
 /// This implementation will also report the instance as not supporting
 /// marshaling. This will help catch marshaling problems early or avoid
 /// them altogether.
 /// </remarks>
-template <typename TInterface, typename TObject>
-HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject)
-{
+template<typename... Ts, typename TObject>
+HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject) {
   if (ppvObject == nullptr) return E_POINTER;
 
   // Support INoMarshal to void GIT shenanigans.
@@ -108,72 +137,22 @@ HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject)
     return S_OK;
   }
 
+  return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
+}
+
+template<typename TObject>
+HRESULT DoBasicQueryInterface_recurse(TObject* self, REFIID iid, void** ppvObject) {
+  return E_NOINTERFACE;
+}
+template<typename TObject, typename TInterface, typename... Ts>
+HRESULT DoBasicQueryInterface_recurse(TObject* self, REFIID iid, void** ppvObject) {
+  if (ppvObject == nullptr) return E_POINTER;
   if (IsEqualIID(iid, __uuidof(TInterface))) {
     *(TInterface**)ppvObject = self;
     self->AddRef();
     return S_OK;
   }
-
-  return E_NOINTERFACE;
-}
-
-/// <summary>
-/// Provides a QueryInterface implementation for a class that supports
-/// two interfaces in addition to IUnknown.
-/// </summary>
-/// <remarks>
-/// This implementation will also report the instance as not supporting
-/// marshaling. This will help catch marshaling problems early or avoid
-/// them altogether.
-/// </remarks>
-template <typename TInterface, typename TInterface2, typename TObject>
-HRESULT DoBasicQueryInterface2(TObject* self, REFIID iid, void** ppvObject)
-{
-  if (ppvObject == nullptr) return E_POINTER;
-
-  // Support INoMarshal to void GIT shenanigans.
-  if (IsEqualIID(iid, __uuidof(IUnknown)) ||
-      IsEqualIID(iid, __uuidof(INoMarshal))) {
-    *ppvObject = reinterpret_cast<IUnknown*>(self);
-    reinterpret_cast<IUnknown*>(self)->AddRef();
-    return S_OK;
-  }
-
-  if (IsEqualIID(__uuidof(TInterface), iid)) {
-    *(TInterface**)ppvObject = self;
-    self->AddRef();
-    return S_OK;
-  }
-
-  if (IsEqualIID(__uuidof(TInterface2), iid)) {
-    *(TInterface2**)ppvObject = self;
-    self->AddRef();
-    return S_OK;
-  }
-
-  return E_NOINTERFACE;
-}
-
-/// <summary>
-/// Provides a QueryInterface implementation for a class that supports
-/// three interfaces in addition to IUnknown.
-/// </summary>
-/// <remarks>
-/// This implementation will also report the instance as not supporting
-/// marshaling. This will help catch marshaling problems early or avoid
-/// them altogether.
-/// </remarks>
-template <typename TInterface, typename TInterface2, typename TInterface3, typename TObject>
-HRESULT DoBasicQueryInterface3(TObject* self, REFIID iid, void** ppvObject)
-{
-  if (ppvObject == nullptr) return E_POINTER;
-  if (IsEqualIID(iid, __uuidof(TInterface3))) {
-    *(TInterface3**)ppvObject = self;
-    self->AddRef();
-    return S_OK;
-  }
-
-  return DoBasicQueryInterface2<TInterface, TInterface2, TObject>(self, iid, ppvObject);
+  return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
 }
 
 template <typename T>

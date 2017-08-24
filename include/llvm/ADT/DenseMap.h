@@ -676,13 +676,16 @@ private:
   }
 
   bool allocateBuckets(unsigned Num) {
-    NumBuckets = Num;
-    if (NumBuckets == 0) {
+    // HLSL Change Starts - reorder statement to clean up properly on OOM
+    if (Num == 0) {
+      NumBuckets = 0;
       Buckets = nullptr;
       return false;
     }
 
-    Buckets = static_cast<BucketT*>(operator new(sizeof(BucketT) * NumBuckets));
+    Buckets = static_cast<BucketT*>(operator new(sizeof(BucketT) * Num));
+    NumBuckets = Num;
+    // HLSL Change Ends - reorder statement to clean up properly on OOM
     return true;
   }
 };
@@ -861,6 +864,7 @@ public:
       // temporary storage. Have the loop move the TmpEnd forward as it goes.
       const KeyT EmptyKey = this->getEmptyKey();
       const KeyT TombstoneKey = this->getTombstoneKey();
+      LargeRep LR(allocateBuckets(AtLeast)); // HLSL Change - used to be at 'Now make', but let's fail alloc before invoking .dtors
       for (BucketT *P = getBuckets(), *E = P + InlineBuckets; P != E; ++P) {
         if (!KeyInfoT::isEqual(P->getFirst(), EmptyKey) &&
             !KeyInfoT::isEqual(P->getFirst(), TombstoneKey)) {
@@ -876,8 +880,8 @@ public:
 
       // Now make this map use the large rep, and move all the entries back
       // into it.
-      Small = false;
-      new (getLargeRep()) LargeRep(allocateBuckets(AtLeast));
+      *getLargeRepForTransition() = LR; // HLSL Change - assign allocated & init'ed block instead
+      Small = false; // HLSL Change - used to be prior to allocation
       this->moveFromOldBuckets(TmpBegin, TmpEnd);
       return;
     }
@@ -953,6 +957,16 @@ private:
     return const_cast<LargeRep *>(
       const_cast<const SmallDenseMap *>(this)->getLargeRep());
   }
+  // HLSL Change Starts - avoid Small check, as we are in the process of transitioning
+  const LargeRep *getLargeRepForTransition() const {
+    // Note, same rule about aliasing as with getInlineBuckets.
+    return reinterpret_cast<const LargeRep *>(storage.buffer);
+  }
+  LargeRep *getLargeRepForTransition() {
+    return const_cast<LargeRep *>(
+      const_cast<const SmallDenseMap *>(this)->getLargeRepForTransition());
+  }
+  // HLSL Change Ends
 
   const BucketT *getBuckets() const {
     return Small ? getInlineBuckets() : getLargeRep()->Buckets;

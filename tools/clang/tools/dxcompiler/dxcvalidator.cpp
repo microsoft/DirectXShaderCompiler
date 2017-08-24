@@ -23,60 +23,50 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/HLSL/DxilRootSignature.h"
 #include "dxcetw.h"
 
 using namespace llvm;
 using namespace hlsl;
 
-class PrintDiagnosticContext {
-private:
-  DiagnosticPrinter &m_Printer;
-  bool m_errorsFound;
-  bool m_warningsFound;
-public:
-  PrintDiagnosticContext(DiagnosticPrinter &printer)
-      : m_Printer(printer), m_errorsFound(false), m_warningsFound(false) {}
+// Utility class for setting and restoring the diagnostic context so we may capture errors/warnings
+struct DiagRestore {
+  LLVMContext &Ctx;
+  void *OrigDiagContext;
+  LLVMContext::DiagnosticHandlerTy OrigHandler;
 
-  bool HasErrors() const {
-    return m_errorsFound;
+  DiagRestore(llvm::LLVMContext &Ctx, void *DiagContext) : Ctx(Ctx) {
+    OrigHandler = Ctx.getDiagnosticHandler();
+    OrigDiagContext = Ctx.getDiagnosticContext();
+    Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                             DiagContext);
   }
-  bool HasWarnings() const {
-    return m_warningsFound;
-  }
-  void Handle(const DiagnosticInfo &DI) {
-    DI.print(m_Printer);
-    switch (DI.getSeverity()) {
-    case llvm::DiagnosticSeverity::DS_Error:
-      m_errorsFound = true;
-      break;
-    case llvm::DiagnosticSeverity::DS_Warning:
-      m_warningsFound = true;
-      break;
-    }
-    m_Printer << "\n";
+  ~DiagRestore() {
+    Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext);
   }
 };
 
-static void PrintDiagnosticHandler(const DiagnosticInfo &DI, void *Context) {
-  reinterpret_cast<PrintDiagnosticContext *>(Context)->Handle(DI);
-}
-
 class DxcValidator : public IDxcValidator, public IDxcVersionInfo {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
 
   HRESULT RunValidation(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
+    _In_ UINT32 Flags,                            // Validation flags.
     _In_ llvm::Module *pModule,                   // Module to validate, if available.
-    _In_ llvm::Module *pDiagModule,               // Diag module to validate, if available
+    _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
+    _In_ AbstractMemoryStream *pDiagStream);
+
+  HRESULT RunRootSignatureValidation(
+    _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ AbstractMemoryStream *pDiagStream);
 
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  DxcValidator() : m_dwRef(0) {}
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcValidator)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface2<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // For internal use only.
@@ -84,7 +74,7 @@ public:
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ UINT32 Flags,                            // Validation flags.
     _In_ llvm::Module *pModule,                   // Module to validate, if available.
-    _In_ llvm::Module *pDiagModule,               // Diag module to validate, if available
+    _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
   );
 
@@ -106,7 +96,10 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
   _In_ UINT32 Flags,                            // Validation flags.
   _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
 ) {
+  DxcThreadMalloc TM(m_pMalloc);
   if (pShader == nullptr || ppResult == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
+    return E_INVALIDARG;
+  if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
     return E_INVALIDARG;
   return ValidateWithOptModules(pShader, Flags, nullptr, nullptr, ppResult);
 }
@@ -115,23 +108,30 @@ HRESULT DxcValidator::ValidateWithOptModules(
   _In_ IDxcBlob *pShader,                       // Shader to validate.
   _In_ UINT32 Flags,                            // Validation flags.
   _In_ llvm::Module *pModule,                   // Module to validate, if available.
-  _In_ llvm::Module *pDiagModule,               // Diag module to validate, if available
+  _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
   _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
 ) {
   *ppResult = nullptr;
   HRESULT hr = S_OK;
   HRESULT validationStatus = S_OK;
   DxcEtw_DxcValidation_Start();
+  DxcThreadMalloc TM(m_pMalloc);
   try {
-    CComPtr<IMalloc> pMalloc;
     CComPtr<AbstractMemoryStream> pDiagStream;
-    IFT(CoGetMalloc(1, &pMalloc));
-    IFT(CreateMemoryStream(pMalloc, &pDiagStream));
+    IFT(CreateMemoryStream(m_pMalloc, &pDiagStream));
 
     // Run validation may throw, but that indicates an inability to validate,
     // not that the validation failed (eg out of memory).
-    validationStatus = RunValidation(pShader, pModule, pDiagModule, pDiagStream);
-
+    if (Flags & DxcValidatorFlags_RootSignatureOnly) {
+      validationStatus = RunRootSignatureValidation(pShader, pDiagStream);
+    } else {
+      validationStatus = RunValidation(pShader, Flags, pModule, pDebugModule, pDiagStream);
+    }
+    if (FAILED(validationStatus)) {
+      std::string msg("Validation failed.\n");
+      ULONG cbWritten;
+      pDiagStream->Write(msg.c_str(), msg.size(), &cbWritten);
+    }
     // Assemble the result object.
     CComPtr<IDxcBlob> pDiagBlob;
     CComPtr<IDxcBlobEncoding> pDiagBlobEnconding;
@@ -157,14 +157,16 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(_Out_ UINT32 *pFlags) {
   if (pFlags == nullptr)
     return E_INVALIDARG;
   *pFlags = DxcVersionInfoFlags_None;
-#ifdef _NDEBUG
+#ifdef _DEBUG
   *pFlags |= DxcVersionInfoFlags_Debug;
 #endif
+  *pFlags |= DxcVersionInfoFlags_Internal;
   return S_OK;
 }
 
 HRESULT DxcValidator::RunValidation(
   _In_ IDxcBlob *pShader,
+  _In_ UINT32 Flags,                            // Validation flags.
   _In_ llvm::Module *pModule,                   // Module to validate, if available.
   _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
   _In_ AbstractMemoryStream *pDiagStream) {
@@ -173,95 +175,69 @@ HRESULT DxcValidator::RunValidation(
   // not that the validation failed (eg out of memory). That is indicated
   // by a failing HRESULT, and possibly error messages in the diagnostics stream.
 
-  llvm::LLVMContext llvmContext;
-  std::unique_ptr<llvm::MemoryBuffer> pBitcodeBuf;
-  std::unique_ptr<llvm::Module> pLoadedModule;
-  std::unique_ptr<llvm::MemoryBuffer> pDbgBitcodeBuf;
-  std::unique_ptr<llvm::Module> pLoadedDbgModule;
   raw_stream_ostream DiagStream(pDiagStream);
+
+  if (Flags & DxcValidatorFlags_ModuleOnly) {
+    IFRBOOL(!IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()), E_INVALIDARG);
+  } else {
+    IFRBOOL(IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()), DXC_E_CONTAINER_INVALID);
+  }
+
+  if (!pModule) {
+    DXASSERT_NOMSG(pDebugModule == nullptr);
+    if (Flags & DxcValidatorFlags_ModuleOnly) {
+      return ValidateDxilBitcode((const char*)pShader->GetBufferPointer(), (uint32_t)pShader->GetBufferSize(), DiagStream);
+    } else {
+      return ValidateDxilContainer(pShader->GetBufferPointer(), pShader->GetBufferSize(), DiagStream);
+    }
+  }
+
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
-  if (pModule == nullptr) {
-    DXASSERT_NOMSG(pDebugModule == nullptr);
-    // Accept a bitcode buffer or a DXIL container.
-    const char *pIL = (const char*)pShader->GetBufferPointer();
-    uint32_t pILLength = pShader->GetBufferSize();
-    const char *pDbgIL = nullptr;
-    uint32_t pDbgILLength = 0;
-    if (const DxilContainerHeader *pContainer =
-      IsDxilContainerLike(pIL, pILLength)) {
-      if (!IsValidDxilContainer(pContainer, pILLength)) {
-        IFR(DXC_E_CONTAINER_INVALID);
-      }
+  DiagRestore DR(pModule->getContext(), &DiagContext);
 
-      DxilPartIterator it = std::find_if(begin(pContainer), end(pContainer),
-        DxilPartIsType(DFCC_DXIL));
-      if (it == end(pContainer)) {
-        IFR(DXC_E_CONTAINER_MISSING_DXIL);
-      }
-
-      const DxilProgramHeader *pProgramHeader =
-        reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
-      if (!IsValidDxilProgramHeader(pProgramHeader, (*it)->PartSize)) {
-        IFR(DXC_E_CONTAINER_INVALID);
-      }
-      GetDxilProgramBitcode(pProgramHeader, &pIL, &pILLength);
-
-      // Look for an optional debug version of the module. If it's there,
-      // it should be valid.
-      DxilPartIterator dbgit = std::find_if(begin(pContainer), end(pContainer),
-        DxilPartIsType(DFCC_ShaderDebugInfoDXIL));
-      if (dbgit != end(pContainer)) {
-        const DxilProgramHeader *pDbgHeader =
-          reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*dbgit));
-        if (!IsValidDxilProgramHeader(pDbgHeader, (*dbgit)->PartSize)) {
-          IFR(DXC_E_CONTAINER_INVALID);
-        }
-        GetDxilProgramBitcode(pDbgHeader, &pDbgIL, &pDbgILLength);
-      }
-    }
-
-    llvmContext.setDiagnosticHandler(PrintDiagnosticHandler, &DiagContext, true);
-    pBitcodeBuf.reset(llvm::MemoryBuffer::getMemBuffer(
-        llvm::StringRef(pIL, pILLength), "", false).release());
-    ErrorOr<std::unique_ptr<llvm::Module>> loadedModuleResult(llvm::parseBitcodeFile(
-      pBitcodeBuf->getMemBufferRef(), llvmContext));
-
-    // DXIL disallows some LLVM bitcode constructs, like unaccounted-for sub-blocks.
-    // These appear as warnings, which the validator should reject.
-    if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
-      IFR(DXC_E_IR_VERIFICATION_FAILED);
-    }
-    if (std::error_code ec = loadedModuleResult.getError()) {
-      IFR(DXC_E_IR_VERIFICATION_FAILED);
-    }
-    pLoadedModule.swap(loadedModuleResult.get());
-
-    if (pDbgIL != nullptr) {
-      pDbgBitcodeBuf.reset(llvm::MemoryBuffer::getMemBuffer(
-          llvm::StringRef(pDbgIL, pDbgILLength), "", false).release());
-      ErrorOr<std::unique_ptr<llvm::Module>> loadedDbgModuleResult(
-          llvm::parseBitcodeFile(pDbgBitcodeBuf->getMemBufferRef(), llvmContext));
-      if (std::error_code ec = loadedDbgModuleResult.getError()) {
-        IFR(DXC_E_IR_VERIFICATION_FAILED);
-      }
-      pLoadedDbgModule.swap(loadedDbgModuleResult.get());
-    }
-    pModule = pLoadedModule.get();
-    pDebugModule = pLoadedDbgModule.get();
-  }
-  else {
-    // Install the diagnostic handler on the
-    pModule->getContext().setDiagnosticHandler(PrintDiagnosticHandler,
-                                               &DiagContext, true);
+  IFR(hlsl::ValidateDxilModule(pModule, pDebugModule));
+  if (!(Flags & DxcValidatorFlags_ModuleOnly)) {
+    IFR(ValidateDxilContainerParts(pModule, pDebugModule,
+                      IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()),
+                      (uint32_t)pShader->GetBufferSize()));
   }
 
-  if (std::error_code ec = hlsl::ValidateDxilModule(pModule, pDebugModule)) {
-    IFR(DXC_E_IR_VERIFICATION_FAILED);
+  if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
+    return DXC_E_IR_VERIFICATION_FAILED;
   }
 
-  // TODO: run validation that cross-references other parts in the
-  // DxilContainer if available.
+  return S_OK;
+}
+
+HRESULT DxcValidator::RunRootSignatureValidation(
+  _In_ IDxcBlob *pShader,
+  _In_ AbstractMemoryStream *pDiagStream) {
+
+  const DxilContainerHeader *pDxilContainer = IsDxilContainerLike(
+    pShader->GetBufferPointer(), pShader->GetBufferSize());
+  if (!pDxilContainer) {
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
+
+  const DxilProgramHeader *pProgramHeader = GetDxilProgramHeader(pDxilContainer, DFCC_DXIL);
+  const DxilPartHeader *pPSVPart = GetDxilPartByType(pDxilContainer, DFCC_PipelineStateValidation);
+  const DxilPartHeader *pRSPart = GetDxilPartByType(pDxilContainer, DFCC_RootSignature);
+  IFRBOOL(pPSVPart && pRSPart, DXC_E_MISSING_PART);
+  try {
+    RootSignatureHandle RSH;
+    RSH.LoadSerialized((const uint8_t*)GetDxilPartData(pRSPart), pRSPart->PartSize);
+    RSH.Deserialize();
+    raw_stream_ostream DiagStream(pDiagStream);
+    IFRBOOL(VerifyRootSignatureWithShaderPSV(RSH.GetDesc(),
+                                             GetVersionShaderType(pProgramHeader->ProgramVersion),
+                                             GetDxilPartData(pPSVPart),
+                                             pPSVPart->PartSize,
+                                             DiagStream),
+      DXC_E_INCORRECT_ROOT_SIGNATURE);
+  } catch(...) {
+    return DXC_E_IR_VERIFICATION_FAILED;
+  }
 
   return S_OK;
 }
@@ -284,7 +260,7 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
 }
 
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcValidator> result = new (std::nothrow) DxcValidator();
+  CComPtr<DxcValidator> result = DxcValidator::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;
     return E_OUTOFMEMORY;

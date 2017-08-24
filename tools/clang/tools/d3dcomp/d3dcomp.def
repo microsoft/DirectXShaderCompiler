@@ -6,3 +6,4 @@ EXPORTS
     D3DCompileFromFile=BridgeD3DCompileFromFile
     D3DDisassemble=BridgeD3DDisassemble
     D3DReflect=BridgeD3DReflect
+    D3DReadFileToBlob=BridgeReadFileToBlob

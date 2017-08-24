@@ -37,6 +37,8 @@
 #include <cerrno>
 #include <cmath>
 
+#include "llvm/Analysis/DxilConstantFolding.h" // HLSL Change
+
 #ifdef HAVE_FENV_H
 #include <fenv.h>
 #endif
@@ -1222,6 +1224,9 @@ Constant *llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
 
 /// Return true if it's even possible to fold a call to the specified function.
 bool llvm::canConstantFoldCallTo(const Function *F) {
+  if (hlsl::CanConstantFoldCallTo(F)) // HLSL Change
+    return true;
+
   switch (F->getIntrinsicID()) {
   case Intrinsic::fabs:
   case Intrinsic::minnum:
@@ -1336,8 +1341,8 @@ static inline bool llvm_fenv_testexcept() {
 }
 } // End namespace
 
-// HLSL Change: changed calling convention of NativeFP to __cdecl
-static Constant *ConstantFoldFP(double (__cdecl *NativeFP)(double), double V,
+// HLSL Change: changed calling convention of NativeFP to __cdecl and make non-static
+Constant *llvm::ConstantFoldFP(double (__cdecl *NativeFP)(double), double V,
                                 Type *Ty) {
   llvm_fenv_clearexcept();
   V = NativeFP(V);
@@ -1388,7 +1393,8 @@ static Constant *ConstantFoldConvertToInt(const APFloat &Val,
   return ConstantInt::get(Ty, UIntVal, /*isSigned=*/true);
 }
 
-static double getValueAsDouble(ConstantFP *Op) {
+// HLSL Change - make non-static.
+double llvm::getValueAsDouble(ConstantFP *Op) {
   Type *Ty = Op->getType();
 
   if (Ty->isFloatTy())
@@ -1406,6 +1412,9 @@ static double getValueAsDouble(ConstantFP *Op) {
 static Constant *ConstantFoldScalarCall(StringRef Name, unsigned IntrinsicID,
                                         Type *Ty, ArrayRef<Constant *> Operands,
                                         const TargetLibraryInfo *TLI) {
+  if (Constant *C = hlsl::ConstantFoldScalarCall(Name, Ty, Operands)) // HLSL Change - Try hlsl constant folding first.
+    return C;
+
   if (Operands.size() == 1) {
     if (ConstantFP *Op = dyn_cast<ConstantFP>(Operands[0])) {
       if (IntrinsicID == Intrinsic::convert_to_fp16) {

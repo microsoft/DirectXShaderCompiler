@@ -92,8 +92,10 @@ public:
     : Out(O), CurBit(0), CurValue(0), CurCodeSize(2) {}
 
   ~BitstreamWriter() {
+#if 0 // HLSL Change - these are not true when recovering from OOM
     assert(CurBit == 0 && "Unflushed data remaining");
     assert(BlockScope.empty() && CurAbbrevs.empty() && "Block imbalance");
+#endif
   }
 
   /// \brief Retrieve the current position in the stream, in bits.

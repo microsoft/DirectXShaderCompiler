@@ -114,12 +114,6 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw___underlying_type:
     return true;
 
-  // HLSL Change Starts
-  case tok::kw_min10float:
-  case tok::kw_min12int:
-    return true;
-  // HLSL Change Ends
-
   case tok::annot_typename:
   case tok::kw_char16_t:
   case tok::kw_char32_t:
@@ -9392,8 +9386,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   } else if (VDecl->isFileVarDecl()) {
     if (VDecl->getStorageClass() == SC_Extern &&
         (!getLangOpts().CPlusPlus ||
-         !(Context.getBaseElementType(VDecl->getType()).isConstQualified() ||
-           VDecl->isExternC())) &&
+          !VDecl->isExternC()) &&
         !isTemplateInstantiation(VDecl->getTemplateSpecializationKind()))
       Diag(VDecl->getLocation(), diag::warn_extern_init);
 
@@ -13660,8 +13653,9 @@ EnumConstantDecl *Sema::CheckEnumConstant(EnumDecl *Enum,
       EltTy = Context.DependentTy;
     else {
       SourceLocation ExpLoc;
-      if (getLangOpts().CPlusPlus11 && Enum->isFixed() &&
-          !getLangOpts().MSVCCompat) {
+      // HLSL Change - check constant expression for enum
+      if ((getLangOpts().HLSL2017 || getLangOpts().CPlusPlus11) &&
+          Enum->isFixed() && !getLangOpts().MSVCCompat) {
         // C++11 [dcl.enum]p5: If the underlying type is fixed, [...] the
         // constant-expression in the enumerator-definition shall be a converted
         // constant expression of the underlying type.

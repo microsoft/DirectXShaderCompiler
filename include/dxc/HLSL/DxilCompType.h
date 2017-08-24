@@ -63,6 +63,7 @@ public:
   bool IsSNorm() const;
   bool IsUNorm() const;
   bool Is64Bit() const;
+  bool Is16Bit() const;
 
   /// For min-precision types, returns upconverted (base) type.
   CompType GetBaseCompType() const;
@@ -83,7 +84,7 @@ public:
   static CompType GetCompType(llvm::Type * type);
 
   const char *GetName() const;
-  const char *GetHLSLName() const;
+  const char *GetHLSLName(bool MinPrecision) const;
 
 private:
   Kind m_Kind;

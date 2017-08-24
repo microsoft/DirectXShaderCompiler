@@ -3362,12 +3362,16 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
   if (Literal.isFloatingLiteral()) {
     QualType Ty;
     if (Literal.isFloat)
+
       Ty = Context.FloatTy;
     // HLSL Change Starts
-    else if (getLangOpts().HLSL && !Literal.isLong)
+    else if (getLangOpts().HLSL && !Literal.isLong && !Literal.isHalf)
       Ty = Context.LitFloatTy;
     else if (getLangOpts().HLSL && Literal.isLong)
       Ty = Context.DoubleTy;
+    else if (getLangOpts().HLSL && Literal.isHalf) {
+      Ty = getLangOpts().UseMinPrecision ? Context.FloatTy : Context.HalfTy;
+    }
     // HLSL Change Ends
     else if (!Literal.isLong)
       Ty = Context.DoubleTy;
@@ -4552,7 +4556,8 @@ bool Sema::GatherArgumentsForCall(SourceLocation CallLoc, FunctionDecl *FDecl,
     if (ArgIx < Args.size()) {
       Arg = Args[ArgIx++];
 
-      if (RequireCompleteType(Arg->getLocStart(),
+      if (!(getLangOpts().HLSL && ProtoArgType->isIncompleteArrayType()) && // HLSL Change: allow incomplete array
+          RequireCompleteType(Arg->getLocStart(),
                               ProtoArgType,
                               diag::err_call_incomplete_argument, Arg))
         return true;
@@ -9345,10 +9350,42 @@ static void DiagnoseConstAssignment(Sema &S, const Expr *E,
   S.Diag(Loc, diag::err_typecheck_assign_const) << ExprRange << ConstUnknown;
 }
 
+static bool HLSLCheckForModifiableLValue(
+    Expr *E,
+    SourceLocation Loc,
+    Sema &S
+) {
+    assert(isa<CXXOperatorCallExpr>(E));
+    const CXXOperatorCallExpr *expr = cast<CXXOperatorCallExpr>(E);
+    const Expr *LHS = expr->getArg(0);
+    QualType qt = LHS->getType();
+
+    // Check modifying const matrix with double subscript operator calls
+    if (isa<CXXOperatorCallExpr>(expr->getArg(0)))
+        return HLSLCheckForModifiableLValue(const_cast<Expr *>(expr->getArg(0)), Loc, S);
+
+    if (qt.isConstQualified() && (hlsl::IsMatrixType(&S, qt) || hlsl::IsVectorType(&S, qt))) {
+      DiagnoseConstAssignment(S, LHS, Loc);
+      return true;
+    }
+    if (!LHS->isLValue()) {
+      S.Diag(Loc, diag::err_typecheck_expression_not_modifiable_lvalue);
+      return true;
+    }
+    return false;
+}
+
 /// CheckForModifiableLvalue - Verify that E is a modifiable lvalue.  If not,
 /// emit an error and return true.  If so, return false.
 bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) { // HLSL Change: export this function
   assert(!E->hasPlaceholderType(BuiltinType::PseudoObject));
+  // HLSL Change Starts - check const for array subscript operator for HLSL vector/matrix
+  if (S.Context.getLangOpts().HLSL && E->getStmtClass() == Stmt::CXXOperatorCallExprClass) {
+      // check if it's a vector or matrix
+      return HLSLCheckForModifiableLValue(E, Loc, S);
+  }
+  // HLSL Change Ends
+
   SourceLocation OrigLoc = Loc;
   Expr::isModifiableLvalueResult IsLV = E->isModifiableLvalue(S.Context,
                                                               &Loc);

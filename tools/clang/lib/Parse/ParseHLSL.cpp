@@ -95,6 +95,21 @@ Decl *Parser::ParseConstBuffer(unsigned Context, SourceLocation &DeclEnd,
   Actions.ActOnStartHLSLBufferView();
   Parser::DeclGroupPtrTy dcl = ParseDeclGroup(PDS, Declarator::FileContext);
 
+  // Check if the register type is valid
+  NamedDecl *namedDecl = cast<NamedDecl>(dcl.get().getSingleDecl());
+  ArrayRef<hlsl::UnusualAnnotation*> annotations = namedDecl->getUnusualAnnotations();
+  for (hlsl::UnusualAnnotation* annotation : annotations) {
+    if (annotation->getKind() == hlsl::UnusualAnnotation::UnusualAnnotationKind::UA_RegisterAssignment) {
+        hlsl::RegisterAssignment *regAssignment = (hlsl::RegisterAssignment *)(annotation);
+        if (isCBuffer && regAssignment->RegisterType != 'b' && regAssignment->RegisterType != 'B') {
+            Diag(namedDecl->getLocation(), diag::err_hlsl_unsupported_cbuffer_register);
+        }
+        else if (!isCBuffer && regAssignment->RegisterType != 't' && regAssignment->RegisterType != 'T') {
+            Diag(namedDecl->getLocation(), diag::err_hlsl_unsupported_tbuffer_register);
+        }
+    }
+  }
+
   Decl *decl = Actions.ActOnHLSLBufferView(getCurScope(), BufferLoc, dcl, isCBuffer);
 
   return decl;

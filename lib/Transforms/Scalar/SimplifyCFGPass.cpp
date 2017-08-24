@@ -42,9 +42,13 @@ using namespace llvm;
 
 #define DEBUG_TYPE "simplifycfg"
 
+#if 0 // HLSL Change Starts
 static cl::opt<unsigned>
 UserBonusInstThreshold("bonus-inst-threshold", cl::Hidden, cl::init(1),
    cl::desc("Control the number of bonus instructions (default = 1)"));
+#else
+unsigned UserBonusInstThreshold = 1;
+#endif
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
 

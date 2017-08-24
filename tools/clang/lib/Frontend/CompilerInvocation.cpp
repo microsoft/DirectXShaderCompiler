@@ -1721,13 +1721,19 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.SanitizerBlacklistFiles = Args.getAllArgValues(OPT_fsanitize_blacklist);
 #else
   StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
-  if (ver.empty() || ver == "2016") {
-    Opts.HLSL2016 = true;
-  }
+  Opts.HLSL2015 = Opts.HLSL2016 = Opts.HLSL2017 = false;
+  if (ver.empty() || ver == "2016" || ver == "-2016") { Opts.HLSL2016 = true; }   // Default to 2016
+  else if           (ver == "2015" || ver == "-2015") { Opts.HLSL2015 = true; }
+  else if           (ver == "2017" || ver == "-2017") { Opts.HLSL2017 = true; }
   else {
-    Opts.HLSL2016 = false;
+    Diags.Report(diag::err_drv_invalid_value)
+      << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
+      << ver;
   }
-  Opts.HLSL2015 = !Opts.HLSL2016;
+
+  // Enable low precision for HLSL 2018
+  // TODO: should we tie low precision to HLSL2018 only?
+  Opts.UseMinPrecision = !Args.hasArg(options::OPT_no_min_precision);
 #endif // #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 }
 

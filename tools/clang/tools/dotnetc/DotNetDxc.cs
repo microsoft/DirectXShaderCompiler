@@ -265,15 +265,19 @@ namespace DotNetDxc
     interface IDxcRewriter
     {
         IDxcRewriteResult RemoveUnusedGlobals(
-            ref DXCEncodedText pSource,
+            IDxcBlobEncoding pSource,
             [MarshalAs(UnmanagedType.LPWStr)]string pEntryPoint,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct)] DXCDefine[] pDefines,
             uint defineCount);
         IDxcRewriteResult RewriteUnchanged(
-            ref DXCEncodedText pSource,
+            IDxcBlobEncoding pSource,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct)] DXCDefine[] pDefines,
             uint defineCount);
 
+        IDxcRewriteResult RewriteUnchangedWithInclude(IDxcBlobEncoding pSource,
+             [MarshalAs(UnmanagedType.LPWStr)] string pName,
+            [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.Struct)] DXCDefine[] pDefines,
+            uint defineCount, IDxcIncludeHandler includeHandler, uint rewriteOption);
     }
 
     [ComImport]
@@ -282,8 +286,8 @@ namespace DotNetDxc
     interface IDxcRewriteResult
     {
         uint GetStatus();
-        void GetRewrite(ref DXCEncodedText rewrite);
-        void GetErrorBuffer(ref DXCEncodedText errorBuff);
+        IDxcBlobEncoding GetRewrite();
+        IDxcBlobEncoding GetErrorBuffer();
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -322,21 +326,61 @@ namespace DotNetDxc
         public void GetLength(out UInt32 length) { length = (UInt32)this.contents.Length; }
     }
 
-    class HlslDxcLib
-    {
-        private static Guid CLSID_DxcAssembler = new Guid("D728DB68-F903-4F80-94CD-DCCF76EC7151");
-        private static Guid CLSID_DxcIntelliSense = new Guid("3047833c-d1c0-4b8e-9d40-102878605985");
-        private static Guid CLSID_DxcRewriter = new Guid("b489b951-e07f-40b3-968d-93e124734da4");
-        private static Guid CLSID_DxcCompiler = new Guid("73e22d93-e6ce-47f3-b5bf-f0664f39c1b0");
-        private static Guid CLSID_DxcLibrary = new Guid("6245D6AF-66E0-48FD-80B4-4D271796748C");
-        private static Guid CLSID_DxcOptimizer = new Guid("AE2CD79F-CC22-453F-9B6B-B124E7A5204C");
-        private static Guid CLSID_DxcValidator = new Guid("8CA3E215-F728-4CF3-8CDD-88AF917587A1");
+    public delegate int DxcCreateInstanceFn(ref Guid clsid, ref Guid iid, [MarshalAs(UnmanagedType.IUnknown)] out object instance);
 
+    class DefaultDxcLib
+    {
         [DllImport(@"dxcompiler.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int DxcCreateInstance(
             ref Guid clsid,
             ref Guid iid,
             [MarshalAs(UnmanagedType.IUnknown)] out object instance);
+
+        [MethodImplAttribute(MethodImplOptions.NoInlining)]
+        internal static DxcCreateInstanceFn GetDxcCreateInstanceFn()
+        {
+            return DxcCreateInstance;
+        }
+    }
+
+    class HlslDxcLib
+    {
+        private static Guid CLSID_DxcAssembler = new Guid("D728DB68-F903-4F80-94CD-DCCF76EC7151");
+        private static Guid CLSID_DxcDiaDataSource = new Guid("CD1F6B73-2AB0-484D-8EDC-EBE7A43CA09F");
+        private static Guid CLSID_DxcIntelliSense = new Guid("3047833c-d1c0-4b8e-9d40-102878605985");
+        private static Guid CLSID_DxcRewriter = new Guid("b489b951-e07f-40b3-968d-93e124734da4");
+        private static Guid CLSID_DxcCompiler = new Guid("73e22d93-e6ce-47f3-b5bf-f0664f39c1b0");
+        private static Guid CLSID_DxcContainerReflection = new Guid("b9f54489-55b8-400c-ba3a-1675e4728b91");
+        private static Guid CLSID_DxcLibrary = new Guid("6245D6AF-66E0-48FD-80B4-4D271796748C");
+        private static Guid CLSID_DxcOptimizer = new Guid("AE2CD79F-CC22-453F-9B6B-B124E7A5204C");
+        private static Guid CLSID_DxcValidator = new Guid("8CA3E215-F728-4CF3-8CDD-88AF917587A1");
+
+        public static DxcCreateInstanceFn DxcCreateInstanceFn;
+
+        [DllImport("kernel32.dll", CallingConvention = CallingConvention.Winapi, SetLastError =true, CharSet=CharSet.Unicode, ExactSpelling = true)]
+        private static extern IntPtr LoadLibraryW([MarshalAs(UnmanagedType.LPWStr)] string fileName);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling =true)]
+        private static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+
+        public static DxcCreateInstanceFn LoadDxcCreateInstance(string dllPath, string fnName)
+        {
+            IntPtr handle = LoadLibraryW(dllPath);
+            if (handle == IntPtr.Zero)
+            {
+                throw new System.ComponentModel.Win32Exception();
+            }
+            IntPtr fnPtr = GetProcAddress(handle, fnName);
+            return (DxcCreateInstanceFn)Marshal.GetDelegateForFunctionPointer(fnPtr, typeof(DxcCreateInstanceFn));
+        }
+
+        private static int DxcCreateInstance(
+            ref Guid clsid,
+            ref Guid iid,
+            out object instance)
+        {
+            return DxcCreateInstanceFn(ref clsid, ref iid, out instance);
+        }
 
         [MethodImplAttribute(MethodImplOptions.NoInlining)]
         public static IDxcAssembler CreateDxcAssembler()
@@ -359,6 +403,25 @@ namespace DotNetDxc
             return (IDxcCompiler)result;
         }
 
+        [MethodImplAttribute(MethodImplOptions.NoInlining)]
+        public static IDxcContainerReflection CreateDxcContainerReflection()
+        {
+            Guid classId = CLSID_DxcContainerReflection;
+            Guid interfaceId = typeof(IDxcContainerReflection).GUID;
+            object result;
+            DxcCreateInstance(ref classId, ref interfaceId, out result);
+            return (IDxcContainerReflection)result;
+        }
+
+        [MethodImplAttribute(MethodImplOptions.NoInlining)]
+        public static dia2.IDiaDataSource CreateDxcDiaDataSource()
+        {
+            Guid classId = CLSID_DxcDiaDataSource;
+            Guid interfaceId = typeof(dia2.IDiaDataSource).GUID;
+            object result;
+            DxcCreateInstance(ref classId, ref interfaceId, out result);
+            return (dia2.IDiaDataSource)result;
+        }
 
         [MethodImplAttribute(MethodImplOptions.NoInlining)]
         public static IDxcLibrary CreateDxcLibrary()
@@ -1233,6 +1296,21 @@ namespace DotNetDxc
         IDxcOperationResult Preprocess(IDxcBlob source, string sourceName, string[] arguments, int argCount,
             DXCDefine[] defines, int defineCount, IDxcIncludeHandler includeHandler);
         IDxcBlobEncoding Disassemble(IDxcBlob source);
+    }
+
+    [ComImport]
+    [Guid("d2c21b26-8350-4bdc-976a-331ce6f4c54c")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IDxcContainerReflection
+    {
+        void Load(IDxcBlob container);
+        uint GetPartCount();
+        uint GetPartKind(uint idx);
+        IDxcBlob GetPartContent(uint idx);
+        [PreserveSig]
+        int FindFirstPartKind(uint kind, out uint result);
+        [return: MarshalAs(UnmanagedType.Interface, IidParameterIndex = 1)]
+        object GetPartReflection(uint idx, Guid iid);
     }
 
     [ComImport]

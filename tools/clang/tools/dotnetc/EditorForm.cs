@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace MainNs
@@ -29,18 +30,24 @@ namespace MainNs
         private IDxcIndex lastIndex;
         private IDxcTranslationUnit lastTU;
         private IDxcBlob selectedShaderBlob;
+        private string selectedShaderBlobTarget;
         private bool passesLoaded = false;
         private bool docModified = false;
         private string docFileName;
         private DocumentKind documentKind;
         private MRUManager mruManager;
+        private SettingsManager settingsManager;
         private Action pendingASTDump;
         private FindDialog findDialog;
         private TabPage errorListTabPage;
         private List<DiagnosticDetail> diagnosticDetails;
         private DataGridView diagnosticDetailsGrid;
         private List<PassInfo> passInfos;
+        private TabPage debugInfoTabPage;
+        private RichTextBox debugInfoControl;
         private HlslHost hlslHost = new HlslHost();
+        private TabPage renderViewTabPage;
+        private TabPage rewriterOutputTabPage;
 
         internal enum DocumentKind
         {
@@ -61,6 +68,82 @@ namespace MainNs
         public EditorForm()
         {
             InitializeComponent();
+        }
+
+        internal IDxcBlob SelectedShaderBlob
+        {
+            get { return this.selectedShaderBlob; }
+            set
+            {
+                this.selectedShaderBlob = value;
+                this.selectedShaderBlobTarget = TryGetBlobShaderTarget(this.selectedShaderBlob);
+            }
+        }
+
+        private const uint DFCC_DXIL = 1279875140;
+        private const uint DFCC_SHDR = 1380206675;
+        private const uint DFCC_SHEX = 1480935507;
+        private const uint DFCC_ILDB = 1111772233;
+        private const uint DFCC_SPDB = 1111773267;
+
+        private TabPage RenderViewTabPage
+        {
+            get
+            {
+                if (this.renderViewTabPage == null)
+                {
+                    this.renderViewTabPage = new TabPage("Render View");
+                    this.AnalysisTabControl.TabPages.Add(renderViewTabPage);
+                }
+                return this.renderViewTabPage;
+            }
+        }
+
+        private TabPage RewriterOutputTabPage
+        {
+            get
+            {
+                if (this.rewriterOutputTabPage == null)
+                {
+                    this.rewriterOutputTabPage = new TabPage("Rewriter Output");
+                    this.AnalysisTabControl.TabPages.Add(rewriterOutputTabPage);
+                }
+                return this.rewriterOutputTabPage;
+            }
+        }
+
+        private string TryGetBlobShaderTarget(IDxcBlob blob)
+        {
+            if (blob == null)
+                return null;
+            uint size = blob.GetBufferSize();
+            if (size == 0) return null;
+            unsafe
+            {
+                try
+                {
+                    var reflection = HlslDxcLib.CreateDxcContainerReflection();
+                    reflection.Load(blob);
+                    uint index;
+                    int hr = reflection.FindFirstPartKind(DFCC_DXIL, out index);
+                    if (hr < 0)
+                        hr = reflection.FindFirstPartKind(DFCC_SHEX, out index);
+                    if (hr < 0)
+                        hr = reflection.FindFirstPartKind(DFCC_SHDR, out index);
+                    if (hr < 0)
+                        return null;
+                    unsafe
+                    {
+                        IDxcBlob part = reflection.GetPartContent(index);
+                        UInt32* p = (UInt32 *)part.GetBufferPointer();
+                        return DescribeProgramVersionShort(*p);
+                    }
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
         }
 
         private void EditorForm_Shown(object sender, EventArgs e)
@@ -221,8 +304,8 @@ namespace MainNs
                 "  <InputElement SemanticName='POSITION' Format='R32G32B32_FLOAT' AlignedByteOffset='0' />\r\n" +
                 "  <InputElement SemanticName='COLOR' Format='R32G32B32A32_FLOAT' AlignedByteOffset='12' />\r\n" +
                 " </InputElements>\r\n" +
-                " <Shader Name='VS' Target='vs_5_1' EntryPoint='VSMain' />\r\n" +
-                " <Shader Name='PS' Target='ps_5_1' EntryPoint='PSMain' />\r\n" +
+                " <Shader Name='VS' Target='vs_6_0' EntryPoint='VSMain' />\r\n" +
+                " <Shader Name='PS' Target='ps_6_0' EntryPoint='PSMain' />\r\n" +
                 "</ShaderOp>\r\n";
 
             this.CodeBox.Text =
@@ -309,7 +392,7 @@ namespace MainNs
             string ext = System.IO.Path.GetExtension(this.DocFileName).ToLowerInvariant();
             if (ext == ".cso" || ext == ".fxc")
             {
-                this.selectedShaderBlob = this.Library.CreateBlobFromFile(this.DocFileName, IntPtr.Zero);
+                this.SelectedShaderBlob = this.Library.CreateBlobFromFile(this.DocFileName, IntPtr.Zero);
                 this.DocKind = DocumentKind.CompiledObject;
                 this.DisassembleSelectedShaderBlob();
             }
@@ -339,7 +422,7 @@ namespace MainNs
 
         private void exportCompiledObjectToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (this.selectedShaderBlob == null)
+            if (this.SelectedShaderBlob == null)
             {
                 MessageBox.Show(this, "There is no compiled shader blob available for exporting.");
                 return;
@@ -361,7 +444,7 @@ namespace MainNs
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                     return;
 
-                System.IO.File.WriteAllBytes(dialog.FileName, GetBytesFromBlob(this.selectedShaderBlob));
+                System.IO.File.WriteAllBytes(dialog.FileName, GetBytesFromBlob(this.SelectedShaderBlob));
             }
         }
 
@@ -396,10 +479,22 @@ namespace MainNs
 
         #endregion Menu item handlers.
 
+        private static bool IsDxilTarget(string target)
+        {
+            // ps_6_0
+            // 012345
+            int major;
+            if (target != null && target.Length == 6)
+                if (Int32.TryParse(new string(target[3], 1), out major))
+                    return major >= 6;
+            return false;
+        }
+
         private void CompileDocument()
         {
             this.DisassemblyTextBox.Font = this.CodeBox.Font;
             this.ASTDumpBox.Font = this.CodeBox.Font;
+            SelectionHighlightData.ClearAnyFromRtb(this.CodeBox);
 
             var library = this.Library;
 
@@ -427,22 +522,57 @@ namespace MainNs
 
             if (localKind == DocumentKind.HlslText)
             {
-                var compiler = HlslDxcLib.CreateDxcCompiler();
                 var source = this.CreateBlobForText(text);
 
                 string fileName = "hlsl.hlsl";
                 HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+                bool isDxil = IsDxilTarget(fileVars.Target);
+                IDxcCompiler compiler = isDxil ? HlslDxcLib.CreateDxcCompiler() : null;
                 {
                     string[] arguments = fileVars.Arguments;
-                    var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, arguments, arguments.Length, null, 0, library.CreateIncludeHandler());
-                    if (result.GetStatus() == 0)
+                    if (isDxil)
                     {
-                        this.selectedShaderBlob = result.GetResult();
-                        this.DisassembleSelectedShaderBlob();
+                        var result = compiler.Compile(source, fileName, fileVars.Entry, fileVars.Target, arguments, arguments.Length, null, 0, library.CreateIncludeHandler());
+                        if (result.GetStatus() == 0)
+                        {
+                            this.SelectedShaderBlob = result.GetResult();
+                            this.DisassembleSelectedShaderBlob();
+                        }
+                        else
+                        {
+                            this.colorizationService.ClearColorization(this.DisassemblyTextBox);
+                            this.DisassemblyTextBox.Text = GetStringFromBlob(result.GetErrors());
+                        }
                     }
                     else
                     {
-                        this.DisassemblyTextBox.Text = GetStringFromBlob(result.GetErrors());
+                        this.colorizationService.ClearColorization(this.DisassemblyTextBox);
+                        IDxcBlob code, errorMsgs;
+                        uint flags = 0;
+                        const uint D3DCOMPILE_DEBUG = 1;
+                        if (fileVars.Arguments.Contains("/Zi")) flags = D3DCOMPILE_DEBUG;
+                        int hr = D3DCompiler.D3DCompiler.D3DCompile(text, text.Length, fileName, null, 0, fileVars.Entry, fileVars.Target, flags, 0, out code, out errorMsgs);
+                        if (hr != 0)
+                        {
+                            if (errorMsgs != null)
+                            {
+                                this.DisassemblyTextBox.Text = GetStringFromBlob(errorMsgs);
+                            }
+                            else
+                            {
+                                this.DisassemblyTextBox.Text = "Compilation filed with 0x" + hr.ToString("x");
+                            }
+                            return;
+                        }
+                        IDxcBlob disassembly;
+                        unsafe
+                        {
+                            IntPtr buf = new IntPtr(code.GetBufferPointer());
+                            hr = D3DCompiler.D3DCompiler.D3DDisassemble(buf, code.GetBufferSize(),
+                                0, null, out disassembly);
+                            this.DisassemblyTextBox.Text = GetStringFromBlob(disassembly);
+                        }
+                        this.SelectedShaderBlob = code;
                     }
                 }
 
@@ -467,6 +597,12 @@ namespace MainNs
                     }
                 };
 
+                if (AnalysisTabControl.SelectedTab == ASTTabPage)
+                {
+                    pendingASTDump();
+                    pendingASTDump = null;
+                }
+
                 if (this.diagnosticDetailsGrid != null)
                 {
                     this.RefreshDiagnosticDetails();
@@ -484,7 +620,7 @@ namespace MainNs
                 var result = assembler.AssembleToContainer(source);
                 if (result.GetStatus() == 0)
                 {
-                    this.selectedShaderBlob = result.GetResult();
+                    this.SelectedShaderBlob = result.GetResult();
                     this.DisassembleSelectedShaderBlob();
                     // TODO: run validation on this shader blob
                 }
@@ -584,16 +720,22 @@ namespace MainNs
         {
             private Dictionary<RichTextBox, RtbColorization> instances = new Dictionary<RichTextBox, RtbColorization>();
 
+            public void ClearColorization(RichTextBox rtb)
+            {
+                SetColorization(rtb, null);
+            }
+
             public void SetColorization(RichTextBox rtb, RtbColorization colorization)
             {
                 RtbColorization existing;
-                if (instances.TryGetValue(rtb, out existing))
+                if (instances.TryGetValue(rtb, out existing) && existing != null)
                 {
                     existing.Stop();
                 }
 
                 instances[rtb] = colorization;
-                colorization.Start();
+                if (colorization != null)
+                    colorization.Start();
             }
         }
 
@@ -606,7 +748,7 @@ namespace MainNs
             var compiler = HlslDxcLib.CreateDxcCompiler();
             try
             {
-                var dis = compiler.Disassemble(this.selectedShaderBlob);
+                var dis = compiler.Disassemble(this.SelectedShaderBlob);
                 string disassemblyText = GetStringFromBlob(dis);
 
                 RichTextBox rtb = this.DisassemblyTextBox;
@@ -670,7 +812,7 @@ namespace MainNs
                 result.SetFromText = options.Count > 0;
                 result.Mode = GetValueOrDefault(options, "mode", "hlsl");
                 result.Entry = GetValueOrDefault(options, "hlsl-entry", "main");
-                result.Target = GetValueOrDefault(options, "hlsl-target", "ps_5_1");
+                result.Target = GetValueOrDefault(options, "hlsl-target", "ps_6_0");
                 result.Arguments = GetValueOrDefault(options, "hlsl-args", "").Split(' ').Select(a => a.Trim()).ToArray();
                 return result;
             }
@@ -770,10 +912,16 @@ namespace MainNs
             get { return (library ?? (library = HlslDxcLib.CreateDxcLibrary())); }
         }
 
+        internal bool ShowCodeColor
+        {
+            get { return ColorMenuItem.Checked; }
+            set { ColorMenuItem.Checked = value; }
+        }
+
         internal bool ShowReferences
         {
-            // TODO: provide UI to change this
-            get { return false; }
+            get { return ColorMenuItem.Checked; }
+            set { ColorMenuItem.Checked = value; }
         }
 
         internal IDxcTranslationUnit GetTU()
@@ -789,7 +937,8 @@ namespace MainNs
                 {
                     new TrivialDxcUnsavedFile("hlsl.hlsl", this.CodeBox.Text)
                 };
-                this.lastTU = this.lastIndex.ParseTranslationUnit("hlsl.hlsl", new string[] { }, 0,
+                HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
+                this.lastTU = this.lastIndex.ParseTranslationUnit("hlsl.hlsl", fileVars.Arguments, fileVars.Arguments.Length,
                     unsavedFiles, (uint)unsavedFiles.Length, (uint)DxcTranslationUnitFlags.DxcTranslationUnitFlags_UseCallerThread);
             }
             return this.lastTU;
@@ -820,7 +969,7 @@ namespace MainNs
 
         private void CodeBox_SelectionChanged(object sender, System.EventArgs e)
         {
-            if (!this.ShowReferences)
+            if (!this.ShowReferences && !this.ShowCodeColor)
             {
                 return;
             }
@@ -834,30 +983,64 @@ namespace MainNs
             RichTextBox rtb = this.CodeBox;
             SelectionHighlightData data = SelectionHighlightData.FromRtb(rtb);
             int start = this.CodeBox.SelectionStart;
-            if (rtb.SelectionLength > 0)
+
+            if (this.ShowReferences && rtb.SelectionLength > 0)
             {
                 return;
             }
 
+
+            var doc = GetTextDocument(rtb);
             var mainFile = tu.GetFile(tu.GetFileName());
-            var loc = tu.GetLocationForOffset(mainFile, (uint)start);
-            var locCursor = tu.GetCursorForLocation(loc);
-            uint resultLength;
-            IDxcCursor[] cursors;
-            locCursor.FindReferencesInFile(mainFile, 0, 100, out resultLength, out cursors);
 
             using (new RichTextBoxEditAction(rtb))
             {
                 data.ClearFromRtb(rtb);
-                for (int i = 0; i < cursors.Length; ++i)
+                if (this.ShowCodeColor)
                 {
-                    uint startOffset, endOffset;
-                    GetRangeOffsets(cursors[i].GetExtent(), out startOffset, out endOffset);
-                    data.Add((int)startOffset, (int)(endOffset - startOffset));
+                    // Basic tokenization.
+                    IDxcToken[] tokens;
+                    uint tokenCount;
+                    IDxcSourceRange range = this.isense.GetRange(
+                        tu.GetLocationForOffset(mainFile, 0),
+                        tu.GetLocationForOffset(mainFile, (uint)this.CodeBox.TextLength));
+                    tu.Tokenize(range, out tokens, out tokenCount);
+                    if (tokens != null)
+                    {
+                        foreach (var t in tokens)
+                        {
+                            switch (t.GetKind())
+                            {
+                                case DxcTokenKind.Keyword:
+                                    uint line, col, offset, endOffset;
+                                    IDxcFile file;
+                                    t.GetLocation().GetSpellingLocation(out file, out line, out col, out offset);
+                                    t.GetExtent().GetEnd().GetSpellingLocation(out file, out line, out col, out endOffset);
+                                    SetStartLengthColor(doc, (int)offset, (int)(endOffset - offset), Color.Blue);
+                                    break;
+                            }
+                        }
+                    }
                 }
-                data.ApplyToRtb(rtb, Color.LightGray);
+
+                if (this.ShowReferences)
+                {
+                    var loc = tu.GetLocationForOffset(mainFile, (uint)start);
+                    var locCursor = tu.GetCursorForLocation(loc);
+                    uint resultLength;
+                    IDxcCursor[] cursors;
+                    locCursor.FindReferencesInFile(mainFile, 0, 100, out resultLength, out cursors);
+
+                    for (int i = 0; i < cursors.Length; ++i)
+                    {
+                        uint startOffset, endOffset;
+                        GetRangeOffsets(cursors[i].GetExtent(), out startOffset, out endOffset);
+                        data.Add((int)startOffset, (int)(endOffset - startOffset));
+                    }
+                    data.ApplyToRtb(rtb, Color.LightGray);
+                    this.TheStatusStripLabel.Text = locCursor.GetCursorKind().ToString();
+                }
             }
-            this.TheStatusStripLabel.Text = locCursor.GetCursorKind().ToString();
         }
 
         private static void GetRangeOffsets(IDxcSourceRange range, out uint start, out uint end)
@@ -876,7 +1059,6 @@ namespace MainNs
             if (this.DocKind == DocumentKind.CompiledObject)
                 return;
 
-            // TODO: consider colorizing as well
             if (e != null)
                 this.DocModified = true;
             this.InvalidateTU();
@@ -1059,18 +1241,84 @@ namespace MainNs
             return result;
         }
 
-        private static void SetStartLengthColor(Tom.ITextDocument doc, int start, int length, Color color)
+        private static Tom.ITextRange SetStartLengthColor(Tom.ITextDocument doc, int start, int length, Color color)
         {
             Tom.ITextRange range = doc.Range(start, start + length);
             Tom.ITextFont font = range.Font;
             font.ForeColor = ColorToCOLORREF(color);
+            return range;
         }
 
-        private static void SetStartLengthBackColor(Tom.ITextDocument doc, int start, int length, Color color)
+        private static void SetStartLengthBackColor(Tom.ITextRange range, Color color)
         {
-            Tom.ITextRange range = doc.Range(start, start + length);
             Tom.ITextFont font = range.Font;
             font.BackColor = ColorToCOLORREF(color);
+        }
+
+        private static Tom.ITextRange SetStartLengthBackColor(Tom.ITextDocument doc, int start, int length, Color color)
+        {
+            Tom.ITextRange range = doc.Range(start, start + length);
+            SetStartLengthBackColor(range, color);
+            return range;
+        }
+
+        private void HandleDebugMetadata(string dbgLine)
+        {
+            Regex lineRE = new Regex(@"line: (\d+)");
+            Match lineMatch = lineRE.Match(dbgLine);
+            if (!lineMatch.Success)
+            {
+                return;
+            }
+
+            int lineVal = Int32.Parse(lineMatch.Groups[1].Value) - 1;
+            int targetStart = this.CodeBox.GetFirstCharIndexFromLine(lineVal);
+            int targetEnd = this.CodeBox.GetFirstCharIndexFromLine(lineVal + 1);
+            var highlights = SelectionHighlightData.FromRtb(CodeBox);
+            highlights.ClearFromRtb(CodeBox);
+            highlights.Add(targetStart, targetEnd - targetStart);
+            highlights.ApplyToRtb(CodeBox, Color.Yellow);
+        }
+
+        private void HandleDebugTokenOnDisassemblyLine(RichTextBox rtb)
+        {
+            // Get the line.
+            string[] lines = rtb.Lines;
+            string line = lines[rtb.GetLineFromCharIndex(rtb.SelectionStart)];
+            Regex re = new Regex(@"!dbg !(\d+)");
+            Match m = re.Match(line);
+            if (!m.Success)
+            {
+                return;
+            }
+
+            string val = m.Groups[1].Value;
+            int dbgMetadata = Int32.Parse(val);
+            for (int dbgLineIndex = lines.Length - 1; dbgLineIndex >= 0;)
+            {
+                string dbgLine = lines[dbgLineIndex];
+                if (dbgLine.StartsWith("!"))
+                {
+                    int dbgIdx = Int32.Parse(dbgLine.Substring(1, dbgLine.IndexOf(' ') - 1));
+                    if (dbgIdx == dbgMetadata)
+                    {
+                        HandleDebugMetadata(dbgLine);
+                        return;
+                    }
+                    else if (dbgIdx < dbgMetadata)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        dbgLineIndex -= (dbgIdx - dbgMetadata);
+                    }
+                }
+                else
+                {
+                    --dbgLineIndex;
+                }
+            }
         }
 
         private void DisassemblyTextBox_SelectionChanged(object sender, EventArgs e)
@@ -1081,10 +1329,17 @@ namespace MainNs
             SelectionExpandResult expand = SelectionExpandResult.Expand(rtb);
             if (expand.IsEmpty)
                 return;
-            if (data.SelectedToken == expand.Token)
+
+            string token = expand.Token;
+
+            if (token == "dbg")
+            {
+                HandleDebugTokenOnDisassemblyLine(rtb);
+            }
+
+            if (data.SelectedToken == token)
                 return;
             string text = expand.Text;
-            string token = expand.Token;
 
             // OK, time to do work.
             using (new RichTextBoxEditAction(rtb))
@@ -1107,6 +1362,14 @@ namespace MainNs
         private string PassToPassString(IDxcOptimizerPass pass)
         {
             return pass.GetOptionName() + OptDescSeparator + pass.GetDescription();
+        }
+
+        private string PassStringToBanner(string value)
+        {
+            int separator = value.IndexOf(OptDescSeparator);
+            if (separator >= 0)
+                value = value.Substring(0, separator);
+            return value;
         }
 
         private string PassStringToOption(string value)
@@ -1159,7 +1422,7 @@ namespace MainNs
             try
             {
                 HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
-                args = fileVars.Arguments.ToList();
+                args = fileVars.Arguments.Where(a => !String.IsNullOrWhiteSpace(a)).ToList();
             }
             catch(Exception)
             {
@@ -1225,12 +1488,90 @@ namespace MainNs
             List<string> result = new List<string>();
             if (this.AnalyzeCheckBox.Checked)
                 result.Add("-analyze");
+            bool printAll = this.PrintAllPassesBox.Checked;
             var items = this.SelectedPassesBox.Items;
+            if (printAll)
+                result.Add("-print-module:start");
             for (int i = 0; i < items.Count; ++i)
             {
-                result.Add(PassStringToOption(items[i].ToString()));
+                string itemText = items[i].ToString();
+                result.Add(PassStringToOption(itemText));
+                if (printAll)
+                    result.Add("-print-module:" + itemText);
             }
             return result.ToArray();
+        }
+
+        class TextSection
+        {
+            private string[] lines;
+            private int[] lineHashes;
+            public string Title;
+            public string Text;
+            public bool HasChange;
+            public string[] Lines
+            {
+                get
+                {
+                    if (lines == null)
+                       lines = Text.Split(new char[] { '\n' });
+                    return lines;
+                }
+            }
+            public int[] LineHashes
+            {
+                get
+                {
+                    if (lineHashes == null)
+                       lineHashes = lines.Select(l => l.GetHashCode()).ToArray();
+                    return lineHashes;
+                }
+            }
+            public override string ToString()
+            {
+                return Title;
+            }
+        }
+
+        private static bool ClosestMatch(string text, ref int start, string[] separators, out string separator)
+        {
+            int closest = -1;
+            separator = null;
+            for (int i = 0; i < separators.Length; ++i)
+            {
+                int idx = text.IndexOf(separators[i], start);
+                if (idx >= 0 && (closest < 0 || idx < closest))
+                {
+                    closest = idx;
+                    separator = separators[i];
+                }
+            }
+            start = closest;
+            return closest >= 0;
+        }
+
+        private static IEnumerable<TextSection> EnumerateSections(string[] separators, string text)
+        {
+            string prior = null;
+            string separator;
+            int idx = 0;
+            while (idx >= 0 && ClosestMatch(text, ref idx, separators, out separator))
+            {
+                int lineEnd = text.IndexOf('\n', idx);
+                if (lineEnd < 0) break;
+                string title = text.Substring(idx + separator.Length, lineEnd - (idx + separator.Length));
+                title = title.Trim();
+                int next = lineEnd;
+                if (!ClosestMatch(text, ref next, separators, out separator))
+                    next = -1;
+                string sectionText = (next < 0) ? text.Substring(lineEnd + 1) : text.Substring(lineEnd + 1, next - (lineEnd + 1));
+                sectionText = sectionText.Trim();
+                if (sectionText == prior)
+                    sectionText = prior;
+                yield return new TextSection { Title = title, Text = sectionText };
+                idx = next;
+                prior = sectionText;
+            }
         }
 
         private void RunPassesButton_Click(object sender, EventArgs e)
@@ -1279,15 +1620,139 @@ namespace MainNs
             LogContextMenuHelper helper = new LogContextMenuHelper(rtb);
             rtb.Dock = DockStyle.Fill;
             rtb.Font = this.CodeBox.Font;
-            rtb.Text = resultText;
             rtb.ContextMenu = new ContextMenu(
                 new MenuItem[]
                 {
                     new MenuItem("Show Graph", helper.ShowGraphClick)
                 });
             rtb.SelectionChanged += DisassemblyTextBox_SelectionChanged;
-            form.Controls.Add(rtb);
+            if (this.PrintAllPassesBox.Checked)
+            {
+                SplitContainer split = new SplitContainer() { Dock = DockStyle.Fill };
+                ListBox sectionBox = new ListBox() { Dock = DockStyle.Fill };
+                RadioButton leftButton = new RadioButton() { Text = "Left Only" };
+                RadioButton diffButton = new RadioButton() { Checked = true, Text = "Both", Left = leftButton.Right };
+                RadioButton rightButton = new RadioButton() { Text = "Right Only", Left = diffButton.Right };
+                Panel optionsPanel = new Panel() { Dock = DockStyle.Top, Height = diffButton.Bottom };
+                optionsPanel.Controls.AddRange(new Control[] { leftButton, diffButton, rightButton } );
+                var sections = EnumerateSections(new string[] { "MODULE-PRINT", "Phase:" }, resultText).ToArray();
+                TextSection last = null;
+                foreach (var s in sections)
+                {
+                    s.HasChange = last != null && !object.ReferenceEquals(last.Text, s.Text);
+                    if (s.HasChange) s.Title = "* " + s.Title;
+                    last = s;
+                }
+                sectionBox.Items.AddRange(sections);
+                Action updateBox = () =>
+                {
+                    rtb.Clear();
+                    int index = sectionBox.SelectedIndex;
+                    if (index == -1) return;
+                    TextSection section = (TextSection)sectionBox.SelectedItem;
+                    TextSection prior = index == 0 ? null : sectionBox.Items[index-1] as TextSection;
+                    if (prior == null || section.Text == prior.Text || rightButton.Checked)
+                        rtb.Text = section.Text;
+                    else if (leftButton.Checked)
+                        rtb.Text = (prior == null) ? "(no prior text)" : prior.Text;
+                    else
+                        RunDiff(prior, section, rtb);
+                };
+                EventHandler H = (ccChanged, __) =>
+                {
+                    if (((RadioButton)ccChanged).Checked) updateBox();
+                };
+                leftButton.CheckedChanged += H;
+                diffButton.CheckedChanged += H;
+                rightButton.CheckedChanged += H;
+                sectionBox.SelectedIndexChanged += (_, __) => { updateBox(); };
+                split.Panel1.Controls.Add(sectionBox);
+                split.Panel2.Controls.Add(rtb);
+                split.Panel2.Controls.Add(optionsPanel);
+                form.Controls.Add(split);
+            }
+            else
+            {
+                rtb.Text = resultText;
+                form.Controls.Add(rtb);
+            }
+            form.StartPosition = FormStartPosition.CenterParent;
             form.Show(this);
+        }
+
+        private void RunDiff(TextSection oldText, TextSection newText, RichTextBox rtb)
+        {
+            // Longest common subsequence, simple edition. If/when something faster is needed,
+            // should probably take a dependency on a proper diff package. Other than shorter
+            // comparison windows, other things to look for are avoiding creating strings here,
+            // working on the RichTextBox buffer directly for color, and unique'ing lines.
+            string[] oldLines = oldText.Lines;
+            string[] newLines = newText.Lines;
+            // Reduce strings to hashes.
+            int[] oldHashes = oldText.LineHashes;
+            int[] newHashes = newText.LineHashes;
+            // Reduce by trimming prefix and suffix.
+            int diffStart = 0;
+            while (diffStart < oldHashes.Length && diffStart < newHashes.Length && oldHashes[diffStart] == newHashes[diffStart])
+                diffStart++;
+            int newDiffEndExc = newLines.Length, oldDiffEndExc = oldLines.Length;
+            while (newDiffEndExc > diffStart && oldDiffEndExc > diffStart)
+            {
+                if (oldHashes[oldDiffEndExc - 1] == newHashes[newDiffEndExc - 1])
+                {
+                    oldDiffEndExc--;
+                    newDiffEndExc--;
+                }
+                else
+                    break;
+            }
+            int suffixLength = (newLines.Length - newDiffEndExc);
+            // Build LCS table.
+            int oldLen = oldDiffEndExc - diffStart, newLen = newDiffEndExc - diffStart;
+            int[,] lcs = new int[oldLen + 1, newLen + 1]; // already zero-initialized
+            for (int i = 0; i < oldLen; i++)
+                for (int j = 0; j < newLen; j++)
+                    if (oldHashes[i + diffStart] == newHashes[j + diffStart])
+                        lcs[i + 1, j + 1] = lcs[i, j] + 1;
+                    else
+                        lcs[i + 1, j + 1] = Math.Max(lcs[i, j + 1], lcs[i + 1, j]);
+            // Print the diff - common prefix, backtracked diff and common suffix.
+            rtb.AppendLines("  ", newLines, 0, diffStart, Color.White);
+            {
+                int i = oldLen, j = newLen;
+                Stack<string> o = new Stack<string>();
+                for (;;)
+                {
+                    if (i > 0 && j > 0 && oldHashes[diffStart + i - 1] == newHashes[diffStart + j - 1])
+                    {
+                        o.Push("  " + oldLines[diffStart + i - 1]);
+                        i--;
+                        j--;
+                    }
+                    else if (j > 0 && (i == 0 || lcs[i, j - 1] >= lcs[i - 1, j]))
+                    {
+                        o.Push("+ " + newLines[diffStart + j - 1]);
+                        j--;
+                    }
+                    else if (i > 0 && (j == 0 || lcs[i, j - 1] < lcs[i - 1, j]))
+                    {
+                        o.Push("- " + oldLines[diffStart + i - 1]);
+                        i--;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                while (o.Count != 0)
+                {
+                    string line = o.Pop();
+                    Color c = (line[0] == ' ') ? Color.White :
+                        ((line[0] == '+') ? Color.Yellow : Color.Red);
+                    rtb.AppendLine(line, c);
+                }
+            }
+            rtb.AppendLines("  ", newLines, newDiffEndExc, (newLines.Length - newDiffEndExc), Color.White);
         }
 
         private void SelectPassUpButton_Click(object sender, EventArgs e)
@@ -1425,6 +1890,10 @@ namespace MainNs
                         browserForm.Text = "graph";
                         browserForm.Show();
                     }
+                    catch (DotProgram.CannotFindDotException cfde)
+                    {
+                        MessageBox.Show(cfde.Message, "Unable to find dot.exe", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                     finally
                     {
                         DeleteIfExists(path);
@@ -1475,6 +1944,11 @@ namespace MainNs
             private string fileName;
             private Dictionary<string, string> options;
 
+            internal class CannotFindDotException : InvalidOperationException
+            {
+                internal CannotFindDotException(string message) : base(message) { }
+            }
+
             public DotProgram()
             {
                 this.options = new Dictionary<string, string>();
@@ -1504,12 +1978,15 @@ namespace MainNs
 
             public static string FindDotFileName()
             {
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("Cannot find dot.exe in any of these locations.");
                 foreach (string result in DotFileNameCandidates())
                 {
+                    sb.AppendLine(result);
                     if (System.IO.File.Exists(result))
                         return result;
                 }
-                throw new InvalidOperationException("Cannot find dot.exe");
+                throw new CannotFindDotException(sb.ToString());
             }
 
             public string BuildArguments()
@@ -1636,6 +2113,13 @@ namespace MainNs
                 return result;
             }
 
+            public static void ClearAnyFromRtb(RichTextBox rtb)
+            {
+                SelectionHighlightData data = (SelectionHighlightData)rtb.Tag;
+                if (data != null)
+                    data.ClearFromRtb(rtb);
+            }
+
             public void Add(int start, int length)
             {
                 this.StartLengthHighlights.Add(new Tuple<int, int>(start, length));
@@ -1646,20 +2130,22 @@ namespace MainNs
                 Tom.ITextDocument doc = GetTextDocument(rtb);
                 foreach (var pair in this.StartLengthHighlights)
                 {
-                    SetStartLengthBackColor(doc, pair.Item1, pair.Item2, color);
+                    this.HighlightRanges.Add(SetStartLengthBackColor(doc, pair.Item1, pair.Item2, color));
                 }
             }
 
             public void ClearFromRtb(RichTextBox rtb)
             {
                 Tom.ITextDocument doc = GetTextDocument(rtb);
-                foreach (var pair in this.StartLengthHighlights)
+                for (int i = 0; i < this.HighlightRanges.Count; ++i)
                 {
-                    SetStartLengthBackColor(doc, pair.Item1, pair.Item2, rtb.BackColor);
+                    SetStartLengthBackColor(HighlightRanges[i], rtb.BackColor);
                 }
                 this.StartLengthHighlights.Clear();
+                this.HighlightRanges.Clear();
             }
 
+            private List<Tom.ITextRange> HighlightRanges = new List<Tom.ITextRange>();
             public List<Tuple<int, int>> StartLengthHighlights = new List<Tuple<int, int>>();
             public string SelectedToken;
         }
@@ -1740,7 +2226,7 @@ namespace MainNs
 
         private void bitstreamToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (this.selectedShaderBlob == null)
+            if (this.SelectedShaderBlob == null)
             {
                 MessageBox.Show(this, "No shader blob selected. Try compiling a file.");
                 return;
@@ -1749,8 +2235,8 @@ namespace MainNs
             byte[] bytes;
             unsafe
             {
-                char* pBuffer = this.selectedShaderBlob.GetBufferPointer();
-                uint size = this.selectedShaderBlob.GetBufferSize();
+                char* pBuffer = this.SelectedShaderBlob.GetBufferPointer();
+                uint size = this.SelectedShaderBlob.GetBufferSize();
                 bytes = new byte[size];
                 IntPtr ptr = new IntPtr(pBuffer);
                 System.Runtime.InteropServices.Marshal.Copy(ptr, bytes, 0, (int)size);
@@ -1809,6 +2295,7 @@ namespace MainNs
             form.Controls.Add(container);
             form.Controls.Add(statusBar);
             binaryView.Bytes = bytes;
+            form.StartPosition = FormStartPosition.CenterParent;
             form.Show(this);
         }
 
@@ -1994,8 +2481,18 @@ namespace MainNs
             kind = ((programVersion & 0xffff0000) >> 16);
             major = (programVersion & 0xf0) >> 4;
             minor = (programVersion & 0xf);
-            string[] shaderKinds = "Pixel,Geometry,Hull,Domain,Compute".Split(',');
+            string[] shaderKinds = "Pixel,Vertex,Geometry,Hull,Domain,Compute".Split(',');
             return shaderKinds[kind] + " " + major + "." + minor;
+        }
+
+        private static string DescribeProgramVersionShort(UInt32 programVersion)
+        {
+            uint kind, major, minor;
+            kind = ((programVersion & 0xffff0000) >> 16);
+            major = (programVersion & 0xf0) >> 4;
+            minor = (programVersion & 0xf);
+            string[] shaderKinds = "ps,vs,gs,hs,ds,cs".Split(',');
+            return shaderKinds[kind] + "_" + major + "_" + minor;
         }
 
         private static TreeNode RangeNode(string text)
@@ -2123,6 +2620,9 @@ namespace MainNs
         {
             this.mruManager = new MRUManager();
             this.mruManager.LoadFromFile();
+            this.settingsManager = new SettingsManager();
+            this.settingsManager.LoadFromFile();
+            this.CheckSettingsForDxcLibrary();
         }
 
         private void RefreshMRUMenu(MRUManager mru, ToolStripMenuItem parent)
@@ -2360,6 +2860,8 @@ namespace MainNs
             try
             {
                 SendHostMessageAndLogReply(HlslHost.HhMessageId.StartRendererMsgId);
+                this.AnalysisTabControl.SelectedTab = RenderViewTabPage;
+                this.hlslHost.SetParentHwnd(RenderViewTabPage.Handle);
                 this.hlslHost.SendHostMessagePlay(payloadText);
                 System.Windows.Forms.Timer t = new Timer();
                 t.Interval = 1000;
@@ -2458,6 +2960,390 @@ namespace MainNs
         private void EditorForm_FormClosed(object sender, FormClosedEventArgs e)
         {
             this.hlslHost.IsActive = false;
+        }
+
+        private void FontGrowToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Control target = this.DeepActiveControl;
+            if (target == null) return;
+            target.Font = new Font(target.Font.FontFamily, target.Font.Size * 1.1f);
+        }
+
+        private void FontShrinkToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Control target = this.DeepActiveControl;
+            if (target == null) return;
+            target.Font = new Font(target.Font.FontFamily, target.Font.Size / 1.1f);
+        }
+
+        private void optionsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Form form = new Form();
+            PropertyGrid grid = new PropertyGrid();
+            grid.SelectedObject = this.settingsManager;
+            grid.Dock = DockStyle.Fill;
+            form.Controls.Add(grid);
+            form.FormClosing += (_, __) =>
+            {
+                this.settingsManager.SaveToFile();
+                this.CheckSettingsForDxcLibrary();
+            };
+            form.ShowDialog(this);
+        }
+
+        private void CheckSettingsForDxcLibrary()
+        {
+            try
+            {
+                if (String.IsNullOrWhiteSpace(this.settingsManager.ExternalLib))
+                {
+                    HlslDxcLib.DxcCreateInstanceFn = DefaultDxcLib.GetDxcCreateInstanceFn();
+                }
+                else
+                {
+                    HlslDxcLib.DxcCreateInstanceFn = HlslDxcLib.LoadDxcCreateInstance(
+                        this.settingsManager.ExternalLib,
+                        this.settingsManager.ExternalFunction);
+                }
+            }
+            catch (Exception e)
+            {
+                HandleException(e);
+            }
+        }
+
+        private void colorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            this.ColorMenuItem.Checked = !this.ColorMenuItem.Checked;
+            CodeBox_SelectionChanged(sender, e);
+        }
+
+        private void rewriterToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            IDxcRewriter rewriter = HlslDxcLib.CreateDxcRewriter();
+            IDxcBlobEncoding code = CreateBlobForCodeText();
+            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchangedWithInclude(code, "input.hlsl", null, 0, library.CreateIncludeHandler(), 0);
+            IDxcBlobEncoding rewriteBlob = rewriterResult.GetRewrite();
+            string rewriteText = GetStringFromBlob(rewriteBlob);
+            RewriterOutputTextBox.Text = rewriteText;
+            AnalysisTabControl.SelectTab(RewriterOutputTabPage);
+        }
+
+        private void rewriteNobodyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            IDxcRewriter rewriter = HlslDxcLib.CreateDxcRewriter();
+            IDxcBlobEncoding code = CreateBlobForCodeText();
+            IDxcRewriteResult rewriterResult = rewriter.RewriteUnchangedWithInclude(code, "input.hlsl",null, 0, library.CreateIncludeHandler(), 1);
+            IDxcBlobEncoding rewriteBlob = rewriterResult.GetRewrite();
+            string rewriteText = GetStringFromBlob(rewriteBlob);
+            RewriterOutputTextBox.Text = rewriteText;
+            AnalysisTabControl.SelectTab(RewriterOutputTabPage);
+        }
+
+        private IEnumerable<string> EnumerateDiaCandidates()
+        {
+            string progPath = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            yield return System.IO.Path.Combine(progPath, @"Microsoft Visual Studio\2017\Community\DIA SDK\bin\amd64\msdia140.dll");
+            yield return System.IO.Path.Combine(progPath, @"Microsoft Visual Studio\2017\Community\Common7\IDE\msdia140.dll");
+            yield return System.IO.Path.Combine(progPath, @"Microsoft Visual Studio\2017\Community\Common7\IDE\msdia120.dll");
+        }
+
+        private string SuggestDiaRegistration()
+        {
+            foreach (string path in EnumerateDiaCandidates())
+            {
+                if (System.IO.File.Exists(path))
+                {
+                    return "Consider registering with this command:\r\n" +
+                        "regsvr32 \"" + path + "\"";
+                }
+            }
+            return null;
+        }
+
+        private void debugInformationToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.SelectedShaderBlob == null)
+            {
+                MessageBox.Show("Compile or load a shader to view debug information.");
+                return;
+            }
+
+            this.ClearDiaUnimplementedFlags();
+            IDxcBlob debugInfoBlob;
+            dia2.IDiaDataSource dataSource;
+            uint dfcc;
+            IDxcContainerReflection r = HlslDxcLib.CreateDxcContainerReflection();
+            r.Load(this.SelectedShaderBlob);
+            if (IsDxilTarget(this.selectedShaderBlobTarget))
+            {
+                dataSource = HlslDxcLib.CreateDxcDiaDataSource();
+                dfcc = DFCC_ILDB;
+            }
+            else
+            {
+                try
+                {
+                    dataSource = new dia2.DiaDataSource() as dia2.IDiaDataSource;
+                }
+                catch (System.Runtime.InteropServices.COMException ce)
+                {
+                    const int REGDB_E_CLASSNOTREG = -2147221164;
+                    if (ce.HResult == REGDB_E_CLASSNOTREG)
+                    {
+                        string suggestion = SuggestDiaRegistration();
+                        string message = "Unable to create dia object.";
+                        if (suggestion != null) message += "\r\n" + suggestion;
+                        MessageBox.Show(this, message);
+                    }
+                    else
+                    {
+                        HandleException(ce);
+                    }
+                    return;
+                }
+                dfcc = DFCC_SPDB;
+            }
+            uint index;
+            int hr = r.FindFirstPartKind(dfcc, out index);
+            if (hr < 0)
+            {
+                MessageBox.Show("Debug information not found in container.");
+                return;
+            }
+            debugInfoBlob = r.GetPartContent(index);
+            try
+            {
+                dataSource.loadDataFromIStream(Library.CreateStreamFromBlobReadOnly(debugInfoBlob));
+                string s = dataSource.get_lastError();
+                if (!String.IsNullOrEmpty(s))
+                {
+                    MessageBox.Show("Failure to load stream: " + s);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleException(ex);
+                return;
+            }
+            var session = dataSource.openSession();
+            var tables = session.getEnumTables();
+            uint count = tables.get_Count();
+            StringBuilder output = new StringBuilder();
+            output.AppendLine("* Tables");
+            bool isFirstTable = true;
+            for (uint i = 0; i < count; ++i)
+            {
+                var table = tables.Item(i);
+                if (isFirstTable) isFirstTable = false; else output.AppendLine();
+                output.AppendLine("** " + table.get_name());
+                int itemCount = table.get_Count();
+                output.AppendLine("Record count: " + itemCount);
+                for (int itemIdx = 0; itemIdx < itemCount; itemIdx++)
+                {
+                    object o = table.Item((uint)itemIdx);
+                    if (TryDumpDiaObject(o as dia2.IDiaSymbol, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaSourceFile, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaLineNumber, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaSectionContrib, output)) continue;
+                    if (TryDumpDiaObject(o as dia2.IDiaSegment, output)) continue;
+                }
+            }
+
+            if (debugInfoTabPage == null)
+            {
+                this.debugInfoTabPage = new TabPage("Debug Info");
+                this.debugInfoControl = new RichTextBox()
+                {
+                    Dock = DockStyle.Fill,
+                    Font = this.CodeBox.Font,
+                    ReadOnly = true
+                };
+                this.AnalysisTabControl.TabPages.Add(this.debugInfoTabPage);
+                this.debugInfoTabPage.Controls.Add(this.debugInfoControl);
+            }
+            this.debugInfoControl.Text = output.ToString();
+            this.AnalysisTabControl.SelectedTab = this.debugInfoTabPage;
+        }
+
+        private bool TryDumpDiaObject<TIface>(TIface o, StringBuilder sb)
+        {
+            if (o == null) return false;
+            DumpDiaObject(o, sb);
+            return true;
+        }
+
+        private void ClearDiaUnimplementedFlags()
+        {
+            foreach (var item in TypeWriters)
+                foreach (var writer in item.Value)
+                    writer.Unimplemented = false;
+        }
+
+        private void DumpDiaObject<TIface>(TIface o, StringBuilder sb)
+        {
+            Type type = typeof(TIface);
+            bool hasLine = false;
+            List<DiaTypePropertyWriter> writers;
+            if (SymTagEnumValues == null)
+            {
+                SymTagEnumValues = Enum.GetNames(typeof(dia2.SymTagEnum));
+            }
+            if (!TypeWriters.TryGetValue(type, out writers))
+            {
+                writers = new List<DiaTypePropertyWriter>();
+                foreach (System.Reflection.MethodInfo mi in type.GetMethods())
+                {
+                    Func<string, object, StringBuilder, bool> writer;
+                    if (mi.GetParameters().Length > 0)
+                        continue;
+                    string propertyName = mi.Name;
+                    if (!propertyName.StartsWith("get_")) continue;
+                    propertyName = propertyName.Substring(4);
+                    Type returnType = mi.ReturnType;
+                    if (returnType == typeof(string))
+                        writer = WriteDiaValueString;
+                    else if (returnType == typeof(uint) && propertyName == "symTag")
+                        writer = WriteDiaValueSymTag;
+                    else if (returnType == typeof(uint))
+                        writer = WriteDiaValueUInt32;
+                    else if (returnType == typeof(UInt64))
+                        writer = WriteDiaValueUInt64;
+                    else if (returnType == typeof(bool))
+                        writer = WriteDiaValueBool;
+                    else
+                        writer = WriteDiaValueAny;
+                    writers.Add(new DiaTypePropertyWriter()
+                    {
+                        MI = mi,
+                        PropertyName = propertyName,
+                        Writer = writer
+                    });
+                }
+                TypeWriters[type] = writers;
+            }
+            foreach (var writer in writers)
+            {
+                if (writer.Write(o, sb))
+                    hasLine = true;
+            }
+            if (hasLine) sb.AppendLine();
+        }
+
+        private static Dictionary<Type, List<DiaTypePropertyWriter>> TypeWriters = new Dictionary<Type, List<DiaTypePropertyWriter>>();
+        internal static string[] SymTagEnumValues;
+
+        class DiaTypePropertyWriter
+        {
+            public static object[] EmptyParams = new object[0];
+            public bool Unimplemented;
+            public System.Reflection.MethodInfo MI;
+            public string PropertyName;
+            public Func<string, object, StringBuilder, bool> Writer;
+            internal bool Write(object instance, StringBuilder sb)
+            {
+                if (Unimplemented)
+                    return false;
+                try
+                {
+                    object value = MI.Invoke(instance, EmptyParams);
+                    return Writer(PropertyName, value, sb);
+                }
+                catch (System.Reflection.TargetInvocationException tie)
+                {
+                    if (tie.InnerException is NotImplementedException)
+                    {
+                        this.Unimplemented = true;
+                    }
+                    return false;
+                }
+                catch (System.Runtime.InteropServices.COMException)
+                {
+                    return false;
+                }
+            }
+        }
+
+        private static bool WriteDiaValueAny(string propertyName, object propertyValue, StringBuilder sb)
+        {
+            if (null == propertyValue) return false;
+            if (System.Runtime.InteropServices.Marshal.IsComObject(propertyValue)) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.Append(Convert.ToString(propertyValue));
+            sb.AppendLine();
+            return true;
+        }
+
+        private static bool WriteDiaValueSymTag(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            uint tag = (uint)propertyValueObj;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.AppendLine(SymTagEnumValues[tag]);
+            return true;
+        }
+
+        private static bool WriteDiaValueBool(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            bool propertyValue = (bool)propertyValueObj;
+            if (false == propertyValue) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.Append(propertyValue);
+            sb.AppendLine();
+            return true;
+        }
+
+        private static bool WriteDiaValueUInt32(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            uint propertyValue = (uint)propertyValueObj;
+            if (0 == propertyValue) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.Append(propertyValue);
+            sb.AppendLine();
+            return true;
+        }
+
+        private static bool WriteDiaValueUInt64(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            UInt64 propertyValue = (UInt64)propertyValueObj;
+            if (0 == propertyValue) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.Append(propertyValue);
+            sb.AppendLine();
+            return true;
+        }
+
+        private static bool WriteDiaValueString(string propertyName, object propertyValueObj, StringBuilder sb)
+        {
+            string propertyValue = (string)propertyValueObj;
+            if (String.IsNullOrEmpty(propertyValue)) return false;
+            sb.Append(propertyName);
+            sb.Append(": ");
+            sb.AppendLine(propertyValue);
+            return true;
+        }
+    }
+
+    public static class RichTextBoxExt
+    {
+        public static void AppendLine(this RichTextBox rtb, string line, Color c)
+        {
+            rtb.SelectionBackColor = c;
+            rtb.AppendText(line);
+            rtb.AppendText("\r\n");
+        }
+
+        public static void AppendLines(this RichTextBox rtb, string prefix, string[] lines, int start, int length, Color c)
+        {
+            for (int i = start; i < (start + length); ++i)
+            {
+                rtb.AppendLine(prefix + lines[i], c);
+            }
         }
     }
 }

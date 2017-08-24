@@ -1924,7 +1924,20 @@ static void GenerateHasAttrSpellingStringSwitch(
     } else if (Variety == "CXX11")
       // C++11 mode should be checked against LangOpts, which is presumed to be
       // present in the caller.
+    {  // SPIRV Change
       Test = "LangOpts.CPlusPlus11";
+
+      // SPIRV Change Begins
+      // Allow C++11 attribute specifiers in HLSL when they are of the
+      // vk namespace
+      std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
+      for (const auto &S : Spellings)
+        if (S.nameSpace() == "vk") {
+          Test = "(LangOpts.HLSL || LangOpts.CPlusPlus11)";
+          break;
+        }
+    }
+    // SPIRV Change Ends
 
     std::string TestStr =
         !Test.empty() ? Test + " ? " + llvm::itostr(Version) + " : 0" : "1";

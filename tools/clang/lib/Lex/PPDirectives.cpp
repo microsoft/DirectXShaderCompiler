@@ -27,6 +27,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SaveAndRestore.h"
+#include "clang/Lex/PreprocessorOptions.h" // HLSL Change - ignore line directives.
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -1051,6 +1052,11 @@ void Preprocessor::HandleLineDirective(Token &Tok) {
     // of C99 6.10.4p5, macros that expand to empty tokens are ok.
     CheckEndOfDirective("line", true);
   }
+
+  // HLSL Change Begin - ignore line directives.
+  if (PPOpts->IgnoreLineDirectives)
+    return;
+  // HLSL Change End
 
   SourceMgr.AddLineNote(DigitTok.getLocation(), LineNo, FilenameID);
 

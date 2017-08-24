@@ -359,6 +359,13 @@ ExprResult Sema::ImpCastExprToType(Expr *E, QualType Ty,
   assert((VK == VK_RValue || !E->isRValue()) && "can't cast rvalue to lvalue");
 #endif
 
+  if (VK == VK_LValue) {
+    if (Kind == CastKind::CK_HLSLVectorTruncationCast ||
+        Kind == CastKind::CK_HLSLMatrixTruncationCast) {
+      Diag(E->getLocStart(), diag::err_hlsl_unsupported_lvalue_cast_op);
+    }
+  }
+
   // Check whether we're implicitly casting from a nullable type to a nonnull
   // type.
   if (auto exprNullability = E->getType()->getNullability(Context)) {

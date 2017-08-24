@@ -8,6 +8,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilTypeSystem.h"
+#include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/HLModule.h"
 #include "dxc/Support/Global.h"
 
 #include "llvm/IR/Module.h"
@@ -40,6 +42,7 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 //
 DxilFieldAnnotation::DxilFieldAnnotation()
 : m_bPrecise(false)
+, m_ResourceAttribute(nullptr)
 , m_CBufferOffset(UINT_MAX) {
 }
 
@@ -48,6 +51,15 @@ void DxilFieldAnnotation::SetPrecise(bool b) { m_bPrecise = b; }
 bool DxilFieldAnnotation::HasMatrixAnnotation() const { return m_Matrix.Cols != 0; }
 const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const { return m_Matrix; }
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) { m_Matrix = MA; }
+bool DxilFieldAnnotation::HasResourceAttribute() const {
+  return m_ResourceAttribute;
+}
+llvm::MDNode *DxilFieldAnnotation::GetResourceAttribute() const {
+  return m_ResourceAttribute;
+}
+void DxilFieldAnnotation::SetResourceAttribute(llvm::MDNode *MD) {
+  m_ResourceAttribute = MD;
+}
 bool DxilFieldAnnotation::HasCBufferOffset() const { return m_CBufferOffset != UINT_MAX; }
 unsigned DxilFieldAnnotation::GetCBufferOffset() const { return m_CBufferOffset; }
 void DxilFieldAnnotation::SetCBufferOffset(unsigned Offset) { m_CBufferOffset = Offset; }
@@ -99,7 +111,7 @@ DxilParameterAnnotation::DxilParameterAnnotation()
 : m_inputQual(DxilParamInputQual::In), DxilFieldAnnotation() {
 }
 
-const DxilParamInputQual DxilParameterAnnotation::GetParamInputQual() const {
+DxilParamInputQual DxilParameterAnnotation::GetParamInputQual() const {
   return m_inputQual;
 }
 void DxilParameterAnnotation::SetParamInputQual(DxilParamInputQual qual) {
@@ -146,13 +158,46 @@ const Function *DxilFunctionAnnotation::GetFunction() const {
   return m_pFunction;
 }
 
+DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() {
+  return m_fpFlag;
+}
+
+const DxilFunctionFPFlag &DxilFunctionAnnotation::GetFlag() const {
+  return m_fpFlag;
+}
+
+//------------------------------------------------------------------------------
+//
+// DxilFunctionFPFlag class methods.
+//
+
+void DxilFunctionFPFlag::SetFP32DenormMode(const DXIL::FPDenormMode mode) {
+  m_flag |= ((uint32_t)mode & kFPDenormMask) << kFPDenormOffset;
+}
+
+DXIL::FPDenormMode DxilFunctionFPFlag::GetFP32DenormMode() {
+  return (DXIL::FPDenormMode)((m_flag >> kFPDenormOffset) & kFPDenormMask);
+}
+
+uint32_t DxilFunctionFPFlag::GetFlagValue() {
+  return m_flag;
+}
+
+const uint32_t DxilFunctionFPFlag::GetFlagValue() const {
+  return m_flag;
+}
+
+void DxilFunctionFPFlag::SetFlagValue(const uint32_t flag) {
+  m_flag = flag;
+}
+
 //------------------------------------------------------------------------------
 //
 // DxilStructAnnotationSystem class methods.
 //
 DxilTypeSystem::DxilTypeSystem(Module *pModule)
-: m_pModule(pModule) {
-}
+    : m_pModule(pModule),
+      m_LowPrecisionMode(DXIL::LowPrecisionMode::Undefined) {}
 
 DxilStructAnnotation *DxilTypeSystem::AddStructAnnotation(const StructType *pStructType) {
   DXASSERT_NOMSG(m_StructAnnotations.find(pStructType) == m_StructAnnotations.end());
@@ -172,10 +217,21 @@ DxilStructAnnotation *DxilTypeSystem::GetStructAnnotation(const StructType *pStr
   }
 }
 
-void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
+const DxilStructAnnotation *
+DxilTypeSystem::GetStructAnnotation(const StructType *pStructType) const {
   auto it = m_StructAnnotations.find(pStructType);
-  DXASSERT_NOMSG(it != m_StructAnnotations.end());
-  m_StructAnnotations.erase(it);
+  if (it != m_StructAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
+void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
+  DXASSERT_NOMSG(m_StructAnnotations.count(pStructType));
+  m_StructAnnotations.remove_if([pStructType](
+      const std::pair<const StructType *, std::unique_ptr<DxilStructAnnotation>>
+          &I) { return pStructType == I.first; });
 }
 
 DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
@@ -183,11 +239,19 @@ DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pFunction) {
+  DxilFunctionFPFlag flag;
+  flag.SetFlagValue(0);
+  DxilFunctionAnnotation *pA = AddFunctionAnnotationWithFPFlag(pFunction, &flag);
+  return pA;
+}
+
+DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotationWithFPFlag(const Function *pFunction, const DxilFunctionFPFlag *pFlag) {
   DXASSERT_NOMSG(m_FunctionAnnotations.find(pFunction) == m_FunctionAnnotations.end());
   DxilFunctionAnnotation *pA = new DxilFunctionAnnotation();
   m_FunctionAnnotations[pFunction] = unique_ptr<DxilFunctionAnnotation>(pA);
   pA->m_pFunction = pFunction;
   pA->m_parameterAnnotations.resize(pFunction->getFunctionType()->getNumParams());
+  pA->GetFlag().SetFlagValue(pFlag->GetFlagValue());
   return pA;
 }
 
@@ -200,10 +264,21 @@ DxilFunctionAnnotation *DxilTypeSystem::GetFunctionAnnotation(const Function *pF
   }
 }
 
-void DxilTypeSystem::EraseFunctionAnnotation(const Function *pFunction) {
+const DxilFunctionAnnotation *
+DxilTypeSystem::GetFunctionAnnotation(const Function *pFunction) const {
   auto it = m_FunctionAnnotations.find(pFunction);
-  DXASSERT_NOMSG(it != m_FunctionAnnotations.end());
-  m_FunctionAnnotations.erase(it);
+  if (it != m_FunctionAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
+void DxilTypeSystem::EraseFunctionAnnotation(const Function *pFunction) {
+  DXASSERT_NOMSG(m_FunctionAnnotations.count(pFunction));
+  m_FunctionAnnotations.remove_if([pFunction](
+      const std::pair<const Function *, std::unique_ptr<DxilFunctionAnnotation>>
+          &I) { return pFunction == I.first; });
 }
 
 DxilTypeSystem::FunctionAnnotationMap &DxilTypeSystem::GetFunctionAnnotationMap() {
@@ -241,6 +316,58 @@ StructType *DxilTypeSystem::GetNormFloatType(CompType CT, unsigned NumComps) {
   return pStructType;
 }
 
+void DxilTypeSystem::CopyTypeAnnotation(const llvm::Type *Ty,
+                                        const DxilTypeSystem &src) {
+  if (isa<PointerType>(Ty))
+    Ty = Ty->getPointerElementType();
+
+  while (isa<ArrayType>(Ty))
+    Ty = Ty->getArrayElementType();
+
+  // Only struct type has annotation.
+  if (!isa<StructType>(Ty))
+    return;
+
+  const StructType *ST = cast<StructType>(Ty);
+  // Already exist.
+  if (GetStructAnnotation(ST))
+    return;
+
+  if (const DxilStructAnnotation *annot = src.GetStructAnnotation(ST)) {
+    DxilStructAnnotation *dstAnnot = AddStructAnnotation(ST);
+    // Copy the annotation.
+    *dstAnnot = *annot;
+    // Copy field type annotations.
+    for (Type *Ty : ST->elements()) {
+      CopyTypeAnnotation(Ty, src);
+    }
+  }
+}
+
+void DxilTypeSystem::CopyFunctionAnnotation(const llvm::Function *pDstFunction,
+                                            const llvm::Function *pSrcFunction,
+                                            const DxilTypeSystem &src) {
+  const DxilFunctionAnnotation *annot = src.GetFunctionAnnotation(pSrcFunction);
+  // Don't have annotation.
+  if (!annot)
+    return;
+  // Already exist.
+  if (GetFunctionAnnotation(pDstFunction))
+    return;
+
+  DxilFunctionAnnotation *dstAnnot = AddFunctionAnnotationWithFPFlag(pDstFunction, &src.GetFunctionAnnotation(pSrcFunction)->GetFlag());
+
+  // Copy the annotation.
+  *dstAnnot = *annot;
+
+  // Clone ret type annotation.
+  CopyTypeAnnotation(pDstFunction->getReturnType(), src);
+  // Clone param type annotations.
+  for (const Argument &arg : pDstFunction->args()) {
+    CopyTypeAnnotation(arg.getType(), src);
+  }
+}
+
 DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind SK, bool isPC) {
   DXASSERT(Q != DxilParamInputQual::Inout, "Inout not expected for SigPointFromInputQual");
   switch (SK) {
@@ -250,6 +377,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
       return DXIL::SigPointKind::VSIn;
     case DxilParamInputQual::Out:
       return DXIL::SigPointKind::VSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Hull:
@@ -268,6 +397,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
       return DXIL::SigPointKind::HSCPIn;
     case DxilParamInputQual::OutputPatch:
       return DXIL::SigPointKind::HSCPOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Domain:
@@ -279,6 +410,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
     case DxilParamInputQual::InputPatch:
     case DxilParamInputQual::OutputPatch:
       return DXIL::SigPointKind::DSCPIn;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Geometry:
@@ -292,6 +425,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
     case DxilParamInputQual::OutStream2:
     case DxilParamInputQual::OutStream3:
       return DXIL::SigPointKind::GSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Pixel:
@@ -300,16 +435,39 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
       return DXIL::SigPointKind::PSIn;
     case DxilParamInputQual::Out:
       return DXIL::SigPointKind::PSOut;
+    default:
+      break;
     }
     break;
   case DXIL::ShaderKind::Compute:
     switch (Q) {
     case DxilParamInputQual::In:
       return DXIL::SigPointKind::CSIn;
+    default:
+      break;
     }
+    break;
+  default:
     break;
   }
   return DXIL::SigPointKind::Invalid;
+}
+
+bool DxilTypeSystem::UseMinPrecision() {
+  if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
+    if (&m_pModule->GetDxilModule()) {
+      m_LowPrecisionMode = m_pModule->GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision() ?
+        DXIL::LowPrecisionMode::UseNativeLowPrecision : DXIL::LowPrecisionMode::UseMinPrecision;
+    }
+    else if (&m_pModule->GetHLModule()) {
+      m_LowPrecisionMode = m_pModule->GetHLModule().GetHLOptions().bUseMinPrecision ?
+        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
+    }
+    else {
+      DXASSERT(false, "otherwise module doesn't contain either HLModule or Dxil Module.");
+    }
+  }
+  return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
 }
 
 } // namespace hlsl

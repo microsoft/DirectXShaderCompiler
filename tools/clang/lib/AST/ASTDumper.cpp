@@ -1068,6 +1068,13 @@ void ASTDumper::dumpDecl(const Decl *D) {
     dumpPointer(D);
     if (D->getLexicalDeclContext() != D->getDeclContext())
       OS << " parent " << cast<Decl>(D->getDeclContext());
+    // HLSL Change Begin - dump HLSLBufferDecl
+    if (const HLSLBufferDecl *bufDecl =
+            dyn_cast_or_null<HLSLBufferDecl>(D->getDeclContext())) {
+      OS << " parent " << bufDecl->getDeclKindName();
+      dumpPointer(bufDecl);
+    }
+    // HLSL Change End
     dumpPreviousDecl(OS, D);
     dumpSourceRange(D->getSourceRange());
     OS << ' ';

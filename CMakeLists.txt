@@ -84,6 +84,17 @@ option(HLSL_ENABLE_FIXED_VER "Sets up fixed version information." OFF) # HLSL Ch
 option(HLSL_ENABLE_ANALYZE "Enables compiler analysis during compilation." OFF) # HLSL Change
 option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default build target." OFF) # HLSL Change
 
+# SPIRV change starts
+option(ENABLE_SPIRV_CODEGEN "Enables SPIR-V code generation." OFF)
+option(SPIRV_BUILD_TESTS "Build targets for the SPIR-V unit tests." OFF)
+if (${SPIRV_BUILD_TESTS})
+  set(ENABLE_SPIRV_CODEGEN ON)
+endif()
+if (${ENABLE_SPIRV_CODEGEN})
+  add_definitions(-DENABLE_SPIRV_CODEGEN)
+endif()
+# SPIRV change ends
+
 include(VersionFromVCS)
 
 option(LLVM_APPEND_VC_REV
@@ -628,6 +639,10 @@ if(WITH_POLLY)
     set(WITH_POLLY OFF)
   endif()
 endif(WITH_POLLY)
+
+if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
+  add_subdirectory(external) # SPIRV change
+endif()
 
 if( LLVM_INCLUDE_TOOLS )
   add_subdirectory(tools)

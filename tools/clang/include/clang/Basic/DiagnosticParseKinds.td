@@ -1017,11 +1017,13 @@ def warn_hlsl_effect_sampler_state : Warning <
   "effect sampler_state assignment ignored - effect syntax is deprecated">,
   InGroup< HLSLEffectsSyntax >;
 def warn_hlsl_effect_state_block : Warning <
-  "effect state block ignored - effect syntax is deprecated">,
+  "effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs.">,
   InGroup< HLSLEffectsSyntax >;
 def warn_hlsl_effect_technique : Warning <
   "effect technique ignored - effect syntax is deprecated">,
   InGroup< HLSLEffectsSyntax >;
+def err_hlsl_enum : Error<
+  "enum is unsupported in HLSL before 2017">;
 
 // OpenMP support.
 def warn_pragma_omp_ignored : Warning<

@@ -154,6 +154,11 @@ technique10                                                 /* expected-warning 
   pass {}
 }
 
+technique11                                                 /* expected-warning {{effect technique ignored - effect syntax is deprecated}} fxc-pass {{}} */
+{
+  pass {}
+}
+
 // We don't bother handling weird casing, so this will be a syntax error:
 TechNiQue                                                   /* expected-error {{HLSL requires a type specifier for all declarations}} fxc-pass {{}} */
 /*verify-ast
@@ -177,3 +182,5 @@ int foobar4;
 /*verify-ast
   VarDecl <col:1, col:5> col:5 foobar4 'int'
 */
+int foobar5[] {1, 2, 3};                                        /* expected-error {{definition of variable with array type needs an explicit size or an initializer}} expected-warning {{effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs.}} fxc-error {{X3000: syntax error: unexpected integer constant}} */
+int foobar6[4] {1, 2, 3, 4};                                    /* expected-warning {{effect state block ignored - effect syntax is deprecated. To use braces as an initializer use them with equal signs.}} fxc-error {{X3000: syntax error: unexpected integer constant}} */

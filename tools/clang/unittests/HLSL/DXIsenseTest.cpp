@@ -21,6 +21,7 @@ class DXIntellisenseTest
 {
 public:
   BEGIN_TEST_CLASS(DXIntellisenseTest)
+    TEST_CLASS_PROPERTY(L"Parallel", L"true")
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
@@ -96,6 +97,7 @@ protected:
   TEST_METHOD(FileWhenSameThenEqual);
   TEST_METHOD(FileWhenNotSameThenNotEqual);
 
+  TEST_METHOD(InclusionWhenMissingThenError);
   TEST_METHOD(InclusionWhenValidThenAvailable);
 
   TEST_METHOD(TUWhenGetFileMissingThenFail);
@@ -150,6 +152,28 @@ TEST_F(DXIntellisenseTest, CursorWhenCBufferRefThenFound) {
   VERIFY_SUCCEEDED(refs.begin()[0]->GetLocation(&loc));
   VERIFY_SUCCEEDED(loc->GetSpellingLocation(nullptr, &line, nullptr, nullptr));
   VERIFY_ARE_EQUAL(2, line);
+}
+
+TEST_F(DXIntellisenseTest, InclusionWhenMissingThenError) {
+  CComPtr<IDxcIntelliSense> isense;
+  CComPtr<IDxcIndex> index;
+  CComPtr<IDxcUnsavedFile> unsaved;
+  CComPtr<IDxcTranslationUnit> TU;
+  CComPtr<IDxcDiagnostic> pDiag;
+  DxcDiagnosticSeverity Severity;
+  const char main_text[] = "error\r\n#include \"missing.hlsl\"\r\nfloat3 g_global;";
+  unsigned diagCount;
+  VERIFY_SUCCEEDED(CompilationResult::DefaultHlslSupport->CreateIntellisense(&isense));
+  VERIFY_SUCCEEDED(isense->CreateIndex(&index));
+  VERIFY_SUCCEEDED(isense->CreateUnsavedFile("file.hlsl", main_text, strlen(main_text), &unsaved));
+  VERIFY_SUCCEEDED(index->ParseTranslationUnit("file.hlsl", nullptr, 0, &unsaved.p, 1,
+    DxcTranslationUnitFlags_UseCallerThread, &TU));
+  VERIFY_SUCCEEDED(TU->GetNumDiagnostics(&diagCount));
+  VERIFY_ARE_EQUAL(1, diagCount);
+  VERIFY_SUCCEEDED(TU->GetDiagnostic(0, &pDiag));
+  VERIFY_SUCCEEDED(pDiag->GetSeverity(&Severity));
+  VERIFY_IS_TRUE(Severity == DxcDiagnosticSeverity::DxcDiagnostic_Error ||
+    Severity == DxcDiagnosticSeverity::DxcDiagnostic_Fatal);
 }
 
 TEST_F(DXIntellisenseTest, InclusionWhenValidThenAvailable) {
@@ -757,5 +781,5 @@ void DXIntellisenseTest::TypeWhenICEThenEval()
   VERIFY_SUCCEEDED(cCursor->GetCursorType(&typeCursor));
   CComHeapPtr<char> name;
   VERIFY_SUCCEEDED(typeCursor->GetSpelling(&name));
-  VERIFY_ARE_EQUAL_STR("float [2]", name);
+  VERIFY_ARE_EQUAL_STR("const float [2]", name); // global variables converted to const by default
 }

@@ -1,6 +1,8 @@
 ; RUN: %dxv %s | FileCheck %s
 
 ; CHECK: DXIL intrinsic overload must be valid
+; Change dx.op.loadInput.i32(i32 4 to dx.op.loadInput.i32(i32 3
+
 ;
 ; Input signature:
 ;
@@ -59,10 +61,10 @@ entry:
   %add.i1 = add i32 %3, %.i1
   %add.i2 = add i32 %4, %.i1
   %add.i3 = add i32 %5, %.i1
-  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 %add.i0)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
-  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 1, i32 %add.i1)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
-  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 2, i32 %add.i2)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
-  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 3, i32 %add.i3)  ; StoreOutput(outputtSigId,rowIndex,colIndex,value)
+  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 %add.i0)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 1, i32 %add.i1)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 2, i32 %add.i2)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  tail call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 3, i32 %add.i3)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   ret void
 }
 
@@ -82,7 +84,7 @@ attributes #1 = { nounwind readnone }
 !dx.entryPoints = !{!12}
 
 !0 = !{!"clang version 3.7.0 (tags/RELEASE_370/final)"}
-!1 = !{i32 0, i32 4}
+!1 = !{i32 1, i32 0}
 !2 = !{!"ps", i32 6, i32 0}
 !3 = !{i32 1, void (<4 x i32>, <4 x i32>*)* @"\01?main@@YA?AV?$vector@H$03@@V1@@Z.flat", !4}
 !4 = !{!5, !7, !10}

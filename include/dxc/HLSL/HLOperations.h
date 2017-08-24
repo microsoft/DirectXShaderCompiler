@@ -35,6 +35,7 @@ enum class HLOpcodeGroup {
   HLSubscript,
   HLMatLoadStore,
   HLSelect,
+  HLCreateHandle,
   NumOfHLOps
 };
 
@@ -99,6 +100,9 @@ enum class HLCastOpcode {
   ToUnsignedCast,
   ColMatrixToVecCast,
   RowMatrixToVecCast,
+  ColMatrixToRowMatrix,
+  RowMatrixToColMatrix,
+  HandleToResCast,
 };
 
 enum class HLMatLoadStoreOpcode {
@@ -111,10 +115,10 @@ enum class HLMatLoadStoreOpcode {
 extern const char * const HLPrefix;
 
 HLOpcodeGroup GetHLOpcodeGroup(llvm::Function *F);
-HLOpcodeGroup GetHLOpcodeGroupByName(llvm::Function *F);
+HLOpcodeGroup GetHLOpcodeGroupByName(const llvm::Function *F);
 llvm::StringRef GetHLOpcodeGroupNameByAttr(llvm::Function *F);
 llvm::StringRef GetHLLowerStrategy(llvm::Function *F);
-unsigned  GetHLOpcode(llvm::CallInst *CI);
+unsigned  GetHLOpcode(const llvm::CallInst *CI);
 unsigned  GetRowMajorOpcode(HLOpcodeGroup group, unsigned opcode);
 void SetHLLowerStrategy(llvm::Function *F, llvm::StringRef S);
 
@@ -320,6 +324,10 @@ const unsigned kGetDimensionsNoMipWidthOpIndex = 2;
 
 // WaveAllEqual.
 const unsigned kWaveAllEqualValueOpIdx = 1;
+
+// CreateHandle.
+const unsigned kCreateHandleResourceOpIdx = 1;
+const unsigned kCreateHandleIndexOpIdx = 2; // Only for array of cbuffer.
 
 } // namespace HLOperandIndex
 

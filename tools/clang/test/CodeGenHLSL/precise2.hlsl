@@ -1,7 +1,6 @@
 // RUN: %dxc -E main -T vs_6_0 %s | FileCheck %s
 
-// CHECK: fmul float
-// CHECK: fadd float
+// CHECK: !dx.precise
 
 //--------------------------------------------------------------------------------------
 // File: BasicHLSL11_VS.hlsl

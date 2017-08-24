@@ -14,6 +14,9 @@ information takes <format>`, which is useful for those interested in creating
 front-ends or dealing directly with the information.  Further, this document
 provides specific examples of what debug information for C/C++ looks like.
 
+HLSL and DXIL-specific information is available in the :doc:`Source Level
+Debugging with HLSL <SourceLevelDebuggingHLSL>` document.
+
 Philosophy behind LLVM debugging information
 --------------------------------------------
 

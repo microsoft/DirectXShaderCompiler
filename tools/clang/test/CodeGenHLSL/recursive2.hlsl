@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: Recursion is not permitted
+// CHECK: error: recursive functions not allowed
 
 struct M {
   float m;

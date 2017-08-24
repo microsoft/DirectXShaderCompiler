@@ -28,6 +28,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "dxc/HLSL/HLModule.h" // HLSL Change
+#include "dxc/HLSL/DxilModule.h" // HLSL Change
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/RWMutex.h"
 #include "llvm/Support/StringPool.h"
@@ -237,11 +238,13 @@ Type *Function::getReturnType() const {
 
 void Function::removeFromParent() {
   if (getParent()->HasHLModule()) getParent()->GetHLModule().RemoveFunction(this); // HLSL Change
+  if (getParent()->HasDxilModule()) getParent()->GetDxilModule().RemoveFunction(this); // HLSL Change
   getParent()->getFunctionList().remove(this);
 }
 
 void Function::eraseFromParent() {
   if (getParent()->HasHLModule()) getParent()->GetHLModule().RemoveFunction(this); // HLSL Change
+  if (getParent()->HasDxilModule()) getParent()->GetDxilModule().RemoveFunction(this); // HLSL Change
   getParent()->getFunctionList().erase(this);
 }
 
@@ -380,26 +383,39 @@ static StringPool *GCNamePool;
 static ManagedStatic<sys::SmartRWMutex<true> > GCLock;
 
 bool Function::hasGC() const {
+#if 0 // HLSL Change
   sys::SmartScopedReader<true> Reader(*GCLock);
   return GCNames && GCNames->count(this);
+#else
+  return false;
+#endif // HLSL Change Ends
 }
 
 const char *Function::getGC() const {
+#if 0 // HLSL Change
   assert(hasGC() && "Function has no collector");
   sys::SmartScopedReader<true> Reader(*GCLock);
   return *(*GCNames)[this];
+#else
+  return nullptr;
+#endif // HLSL Change Ends
 }
 
 void Function::setGC(const char *Str) {
+#if 0 // HLSL Change Starts
   sys::SmartScopedWriter<true> Writer(*GCLock);
   if (!GCNamePool)
     GCNamePool = new StringPool();
   if (!GCNames)
     GCNames = new DenseMap<const Function*,PooledStringPtr>();
   (*GCNames)[this] = GCNamePool->intern(Str);
+#else
+  assert(false && "GC not supported");
+#endif // HLSL Change Ends
 }
 
 void Function::clearGC() {
+#if 0 // HLSL Change Starts
   sys::SmartScopedWriter<true> Writer(*GCLock);
   if (GCNames) {
     GCNames->erase(this);
@@ -412,6 +428,7 @@ void Function::clearGC() {
       }
     }
   }
+#endif // HLSL Change Ends
 }
 
 /// copyAttributesFrom - copy all additional attributes (those not needed to

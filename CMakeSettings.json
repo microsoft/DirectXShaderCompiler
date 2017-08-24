@@ -1,0 +1,365 @@
+{
+    // See https://go.microsoft.com//fwlink//?linkid=834763 for more information about this file.
+    "configurations": [
+        {
+        "name": "x64-Debug",
+        "generator": "Visual Studio 15 2017 Win64",
+        "configurationType" : "Debug",
+        "buildRoot": "${projectDir}\\..\\hlsl.bin",
+        "cmakeCommandArgs":  "",
+        "buildCommandArgs": "-m -v:minimal",
+        "variables": [
+          {
+            "name": "DXC_BUILD_ARCH",
+            "value": "x64"
+          },
+          {
+            "name": "CLANG_ENABLE_ARCMT:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "CLANG_ENABLE_STATIC_ANALYZER:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "CLANG_INCLUDE_TESTS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_INCLUDE_TESTS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "HLSL_INCLUDE_TESTS:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_TARGETS_TO_BUILD:STRING",
+            "value": "None"
+          },
+          {
+            "name": "LLVM_INCLUDE_DOCS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_INCLUDE_EXAMPLES:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCLANG_BUILD_STATIC:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_OPTIMIZED_TABLEGEN:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_REQUIRES_EH:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_APPEND_VC_REV:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_ENABLE_RTTI:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_ENABLE_EH:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_DEFAULT_TARGET_TRIPLE:STRING",
+            "value": "dxil-ms-dx"
+          },
+          {
+            "name": "CLANG_BUILD_EXAMPLES:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "-DLLVM_REQUIRES_RTTI:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "-DCLANG_CL:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "-DCMAKE_SYSTEM_VERSION",
+            "value": "10.0.14393.0"
+          }
+        ]
+        },
+        {
+        "name": "x86-Debug",
+        "generator": "Visual Studio 15 2017",
+        "configurationType" : "Debug",
+        "buildRoot": "${projectDir}\\..\\hlsl.bin.${name}",
+        "cmakeCommandArgs":  "",
+        "buildCommandArgs": "-m -v:minimal",
+        "variables": [
+          {
+            "name": "DXC_BUILD_ARCH",
+            "value": "Win32"
+          },
+          {
+            "name": "CLANG_ENABLE_ARCMT:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "CLANG_ENABLE_STATIC_ANALYZER:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "CLANG_INCLUDE_TESTS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_INCLUDE_TESTS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "HLSL_INCLUDE_TESTS:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_TARGETS_TO_BUILD:STRING",
+            "value": "None"
+          },
+          {
+            "name": "LLVM_INCLUDE_DOCS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_INCLUDE_EXAMPLES:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCLANG_BUILD_STATIC:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_OPTIMIZED_TABLEGEN:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_REQUIRES_EH:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_APPEND_VC_REV:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_ENABLE_RTTI:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_ENABLE_EH:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_DEFAULT_TARGET_TRIPLE:STRING",
+            "value": "dxil-ms-dx"
+          },
+          {
+            "name": "CLANG_BUILD_EXAMPLES:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "-DLLVM_REQUIRES_RTTI:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "-DCLANG_CL:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "-DCMAKE_SYSTEM_VERSION",
+            "value": "10.0.14393.0"
+          }
+        ]
+        },
+        {
+        "name": "x86-Release",
+        "generator": "Visual Studio 15 2017",
+        "configurationType" : "Release",
+        "buildRoot": "${projectDir}\\..\\hlsl.bin.${name}",
+        "cmakeCommandArgs":  "",
+        "buildCommandArgs": "-m -v:minimal",
+        "variables": [
+          {
+            "name": "DXC_BUILD_ARCH",
+            "value": "Win32"
+          },
+          {
+            "name": "CLANG_ENABLE_ARCMT:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "CLANG_ENABLE_STATIC_ANALYZER:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "CLANG_INCLUDE_TESTS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_INCLUDE_TESTS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "HLSL_INCLUDE_TESTS:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_TARGETS_TO_BUILD:STRING",
+            "value": "None"
+          },
+          {
+            "name": "LLVM_INCLUDE_DOCS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_INCLUDE_EXAMPLES:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCLANG_BUILD_STATIC:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_OPTIMIZED_TABLEGEN:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_REQUIRES_EH:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_APPEND_VC_REV:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_ENABLE_RTTI:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_ENABLE_EH:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_DEFAULT_TARGET_TRIPLE:STRING",
+            "value": "dxil-ms-dx"
+          },
+          {
+            "name": "CLANG_BUILD_EXAMPLES:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "-DLLVM_REQUIRES_RTTI:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "-DCLANG_CL:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "-DCMAKE_SYSTEM_VERSION",
+            "value": "10.0.14393.0"
+          }
+        ]
+        },
+        {
+        "name": "x64-Release",
+        "generator": "Visual Studio 15 2017 Win64",
+        "configurationType" : "Release",
+        "buildRoot": "${projectDir}\\..\\hlsl.bin.${name}",
+        "cmakeCommandArgs":  "",
+        "buildCommandArgs": "-m -v:minimal",
+        "variables": [
+          {
+            "name": "DXC_BUILD_ARCH",
+            "value": "x64"
+          },
+          {
+            "name": "CLANG_ENABLE_ARCMT:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "CLANG_ENABLE_STATIC_ANALYZER:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "CLANG_INCLUDE_TESTS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_INCLUDE_TESTS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "HLSL_INCLUDE_TESTS:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_TARGETS_TO_BUILD:STRING",
+            "value": "None"
+          },
+          {
+            "name": "LLVM_INCLUDE_DOCS:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_INCLUDE_EXAMPLES:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCLANG_BUILD_STATIC:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_OPTIMIZED_TABLEGEN:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "LLVM_REQUIRES_EH:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_APPEND_VC_REV:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_ENABLE_RTTI:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_ENABLE_EH:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "LLVM_DEFAULT_TARGET_TRIPLE:STRING",
+            "value": "dxil-ms-dx"
+          },
+          {
+            "name": "CLANG_BUILD_EXAMPLES:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "-DLLVM_REQUIRES_RTTI:BOOL",
+            "value": "ON"
+          },
+          {
+            "name": "-DCLANG_CL:BOOL",
+            "value": "OFF"
+          },
+          {
+            "name": "-DCMAKE_SYSTEM_VERSION",
+            "value": "10.0.14393.0"
+          }
+        ]
+        }
+    ]
+}

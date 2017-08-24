@@ -253,9 +253,12 @@ void initializeSROA_SSAUpPass(PassRegistry&);
 void initializeSROA_HLSLPass(PassRegistry&);
 void initializeSROA_DT_HLSLPass(PassRegistry&);
 void initializeSROA_Parameter_HLSLPass(PassRegistry&);
+void initializeLowerStaticGlobalIntoAllocaPass(PassRegistry&);
 void initializeDynamicIndexingVectorToArrayPass(PassRegistry&);
 void initializeMultiDimArrayToOneDimArrayPass(PassRegistry&);
+void initializeResourceToHandlePass(PassRegistry&);
 void initializeSROA_SSAUp_HLSLPass(PassRegistry&);
+void initializeHoistConstantArrayPass(PassRegistry&);
 // HLSL Change Ends
 void initializeScalarEvolutionAliasAnalysisPass(PassRegistry&);
 void initializeScalarEvolutionPass(PassRegistry&);

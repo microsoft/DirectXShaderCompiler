@@ -1111,6 +1111,8 @@ public:
   QualType getFunctionType(QualType ResultTy, ArrayRef<QualType> Args,
                            const FunctionProtoType::ExtProtoInfo &EPI,
                            ArrayRef<hlsl::ParameterModifier> ParamMods) const; // HLSL Change
+  /// \brief Check whether the function declaration can be used as a patch constant function.
+  bool IsPatchConstantFunctionDecl(const FunctionDecl *FD) const; // HLSL Change
 
   /// \brief Return the unique reference to the type for the specified type
   /// declaration.

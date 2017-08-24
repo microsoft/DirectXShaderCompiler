@@ -10,14 +10,19 @@ set( LLVM_LINK_COMPONENTS
   dxcsupport
   hlsl
   option
+  bitreader
+  bitwriter
+  analysis
+  ipa
+  irreader
   )
 
 add_clang_library(clang-hlsl-tests SHARED
   AllocatorTest.cpp
   CompilationResult.h
   CompilerTest.cpp
-  DiscardStmt.cpp
   DxilContainerTest.cpp
+  DxilModuleTest.cpp
   DXIsenseTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp
@@ -26,6 +31,7 @@ add_clang_library(clang-hlsl-tests SHARED
   FunctionTest.cpp
   HLSLTestData.h
   HlslTestUtils.h
+  LinkerTest.cpp
   MSFileSysTest.cpp
   Objects.cpp
   OptionsTest.cpp
@@ -34,6 +40,7 @@ add_clang_library(clang-hlsl-tests SHARED
   SystemValueTest.cpp
   ValidationTest.cpp
   VerifierTest.cpp
+  clang-hlsl-tests.rc
   )
 set_target_properties(clang-hlsl-tests PROPERTIES FOLDER "Clang tests")
 

@@ -140,10 +140,12 @@ ImplicitConversionRank clang::GetConversionRank(ImplicitConversionKind Kind) {
     ICR_Conversion,
     ICR_Conversion,
     ICR_Conversion,
+    ICR_Conversion,
     // HLSL Change Ends
   };
   static_assert(_countof(Rank) == ICK_Num_Conversion_Kinds,
       "Otherwise, GetConversionRank is out of sync with ImplicitConversionKind"); // HLSL Change
+  assert((int)Kind < (int)ICK_Num_Conversion_Kinds); // HLSL Change
   return Rank[(int)Kind];
 }
 
@@ -183,6 +185,7 @@ static const char* GetImplicitConversionName(ImplicitConversionKind Kind) {
     "Flat assignment conversion",
     "HLSLVector/Matrix splat",
     "HLSLVector/Matrix truncation",
+    "HLSL derived to base",
     // HLSL Change Ends
   };
   static_assert(_countof(Name) == ICK_Num_Conversion_Kinds,
@@ -4863,6 +4866,7 @@ TryObjectArgumentInitialization(Sema &S, QualType FromType,
   // First check the qualifiers.
   QualType FromTypeCanon = S.Context.getCanonicalType(FromType);
   // HLSL Change Starts - for calls other than subscript overloads, disregard const
+  FromTypeCanon.removeLocalRestrict(); // HLSL Change - disregard restrict.
   if (!S.getLangOpts().HLSL ||
      (Method != nullptr && Method->getDeclName() == S.Context.DeclarationNames.getCXXOperatorName(OO_Subscript))) {
   // HLSL Change Ends
@@ -4927,6 +4931,7 @@ TryObjectArgumentInitialization(Sema &S, QualType FromType,
   ICS.Standard.BindsToRvalue = FromClassification.isRValue();
   ICS.Standard.BindsImplicitObjectArgumentWithoutRefQualifier
     = (Method->getRefQualifier() == RQ_None);
+  ICS.Standard.ComponentConversion = ICK_Identity;
   return ICS;
 }
 
@@ -5128,7 +5133,7 @@ static ExprResult CheckConvertedConstantExpression(Sema &S, Expr *From,
                                                    QualType T, APValue &Value,
                                                    Sema::CCEKind CCE,
                                                    bool RequireInt) {
-  assert(S.getLangOpts().CPlusPlus11 &&
+  assert(S.getLangOpts().CPlusPlus11 || S.getLangOpts().HLSL2017 &&
          "converted constant expression outside C++11");
 
   if (checkPlaceholderForOverload(S, From))

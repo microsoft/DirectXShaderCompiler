@@ -124,6 +124,14 @@ ModulePass *createSROA_Parameter_HLSL();
 void initializeSROA_Parameter_HLSLPass(PassRegistry&);
 //===----------------------------------------------------------------------===//
 //
+// LowerStaticGlobalIntoAlloca. Replace static globals with alloca if only used
+// in one function.
+//
+ModulePass *createLowerStaticGlobalIntoAlloca();
+void initializeLowerStaticGlobalIntoAllocaPass(PassRegistry&);
+
+//===----------------------------------------------------------------------===//
+//
 // DynamicIndexingVectorToArray 
 // Replace vector with array if it has dynamic indexing.
 //
@@ -134,6 +142,18 @@ void initializeDynamicIndexingVectorToArrayPass(PassRegistry&);
 //
 ModulePass *createMultiDimArrayToOneDimArrayPass();
 void initializeMultiDimArrayToOneDimArrayPass(PassRegistry&);
+//===----------------------------------------------------------------------===//
+// Flatten resource into handle.
+//
+ModulePass *createResourceToHandlePass();
+void initializeResourceToHandlePass(PassRegistry&);
+
+//===----------------------------------------------------------------------===//
+// Hoist a local array initialized with constant values to a global array with
+// a constant initializer.
+//
+ModulePass *createHoistConstantArrayPass();
+void initializeHoistConstantArrayPass(PassRegistry&);
 // HLSL Change Ends
 
 //===----------------------------------------------------------------------===//

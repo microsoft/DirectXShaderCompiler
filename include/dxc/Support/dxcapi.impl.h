@@ -34,15 +34,18 @@ public:
 
 class DxcOperationResult : public IDxcOperationResult {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  DXC_MICROCOM_TM_REF_FIELDS()
 
-  DxcOperationResult(_In_opt_ IDxcBlob *pResultBlob,
-    _In_opt_ IDxcBlobEncoding *pErrorBlob, HRESULT status)
-    : m_dwRef(0), m_status(status), m_result(pResultBlob),
-    m_errors(pErrorBlob) {}
+  void Init(_In_opt_ IDxcBlob *pResultBlob,
+            _In_opt_ IDxcBlobEncoding *pErrorBlob, HRESULT status) {
+    m_status = status;
+    m_result = pResultBlob;
+    m_errors = pErrorBlob;
+  }
 
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcOperationResult)
 
   HRESULT m_status;
   CComPtr<IDxcBlob> m_result;
@@ -57,8 +60,9 @@ public:
                                              HRESULT status,
                                              _COM_Outptr_ IDxcOperationResult **ppResult) {
     *ppResult = nullptr;
-    CComPtr<DxcOperationResult> result = new (std::nothrow) DxcOperationResult(pResultBlob, pErrorBlob, status);
-    if (result.p == nullptr) return E_OUTOFMEMORY;
+    CComPtr<DxcOperationResult> result = DxcOperationResult::Alloc(DxcGetThreadMallocNoRef());
+    IFROOM(result.p);
+    result->Init(pResultBlob, pErrorBlob, status);
     *ppResult = result.Detach();
     return S_OK;
   }

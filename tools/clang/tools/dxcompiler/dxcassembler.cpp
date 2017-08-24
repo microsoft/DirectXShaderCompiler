@@ -17,6 +17,8 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/HLSL/DxilModule.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxillib.h"
+#include "dxcutil.h"
 
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IRReader/IRReader.h"
@@ -27,17 +29,19 @@
 using namespace llvm;
 using namespace hlsl;
 
+// This declaration is used for the locally-linked validator.
+HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+
 class DxcAssembler : public IDxcAssembler {
 private:
-  DXC_MICROCOM_REF_FIELD(m_dwRef)      
+  DXC_MICROCOM_TM_REF_FIELDS()      
 public:
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcAssembler)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDxcAssembler>(this, iid, ppvObject);
   }
-
-  DxcAssembler() : m_dwRef(0) { }
 
   // Assemble dxil in ll or llvm bitcode to dxbc container.
   __override HRESULT STDMETHODCALLTYPE AssembleToContainer(
@@ -56,6 +60,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
 
   *ppResult = nullptr;
   HRESULT hr = S_OK;
+  DxcThreadMalloc TM(m_pMalloc);
   try {
     // Setup input buffer.
     // The ir parsing requires the buffer to be null terminated. We deal with
@@ -74,8 +79,9 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     }
 
     StringRef InputData((char *)pBytes, bytesLen);
+    const bool RequiresNullTerminator = false;
     std::unique_ptr<MemoryBuffer> memBuf =
-        MemoryBuffer::getMemBuffer(InputData);
+        MemoryBuffer::getMemBuffer(InputData, "", RequiresNullTerminator);
 
     // Parse IR
     LLVMContext Context;
@@ -83,11 +89,8 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     std::unique_ptr<Module> M =
         parseIR(memBuf->getMemBufferRef(), Err, Context);
 
-    CComPtr<IMalloc> pMalloc;
-    IFT(CoGetMalloc(1, &pMalloc));
-
     CComPtr<AbstractMemoryStream> pOutputStream;
-    IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+    IFT(CreateMemoryStream(TM.p, &pOutputStream));
     raw_stream_ostream outStream(pOutputStream.p);
 
     // Check for success.
@@ -103,27 +106,33 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       return S_OK;
     }
 
-    DxilModule program(M.get());
+    // Upgrade Validator Version if necessary.
     try {
-      program.LoadDxilMetadata();
-    }
-    catch (hlsl::Exception &e) {
+      DxilModule &program = M->GetOrCreateDxilModule();
+
+      {
+        UINT32 majorVer, minorVer;
+        dxcutil::GetValidatorVersion(&majorVer, &minorVer);
+        if (program.UpgradeValidatorVersion(majorVer, minorVer)) {
+          program.UpdateValidatorVersionMetadata();
+        }
+      }
+    } catch (hlsl::Exception &e) {
       CComPtr<IDxcBlobEncoding> pErrorBlob;
-      IFT(DxcCreateBlobWithEncodingOnHeapCopy(e.msg.c_str(), e.msg.size(), CP_UTF8, &pErrorBlob));
-      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlob, e.hr, ppResult));
+      IFT(DxcCreateBlobWithEncodingOnHeapCopy(e.msg.c_str(), e.msg.size(),
+                                              CP_UTF8, &pErrorBlob));
+      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlob,
+                                                          e.hr, ppResult));
       return S_OK;
     }
-
+    // Create bitcode of M.
     WriteBitcodeToFile(M.get(), outStream);
     outStream.flush();
 
-    CComPtr<AbstractMemoryStream> pFinalStream;
-    IFT(CreateMemoryStream(pMalloc, &pFinalStream));
-
-    SerializeDxilContainerForModule(M.get(), pOutputStream, pFinalStream);
-
     CComPtr<IDxcBlob> pResultBlob;
-    IFT(pFinalStream->QueryInterface(&pResultBlob));
+    dxcutil::AssembleToContainer(std::move(M), pResultBlob,
+                                         TM.p, SerializeDxilFlags::IncludeDebugNamePart,
+                                         pOutputStream);
 
     IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, nullptr, S_OK, ppResult));
   }
@@ -133,7 +142,7 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
 }
 
 HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv) {
-  CComPtr<DxcAssembler> result = new (std::nothrow) DxcAssembler();
+  CComPtr<DxcAssembler> result = DxcAssembler::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;
     return E_OUTOFMEMORY;

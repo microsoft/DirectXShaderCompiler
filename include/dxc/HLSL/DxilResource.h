@@ -60,6 +60,10 @@ public:
   bool IsRawBuffer() const;
   bool IsTBuffer() const;
 
+  static bool classof(const DxilResourceBase *R) {
+    return R->GetClass() == DXIL::ResourceClass::SRV || R->GetClass() == DXIL::ResourceClass::UAV;
+  }
+
 private:
   unsigned m_SampleCount;
   unsigned m_ElementStride; // in bytes

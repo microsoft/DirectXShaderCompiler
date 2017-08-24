@@ -66,7 +66,8 @@ public:
     DxilModule &DM = M.GetOrCreateDxilModule();
 
     // Switch tbuffers to SRVs, as they have been treated as cbuffers up to this point.
-    PatchTBuffers(DM);
+    if (DM.GetCBuffers().size())
+      PatchTBuffers(DM);
 
     // Remove unused resource.
     DM.RemoveUnusedResources();
@@ -81,8 +82,12 @@ public:
         DM.GetUAVs().size() || DM.GetSRVs().size() || DM.GetSamplers().size();
 
     if (hasResource) {
-      AllocateDxilResources(DM);
-      PatchCreateHandle(DM);
+      if (!DM.GetShaderModel()->IsLib()) {
+        AllocateDxilResources(DM);
+        PatchCreateHandle(DM);
+      } else {
+        PatchCreateHandleForLib(DM);
+      }
     }
     return true;
   }
@@ -100,6 +105,8 @@ private:
   void AllocateDxilResources(DxilModule &DM);
   // Add lowbound to create handle range index.
   void PatchCreateHandle(DxilModule &DM);
+  // Add lowbound to create handle range index for library.
+  void PatchCreateHandleForLib(DxilModule &DM);
   // Switch CBuffer for SRV for TBuffers.
   void PatchTBuffers(DxilModule &DM);
 };
@@ -168,7 +175,7 @@ static void AllocateDxilResource(const std::vector<std::unique_ptr<T> > &resourc
 
   for (auto &res : resourceList) {
     const unsigned space = res->GetSpaceID();
-    SpacesAllocator<unsigned, T>::Allocator &alloc = SAlloc.Get(space);
+    typename SpacesAllocator<unsigned, T>::Allocator &alloc = SAlloc.Get(space);
 
     if (res->IsAllocated()) {
       const unsigned reg = res->GetLowerBound();
@@ -203,7 +210,7 @@ static void AllocateDxilResource(const std::vector<std::unique_ptr<T> > &resourc
 
   // Allocate.
   const unsigned space = 0;
-  SpacesAllocator<unsigned, T>::Allocator &alloc0 = SAlloc.Get(space);
+  typename SpacesAllocator<unsigned, T>::Allocator &alloc0 = SAlloc.Get(space);
   for (auto &res : resourceList) {
     if (!res->IsAllocated()) {
       DXASSERT(res->GetSpaceID() == 0, "otherwise non-zero space has no user register assignment");
@@ -243,7 +250,8 @@ void PatchLowerBoundOfCreateHandle(CallInst *handle, DxilModule &DM) {
 
   DXIL::ResourceClass ResClass =
       static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
-  // Not support case dynamic rangeId yet.
+  // Dynamic rangeId is not supported - skip and let validation report the
+  // error.
   if (!isa<ConstantInt>(createHandle.get_rangeId()))
     return;
 
@@ -445,6 +453,36 @@ void DxilCondenseResources::PatchCreateHandle(DxilModule &DM) {
 
   for (User *U : createHandle->users()) {
     PatchLowerBoundOfCreateHandle(cast<CallInst>(U), DM);
+  }
+}
+
+void DxilCondenseResources::PatchCreateHandleForLib(DxilModule &DM) {
+  Function *createHandle = DM.GetOP()->GetOpFunc(DXIL::OpCode::CreateHandle,
+                                                 Type::getVoidTy(DM.GetCtx()));
+  DM.CreateResourceLinkInfo();
+  for (User *U : createHandle->users()) {
+    CallInst *handle = cast<CallInst>(U);
+    DxilInst_CreateHandle createHandle(handle);
+    DXASSERT_NOMSG(createHandle);
+
+    DXIL::ResourceClass ResClass =
+        static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+    // Dynamic rangeId is not supported - skip and let validation report the
+    // error.
+    if (!isa<ConstantInt>(createHandle.get_rangeId()))
+      continue;
+
+    unsigned rangeId =
+        cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
+
+    const DxilModule::ResourceLinkInfo &linkInfo =
+        DM.GetResourceLinkInfo(ResClass, rangeId);
+
+    IRBuilder<> Builder(handle);
+    Value *linkRangeID = Builder.CreateLoad(linkInfo.ResRangeID);
+    // Update rangeID to linkinfo rangeID.
+    handle->setArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx,
+                          linkRangeID);
   }
 }
 
