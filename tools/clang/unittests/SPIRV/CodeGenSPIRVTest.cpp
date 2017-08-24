@@ -197,6 +197,9 @@ TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpStructArray) { runFileTest("op.array.access.hlsl"); }
 
+// For Buffer/RWBuffer accessing operator
+TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
+
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
 TEST_F(FileTest, CastImplicit2Bool) { runFileTest("cast.2bool.implicit.hlsl"); }
@@ -342,6 +345,9 @@ TEST_F(FileTest, ByteAddressBufferLoad) {
 TEST_F(FileTest, ByteAddressBufferStore) {
   runFileTest("method.byte-address-buffer.store.hlsl");
 }
+
+// For Buffer/RWBuffer methods
+TEST_F(FileTest, BufferLoad) { runFileTest("buffer.load.hlsl"); }
 
 // For intrinsic functions
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }
