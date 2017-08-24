@@ -1111,13 +1111,17 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   switch (expr->getCastKind()) {
   case CastKind::CK_LValueToRValue: {
     const uint32_t fromValue = doExpr(subExpr);
-    if (isVectorShuffle(subExpr) || isa<ExtMatrixElementExpr>(subExpr)) {
-      // By reaching here, it means the vector/matrix element accessing
-      // operation is an lvalue. For vector element accessing, if we generated
-      // a vector shuffle for it and trying to use it as a rvalue, we cannot
-      // do the load here as normal. Need the upper nodes in the AST tree to
-      // handle it properly. For matrix element accessing, load should have
+    if (isVectorShuffle(subExpr) || isa<ExtMatrixElementExpr>(subExpr) ||
+        isBufferIndexing(dyn_cast<CXXOperatorCallExpr>(subExpr))) {
+      // By reaching here, it means the vector/matrix/Buffer/RWBuffer element
+      // accessing operation is an lvalue. For vector element accessing, if we
+      // generated a vector shuffle for it and trying to use it as a rvalue, we
+      // cannot do the load here as normal. Need the upper nodes in the AST tree
+      // to handle it properly. For matrix element accessing, load should have
       // already happened after creating access chain for each element.
+      // For (RW)Buffer element accessing, load should have already happened
+      // using OpImageFetch.
+
       return fromValue;
     }
 
@@ -1286,6 +1290,54 @@ uint32_t SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   const uint32_t falseBranch = doExpr(expr->getFalseExpr());
 
   return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
+}
+
+uint32_t SPIRVEmitter::processBufferLoad(const Expr *object,
+                                         const Expr *location) {
+  // Loading for Buffer and RWBuffer translates to an OpImageFetch.
+  // The result type of an OpImageFetch must be a vec4 of float or int.
+  const auto type = object->getType();
+  const uint32_t objectId = doExpr(object);
+  const uint32_t locationId = doExpr(location);
+  const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+  QualType elemType = sampledType;
+  uint32_t elemCount = 1;
+  uint32_t elemTypeId = 0;
+  (void)TypeTranslator::isVectorType(sampledType, &elemType, &elemCount);
+  if (elemType->isFloatingType()) {
+    elemTypeId = theBuilder.getFloat32Type();
+  } else if (elemType->isSignedIntegerType()) {
+    elemTypeId = theBuilder.getInt32Type();
+  } else if (elemType->isUnsignedIntegerType()) {
+    elemTypeId = theBuilder.getUint32Type();
+  } else {
+    emitError("Unimplemented Buffer type");
+    return 0;
+  }
+  const uint32_t resultTypeId =
+      elemCount == 1 ? elemTypeId
+                     : theBuilder.getVecType(elemTypeId, elemCount);
+
+  // Always need to fetch 4 elements.
+  const uint32_t fetchTypeId = theBuilder.getVecType(elemTypeId, 4u);
+  const uint32_t imageFetchResult =
+      theBuilder.createImageFetch(fetchTypeId, objectId, locationId, 0, 0, 0);
+
+  // For the case of buffer elements being vec4, there's no need for extraction
+  // and composition.
+  switch (elemCount) {
+  case 1:
+    return theBuilder.createCompositeExtract(elemTypeId, imageFetchResult, {0});
+  case 2:
+    return theBuilder.createVectorShuffle(resultTypeId, imageFetchResult,
+                                          imageFetchResult, {0, 1});
+  case 3:
+    return theBuilder.createVectorShuffle(resultTypeId, imageFetchResult,
+                                          imageFetchResult, {0, 1, 2});
+  case 4:
+    return imageFetchResult;
+  }
+  llvm_unreachable("Element count of a vector must be 1, 2, 3, or 4.");
 }
 
 uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
@@ -1517,6 +1569,10 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
           typeTranslator.isByteAddressBuffer(objectType)) {
         return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
       }
+      if (TypeTranslator::isBuffer(objectType) ||
+          TypeTranslator::isRWBuffer(objectType))
+        return processBufferLoad(expr->getImplicitObjectArgument(),
+                                 expr->getArg(0));
 
       const uint32_t image = loadIfGLValue(object);
 
@@ -1619,6 +1675,15 @@ uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
           elemType, declIdMapper.resolveStorageClass(baseExpr));
 
       return theBuilder.createAccessChain(ptrType, base, indices);
+    }
+  }
+
+  { // Handle Buffer/RWBuffer indexing
+    const Expr *baseExpr = nullptr;
+    const Expr *indexExpr = nullptr;
+
+    if (isBufferIndexing(expr, &baseExpr, &indexExpr)) {
+      return processBufferLoad(baseExpr, indexExpr);
     }
   }
 
@@ -2123,6 +2188,27 @@ bool SPIRVEmitter::isVectorShuffle(const Expr *expr) {
     return false;
   }
 
+  return false;
+}
+
+bool SPIRVEmitter::isBufferIndexing(const CXXOperatorCallExpr *indexExpr,
+                                    const Expr **base, const Expr **index) {
+  if (!indexExpr)
+    return false;
+
+  // Must be operator[]
+  if (indexExpr->getOperator() != OverloadedOperatorKind::OO_Subscript)
+    return false;
+  const Expr *object = indexExpr->getArg(0);
+  const auto objectType = object->getType();
+  if (typeTranslator.isBuffer(objectType) ||
+      typeTranslator.isRWBuffer(objectType)) {
+    if (base)
+      *base = object;
+    if (index)
+      *index = indexExpr->getArg(1);
+    return true;
+  }
   return false;
 }
 
