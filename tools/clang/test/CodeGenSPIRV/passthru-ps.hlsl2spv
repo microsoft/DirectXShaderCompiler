@@ -16,11 +16,11 @@ float4 main(float4 input: COLOR): SV_Target
 // OpEntryPoint Fragment %main "main" %in_var_COLOR %out_var_SV_Target
 // OpExecutionMode %main OriginUpperLeft
 // OpName %bb_entry "bb.entry"
+// OpName %src_main "src.main"
 // OpName %main "main"
 // OpName %param_var_input "param.var.input"
 // OpName %in_var_COLOR "in.var.COLOR"
 // OpName %out_var_SV_Target "out.var.SV_Target"
-// OpName %src_main "src.main"
 // OpName %input "input"
 // OpDecorate %in_var_COLOR Location 0
 // OpDecorate %out_var_SV_Target Location 0

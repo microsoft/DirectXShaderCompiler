@@ -15,8 +15,8 @@ void main()
 // OpEntryPoint Fragment %main "main"
 // OpExecutionMode %main OriginUpperLeft
 // OpName %bb_entry "bb.entry"
-// OpName %main "main"
 // OpName %src_main "src.main"
+// OpName %main "main"
 // %void = OpTypeVoid
 // %3 = OpTypeFunction %void
 // %main = OpFunction %void None %3

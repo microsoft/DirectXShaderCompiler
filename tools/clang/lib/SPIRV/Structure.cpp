@@ -144,9 +144,9 @@ void Function::take(InstBuilder *builder) {
   // validation rules.
   std::vector<BasicBlock *> orderedBlocks;
   if (!blocks.empty()) {
-    BlockReadableOrderVisitor(
-        [&orderedBlocks](BasicBlock *block) { orderedBlocks.push_back(block); })
-        .visit(blocks.front().get());
+    BlockReadableOrderVisitor([&orderedBlocks](BasicBlock *block) {
+      orderedBlocks.push_back(block);
+    }).visit(blocks.front().get());
   }
 
   // Write out all basic blocks.
@@ -168,9 +168,9 @@ void Function::addVariable(uint32_t varType, uint32_t varId,
 
 void Function::getReachableBasicBlocks(std::vector<BasicBlock *> *bbVec) const {
   if (!blocks.empty()) {
-    BlockReadableOrderVisitor(
-        [&bbVec](BasicBlock *block) { bbVec->push_back(block); })
-        .visit(blocks.front().get());
+    BlockReadableOrderVisitor([&bbVec](BasicBlock *block) {
+      bbVec->push_back(block);
+    }).visit(blocks.front().get());
   }
 }
 
@@ -189,6 +189,37 @@ void Header::collect(const WordConsumer &consumer) {
   words.push_back(bound);
   words.push_back(reserved);
   consumer(std::move(words));
+}
+
+bool DebugName::operator==(const DebugName &that) const {
+  if (targetId == that.targetId && name == that.name) {
+    if (memberIndex.hasValue()) {
+      return that.memberIndex.hasValue() &&
+             memberIndex.getValue() == that.memberIndex.getValue();
+    }
+    return !that.memberIndex.hasValue();
+  }
+  return false;
+}
+
+bool DebugName::operator<(const DebugName &that) const {
+  // Sort according to target id first
+  if (targetId != that.targetId)
+    return targetId < that.targetId;
+
+  if (memberIndex.hasValue()) {
+    // Sort member decorations according to member index
+    if (that.memberIndex.hasValue())
+      return memberIndex.getValue() < that.memberIndex.getValue();
+    // Decorations on the id itself goes before those on its members
+    return false;
+  }
+
+  // Decorations on the id itself goes before those on its members
+  if (that.memberIndex.hasValue())
+    return true;
+
+  return name < that.name;
 }
 
 // === Module implementations ===
@@ -255,10 +286,11 @@ void SPIRVModule::take(InstBuilder *builder) {
     consumer(inst.take());
   }
 
-  // BasicBlock debug names should be emitted only for blocks that are reachable.
+  // BasicBlock debug names should be emitted only for blocks that are
+  // reachable.
   // The debug name for a basic block is stored in the basic block object.
-  std::vector<BasicBlock*> reachableBasicBlocks;
-  for (const auto& fn : functions)
+  std::vector<BasicBlock *> reachableBasicBlocks;
+  for (const auto &fn : functions)
     fn->getReachableBasicBlocks(&reachableBasicBlocks);
   for (BasicBlock *bb : reachableBasicBlocks)
     if (!bb->getDebugName().empty())
@@ -335,7 +367,7 @@ void SPIRVModule::takeConstantForArrayType(const Type &arrType,
   // If it finds the constant, feeds it into the consumer, and removes it
   // from the constants collection.
   constants.remove_if([&consumer, arrayLengthResultId](
-                          std::pair<const Constant *, uint32_t> &item) {
+      std::pair<const Constant *, uint32_t> &item) {
     const bool isArrayLengthConstant = (item.second == arrayLengthResultId);
     if (isArrayLengthConstant)
       consumer(item.first->withResultId(item.second));

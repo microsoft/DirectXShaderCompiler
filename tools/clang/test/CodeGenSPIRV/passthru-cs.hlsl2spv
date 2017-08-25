@@ -32,9 +32,9 @@ void main( uint3 DTid : SV_DispatchThreadID )
 // OpName %Buffer0 "Buffer0"
 // OpName %type_RWByteAddressBuffer "type.RWByteAddressBuffer"
 // OpName %BufferOut "BufferOut"
+// OpName %src_main "src.main"
 // OpName %main "main"
 // OpName %param_var_DTid "param.var.DTid"
-// OpName %src_main "src.main"
 // OpName %DTid "DTid"
 // OpName %word "word"
 // OpDecorate %_runtimearr_uint ArrayStride 4
