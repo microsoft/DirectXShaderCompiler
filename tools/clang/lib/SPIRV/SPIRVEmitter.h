@@ -186,6 +186,10 @@ private:
   /// are generated.
   uint32_t tryToAssignToMatrixElements(const Expr *lhs, uint32_t rhs);
 
+  /// Tries to emit instructions for assigning to the given RWBuffer object.
+  /// Returns 0 if the trial fails and no instructions are generated.
+  uint32_t tryToAssignToRWBuffer(const Expr *lhs, uint32_t rhs);
+
   /// Processes each vector within the given matrix by calling actOnEachVector.
   /// matrixVal should be the loaded value of the matrix. actOnEachVector takes
   /// three parameters for the current vector: the index, the <type-id>, and

@@ -2067,6 +2067,10 @@ uint32_t SPIRVEmitter::processAssignment(const Expr *lhs, const uint32_t rhs,
   if (const uint32_t result = tryToAssignToMatrixElements(lhs, rhs)) {
     return result;
   }
+  // Assigning to a RWBuffer should be handled differently.
+  if (const uint32_t result = tryToAssignToRWBuffer(lhs, rhs)) {
+    return result;
+  }
 
   // Normal assignment procedure
   if (lhsPtr == 0)
@@ -2510,6 +2514,20 @@ uint32_t SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
   // which cases we should return lvalues. Should at least emit errors if
   // this return value is used (can be checked via ASTContext.getParents).
   return rhs;
+}
+
+uint32_t SPIRVEmitter::tryToAssignToRWBuffer(const Expr *lhs, uint32_t rhs) {
+  const Expr* baseExpr = nullptr;
+  const Expr* indexExpr = nullptr;
+  if (isBufferIndexing(dyn_cast<CXXOperatorCallExpr>(lhs), &baseExpr,
+                       &indexExpr)) {
+    const uint32_t locId = doExpr(indexExpr);
+    const uint32_t imageId = theBuilder.createLoad(
+        typeTranslator.translateType(baseExpr->getType()), doExpr(baseExpr));
+    theBuilder.createImageWrite(imageId, locId, rhs);
+    return rhs;
+  }
+  return 0;
 }
 
 uint32_t SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
