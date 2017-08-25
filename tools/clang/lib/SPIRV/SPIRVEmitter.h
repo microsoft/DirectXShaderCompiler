@@ -419,10 +419,12 @@ private:
   uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
                                              uint32_t numWords, bool doStore);
 
-  /// \brief Loads one element from the given Buffer/RWBuffer object at the
-  /// given location. The type of the loaded element matches the type in the
-  /// declaration for the (RW)Buffer object.
-  uint32_t processBufferLoad(const Expr *object, const Expr *address);
+  /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
+  /// the given location. The type of the loaded element matches the type in the
+  /// declaration for the Buffer/Texture object.
+  uint32_t processBufferTextureLoad(const Expr *object, const Expr *address,
+                                    uint32_t constOffset = 0,
+                                    uint32_t varOffst = 0);
 
   /// \brief Generates an OpAccessChain instruction for the given
   /// (RW)StructuredBuffer.Load() method call.

@@ -66,6 +66,9 @@ public:
   /// \brief Returns true if the given type is the HLSL RWBuffer type.
   static bool isRWBuffer(QualType type);
 
+  /// \brief Returns true if the given type is an HLSL Texture type.
+  static bool isTexture(QualType);
+
   /// \brief Returns true if the given type will be translated into a SPIR-V
   /// scalar type. This includes normal scalar types, vectors of size 1, and
   /// 1x1 matrices. If scalarType is not nullptr, writes the scalar type to

@@ -225,6 +225,13 @@ bool TypeTranslator::isBuffer(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isTexture(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName().startswith("Texture");
+  }
+  return false;
+}
+
 bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
                                   uint32_t *elemCount) {
   bool isVec = false;

@@ -1330,13 +1330,27 @@ uint32_t SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
 }
 
-uint32_t SPIRVEmitter::processBufferLoad(const Expr *object,
-                                         const Expr *location) {
+uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
+                                                const Expr *location,
+                                                uint32_t constOffset,
+                                                uint32_t varOffset) {
   // Loading for Buffer and RWBuffer translates to an OpImageFetch.
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
-  const uint32_t objectId = doExpr(object);
+  assert(TypeTranslator::isBuffer(type) || TypeTranslator::isRWBuffer(type) ||
+         TypeTranslator::isTexture(type));
+  const bool doFetch =
+      TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
+  const uint32_t objectId = loadIfGLValue(object);
   const uint32_t locationId = doExpr(location);
+
+  // For Buffers/RWBuffers, the location is just an int, which should be used as
+  // the coordinate argument. Textures require an additional processing.
+  uint32_t coordinate = locationId, lod = 0;
+  if (TypeTranslator::isTexture(type)) {
+    splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
+  }
+
   const auto sampledType = hlsl::GetHLSLResourceResultType(type);
   QualType elemType = sampledType;
   uint32_t elemCount = 1;
@@ -1358,22 +1372,21 @@ uint32_t SPIRVEmitter::processBufferLoad(const Expr *object,
 
   // Always need to fetch 4 elements.
   const uint32_t fetchTypeId = theBuilder.getVecType(elemTypeId, 4u);
-  const uint32_t imageFetchResult =
-      theBuilder.createImageFetch(fetchTypeId, objectId, locationId, 0, 0, 0);
+  const uint32_t texel = theBuilder.createImageFetchOrRead(
+      doFetch, fetchTypeId, objectId, coordinate, lod, constOffset, varOffset);
 
   // For the case of buffer elements being vec4, there's no need for extraction
   // and composition.
   switch (elemCount) {
   case 1:
-    return theBuilder.createCompositeExtract(elemTypeId, imageFetchResult, {0});
+    return theBuilder.createCompositeExtract(elemTypeId, texel, {0});
   case 2:
-    return theBuilder.createVectorShuffle(resultTypeId, imageFetchResult,
-                                          imageFetchResult, {0, 1});
+    return theBuilder.createVectorShuffle(resultTypeId, texel, texel, {0, 1});
   case 3:
-    return theBuilder.createVectorShuffle(resultTypeId, imageFetchResult,
-                                          imageFetchResult, {0, 1, 2});
+    return theBuilder.createVectorShuffle(resultTypeId, texel, texel,
+                                          {0, 1, 2});
   case 4:
-    return imageFetchResult;
+    return texel;
   }
   llvm_unreachable("Element count of a vector must be 1, 2, 3, or 4.");
 }
@@ -1622,6 +1635,7 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
       }
 
       const auto *object = expr->getImplicitObjectArgument();
+      const auto *location = expr->getArg(0);
       const auto objectType = object->getType();
 
       if (typeTranslator.isRWByteAddressBuffer(objectType) ||
@@ -1633,26 +1647,16 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 
       if (TypeTranslator::isBuffer(objectType) ||
           TypeTranslator::isRWBuffer(objectType))
-        return processBufferLoad(expr->getImplicitObjectArgument(),
-                                 expr->getArg(0));
+        return processBufferTextureLoad(object, location);
 
-      const uint32_t image = loadIfGLValue(object);
-
-      // The location parameter is a vector that consists of both the coordinate
-      // and the mipmap level (via the last vector element). We need to split it
-      // here since the OpImageFetch SPIR-V instruction encodes them as separate
-      // arguments.
-      const uint32_t location = doExpr(expr->getArg(0));
-      uint32_t coordinate = 0, lod = 0;
-      splitVecLastElement(expr->getArg(0)->getType(), location, &coordinate,
-                          &lod);
-
-      // .Load() has a second optional paramter for offset.
-      uint32_t constOffset = 0, varOffset = 0;
-      handleOffset(expr, 1, &constOffset, &varOffset);
-
-      return theBuilder.createImageFetch(retType, image, coordinate, lod,
-                                         constOffset, varOffset);
+      if (TypeTranslator::isTexture(objectType)) {
+        // .Load() has a second optional paramter for offset.
+        uint32_t constOffset = 0, varOffset = 0;
+        handleOffset(expr, 1, &constOffset, &varOffset);
+        return processBufferTextureLoad(object, location, constOffset,
+                                        varOffset);
+      }
+      llvm_unreachable("Load() is not implemented for the given object type.");
     }
     case IntrinsicOp::MOP_Load2: {
       return processByteAddressBufferLoadStore(expr, 2, /*doStore*/ false);
@@ -1693,7 +1697,7 @@ uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
     const Expr *indexExpr = nullptr;
 
     if (isBufferIndexing(expr, &baseExpr, &indexExpr)) {
-      return processBufferLoad(baseExpr, indexExpr);
+      return processBufferTextureLoad(baseExpr, indexExpr);
     }
   }
 

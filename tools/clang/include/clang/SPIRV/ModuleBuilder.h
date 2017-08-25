@@ -159,10 +159,14 @@ public:
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset);
 
-  /// \brief Creates SPIR-V instructions for fetching the given image.
-  uint32_t createImageFetch(uint32_t texelType, uint32_t image,
-                            uint32_t coordinate, uint32_t lod,
-                            uint32_t constOffset, uint32_t varOffset);
+  /// \brief Creates SPIR-V instructions for reading a texel from an image. If
+  /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
+  /// OpImageFetch should be used for sampled images. OpImageRead should be used
+  /// for images without a sampler.
+  uint32_t createImageFetchOrRead(bool doImageFetch, uint32_t texelType,
+                                  uint32_t image, uint32_t coordinate,
+                                  uint32_t lod, uint32_t constOffset,
+                                  uint32_t varOffset);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
   void createImageWrite(uint32_t imageId, uint32_t coordId, uint32_t texelId);
