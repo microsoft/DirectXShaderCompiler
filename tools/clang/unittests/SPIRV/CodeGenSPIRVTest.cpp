@@ -52,6 +52,9 @@ TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
+TEST_F(FileTest, StructuredBufferType) {
+  runFileTest("type.structured-buffer.hlsl");
+}
 TEST_F(FileTest, ByteAddressBufferTypes) {
   runFileTest("type.byte-address-buffer.hlsl");
 }
@@ -198,13 +201,19 @@ TEST_F(FileTest, OpMatrixAccess1x1) {
 // For struct & array accessing operator
 TEST_F(FileTest, OpStructAccess) { runFileTest("op.struct.access.hlsl"); }
 TEST_F(FileTest, OpArrayAccess) { runFileTest("op.array.access.hlsl"); }
+
+// For buffer accessing operator
+TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
 TEST_F(FileTest, OpCBufferAccess) { runFileTest("op.cbuffer.access.hlsl"); }
 TEST_F(FileTest, OpConstantBufferAccess) {
   runFileTest("op.constant-buffer.access.hlsl");
 }
-
-// For Buffer/RWBuffer accessing operator
-TEST_F(FileTest, OpBufferAccess) { runFileTest("op.buffer.access.hlsl"); }
+TEST_F(FileTest, OpStructuredBufferAccess) {
+  runFileTest("op.structured-buffer.access.hlsl");
+}
+TEST_F(FileTest, OpRWStructuredBufferAccess) {
+  runFileTest("op.rw-structured-buffer.access.hlsl");
+}
 
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
@@ -344,6 +353,9 @@ TEST_F(FileTest, TextureArraySampleGrad) {
   runFileTest("texture.array.sample-grad.hlsl");
 }
 
+TEST_F(FileTest, StructuredBufferLoad) {
+  runFileTest("method.structured-buffer.load.hlsl");
+}
 // For ByteAddressBuffer methods
 TEST_F(FileTest, ByteAddressBufferLoad) {
   runFileTest("method.byte-address-buffer.load.hlsl");
@@ -468,6 +480,12 @@ TEST_F(FileTest, VulkanLayoutCBufferStd140) {
 }
 TEST_F(FileTest, VulkanLayoutCBufferNestedStd140) {
   runFileTest("vk.layout.cbuffer.nested.std140.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutSBufferStd430) {
+  runFileTest("vk.layout.sbuffer.std430.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutSBufferNestedStd430) {
+  runFileTest("vk.layout.sbuffer.nested.std430.hlsl");
 }
 
 } // namespace
