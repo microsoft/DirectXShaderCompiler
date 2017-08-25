@@ -38,6 +38,13 @@ struct S {
 // CHECK-NEXT: OpDecorate %myCbuffer2 Binding 7
 ConstantBuffer<S> myCbuffer2;
 
+// CHECK:      OpDecorate %sbuffer1 DescriptorSet 0
+// CHECK-NEXT: OpDecorate %sbuffer1 Binding 8
+  StructuredBuffer<S> sbuffer1;
+// CHECK:      OpDecorate %sbuffer2 DescriptorSet 0
+// CHECK-NEXT: OpDecorate %sbuffer2 Binding 9
+RWStructuredBuffer<S> sbuffer2;
+
 float4 main() : SV_Target {
     return 1.0;
 }

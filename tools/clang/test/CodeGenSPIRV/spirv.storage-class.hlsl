@@ -20,8 +20,7 @@ VSOut main(float4 input: A /* Function */, uint index: B /* Function */) {
 // CHECK:      OpAccessChain %_ptr_Function_float %input
 // CHECK:      OpAccessChain %_ptr_Private_float %sgVar
 // CHECK:      OpAccessChain %_ptr_Private_float %slVar
-// CHECK:      [[lhs:%\d+]] = OpAccessChain %_ptr_Function_v4float %ret %int_0
-// CHECK-NEXT: OpAccessChain %_ptr_Function_float [[lhs]]
+// CHECK:      OpAccessChain %_ptr_Function_float %ret %int_0 {{%\d+}}
     ret.out1[index] = input[index] + sgVar[index] + slVar[index];
 
     return ret;

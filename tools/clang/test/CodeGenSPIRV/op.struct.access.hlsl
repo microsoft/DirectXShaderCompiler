@@ -21,8 +21,7 @@ void main() {
 // CHECK-NEXT: {{%\d+}} = OpLoad %bool [[a]]
     bool v2 = t.i.a;
 
-// CHECK:      [[b:%\d+]] = OpAccessChain %_ptr_Function_v2uint %t %int_1 %int_1
-// CHECK-NEXT: [[b0:%\d+]] = OpAccessChain %_ptr_Function_uint [[b]] %uint_0
+// CHECK:      [[b0:%\d+]] = OpAccessChain %_ptr_Function_uint %t %int_1 %int_1 %uint_0
 // CHECK-NEXT: {{%\d+}} = OpLoad %uint [[b0]]
     uint v3 = t.i.b[0];
 // CHECK:      [[b:%\d+]] = OpAccessChain %_ptr_Function_v2uint %t %int_1 %int_1
@@ -36,8 +35,7 @@ void main() {
 // CHECK-NEXT: [[c11v:%\d+]] = OpLoad %float [[c11p]]
 // CHECK-NEXT: {{%\d+}} = OpCompositeConstruct %v2float [[c00v]] [[c11v]]
     float2 v5 = t.i.c._11_22;
-// CHECK:      [[c:%\d+]] = OpAccessChain %_ptr_Function_mat2v3float %t %int_1 %int_2
-// CHECK-NEXT: [[c1:%\d+]] = OpAccessChain %_ptr_Function_v3float [[c]] %uint_1
+// CHECK:      [[c1:%\d+]] = OpAccessChain %_ptr_Function_v3float %t %int_1 %int_2 %uint_1
 // CHECK-NEXT: {{%\d+}} = OpLoad %v3float [[c1]]
     float3 v6 = t.i.c[1];
 
@@ -48,8 +46,7 @@ void main() {
 // CHECK-NEXT: OpStore [[a]] {{%\d+}}
     t.i.a = v2;
 
-// CHECK:      [[b:%\d+]] = OpAccessChain %_ptr_Function_v2uint %t %int_1 %int_1
-// CHECK-NEXT: [[b1:%\d+]] = OpAccessChain %_ptr_Function_uint [[b]] %uint_1
+// CHECK:      [[b1:%\d+]] = OpAccessChain %_ptr_Function_uint %t %int_1 %int_1 %uint_1
 // CHECK-NEXT: OpStore [[b1]] {{%\d+}}
     t.i.b[1] = v3;
 // CHECK:      [[v4:%\d+]] = OpLoad %v2uint %v4
@@ -68,8 +65,7 @@ void main() {
 // CHECK-NEXT: [[c00:%\d+]] = OpAccessChain %_ptr_Function_float [[c]] %int_0 %int_0
 // CHECK-NEXT: OpStore [[c00]] [[v51]]
     t.i.c._22_11 = v5;
-// CHECK:      [[c:%\d+]] = OpAccessChain %_ptr_Function_mat2v3float %t %int_1 %int_2
-// CHECK-NEXT: [[c0:%\d+]] = OpAccessChain %_ptr_Function_v3float [[c]] %uint_0
+// CHECK:      [[c0:%\d+]] = OpAccessChain %_ptr_Function_v3float %t %int_1 %int_2 %uint_0
 // CHECK-NEXT: OpStore [[c0]] {{%\d+}}
     t.i.c[0] = v6;
 }

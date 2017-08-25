@@ -613,6 +613,14 @@ uint32_t ModuleBuilder::getArrayType(uint32_t elemType, uint32_t count,
   return typeId;
 }
 
+uint32_t ModuleBuilder::getRuntimeArrayType(uint32_t elemType,
+                                            Type::DecorationSet decorations) {
+  const Type *type = Type::getRuntimeArray(theContext, elemType, decorations);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
 uint32_t ModuleBuilder::getFunctionType(uint32_t returnType,
                                         llvm::ArrayRef<uint32_t> paramTypes) {
   const Type *type = Type::getFunction(theContext, returnType, paramTypes);
