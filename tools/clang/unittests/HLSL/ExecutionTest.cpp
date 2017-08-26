@@ -3947,8 +3947,8 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
   // laneIndex is used to identify lane within the wave.
   // Lane ids are not necessarily in same order as thread ids.
   struct PerThreadData {
-      int firstLaneId;
-      int laneIndex;
+      unsigned firstLaneId;
+      unsigned laneIndex;
       int mask;
       T1 input;
       T2 output;
@@ -4058,7 +4058,7 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
         std::vector<T2> outputList(waveData->size());
         // sort inputList and masklist by lane id. input for each lane can be computed for its group index
         for (size_t j = 0, end = waveData->size(); j < end; ++j) {
-          int laneID = waveData->at(j)->laneIndex;
+          unsigned laneID = waveData->at(j)->laneIndex;
           // ensure that each lane ID is unique and within the range
           VERIFY_IS_TRUE(0 <= laneID && laneID < waveData->size());
           VERIFY_IS_TRUE(maskList.at(laneID) == -1);
