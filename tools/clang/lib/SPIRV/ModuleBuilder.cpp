@@ -674,6 +674,8 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
     requireCapability(spv::Capability::StorageImageExtendedFormats);
   }
 
+  if (dim == spv::Dim::Dim1D)
+    requireCapability(spv::Capability::Sampled1D);
   if (dim == spv::Dim::Buffer)
     requireCapability(spv::Capability::SampledBuffer);
 

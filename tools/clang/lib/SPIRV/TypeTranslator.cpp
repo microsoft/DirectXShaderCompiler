@@ -431,7 +431,6 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   { // Texture types
     spv::Dim dim = {};
     bool isArray = {};
-
     if ((dim = spv::Dim::Dim1D, isArray = false, name == "Texture1D") ||
         (dim = spv::Dim::Dim2D, isArray = false, name == "Texture2D") ||
         (dim = spv::Dim::Dim3D, isArray = false, name == "Texture3D") ||
@@ -440,11 +439,22 @@ uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
         (dim = spv::Dim::Dim2D, isArray = true, name == "Texture2DArray") ||
         // There is no Texture3DArray
         (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
-      if (dim == spv::Dim::Dim1D)
-        theBuilder.requireCapability(spv::Capability::Sampled1D);
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return theBuilder.getImageType(translateType(getElementType(sampledType)),
                                      dim, /*depth*/ 0, isArray);
+    }
+
+    // There is no RWTexture3DArray
+    if ((dim = spv::Dim::Dim1D, isArray = false, name == "RWTexture1D") ||
+        (dim = spv::Dim::Dim2D, isArray = false, name == "RWTexture2D") ||
+        (dim = spv::Dim::Dim3D, isArray = false, name == "RWTexture3D") ||
+        (dim = spv::Dim::Dim1D, isArray = true, name == "RWTexture1DArray") ||
+        (dim = spv::Dim::Dim2D, isArray = true, name == "RWTexture2DArray")) {
+      const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+      const auto format = translateSampledTypeToImageFormat(sampledType);
+      return theBuilder.getImageType(translateType(getElementType(sampledType)),
+                                     dim, /*depth*/ 0, isArray, /*MS*/ 0,
+                                     /*Sampled*/ 2u, format);
     }
   }
 
