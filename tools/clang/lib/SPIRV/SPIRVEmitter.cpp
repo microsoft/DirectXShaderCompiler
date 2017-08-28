@@ -1661,6 +1661,7 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
                                         varOffset);
       }
       emitError("Load() is not implemented for the given object type.");
+      return 0;
     }
     case IntrinsicOp::MOP_Load2: {
       return processByteAddressBufferLoadStore(expr, 2, /*doStore*/ false);
