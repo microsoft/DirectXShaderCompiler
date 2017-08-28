@@ -1348,6 +1348,10 @@ uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
   // the coordinate argument. Textures require an additional processing.
   uint32_t coordinate = locationId, lod = 0;
   if (TypeTranslator::isTexture(type)) {
+    // The location parameter is a vector that consists of both the coordinate
+    // and the mipmap level (via the last vector element). We need to split it
+    // here since the OpImageFetch SPIR-V instruction encodes them as separate
+    // arguments.
     splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
   }
 
@@ -1656,7 +1660,7 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
         return processBufferTextureLoad(object, location, constOffset,
                                         varOffset);
       }
-      llvm_unreachable("Load() is not implemented for the given object type.");
+      emitError("Load() is not implemented for the given object type.");
     }
     case IntrinsicOp::MOP_Load2: {
       return processByteAddressBufferLoadStore(expr, 2, /*doStore*/ false);

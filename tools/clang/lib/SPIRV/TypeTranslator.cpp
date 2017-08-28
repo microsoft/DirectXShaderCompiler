@@ -227,7 +227,13 @@ bool TypeTranslator::isBuffer(QualType type) {
 
 bool TypeTranslator::isTexture(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName().startswith("Texture");
+    const auto name = rt->getDecl()->getName();
+    if (name == "Texture1D" || name == "Texture1DArray" ||
+        name == "Texture2D" || name == "Texture2DArray" ||
+        name == "Texture2DMS" || name == "Texture2DMSArray" ||
+        name == "TextureCube" || name == "TextureCubeArray" ||
+        name == "Texture3D")
+      return true;
   }
   return false;
 }
