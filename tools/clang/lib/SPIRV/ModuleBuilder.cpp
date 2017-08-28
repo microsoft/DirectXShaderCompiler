@@ -294,10 +294,9 @@ void ModuleBuilder::createImageWrite(uint32_t imageId, uint32_t coordId,
   insertPoint->appendInstruction(std::move(constructSite));
 }
 
-uint32_t ModuleBuilder::createImageFetch(uint32_t texelType, uint32_t image,
-                                         uint32_t coordinate, uint32_t lod,
-                                         uint32_t constOffset,
-                                         uint32_t varOffset) {
+uint32_t ModuleBuilder::createImageFetchOrRead(
+    bool doImageFetch, uint32_t texelType, uint32_t image, uint32_t coordinate,
+    uint32_t lod, uint32_t constOffset, uint32_t varOffset) {
   assert(insertPoint && "null insert point");
 
   llvm::SmallVector<uint32_t, 2> params;
@@ -307,7 +306,11 @@ uint32_t ModuleBuilder::createImageFetch(uint32_t texelType, uint32_t image,
           &params));
 
   const uint32_t texelId = theContext.takeNextId();
-  instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
+  if (doImageFetch)
+    instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
+  else
+    instBuilder.opImageRead(texelType, texelId, image, coordinate, mask);
+
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();
