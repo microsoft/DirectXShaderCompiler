@@ -1343,7 +1343,7 @@ uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
   assert(TypeTranslator::isBuffer(type) || TypeTranslator::isRWBuffer(type) ||
-         TypeTranslator::isTexture(type));
+         TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type));
   const bool doFetch =
       TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
   const uint32_t objectId = loadIfGLValue(object);
@@ -1663,7 +1663,8 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
         return processStructuredBufferLoad(expr);
 
       if (TypeTranslator::isBuffer(objectType) ||
-          TypeTranslator::isRWBuffer(objectType))
+          TypeTranslator::isRWBuffer(objectType) ||
+          TypeTranslator::isRWTexture(objectType))
         return processBufferTextureLoad(object, location);
 
       if (TypeTranslator::isTexture(objectType)) {

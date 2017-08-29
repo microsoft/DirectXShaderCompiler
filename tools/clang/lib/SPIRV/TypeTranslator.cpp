@@ -225,6 +225,17 @@ bool TypeTranslator::isBuffer(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isRWTexture(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "RWTexture1D" || name == "RWTexture1DArray" ||
+        name == "RWTexture2D" || name == "RWTexture2DArray" ||
+        name == "RWTexture3D")
+      return true;
+  }
+  return false;
+}
+
 bool TypeTranslator::isTexture(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     const auto name = rt->getDecl()->getName();
