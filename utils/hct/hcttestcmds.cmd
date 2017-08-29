@@ -12,9 +12,9 @@ if "%2"=="" (
 
 echo Testing command line programs at %1 ...
 
-set script_dir=%~dp0
-
 setlocal
+
+set script_dir=%~dp0
 
 pushd %1
 
