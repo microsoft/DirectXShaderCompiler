@@ -66,8 +66,8 @@
 #ifdef ENABLE_SPIRV_CODEGEN
 #include "spirv-tools/libspirv.hpp"
 
-static bool DisassembleSpirv(const CComPtr<IDxcBlob> &binaryBlob,
-                             CComPtr<IDxcLibrary> library,
+static bool DisassembleSpirv(IDxcBlob *binaryBlob,
+                             IDxcLibrary *library,
                              IDxcBlobEncoding **assemblyBlob) {
   if (!binaryBlob)
     return true;
@@ -83,9 +83,6 @@ static bool DisassembleSpirv(const CComPtr<IDxcBlob> &binaryBlob,
 
   std::string assembly;
   spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
-  spirvTools.SetMessageConsumer(
-    [](spv_message_level_t, const char *, const spv_position_t &,
-      const char *message) { fprintf(stderr, "%s\n", message); });
   uint32_t options = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
                       SPV_BINARY_TO_TEXT_OPTION_INDENT);
   if (!spirvTools.Disassemble(words, &assembly, options))
