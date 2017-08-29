@@ -4279,7 +4279,7 @@ public:
   bool VisitInitListExpr(const InitListExpr *E) {
     if (E->getNumInits() == 0)
       return DerivedZeroInitialization(E);
-    if (Info.getLangOpts().HLSL && !IsHLSLVecInitList(E)) return Error(E); // HLSL Change
+    if (Info.getLangOpts().HLSL && !E->getType()->isScalarType() && !IsHLSLVecInitList(E)) return Error(E); // HLSL Change
     if (E->getNumInits() == 1)
       return StmtVisitorTy::Visit(E->getInit(0));
     return Error(E);
@@ -4323,7 +4323,7 @@ public:
     // HLSL Change Begins
     if (Info.getLangOpts().HLSL) {
       const auto* subExpr = E->getSubExpr();
-      if (subExpr->getStmtClass() == Stmt::InitListExprClass && !IsHLSLVecInitList(subExpr))
+      if (subExpr->getStmtClass() == Stmt::InitListExprClass && !IsHLSLVecInitList(subExpr) && !subExpr->getType()->isScalarType())
         return Error(E);
     }
     // HLSL Change Ends
@@ -8915,7 +8915,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
     // form "T x = { a };" is equivalent to "T x = a;".
     // Unless we're initializing a reference, T is a scalar as it is known to be
     // of integral or enumeration type.
-    if (E->isRValue())
+    if (E->isRValue() && (!Ctx.getLangOpts().HLSL || E->getType()->isScalarType() || IsHLSLVecInitList(E))) // HLSL Change
       if (cast<InitListExpr>(E)->getNumInits() == 1)
         return CheckICE(cast<InitListExpr>(E)->getInit(0), Ctx);
     return ICEDiag(IK_NotICE, E->getLocStart());
