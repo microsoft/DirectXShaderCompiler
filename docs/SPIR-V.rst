@@ -231,19 +231,24 @@ Textures
 `Texture types <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509700(v=vs.85).aspx>`_
 are translated into SPIR-V ``OpTypeImage``, with parameters:
 
-====================   ========== ===== ======= == ======= ================ =================
-HLSL Texture Type          Dim    Depth Arrayed MS Sampled  Image Format       Capability
-====================   ========== ===== ======= == ======= ================ =================
-``Texture1D``          ``1D``      0       0    0    1     ``Unknown``
-``Texture2D``          ``2D``      0       0    0    1     ``Unknown``
-``Texture3D``          ``3D``      0       0    0    1     ``Unknown``
-``TextureCube``        ``Cube``    0       0    0    1     ``Unknown``
-``Texture1DArray``     ``1D``      0       1    0    1     ``Unknown``
-``Texture2DArray``     ``2D``      0       1    0    1     ``Unknown``
-``TextureCubeArray``   ``3D``      0       1    0    1     ``Unknown``
-``Buffer<T>``          ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
-``RWBuffer<T>``        ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
-====================   ========== ===== ======= == ======= ================ =================
+====================    ========== ===== ======= == ======= ================ =================
+HLSL Texture Type           Dim    Depth Arrayed MS Sampled  Image Format       Capability
+====================    ========== ===== ======= == ======= ================ =================
+``Texture1D``           ``1D``      0       0    0    1     ``Unknown``
+``Texture2D``           ``2D``      0       0    0    1     ``Unknown``
+``Texture3D``           ``3D``      0       0    0    1     ``Unknown``
+``TextureCube``         ``Cube``    0       0    0    1     ``Unknown``
+``Texture1DArray``      ``1D``      0       1    0    1     ``Unknown``
+``Texture2DArray``      ``2D``      0       1    0    1     ``Unknown``
+``TextureCubeArray``    ``3D``      0       1    0    1     ``Unknown``
+``Buffer<T>``           ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
+``RWBuffer<T>``         ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
+``RWTexture1D<T>``      ``1D``      0       0    0    2     Depends on ``T``
+``RWTexture2D<T>``      ``2D``      0       0    0    2     Depends on ``T``
+``RWTexture3D<T>``      ``3D``      0       0    0    2     Depends on ``T``
+``RWTexture1DArray<T>`` ``1D``      0       1    0    2     Depends on ``T``
+``RWTexture2DArray<T>`` ``2D``      0       1    0    2     Depends on ``T``
+====================    ========== ===== ======= == ======= ================ =================
 
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
