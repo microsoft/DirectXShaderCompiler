@@ -2327,8 +2327,8 @@ bool SPIRVEmitter::isBufferIndexing(const CXXOperatorCallExpr *indexExpr,
     return false;
   const Expr *object = indexExpr->getArg(0);
   const auto objectType = object->getType();
-  if (typeTranslator.isBuffer(objectType) ||
-      typeTranslator.isRWBuffer(objectType)) {
+  if (TypeTranslator::isBuffer(objectType) ||
+      TypeTranslator::isRWBuffer(objectType)) {
     if (base)
       *base = object;
     if (index)

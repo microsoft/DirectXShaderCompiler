@@ -681,6 +681,8 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
     requireCapability(spv::Capability::Sampled1D);
   if (dim == spv::Dim::Buffer)
     requireCapability(spv::Capability::SampledBuffer);
+  if (isArray && ms)
+    requireCapability(spv::Capability::ImageMSArray);
 
   // Skip constructing the debug name if we have already done it before.
   if (!isRegistered) {
