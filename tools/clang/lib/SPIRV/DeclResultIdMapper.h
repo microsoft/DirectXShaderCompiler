@@ -177,9 +177,11 @@ public:
   struct DeclSpirvInfo {
     uint32_t resultId;
     spv::StorageClass storageClass;
+    /// Layout rule for this decl.
+    LayoutRule layoutRule = LayoutRule::Void;
     /// Value >= 0 means that this decl is a VarDecl inside a cbuffer/tbuffer
     /// and this is the index; value < 0 means this is just a standalone decl.
-    int indexInCTBuffer;
+    int indexInCTBuffer = -1;
   };
 
   /// \brief Returns the SPIR-V information for the given decl.
@@ -196,9 +198,12 @@ public:
   /// returns a newly assigned <result-id> for it.
   uint32_t getOrRegisterFnResultId(const FunctionDecl *fn);
 
-  /// Returns the storage class for the given expression. The expression is
-  /// expected to be an lvalue. Otherwise this method may panic.
-  spv::StorageClass resolveStorageClass(const Expr *expr) const;
+  /// Returns the storage class for the given expression. If rule is not
+  /// nullptr, also writes the layout rule into it.
+  /// The expression is expected to be an lvalue. Otherwise this method may
+  /// panic.
+  spv::StorageClass resolveStorageInfo(const Expr *expr,
+                                       LayoutRule *rule = nullptr) const;
   spv::StorageClass resolveStorageClass(const Decl *decl) const;
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this

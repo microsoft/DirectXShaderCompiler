@@ -371,10 +371,8 @@ uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
 
 uint32_t SPIRVEmitter::loadIfGLValue(const Expr *expr) {
   const uint32_t result = doExpr(expr);
-  if (expr->isGLValue()) {
-    const uint32_t baseTyId = typeTranslator.translateType(expr->getType());
-    return theBuilder.createLoad(baseTyId, result);
-  }
+  if (expr->isGLValue())
+    return theBuilder.createLoad(getType(expr), result);
 
   return result;
 }
@@ -516,7 +514,10 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
           toInitGloalVars.push_back(decl);
         }
       } else {
-        theBuilder.createStore(varId, doExpr(decl->getInit()));
+        LayoutRule rhsLayout = LayoutRule::Void;
+        (void)declIdMapper.resolveStorageInfo(decl->getInit(), &rhsLayout);
+        storeValue(varId, loadIfGLValue(decl->getInit()), decl->getType(),
+                   spv::StorageClass::Function, LayoutRule::Void, rhsLayout);
       }
     }
   } else {
@@ -1040,9 +1041,10 @@ uint32_t SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const auto *base = collectArrayStructIndices(expr, &indices);
 
-  const uint32_t ptrType =
-      theBuilder.getPointerType(typeTranslator.translateType(expr->getType()),
-                                declIdMapper.resolveStorageClass(base));
+  LayoutRule rule = LayoutRule::Void;
+  const auto sc = declIdMapper.resolveStorageInfo(base, &rule);
+  const uint32_t ptrType = theBuilder.getPointerType(
+      typeTranslator.translateType(expr->getType(), rule), sc);
 
   return theBuilder.createAccessChain(ptrType, doExpr(base), indices);
 }
@@ -1052,8 +1054,12 @@ uint32_t SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
 
   // Handle assignment first since we need to evaluate rhs before lhs.
   // For other binary operations, we need to evaluate lhs before rhs.
-  if (opcode == BO_Assign)
-    return processAssignment(expr->getLHS(), doExpr(expr->getRHS()), false);
+  if (opcode == BO_Assign) {
+    LayoutRule rhsLayout = LayoutRule::Void;
+    (void)declIdMapper.resolveStorageInfo(expr->getRHS(), &rhsLayout);
+    return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
+                             false, /*lhsPtr*/ 0, rhsLayout);
+  }
 
   // Try to optimize floatMxN * float and floatN * float case
   if (opcode == BO_Mul) {
@@ -1165,8 +1171,7 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
 
     // Using lvalue as rvalue means we need to OpLoad the contents from
     // the parameter/variable first.
-    const uint32_t resultType = typeTranslator.translateType(toType);
-    return theBuilder.createLoad(resultType, fromValue);
+    return theBuilder.createLoad(getType(expr), fromValue);
   }
   case CastKind::CK_NoOp:
     return doExpr(subExpr);
@@ -1433,7 +1438,7 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
   // the address.
   const uint32_t uintTypeId = theBuilder.getUint32Type();
   const uint32_t ptrType = theBuilder.getPointerType(
-      uintTypeId, declIdMapper.resolveStorageClass(object));
+      uintTypeId, declIdMapper.resolveStorageInfo(object));
   const uint32_t constUint0 = theBuilder.getConstantUint32(0);
 
   if (doStore) {
@@ -1495,7 +1500,7 @@ SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
       hlsl::GetHLSLResourceResultType(buffer->getType());
   const uint32_t ptrType = theBuilder.getPointerType(
       typeTranslator.translateType(structType, LayoutRule::GLSLStd430),
-      declIdMapper.resolveStorageClass(buffer));
+      declIdMapper.resolveStorageInfo(buffer));
 
   const uint32_t zero = theBuilder.getConstantInt32(0);
   const uint32_t index = doExpr(expr->getArg(0));
@@ -1724,9 +1729,10 @@ uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
     base = tempVar;
   }
 
-  const uint32_t ptrType =
-      theBuilder.getPointerType(typeTranslator.translateType(expr->getType()),
-                                declIdMapper.resolveStorageClass(baseExpr));
+  LayoutRule rule = LayoutRule::Void;
+  const auto sc = declIdMapper.resolveStorageInfo(baseExpr, &rule);
+  const uint32_t ptrType = theBuilder.getPointerType(
+      typeTranslator.translateType(expr->getType(), rule), sc);
 
   return theBuilder.createAccessChain(ptrType, base, indices);
 }
@@ -1765,7 +1771,7 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
         indices[i] = theBuilder.getConstantInt32(indices[i]);
 
       const uint32_t ptrType = theBuilder.getPointerType(
-          elemType, declIdMapper.resolveStorageClass(baseExpr));
+          elemType, declIdMapper.resolveStorageInfo(baseExpr));
       if (!indices.empty()) {
         // Load the element via access chain
         elem = theBuilder.createAccessChain(ptrType, base, indices);
@@ -1824,7 +1830,7 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
     // v.xyyz to turn a lvalue v into rvalue.
     if (expr->getBase()->isGLValue()) { // E.g., v.x;
       const uint32_t ptrType = theBuilder.getPointerType(
-          type, declIdMapper.resolveStorageClass(baseExpr));
+          type, declIdMapper.resolveStorageInfo(baseExpr));
       const uint32_t index = theBuilder.getConstantInt32(accessor.Swz0);
       // We need a lvalue here. Do not try to load.
       return theBuilder.createAccessChain(ptrType, doExpr(baseExpr), {index});
@@ -1875,9 +1881,10 @@ uint32_t SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const Expr *base = collectArrayStructIndices(expr, &indices);
 
-  const uint32_t ptrType =
-      theBuilder.getPointerType(typeTranslator.translateType(expr->getType()),
-                                declIdMapper.resolveStorageClass(base));
+  LayoutRule rule = LayoutRule::Void;
+  const auto sc = declIdMapper.resolveStorageInfo(base, &rule);
+  const uint32_t ptrType = theBuilder.getPointerType(
+      typeTranslator.translateType(expr->getType(), rule), sc);
 
   return theBuilder.createAccessChain(ptrType, doExpr(base), indices);
 }
@@ -1942,6 +1949,12 @@ uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
       << expr->getOpcodeStr(opcode);
   expr->dump();
   return 0;
+}
+
+uint32_t SPIRVEmitter::getType(const Expr *expr) {
+  LayoutRule rule = LayoutRule::Void;
+  (void)declIdMapper.resolveStorageInfo(expr, &rule);
+  return typeTranslator.translateType(expr->getType(), rule);
 }
 
 spv::Op SPIRVEmitter::translateOp(BinaryOperator::Opcode op, QualType type) {
@@ -2066,8 +2079,9 @@ case BO_##kind : {                                                             \
 }
 
 uint32_t SPIRVEmitter::processAssignment(const Expr *lhs, const uint32_t rhs,
-                                         bool isCompoundAssignment,
-                                         uint32_t lhsPtr) {
+                                         const bool isCompoundAssignment,
+                                         uint32_t lhsPtr,
+                                         LayoutRule rhsLayout) {
   // Assigning to vector swizzling should be handled differently.
   if (const uint32_t result = tryToAssignToVectorElements(lhs, rhs)) {
     return result;
@@ -2082,13 +2096,75 @@ uint32_t SPIRVEmitter::processAssignment(const Expr *lhs, const uint32_t rhs,
   }
 
   // Normal assignment procedure
-  if (lhsPtr == 0)
+  if (!lhsPtr)
     lhsPtr = doExpr(lhs);
 
-  theBuilder.createStore(lhsPtr, rhs);
+  LayoutRule lhsLayout = LayoutRule::Void;
+  const auto lhsSc = declIdMapper.resolveStorageInfo(lhs, &lhsLayout);
+  storeValue(lhsPtr, rhs, lhs->getType(), lhsSc, lhsLayout, rhsLayout);
+
   // Plain assignment returns a rvalue, while compound assignment returns
   // lvalue.
   return isCompoundAssignment ? lhsPtr : rhs;
+}
+
+void SPIRVEmitter::storeValue(const uint32_t lhsPtr, const uint32_t rhsVal,
+                              const QualType valType,
+                              const spv::StorageClass lhsSc,
+                              const LayoutRule lhsLayout,
+                              const LayoutRule rhsLayout) {
+  // If lhs and rhs has the same memory layout, we should be safe to load
+  // from rhs and directly store into lhs and avoid decomposing rhs.
+  // TODO: is this optimization always correct?
+  if (lhsLayout == rhsLayout || typeTranslator.isScalarType(valType) ||
+      typeTranslator.isVectorType(valType) ||
+      typeTranslator.isMxNMatrix(valType)) {
+    theBuilder.createStore(lhsPtr, rhsVal);
+  } else if (const auto *recordType = valType->getAs<RecordType>()) {
+    uint32_t index = 0;
+    for (const auto *decl : recordType->getDecl()->decls()) {
+      // Implicit generated struct declarations should be ignored.
+      if (isa<CXXRecordDecl>(decl) && decl->isImplicit())
+        continue;
+
+      const auto *field = cast<FieldDecl>(decl);
+      assert(field);
+
+      const auto subRhsValType =
+          typeTranslator.translateType(field->getType(), rhsLayout);
+      const auto subRhsVal =
+          theBuilder.createCompositeExtract(subRhsValType, rhsVal, {index});
+      const auto subLhsPtrType = theBuilder.getPointerType(
+          typeTranslator.translateType(field->getType(), lhsLayout), lhsSc);
+      const auto subLhsPtr = theBuilder.createAccessChain(
+          subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(index)});
+
+      storeValue(subLhsPtr, subRhsVal, field->getType(), lhsSc, lhsLayout,
+                 rhsLayout);
+      ++index;
+    }
+  } else if (const auto *arrayType =
+                 astContext.getAsConstantArrayType(valType)) {
+    const auto elemType = arrayType->getElementType();
+    // TODO: handle extra large array size?
+    const auto size =
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+
+    for (uint32_t i = 0; i < size; ++i) {
+      const auto subRhsValType =
+          typeTranslator.translateType(elemType, rhsLayout);
+      const auto subRhsVal =
+          theBuilder.createCompositeExtract(subRhsValType, rhsVal, {i});
+      const auto subLhsPtrType = theBuilder.getPointerType(
+          typeTranslator.translateType(elemType, lhsLayout), lhsSc);
+      const auto subLhsPtr = theBuilder.createAccessChain(
+          subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(i)});
+
+      storeValue(subLhsPtr, subRhsVal, elemType, lhsSc, lhsLayout, rhsLayout);
+    }
+  } else {
+    emitError("storing value of type %0 unimplemented") << valType;
+  }
 }
 
 uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
@@ -2526,8 +2602,8 @@ uint32_t SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
 }
 
 uint32_t SPIRVEmitter::tryToAssignToRWBuffer(const Expr *lhs, uint32_t rhs) {
-  const Expr* baseExpr = nullptr;
-  const Expr* indexExpr = nullptr;
+  const Expr *baseExpr = nullptr;
+  const Expr *indexExpr = nullptr;
   if (isBufferIndexing(dyn_cast<CXXOperatorCallExpr>(lhs), &baseExpr,
                        &indexExpr)) {
     const uint32_t locId = doExpr(indexExpr);
@@ -2581,7 +2657,7 @@ uint32_t SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
       rhsElem = theBuilder.createCompositeExtract(elemTypeId, rhs, {i});
 
     const uint32_t ptrType = theBuilder.getPointerType(
-        elemTypeId, declIdMapper.resolveStorageClass(baseMat));
+        elemTypeId, declIdMapper.resolveStorageInfo(baseMat));
 
     // If the lhs is actually a matrix of size 1x1, we don't need the access
     // chain. base is already the dest pointer.
