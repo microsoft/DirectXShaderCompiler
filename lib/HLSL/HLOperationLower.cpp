@@ -5671,7 +5671,7 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
     resultSize = resultType->getVectorNumElements();
   DXASSERT(resultSize <= 16, "up to 4x4 elements in vector or matrix");
   _Analysis_assume_(resultSize <= 16);
-  Value *idxList[16];
+  std::vector<Value *> idxList(resultSize);
 
   switch (subOp) {
   case HLSubscriptOpcode::ColMatSubscript:
