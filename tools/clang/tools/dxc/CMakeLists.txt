@@ -21,6 +21,10 @@ target_link_libraries(dxc
   dxcompiler
   )
 
+if(ENABLE_SPIRV_CODEGEN)
+  target_link_libraries(dxc SPIRV-Tools)
+endif()
+
 set_target_properties(dxc PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 hlsl_update_product_ver("dxc")
 
