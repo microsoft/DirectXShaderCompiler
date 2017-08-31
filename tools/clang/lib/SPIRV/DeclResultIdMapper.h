@@ -198,6 +198,10 @@ public:
   /// returns a newly assigned <result-id> for it.
   uint32_t getOrRegisterFnResultId(const FunctionDecl *fn);
 
+  /// \brief Returns the associated counter's <result-id> for the given
+  /// {Append|Consume}StructuredBuffer variable.
+  uint32_t getCounterId(const VarDecl *decl);
+
   /// Returns the storage class for the given expression. If rule is not
   /// nullptr, also writes the layout rule into it.
   /// The expression is expected to be an lvalue. Otherwise this method may
@@ -290,6 +294,8 @@ private:
   llvm::SmallVector<StageVar, 8> stageVars;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
+  /// Mapping from {Append|Consume}StructuredBuffers to their counter variables
+  llvm::DenseMap<const NamedDecl *, uint32_t> counterVars;
 };
 
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,

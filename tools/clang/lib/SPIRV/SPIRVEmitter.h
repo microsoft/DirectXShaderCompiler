@@ -106,6 +106,9 @@ private:
   /// the type with correct layout decorations.
   uint32_t getType(const Expr *expr);
 
+  /// Returns the proper pointer type for the given expr. Similar to the above.
+  uint32_t getPointerType(const Expr *expr);
+
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type);
@@ -440,6 +443,11 @@ private:
   /// \brief Generates an OpAccessChain instruction for the given
   /// (RW)StructuredBuffer.Load() method call.
   uint32_t processStructuredBufferLoad(const CXXMemberCallExpr *expr);
+
+  /// \brief Generates SPIR-V instructions for the .Append()/.Consume() call on
+  /// the given {Append|Consume}StructuredBuffer. Returns the <result-id> of
+  /// the loaded value for .Consume; returns zero for .Append().
+  uint32_t processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
 
 private:
   /// \brief Wrapper method to create an error message and report it
