@@ -1528,16 +1528,15 @@ SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
   uint32_t index = 0;
   if (isAppend) {
     // For append, we add one to the counter.
-    index = theBuilder.createAtomicIAdd(u32Type, counterPtr, one, zero, one);
+    index = theBuilder.createAtomicIAddSub(u32Type, counterPtr, one, zero, one,
+                                           /*isAdd=*/true);
   } else {
     // For consume, we substract one from the counter. Note that OpAtomicIAdd
     // returns the value before the addition; so we need to do substraction
     // again with OpAtomicIAdd's return value.
-    const uint32_t negOne = theBuilder.getConstantInt32(-1);
-    const auto prevIndex =
-        theBuilder.createAtomicIAdd(u32Type, counterPtr, one, zero, negOne);
-    index =
-        theBuilder.createBinaryOp(spv::Op::OpIAdd, u32Type, prevIndex, negOne);
+    const auto prevIndex = theBuilder.createAtomicIAddSub(
+        u32Type, counterPtr, one, zero, one, /*isAdd=*/false);
+    index = theBuilder.createBinaryOp(spv::Op::OpISub, u32Type, prevIndex, one);
   }
 
   LayoutRule lhsLayout = LayoutRule::Void;

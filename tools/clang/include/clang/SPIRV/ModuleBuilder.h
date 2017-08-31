@@ -144,11 +144,11 @@ public:
   uint32_t createBinaryOp(spv::Op op, uint32_t resultType, uint32_t lhs,
                           uint32_t rhs);
 
-  /// \brief Creates an OpAtomicIAdd instruction with the given SPIR-V opcode.
-  /// Returns the <result-id> for the result.
-  uint32_t createAtomicIAdd(uint32_t resultType, uint32_t orignalValuePtr,
-                            uint32_t scopeId, uint32_t memorySemanticsId,
-                            uint32_t valueToAdd);
+  /// \brief Creates an OpAtomicIAdd or OpAtomicISub instruction with the given
+  /// parameters. Returns the <result-id> for the result.
+  uint32_t createAtomicIAddSub(uint32_t resultType, uint32_t orignalValuePtr,
+                               uint32_t scopeId, uint32_t memorySemanticsId,
+                               uint32_t valueToOp, bool isAdd);
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
