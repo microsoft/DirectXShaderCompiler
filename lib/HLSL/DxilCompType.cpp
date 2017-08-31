@@ -44,22 +44,28 @@ CompType::Kind CompType::GetKind() const {
 
 uint8_t CompType::GetSize() const {
   switch (m_Kind) {
-  case Kind::I1:        return 1;
+  case Kind::Invalid:
+    return 0;
+  case Kind::I1:
+    return 1;
   case Kind::SNormF16:
   case Kind::UNormF16:
   case Kind::I16:
   case Kind::F16:
-  case Kind::U16:       return 16;
+  case Kind::U16:
+    return 16;
   case Kind::SNormF32:
   case Kind::UNormF32:
   case Kind::I32:
   case Kind::U32:
-  case Kind::F32:       return 32;
+  case Kind::F32:
+    return 32;
   case Kind::I64:
   case Kind::U64:
   case Kind::SNormF64:
   case Kind::UNormF64:
-  case Kind::F64:       return 64;
+  case Kind::F64:
+    return 64;
   default:
     DXASSERT(false, "invalid type kind");
   }

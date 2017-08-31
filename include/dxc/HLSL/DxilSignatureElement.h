@@ -39,7 +39,7 @@ public:
   void Initialize(llvm::StringRef Name, const CompType &ElementType, const InterpolationMode &InterpMode, 
                   unsigned Rows, unsigned Cols, 
                   int StartRow = Semantic::kUndefinedRow, int StartCol = Semantic::kUndefinedCol,
-                  unsigned ID = kUndefinedID, const std::vector<unsigned> &IndexVector = std::vector<unsigned>(), bool useStrictPrecision);
+                  unsigned ID = kUndefinedID, const std::vector<unsigned> &IndexVector = std::vector<unsigned>());
 
   unsigned GetID() const;
   void SetID(unsigned ID);
@@ -98,7 +98,6 @@ protected:
   llvm::StringRef m_SemanticName;
   unsigned m_SemanticStartIndex;
   CompType m_CompType;
-  bool m_UseStrictPrecision;
   InterpolationMode m_InterpMode;
   std::vector<unsigned> m_SemanticIndex;
   unsigned m_Rows;
@@ -111,8 +110,10 @@ protected:
 
 class DxilPackElement : public DxilSignatureAllocator::PackElement {
   DxilSignatureElement *m_pSE;
+  bool m_bUseMinPrecision;
+
 public:
-  DxilPackElement(DxilSignatureElement *pSE) : m_pSE(pSE) {}
+  DxilPackElement(DxilSignatureElement *pSE, bool useMinPrecision) : m_pSE(pSE), m_bUseMinPrecision(useMinPrecision) {}
   __override ~DxilPackElement() {}
   __override uint32_t GetID() const { return m_pSE->GetID(); }
   __override DXIL::SemanticKind GetKind() const { return m_pSE->GetKind(); }
@@ -120,10 +121,10 @@ public:
   __override DXIL::SemanticInterpretationKind GetInterpretation() const { return m_pSE->GetInterpretation(); }
   __override DXIL::SignatureDataWidth GetDataWidth() const {
     uint8_t size = m_pSE->GetCompType().GetSize();
-    if (size == 16) {
+    if (!m_bUseMinPrecision && size == 16) {
       return DXIL::SignatureDataWidth::SIXTEEN;
     }
-    else if (size == 32) {
+    else if (size == 1 || size == 16 || size == 32) { // bool, min precision, or 32 bit types map to 32 bit size.
       return DXIL::SignatureDataWidth::THIRTYTWO;
     }
     return DXIL::SignatureDataWidth::UNDEFINED;

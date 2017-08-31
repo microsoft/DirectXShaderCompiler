@@ -3437,7 +3437,7 @@ static void ValidateSignatureOverlap(
     break;
   }
 
-  DxilPackElement PE(&E);
+  DxilPackElement PE(&E, allocator.UseMinPrecision());
   DxilSignatureAllocator::ConflictType conflict = allocator.DetectRowConflict(&PE, E.GetStartRow());
   if (conflict == DxilSignatureAllocator::kNoConflict || conflict == DxilSignatureAllocator::kInsufficientFreeComponents)
     conflict = allocator.DetectColConflict(&PE, E.GetStartRow(), E.GetStartCol());
@@ -3503,7 +3503,11 @@ static void ValidateSignatureOverlap(
 
 static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
                               unsigned maxScalars) {
-  DxilSignatureAllocator allocator[DXIL::kNumOutputStreams] = {32, 32, 32, 32};
+  DxilSignatureAllocator allocator[DXIL::kNumOutputStreams] = {
+      {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()},
+      {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()},
+      {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()},
+      {32, !ValCtx.DxilMod.m_ShaderFlags.GetUseNativeLowPrecision()}};
   unordered_set<Semantic::Kind> semanticUsageSet[DXIL::kNumOutputStreams];
   StringMap<unordered_set<unsigned>> semanticIndexMap[DXIL::kNumOutputStreams];
   unordered_set<unsigned> clipcullRowSet[DXIL::kNumOutputStreams];

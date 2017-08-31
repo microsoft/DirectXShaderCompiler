@@ -121,7 +121,7 @@ public:
     void PlaceElement(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned col, unsigned width, DXIL::SignatureDataWidth dataWidth);
   };
 
-  DxilSignatureAllocator(unsigned numRegisters);
+  DxilSignatureAllocator(unsigned numRegisters, bool useMinPrecision);
 
   bool GetIgnoreIndexing() const { return m_bIgnoreIndexing; }
   void SetIgnoreIndexing(bool ignoreIndexing) { m_bIgnoreIndexing  = ignoreIndexing; }
@@ -141,9 +141,12 @@ public:
   // Pack in a prefix-stable way - appended elements do not affect positions of prior elements.
   unsigned PackPrefixStable(std::vector<PackElement*> elements, unsigned startRow, unsigned numRows);
 
+  bool UseMinPrecision() const { return m_bUseMinPrecision; }
+
 protected:
   std::vector<PackedRegister> m_Registers;
   bool m_bIgnoreIndexing;
+  bool m_bUseMinPrecision;
 };
 
 

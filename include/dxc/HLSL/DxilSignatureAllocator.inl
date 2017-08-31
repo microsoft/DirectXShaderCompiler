@@ -143,8 +143,8 @@ void DxilSignatureAllocator::PackedRegister::PlaceElement(
   }
 }
 
-DxilSignatureAllocator::DxilSignatureAllocator(unsigned numRegisters)
-  : m_bIgnoreIndexing(false) {
+DxilSignatureAllocator::DxilSignatureAllocator(unsigned numRegisters, bool useMinPrecision)
+  : m_bIgnoreIndexing(false), m_bUseMinPrecision(useMinPrecision) {
   m_Registers.resize(numRegisters);
 }
 
@@ -335,7 +335,7 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
   // ==========
   // Preallocate clip/cull elements
   std::sort(clipcullElements.begin(), clipcullElements.end(), CmpElementsLess);
-  DxilSignatureAllocator clipcullAllocator(2);
+  DxilSignatureAllocator clipcullAllocator(2, m_bUseMinPrecision);
   unsigned clipcullRegUsed = clipcullAllocator.PackGreedy(clipcullElements, 0, 2);
   unsigned clipcullComponentsByRow[2] = {0, 0};
   for (auto &SE : clipcullElements) {
@@ -443,7 +443,7 @@ unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<PackElement*> elem
   // Special handling for prefix-stable clip/cull arguments
   // - basically, do not pack with anything else to maximize chance to pack into two register limit
   unsigned clipcullRegUsed = 0;
-  DxilSignatureAllocator clipcullAllocator(2);
+  DxilSignatureAllocator clipcullAllocator(2, m_bUseMinPrecision);
   DummyElement clipcullTempElements[2];
 
   for (auto &SE : elements) {

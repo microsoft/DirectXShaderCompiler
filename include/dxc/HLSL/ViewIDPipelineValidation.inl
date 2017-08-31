@@ -125,7 +125,7 @@ static bool CheckFit(ElementVec &elements) {
   packElements.reserve(elements.size());
   for (auto &E : elements)
     packElements.push_back(&E);
-  DxilSignatureAllocator alloc(32);
+  DxilSignatureAllocator alloc(32, true);
   alloc.SetIgnoreIndexing(true);
   alloc.PackOptimized(packElements, 0, 32);
   for (auto &E : elements) {
