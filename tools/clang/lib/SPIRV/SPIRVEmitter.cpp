@@ -1343,7 +1343,7 @@ uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
   assert(TypeTranslator::isBuffer(type) || TypeTranslator::isRWBuffer(type) ||
-         TypeTranslator::isTexture(type));
+         TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type));
   const bool doFetch =
       TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
   const uint32_t objectId = loadIfGLValue(object);
@@ -1379,13 +1379,21 @@ uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
       elemCount == 1 ? elemTypeId
                      : theBuilder.getVecType(elemTypeId, elemCount);
 
-  // Always need to fetch 4 elements.
+  // OpImageFetch can only fetch a vector of 4 elements. OpImageRead can load a
+  // vector of any size.
   const uint32_t fetchTypeId = theBuilder.getVecType(elemTypeId, 4u);
   const uint32_t texel = theBuilder.createImageFetchOrRead(
-      doFetch, fetchTypeId, objectId, coordinate, lod, constOffset, varOffset);
+      doFetch, doFetch ? fetchTypeId : resultTypeId, objectId, coordinate, lod,
+      constOffset, varOffset);
 
-  // For the case of buffer elements being vec4, there's no need for extraction
-  // and composition.
+  // OpImageRead can load a vector of any size. So we can return the result of
+  // the instruction directly.
+  if (!doFetch) {
+    return texel;
+  }
+
+  // OpImageFetch can only fetch vec4. If the result type is a vec1, vec2, or
+  // vec3, some extra processing (extraction) is required.
   switch (elemCount) {
   case 1:
     return theBuilder.createCompositeExtract(elemTypeId, texel, {0});
@@ -1717,7 +1725,8 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
         return processStructuredBufferLoad(expr);
 
       if (TypeTranslator::isBuffer(objectType) ||
-          TypeTranslator::isRWBuffer(objectType))
+          TypeTranslator::isRWBuffer(objectType) ||
+          TypeTranslator::isRWTexture(objectType))
         return processBufferTextureLoad(object, location);
 
       if (TypeTranslator::isTexture(objectType)) {
@@ -2391,8 +2400,8 @@ bool SPIRVEmitter::isBufferIndexing(const CXXOperatorCallExpr *indexExpr,
     return false;
   const Expr *object = indexExpr->getArg(0);
   const auto objectType = object->getType();
-  if (typeTranslator.isBuffer(objectType) ||
-      typeTranslator.isRWBuffer(objectType)) {
+  if (TypeTranslator::isBuffer(objectType) ||
+      TypeTranslator::isRWBuffer(objectType)) {
     if (base)
       *base = object;
     if (index)

@@ -1,5 +1,7 @@
 // Run: %dxc -T vs_6_0 -E main
 
+// CHECK: OpCapability Image1D
+
 // CHECK: %type_1d_image = OpTypeImage %int 1D 0 0 0 2 R32i
 // CHECK: %_ptr_UniformConstant_type_1d_image = OpTypePointer UniformConstant %type_1d_image
 // CHECK: %type_2d_image = OpTypeImage %uint 2D 0 0 0 2 Rg32ui
