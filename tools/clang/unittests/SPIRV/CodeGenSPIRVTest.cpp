@@ -384,6 +384,9 @@ TEST_F(FileTest, ByteAddressBufferStore) {
 TEST_F(FileTest, BufferLoad) { runFileTest("buffer.load.hlsl"); }
 TEST_F(FileTest, BufferWrite) { runFileTest("buffer.write.hlsl"); }
 
+// For RWTexture methods
+TEST_F(FileTest, RWTextureLoad) { runFileTest("rwtexture.load.hlsl"); }
+
 // For intrinsic functions
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }
 TEST_F(FileTest, IntrinsicsMul) { runFileTest("intrinsics.mul.hlsl"); }

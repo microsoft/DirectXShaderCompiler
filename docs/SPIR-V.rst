@@ -240,6 +240,8 @@ HLSL Texture Type           Dim    Depth Arrayed MS Sampled  Image Format       
 ``TextureCube``         ``Cube``    0       0    0    1     ``Unknown``
 ``Texture1DArray``      ``1D``      0       1    0    1     ``Unknown``
 ``Texture2DArray``      ``2D``      0       1    0    1     ``Unknown``
+``Texture2DMS``         ``2D``      0       0    1    1     ``Unknown``
+``Texture2DMSArray``    ``2D``      0       1    1    1     ``Unknown``      ``ImageMSArray``
 ``TextureCubeArray``    ``3D``      0       1    0    1     ``Unknown``
 ``Buffer<T>``           ``Buffer``  0       0    0    1     Depends on ``T`` ``SampledBuffer``
 ``RWBuffer<T>``         ``Buffer``  0       0    0    2     Depends on ``T`` ``SampledBuffer``
