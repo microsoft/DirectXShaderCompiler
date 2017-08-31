@@ -119,17 +119,22 @@ uint32_t DeclResultIdMapper::createFileVar(uint32_t varType, const VarDecl *var,
 uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
   auto rule = LayoutRule::Void;
+  bool isACSBuffer = false; // Whether its {Append|Consume}StructuredBuffer
 
   // TODO: Figure out other cases where the storage class should be Uniform.
   if (auto *t = var->getType()->getAs<RecordType>()) {
     const llvm::StringRef typeName = t->getDecl()->getName();
     if (typeName == "StructuredBuffer" || typeName == "RWStructuredBuffer" ||
-        typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer") {
+        typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer" ||
+        typeName == "AppendStructuredBuffer" ||
+        typeName == "ConsumeStructuredBuffer") {
       // These types are all translated into OpTypeStruct with BufferBlock
       // decoration. They should follow standard storage buffer layout,
       // which GLSL std430 rules statisfies.
       storageClass = spv::StorageClass::Uniform;
       rule = LayoutRule::GLSLStd430;
+      isACSBuffer =
+          typeName.startswith("Append") || typeName.startswith("Consume");
     }
   }
 
@@ -139,6 +144,18 @@ uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   astDecls[var] = {id, storageClass, rule};
   resourceVars.emplace_back(id, getResourceBinding(var),
                             var->getAttr<VKBindingAttr>());
+
+  if (isACSBuffer) {
+    // For {Append|Consume}StructuredBuffer, we need to create another variable
+    // for its associated counter.
+    const uint32_t counterType = typeTranslator.getACSBufferCounter();
+    const std::string counterName = "counter.var." + var->getName().str();
+    const uint32_t counterId =
+        theBuilder.addModuleVar(counterType, storageClass, counterName);
+
+    resourceVars.emplace_back(counterId, nullptr, nullptr);
+    counterVars[var] = counterId;
+  }
 
   return id;
 }
@@ -238,6 +255,13 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
   astDecls[fn] = {id, spv::StorageClass::Function};
 
   return id;
+}
+
+uint32_t DeclResultIdMapper::getCounterId(const VarDecl *decl) {
+  const auto counter = counterVars.find(decl);
+  if (counter != counterVars.end())
+    return counter->second;
+  return 0;
 }
 
 namespace {

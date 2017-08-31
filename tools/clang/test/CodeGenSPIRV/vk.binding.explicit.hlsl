@@ -46,6 +46,9 @@ struct S {
 [[vk::binding(2, 3)]]
 RWStructuredBuffer<S> sbuffer2 : register(u6);
 
+// TODO: support [[vk::binding()]] on AppendStructuredBuffer
+// TODO: support [[vk::binding()]] on ConsumeStructuredBuffer
+
 float4 main() : SV_Target {
     return 1.0;
 }
