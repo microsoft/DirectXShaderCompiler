@@ -148,6 +148,7 @@ enum class ValidationRule : unsigned {
   MetaSemanticShouldBeAllocated, // Semantic should have a valid packing location
   MetaSemanticShouldNotBeAllocated, // Semantic should have a packing location of -1
   MetaSignatureCompType, // signature %0 specifies unrecognized or invalid component type
+  MetaSignatureDataWidth, // Data width must be identical for all elements packed into the same row.
   MetaSignatureIllegalComponentOrder, // Component ordering for packed elements must be: arbitrary < system value < system generated value
   MetaSignatureIndexConflict, // Only elements with compatible indexing rules may be packed together
   MetaSignatureOutOfRange, // Signature elements must fit within maximum signature size

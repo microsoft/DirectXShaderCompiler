@@ -85,6 +85,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaSignatureOutOfRange: return "signature element %0 at location (%1,%2) size (%3,%4) is out of range.";
     case hlsl::ValidationRule::MetaSignatureIndexConflict: return "signature element %0 at location (%1,%2) size (%3,%4) has an indexing conflict with another signature element packed into the same row.";
     case hlsl::ValidationRule::MetaSignatureIllegalComponentOrder: return "signature element %0 at location (%1,%2) size (%3,%4) violates component ordering rule (arb < sv < sgv).";
+    case hlsl::ValidationRule::MetaSignatureDataWidth: return "signature element %0 at location (%1, %2) size (%3, %4) has data width that differs from another element packed into the same row.";
     case hlsl::ValidationRule::MetaIntegerInterpMode: return "signature element %0 specifies invalid interpolation mode for integer component type.";
     case hlsl::ValidationRule::MetaInterpModeInOneRow: return "signature element %0 at location (%1,%2) size (%3,%4) has interpolation mode that differs from another element packed into the same row.";
     case hlsl::ValidationRule::MetaSemanticCompType: return "%0 must be %1";
@@ -3496,6 +3497,14 @@ static void ValidateSignatureOverlap(
                             std::to_string(E.GetRows()),
                             std::to_string(E.GetCols())});
     break;
+  case DxilSignatureAllocator::kConflictDataWidth:
+    ValCtx.EmitFormatError(ValidationRule::MetaSignatureDataWidth,
+                            {E.GetName(),
+                            std::to_string(E.GetStartRow()),
+                            std::to_string(E.GetStartCol()),
+                            std::to_string(E.GetRows()),
+                            std::to_string(E.GetCols())});
+    break;
   default:
     DXASSERT(false, "otherwise, unrecognized conflict type from DxilSignatureAllocator");
   }
@@ -3519,6 +3528,7 @@ static void ValidateSignature(ValidationContext &ValCtx, const DxilSignature &S,
 
   const InterpolationMode *prevBaryInterpMode = nullptr;
   unsigned numBarycentrics = 0;
+
 
   for (auto &E : S.GetElements()) {
     DXIL::SemanticKind semanticKind = E->GetSemantic()->GetKind();
