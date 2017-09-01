@@ -465,7 +465,7 @@ Type modifier
 
 [TODO]
 
-HLSL semantic and Vulkan ``Loation``
+HLSL semantic and Vulkan ``Location``
 ------------------------------------
 
 Direct3D uses HLSL "`semantics <https://msdn.microsoft.com/en-us/library/windows/desktop/bb509647(v=vs.85).aspx>`_"
