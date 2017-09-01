@@ -1536,6 +1536,18 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
   for (auto A : AllocaList)
     HLModule::MergeGepUse(A);
 
+  // Make sure big alloca split first.
+  // This will simplify memcpy check between part of big alloca and small
+  // alloca. Big alloca will be split to smaller piece first, when process the
+  // alloca, it will be alloca flattened from big alloca instead of a GEP of big
+  // alloca.
+  auto size_cmp = [&](AllocaInst *a0, AllocaInst *a1) -> bool {
+    return DL.getTypeAllocSize(a0->getAllocatedType()) >
+           DL.getTypeAllocSize(a1->getAllocatedType());
+  };
+
+  std::sort(AllocaList.begin(), AllocaList.end(), size_cmp);
+
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
 
   // Process the worklist
