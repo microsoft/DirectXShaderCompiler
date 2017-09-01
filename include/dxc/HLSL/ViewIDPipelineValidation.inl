@@ -125,6 +125,9 @@ static bool CheckFit(ElementVec &elements) {
   packElements.reserve(elements.size());
   for (auto &E : elements)
     packElements.push_back(&E);
+  // Since we are putting an upper limit of 4x32 registers regardless of actual element size,
+  // we can just have allocator to use the default behavior.
+  // This should be fixed if we enforce loose upper limit on total number of signature registers based on element size.
   DxilSignatureAllocator alloc(32, true);
   alloc.SetIgnoreIndexing(true);
   alloc.PackOptimized(packElements, 0, 32);
