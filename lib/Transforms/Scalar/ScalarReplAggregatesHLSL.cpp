@@ -1541,7 +1541,7 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
   // alloca. Big alloca will be split to smaller piece first, when process the
   // alloca, it will be alloca flattened from big alloca instead of a GEP of big
   // alloca.
-  auto size_cmp = [&](AllocaInst *a0, AllocaInst *a1) -> bool {
+  auto size_cmp = [&DL](const AllocaInst *a0, const AllocaInst *a1) -> bool {
     return DL.getTypeAllocSize(a0->getAllocatedType()) >
            DL.getTypeAllocSize(a1->getAllocatedType());
   };
