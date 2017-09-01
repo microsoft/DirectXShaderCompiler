@@ -150,12 +150,21 @@ private:
   bool isVectorShuffle(const Expr *expr);
 
   /// \brief Returns true if the given CXXOperatorCallExpr is indexing into a
-  /// Buffer/RWBuffer/RWTexture using operator[].
+  /// Buffer/RWBuffer/Texture/RWTexture using operator[].
   /// On success, writes the base buffer into *base if base is not nullptr, and
   /// writes the index into *index if index is not nullptr.
-  bool isBufferRWBufferRWTextureIndexing(const CXXOperatorCallExpr *,
-                                         const Expr **base = nullptr,
-                                         const Expr **index = nullptr);
+  bool isBufferTextureIndexing(const CXXOperatorCallExpr *,
+                               const Expr **base = nullptr,
+                               const Expr **index = nullptr);
+
+  /// \brief Returns true if the given CXXOperatorCallExpr is the .mips[][]
+  /// access into a Texture or .sample[][] access into Texture2DMS(Array). On
+  /// success, writes base texture object into *base if base is not nullptr,
+  /// writes the index into *index if index is not nullptr, and writes the mip
+  /// level (lod) to *lod if lod is not nullptr.
+  bool SPIRVEmitter::isTextureMipsSampleIndexing(
+      const CXXOperatorCallExpr *indexExpr, const Expr **base = nullptr,
+      const Expr **index = nullptr, const Expr **lod = nullptr);
 
   /// Condenses a sequence of HLSLVectorElementExpr starting from the given
   /// expr into one. Writes the original base into *basePtr and the condensed
@@ -436,9 +445,9 @@ private:
   /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
   /// the given location. The type of the loaded element matches the type in the
   /// declaration for the Buffer/Texture object.
-  uint32_t processBufferTextureLoad(const Expr *object, const Expr *address,
+  uint32_t processBufferTextureLoad(const Expr *object, uint32_t location,
                                     uint32_t constOffset = 0,
-                                    uint32_t varOffst = 0);
+                                    uint32_t varOffst = 0, uint32_t lod = 0);
 
   /// \brief Generates an OpAccessChain instruction for the given
   /// (RW)StructuredBuffer.Load() method call.

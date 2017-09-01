@@ -261,6 +261,15 @@ bool TypeTranslator::isTexture(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isTextureMS(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "Texture2DMS" || name == "Texture2DMSArray")
+      return true;
+  }
+  return false;
+}
+
 bool TypeTranslator::isVectorType(QualType type, QualType *elemType,
                                   uint32_t *elemCount) {
   bool isVec = false;
