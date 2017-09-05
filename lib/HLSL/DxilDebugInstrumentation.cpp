@@ -16,8 +16,11 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "llvm/support/FormattedStream.h"
+
+#include <sstream>
 
 using namespace llvm;
 using namespace hlsl;
@@ -175,10 +178,10 @@ private:
 
   uint64_t UAVSize = 1024*1024;
 
-  CallInst * IndexVariable;
-  Value * SelectionCriterion;
-  CallInst * HandleForUAV;
-  Value * InvocationId;
+  CallInst * IndexVariable = nullptr;
+  Value * SelectionCriterion = nullptr;
+  CallInst * HandleForUAV = nullptr;
+  Value * InvocationId = nullptr;
   struct BuilderContext
   {
     Module &M;
@@ -187,6 +190,7 @@ private:
     OP * HlslOP;
     IRBuilder<> & Builder;
   };
+
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -207,6 +211,7 @@ private:
   Value * reserveDebugEntrySpace(BuilderContext & BC, uint32_t SpaceInDwords);
   Value * incrementUAVIndex(BuilderContext & BC, Value * CurrentValue);
   void addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst);
+  void instrumentFunction(Function*, BuilderContext & BC);
 };
 
 void DxilDebugInstrumentation::applyOptions(PassOptions O)
@@ -359,7 +364,7 @@ Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, Syst
   Constant* One8Arg   = BC.HlslOP->GetI8Const(1);
   UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
-  // Convert SV_POSITION to UINT        
+  // Convert SV_POSITION to UINT    
   Value * XAsInt;
   Value * YAsInt;
   {
@@ -445,7 +450,7 @@ CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
 
 void DxilDebugInstrumentation::recordInputValue(BuilderContext & BC, CallInst * HandleForUAV, Value const * operand)
 {
-
+#if 0
   Type::TypeID ID = operand->getType()->getTypeID();
 
   switch (ID)
@@ -467,6 +472,7 @@ void DxilDebugInstrumentation::recordInputValue(BuilderContext & BC, CallInst * 
       case Type::TypeID::PointerTyID  : OutputDebugStringW(BC.M, "PointerTyID  "); break;
       case Type::TypeID::VectorTyID   : OutputDebugStringW(BC.M, "VectorTyID   "); break;
   }
+#endif
 }
 
 Value * DxilDebugInstrumentation::addInvocationSelectionProlog(BuilderContext & BC, SystemValueIndices SVIndices)
@@ -509,6 +515,11 @@ Value * DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, ui
     BC.HlslOP->GetU32Const(SpaceInDwords),        // i32); increment value
   }, "UAVIncResult");
 
+  if (InvocationId == nullptr)
+  {
+      InvocationId = PreviousValue;
+  }
+
   // *sizeof(DWORD), and leave 1 DWORD of space for the counter in the first dword of the UAV:
   auto MulBy4 = BC.Builder.CreateMul(PreviousValue, BC.HlslOP->GetU32Const(4));
   return incrementUAVIndex(BC, MulBy4);
@@ -542,24 +553,50 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * I
 
 void DxilDebugInstrumentation::addInvocationStartMarker(BuilderContext & BC)
 {
-  auto BuilderWasWorkingHere = BC.Builder.GetInsertPoint()->getNextNode();
+  //auto BuilderWasWorkingHere = BC.Builder.GetInsertPoint()->getNextNode();
+  //
+  //auto ThenBlockTail = SplitBlockAndInsertIfThen(SelectionCriterion, BC.Builder.GetInsertPoint(), false);
+  //
+  //IRBuilder<> ThenBuilder(ThenBlockTail);
+  //BuilderContext ThenBuilderContext = { BC.M, BC.DM, BC.Ctx, BC.HlslOP, ThenBuilder };
 
-  auto ThenBlockTail = SplitBlockAndInsertIfThen(SelectionCriterion, BC.Builder.GetInsertPoint(), false);
-
-  IRBuilder<> ThenBuilder(ThenBlockTail);
-  BuilderContext ThenBuilderContext = { BC.M, BC.DM, BC.Ctx, BC.HlslOP, ThenBuilder };
+ //Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
+ //Constant* Zero8Arg = BC.HlslOP->GetI8Const(0);
+ //Constant* One8Arg = BC.HlslOP->GetI8Const(1);
+ //UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
+ //
+ //// Convert SV_POSITION to UINT    
+ //Value * XAsInt;
+ //Value * YAsInt;
+ //{
+ //  auto LoadInputOpFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::LoadInput, Type::getFloatTy(BC.Ctx));
+ //  Constant* LoadInputOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::LoadInput);
+ //  Constant*  SV_Pos_ID = BC.HlslOP->GetU32Const(0 /*total hack*/);
+ //  auto XPos = BC.Builder.CreateCall(LoadInputOpFunc,
+ //  { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, Zero8Arg /*column*/, UndefArg }, "XPos");
+ //  auto YPos = BC.Builder.CreateCall(LoadInputOpFunc,
+ //  { LoadInputOpcode, SV_Pos_ID, Zero32Arg /*row*/, One8Arg /*column*/, UndefArg }, "YPos");
+ //
+ //  XAsInt = BC.Builder.CreateCast(Instruction::CastOps::FPToUI, XPos, Type::getInt32Ty(BC.Ctx), "XIndex");
+ //  YAsInt = BC.Builder.CreateCast(Instruction::CastOps::FPToUI, YPos, Type::getInt32Ty(BC.Ctx), "YIndex");
+ //}
+ //
+ //
   
-  InvocationId = reserveDebugEntrySpace(ThenBuilderContext, 2);
+  auto RecordStart = reserveDebugEntrySpace(BC, 2);
   
   DebugShaderModifierRecordHeader marker{ 0 };
-  marker.Header.Details.SizeDwords = 0;
+  marker.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(marker));;
   marker.Header.Details.Flags = 0;
   marker.Header.Details.Type = DebugShaderModifierRecordTypeInvocationStartMarker;
-  addDebugEntryValue(ThenBuilderContext, InvocationId, ThenBuilderContext.HlslOP->GetU32Const(marker.Header.u32Header));
-  auto NextIndex = incrementUAVIndex(ThenBuilderContext, InvocationId);
-  addDebugEntryValue(ThenBuilderContext, NextIndex, InvocationId);
-
-  BC.Builder.SetInsertPoint(BuilderWasWorkingHere);
+  addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(marker.Header.u32Header));
+  auto NextIndex = incrementUAVIndex(BC, RecordStart);
+  addDebugEntryValue(BC, NextIndex, InvocationId);
+  //test: writing x above and y below: (note +sizeof(DWORD) and 3 reserveds above)
+  //auto ThirdIndex = incrementUAVIndex(BC, NextIndex);
+  //addDebugEntryValue(BC, ThirdIndex, YAsInt);
+  //
+  //BC.Builder.SetInsertPoint(BuilderWasWorkingHere);
 }
 
 void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned int InstructionIndex, Instruction * Inst)
@@ -568,25 +605,21 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned i
   step.Header.Details.SizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(step));
   step.Header.Details.Flags = 0;
   step.Header.Details.Type = DebugShaderModifierRecordTypeStep;
-  auto FirstIndex = reserveDebugEntrySpace(BC, 4);
-  addDebugEntryValue(BC, FirstIndex, BC.HlslOP->GetU32Const(step.Header.u32Header));
-  auto SecondIndex = incrementUAVIndex(BC, FirstIndex);
-  addDebugEntryValue(BC, SecondIndex, BC.HlslOP->GetU32Const(InstructionIndex)); //InvocationId);
-  //auto ThirdIndex = incrementUAVIndex(BC, SecondIndex);
-  //addDebugEntryValue(BC, ThirdIndex, BC.HlslOP->GetU32Const(InstructionIndex));
-  //auto FourthIndex = incrementUAVIndex(BC, ThirdIndex);
-  //addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(Inst->getOpcode()));
+  auto RecordStart = reserveDebugEntrySpace(BC, 4);
+  addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(step.Header.u32Header));
+  auto SecondIndex = incrementUAVIndex(BC, RecordStart);
+  addDebugEntryValue(BC, SecondIndex, InvocationId);
+  auto ThirdIndex = incrementUAVIndex(BC, SecondIndex);
+  addDebugEntryValue(BC, ThirdIndex, BC.HlslOP->GetU32Const(InstructionIndex));
+  auto FourthIndex = incrementUAVIndex(BC, ThirdIndex);
+  addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(Inst->getOpcode()));
 }
 
-bool DxilDebugInstrumentation::runOnModule(Module &M)
+void DxilDebugInstrumentation::instrumentFunction(Function* FN, BuilderContext & BC)
 {
-  DxilModule &DM = M.GetOrCreateDxilModule();
-  LLVMContext & Ctx = M.getContext();
-  OP *HlslOP = DM.GetOP();
-
   std::vector<Instruction*> AllInstrucitons;
   // First record pointers to all instructions in the function:
-  auto & Blocks = DM.GetEntryFunction()->getBasicBlockList();
+  auto & Blocks = FN->getBasicBlockList();
   for (auto & b : Blocks)
   {
     auto & Instructions = b.getInstList();
@@ -601,37 +634,91 @@ bool DxilDebugInstrumentation::runOnModule(Module &M)
   }
 
   {
-    Instruction* firstInsertionPt = DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt();
-    IRBuilder<> Builder(firstInsertionPt);
+    IRBuilder<> Builder(FN->getEntryBlock().getFirstInsertionPt());
+    BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
 
-    BuilderContext BC{ M, DM, Ctx, HlslOP, Builder };
-
-    auto SystemValues = addRequiredSystemValues(BC);
-    HandleForUAV = addUAV(BC);
-    SelectionCriterion = addInvocationSelectionProlog(BC, SystemValues);
-
-    addInvocationStartMarker(BC);
+    HandleForUAV = addUAV(BC2);
+    addInvocationStartMarker(BC2);
   }
 
   {
-
     unsigned int InstructionIndex = 0;
     for (auto & Inst : AllInstrucitons)
     {
+      if (OSOverride != nullptr) {
+        formatted_raw_ostream FOS(*OSOverride);
+        Inst->print(FOS);
+        FOS << "\n<--Instruction\n";
+      }
+
+
       IRBuilder<> Builder(Inst);
-      BuilderContext BC{ M, DM, Ctx, HlslOP, Builder };
-      addStepDebugEntry(BC, InstructionIndex++, Inst);
+      BuilderContext BC2{ BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder };
+      addStepDebugEntry(BC2, InstructionIndex++, Inst);
 
       auto OpIterator = Inst->op_begin();
       while (OpIterator != Inst->op_end())
       {
         Value const * operand = *OpIterator;
 
-        recordInputValue(BC, HandleForUAV, operand);
+        recordInputValue(BC2, HandleForUAV, operand);
 
         OpIterator++;
       }
-      OutputDebugStringW(M, "End of operands\n");
+    }
+  }
+
+}
+
+bool DxilDebugInstrumentation::runOnModule(Module &M)
+{
+  DxilModule &DM = M.GetOrCreateDxilModule();
+  LLVMContext & Ctx = M.getContext();
+  OP *HlslOP = DM.GetOP();
+
+  llvm::ValueToValueMapTy ValueToValueMap;
+  auto CloneOfMain = llvm::CloneFunction(DM.GetEntryFunction(), ValueToValueMap, true, nullptr);
+  auto & FunctionList = M.getFunctionList();
+  FunctionList.push_back(CloneOfMain);
+  CloneOfMain->setName("InstrumentedCopy");
+  CloneOfMain->addAttribute(AttributeSet::FunctionIndex, llvm::Attribute::AlwaysInline);
+
+  {
+    Instruction* firstInsertionPt = DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt();
+    IRBuilder<> Builder(firstInsertionPt);
+
+    BuilderContext BC{ M, DM, Ctx, HlslOP, Builder };
+
+    auto SystemValues = addRequiredSystemValues(BC);
+    SelectionCriterion = addInvocationSelectionProlog(BC, SystemValues);
+    {
+      //CallInst * WaveAnyTrueCall;
+      //{
+      //  Function* AnyTrue = HlslOP->GetOpFunc(OP::OpCode::WaveAnyTrue, Type::getVoidTy(BC.Ctx));
+      //  Constant* AnyTrueOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::WaveAnyTrue);
+      //  WaveAnyTrueCall = Builder.CreateCall(AnyTrue, {
+      //    AnyTrueOpcode, // i32 opcode
+      //    SelectionCriterion
+      //  });
+      //}
+
+      auto ThenBlockTail = SplitBlockAndInsertIfThen(
+        SelectionCriterion, // WaveAnyTrueCall,
+        BC.Builder.GetInsertPoint(),
+        true /* tail is unreachable*/ );
+
+      // Call the copy of the main function (which will become the instrumented version)
+      {
+        IRBuilder<> InstrumentationBuilder(ThenBlockTail);
+        ArrayRef<Value*> CallArgs;
+        InstrumentationBuilder.CreateCall(CloneOfMain, CallArgs);
+        InstrumentationBuilder.CreateRet(nullptr);
+        
+        instrumentFunction(CloneOfMain, BC);
+      }
+
+      // We've inserted a ret, so we don't need the unreachable terminator:
+      ThenBlockTail->eraseFromParent();
     }
   }
 
