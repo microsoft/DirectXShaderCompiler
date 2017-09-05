@@ -1499,17 +1499,18 @@ TEST_F(ExecutionTest, WaveIntrinsicsDDITest) {
   if (!CreateDevice(&pDevice))
     return;
   D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
-  bool WarpSupported;
   if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
     return;
-  WarpSupported = O.WaveOps;
-  LogCommentFmt(L"WaveOps %i, WaveLaneCountMin %u, WaveLaneCountMax %u", WarpSupported, O.WaveLaneCountMin, O.WaveLaneCountMax);
-  VERIFY_IS_TRUE(O.WaveLaneCountMin <= O.WaveLaneCountMax);
-  if (WarpSupported) {
-    VERIFY_IS_TRUE(O.WaveLaneCountMin > 0 && O.WaveLaneCountMax > 0);
+  bool waveSupported = O.WaveOps;
+  UINT laneCountMin = O.WaveLaneCountMin;
+  UINT laneCountMax = O.WaveLaneCountMax;
+  LogCommentFmt(L"WaveOps %i, WaveLaneCountMin %u, WaveLaneCountMax %u", waveSupported, laneCountMin, laneCountMax);
+  VERIFY_IS_TRUE(laneCountMin <= laneCountMax);
+  if (waveSupported) {
+    VERIFY_IS_TRUE(laneCountMin > 0 && laneCountMax > 0);
   }
   else {
-    VERIFY_IS_TRUE(O.WaveLaneCountMin == 0 && O.WaveLaneCountMax == 0);
+    VERIFY_IS_TRUE(laneCountMin == 0 && laneCountMax == 0);
   }
 }
 
