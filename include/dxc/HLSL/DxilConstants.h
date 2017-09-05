@@ -102,9 +102,9 @@ namespace DXIL {
 
   // size of each scalar type in signature element in bits
   enum class SignatureDataWidth : uint8_t {
-    UNDEFINED = 0,
-    SIXTEEN = 16,
-    THIRTYTWO = 32,
+    Undefined = 0,
+    Bits16 = 16,
+    Bits32 = 32,
   };
 
   enum class SignatureKind {

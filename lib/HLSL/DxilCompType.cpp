@@ -42,7 +42,7 @@ CompType::Kind CompType::GetKind() const {
   return m_Kind;
 }
 
-uint8_t CompType::GetSize() const {
+uint8_t CompType::GetSizeInBits() const {
   switch (m_Kind) {
   case Kind::Invalid:
     return 0;

@@ -119,15 +119,16 @@ public:
   __override DXIL::SemanticKind GetKind() const { return m_pSE->GetKind(); }
   __override DXIL::InterpolationMode GetInterpolationMode() const { return m_pSE->GetInterpolationMode()->GetKind(); }
   __override DXIL::SemanticInterpretationKind GetInterpretation() const { return m_pSE->GetInterpretation(); }
-  __override DXIL::SignatureDataWidth GetDataWidth() const {
-    uint8_t size = m_pSE->GetCompType().GetSize();
-    if (!m_bUseMinPrecision && size == 16) {
-      return DXIL::SignatureDataWidth::SIXTEEN;
+  __override DXIL::SignatureDataWidth GetDataBitWidth() const {
+    uint8_t size = m_pSE->GetCompType().GetSizeInBits();
+    // bool, min precision, or 32 bit types map to 32 bit size.
+    if (size == 16) {
+      return m_bUseMinPrecision ? DXIL::SignatureDataWidth::Bits32 : DXIL::SignatureDataWidth::Bits16;
     }
-    else if (size == 1 || size == 16 || size == 32) { // bool, min precision, or 32 bit types map to 32 bit size.
-      return DXIL::SignatureDataWidth::THIRTYTWO;
+    else if (size == 1 || size == 32) {
+      return DXIL::SignatureDataWidth::Bits32;
     }
-    return DXIL::SignatureDataWidth::UNDEFINED;
+    return DXIL::SignatureDataWidth::Undefined;
   }
   __override uint32_t GetRows() const { return m_pSE->GetRows(); }
   __override uint32_t GetCols() const { return m_pSE->GetCols(); }

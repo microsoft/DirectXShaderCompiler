@@ -25,7 +25,7 @@ public:
     virtual DXIL::SemanticKind GetKind() const = 0;
     virtual DXIL::InterpolationMode GetInterpolationMode() const = 0;
     virtual DXIL::SemanticInterpretationKind GetInterpretation() const = 0;
-    virtual DXIL::SignatureDataWidth GetDataWidth() const = 0;
+    virtual DXIL::SignatureDataWidth GetDataBitWidth() const = 0;
     virtual uint32_t GetRows() const = 0;
     virtual uint32_t GetCols() const = 0;
     virtual bool IsAllocated() const = 0;
@@ -43,7 +43,7 @@ public:
     DXIL::SemanticKind kind;
     DXIL::InterpolationMode interpolation;
     DXIL::SemanticInterpretationKind interpretation;
-    DXIL::SignatureDataWidth dataWidth;
+    DXIL::SignatureDataWidth dataBitWidth;
     uint32_t indexFlags;
 
   public:
@@ -51,7 +51,7 @@ public:
       kind(DXIL::SemanticKind::Arbitrary),
       interpolation(DXIL::InterpolationMode::Undefined),
       interpretation(DXIL::SemanticInterpretationKind::Arb),
-      dataWidth(DXIL::SignatureDataWidth::UNDEFINED),
+      dataBitWidth(DXIL::SignatureDataWidth::Undefined),
       indexFlags(0)
     {}
     __override ~DummyElement() {}
@@ -59,7 +59,7 @@ public:
     __override DXIL::SemanticKind GetKind() const { return kind; }
     __override DXIL::InterpolationMode GetInterpolationMode() const { return interpolation; }
     __override DXIL::SemanticInterpretationKind GetInterpretation() const { return interpretation; }
-    __override DXIL::SignatureDataWidth GetDataWidth() const { return dataWidth; }
+    __override DXIL::SignatureDataWidth GetDataBitWidth() const { return dataBitWidth; }
     __override uint32_t GetRows() const { return rows; }
     __override uint32_t GetCols() const { return cols; }
     __override bool IsAllocated() const { return row != (uint32_t)-1; }
