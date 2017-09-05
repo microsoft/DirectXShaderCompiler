@@ -524,6 +524,7 @@ public:
   TEST_METHOD(SignTest);
   TEST_METHOD(Int64Test);
   TEST_METHOD(WaveIntrinsicsTest);
+  TEST_METHOD(WaveIntrinsicsDDITest);
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(PartialDerivTest);
 
@@ -1491,6 +1492,25 @@ TEST_F(ExecutionTest, SignTest) {
   VERIFY_ARE_EQUAL(values[5], 1);
   VERIFY_ARE_EQUAL(values[6], 1);
   VERIFY_ARE_EQUAL(values[7], 1);
+}
+
+TEST_F(ExecutionTest, WaveIntrinsicsDDITest) {
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
+  bool WarpSupported;
+  if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
+    return;
+  WarpSupported = O.WaveOps;
+  LogCommentFmt(L"WaveOps %i, WaveLaneCountMin %u, WaveLaneCountMax %u", WarpSupported, O.WaveLaneCountMin, O.WaveLaneCountMax);
+  VERIFY_IS_TRUE(O.WaveLaneCountMin <= O.WaveLaneCountMax);
+  if (WarpSupported) {
+    VERIFY_IS_TRUE(O.WaveLaneCountMin > 0 && O.WaveLaneCountMax > 0);
+  }
+  else {
+    VERIFY_IS_TRUE(O.WaveLaneCountMin == 0 && O.WaveLaneCountMax == 0);
+  }
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsTest) {
