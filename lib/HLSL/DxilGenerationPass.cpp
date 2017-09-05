@@ -169,13 +169,14 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, DxilEntrySignature *
   //bool m_bDisableMathRefactoring;
   //bool m_bEnableDoublePrecision;
   //bool m_bEnableDoubleExtensions;
-  //bool m_bEnableMinPrecision;
   //M.CollectShaderFlags();
 
   //bool m_bForceEarlyDepthStencil;
   //bool m_bEnableRawAndStructuredBuffers;
   //bool m_bEnableMSAD;
   //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
+
+  M.m_ShaderFlags.SetUseNativeLowPrecision(!H.GetHLOptions().bUseMinPrecision);
 
   if (FnProps)
     M.SetShaderProperties(FnProps);
@@ -846,6 +847,8 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
     UpdateHandleOperands(Res, handleMap, nonUniformOps);
   }
 
+  bool bIsLib = m_pHLModule->GetShaderModel()->IsLib();
+
   // ResClass and ResID must be uniform.
   // Try to merge res class, res id into imm.
   while (1) {
@@ -866,7 +869,7 @@ void DxilGenerationPass::AddCreateHandleForPhiNodeAndSelect(OP *hlslOP) {
     }
 
     if (!bUpdated) {
-      if (!nonUniformOps.empty()) {
+      if (!nonUniformOps.empty() && !bIsLib) {
         for (Instruction *I : nonUniformOps) {
           // Non uniform res class or res id.
           FT->getContext().emitError(I, kResourceMapErrorMsg);
@@ -1441,6 +1444,44 @@ ModulePass *llvm::createDxilPrecisePropagatePass() {
 INITIALIZE_PASS(DxilPrecisePropagatePass, "hlsl-dxil-precise", "DXIL precise attribute propagate", false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
+
+namespace {
+class HLDeadFunctionElimination : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit HLDeadFunctionElimination () : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "Remove all unused function except entry from HLModule"; }
+
+  bool runOnModule(Module &M) override {
+    if (M.HasHLModule()) {
+      HLModule &HLM = M.GetHLModule();
+
+      bool IsLib = HLM.GetShaderModel()->IsLib();
+      // Remove unused functions except entry and patch constant func.
+      // For library profile, only remove unused external functions.
+      Function *EntryFunc = HLM.GetEntryFunction();
+      Function *PatchConstantFunc = HLM.GetPatchConstantFunction();
+
+      return dxilutil::RemoveUnusedFunctions(M, EntryFunc, PatchConstantFunc,
+                                             IsLib);
+    }
+
+    return false;
+  }
+};
+}
+
+char HLDeadFunctionElimination::ID = 0;
+
+ModulePass *llvm::createHLDeadFunctionEliminationPass() {
+  return new HLDeadFunctionElimination();
+}
+
+INITIALIZE_PASS(HLDeadFunctionElimination, "hl-dfe", "Remove all unused function except entry from HLModule", false, false)
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Legalize resource use.
 // Map local or static global resource to global resource.
 // Require inline for static global resource.
@@ -1540,6 +1581,8 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
   OP *hlslOP = HLM.GetOP();
   Type *HandleTy = hlslOP->GetHandleType();
 
+  bool IsLib = HLM.GetShaderModel()->IsLib();
+
   BasicBlock &BB = F.getEntryBlock();
   unsigned allocaSize = 0;
   while (1) {
@@ -1550,6 +1593,9 @@ void DxilLegalizeResourceUsePass::PromoteLocalResource(Function &F) {
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
         if (HandleTy == dxilutil::GetArrayEltTy(AI->getAllocatedType())) {
+          // Skip for unpromotable for lib.
+          if (!isAllocaPromotable(AI) && IsLib)
+            continue;
           DXASSERT(isAllocaPromotable(AI), "otherwise, non-promotable resource array alloca found");
           Allocas.push_back(AI);
         }

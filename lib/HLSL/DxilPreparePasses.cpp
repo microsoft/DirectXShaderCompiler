@@ -92,6 +92,42 @@ ModulePass *llvm::createDxilLoadMetadataPass() {
 
 INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
 
+///////////////////////////////////////////////////////////////////////////////
+
+namespace {
+class DxilDeadFunctionElimination : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilDeadFunctionElimination () : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "Remove all unused function except entry from DxilModule"; }
+
+  bool runOnModule(Module &M) override {
+    if (M.HasDxilModule()) {
+      DxilModule &DM = M.GetDxilModule();
+
+      bool IsLib = DM.GetShaderModel()->IsLib();
+      // Remove unused functions except entry and patch constant func.
+      // For library profile, only remove unused external functions.
+      Function *EntryFunc = DM.GetEntryFunction();
+      Function *PatchConstantFunc = DM.GetPatchConstantFunction();
+
+      return dxilutil::RemoveUnusedFunctions(M, EntryFunc, PatchConstantFunc,
+                                             IsLib);
+    }
+
+    return false;
+  }
+};
+}
+
+char DxilDeadFunctionElimination::ID = 0;
+
+ModulePass *llvm::createDxilDeadFunctionEliminationPass() {
+  return new DxilDeadFunctionElimination();
+}
+
+INITIALIZE_PASS(DxilDeadFunctionElimination, "dxil-dfe", "Remove all unused function except entry from DxilModule", false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -205,153 +241,148 @@ public:
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
+
+      bool IsLib = DM.GetShaderModel()->IsLib();
+      // Skip validation patch for lib.
+      if (!IsLib) {
+        unsigned ValMajor = 0;
+        unsigned ValMinor = 0;
+        M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
+        if (ValMajor == 1 && ValMinor <= 1) {
+          patchValidation_1_1(M);
+        }
+      }
+
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
-      unsigned ValMajor = 0;
-      unsigned ValMinor = 0;
-      M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
-      if (ValMajor == 1 && ValMinor <= 1) {
-        patchValidation_1_1(M);
-      }
-      for (iplist<Function>::iterator F : M.getFunctionList()) {
-        if (!hlslOP->IsDxilOpFunc(F))
-          continue;
+      RemoveStoreUndefOutput(M, hlslOP);
 
-        // Check store output.
-        FunctionType *FT = F->getFunctionType();
-        // Num params not match.
-        if (FT->getNumParams() !=
-            (DXIL::OperandIndex::kStoreOutputValOpIdx + 1))
-          continue;
+      RemoveUnusedStaticGlobal(M);
 
-        Type *overloadTy =
-            FT->getParamType(DXIL::OperandIndex::kStoreOutputValOpIdx);
-        // overload illegal.
-        if (!hlslOP->IsOverloadLegal(DXIL::OpCode::StoreOutput, overloadTy))
-          continue;
-        Function *storeOutput =
-            hlslOP->GetOpFunc(DXIL::OpCode::StoreOutput, overloadTy);
-        // Not store output.
-        if (storeOutput != F)
-          continue;
-
-        for (auto it = F->user_begin(); it != F->user_end();) {
-          CallInst *CI = dyn_cast<CallInst>(*(it++));
-          if (!CI)
-            continue;
-
-          Value *V =
-              CI->getArgOperand(DXIL::OperandIndex::kStoreOutputValOpIdx);
-          // Remove the store of undef.
-          if (isa<UndefValue>(V))
-            CI->eraseFromParent();
-        }
-      }
-      // Remove unused external functions.
-      // For none library profile, remove unused functions except entry and
-      // patchconstant function.
-      Function *EntryFunc = DM.GetEntryFunction();
-      Function *PatchConstantFunc = DM.GetPatchConstantFunction();
-      bool IsLib = DM.GetShaderModel()->IsLib();
-
-      std::vector<Function *> deadList;
-      for (iplist<Function>::iterator F : M.getFunctionList()) {
-        if (&(*F) == EntryFunc || &(*F) == PatchConstantFunc)
-          continue;
-        if (F->isDeclaration() || !IsLib) {
-          if (F->user_empty())
-            deadList.emplace_back(F);
-        }
-      }
-
-      for (Function *F : deadList)
-        F->eraseFromParent();
-
-      // Remove unused internal global.
-      std::vector<GlobalVariable *> staticGVs;
-      for (GlobalVariable &GV : M.globals()) {
-        if (dxilutil::IsStaticGlobal(&GV) ||
-            dxilutil::IsSharedMemoryGlobal(&GV)) {
-          staticGVs.emplace_back(&GV);
-        }
-      }
-
-      for (GlobalVariable *GV : staticGVs) {
-        bool onlyStoreUse = true;
-        for (User *user : GV->users()) {
-          if (isa<StoreInst>(user))
-            continue;
-          if (isa<ConstantExpr>(user) && user->user_empty())
-            continue;
-          onlyStoreUse = false;
-          break;
-        }
-        if (onlyStoreUse) {
-          for (auto UserIt = GV->user_begin(); UserIt != GV->user_end();) {
-            Value *User = *(UserIt++);
-            if (Instruction *I = dyn_cast<Instruction>(User)) {
-              I->eraseFromParent();
-            } else {
-              ConstantExpr *CE = cast<ConstantExpr>(User);
-              CE->dropAllReferences();
-            }
-          }
-          GV->eraseFromParent();
-        }
-      }
-
-      const DataLayout &DL = M.getDataLayout();
       // Clear inbound for GEP which has none-const index.
-      for (GlobalVariable &GV : M.globals()) {
-        if (dxilutil::IsSharedMemoryGlobal(&GV)) {
-          CheckInBoundForTGSM(GV, DL);
-        }
-      }
+      LegalizeShareMemoryGEPInbound(M);
 
-      DenseMap<const Function *, DISubprogram *> FunctionDIs =
-          makeSubprogramMap(M);
       // Strip parameters of entry function.
+      StripEntryParameters(M, DM, IsLib);
+
+      // Skip shader flag for library.
       if (!IsLib) {
-        if (Function *PatchConstantFunc = DM.GetPatchConstantFunction()) {
-          PatchConstantFunc =
-              StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
-          if (PatchConstantFunc)
-            DM.SetPatchConstantFunction(PatchConstantFunc);
-        }
-
-        if (Function *EntryFunc = DM.GetEntryFunction()) {
-          StringRef Name = DM.GetEntryFunctionName();
-          EntryFunc->setName(Name);
-          EntryFunc = StripFunctionParameter(EntryFunc, DM, FunctionDIs);
-          if (EntryFunc)
-            DM.SetEntryFunction(EntryFunc);
-        }
-      } else {
-        std::vector<Function *> entries;
-        for (iplist<Function>::iterator F : M.getFunctionList()) {
-          if (DM.HasDxilFunctionProps(F)) {
-            entries.emplace_back(F);
-          }
-        }
-        for (Function *entry : entries) {
-          DxilFunctionProps &props = DM.GetDxilFunctionProps(entry);
-          if (props.IsHS()) {
-            // Strip patch constant function first.
-            Function *patchConstFunc = StripFunctionParameter(
-                props.ShaderProps.HS.patchConstantFunc, DM, FunctionDIs);
-            props.ShaderProps.HS.patchConstantFunc = patchConstFunc;
-          }
-          StripFunctionParameter(entry, DM, FunctionDIs);
-        }
+        DM.CollectShaderFlags(); // Update flags to reflect any changes.
+                                 // Update Validator Version
+        DM.UpgradeToMinValidatorVersion();
       }
-
-      DM.CollectShaderFlags(); // Update flags to reflect any changes.
-                               // Update Validator Version
-      DM.UpgradeToMinValidatorVersion();
       return true;
     }
 
     return false;
+  }
+
+private:
+  void RemoveUnusedStaticGlobal(Module &M) {
+    // Remove unused internal global.
+    std::vector<GlobalVariable *> staticGVs;
+    for (GlobalVariable &GV : M.globals()) {
+      if (dxilutil::IsStaticGlobal(&GV) ||
+          dxilutil::IsSharedMemoryGlobal(&GV)) {
+        staticGVs.emplace_back(&GV);
+      }
+    }
+
+    for (GlobalVariable *GV : staticGVs) {
+      bool onlyStoreUse = true;
+      for (User *user : GV->users()) {
+        if (isa<StoreInst>(user))
+          continue;
+        if (isa<ConstantExpr>(user) && user->user_empty())
+          continue;
+        onlyStoreUse = false;
+        break;
+      }
+      if (onlyStoreUse) {
+        for (auto UserIt = GV->user_begin(); UserIt != GV->user_end();) {
+          Value *User = *(UserIt++);
+          if (Instruction *I = dyn_cast<Instruction>(User)) {
+            I->eraseFromParent();
+          } else {
+            ConstantExpr *CE = cast<ConstantExpr>(User);
+            CE->dropAllReferences();
+          }
+        }
+        GV->eraseFromParent();
+      }
+    }
+  }
+
+  void RemoveStoreUndefOutput(Module &M, hlsl::OP *hlslOP) {
+    for (iplist<Function>::iterator F : M.getFunctionList()) {
+      if (!hlslOP->IsDxilOpFunc(F))
+        continue;
+      DXIL::OpCodeClass opClass;
+      bool bHasOpClass = hlslOP->GetOpCodeClass(F, opClass);
+      DXASSERT_LOCALVAR(bHasOpClass, bHasOpClass, "else not a dxil op func");
+      if (opClass != DXIL::OpCodeClass::StoreOutput)
+        continue;
+
+      for (auto it = F->user_begin(); it != F->user_end();) {
+        CallInst *CI = dyn_cast<CallInst>(*(it++));
+        if (!CI)
+          continue;
+
+        Value *V = CI->getArgOperand(DXIL::OperandIndex::kStoreOutputValOpIdx);
+        // Remove the store of undef.
+        if (isa<UndefValue>(V))
+          CI->eraseFromParent();
+      }
+    }
+  }
+
+  void LegalizeShareMemoryGEPInbound(Module &M) {
+    const DataLayout &DL = M.getDataLayout();
+    // Clear inbound for GEP which has none-const index.
+    for (GlobalVariable &GV : M.globals()) {
+      if (dxilutil::IsSharedMemoryGlobal(&GV)) {
+        CheckInBoundForTGSM(GV, DL);
+      }
+    }
+  }
+
+  void StripEntryParameters(Module &M, DxilModule &DM, bool IsLib) {
+    DenseMap<const Function *, DISubprogram *> FunctionDIs =
+        makeSubprogramMap(M);
+    // Strip parameters of entry function.
+    if (!IsLib) {
+      if (Function *PatchConstantFunc = DM.GetPatchConstantFunction()) {
+        PatchConstantFunc =
+            StripFunctionParameter(PatchConstantFunc, DM, FunctionDIs);
+        if (PatchConstantFunc)
+          DM.SetPatchConstantFunction(PatchConstantFunc);
+      }
+
+      if (Function *EntryFunc = DM.GetEntryFunction()) {
+        StringRef Name = DM.GetEntryFunctionName();
+        EntryFunc->setName(Name);
+        EntryFunc = StripFunctionParameter(EntryFunc, DM, FunctionDIs);
+        if (EntryFunc)
+          DM.SetEntryFunction(EntryFunc);
+      }
+    } else {
+      std::vector<Function *> entries;
+      for (iplist<Function>::iterator F : M.getFunctionList()) {
+        if (DM.HasDxilFunctionProps(F)) {
+          entries.emplace_back(F);
+        }
+      }
+      for (Function *entry : entries) {
+        DxilFunctionProps &props = DM.GetDxilFunctionProps(entry);
+        if (props.IsHS()) {
+          // Strip patch constant function first.
+          Function *patchConstFunc = StripFunctionParameter(
+              props.ShaderProps.HS.patchConstantFunc, DM, FunctionDIs);
+          props.ShaderProps.HS.patchConstantFunc = patchConstFunc;
+        }
+        StripFunctionParameter(entry, DM, FunctionDIs);
+      }
+    }
   }
 };
 }

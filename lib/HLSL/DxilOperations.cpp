@@ -11,6 +11,8 @@
 
 #include "dxc/HLSL/DxilOperations.h"
 #include "dxc/Support/Global.h"
+#include "dxc/HLSL/DxilModule.h"
+#include "dxc/HLSL/HLModule.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/LLVMContext.h"
@@ -155,7 +157,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Synchronization                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::AtomicBinOp,             "AtomicBinOp",              OCC::AtomicBinOp,              "atomicBinOp",                false, false, false, false, false, false, false,  true, false, Attribute::None,     },
   {  OC::AtomicCompareExchange,   "AtomicCompareExchange",    OCC::AtomicCompareExchange,    "atomicCompareExchange",      false, false, false, false, false, false, false,  true, false, Attribute::None,     },
-  {  OC::Barrier,                 "Barrier",                  OCC::Barrier,                  "barrier",                     true, false, false, false, false, false, false, false, false, Attribute::None,     },
+  {  OC::Barrier,                 "Barrier",                  OCC::Barrier,                  "barrier",                     true, false, false, false, false, false, false, false, false, Attribute::NoDuplicate, },
 
   // Pixel shader                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64  function attribute
   {  OC::CalculateLOD,            "CalculateLOD",             OCC::CalculateLOD,             "calculateLOD",               false, false,  true, false, false, false, false, false, false, Attribute::ReadOnly, },
@@ -343,6 +345,13 @@ bool OP::IsDxilOpFunc(const llvm::Function *F) {
   return IsDxilOpFuncName(F->getName());
 }
 
+bool OP::IsDxilOpType(llvm::StructType *ST) {
+  if (!ST->hasName())
+    return false;
+  StringRef Name = ST->getName();
+  return Name.startswith(m_TypePrefix);
+}
+
 bool OP::IsDupDxilOpType(llvm::StructType *ST) {
   if (!ST->hasName())
     return false;
@@ -423,7 +432,8 @@ static Type *GetOrCreateStructType(LLVMContext &Ctx, ArrayRef<Type*> types, Stri
 //
 OP::OP(LLVMContext &Ctx, Module *pModule)
 : m_Ctx(Ctx)
-, m_pModule(pModule) {
+, m_pModule(pModule)
+, m_LowPrecisionMode(DXIL::LowPrecisionMode::Undefined) {
   memset(m_pResRetType, 0, sizeof(m_pResRetType));
   memset(m_pCBufferRetType, 0, sizeof(m_pCBufferRetType));
   memset(m_OpCodeClassCache, 0, sizeof(m_OpCodeClassCache));
@@ -776,6 +786,23 @@ bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
   return true;
 }
 
+bool OP::UseMinPrecision() {
+  if (m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined) {
+    if (&m_pModule->GetDxilModule()) {
+      m_LowPrecisionMode = m_pModule->GetDxilModule().m_ShaderFlags.GetUseNativeLowPrecision() ?
+        DXIL::LowPrecisionMode::UseNativeLowPrecision : DXIL::LowPrecisionMode::UseMinPrecision;
+    }
+    else if (&m_pModule->GetHLModule()) {
+      m_LowPrecisionMode = m_pModule->GetHLModule().GetHLOptions().bUseMinPrecision ?
+        DXIL::LowPrecisionMode::UseMinPrecision : DXIL::LowPrecisionMode::UseNativeLowPrecision;
+    }
+    else {
+      DXASSERT(false, "otherwise module doesn't contain either HLModule or Dxil Module.");
+    }
+  }
+  return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
+}
+
 llvm::Type *OP::GetOverloadType(OpCode OpCode, llvm::Function *F) {
   DXASSERT(F, "not work on nullptr");
   Type *Ty = F->getReturnType();
@@ -933,15 +960,23 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
   if (m_pCBufferRetType[TypeSlot] == nullptr) {
     string TypeName("dx.types.CBufRet.");
     TypeName += GetOverloadTypeName(TypeSlot);
-    if (!pOverloadType->isDoubleTy()) {
-      Type *FieldTypes[4] = { pOverloadType, pOverloadType, pOverloadType, pOverloadType };
-      m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
-    } else {
+    if (pOverloadType->isDoubleTy()) {
       Type *FieldTypes[2] = { pOverloadType, pOverloadType };
       m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
     }
+    else if (!UseMinPrecision() && pOverloadType->isHalfTy()) {
+      TypeName += ".8"; // dx.types.CBufRet.fp16.8 for buffer of 8 halves
+      Type *FieldTypes[8] = {
+          pOverloadType, pOverloadType, pOverloadType, pOverloadType,
+          pOverloadType, pOverloadType, pOverloadType, pOverloadType,
+      };
+      m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+    }
+    else {
+      Type *FieldTypes[4] = { pOverloadType, pOverloadType, pOverloadType, pOverloadType };
+      m_pCBufferRetType[TypeSlot] = GetOrCreateStructType(m_Ctx, FieldTypes, TypeName, m_pModule);
+    }
   }
-
   return m_pCBufferRetType[TypeSlot];
 }
 

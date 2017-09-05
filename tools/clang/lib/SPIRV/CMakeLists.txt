@@ -8,10 +8,12 @@ add_clang_library(clangSPIRV
   DeclResultIdMapper.cpp
   Decoration.cpp
   EmitSPIRVAction.cpp
+  InitListHandler.cpp
   InstBuilderAuto.cpp
   InstBuilderManual.cpp
   ModuleBuilder.cpp
   SPIRVContext.cpp
+  SPIRVEmitter.cpp
   String.cpp
   Structure.cpp
   Type.cpp

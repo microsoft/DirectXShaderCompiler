@@ -128,6 +128,15 @@ Function *HLModule::GetEntryFunction() const {
   return m_pEntryFunc;
 }
 
+Function *HLModule::GetPatchConstantFunction() {
+  if (!m_pSM->IsHS())
+    return nullptr;
+  if (!m_pEntryFunc)
+    return nullptr;
+  DxilFunctionProps &funcProps = GetDxilFunctionProps(m_pEntryFunc);
+  return funcProps.ShaderProps.HS.patchConstantFunc;
+}
+
 void HLModule::SetEntryFunction(Function *pEntryFunc) {
   m_pEntryFunc = pEntryFunc;
 }
@@ -851,6 +860,12 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
 static const StringRef kLegacyLayoutString = "e-m:e-p:32:32-i1:32:32-i8:32:32-i16:32:32-i64:64-f16:32-f80:32-n8:16:32-a:0:32-S32";
 const char *HLModule::GetLegacyDataLayoutDesc() {
   return kLegacyLayoutString.data();
+}
+
+// New data layout with native low precision types
+static const StringRef kNewLayoutString = "e-m:e-p:32:32-i1:32:32-i8:32:32-i16:32:32-i64:64-f16:16-f80:32-n8:16:32-a:0:32-S320";
+const char *HLModule::GetNewDataLayoutDesc() {
+  return kNewLayoutString.data();
 }
 
 static Value *MergeGEP(GEPOperator *SrcGEP, GetElementPtrInst *GEP) {

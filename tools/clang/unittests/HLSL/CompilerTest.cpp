@@ -193,10 +193,6 @@ bool VersionSupportInfo::SkipDxilVersion(unsigned major, unsigned minor) {
   return false;
 }
 bool VersionSupportInfo::SkipOutOfMemoryTest() {
-  if (m_CompilerIsDebugBuild) { // same detection logic at the moment
-    WEX::Logging::Log::Comment(L"Test skipped due to out-of-memory robustness requirement.");
-    return true;
-  }
   return false;
 }
 
@@ -414,6 +410,7 @@ public:
   TEST_METHOD(CompileHlsl2016ThenOK)
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenFail)
+  TEST_METHOD(CompileCBufferTBufferASTDump)
 
   TEST_METHOD(DiaLoadBadBitcodeThenFail)
   TEST_METHOD(DiaLoadDebugThenOK)
@@ -481,7 +478,9 @@ public:
   TEST_METHOD(CodeGenCbuffer6_51)
   TEST_METHOD(CodeGenCbufferAlloc)
   TEST_METHOD(CodeGenCbufferAllocLegacy)
+  TEST_METHOD(CodeGenCbufferHalf)
   TEST_METHOD(CodeGenCbufferInLoop)
+  TEST_METHOD(CodeGenCbufferMinPrec)
   TEST_METHOD(CodeGenClass)
   TEST_METHOD(CodeGenClip)
   TEST_METHOD(CodeGenClipPlanes)
@@ -794,6 +793,7 @@ public:
   TEST_METHOD(CodeGenIndexing_Operator_Mod)
   TEST_METHOD(CodeGenIntrinsic_Examples_Mod)
   TEST_METHOD(CodeGenLiterals_Mod)
+  TEST_METHOD(CodeGenLiterals_Exact_Precision_Mod)
   TEST_METHOD(CodeGenMatrix_Assignments_Mod)
   TEST_METHOD(CodeGenMatrix_Syntax_Mod)
   //TEST_METHOD(CodeGenMore_Operators_Mod)
@@ -1284,7 +1284,82 @@ public:
 
     return o.str();
   }
-  
+  std::wstring GetDebugFileContent(_In_ IDiaDataSource *pDataSource) {
+    CComPtr<IDiaSession> pSession;
+    CComPtr<IDiaTable> pTable;
+
+    CComPtr<IDiaTable> pSourcesTable;
+
+    CComPtr<IDiaEnumTables> pEnumTables;
+    std::wstringstream o;
+
+    VERIFY_SUCCEEDED(pDataSource->openSession(&pSession));
+    VERIFY_SUCCEEDED(pSession->getEnumTables(&pEnumTables));
+
+    ULONG fetched = 0;
+    while (pEnumTables->Next(1, &pTable, &fetched) == S_OK && fetched == 1) {
+      CComBSTR name;
+      IFT(pTable->get_name(&name));
+
+      if (wcscmp(name, L"SourceFiles") == 0) {
+        pSourcesTable = pTable.Detach();
+        continue;
+      }
+
+      pTable.Release();
+    }
+
+    if (!pSourcesTable) {
+      return L"cannot find source";
+    }
+
+    // Get source file contents.
+    // NOTE: "SourceFiles" has the root file first while "InjectedSources" is in
+    // alphabetical order.
+    //       It is important to keep the root file first for recompilation, so
+    //       iterate "SourceFiles" and look up the corresponding injected
+    //       source.
+    LONG count;
+    IFT(pSourcesTable->get_Count(&count));
+
+    CComPtr<IDiaSourceFile> pSourceFile;
+    CComBSTR pName;
+    CComPtr<IUnknown> pSymbolUnk;
+    CComPtr<IDiaEnumInjectedSources> pEnumInjectedSources;
+    CComPtr<IDiaInjectedSource> pInjectedSource;
+    std::wstring sourceText, sourceFilename;
+
+    while (SUCCEEDED(pSourcesTable->Next(1, &pSymbolUnk, &fetched)) &&
+           fetched == 1) {
+      sourceText = sourceFilename = L"";
+
+      IFT(pSymbolUnk->QueryInterface(&pSourceFile));
+      IFT(pSourceFile->get_fileName(&pName));
+
+      IFT(pSession->findInjectedSource(pName, &pEnumInjectedSources));
+
+      if (SUCCEEDED(pEnumInjectedSources->get_Count(&count)) && count == 1) {
+        IFT(pEnumInjectedSources->Item(0, &pInjectedSource));
+
+        DWORD cbData = 0;
+        std::string tempString;
+        CComBSTR bstr;
+        IFT(pInjectedSource->get_filename(&bstr));
+        IFT(pInjectedSource->get_source(0, &cbData, nullptr));
+
+        tempString.resize(cbData);
+        IFT(pInjectedSource->get_source(
+            cbData, &cbData, reinterpret_cast<BYTE *>(&tempString[0])));
+
+        CA2W tempWString(tempString.data());
+        o << tempWString.m_psz;
+      }
+      pSymbolUnk.Release();
+    }
+
+    return o.str();
+  }
+
   struct LineNumber { DWORD line; DWORD rva; };
   std::vector<LineNumber> ReadLineNumbers(IDiaEnumLineNumbers *pEnumLineNumbers) {
     std::vector<LineNumber> lines;
@@ -1333,8 +1408,16 @@ public:
     std::wstring profile =
         Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
 
+    std::vector<std::wstring> argLists;
+    CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argLists);
+
+    std::vector<LPCWSTR> args;
+    args.reserve(argLists.size());
+    for (const std::wstring &a : argLists)
+      args.push_back(a.data());
+
     VERIFY_SUCCEEDED(pCompiler->Compile(
-        pSource, name, entry.c_str(), profile.c_str(), nullptr, 0,
+        pSource, name, entry.c_str(), profile.c_str(), args.data(), args.size(),
         opts.Defines.data(), opts.Defines.size(), nullptr, &pResult));
     HRESULT result;
     VERIFY_SUCCEEDED(pResult->GetStatus(&result));
@@ -1579,7 +1662,8 @@ TEST_F(CompilerTest, CompileWhenDebugThenDIPresent) {
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
-
+  std::wstring diaFileContent = GetDebugFileContent(pDiaSource).c_str();
+  VERIFY_IS_NOT_NULL(wcsstr(diaFileContent.c_str(), L"loat4 main(float4 pos : SV_Position) : SV_Target"));
 #if SUPPORT_FXC_PDB
   // Now, fake it by loading from a .pdb!
   VERIFY_SUCCEEDED(CoInitializeEx(0, COINITBASE_MULTITHREADED));
@@ -2259,7 +2343,7 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
   }
 }
 
-static const UINT CaptureStacks = 1; // Set to 1 to enable captures
+static const UINT CaptureStacks = 0; // Set to 1 to enable captures
 static const UINT StackFrameCount = 12;
 static const UINT StackFrameCountForRefs = 4;
 
@@ -2445,13 +2529,9 @@ TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
   VERIFY_IS_TRUE(0 == InstrMalloc.GetSize());
   VERIFY_ARE_EQUAL(initialRefCount, InstrMalloc.GetRefCount());
 
-  // In Debug, for the typical configuration, debug iterators will be used;
+  // In Debug, without /D_ITERATOR_DEBUG_LEVEL=0, debug iterators will be used;
   // this causes a problem where std::string is specified as noexcept, and yet
   // a sentinel is allocated that may fail and throw.
-  // Skip the failure tests in Debug, run them in Release.
-  // To run this in Debug without debug iterators, add the following line to the root CMakeLists.txt
-  // add_definitions(/D_ITERATOR_DEBUG_LEVEL=0) 
-
   if (m_ver.SkipOutOfMemoryTest()) return;
 
   // Now, fail each allocation and make sure we get an error.
@@ -2650,6 +2730,10 @@ TEST_F(CompilerTest, CompileHlsl2018ThenFail) {
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   LPCSTR pErrorMsg = "Unknown HLSL version";
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
+
+TEST_F(CompilerTest, CompileCBufferTBufferASTDump) {
+  CodeGenTestCheck(L"ctbuf.hlsl");
 }
 
 TEST_F(CompilerTest, DiaLoadBadBitcodeThenFail) {
@@ -2969,8 +3053,17 @@ TEST_F(CompilerTest, CodeGenCbufferAllocLegacy) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferAlloc_legacy.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenCbufferHalf) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferHalf.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenCbufferInLoop) {
   CodeGenTest(L"..\\CodeGenHLSL\\cbufferInLoop.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenCbufferMinPrec) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\cbufferMinPrec.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenClass) {
@@ -3203,11 +3296,11 @@ TEST_F(CompilerTest, CodeGenIf4) { CodeGenTest(L"..\\CodeGenHLSL\\if4.hlsl"); }
 
 TEST_F(CompilerTest, CodeGenIf5) { CodeGenTest(L"..\\CodeGenHLSL\\if5.hlsl"); }
 
-TEST_F(CompilerTest, CodeGenIf6) { CodeGenTest(L"..\\CodeGenHLSL\\if6.hlsl"); }
+TEST_F(CompilerTest, CodeGenIf6) { CodeGenTestCheck(L"..\\CodeGenHLSL\\if6.hlsl"); }
 
-TEST_F(CompilerTest, CodeGenIf7) { CodeGenTest(L"..\\CodeGenHLSL\\if7.hlsl"); }
+TEST_F(CompilerTest, CodeGenIf7) { CodeGenTestCheck(L"..\\CodeGenHLSL\\if7.hlsl"); }
 
-TEST_F(CompilerTest, CodeGenIf8) { CodeGenTest(L"..\\CodeGenHLSL\\if8.hlsl"); }
+TEST_F(CompilerTest, CodeGenIf8) { CodeGenTestCheck(L"..\\CodeGenHLSL\\if8.hlsl"); }
 
 TEST_F(CompilerTest, CodeGenIf9) { CodeGenTestCheck(L"..\\CodeGenHLSL\\if9.hlsl"); }
 
@@ -4228,6 +4321,10 @@ TEST_F(CompilerTest, CodeGenIntrinsic_Examples_Mod) {
 
 TEST_F(CompilerTest, CodeGenLiterals_Mod) {
   CodeGenTest(L"..\\CodeGenHLSL\\literals_Mod.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenLiterals_Exact_Precision_Mod) {
+  CodeGenTest(L"..\\CodeGenHLSL\\literals_exact_precision_Mod.hlsl");
 }
 
 TEST_F(CompilerTest, CodeGenMatrix_Assignments_Mod) {

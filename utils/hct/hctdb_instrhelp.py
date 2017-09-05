@@ -179,12 +179,13 @@ class db_instrhelp_gen:
     "A generator of instruction helper classes."
     def __init__(self, db):
         self.db = db
+        TypeInfo = collections.namedtuple("TypeInfo", "name bits")
         self.llvm_type_map = {
-            "i1": "bool",
-            "i8": "int8_t",
-            "u8": "uint8_t",
-            "i32": "int32_t",
-            "u32": "uint32_t"
+            "i1": TypeInfo("bool", 1),
+            "i8": TypeInfo("int8_t", 8),
+            "u8": TypeInfo("uint8_t", 8),
+            "i32": TypeInfo("int32_t", 32),
+            "u32": TypeInfo("uint32_t", 32)
             }
         self.IsDxilOpFuncCallInst = "hlsl::OP::IsDxilOpFuncCallInst"
 
@@ -216,13 +217,18 @@ class db_instrhelp_gen:
 
     def op_type(self, o):
         if o.llvm_type in self.llvm_type_map:
-            return self.llvm_type_map[o.llvm_type]
+            return self.llvm_type_map[o.llvm_type].name
+        raise ValueError("Don't know how to describe type %s for operand %s." % (o.llvm_type, o.name))
+    def op_size(self, o):
+        if o.llvm_type in self.llvm_type_map:
+            return self.llvm_type_map[o.llvm_type].bits
         raise ValueError("Don't know how to describe type %s for operand %s." % (o.llvm_type, o.name))
 
     def op_const_expr(self, o):
-        if o.llvm_type in self.llvm_type_map:
-            return "(%s)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(%d))->getZExtValue())" % (self.op_type(o), o.pos - 1)
-        raise ValueError("Don't know how to describe type %s for operand %s." % (o.llvm_type, o.name))
+        return "(%s)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(%d))->getZExtValue())" % (self.op_type(o), o.pos - 1)
+    def op_set_const_expr(self, o):
+        type_size = self.op_size(o)
+        return "llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), %d), llvm::APInt(%d, (uint64_t)val))" % (type_size, type_size)
 
     def print_body(self):
         for i in self.db.instr:
@@ -236,7 +242,7 @@ class db_instrhelp_gen:
             if i.doc:
                 print("/// This instruction %s" % i.doc)
             print("struct %s {" % struct_name)
-            print("  const llvm::Instruction *Instr;")
+            print("  llvm::Instruction *Instr;")
             print("  // Construction and identification")
             print("  %s(llvm::Instruction *pInstr) : Instr(pInstr) {}" % struct_name)
             print("  operator bool() const {")
@@ -254,15 +260,27 @@ class db_instrhelp_gen:
                 print("    return true;")
                 # TODO - check operand types
                 print("  }")
+                EnumWritten = False
+                for o in i.ops:
+                    if o.pos > 1: # 0 is return type, 1 is DXIL OP id
+                        if not EnumWritten:
+                            print("  // Operand indexes")
+                            print("  enum OperandIdx {")
+                            EnumWritten = True
+                        print("    arg_%s = %d," % (o.name, o.pos - 1))
+                if EnumWritten:
+                    print("  };")
                 AccessorsWritten = False
                 for o in i.ops:
-                    if o.pos > 1: # 0 is return type, 1 is
+                    if o.pos > 1: # 0 is return type, 1 is DXIL OP id
                         if not AccessorsWritten:
                             print("  // Accessors")
                             AccessorsWritten = True
                         print("  llvm::Value *get_%s() const { return Instr->getOperand(%d); }" % (o.name, o.pos - 1))
+                        print("  void set_%s(llvm::Value *val) { Instr->setOperand(%d, val); }" % (o.name, o.pos - 1))
                         if o.is_const:
                             print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
+                            print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
             print("};")
             print("")
 
@@ -343,7 +361,7 @@ class db_oload_gen:
         f = lambda i,c : "true," if i.oload_types.find(c) >= 0 else "false,"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
-        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone" }
+        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate" }
         attr_fn = lambda i : "Attribute::" + attr_dict[i.fn_attr] + ","
         for i in self.instrs:
             if last_category != i.category:

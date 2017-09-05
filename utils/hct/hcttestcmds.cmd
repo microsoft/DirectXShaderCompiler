@@ -14,26 +14,28 @@ echo Testing command line programs at %1 ...
 
 setlocal
 
+set script_dir=%~dp0
+
 pushd %1
 
 echo Smoke test for dxr command line program ...
-dxr.exe -remove-unused-globals smoke.hlsl -Emain 1>nul 2>nul
+dxr.exe -remove-unused-globals %script_dir%\smoke.hlsl -Emain 1>nul 2>nul
 if %errorlevel% neq  0 (
-  echo Failed - %CD%\dxr.exe -remove-unused-globals %CD%\smoke.hlsl -Emain
+  echo Failed - %CD%\dxr.exe -remove-unused-globals %script_dir%\smoke.hlsl -Emain
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /Fc smoke.hlsl.c 1>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fc smoke.hlsl.c 1>nul
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Fc %CD%\smoke.hlsl.c
+  echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fc %CD%\smoke.hlsl.c
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd smoke.hlsl.d 1>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Zi /Fd smoke.hlsl.d 1>nul
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd %CD%\smoke.hlsl.d
+  echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Zi /Fd %CD%\smoke.hlsl.d
   call :cleanup 2>nul
   exit /b 1
 )
@@ -44,9 +46,9 @@ if exist dxil.dll (
   echo A future dxil.dll will provide this information.
   goto :skipfdtrail
 )
-dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd %CD%\ /Fo smoke.hlsl.strip 1>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Zi /Fd %CD%\ /Fo smoke.hlsl.strip 1>nul
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fd %CD%\
+  echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Zi /Fd %CD%\
   call :cleanup 2>nul
   exit /b 1
 )
@@ -72,60 +74,60 @@ if %errorlevel% equ 0 (
 )
 
 :skipfdtrail
-dxc.exe /T ps_6_0 smoke.hlsl /Fe smoke.hlsl.e 1>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fe smoke.hlsl.e 1>nul
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Fe %CD%\smoke.hlsl.e
+  echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fe %CD%\smoke.hlsl.e
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /ast-dump 1>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /ast-dump 1>nul
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /ast-dump
+  echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /ast-dump
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning 1>nul 2>smoke.warning.txt
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Dcheck_warning 1>nul 2>smoke.warning.txt
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning
+  echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Dcheck_warning
   call :cleanup 2>nul
   exit /b 1
 )
 
 findstr warning: %CD%\smoke.warning.txt 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to get warning message from command %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning
+  echo Failed to get warning message from command %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Dcheck_warning
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning /no-warnings 1>nul 2>smoke.no.warning.txt
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Dcheck_warning /no-warnings 1>nul 2>smoke.no.warning.txt
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning /no-warnings
+  echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Dcheck_warning /no-warnings
   call :cleanup 2>nul
   exit /b 1
 )
 
 findstr warning: %CD%\smoke.no.warning.txt 1>nul
 if %errorlevel% equ 0 (
-  echo no-warning option failed : %CD%\dxc.exe /T ps_6_0 smoke.hlsl /Dcheck_warning /no-warnings
+  echo no-warning option failed : %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Dcheck_warning /no-warnings
   call :cleanup 2>nul
   exit /b 1
 )
 
 
 echo Smoke test for dxc command line program ...
-dxc.exe /T ps_6_0 smoke.hlsl /Fh smoke.hlsl.h /Vn g_myvar 1> nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fh smoke.hlsl.h /Vn g_myvar 1> nul
 if %errorlevel% neq 0 (
-  echo Failed - %CD%\dxc.exe /T ps_6_0 %CD%\smoke.hlsl /Fh %CD%\smoke.hlsl.h /Vn g_myvar
+  echo Failed - %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fh %CD%\smoke.hlsl.h /Vn g_myvar
   call :cleanup 2>nul
   exit /b 1
 )
 findstr g_myvar %CD%\smoke.hlsl.h 1>nul
 if %errorlevel% neq 0 (
   echo Failed to find the variable g_myvar in %CD%\smoke.hlsl.h
-  echo Debug with start devenv /debugexe %CD%\dxc.exe /T ps_6_0 %CD%\smoke.hlsl /Fh %CD%\smoke.hlsl.h /Vn g_myvar
+  echo Debug with start devenv /debugexe %CD%\dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Fh %CD%\smoke.hlsl.h /Vn g_myvar
   call :cleanup 2>nul
   exit /b 1
 )
@@ -136,58 +138,58 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /P preprocessed.hlsl 1>nul
+dxc.exe %script_dir%\smoke.hlsl /P preprocessed.hlsl 1>nul
 if %errorlevel% neq 0 (
   echo Failed to preprocess smoke.hlsl
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl -force_rootsig_ver rootsig_1_0 1>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl -force_rootsig_ver rootsig_1_0 1>nul
 if %errorlevel% neq 0 (
   echo Failed to compile with forcing rootsignature rootsig_1_0
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl -force_rootsig_ver rootsig_1_1 1>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl -force_rootsig_ver rootsig_1_1 1>nul
 if %errorlevel% neq 0 (
   echo Failed to compile with forcing rootsignature rootsig_1_1
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl -force_rootsig_ver rootsig_2_0 2>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl -force_rootsig_ver rootsig_2_0 2>nul
 if %errorlevel% equ 0 (
   echo rootsig_2_0 is not supported but compilation passed
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /HV 2016 1>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /HV 2016 1>nul
 if %errorlevel% neq 0 (
   echo Failed to compile with HLSL version 2016
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /HV 2015 2>nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /HV 2015 2>nul
 if %errorlevel% equ 0 (
   echo Unsupported HLSL version 2015 should fail but did not fail
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fo smoke.cso 1> nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Zi /Fo smoke.cso 1> nul
 if %errorlevel% neq 0 (
   echo Failed to compile to binary object from %CD%\smoke.hlsl
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe /T ps_6_0 smoke.hlsl /Zi /Fo smoke.cso /Cc /Ni /No /Lx 1> nul
+dxc.exe /T ps_6_0 %script_dir%\smoke.hlsl /Zi /Fo smoke.cso /Cc /Ni /No /Lx 1> nul
 if %errorlevel% neq 0 (
-  echo Failed to compile to binary object from %CD%\smoke.hlsl with disassembly options
+  echo Failed to compile to binary object from %script_dir%\smoke.hlsl with disassembly options
   call :cleanup 2>nul
   exit /b 1
 )
@@ -213,9 +215,9 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /D "semantic = SV_Position" /T vs_6_0 /Zi /DDX12 /Fo smoke.cso 1> nul
+dxc.exe %script_dir%\smoke.hlsl /D "semantic = SV_Position" /T vs_6_0 /Zi /DDX12 /Fo smoke.cso 1> nul
 if %errorlevel% neq 0 (
-  echo Failed to compile smoke.hlsl with command line defines
+  echo Failed to compile %script_dir%\smoke.hlsl with command line defines
   call :cleanup 2>nul
   exit /b 1
 )
@@ -398,7 +400,7 @@ if %errorlevel% neq 0 (
 )
 
 echo Smoke test for dxc.exe shader model upgrade...
-dxc.exe /T ps_5_0 smoke.hlsl 1> nul
+dxc.exe /T ps_5_0 %script_dir%\smoke.hlsl 1> nul
 if %errorlevel% neq 0 (
   echo Failed shader model upgrade test - %CD%\dxc.exe /T ps_5_0 %CD%\smoke.hlsl
   call :cleanup 2>nul
@@ -470,7 +472,7 @@ if %errorlevel% neq 0 (
 )
 
 echo Smoke test for dxopt command line ...
-dxc /Odump /T ps_6_0 smoke.hlsl > passes.txt
+dxc /Odump /T ps_6_0 %script_dir%\smoke.hlsl > passes.txt
 if %errorlevel% neq 0 (
   echo Failed to /ODump
   call :cleanup 2>nul
@@ -483,7 +485,7 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 echo -print-module >> passes.txt
-dxc /T ps_6_0 smoke.hlsl /fcgl > smoke.hl.txt
+dxc /T ps_6_0 %script_dir%\smoke.hlsl /fcgl > smoke.hl.txt
 if %errorlevel% neq 0 (
   echo Failed to do a high-level codegen.
   call :cleanup 2>nul
@@ -524,6 +526,26 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+echo Smoke test for dxl command line ...
+dxc.exe -T lib_6_1 "%2"\..\CodeGenHLSL\lib_entry4.hlsl -Fo lib_entry4.dxbc 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to run dxc.exe -T "%2"\..\CodeGenHLSL\lib_6_1 lib_entry4.hlsl -Fo lib_entry4.dxbc
+  call :cleanup 2>nul
+  exit /b 1
+)
+dxc.exe -T lib_6_1 "%2"\..\CodeGenHLSL\lib_res_match.hlsl -Fo lib_res_match.dxbc 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to run dxc.exe -T "%2"\..\CodeGenHLSL\lib_6_1 lib_res_match.hlsl -Fo lib_res_match.dxbc
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+dxl.exe -T ps_6_1 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to run dxl.exe -T ps_6_1 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc
+  call :cleanup 2>nul
+  exit /b 1
+)
 
 rem Skipping shader model 6.2 when dxil.dll is present
 if exist dxil.dll (
@@ -533,33 +555,47 @@ if exist dxil.dll (
 )
 
 echo Test for denorm options ...
-dxc.exe smoke.hlsl /Tps_6_2 /denorm preserve 1>nul
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /denorm preserve 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to compile smoke.hlsl with /denorm ieee option
+  echo Failed to compile %script_dir%\smoke.hlsl with /denorm ieee option
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_2 /denorm ftz 1>nul
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /denorm ftz 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to compile smoke.hlsl with /denorm ftz option
+  echo Failed to compile %script_dir%\smoke.hlsl with /denorm ftz option
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_2 /denorm abc 2>nul
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /denorm abc 2>nul
 if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled smoke.hlsl with invalid /denorm option
+  echo dxc incorrectly compiled %script_dir%\smoke.hlsl with invalid /denorm option
   call :cleanup 2>nul
   exit /b 1
 )
 
-dxc.exe smoke.hlsl /Tps_6_1 /denorm any 2>nul
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_1 /denorm any 2>nul
 if %errorlevel% equ 0 (
-  echo dxc incorrectly compiled smoke.hlsl shader model 6.1 with /denorm option
+  echo dxc incorrectly compiled %script_dir%\smoke.hlsl shader model 6.1 with /denorm option
   call :cleanup 2>nul
   exit /b 1
 )
+
+rem SPIR-V Change Starts
+echo Smoke test for SPIR-V CodeGen ...
+set spirv_smoke_success=0
+dxc.exe %script_dir%\smoke.hlsl /T ps_6_0 -spirv 1>%CD%\smoke.spirv.log 2>&1
+if %errorlevel% equ 0 set spirv_smoke_success=1
+findstr /c:"SPIR-V CodeGen not available" %CD%\smoke.spirv.log >nul
+if %errorlevel% equ 0 set spirv_smoke_success=1
+if %spirv_smoke_success% neq 1 (
+  echo dxc failed SPIR-V smoke test
+  call :cleanup 2>nul
+  exit /b 1
+)
+rem SPIR-V Change Ends
 
 :skipsm62
 call :cleanup
@@ -595,6 +631,12 @@ del %CD%\smoke.opt.ll
 del %CD%\smoke.opt.prn.txt
 del %CD%\smoke.rebuilt-container.cso
 del %CD%\smoke.rebuilt-container2.cso
+rem SPIR-V Change Starts
+del %CD%\smoke.spirv.log
+rem SPIR-V Change Ends
+del %CD%\lib_res_match.dxbc
+del %CD%\lib_entry4.dxbc
+del %CD%\res_match_entry.dxbc
 
 exit /b 0
 

@@ -156,7 +156,10 @@ public:
   unsigned RootSigMajor;
   unsigned RootSigMinor;
   bool IsHLSLLibrary;
+  bool UseMinPrecision; // use min precision, not native precision.
   // MS Change Ends
+
+  bool SPIRV = false;  // SPIRV Change
   
   bool isSignedOverflowDefined() const {
     return getSignedOverflowBehavior() == SOB_Defined;

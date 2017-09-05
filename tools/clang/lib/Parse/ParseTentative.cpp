@@ -498,12 +498,6 @@ bool Parser::isCXXTypeId(TentativeCXXTypeIdContext Context, bool &isAmbiguous) {
 Parser::CXX11AttributeKind
 Parser::isCXX11AttributeSpecifier(bool Disambiguate,
                                   bool OuterMightBeMessageSend) {
-  // HLSL Change Starts
-  if (getLangOpts().HLSL) {
-    return CAK_NotAttributeSpecifier;
-  }
-  // HLSL Change Ends
-
   if (Tok.is(tok::kw_alignas))
     return CAK_AttributeSpecifier;
 
@@ -960,8 +954,6 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::kw___int64:
   case tok::kw___int128:
   // HLSL Change Starts
-  case tok::kw_min10float:
-  case tok::kw_min12int:
   case tok::kw_column_major:
   case tok::kw_row_major:
   case tok::kw_snorm:
@@ -1457,10 +1449,6 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw_long:
   case tok::kw___int64:
   case tok::kw___int128:
-  // HLSL Change Starts
-  case tok::kw_min10float:
-  case tok::kw_min12int:
-  // HLSL Change Ends
   case tok::kw_signed:
   case tok::kw_unsigned:
   case tok::kw_half:
@@ -1560,12 +1548,6 @@ bool Parser::isCXXDeclarationSpecifierAType() {
   case tok::kw_void:
   case tok::kw___unknown_anytype:
     return true;
-
-  // HLSL Change Starts
-  case tok::kw_min10float:
-  case tok::kw_min12int:
-    return true;
-  // HLSL Change Ends
 
   case tok::kw_auto:
     return getLangOpts().CPlusPlus11;

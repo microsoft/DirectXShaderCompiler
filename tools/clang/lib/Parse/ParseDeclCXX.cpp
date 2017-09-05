@@ -2573,7 +2573,11 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     InClassInitStyle HasInClassInit = ICIS_NoInit;
     bool HasStaticInitializer = false;
     if (Tok.isOneOf(tok::equal, tok::l_brace) && PureSpecLoc.isInvalid()) {
-      Diag(Tok, diag::err_hlsl_unsupported_member_default); // HLSL Change
+      // HLSL Change Begin - only allow member default for static const.
+      if (DS.getStorageClassSpec() != DeclSpec::SCS_static ||
+          !(DS.getTypeQualifiers() & Qualifiers::Const))
+        Diag(Tok, diag::err_hlsl_unsupported_member_default);
+      // HLSL Change End
       if (BitfieldSize.get()) {
         Diag(Tok, diag::err_bitfield_member_init);
         SkipUntil(tok::comma, StopAtSemi | StopBeforeMatch);
@@ -3813,7 +3817,6 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
 ///         identifier
 void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
                                           SourceLocation *endLoc) {
-  assert(!getLangOpts().HLSL && "unreachable code in HLSL, no parsing of C++11-style attributes"); // HLSL Change
   if (Tok.is(tok::kw_alignas)) {
     Diag(Tok.getLocation(), diag::warn_cxx98_compat_alignas);
     ParseAlignmentSpecifier(attrs, endLoc);
@@ -3894,7 +3897,7 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
 ///       attribute-specifier-seq[opt] attribute-specifier
 void Parser::ParseCXX11Attributes(ParsedAttributesWithRange &attrs,
                                   SourceLocation *endLoc) {
-  assert(getLangOpts().CPlusPlus11);
+  assert(getLangOpts().CPlusPlus11 || getLangOpts().HLSL); // HLSL Change
 
   SourceLocation StartLoc = Tok.getLocation(), Loc;
   if (!endLoc)

@@ -104,6 +104,7 @@ private:
   LLVMContext m_Ctx;
   std::unique_ptr<DxilLinker> m_pLinker;
   CComPtr<IDxcContainerEventsHandler> m_pDxcContainerEventsHandler;
+  std::vector<CComPtr<IDxcBlob>> m_blobs; // Keep blobs live for lazy load.
 };
 
 HRESULT
@@ -129,14 +130,17 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
 
     raw_stream_ostream DiagStream(pDiagStream);
 
-    IFR(ValidateLoadModuleFromContainer(
+    IFR(ValidateLoadModuleFromContainerLazy(
         pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
         pDebugModule, m_Ctx, m_Ctx, DiagStream));
 
-    return m_pLinker->RegisterLib(pUtf8LibName.m_psz, std::move(pModule),
-                                  std::move(pDebugModule))
-               ? S_OK
-               : E_INVALIDARG;
+    if (m_pLinker->RegisterLib(pUtf8LibName.m_psz, std::move(pModule),
+                               std::move(pDebugModule))) {
+      m_blobs.emplace_back(pBlob);
+      return S_OK;
+    } else {
+      return E_INVALIDARG;
+    }
   } catch (hlsl::Exception &) {
     return E_INVALIDARG;
   }

@@ -9,7 +9,6 @@ add_clang_library(clangRewriteFrontend
   FrontendActions_rewrite.cpp
   HTMLPrint.cpp
   InclusionRewriter.cpp
-  InclusionToSnippetRewriter.cpp  # HLSL Change
   RewriteMacros.cpp
   # RewriteModernObjC.cpp # HLSL Change
   RewriteObjC.cpp

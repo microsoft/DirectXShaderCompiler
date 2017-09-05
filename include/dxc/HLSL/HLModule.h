@@ -59,7 +59,8 @@ struct HLOptions {
   unsigned bLegacyCBufferLoad      : 1;
   unsigned PackingStrategy         : 2;
   static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4, "otherwise 2 bits is not enough to store PackingStrategy");
-  unsigned unused                  : 25;
+  unsigned bUseMinPrecision        : 1;
+  unsigned unused                  : 24;
 };
 
 /// Use this class to manipulate HLDXIR of a shader.
@@ -86,6 +87,7 @@ public:
   void SetEntryFunction(llvm::Function *pEntryFunc);
   const std::string &GetEntryFunctionName() const;
   void SetEntryFunctionName(const std::string &name);
+  llvm::Function *GetPatchConstantFunction();
 
   // Resources.
   unsigned AddCBuffer(std::unique_ptr<DxilCBuffer> pCB);
@@ -162,6 +164,7 @@ public:
   static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
   static const char *GetLegacyDataLayoutDesc();
+  static const char *GetNewDataLayoutDesc();
 
   static void MergeGepUse(llvm::Value *V);
 

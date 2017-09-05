@@ -1885,7 +1885,6 @@ _Use_decl_annotations_
 HRESULT DxilShaderReflection::GetResourceBindingDescByName(LPCSTR Name,
   D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
   IFRBOOL(Name != nullptr, E_INVALIDARG);
-  IFR(ZeroMemoryToOut(pDesc));
 
   for (UINT i = 0; i < m_Resources.size(); i++) {
     if (strcmp(m_Resources[i].Name, Name) == 0) {
@@ -1939,7 +1938,7 @@ UINT64 DxilShaderReflection::GetRequiresFlags() {
   if (features & ShaderFeatureInfo_Doubles) result |= D3D_SHADER_REQUIRES_DOUBLES;
   if (features & ShaderFeatureInfo_UAVsAtEveryStage) result |= D3D_SHADER_REQUIRES_UAVS_AT_EVERY_STAGE;
   if (features & ShaderFeatureInfo_64UAVs) result |= D3D_SHADER_REQUIRES_64_UAVS;
-  if (features & ShaderFeatureInfo_MininumPrecision) result |= D3D_SHADER_REQUIRES_MINIMUM_PRECISION;
+  if (features & ShaderFeatureInfo_MinimumPrecision) result |= D3D_SHADER_REQUIRES_MINIMUM_PRECISION;
   if (features & ShaderFeatureInfo_11_1_DoubleExtensions) result |= D3D_SHADER_REQUIRES_11_1_DOUBLE_EXTENSIONS;
   if (features & ShaderFeatureInfo_11_1_ShaderExtensions) result |= D3D_SHADER_REQUIRES_11_1_SHADER_EXTENSIONS;
   if (features & ShaderFeatureInfo_LEVEL9ComparisonFiltering) result |= D3D_SHADER_REQUIRES_LEVEL_9_COMPARISON_FILTERING;

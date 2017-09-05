@@ -50,9 +50,11 @@ class IncludeToLibPreprocessor {
 public:
   virtual ~IncludeToLibPreprocessor() {}
 
-  virtual void SetupDefines(const DxcDefine *pDefines, unsigned defineCount) = 0;
   virtual void AddIncPath(llvm::StringRef path) = 0;
-  virtual HRESULT Preprocess(IDxcBlob *pSource, LPCWSTR pFilename) = 0;
+  virtual HRESULT Preprocess(IDxcBlob *pSource, LPCWSTR pFilename,
+                             LPCWSTR *pArguments, UINT32 argCount,
+                             const DxcDefine *pDefines,
+                             unsigned defineCount) = 0;
 
   virtual const std::vector<std::string> &GetSnippets() const = 0;
   static std::unique_ptr<IncludeToLibPreprocessor>

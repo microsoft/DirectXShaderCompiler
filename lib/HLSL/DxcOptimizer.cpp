@@ -109,6 +109,7 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeGVNPass(Registry);
     initializeGlobalDCEPass(Registry);
     initializeGlobalOptPass(Registry);
+    initializeHLDeadFunctionEliminationPass(Registry);
     initializeHLEmitMetadataPass(Registry);
     initializeHLEnsureMetadataPass(Registry);
     initializeHLMatrixLowerPassPass(Registry);

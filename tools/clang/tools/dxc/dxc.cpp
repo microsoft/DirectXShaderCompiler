@@ -62,6 +62,40 @@
 #include <algorithm>
 #include <unordered_map>
 
+// SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+#include "spirv-tools/libspirv.hpp"
+
+static bool DisassembleSpirv(IDxcBlob *binaryBlob,
+                             IDxcLibrary *library,
+                             IDxcBlobEncoding **assemblyBlob) {
+  if (!binaryBlob)
+    return true;
+
+  size_t num32BitWords = (binaryBlob->GetBufferSize() + 3) / 4;
+  std::string binaryStr((char *)binaryBlob->GetBufferPointer(),
+                        binaryBlob->GetBufferSize());
+  binaryStr.resize(num32BitWords * 4, 0);
+
+  std::vector<uint32_t> words;
+  words.resize(num32BitWords, 0);
+  memcpy(words.data(), binaryStr.data(), binaryStr.size());
+
+  std::string assembly;
+  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
+  uint32_t options = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
+                      SPV_BINARY_TO_TEXT_OPTION_INDENT);
+  if (!spirvTools.Disassemble(words, &assembly, options))
+    return false;
+
+  IFT(library->CreateBlobWithEncodingOnHeapCopy(
+        assembly.data(), assembly.size(), CP_UTF8, assemblyBlob));
+
+  return true;
+}
+#endif
+// SPIRV Change Ends
+
 struct NoSerializeHeapMalloc : public IMalloc {
 private:
   HANDLE m_Handle;
@@ -273,6 +307,25 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
     return retVal;
 
   CComPtr<IDxcBlobEncoding> pDisassembleResult;
+
+  // SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  if (m_Opts.GenSPIRV) {
+    CComPtr<IDxcLibrary> pLibrary;
+    IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+
+    if (DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult)) {
+      if (!m_Opts.AssemblyCode.empty()) {
+        WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode);
+      } else {
+        WriteBlobToConsole(pDisassembleResult);
+      }
+      return 0;
+    }
+    return 1;
+  }
+#endif // ENABLE_SPIRV_CODEGEN
+  // SPIRV Change Ends
 
   if (m_Opts.IsRootSignatureProfile()) {
       //keep the same behavior as fxc, people may want to embed the root signatures in their code bases.
@@ -961,22 +1014,6 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
       return 0;
     }
-
-    // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
-    // This ideally should be put in ReadDxcOpts(), but ReadDxcOpts() are called
-    // again in DxcCompilerCompile() with -Fo stripped.
-    if (dxcOpts.GenSPIRV && dxcOpts.OutputObject.empty()) {
-      fprintf(stderr, "-spirv requires -Fo for output object file name.");
-      return 1;
-    }
-#else
-    if (dxcOpts.GenSPIRV) {
-      fprintf(stderr, "SPIR-V codegen not configured via ENABLE_SPIRV_CODEGEN");
-      return 1;
-    }
-#endif
-    // SPIRV change ends
 
     // Apply defaults.
     if (dxcOpts.EntryPoint.empty() && !dxcOpts.RecompileFromBinary) {

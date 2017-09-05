@@ -59,7 +59,9 @@ public:
 
   /// \brief Returns the <result-id> that defines the given Type. If the type
   /// has not been defined, it will define and store its instruction.
-  uint32_t getResultIdForType(const Type *);
+  /// If isRegistered is not nullptr, *isRegistered will contain whether the
+  /// type was previously seen.
+  uint32_t getResultIdForType(const Type *type, bool *isRegistered = nullptr);
 
   /// \brief Returns the <result-id> that defines the given Constant. If the
   /// constant has not been defined, it will define and return its result-id.

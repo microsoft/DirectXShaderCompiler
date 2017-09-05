@@ -1999,7 +1999,8 @@ static bool IsDxilBuiltinStructType(StructType *ST, hlsl::OP *hlslOP) {
   unsigned EltNum = ST->getNumElements();
   switch (EltNum) {
   case 2:
-  case 4: {
+  case 4:
+  case 8: { // 2 for doubles, 8 for halfs.
     Type *EltTy = ST->getElementType(0);
     return ST == hlslOP->GetCBufferRetType(EltTy);
   } break;
@@ -4520,7 +4521,8 @@ HRESULT ValidateLoadModule(const char *pIL,
                            uint32_t ILLength,
                            unique_ptr<llvm::Module> &pModule,
                            LLVMContext &Ctx,
-                           llvm::raw_ostream &DiagStream) {
+                           llvm::raw_ostream &DiagStream,
+                           unsigned bLazyLoad) {
 
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
@@ -4531,7 +4533,9 @@ HRESULT ValidateLoadModule(const char *pIL,
       llvm::StringRef(pIL, ILLength), "", false).release());
 
   ErrorOr<std::unique_ptr<Module>> loadedModuleResult =
-      llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), Ctx);
+      bLazyLoad == 0?
+      llvm::parseBitcodeFile(pBitcodeBuf->getMemBufferRef(), Ctx) :
+      llvm::getLazyBitcodeModule(std::move(pBitcodeBuf), Ctx);
 
   // DXIL disallows some LLVM bitcode constructs, like unaccounted-for sub-blocks.
   // These appear as warnings, which the validator should reject.
@@ -4556,7 +4560,8 @@ HRESULT ValidateDxilBitcode(
                            &DiagContext, true);
 
   HRESULT hr;
-  if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pModule, Ctx, DiagStream)))
+  if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pModule, Ctx, DiagStream,
+                                     /*bLazyLoad*/ false)))
     return hr;
 
   if (FAILED(hr = ValidateDxilModule(pModule.get(), nullptr)))
@@ -4596,13 +4601,12 @@ HRESULT ValidateDxilBitcode(
   return S_OK;
 }
 
-_Use_decl_annotations_
-HRESULT ValidateLoadModuleFromContainer(
+static HRESULT ValidateLoadModuleFromContainer(
     _In_reads_bytes_(ILLength) const void *pContainer,
     _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
     _In_ std::unique_ptr<llvm::Module> &pDebugModule,
     _In_ llvm::LLVMContext &Ctx, LLVMContext &DbgCtx,
-    _In_ llvm::raw_ostream &DiagStream) {
+    _In_ llvm::raw_ostream &DiagStream, _In_ unsigned bLazyLoad) {
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
   DiagRestore DR(Ctx, &DiagContext);
@@ -4617,7 +4621,7 @@ HRESULT ValidateLoadModuleFromContainer(
       reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart)), &pIL,
       &ILLength);
 
-  IFR(ValidateLoadModule(pIL, ILLength, pModule, Ctx, DiagStream));
+  IFR(ValidateLoadModule(pIL, ILLength, pModule, Ctx, DiagStream, bLazyLoad));
 
   HRESULT hr;
   const DxilPartHeader *pDbgPart = nullptr;
@@ -4632,12 +4636,34 @@ HRESULT ValidateLoadModuleFromContainer(
         reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pDbgPart)),
         &pIL, &ILLength);
     if (FAILED(hr = ValidateLoadModule(pIL, ILLength, pDebugModule, DbgCtx,
-                                       DiagStream))) {
+                                       DiagStream, bLazyLoad))) {
       return hr;
     }
   }
 
   return S_OK;
+}
+
+_Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainer(
+    _In_reads_bytes_(ContainerSize) const void *pContainer,
+    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
+    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
+    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
+    _In_ llvm::raw_ostream &DiagStream) {
+  return ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
+                                         pDebugModule, Ctx, DbgCtx, DiagStream,
+                                         /*bLazyLoad*/ false);
+}
+// Lazy loads module from container, validating load, but not module.
+_Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainerLazy(
+    _In_reads_bytes_(ContainerSize) const void *pContainer,
+    _In_ uint32_t ContainerSize, _In_ std::unique_ptr<llvm::Module> &pModule,
+    _In_ std::unique_ptr<llvm::Module> &pDebugModule,
+    _In_ llvm::LLVMContext &Ctx, llvm::LLVMContext &DbgCtx,
+    _In_ llvm::raw_ostream &DiagStream) {
+  return ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
+                                         pDebugModule, Ctx, DbgCtx, DiagStream,
+                                         /*bLazyLoad*/ true);
 }
 
 _Use_decl_annotations_

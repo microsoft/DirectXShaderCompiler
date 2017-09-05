@@ -4866,6 +4866,7 @@ TryObjectArgumentInitialization(Sema &S, QualType FromType,
   // First check the qualifiers.
   QualType FromTypeCanon = S.Context.getCanonicalType(FromType);
   // HLSL Change Starts - for calls other than subscript overloads, disregard const
+  FromTypeCanon.removeLocalRestrict(); // HLSL Change - disregard restrict.
   if (!S.getLangOpts().HLSL ||
      (Method != nullptr && Method->getDeclName() == S.Context.DeclarationNames.getCXXOperatorName(OO_Subscript))) {
   // HLSL Change Ends

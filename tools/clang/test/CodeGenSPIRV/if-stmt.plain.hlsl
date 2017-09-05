@@ -1,8 +1,5 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// Note: we need to consider the order of basic blocks. So CHECK-NEXT is used
-// extensively.
-
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
     bool c;
@@ -65,5 +62,19 @@ void main() {
         ;
 
 // CHECK-LABEL: %if_merge_2 = OpLabel
+
+// CHECK-NEXT: [[val4:%\d+]] = OpLoad %int %val
+// CHECK-NEXT: OpStore %d [[val4]]
+// CHECK-NEXT: [[d:%\d+]] = OpLoad %int %d
+// CHECK-NEXT: [[cmp:%\d+]] = OpINotEqual %bool [[d]] %int_0
+// CHECK-NEXT: OpSelectionMerge %if_merge_3 None
+// CHECK-NEXT: OpBranchConditional [[cmp]] %if_true_3 %if_merge_3
+    if (int d = val) {
+// CHECK-LABEL: %if_true_3 = OpLabel
+// CHECK-NEXT: OpStore %c %true
+        c = true;
+// CHECK-NEXT: OpBranch %if_merge_3
+// CHECK-LABEL:%if_merge_3 = OpLabel
+    }
 // CHECK-NEXT: OpReturn
 }

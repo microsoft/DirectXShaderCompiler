@@ -62,6 +62,9 @@ public:
   // Return false if the given function is not a dxil function.
   bool GetOpCodeClass(const llvm::Function *F, OpCodeClass &opClass);
 
+  // To check if operation uses strict precision types
+  bool UseMinPrecision();
+
   // LLVM helpers. Perhaps, move to a separate utility class.
   llvm::Constant *GetI1Const(bool v);
   llvm::Constant *GetI8Const(char v);
@@ -87,6 +90,7 @@ public:
   static bool IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode);
   static bool IsDxilOpWave(OpCode C);
   static bool IsDxilOpGradient(OpCode C);
+  static bool IsDxilOpType(llvm::StructType *ST);
   static bool IsDupDxilOpType(llvm::StructType *ST);
   static llvm::StructType *GetOriginalDxilOpType(llvm::StructType *ST,
                                                  llvm::Module &M);
@@ -103,6 +107,8 @@ private:
   llvm::Type *m_pBinaryWithTwoOutputsType;
   llvm::Type *m_pSplitDoubleType;
   llvm::Type *m_pInt4Type;
+
+  DXIL::LowPrecisionMode m_LowPrecisionMode;
 
   static const unsigned kNumTypeOverloads = 9;
 

@@ -112,7 +112,6 @@ public:
 
   bool AllResourcesBound; // OPT_all_resources_bound
   bool AstDump; // OPT_ast_dump
-  bool GenSPIRV; // OPT_spirv // SPIRV change
   bool ColorCodeAssembly; // OPT_Cc
   bool CodeGenHighLevel; // OPT_fcgl
   bool DebugInfo; // OPT__SLASH_Zi
@@ -121,6 +120,7 @@ public:
   bool DumpBin;        // OPT_dumpbin
   bool WarningAsError; // OPT__SLASH_WX
   bool IEEEStrict;     // OPT_Gis
+  bool IgnoreLineDirectives; // OPT_ignore_line_directives
   bool DefaultColMajor;  // OPT_Zpc
   bool DefaultRowMajor;  // OPT_Zpr
   bool DisableValidation; // OPT_VD
@@ -132,6 +132,7 @@ public:
   bool HLSL2015;  // OPT_hlsl_version (=2015)
   bool HLSL2016;  // OPT_hlsl_version (=2016)
   bool HLSL2017;  // OPT_hlsl_version (=2017)
+  bool NoMinPrecision; // OPT_no_min_precision
   bool OptDump; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings
   bool ShowHelp = false;  // OPT_help
@@ -155,6 +156,13 @@ public:
   bool DisaseembleHex; //OPT_Lx
   bool IsRootSignatureProfile();
   bool IsLibraryProfile();
+
+  // SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+  bool GenSPIRV; // OPT_spirv
+  llvm::StringRef VkStageIoOrder;
+#endif
+  // SPIRV Change Ends
 };
 
 /// Use this class to capture, convert and handle the lifetime for the

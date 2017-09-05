@@ -199,6 +199,10 @@ private:
                                      DxilTypeSystem &dxilTypeSys);
   unsigned AddTypeAnnotation(QualType Ty, DxilTypeSystem &dxilTypeSys,
                              unsigned &arrayEltSize);
+  MDNode *GetOrAddResTypeMD(QualType resTy);
+  void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation,
+                                          QualType fieldTy,
+                                          bool bDefaultRowMajor);
 
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
 
@@ -307,7 +311,7 @@ void clang::CompileRootSignature(
 //
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()), EntryFunc(nullptr),
-      TheModule(CGM.getModule()), legacyLayout(HLModule::GetLegacyDataLayoutDesc()),
+      TheModule(CGM.getModule()), legacyLayout(CGM.getLangOpts().UseMinPrecision ? HLModule::GetLegacyDataLayoutDesc() : HLModule::GetNewDataLayoutDesc()),
       CBufferType(
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")) {
   const hlsl::ShaderModel *SM =
@@ -344,6 +348,9 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
+
+  opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
+
   m_pHLModule->SetHLOptions(opts);
 
   m_pHLModule->SetValidatorVersion(CGM.getCodeGenOpts().HLSLValidatorMajorVer, CGM.getCodeGenOpts().HLSLValidatorMinorVer);
@@ -381,6 +388,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
 
   // set Float Denorm Mode
   m_pHLModule->SetFPDenormMode(CGM.getCodeGenOpts().HLSLFlushFPDenorm);
+
 }
 
 bool CGMSHLSLRuntime::IsHlslObjectType(llvm::Type *Ty) {
@@ -480,7 +488,7 @@ StringToTessOutputPrimitive(StringRef primitive) {
 }
 
 static unsigned AlignTo8Bytes(unsigned offset, bool b8BytesAlign) {
-  DXASSERT((offset & 0x3) == 0, "offset should be divisible by 4");
+  DXASSERT((offset & 0x1) == 0, "offset should be divisible by 2");
   if (!b8BytesAlign)
     return offset;
   else if ((offset & 0x7) == 0)
@@ -650,7 +658,68 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   return kind;
 }
 
-static void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation, QualType fieldTy, bool bDefaultRowMajor) {
+static DxilSampler::SamplerKind KeywordToSamplerKind(llvm::StringRef keyword) {
+  // TODO: refactor for faster search (switch by 1/2/3 first letters, then
+  // compare)
+  return llvm::StringSwitch<DxilSampler::SamplerKind>(keyword)
+    .Case("SamplerState", DxilSampler::SamplerKind::Default)
+    .Case("SamplerComparisonState", DxilSampler::SamplerKind::Comparison)
+    .Default(DxilSampler::SamplerKind::Invalid);
+}
+
+MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy) {
+  const RecordType *RT = resTy->getAs<RecordType>();
+  if (!RT)
+    return nullptr;
+  RecordDecl *RD = RT->getDecl();
+  SourceLocation loc = RD->getLocation();
+
+  hlsl::DxilResourceBase::Class resClass = TypeToClass(resTy);
+  llvm::Type *Ty = CGM.getTypes().ConvertType(resTy);
+  auto it = resMetadataMap.find(Ty);
+  if (it != resMetadataMap.end())
+    return it->second;
+
+  // Save resource type metadata.
+  switch (resClass) {
+  case DXIL::ResourceClass::UAV: {
+    DxilResource UAV;
+    // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
+    SetUAVSRV(loc, resClass, &UAV, RD);
+    // Set global symbol to save type.
+    UAV.SetGlobalSymbol(UndefValue::get(Ty));
+    MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
+    resMetadataMap[Ty] = MD;
+    return MD;
+  } break;
+  case DXIL::ResourceClass::SRV: {
+    DxilResource SRV;
+    SetUAVSRV(loc, resClass, &SRV, RD);
+    // Set global symbol to save type.
+    SRV.SetGlobalSymbol(UndefValue::get(Ty));
+    MDNode *MD = m_pHLModule->DxilSRVToMDNode(SRV);
+    resMetadataMap[Ty] = MD;
+    return MD;
+  } break;
+  case DXIL::ResourceClass::Sampler: {
+    DxilSampler S;
+    DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
+    S.SetSamplerKind(kind);
+    // Set global symbol to save type.
+    S.SetGlobalSymbol(UndefValue::get(Ty));
+    MDNode *MD = m_pHLModule->DxilSamplerToMDNode(S);
+    resMetadataMap[Ty] = MD;
+    return MD;
+  }
+  default:
+    // Skip OutputStream for GS.
+    return nullptr;
+  }
+}
+
+void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
+    DxilFieldAnnotation &fieldAnnotation, QualType fieldTy,
+    bool bDefaultRowMajor) {
   QualType Ty = fieldTy;
   if (Ty->isReferenceType())
     Ty = Ty.getNonReferenceType();
@@ -690,6 +759,11 @@ static void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotat
   if (hlsl::IsHLSLVecType(Ty))
     EltTy = hlsl::GetHLSLVecElementType(Ty);
 
+  if (IsHLSLResourceType(Ty)) {
+    MDNode *MD = GetOrAddResTypeMD(Ty);
+    fieldAnnotation.SetResourceAttribute(MD);
+  }
+
   bool bSNorm = false;
   bool bUNorm = false;
 
@@ -711,15 +785,15 @@ static void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotat
     const BuiltinType *BTy = EltTy->getAs<BuiltinType>();
     CompType::Kind kind = BuiltinTyToCompTy(BTy, bSNorm, bUNorm);
     fieldAnnotation.SetCompType(kind);
-  }
-  else if (EltTy->isEnumeralType()) {
+  } else if (EltTy->isEnumeralType()) {
     const EnumType *ETy = EltTy->getAs<EnumType>();
     QualType type = ETy->getDecl()->getIntegerType();
-    if (const BuiltinType *BTy = dyn_cast<BuiltinType>(type->getCanonicalTypeInternal()))
-        fieldAnnotation.SetCompType(BuiltinTyToCompTy(BTy, bSNorm, bUNorm));
-  }
-  else
-    DXASSERT(!bSNorm && !bUNorm, "snorm/unorm on invalid type, validate at handleHLSLTypeAttr");
+    if (const BuiltinType *BTy =
+            dyn_cast<BuiltinType>(type->getCanonicalTypeInternal()))
+      fieldAnnotation.SetCompType(BuiltinTyToCompTy(BTy, bSNorm, bUNorm));
+  } else
+    DXASSERT(!bSNorm && !bUNorm,
+             "snorm/unorm on invalid type, validate at handleHLSLTypeAttr");
 }
 
 static void ConstructFieldInterpolation(DxilFieldAnnotation &fieldAnnotation,
@@ -977,15 +1051,6 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   return DxilResource::Kind::Invalid;
 }
 
-static DxilSampler::SamplerKind KeywordToSamplerKind(llvm::StringRef keyword) {
-  // TODO: refactor for faster search (switch by 1/2/3 first letters, then
-  // compare)
-  return llvm::StringSwitch<DxilSampler::SamplerKind>(keyword)
-    .Case("SamplerState", DxilSampler::SamplerKind::Default)
-    .Case("SamplerComparisonState", DxilSampler::SamplerKind::Comparison)
-    .Default(DxilSampler::SamplerKind::Invalid);
-}
-
 void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // Add hlsl intrinsic attr
   unsigned intrinsicOpcode;
@@ -1009,34 +1074,21 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       // Save resource type metadata.
       switch (resClass) {
       case DXIL::ResourceClass::UAV: {
-        DxilResource UAV;
-        // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
-        SetUAVSRV(FD->getLocation(), resClass, &UAV, RD);
-        // Set global symbol to save type.
-        UAV.SetGlobalSymbol(UndefValue::get(Ty));
-        MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
+        MDNode *MD = GetOrAddResTypeMD(recordTy);
+        DXASSERT(MD, "else invalid resource type");
         resMetadataMap[Ty] = MD;
       } break;
       case DXIL::ResourceClass::SRV: {
-        DxilResource SRV;
-        SetUAVSRV(FD->getLocation(), resClass, &SRV, RD);
-        // Set global symbol to save type.
-        SRV.SetGlobalSymbol(UndefValue::get(Ty));
-        MDNode *Meta = m_pHLModule->DxilSRVToMDNode(SRV);
+        MDNode *Meta = GetOrAddResTypeMD(recordTy);
+        DXASSERT(Meta, "else invalid resource type");
         resMetadataMap[Ty] = Meta;
         if (FT->getNumParams() > 1) {
           QualType paramTy = MD->getParamDecl(0)->getType();
           // Add sampler type.
           if (TypeToClass(paramTy) == DXIL::ResourceClass::Sampler) {
             llvm::Type *Ty = FT->getParamType(1)->getPointerElementType();
-            DxilSampler S;
-            const RecordType *RT = paramTy->getAs<RecordType>();
-            DxilSampler::SamplerKind kind =
-                KeywordToSamplerKind(RT->getDecl()->getName());
-            S.SetSamplerKind(kind);
-            // Set global symbol to save type.
-            S.SetGlobalSymbol(UndefValue::get(Ty));
-            MDNode *MD = m_pHLModule->DxilSamplerToMDNode(S);
+            MDNode *MD = GetOrAddResTypeMD(paramTy);
+            DXASSERT(MD, "else invalid resource type");
             resMetadataMap[Ty] = MD;
           }
         }
@@ -2033,8 +2085,15 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
       hlslRes->SetSpaceID(ra->RegisterSpace);
       break;
     }
+    case hlsl::UnusualAnnotation::UA_SemanticDecl:
+      // Ignore Semantics
+      break;
+    case hlsl::UnusualAnnotation::UA_ConstantPacking:
+      // Should be handled by front-end
+      llvm_unreachable("packoffset on sampler");
+      break;
     default:
-      llvm_unreachable("only register for sampler");
+      llvm_unreachable("unknown UnusualAnnotation on sampler");
       break;
     }
   }
@@ -2289,8 +2348,15 @@ uint32_t CGMSHLSLRuntime::AddUAVSRV(VarDecl *decl,
       hlslRes->SetSpaceID(ra->RegisterSpace);
       break;
     }
+    case hlsl::UnusualAnnotation::UA_SemanticDecl:
+      // Ignore Semantics
+      break;
+    case hlsl::UnusualAnnotation::UA_ConstantPacking:
+      // Should be handled by front-end
+      llvm_unreachable("packoffset on uav/srv");
+      break;
     default:
-      llvm_unreachable("only register for uav/srv");
+      llvm_unreachable("unknown UnusualAnnotation on uav/srv");
       break;
     }
   }
@@ -2543,10 +2609,15 @@ void CGMSHLSLRuntime::SetEntryFunction() {
 
 // Here the size is CB size. So don't need check type.
 static unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty) {
+  DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
   // offset is already 4 bytes aligned.
   bool b8BytesAlign = Ty->isDoubleTy();
   if (llvm::IntegerType *IT = dyn_cast<llvm::IntegerType>(Ty)) {
     b8BytesAlign = IT->getBitWidth() > 32;
+  }
+  // If offset is divisible by 2 and not 4, then increase the offset by 2 for dword alignment.
+  if (!Ty->getScalarType()->isHalfTy() && (offset & 0x2)) {
+    offset += 2;
   }
 
   // Align it to 4 x 4bytes.

@@ -12,19 +12,14 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/microcom.h"
-#include "clang/Rewrite/Frontend/Rewriters.h"
 #include "dxc/Support/FileIOHelper.h"
 
-#include "clang/Frontend/TextDiagnosticPrinter.h"
-
-#include "clang/Frontend/ASTUnit.h"
-#include "clang/Basic/TargetInfo.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Lex/Preprocessor.h"
-#include "clang/Sema/SemaConsumer.h"
 #include "dxc/Support/dxcfilesystem.h"
 #include "lib_share_helper.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringSet.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Path.h"
 
 using namespace libshare;
 
@@ -49,6 +44,9 @@ bool IsAbsoluteOrCurDirRelative(const Twine &T) {
 }
 
 namespace {
+
+const StringRef file_region = "\n#pragma region\n";
+
 class IncPathIncludeHandler : public IDxcIncludeHandler {
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
@@ -81,7 +79,6 @@ public:
     CComPtr<IDxcBlob> pIncludeSource;
     if (m_includePathList.empty()) {
       IFT(m_pIncludeHandler->LoadSource(pFilename, ppIncludeSource));
-      return S_OK;
     } else {
       bool bLoaded = false;
       // Not support same filename in different directory.
@@ -96,11 +93,22 @@ public:
       }
       if (!bLoaded) {
         IFT(m_pIncludeHandler->LoadSource(pFilename, ppIncludeSource));
-        return S_OK;
-      } else {
-        return S_OK;
       }
     }
+
+    CComPtr<IDxcBlobEncoding> utf8Source;
+    IFT(hlsl::DxcGetBlobAsUtf8(*ppIncludeSource, &utf8Source));
+
+    StringRef Data((LPSTR)utf8Source->GetBufferPointer());
+    Twine regionData = file_region + Data + file_region;
+    std::string strRegionData = regionData.str();
+
+    CComPtr<IDxcBlobEncoding> pEncodingIncludeSource;
+    IFT(DxcCreateBlobWithEncodingOnMallocCopy(
+        GetGlobalHeapMalloc(), strRegionData.c_str(), strRegionData.size(),
+        CP_UTF8, &pEncodingIncludeSource));
+    *ppIncludeSource = pEncodingIncludeSource.Detach();
+    return S_OK;
   }
 
 private:
@@ -112,6 +120,8 @@ private:
 
 } // namespace
 
+HRESULT CreateCompiler(IDxcCompiler **ppCompiler);
+
 namespace {
 
 class IncludeToLibPreprocessorImpl : public IncludeToLibPreprocessor {
@@ -122,155 +132,42 @@ public:
       : m_pIncludeHandler(handler) {
   }
 
-  void SetupDefines(const DxcDefine *pDefines, unsigned defineCount) override;
   void AddIncPath(StringRef path) override;
-  HRESULT Preprocess(IDxcBlob *pSource, LPCWSTR pFilename) override;
+  HRESULT Preprocess(IDxcBlob *pSource, LPCWSTR pFilename, LPCWSTR *pArguments,
+                     UINT32 argCount, const DxcDefine *pDefines,
+                     unsigned defineCount) override;
 
   const std::vector<std::string> &GetSnippets() const override { return m_snippets; }
 
 private:
+  HRESULT SplitShaderIntoSnippets(IDxcBlob *pSource);
   IDxcIncludeHandler *m_pIncludeHandler;
   // Snippets split by #include.
   std::vector<std::string> m_snippets;
-  // Defines.
-  std::vector<std::wstring> m_defineStrs;
-  std::vector<DxcDefine> m_defines;
   std::vector<std::string> m_includePathList;
 };
 
-void IncludeToLibPreprocessorImpl::SetupDefines(const DxcDefine *pDefines,
-                                            unsigned defineCount) {
-  // Make sure no resize.
-  m_defineStrs.reserve(defineCount * 2);
-  m_defines.reserve(defineCount);
-  for (unsigned i = 0; i < defineCount; i++) {
-    const DxcDefine &define = pDefines[i];
+HRESULT IncludeToLibPreprocessorImpl::SplitShaderIntoSnippets(IDxcBlob *pSource) {
+  CComPtr<IDxcBlobEncoding> utf8Source;
+  IFT(hlsl::DxcGetBlobAsUtf8(pSource, &utf8Source));
 
-    m_defineStrs.emplace_back(define.Name);
-    DxcDefine tmpDefine;
-    tmpDefine.Name = m_defineStrs.back().c_str();
-    tmpDefine.Value = nullptr;
-    if (define.Value) {
-      m_defineStrs.emplace_back(define.Value);
-      tmpDefine.Value = m_defineStrs.back().c_str();
-    }
-    m_defines.emplace_back(tmpDefine);
+  StringRef Data((LPSTR)utf8Source->GetBufferPointer(),
+                 utf8Source->GetBufferSize());
+  SmallVector<StringRef,8> splitResult;
+  Data.split(splitResult, file_region, /*maxSplit*/-1, /*keepEmpty*/false);
+  for (StringRef snippet : splitResult) {
+    m_snippets.emplace_back(snippet);
   }
+  return S_OK;
 }
 
 void IncludeToLibPreprocessorImpl::AddIncPath(StringRef path) {
   m_includePathList.emplace_back(path);
 }
 
-using namespace clang;
-static
-void SetupCompilerForRewrite(CompilerInstance &compiler,
-                             _In_ DxcLangExtensionsHelperApply *helper,
-                             _In_ LPCSTR pMainFile,
-                             _In_ TextDiagnosticPrinter *diagPrinter,
-                             _In_opt_ clang::ASTUnit::RemappedFile *rewrite,
-                             _In_opt_ LPCSTR pDefines) {
-  // Setup a compiler instance.
-  std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
-  targetOptions->Triple = llvm::sys::getDefaultTargetTriple();
-  compiler.HlslLangExtensions = helper;
-  compiler.createDiagnostics(diagPrinter, false);
-  compiler.createFileManager();
-  compiler.createSourceManager(compiler.getFileManager());
-  compiler.setTarget(TargetInfo::CreateTargetInfo(compiler.getDiagnostics(), targetOptions));
-  // Not use builtin includes.
-  compiler.getHeaderSearchOpts().UseBuiltinIncludes = false;
-
-  PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
-  if (rewrite != nullptr) {
-    if (llvm::MemoryBuffer *pMemBuf = rewrite->second) {
-      compiler.getPreprocessorOpts().addRemappedFile(StringRef(pMainFile), pMemBuf);
-    }
-
-    PPOpts.RemappedFilesKeepOriginalName = true;
-  }
-
-  PreprocessorOutputOptions &PPOutOpts = compiler.getPreprocessorOutputOpts();
-  PPOutOpts.ShowLineMarkers = false;
-
-  compiler.createPreprocessor(TU_Complete);
-
-  if (pDefines) {
-    std::string newDefines = compiler.getPreprocessor().getPredefines();
-    newDefines += pDefines;
-    compiler.getPreprocessor().setPredefines(newDefines);
-  }
-
-  compiler.createASTContext();
-  compiler.setASTConsumer(std::unique_ptr<ASTConsumer>(new SemaConsumer()));
-  compiler.createSema(TU_Complete, nullptr);
-
-  const FileEntry *mainFileEntry = compiler.getFileManager().getFile(StringRef(pMainFile));
-  if (mainFileEntry == nullptr) {
-    throw ::hlsl::Exception(HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND));
-  }
-  compiler.getSourceManager().setMainFileID(
-    compiler.getSourceManager().createFileID(mainFileEntry, SourceLocation(), SrcMgr::C_User));
-}
-
-static std::string DefinesToString(_In_count_(defineCount) DxcDefine *pDefines,
-                                   _In_ UINT32 defineCount) {
-  std::string defineStr;
-  for (UINT32 i = 0; i < defineCount; i++) {
-    CW2A utf8Name(pDefines[i].Name, CP_UTF8);
-    CW2A utf8Value(pDefines[i].Value, CP_UTF8);
-    defineStr += "#define ";
-    defineStr += utf8Name;
-    defineStr += " ";
-    defineStr += utf8Value ? utf8Value : "1";
-    defineStr += "\n";
-  }
-
-  return defineStr;
-}
-
-static void RewriteToSnippets(IDxcBlob *pSource, LPCWSTR pFilename,
-    std::vector<DxcDefine> &defines, IDxcIncludeHandler *pIncHandler,
-    std::vector<std::string> &Snippets) {
-  std::string warnings;
-  raw_string_ostream w(warnings);
-
-  CW2A pUtf8Name(pFilename);
-  dxcutil::DxcArgsFileSystem *msfPtr =
-      dxcutil::CreateDxcArgsFileSystem(pSource, pFilename, pIncHandler);
-  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
-
-  ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-  IFTLLVM(pts.error_code());
-
-  StringRef Data((LPSTR)pSource->GetBufferPointer(), pSource->GetBufferSize());
-  std::unique_ptr<llvm::MemoryBuffer> pBuffer(
-      llvm::MemoryBuffer::getMemBufferCopy(Data, pUtf8Name.m_psz));
-  std::unique_ptr<clang::ASTUnit::RemappedFile> pRemap(
-      new clang::ASTUnit::RemappedFile(pUtf8Name.m_psz, pBuffer.release()));
-
-  std::string definesStr = DefinesToString(defines.data(), defines.size());
-  // Not support langExt yet.
-  DxcLangExtensionsHelperApply *pLangExtensionsHelper = nullptr;
-  // Setup a compiler instance.
-  clang::CompilerInstance compiler;
-  std::unique_ptr<clang::TextDiagnosticPrinter> diagPrinter =
-      llvm::make_unique<clang::TextDiagnosticPrinter>(
-          w, &compiler.getDiagnosticOpts());
-  SetupCompilerForRewrite(compiler, pLangExtensionsHelper, pUtf8Name.m_psz,
-                          diagPrinter.get(), pRemap.get(), definesStr.c_str());
-
-  // Parse the source file.
-  compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(),
-                                                 &compiler.getPreprocessor());
-
-  clang::RewriteIncludesToSnippet(compiler.getPreprocessor(),
-                                  compiler.getPreprocessorOutputOpts(),
-                                  Snippets);
-}
-
-HRESULT IncludeToLibPreprocessorImpl::Preprocess(IDxcBlob *pSource,
-                                             LPCWSTR pFilename) {
+HRESULT IncludeToLibPreprocessorImpl::Preprocess(
+    IDxcBlob *pSource, LPCWSTR pFilename, LPCWSTR *pArguments, UINT32 argCount,
+    const DxcDefine *pDefines, unsigned defineCount) {
   std::string s, warnings;
   raw_string_ostream o(s);
   raw_string_ostream w(warnings);
@@ -281,7 +178,23 @@ HRESULT IncludeToLibPreprocessorImpl::Preprocess(IDxcBlob *pSource,
   // AddRef to hold incPathIncludeHandler.
   // If not, DxcArgsFileSystem will kill it.
   incPathIncludeHandler.AddRef();
-  RewriteToSnippets(pSource, pFilename, m_defines, &incPathIncludeHandler, m_snippets);
+
+  CComPtr<IDxcCompiler> compiler;
+  CComPtr<IDxcOperationResult> pPreprocessResult;
+
+  IFR(CreateCompiler(&compiler));
+
+  IFR(compiler->Preprocess(pSource, L"input.hlsl", pArguments, argCount,
+                           pDefines, defineCount, &incPathIncludeHandler,
+                           &pPreprocessResult));
+
+  HRESULT status;
+  IFT(pPreprocessResult->GetStatus(&status));
+  if (SUCCEEDED(status)) {
+    CComPtr<IDxcBlob> pProgram;
+    IFT(pPreprocessResult->GetResult(&pProgram));
+    IFT(SplitShaderIntoSnippets(pProgram));
+  }
   return S_OK;
 }
 } // namespace

@@ -8987,6 +8987,7 @@ private:
 
   // HLSL Change Starts
   bool DiagnoseHLSLDecl(Declarator& D, DeclContext* DC, TypeSourceInfo* TInfo, bool isParameter);
+  bool DiagnoseHLSLLookup(const LookupResult &R);
   void TransferUnusualAttributes(Declarator& D, NamedDecl* NewDecl);
   // HLSL Change Ends
 

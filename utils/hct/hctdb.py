@@ -510,7 +510,7 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "width", "the bitfield width to take from the value"),
             db_dxil_param(3, "$o", "offset", "the bitfield offset to replace in the value"),
             db_dxil_param(4, "$o", "value", "the number the bits are taken from"),
-            db_dxil_param(5, "$o", "replaceCount", "the number of bits to be replaced")])
+            db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")])
         next_op_idx += 1
 
         # Dot.
@@ -761,7 +761,7 @@ class db_dxil(object):
         next_op_idx += 1
 
         # Synchronization.
-        self.add_dxil_op("Barrier", next_op_idx, "Barrier", "inserts a memory barrier in the shader", "v", "", [
+        self.add_dxil_op("Barrier", next_op_idx, "Barrier", "inserts a memory barrier in the shader", "v", "nd", [
             retvoid_param,
             db_dxil_param(2, "i32", "barrierMode", "a mask of DXIL::BarrierMode values", is_const=True)])
         next_op_idx += 1
@@ -1290,6 +1290,8 @@ class db_dxil(object):
         add_pass('hlsl-dxilfinalize', 'DxilFinalizeModule', 'HLSL DXIL Finalize Module', [])
         add_pass('hlsl-dxilemit', 'DxilEmitMetadata', 'HLSL DXIL Metadata Emit', [])
         add_pass('hlsl-dxilload', 'DxilLoadMetadata', 'HLSL DXIL Metadata Load', [])
+        add_pass('dxil-dfe', 'DxilDeadFunctionElimination', 'Remove all unused function except entry from DxilModule', [])
+        add_pass('hl-dfe', 'HLDeadFunctionElimination', 'Remove all unused function except entry from HLModule', [])
         add_pass('hlsl-dxil-expand-trig', 'DxilExpandTrigIntrinsics', 'DXIL expand trig intrinsics', [])
         add_pass('hlsl-hca', 'HoistConstantArray', 'HLSL constant array hoisting', [])
         add_pass('hlsl-dxil-preserve-all-outputs', 'DxilPreserveAllOutputs', 'DXIL write to all outputs in signature', [])

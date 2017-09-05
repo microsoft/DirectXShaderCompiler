@@ -35,7 +35,7 @@ HRESULT CreateContainerReflection(IDxcContainerReflection **ppReflection) {
 }
 
 HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
-                        const D3D_SHADER_MACRO *pDefines, ID3DInclude *pInclude,
+                        const D3D_SHADER_MACRO *pDefines, IDxcIncludeHandler *pInclude,
                         LPCSTR pEntrypoint, LPCSTR pTarget, UINT Flags1,
                         UINT Flags2, ID3DBlob **ppCode,
                         ID3DBlob **ppErrorMsgs) {
@@ -46,11 +46,14 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
   // Upconvert legacy targets
   char Target[7] = "?s_6_0";
   Target[6] = 0;
-  Target[0] = pTarget[0];
+  if (pTarget[3] < '6') {
+    Target[0] = pTarget[0];
+    pTarget = Target;
+  }
 
   try {
     CA2W pEntrypointW(pEntrypoint);
-    CA2W pTargetProfileW(Target);
+    CA2W pTargetProfileW(pTarget);
     std::vector<std::wstring> defineValues;
     std::vector<DxcDefine> defines;
     if (pDefines) {
@@ -105,7 +108,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     IFR(CreateCompiler(&compiler));
     IFR(compiler->Compile(pSource, pSourceName, pEntrypointW, pTargetProfileW,
                           arguments.data(), (UINT)arguments.size(),
-                          defines.data(), (UINT)defines.size(), nullptr,
+                          defines.data(), (UINT)defines.size(), pInclude,
                           &operationResult));
   } catch (const std::bad_alloc &) {
     return E_OUTOFMEMORY;
@@ -131,6 +134,7 @@ HRESULT WINAPI BridgeD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
                                 ID3DBlob **ppCode, ID3DBlob **ppErrorMsgs) {
   CComPtr<IDxcLibrary> library;
   CComPtr<IDxcBlobEncoding> source;
+  CComPtr<IDxcIncludeHandler> includeHandler;
 
   *ppCode = nullptr;
   if (ppErrorMsgs != nullptr)
@@ -140,9 +144,16 @@ HRESULT WINAPI BridgeD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
   IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
                                                 CP_ACP, &source));
 
+  // Until we actually wrap the include handler, fail if there's a user-supplied handler.
+  if (D3D_COMPILE_STANDARD_FILE_INCLUDE == pInclude) {
+    IFT(library->CreateIncludeHandler(&includeHandler));
+  } else if (pInclude) {
+    return E_INVALIDARG;
+  }
+
   try {
     CA2W pFileName(pSourceName);
-    return CompileFromBlob(source, pFileName, pDefines, pInclude, pEntrypoint,
+    return CompileFromBlob(source, pFileName, pDefines, includeHandler, pEntrypoint,
                            pTarget, Flags1, Flags2, ppCode, ppErrorMsgs);
   } catch (const std::bad_alloc &) {
     return E_OUTOFMEMORY;
@@ -171,6 +182,7 @@ HRESULT WINAPI BridgeD3DCompileFromFile(
     ID3DBlob **ppCode, ID3DBlob **ppErrorMsgs) {
   CComPtr<IDxcLibrary> library;
   CComPtr<IDxcBlobEncoding> source;
+  CComPtr<IDxcIncludeHandler> includeHandler;
   HRESULT hr;
 
   *ppCode = nullptr;
@@ -184,7 +196,15 @@ HRESULT WINAPI BridgeD3DCompileFromFile(
   if (FAILED(hr))
     return hr;
 
-  return CompileFromBlob(source, pFileName, pDefines, pInclude, pEntrypoint,
+  // Until we actually wrap the include handler, fail if there's a user-supplied handler.
+  if (D3D_COMPILE_STANDARD_FILE_INCLUDE == pInclude) {
+    IFT(library->CreateIncludeHandler(&includeHandler));
+  }
+  else if (pInclude) {
+    return E_INVALIDARG;
+  }
+
+  return CompileFromBlob(source, pFileName, pDefines, includeHandler, pEntrypoint,
                          pTarget, Flags1, Flags2, ppCode, ppErrorMsgs);
 }
 
@@ -236,6 +256,21 @@ HRESULT WINAPI BridgeD3DReflect(
                                     (void **)ppReflector));
   return S_OK;
 }
+
+HRESULT WINAPI
+BridgeReadFileToBlob(_In_ LPCWSTR pFileName,
+                     _Out_ ID3DBlob** ppContents) {
+  if (!ppContents)
+    return E_INVALIDARG;
+  *ppContents = nullptr;
+
+  CComPtr<IDxcLibrary> library;
+  IFR(CreateLibrary(&library));
+  IFR(library->CreateBlobFromFile(pFileName, CP_ACP, (IDxcBlobEncoding **)ppContents));
+
+  return S_OK;
+}
+
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
   BOOL result = TRUE;

@@ -55,6 +55,11 @@ public:
   /// definitions and expansions.
   unsigned DetailedRecord : 1;
 
+  // HLSL Change Begin - ignore line directives.
+  /// \brief Whether we should ignore #line directives.
+  unsigned IgnoreLineDirectives : 1;
+  // HLSL Change End
+
   /// The implicit PCH included at the start of the translation unit, or empty.
   std::string ImplicitPCHInclude;
 
@@ -141,6 +146,7 @@ public:
 
 public:
   PreprocessorOptions() : UsePredefines(true), DetailedRecord(false),
+                          IgnoreLineDirectives(false), // HLSL Change - ignore line directives.
                           DisablePCHValidation(false),
                           AllowPCHWithCompilerErrors(false),
                           DumpDeserializedPCHDecls(false),

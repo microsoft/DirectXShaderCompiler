@@ -9,7 +9,7 @@
 
 #include "clang/SPIRV/Structure.h"
 
-#include "clang/SPIRV/BlockReadableOrder.h"
+#include "BlockReadableOrder.h"
 
 namespace clang {
 namespace spirv {
@@ -47,12 +47,14 @@ bool Instruction::isTerminator() const {
 // === Basic block implementations ===
 
 BasicBlock::BasicBlock(BasicBlock &&that)
-    : labelId(that.labelId), instructions(std::move(that.instructions)) {
+    : labelId(that.labelId), debugName(that.debugName),
+      instructions(std::move(that.instructions)) {
   that.clear();
 }
 
 BasicBlock &BasicBlock::operator=(BasicBlock &&that) {
   labelId = that.labelId;
+  debugName = that.debugName;
   instructions = std::move(that.instructions);
 
   that.clear();
@@ -62,6 +64,7 @@ BasicBlock &BasicBlock::operator=(BasicBlock &&that) {
 
 void BasicBlock::clear() {
   labelId = 0;
+  debugName = "";
   instructions.clear();
 }
 
@@ -163,6 +166,14 @@ void Function::addVariable(uint32_t varType, uint32_t varId,
           .take());
 }
 
+void Function::getReachableBasicBlocks(std::vector<BasicBlock *> *bbVec) const {
+  if (!blocks.empty()) {
+    BlockReadableOrderVisitor([&bbVec](BasicBlock *block) {
+      bbVec->push_back(block);
+    }).visit(blocks.front().get());
+  }
+}
+
 // === Module components implementations ===
 
 Header::Header()
@@ -178,6 +189,37 @@ void Header::collect(const WordConsumer &consumer) {
   words.push_back(bound);
   words.push_back(reserved);
   consumer(std::move(words));
+}
+
+bool DebugName::operator==(const DebugName &that) const {
+  if (targetId == that.targetId && name == that.name) {
+    if (memberIndex.hasValue()) {
+      return that.memberIndex.hasValue() &&
+             memberIndex.getValue() == that.memberIndex.getValue();
+    }
+    return !that.memberIndex.hasValue();
+  }
+  return false;
+}
+
+bool DebugName::operator<(const DebugName &that) const {
+  // Sort according to target id first
+  if (targetId != that.targetId)
+    return targetId < that.targetId;
+
+  if (memberIndex.hasValue()) {
+    // Sort member decorations according to member index
+    if (that.memberIndex.hasValue())
+      return memberIndex.getValue() < that.memberIndex.getValue();
+    // Decorations on the id itself goes before those on its members
+    return false;
+  }
+
+  // Decorations on the id itself goes before those on its members
+  if (that.memberIndex.hasValue())
+    return true;
+
+  return name < that.name;
 }
 
 // === Module implementations ===
@@ -226,7 +268,7 @@ void SPIRVModule::take(InstBuilder *builder) {
   }
 
   for (auto &inst : extInstSets) {
-    builder->opExtInstImport(inst.resultId, inst.setName).x();
+    builder->opExtInstImport(inst.second, inst.first).x();
   }
 
   if (addressingModel.hasValue() && memoryModel.hasValue()) {
@@ -244,6 +286,17 @@ void SPIRVModule::take(InstBuilder *builder) {
     consumer(inst.take());
   }
 
+  // BasicBlock debug names should be emitted only for blocks that are
+  // reachable.
+  // The debug name for a basic block is stored in the basic block object.
+  std::vector<BasicBlock *> reachableBasicBlocks;
+  for (const auto &fn : functions)
+    fn->getReachableBasicBlocks(&reachableBasicBlocks);
+  for (BasicBlock *bb : reachableBasicBlocks)
+    if (!bb->getDebugName().empty())
+      builder->opName(bb->getLabelId(), bb->getDebugName()).x();
+
+  // Emit other debug names
   for (auto &inst : debugNames) {
     if (inst.memberIndex.hasValue()) {
       builder
@@ -254,8 +307,8 @@ void SPIRVModule::take(InstBuilder *builder) {
     }
   }
 
-  for (const auto &d : decorations) {
-    consumer(d.decoration.withTargetId(d.targetId));
+  for (const auto &idDecorPair : decorations) {
+    consumer(idDecorPair.second->withTargetId(idDecorPair.first));
   }
 
   // Note on interdependence of types and constants:

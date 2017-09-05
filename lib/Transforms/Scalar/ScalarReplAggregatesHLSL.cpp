@@ -1536,6 +1536,18 @@ bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
   for (auto A : AllocaList)
     HLModule::MergeGepUse(A);
 
+  // Make sure big alloca split first.
+  // This will simplify memcpy check between part of big alloca and small
+  // alloca. Big alloca will be split to smaller piece first, when process the
+  // alloca, it will be alloca flattened from big alloca instead of a GEP of big
+  // alloca.
+  auto size_cmp = [&DL](const AllocaInst *a0, const AllocaInst *a1) -> bool {
+    return DL.getTypeAllocSize(a0->getAllocatedType()) >
+           DL.getTypeAllocSize(a1->getAllocatedType());
+  };
+
+  std::sort(AllocaList.begin(), AllocaList.end(), size_cmp);
+
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
 
   // Process the worklist
@@ -2229,6 +2241,8 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
     }
     DxilStructAnnotation *STA = typeSys.GetStructAnnotation(ST);
     DXASSERT(STA, "require annotation here");
+    if (STA->IsEmptyStruct())
+      return;
     for (uint32_t i = 0; i < ST->getNumElements(); i++) {
       llvm::Type *ET = ST->getElementType(i);
 
@@ -5252,6 +5266,7 @@ void SROA_Parameter_HLSL::flattenArgument(
       flatParamAnnotation.SetCompType(annotation.GetCompType().GetKind());
       flatParamAnnotation.SetMatrixAnnotation(annotation.GetMatrixAnnotation());
       flatParamAnnotation.SetPrecise(annotation.IsPrecise());
+      flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
 
       // Add debug info.
       if (DDI && V != Arg) {
@@ -5365,6 +5380,30 @@ void SROA_Parameter_HLSL::flattenArgument(
 
 }
 
+static bool IsUsedAsCallArg(Value *V) {
+  for (User *U : V->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      Function *CalledF = CI->getCalledFunction();
+      HLOpcodeGroup group = GetHLOpcodeGroup(CalledF);
+      // Skip HL operations.
+      if (group != HLOpcodeGroup::NotHL ||
+          group == HLOpcodeGroup::HLExtIntrinsic) {
+        continue;
+      }
+      // Skip llvm intrinsic.
+      if (CalledF->isIntrinsic())
+        continue;
+
+      return true;
+    }
+    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
+      if (IsUsedAsCallArg(GEP))
+        return true;
+    }
+  }
+  return false;
+}
+
 // For function parameter which used in function call and need to be flattened.
 // Replace with tmp alloca.
 void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
@@ -5396,24 +5435,8 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
     if (!Ty->isAggregateType() &&
         Ty->getScalarType() == Ty)
       continue;
-    bool bUsedInCall = false;
-    for (User *U : arg.users()) {
-      if (CallInst *CI = dyn_cast<CallInst>(U)) {
-        Function *CalledF = CI->getCalledFunction();
-        HLOpcodeGroup group = GetHLOpcodeGroup(CalledF);
-        // Skip HL operations.
-        if (group != HLOpcodeGroup::NotHL ||
-            group == HLOpcodeGroup::HLExtIntrinsic) {
-          continue;
-        }
-        // Skip llvm intrinsic.
-        if (CalledF->isIntrinsic())
-          continue;
 
-        bUsedInCall = true;
-        break;
-      }
-    }
+    bool bUsedInCall = IsUsedAsCallArg(&arg);
 
     if (bUsedInCall) {
       // Create tmp.
@@ -5436,10 +5459,10 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
       if (inputQual == DxilParamInputQual::Out ||
           inputQual == DxilParamInputQual::Inout) {
         for (ReturnInst *RI : retList) {
-          IRBuilder<> Builder(RI);
+          IRBuilder<> RetBuilder(RI);
           // copy tmp to arg.
           CallInst *tmpToArg =
-              AllocaBuilder.CreateMemCpy(&arg, TmpArg, size, 0);
+              RetBuilder.CreateMemCpy(&arg, TmpArg, size, 0);
           // Split the memcpy.
           MemcpySplitter::SplitMemCpy(cast<MemCpyInst>(tmpToArg), DL, nullptr,
                                       typeSys);

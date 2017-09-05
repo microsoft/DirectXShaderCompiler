@@ -20,6 +20,7 @@
 
 #include <deque>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace clang {
@@ -80,7 +82,7 @@ private:
 class BasicBlock {
 public:
   /// \brief Constructs a basic block with the given <label-id>.
-  inline explicit BasicBlock(uint32_t labelId);
+  inline explicit BasicBlock(uint32_t labelId, llvm::StringRef debugName = "");
 
   // Disable copy constructor/assignment
   BasicBlock(const BasicBlock &) = delete;
@@ -132,11 +134,18 @@ public:
   /// OpLoopMerge instruction. Returns nullptr otherwise.
   inline BasicBlock *getContinueTarget() const;
 
+  /// \brief Returns the label id of this basic block.
+  inline uint32_t getLabelId() const;
+
+  /// \brief Returns the debug name of this basic block.
+  inline llvm::StringRef getDebugName() const;
+
   /// \brief Returns true if this basic block is terminated.
   bool isTerminated() const;
 
 private:
   uint32_t labelId; ///< The label id for this basic block. Zero means invalid.
+  std::string debugName;
   std::deque<Instruction> instructions;
 
   llvm::SmallVector<BasicBlock *, 2> successors;
@@ -182,6 +191,10 @@ public:
   /// \brief Adds a basic block to this function.
   inline void addBasicBlock(std::unique_ptr<BasicBlock> block);
 
+  /// \brief Adds the reachable basic blocks of this function to the given
+  /// vector.
+  void getReachableBasicBlocks(std::vector<BasicBlock *> *) const;
+
 private:
   uint32_t resultType;
   uint32_t resultId;
@@ -212,14 +225,6 @@ struct Header {
   const uint32_t reserved;
 };
 
-/// \brief The struct representing an extended instruction set.
-struct ExtInstSet {
-  inline ExtInstSet(uint32_t id, std::string name);
-
-  const uint32_t resultId;
-  const std::string setName;
-};
-
 /// \brief The struct representing an entry point.
 struct EntryPoint {
   inline EntryPoint(spv::ExecutionModel, uint32_t id, std::string name,
@@ -235,6 +240,9 @@ struct EntryPoint {
 struct DebugName {
   inline DebugName(uint32_t id, std::string targetName,
                    llvm::Optional<uint32_t> index = llvm::None);
+
+  bool operator==(const DebugName &that) const;
+  bool operator<(const DebugName &that) const;
 
   const uint32_t targetId;
   const std::string name;
@@ -289,7 +297,7 @@ public:
 
   inline void addCapability(spv::Capability);
   inline void addExtension(std::string extension);
-  inline void addExtInstSet(uint32_t setId, std::string extInstSet);
+  inline void addExtInstSet(uint32_t setId, llvm::StringRef extInstSet);
   inline void setAddressingModel(spv::AddressingModel);
   inline void setMemoryModel(spv::MemoryModel);
   inline void addEntryPoint(spv::ExecutionModel, uint32_t targetId,
@@ -299,11 +307,20 @@ public:
   // TODO: source code debug information
   inline void addDebugName(uint32_t targetId, llvm::StringRef name,
                            llvm::Optional<uint32_t> memberIndex = llvm::None);
-  inline void addDecoration(const Decoration &decoration, uint32_t targetId);
+  /// \brief Adds a decoration to the given target.
+  inline void addDecoration(const Decoration *decoration, uint32_t targetId);
+  /// \brief Adds a type to the module. Also adds the type's decorations to the
+  /// set of decorations of the module.
   inline void addType(const Type *type, uint32_t resultId);
+  /// \brief Adds a constant to the module. Also adds the constant's decorations
+  /// to the set of decorations of the module.
   inline void addConstant(const Constant *constant, uint32_t resultId);
   inline void addVariable(Instruction &&);
   inline void addFunction(std::unique_ptr<Function>);
+
+  /// \brief Returns the <result-id> of the given extended instruction set.
+  /// Returns 0 if the given set has not been imported.
+  inline uint32_t getExtInstSetId(llvm::StringRef setName);
 
 private:
   /// \brief Collects all the Integer type definitions in this module and
@@ -320,9 +337,9 @@ private:
 
 private:
   Header header; ///< SPIR-V module header.
-  std::vector<spv::Capability> capabilities;
+  llvm::SetVector<spv::Capability> capabilities;
   std::vector<std::string> extensions;
-  std::vector<ExtInstSet> extInstSets;
+  llvm::MapVector<const char *, uint32_t> extInstSets;
   // Addressing and memory model must exist for a valid SPIR-V module.
   // We make them optional here just to provide extra flexibility of
   // the representation.
@@ -331,8 +348,9 @@ private:
   std::vector<EntryPoint> entryPoints;
   std::vector<Instruction> executionModes;
   // TODO: source code debug information
-  std::vector<DebugName> debugNames;
-  std::vector<DecorationIdPair> decorations;
+  std::set<DebugName> debugNames;
+  llvm::SetVector<std::pair<uint32_t, const Decoration *>> decorations;
+
   // Note that types and constants are interdependent; Types like arrays have
   // <result-id>s for constants in their definition, and constants all have
   // their corresponding types. We store types and constants separately, but
@@ -355,8 +373,9 @@ std::vector<uint32_t> Instruction::take() { return std::move(words); }
 
 // === Basic block inline implementations ===
 
-BasicBlock::BasicBlock(uint32_t id)
-    : labelId(id), mergeTarget(nullptr), continueTarget(nullptr) {}
+BasicBlock::BasicBlock(uint32_t id, llvm::StringRef name)
+    : labelId(id), debugName(name), mergeTarget(nullptr),
+      continueTarget(nullptr) {}
 
 bool BasicBlock::isEmpty() const {
   return labelId == 0 && instructions.empty();
@@ -388,6 +407,9 @@ void BasicBlock::setContinueTarget(BasicBlock *target) {
 
 BasicBlock *BasicBlock::getContinueTarget() const { return continueTarget; }
 
+uint32_t BasicBlock::getLabelId() const { return labelId; }
+llvm::StringRef BasicBlock::getDebugName() const { return debugName; }
+
 // === Function inline implementations ===
 
 Function::Function(uint32_t rType, uint32_t rId,
@@ -409,9 +431,6 @@ void Function::addBasicBlock(std::unique_ptr<BasicBlock> block) {
 }
 
 // === Module components inline implementations ===
-
-ExtInstSet::ExtInstSet(uint32_t id, std::string name)
-    : resultId(id), setName(name) {}
 
 EntryPoint::EntryPoint(spv::ExecutionModel em, uint32_t id, std::string name,
                        const std::vector<uint32_t> &interface)
@@ -435,15 +454,22 @@ SPIRVModule::SPIRVModule()
 void SPIRVModule::setBound(uint32_t newBound) { header.bound = newBound; }
 
 void SPIRVModule::addCapability(spv::Capability cap) {
-  capabilities.push_back(cap);
+  capabilities.insert(cap);
 }
 
 void SPIRVModule::addExtension(std::string ext) {
   extensions.push_back(std::move(ext));
 }
 
-void SPIRVModule::addExtInstSet(uint32_t setId, std::string extInstSet) {
-  extInstSets.emplace_back(setId, extInstSet);
+uint32_t SPIRVModule::getExtInstSetId(llvm::StringRef setName) {
+  const auto &iter = extInstSets.find(setName.data());
+  if (iter != extInstSets.end())
+    return iter->second;
+  return 0;
+}
+
+void SPIRVModule::addExtInstSet(uint32_t setId, llvm::StringRef extInstSet) {
+  extInstSets.insert(std::make_pair(extInstSet.data(), setId));
 }
 
 void SPIRVModule::setAddressingModel(spv::AddressingModel am) {
@@ -466,22 +492,29 @@ void SPIRVModule::addExecutionMode(Instruction &&execMode) {
 
 void SPIRVModule::addDebugName(uint32_t targetId, llvm::StringRef name,
                                llvm::Optional<uint32_t> memberIndex) {
+
   if (!name.empty()) {
-    debugNames.emplace_back(targetId, name, memberIndex);
+    debugNames.insert(DebugName(targetId, name, memberIndex));
   }
 }
 
-void SPIRVModule::addDecoration(const Decoration &decoration,
+void SPIRVModule::addDecoration(const Decoration *decoration,
                                 uint32_t targetId) {
-  decorations.emplace_back(decoration, targetId);
+  decorations.insert(std::make_pair(targetId, decoration));
 }
 
 void SPIRVModule::addType(const Type *type, uint32_t resultId) {
   types.insert(std::make_pair(type, resultId));
+  for (const Decoration *d : type->getDecorations()) {
+    addDecoration(d, resultId);
+  }
 }
 
 void SPIRVModule::addConstant(const Constant *constant, uint32_t resultId) {
   constants.insert(std::make_pair(constant, resultId));
+  for (const Decoration *d : constant->getDecorations()) {
+    addDecoration(d, resultId);
+  }
 };
 
 void SPIRVModule::addVariable(Instruction &&var) {

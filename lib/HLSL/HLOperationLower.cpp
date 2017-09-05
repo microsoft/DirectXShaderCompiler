@@ -167,6 +167,46 @@ private:
       HandleMetaMap[Handle] = Attrib;
       return HandleMetaMap[Handle];
     }
+    if (LoadInst *LI = dyn_cast<LoadInst>(Handle)) {
+      Value *Ptr = LI->getPointerOperand();
+
+      for (User *U : Ptr->users()) {
+        if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          DxilFunctionAnnotation *FnAnnot = HLM.GetFunctionAnnotation(CI->getCalledFunction());
+          if (FnAnnot) {
+            for (auto &arg : CI->arg_operands()) {
+              if (arg == Ptr) {
+                unsigned argNo = arg.getOperandNo();
+                DxilParameterAnnotation &ParamAnnot = FnAnnot->GetParameterAnnotation(argNo);
+                MDNode *MD = ParamAnnot.GetResourceAttribute();
+                if (!MD) {
+                  Handle->getContext().emitError(
+                      "cannot map resource to handle");
+                  return HandleMetaMap[Handle];
+                }
+                DxilResourceBase Res(DxilResource::Class::Invalid);
+                HLM.LoadDxilResourceBaseFromMDNode(MD, Res);
+
+                ResAttribute Attrib = {Res.GetClass(), Res.GetKind(),
+                                       Res.GetGlobalSymbol()->getType()};
+
+                HandleMetaMap[Handle] = Attrib;
+                return HandleMetaMap[Handle];
+              }
+            }
+          }
+        }
+        if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+          Value *V = SI->getValueOperand();
+          ResAttribute Attrib = FindCreateHandleResourceBase(V);
+          HandleMetaMap[Handle] = Attrib;
+          return HandleMetaMap[Handle];
+        }
+      }
+      // Cannot find.
+      Handle->getContext().emitError("cannot map resource to handle");
+      return HandleMetaMap[Handle];
+    }
     if (CallInst *CI = dyn_cast<CallInst>(Handle)) {
       MDNode *MD = HLM.GetDxilResourceAttrib(CI->getCalledFunction());
       if (!MD) {
@@ -4747,15 +4787,18 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
                             unsigned channelOffset, Type *EltTy,
                             unsigned vecSize, OP *hlslOP,
                             IRBuilder<> &Builder) {
-  DXASSERT((channelOffset + vecSize) <= 4, "legacy cbuffer don't across 16 bytes register.");
   Constant *OpArg = hlslOP->GetU32Const((unsigned)OP::OpCode::CBufferLoadLegacy);
 
   Type *i1Ty = Type::getInt1Ty(EltTy->getContext());
   Type *doubleTy = Type::getDoubleTy(EltTy->getContext());
   Type *i64Ty = Type::getInt64Ty(EltTy->getContext());
+  Type *halfTy = Type::getHalfTy(EltTy->getContext());
+
   bool isBool = EltTy == i1Ty;
   bool is64 = (EltTy == doubleTy) | (EltTy == i64Ty);
-  bool isNormal = !isBool && !is64;
+  bool is16 = EltTy == halfTy && !hlslOP->UseMinPrecision();
+  bool isNormal = !isBool && !is64 && !is16;
+  DXASSERT(is16 || (channelOffset + vecSize) <= 4, "legacy cbuffer don't across 16 bytes register.");
   if (isNormal) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
@@ -4765,9 +4808,20 @@ Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
       Result = Builder.CreateInsertElement(Result, NewElt, i);
     }
     return Result;
-  } else if (is64) {
+  } else if (is16) {
     Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
     Value *loadLegacy = Builder.CreateCall(CBLoad, {OpArg, handle, legacyIdx});
+    Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
+    // index aligned by 2 bytes not 4 bytes
+    channelOffset *= 2;
+    for (unsigned i = 0; i < vecSize; ++i) {
+      Value *NewElt = Builder.CreateExtractValue(loadLegacy, channelOffset + i);
+      Result = Builder.CreateInsertElement(Result, NewElt, i);
+    }
+    return Result;
+  } else if (is64) {
+    Function *CBLoad = hlslOP->GetOpFunc(OP::OpCode::CBufferLoadLegacy, EltTy);
+    Value *loadLegacy = Builder.CreateCall(CBLoad, { OpArg, handle, legacyIdx });
     Value *Result = UndefValue::get(VectorType::get(EltTy, vecSize));
     unsigned smallVecSize = 2;
     if (vecSize < smallVecSize)
@@ -5617,7 +5671,7 @@ void TranslateStructBufMatSubscript(CallInst *CI, Value *handle,
     resultSize = resultType->getVectorNumElements();
   DXASSERT(resultSize <= 16, "up to 4x4 elements in vector or matrix");
   _Analysis_assume_(resultSize <= 16);
-  Value *idxList[16];
+  std::vector<Value *> idxList(resultSize);
 
   switch (subOp) {
   case HLSubscriptOpcode::ColMatSubscript:

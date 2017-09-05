@@ -210,6 +210,10 @@ static void addHLSLPasses(bool HLSLHighLevel, bool NoOpt, hlsl::HLSLExtensionsCo
     return;
   }
 
+  if (!NoOpt) {
+    MPM.add(createHLDeadFunctionEliminationPass());
+  }
+
   // Split struct and array of parameter.
   MPM.add(createSROA_Parameter_HLSL());
 
@@ -295,6 +299,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
       MPM.add(createDxilFinalizeModulePass());      // HLSL Change
       MPM.add(createComputeViewIdStatePass());    // HLSL Change
+      MPM.add(createDxilDeadFunctionEliminationPass()); // HLSL Change
       MPM.add(createDxilEmitMetadataPass());      // HLSL Change
     }
     // HLSL Change Ends.
@@ -369,7 +374,7 @@ void PassManagerBuilder::populateModulePassManager(
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
   MPM.add(createLICMPass());                  // Hoist loop invariants
-  MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3));
+  //MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3)); // HLSL Change - may move barrier inside divergent if.
   MPM.add(createInstructionCombiningPass());
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
@@ -566,6 +571,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilLegalizeSampleOffsetPass()); // HLSL Change
     MPM.add(createDxilFinalizeModulePass());
     MPM.add(createComputeViewIdStatePass()); // HLSL Change
+    MPM.add(createDxilDeadFunctionEliminationPass()); // HLSL Change
     MPM.add(createDxilEmitMetadataPass());
   }
   // HLSL Change Ends.

@@ -39,7 +39,6 @@
 
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/DxilContainer.h"
-
 #include "dxc/dxcapi.internal.h"
 
 #include "dxc/Support/dxcapi.use.h"
@@ -463,7 +462,9 @@ public:
       // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (opts.GenSPIRV) {
-          clang::EmitSPIRVAction action;
+          clang::EmitSPIRVOptions spirvOpts;
+          spirvOpts.stageIoOrder = opts.VkStageIoOrder;
+          clang::EmitSPIRVAction action(spirvOpts);
           FrontendInputFile file(utf8SourceName.m_psz, IK_HLSL);
           action.BeginSourceFile(compiler, file);
           action.Execute();
@@ -753,6 +754,8 @@ public:
       PPOpts.addMacroDef(defines[i]);
     }
 
+    PPOpts.IgnoreLineDirectives = Opts.IgnoreLineDirectives;
+
     // Pick additional arguments.
     clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();
     HSOpts.UseBuiltinIncludes = 0;
@@ -785,6 +788,14 @@ public:
     compiler.getLangOpts().HLSL2015 = Opts.HLSL2015;
     compiler.getLangOpts().HLSL2016 = Opts.HLSL2016;
     compiler.getLangOpts().HLSL2017 = Opts.HLSL2017;
+
+    compiler.getLangOpts().UseMinPrecision = !Opts.NoMinPrecision;
+
+// SPIRV change starts
+#ifdef ENABLE_SPIRV_CODEGEN
+    compiler.getLangOpts().SPIRV = Opts.GenSPIRV;
+#endif
+// SPIRV change ends
 
     if (Opts.WarningAsError)
       compiler.getDiagnostics().setWarningsAsErrors(true);

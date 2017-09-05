@@ -107,7 +107,7 @@ DxilModule::ShaderFlags::ShaderFlags():
 , m_bEnableDoublePrecision(false)
 , m_bForceEarlyDepthStencil(false)
 , m_bEnableRawAndStructuredBuffers(false)
-, m_bEnableMinPrecision(false)
+, m_bLowPrecisionPresent(false)
 , m_bEnableDoubleExtensions(false)
 , m_bEnableMSAD(false)
 , m_bAllResourcesBound(false)
@@ -125,6 +125,7 @@ DxilModule::ShaderFlags::ShaderFlags():
 , m_bInt64Ops(false)
 , m_bViewID(false)
 , m_bBarycentrics(false)
+, m_bUseNativeLowPrecision(false)
 , m_align0(0)
 , m_align1(0)
 {}
@@ -228,7 +229,7 @@ unsigned DxilModule::ShaderFlags::GetGlobalFlags() const {
   Flags |= m_bEnableDoublePrecision ? DXIL::kEnableDoublePrecision : 0;
   Flags |= m_bForceEarlyDepthStencil ? DXIL::kForceEarlyDepthStencil : 0;
   Flags |= m_bEnableRawAndStructuredBuffers ? DXIL::kEnableRawAndStructuredBuffers : 0;
-  Flags |= m_bEnableMinPrecision ? DXIL::kEnableMinPrecision : 0;
+  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision? DXIL::kEnableMinPrecision : 0;
   Flags |= m_bEnableDoubleExtensions ? DXIL::kEnableDoubleExtensions : 0;
   Flags |= m_bEnableMSAD ? DXIL::kEnableMSAD : 0;
   Flags |= m_bAllResourcesBound ? DXIL::kAllResourcesBound : 0;
@@ -238,7 +239,8 @@ unsigned DxilModule::ShaderFlags::GetGlobalFlags() const {
 uint64_t DxilModule::ShaderFlags::GetFeatureInfo() const {
   uint64_t Flags = 0;
   Flags |= m_bEnableDoublePrecision ? hlsl::ShaderFeatureInfo_Doubles : 0;
-  Flags |= m_bEnableMinPrecision ? hlsl::ShaderFeatureInfo_MininumPrecision : 0;
+  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision ? hlsl::ShaderFeatureInfo_MinimumPrecision: 0;
+  Flags |= m_bLowPrecisionPresent && m_bUseNativeLowPrecision ? hlsl::ShaderFeatureInfo_NativeLowPrecision : 0;
   Flags |= m_bEnableDoubleExtensions ? hlsl::ShaderFeatureInfo_11_1_DoubleExtensions : 0;
   Flags |= m_bWaveOps ? hlsl::ShaderFeatureInfo_WaveOps : 0;
   Flags |= m_bInt64Ops ? hlsl::ShaderFeatureInfo_Int64Ops : 0;
@@ -339,7 +341,7 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
   // fma has dxil op. Others should check IR instruction div/cast.
   bool hasDoubleExtension = false;
   bool has64Int = false;
-  bool has16FloatInt = false;
+  bool has16 = false;
   bool hasWaveOps = false;
   bool hasCheckAccessFully = false;
   bool hasMSAD = false;
@@ -395,8 +397,8 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
           }
         }
         
-        has16FloatInt |= isHalf;
-        has16FloatInt |= isInt16;
+        has16 |= isHalf;
+        has16 |= isInt16;
         has64Int |= isInt64;
 
         if (CallInst *CI = dyn_cast<CallInst>(&I)) {
@@ -474,7 +476,7 @@ void DxilModule::CollectShaderFlags(ShaderFlags &Flags) {
 
   Flags.SetEnableDoublePrecision(hasDouble);
   Flags.SetInt64Ops(has64Int);
-  Flags.SetEnableMinPrecision(has16FloatInt);
+  Flags.SetLowPrecisionPresent(has16);
   Flags.SetEnableDoubleExtensions(hasDoubleExtension);
   Flags.SetWaveOps(hasWaveOps);
   Flags.SetTiledResources(hasCheckAccessFully);
@@ -582,7 +584,7 @@ uint64_t DxilModule::ShaderFlags::GetShaderFlagsRawForCollection() {
   ShaderFlags Flags;
   Flags.SetEnableDoublePrecision(true);
   Flags.SetInt64Ops(true);
-  Flags.SetEnableMinPrecision(true);
+  Flags.SetLowPrecisionPresent(true);
   Flags.SetEnableDoubleExtensions(true);
   Flags.SetWaveOps(true);
   Flags.SetTiledResources(true);
@@ -1496,10 +1498,10 @@ MDTuple *DxilModule::EmitDxilShaderProperties() {
   vector<Metadata *> MDVals;
 
   // DXIL shader flags.
-  uint64_t Flags = m_ShaderFlags.GetShaderFlagsRaw();
-  if (Flags != 0) {
+  uint64_t flag = m_ShaderFlags.GetShaderFlagsRaw();
+  if (flag != 0) {
     MDVals.emplace_back(m_pMDHelper->Uint32ToConstMD(DxilMDHelper::kDxilShaderFlagsTag));
-    MDVals.emplace_back(m_pMDHelper->Uint64ToConstMD(Flags));
+    MDVals.emplace_back(m_pMDHelper->Uint64ToConstMD(flag));
   }
 
   // Compute shader.
