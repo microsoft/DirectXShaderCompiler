@@ -23,8 +23,12 @@ namespace hlsl {
 //
 // Singnature methods.
 //
-DxilSignature::DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind)
-: m_sigPointKind(SigPoint::GetKind(shaderKind, sigKind, /*isPatchConstantFunction*/false, /*isSpecialInput*/false)) {}
+DxilSignature::DxilSignature(DXIL::ShaderKind shaderKind,
+                             DXIL::SignatureKind sigKind, bool useMinPrecision)
+    : m_sigPointKind(SigPoint::GetKind(shaderKind, sigKind,
+                                       /*isPatchConstantFunction*/ false,
+                                       /*isSpecialInput*/ false)),
+      m_UseMinPrecision(useMinPrecision) {}
 
 DxilSignature::DxilSignature(DXIL::SigPointKind sigPointKind)
 : m_sigPointKind(sigPointKind) {}
@@ -124,12 +128,15 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
   std::vector<DxilPackElement> packElements;
   for (auto &SE : m_Elements) {
     if (ShouldBeAllocated(SE.get()))
-      packElements.emplace_back(SE.get());
+      packElements.emplace_back(SE.get(), m_UseMinPrecision);
   }
 
   if (m_sigPointKind == DXIL::SigPointKind::GSOut) {
     // Special case due to support for multiple streams
-    DxilSignatureAllocator alloc[4] = {32, 32, 32, 32};
+    DxilSignatureAllocator alloc[4] = {{32, UseMinPrecision()},
+                                       {32, UseMinPrecision()},
+                                       {32, UseMinPrecision()},
+                                       {32, UseMinPrecision()}};
     std::vector<DxilSignatureAllocator::PackElement*> elements[4];
     for (auto &SE : packElements) {
       elements[SE.Get()->GetOutputStream()].push_back(&SE);
@@ -173,7 +180,7 @@ unsigned DxilSignature::PackElements(DXIL::PackingStrategy packing) {
 
   case DXIL::PackingKind::Vertex:
   case DXIL::PackingKind::PatchConstant: {
-      DxilSignatureAllocator alloc(32);
+      DxilSignatureAllocator alloc(32, UseMinPrecision());
       std::vector<DxilSignatureAllocator::PackElement*> elements;
       elements.reserve(packElements.size());
       for (auto &SE : packElements){

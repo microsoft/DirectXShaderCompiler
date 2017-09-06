@@ -100,6 +100,13 @@ namespace DXIL {
     Invalid                     = 8
   };
 
+  // size of each scalar type in signature element in bits
+  enum class SignatureDataWidth : uint8_t {
+    Undefined = 0,
+    Bits16 = 16,
+    Bits32 = 32,
+  };
+
   enum class SignatureKind {
     Invalid = 0,
     Input,

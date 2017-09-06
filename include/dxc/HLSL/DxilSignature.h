@@ -24,7 +24,7 @@ class DxilSignature {
 public:
   using Kind = DXIL::SignatureKind;
 
-  DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind);
+  DxilSignature(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind, bool useMinPrecision);
   DxilSignature(DXIL::SigPointKind sigPointKind);
   DxilSignature(const DxilSignature &src);
   virtual ~DxilSignature();
@@ -49,16 +49,19 @@ public:
   // Returns the number of allocated vectors used to contain signature
   unsigned NumVectorsUsed(unsigned streamIndex =  0) const;
 
+  bool UseMinPrecision() const { return m_UseMinPrecision; }
+
 private:
   DXIL::SigPointKind m_sigPointKind;
   std::vector<std::unique_ptr<DxilSignatureElement> > m_Elements;
+  bool m_UseMinPrecision;
 };
 
 struct DxilEntrySignature {
-  DxilEntrySignature(DXIL::ShaderKind shaderKind)
-      : InputSignature(shaderKind, DxilSignature::Kind::Input),
-        OutputSignature(shaderKind, DxilSignature::Kind::Output),
-        PatchConstantSignature(shaderKind, DxilSignature::Kind::PatchConstant) {
+  DxilEntrySignature(DXIL::ShaderKind shaderKind, bool useMinPrecision)
+      : InputSignature(shaderKind, DxilSignature::Kind::Input, useMinPrecision),
+        OutputSignature(shaderKind, DxilSignature::Kind::Output, useMinPrecision),
+        PatchConstantSignature(shaderKind, DxilSignature::Kind::PatchConstant, useMinPrecision) {
   }
   DxilEntrySignature(const DxilEntrySignature &src);
   DxilSignature InputSignature;
