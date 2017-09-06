@@ -1999,14 +1999,6 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     //                 [, int SampleIndex,]
     //                 [, int Offset]);
 
-    // SampleIndex is only available when the Object is of Texture2DMS or
-    // Texture2DMSArray types. Under those cases, Offset will be the third
-    // parameter. Otherwise, Offset should be the second parameter.
-    if (expr->getNumArgs() == 3) {
-      emitError("Texture2DMS[Array].Load() not implemented yet");
-      return 0;
-    }
-
     const auto *object = expr->getImplicitObjectArgument();
     const auto *location = expr->getArg(0);
     const auto objectType = object->getType();
@@ -2025,15 +2017,27 @@ SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
 
     if (TypeTranslator::isTexture(objectType)) {
       // .Load() has a second optional paramter for offset.
-      const uint32_t locationId = doExpr(location);
+      const auto locationId = doExpr(location);
       uint32_t constOffset = 0, varOffset = 0;
-      uint32_t coordinate = 0, lod = 0;
-      // For Texture Load() functions, the location parameter is a vector that
-      // consists of both the coordinate and the mipmap level (via the last
-      // vector element). We need to split it here since the OpImageFetch
-      // SPIR-V instruction encodes them as separate arguments.
-      splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
-      handleOffset(expr, 1, &constOffset, &varOffset);
+      uint32_t coordinate = locationId, lod = 0;
+
+      if (TypeTranslator::isTextureMS(objectType)) {
+        // SampleIndex is only available when the Object is of Texture2DMS or
+        // Texture2DMSArray types. Under those cases, Offset will be the third
+        // parameter (index 2).
+        lod = doExpr(expr->getArg(1));
+        handleOffset(expr, 2, &constOffset, &varOffset);
+      } else {
+        // For Texture Load() functions, the location parameter is a vector
+        // that consists of both the coordinate and the mipmap level (via the
+        // last vector element). We need to split it here since the
+        // OpImageFetch SPIR-V instruction encodes them as separate arguments.
+        splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
+        // For textures other than Texture2DMS(Array), offset should be the
+        // second parameter (index 1).
+        handleOffset(expr, 1, &constOffset, &varOffset);
+      }
+
       return processBufferTextureLoad(object, coordinate, constOffset,
                                       varOffset, lod);
     }
