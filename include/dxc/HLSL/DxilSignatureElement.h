@@ -110,13 +110,26 @@ protected:
 
 class DxilPackElement : public DxilSignatureAllocator::PackElement {
   DxilSignatureElement *m_pSE;
+  bool m_bUseMinPrecision;
+
 public:
-  DxilPackElement(DxilSignatureElement *pSE) : m_pSE(pSE) {}
+  DxilPackElement(DxilSignatureElement *pSE, bool useMinPrecision) : m_pSE(pSE), m_bUseMinPrecision(useMinPrecision) {}
   __override ~DxilPackElement() {}
   __override uint32_t GetID() const { return m_pSE->GetID(); }
   __override DXIL::SemanticKind GetKind() const { return m_pSE->GetKind(); }
   __override DXIL::InterpolationMode GetInterpolationMode() const { return m_pSE->GetInterpolationMode()->GetKind(); }
   __override DXIL::SemanticInterpretationKind GetInterpretation() const { return m_pSE->GetInterpretation(); }
+  __override DXIL::SignatureDataWidth GetDataBitWidth() const {
+    uint8_t size = m_pSE->GetCompType().GetSizeInBits();
+    // bool, min precision, or 32 bit types map to 32 bit size.
+    if (size == 16) {
+      return m_bUseMinPrecision ? DXIL::SignatureDataWidth::Bits32 : DXIL::SignatureDataWidth::Bits16;
+    }
+    else if (size == 1 || size == 32) {
+      return DXIL::SignatureDataWidth::Bits32;
+    }
+    return DXIL::SignatureDataWidth::Undefined;
+  }
   __override uint32_t GetRows() const { return m_pSE->GetRows(); }
   __override uint32_t GetCols() const { return m_pSE->GetCols(); }
   __override bool IsAllocated() const { return m_pSE->IsAllocated(); }

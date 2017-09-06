@@ -69,12 +69,14 @@ uint8_t DxilSignatureAllocator::GetConflictFlagsRight(uint8_t flags) {
   return conflicts;
 }
 
-DxilSignatureAllocator::PackedRegister::PackedRegister() : Interp(DXIL::InterpolationMode::Undefined), IndexFlags(0), IndexingFixed(0) {
+DxilSignatureAllocator::PackedRegister::PackedRegister()
+    : Interp(DXIL::InterpolationMode::Undefined), IndexFlags(0),
+      IndexingFixed(0), DataWidth(DXIL::SignatureDataWidth::Undefined) {
   for (unsigned i = 0; i < 4; ++i)
     Flags[i] = 0;
 }
 
-DxilSignatureAllocator::ConflictType DxilSignatureAllocator::PackedRegister::DetectRowConflict(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned width) {
+DxilSignatureAllocator::ConflictType DxilSignatureAllocator::PackedRegister::DetectRowConflict(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned width, DXIL::SignatureDataWidth dataWidth) {
   // indexing already present, and element incompatible with indexing
   if (IndexFlags && (flags & kEFConflictsWithIndexed))
     return kConflictsWithIndexed;
@@ -85,6 +87,8 @@ DxilSignatureAllocator::ConflictType DxilSignatureAllocator::PackedRegister::Det
     return kConflictsWithIndexedTessFactor;
   if (Interp != DXIL::InterpolationMode::Undefined && Interp != interp)
     return kConflictsWithInterpolationMode;
+  if (DataWidth != DXIL::SignatureDataWidth::Undefined && DataWidth != dataWidth)
+    return kConflictDataWidth;
   unsigned freeWidth = 0;
   for (unsigned i = 0; i < 4; ++i) {
     if ((Flags[i] & kEFOccupied) || (Flags[i] & flags))
@@ -114,10 +118,13 @@ DxilSignatureAllocator::ConflictType DxilSignatureAllocator::PackedRegister::Det
   return kNoConflict;
 }
 
-void DxilSignatureAllocator::PackedRegister::PlaceElement(uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp, unsigned col, unsigned width) {
+void DxilSignatureAllocator::PackedRegister::PlaceElement(
+    uint8_t flags, uint8_t indexFlags, DXIL::InterpolationMode interp,
+    unsigned col, unsigned width, DXIL::SignatureDataWidth dataWidth) {
   // Assume no conflicts (DetectRowConflict and DetectColConflict both return 0).
   Interp = interp;
   IndexFlags |= indexFlags;
+  DataWidth = dataWidth;
   if ((flags & kEFConflictsWithIndexed) || (flags & kEFTessFactor)) {
     DXASSERT(indexFlags == IndexFlags, "otherwise, bug in DetectRowConflict checking index flags");
     IndexingFixed = 1;
@@ -136,8 +143,8 @@ void DxilSignatureAllocator::PackedRegister::PlaceElement(uint8_t flags, uint8_t
   }
 }
 
-DxilSignatureAllocator::DxilSignatureAllocator(unsigned numRegisters)
-  : m_bIgnoreIndexing(false) {
+DxilSignatureAllocator::DxilSignatureAllocator(unsigned numRegisters, bool useMinPrecision)
+  : m_bIgnoreIndexing(false), m_bUseMinPrecision(useMinPrecision) {
   m_Registers.resize(numRegisters);
 }
 
@@ -150,7 +157,7 @@ DxilSignatureAllocator::ConflictType DxilSignatureAllocator::DetectRowConflict(c
   uint8_t flags = GetElementFlags(SE);
   for (unsigned i = 0; i < rows; ++i) {
     uint8_t indexFlags = m_bIgnoreIndexing ? 0 : GetIndexFlags(i, rows);
-    ConflictType conflict = m_Registers[row + i].DetectRowConflict(flags, indexFlags, interp, cols);
+    ConflictType conflict = m_Registers[row + i].DetectRowConflict(flags, indexFlags, interp, cols, SE->GetDataBitWidth());
     if (conflict)
       return conflict;
   }
@@ -177,7 +184,7 @@ void DxilSignatureAllocator::PlaceElement(const PackElement *SE, unsigned row, u
   uint8_t flags = GetElementFlags(SE);
   for (unsigned i = 0; i < rows; ++i) {
     uint8_t indexFlags = m_bIgnoreIndexing ? 0 : GetIndexFlags(i, rows);
-    m_Registers[row + i].PlaceElement(flags, indexFlags, interp, col, cols);
+    m_Registers[row + i].PlaceElement(flags, indexFlags, interp, col, cols, SE->GetDataBitWidth());
   }
 }
 
@@ -328,7 +335,7 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
   // ==========
   // Preallocate clip/cull elements
   std::sort(clipcullElements.begin(), clipcullElements.end(), CmpElementsLess);
-  DxilSignatureAllocator clipcullAllocator(2);
+  DxilSignatureAllocator clipcullAllocator(2, m_bUseMinPrecision);
   unsigned clipcullRegUsed = clipcullAllocator.PackGreedy(clipcullElements, 0, 2);
   unsigned clipcullComponentsByRow[2] = {0, 0};
   for (auto &SE : clipcullElements) {
@@ -349,6 +356,7 @@ unsigned DxilSignatureAllocator::PackOptimized(std::vector<PackElement*> element
     clipcullTempElements[row].kind = clipcullElementsByRow[row][0]->GetKind();
     clipcullTempElements[row].interpolation = clipcullElementsByRow[row][0]->GetInterpolationMode();
     clipcullTempElements[row].interpretation = clipcullElementsByRow[row][0]->GetInterpretation();
+    clipcullTempElements[row].dataBitWidth = clipcullElementsByRow[row][0]->GetDataBitWidth();
     clipcullTempElements[row].rows = 1;
     clipcullTempElements[row].cols = clipcullComponentsByRow[row];
   }
@@ -435,7 +443,7 @@ unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<PackElement*> elem
   // Special handling for prefix-stable clip/cull arguments
   // - basically, do not pack with anything else to maximize chance to pack into two register limit
   unsigned clipcullRegUsed = 0;
-  DxilSignatureAllocator clipcullAllocator(2);
+  DxilSignatureAllocator clipcullAllocator(2, m_bUseMinPrecision);
   DummyElement clipcullTempElements[2];
 
   for (auto &SE : elements) {
@@ -458,6 +466,7 @@ unsigned DxilSignatureAllocator::PackPrefixStable(std::vector<PackElement*> elem
               clipcullTempElements[used - 1].kind = SE->GetKind();
               clipcullTempElements[used - 1].interpolation = SE->GetInterpolationMode();
               clipcullTempElements[used - 1].interpretation = SE->GetInterpretation();
+              clipcullTempElements[used - 1].dataBitWidth = SE->GetDataBitWidth();
               clipcullTempElements[used - 1].rows = 1;
               clipcullTempElements[used - 1].cols = 4;
               rowsUsed = std::max(rowsUsed, PackNext(&clipcullTempElements[used - 1], startRow, numRows));
