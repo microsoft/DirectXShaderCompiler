@@ -3929,6 +3929,7 @@ TEST_F(CompilerTest, CodeGenSignaturePacking) {
 }
 
 TEST_F(CompilerTest, CodeGenSignaturePackingByWidth) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\signature_packing_by_width.hlsl");
 }
 
