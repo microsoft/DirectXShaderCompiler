@@ -59,11 +59,14 @@ public:
   /// integer value. This type will be decorated with BufferBlock.
   uint32_t getACSBufferCounter();
 
+  /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
+  static bool isStructuredBuffer(QualType type);
+
   /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
-  bool isByteAddressBuffer(QualType type);
+  static bool isByteAddressBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL RWByteAddressBufferType.
-  bool isRWByteAddressBuffer(QualType type);
+  static bool isRWByteAddressBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL Buffer type.
   static bool isBuffer(QualType type);
@@ -164,6 +167,7 @@ private:
   /// instructions and returns the <result-id>. Returns 0 on failure.
   uint32_t translateResourceType(QualType type, LayoutRule rule);
 
+public:
   /// \brief Returns the alignment and size in bytes for the given type
   /// according to the given LayoutRule.
 

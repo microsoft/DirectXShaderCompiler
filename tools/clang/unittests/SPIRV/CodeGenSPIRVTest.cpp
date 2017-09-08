@@ -365,6 +365,7 @@ TEST_F(FileTest, TextureArraySample) {
 }
 TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.hlsl"); }
 TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
+TEST_F(FileTest, TextureGetDimensions) { runFileTest("texture.get-dimensions.hlsl"); }
 TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
 TEST_F(FileTest, TextureArrayGather) {
   runFileTest("texture.array.gather.hlsl");
@@ -387,12 +388,16 @@ TEST_F(FileTest, TextureArraySampleGrad) {
 TEST_F(FileTest, StructuredBufferLoad) {
   runFileTest("method.structured-buffer.load.hlsl");
 }
+TEST_F(FileTest, StructuredBufferGetDimensions) {
+  runFileTest("method.structured-buffer.get-dimensions.hlsl");
+}
 TEST_F(FileTest, AppendStructuredBufferAppend) {
   runFileTest("method.append-structured-buffer.append.hlsl");
 }
 TEST_F(FileTest, ConsumeStructuredBufferConsume) {
   runFileTest("method.consume-structured-buffer.consume.hlsl");
 }
+
 // For ByteAddressBuffer methods
 TEST_F(FileTest, ByteAddressBufferLoad) {
   runFileTest("method.byte-address-buffer.load.hlsl");
@@ -400,14 +405,23 @@ TEST_F(FileTest, ByteAddressBufferLoad) {
 TEST_F(FileTest, ByteAddressBufferStore) {
   runFileTest("method.byte-address-buffer.store.hlsl");
 }
+TEST_F(FileTest, ByteAddressBufferGetDimensions) {
+  runFileTest("method.byte-address-buffer.get-dimensions.hlsl");
+}
 
 // For Buffer/RWBuffer methods
 TEST_F(FileTest, BufferLoad) { runFileTest("buffer.load.hlsl"); }
 TEST_F(FileTest, BufferWrite) { runFileTest("buffer.write.hlsl"); }
+TEST_F(FileTest, BufferGetDimensions) {
+  runFileTest("buffer.get-dimensions.hlsl");
+}
 
 // For RWTexture methods
 TEST_F(FileTest, RWTextureLoad) { runFileTest("rwtexture.load.hlsl"); }
 TEST_F(FileTest, RWTextureWrite) { runFileTest("rwtexture.write.hlsl"); }
+TEST_F(FileTest, RWTextureGetDimensions) {
+  runFileTest("rwtexture.get-dimensions.hlsl");
+}
 
 // For intrinsic functions
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }

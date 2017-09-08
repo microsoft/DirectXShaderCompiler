@@ -110,15 +110,6 @@ bool isFloatOrVecMatOfFloatType(QualType type) {
           hlsl::GetHLSLMatElementType(type)->isFloatingType());
 }
 
-/// Returns true if the given type is a (RW)StructuredBuffer type.
-bool isStructuredBuffer(QualType type) {
-  const auto *recordType = type->getAs<RecordType>();
-  if (!recordType)
-    return false;
-  const auto name = recordType->getDecl()->getName();
-  return name == "StructuredBuffer" || name == "RWStructuredBuffer";
-}
-
 bool isSpirvMatrixOp(spv::Op opcode) {
   switch (opcode) {
   case spv::Op::OpMatrixTimesMatrix:
@@ -146,7 +137,7 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
     if (GetIntrinsicOp(callee, opcode, group)) {
       if (static_cast<IntrinsicOp>(opcode) == IntrinsicOp::MOP_Load) {
         const auto *object = indexing->getImplicitObjectArgument();
-        if (isStructuredBuffer(object->getType())) {
+        if (TypeTranslator::isStructuredBuffer(object->getType())) {
           *index = indexing->getArg(0);
           return indexing->getImplicitObjectArgument();
         }
@@ -1387,6 +1378,147 @@ uint32_t SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
 }
 
+uint32_t SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
+    const CXXMemberCallExpr *expr) {
+  const auto *object = expr->getImplicitObjectArgument();
+  const auto objectId = loadIfGLValue(object);
+  const auto type = object->getType();
+  assert(TypeTranslator::isByteAddressBuffer(type) ||
+         TypeTranslator::isRWByteAddressBuffer(type) ||
+         TypeTranslator::isStructuredBuffer(type));
+
+  // (RW)ByteAddressBuffers/(RW)StructuredBuffers are represented as a structure
+  // with only one member that is a runtime array. We need to perform
+  // OpArrayLength on member 0.
+  const auto uintType = theBuilder.getUint32Type();
+  const auto arrayLength =
+      theBuilder.createBinaryOp(spv::Op::OpArrayLength, uintType, objectId, 0);
+  theBuilder.createStore(doExpr(expr->getArg(0)), arrayLength);
+
+  // For (RW)StructuredBuffer, the stride of the runtime array (which is the
+  // size of the struct) must also be written to the second argument.
+  if (TypeTranslator::isStructuredBuffer(type)) {
+    uint32_t size = 0, stride = 0;
+    std::tie(std::ignore, size) = typeTranslator.getAlignmentAndSize(
+        type, LayoutRule::GLSLStd430, /*isRowMajor*/ false, &stride);
+    const auto sizeId = theBuilder.getConstantUint32(size);
+    theBuilder.createStore(doExpr(expr->getArg(1)), sizeId);
+  }
+
+  return 0;
+}
+
+uint32_t
+SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
+  theBuilder.requireCapability(spv::Capability::ImageQuery);
+  const auto *object = expr->getImplicitObjectArgument();
+  const auto objectId = loadIfGLValue(object);
+  const auto type = object->getType();
+  const auto *recType = type->getAs<RecordType>();
+  assert(recType);
+  const auto typeName = recType->getDecl()->getName();
+  const auto numArgs = expr->getNumArgs();
+  const Expr *mipLevel = nullptr, *numLevels = nullptr, *numSamples = nullptr;
+
+  assert(TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type) ||
+         TypeTranslator::isBuffer(type) || TypeTranslator::isRWBuffer(type));
+
+  // For Texture1D, arguments are either:
+  // a) width
+  // b) MipLevel, width, NumLevels
+
+  // For Texture1DArray, arguments are either:
+  // a) width, elements
+  // b) MipLevel, width, elements, NumLevels
+
+  // For Texture2D, arguments are either:
+  // a) width, height
+  // b) MipLevel, width, height, NumLevels
+
+  // For Texture2DArray, arguments are either:
+  // a) width, height, elements
+  // b) MipLevel, width, height, elements, NumLevels
+
+  // For Texture3D, arguments are either:
+  // a) width, height, depth
+  // b) MipLevel, width, height, depth, NumLevels
+
+  // For Texture2DMS, arguments are: width, height, NumSamples
+
+  // For Texture2DMSArray, arguments are: width, height, elements, NumSamples
+
+  if ((typeName == "Texture1D" && numArgs > 1) ||
+      (typeName == "Texture2D" && numArgs > 2) ||
+      (typeName == "Texture3D" && numArgs > 3) ||
+      (typeName == "Texture1DArray" && numArgs > 2) ||
+      (typeName == "Texture2DArray" && numArgs > 3)) {
+    mipLevel = expr->getArg(0);
+    numLevels = expr->getArg(numArgs - 1);
+  }
+  if (TypeTranslator::isTextureMS(type)) {
+    numSamples = expr->getArg(numArgs - 1);
+  }
+
+  uint32_t querySize = numArgs;
+  // If numLevels arg is present, mipLevel must also be present. These are not
+  // queried via ImageQuerySizeLod.
+  if (numLevels)
+    querySize -= 2;
+  // If numLevels arg is present, mipLevel must also be present.
+  else if (numSamples)
+    querySize -= 1;
+
+  const uint32_t uintId = theBuilder.getUint32Type();
+  const uint32_t resultTypeId =
+      querySize == 1 ? uintId : theBuilder.getVecType(uintId, querySize);
+
+  // Only Texture types use ImageQuerySizeLod.
+  // TextureMS, RWTexture, Buffers, RWBuffers use ImageQuerySize.
+  uint32_t lod = 0;
+  if (TypeTranslator::isTexture(type) && !numSamples) {
+    if (mipLevel) {
+      // For Texture types when mipLevel argument is used.
+      lod = doExpr(mipLevel);
+    } else {
+      // For Texture types when mipLevel argument is not used.
+      lod = theBuilder.getConstantInt32(0);
+    }
+  }
+
+  const uint32_t query =
+      lod ? theBuilder.createBinaryOp(spv::Op::OpImageQuerySizeLod,
+                                      resultTypeId, objectId, lod)
+          : theBuilder.createUnaryOp(spv::Op::OpImageQuerySize, resultTypeId,
+                                     objectId);
+
+  if (querySize == 1) {
+    const uint32_t argIndex = mipLevel ? 1 : 0;
+    theBuilder.createStore(doExpr(expr->getArg(argIndex)), query);
+  } else {
+    for (uint32_t i = 0; i < querySize; ++i) {
+      const uint32_t component =
+          theBuilder.createCompositeExtract(uintId, query, {i});
+      // If the first arg is the mipmap level, we must write the results
+      // starting from Arg(i+1), not Arg(i).
+      const uint32_t argIndex = mipLevel ? i + 1 : i;
+      theBuilder.createStore(doExpr(expr->getArg(argIndex)), component);
+    }
+  }
+
+  if (numLevels || numSamples) {
+    const Expr *numLevelsSamplesArg = numLevels ? numLevels : numSamples;
+    const spv::Op opcode =
+        numLevels ? spv::Op::OpImageQueryLevels : spv::Op::OpImageQuerySamples;
+    const uint32_t resultType =
+        typeTranslator.translateType(numLevelsSamplesArg->getType());
+    const uint32_t numLevelsSamplesQuery =
+        theBuilder.createUnaryOp(opcode, resultType, objectId);
+    theBuilder.createStore(doExpr(numLevelsSamplesArg), numLevelsSamplesQuery);
+  }
+
+  return 0;
+}
+
 uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
                                                 const uint32_t locationId,
                                                 uint32_t constOffset,
@@ -1786,7 +1918,7 @@ uint32_t SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
         typeTranslator.isByteAddressBuffer(objectType))
       return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
 
-    if (isStructuredBuffer(objectType))
+    if (TypeTranslator::isStructuredBuffer(objectType))
       return processStructuredBufferLoad(expr);
 
     if (TypeTranslator::isBuffer(objectType) ||
@@ -1835,6 +1967,22 @@ uint32_t SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_Append:
   case IntrinsicOp::MOP_Consume: {
     return processACSBufferAppendConsume(expr);
+  }
+  case IntrinsicOp::MOP_GetDimensions: {
+    const auto objectType = expr->getImplicitObjectArgument()->getType();
+    if (TypeTranslator::isTexture(objectType) ||
+        TypeTranslator::isRWTexture(objectType) ||
+        TypeTranslator::isBuffer(objectType) ||
+        TypeTranslator::isRWBuffer(objectType)) {
+      return processBufferTextureGetDimensions(expr);
+    } else if (TypeTranslator::isByteAddressBuffer(objectType) ||
+               TypeTranslator::isRWByteAddressBuffer(objectType) ||
+               TypeTranslator::isStructuredBuffer(objectType)) {
+      return processByteAddressBufferStructuredBufferGetDimensions(expr);
+    } else {
+      emitError("GetDimensions not implmented for the given type yet.");
+      return 0;
+    }
   }
   }
   emitError("HLSL intrinsic member call unimplemented: %0")
@@ -2998,7 +3146,7 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
       // If the base is a StructureType, we need to push an addtional index 0
       // here. This is because we created an additional OpTypeRuntimeArray
       // in the structure.
-      if (isStructuredBuffer(thisBaseType))
+      if (TypeTranslator::isStructuredBuffer(thisBaseType))
         indices->push_back(theBuilder.getConstantInt32(0));
 
       if ((hlsl::IsHLSLVecType(thisBaseType) &&

@@ -468,6 +468,18 @@ private:
   uint32_t processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
 
 private:
+  /// \brief Queries the given (RW)Buffer/(RW)Texture image in the given expr
+  /// for the requested information. Based on the dimension of the image, the
+  /// following info can be queried: width, height, depth, number of mipmap
+  /// levels.
+  uint32_t processBufferTextureGetDimensions(const CXXMemberCallExpr *);
+
+  /// \brief Processes the GetDimensions intrinsic function call on a
+  /// (RW)ByteAddressBuffer by querying the image in the given expr.
+  uint32_t processByteAddressBufferStructuredBufferGetDimensions(
+      const CXXMemberCallExpr *);
+
+private:
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this consumer.
   template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]) {
