@@ -54,6 +54,27 @@ ConstantBuffer<S> myCbuffer2 : register(b2, space2);
 // CHECK-NEXT: OpDecorate %myCbuffer3 Binding 2
 ConstantBuffer<S> myCbuffer3 : register(b2, space3);
 
+// CHECK:      OpDecorate %sbuffer1 DescriptorSet 0
+// CHECK-NEXT: OpDecorate %sbuffer1 Binding 5
+  StructuredBuffer<S> sbuffer1 : register(t5);
+// CHECK:      OpDecorate %sbuffer2 DescriptorSet 1
+// CHECK-NEXT: OpDecorate %sbuffer2 Binding 6
+RWStructuredBuffer<S> sbuffer2 : register(u6, space1);
+
+    // The counter variable will use the next unassigned number
+// CHECK:      OpDecorate %abuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %abuffer Binding 5
+// CHECK-NEXT: OpDecorate %counter_var_abuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %counter_var_abuffer Binding 4
+AppendStructuredBuffer<S> abuffer : register(u5);
+
+    // The counter variable will use the next unassigned number
+// CHECK:      OpDecorate %csbuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %csbuffer Binding 7
+// CHECK-NEXT: OpDecorate %counter_var_csbuffer DescriptorSet 0
+// CHECK-NEXT: OpDecorate %counter_var_csbuffer Binding 6
+ConsumeStructuredBuffer<S> csbuffer : register(u7);
+
 float4 main() : SV_Target {
     return 1.0;
 }

@@ -2894,6 +2894,7 @@ META.SEMANTICLEN                       Semantic length must be at least 1 and at
 META.SEMANTICSHOULDBEALLOCATED         Semantic should have a valid packing location
 META.SEMANTICSHOULDNOTBEALLOCATED      Semantic should have a packing location of -1
 META.SIGNATURECOMPTYPE                 signature %0 specifies unrecognized or invalid component type
+META.SIGNATUREDATAWIDTH                Data width must be identical for all elements packed into the same row.
 META.SIGNATUREILLEGALCOMPONENTORDER    Component ordering for packed elements must be: arbitrary < system value < system generated value
 META.SIGNATUREINDEXCONFLICT            Only elements with compatible indexing rules may be packed together
 META.SIGNATUREOUTOFRANGE               Signature elements must fit within maximum signature size

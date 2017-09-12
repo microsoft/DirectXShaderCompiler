@@ -1885,7 +1885,6 @@ _Use_decl_annotations_
 HRESULT DxilShaderReflection::GetResourceBindingDescByName(LPCSTR Name,
   D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
   IFRBOOL(Name != nullptr, E_INVALIDARG);
-  IFR(ZeroMemoryToOut(pDesc));
 
   for (UINT i = 0; i < m_Resources.size(); i++) {
     if (strcmp(m_Resources[i].Name, Name) == 0) {

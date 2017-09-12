@@ -210,6 +210,24 @@ uint32_t ModuleBuilder::createBinaryOp(spv::Op op, uint32_t resultType,
   return id;
 }
 
+uint32_t ModuleBuilder::createAtomicIAddSub(uint32_t resultType,
+                                            uint32_t orignalValuePtr,
+                                            uint32_t scopeId,
+                                            uint32_t memorySemanticsId,
+                                            uint32_t valueToOp, bool isAdd) {
+  assert(insertPoint && "null insert point");
+  const uint32_t id = theContext.takeNextId();
+  if (isAdd)
+    instBuilder.opAtomicIAdd(resultType, id, orignalValuePtr, scopeId,
+                             memorySemanticsId, valueToOp);
+  else
+    instBuilder.opAtomicISub(resultType, id, orignalValuePtr, scopeId,
+                             memorySemanticsId, valueToOp);
+  instBuilder.x();
+  insertPoint->appendInstruction(std::move(constructSite));
+  return id;
+}
+
 spv::ImageOperandsMask ModuleBuilder::composeImageOperandsMask(
     uint32_t bias, uint32_t lod, const std::pair<uint32_t, uint32_t> &grad,
     uint32_t constOffset, uint32_t varOffset,
@@ -287,10 +305,16 @@ uint32_t ModuleBuilder::createImageSample(uint32_t texelType,
   return texelId;
 }
 
-uint32_t ModuleBuilder::createImageFetch(uint32_t texelType, uint32_t image,
-                                         uint32_t coordinate, uint32_t lod,
-                                         uint32_t constOffset,
-                                         uint32_t varOffset) {
+void ModuleBuilder::createImageWrite(uint32_t imageId, uint32_t coordId,
+                                     uint32_t texelId) {
+  assert(insertPoint && "null insert point");
+  instBuilder.opImageWrite(imageId, coordId, texelId, llvm::None).x();
+  insertPoint->appendInstruction(std::move(constructSite));
+}
+
+uint32_t ModuleBuilder::createImageFetchOrRead(
+    bool doImageFetch, uint32_t texelType, uint32_t image, uint32_t coordinate,
+    uint32_t lod, uint32_t constOffset, uint32_t varOffset) {
   assert(insertPoint && "null insert point");
 
   llvm::SmallVector<uint32_t, 2> params;
@@ -300,7 +324,11 @@ uint32_t ModuleBuilder::createImageFetch(uint32_t texelType, uint32_t image,
           &params));
 
   const uint32_t texelId = theContext.takeNextId();
-  instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
+  if (doImageFetch)
+    instBuilder.opImageFetch(texelType, texelId, image, coordinate, mask);
+  else
+    instBuilder.opImageRead(texelType, texelId, image, coordinate, mask);
+
   for (const auto param : params)
     instBuilder.idRef(param);
   instBuilder.x();
@@ -591,8 +619,6 @@ ModuleBuilder::getStructType(llvm::ArrayRef<uint32_t> fieldTypes,
   bool isRegistered = false;
   const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
-  // TODO: Probably we should check duplication and do nothing if trying to add
-  // the same debug name for the same entity in addDebugName().
   if (!isRegistered) {
     theModule.addDebugName(typeId, structName);
     if (!fieldNames.empty()) {
@@ -613,6 +639,14 @@ uint32_t ModuleBuilder::getArrayType(uint32_t elemType, uint32_t count,
   return typeId;
 }
 
+uint32_t ModuleBuilder::getRuntimeArrayType(uint32_t elemType,
+                                            Type::DecorationSet decorations) {
+  const Type *type = Type::getRuntimeArray(theContext, elemType, decorations);
+  const uint32_t typeId = theContext.getResultIdForType(type);
+  theModule.addType(type, typeId);
+  return typeId;
+}
+
 uint32_t ModuleBuilder::getFunctionType(uint32_t returnType,
                                         llvm::ArrayRef<uint32_t> paramTypes) {
   const Type *type = Type::getFunction(theContext, returnType, paramTypes);
@@ -627,7 +661,8 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
                                      spv::ImageFormat format) {
   const Type *type = Type::getImage(theContext, sampledType, dim, depth,
                                     isArray, ms, sampled, format);
-  const uint32_t typeId = theContext.getResultIdForType(type);
+  bool isRegistered = false;
+  const uint32_t typeId = theContext.getResultIdForType(type, &isRegistered);
   theModule.addType(type, typeId);
 
   switch (format) {
@@ -660,38 +695,49 @@ uint32_t ModuleBuilder::getImageType(uint32_t sampledType, spv::Dim dim,
     requireCapability(spv::Capability::StorageImageExtendedFormats);
   }
 
+  if (dim == spv::Dim::Dim1D)
+    if (sampled == 2u)
+      requireCapability(spv::Capability::Image1D);
+    else
+      requireCapability(spv::Capability::Sampled1D);
   if (dim == spv::Dim::Buffer)
     requireCapability(spv::Capability::SampledBuffer);
+  if (isArray && ms)
+    requireCapability(spv::Capability::ImageMSArray);
 
-  const char *dimStr = "";
-  switch (dim) {
-  case spv::Dim::Dim1D:
-    dimStr = "1d.";
-    break;
-  case spv::Dim::Dim2D:
-    dimStr = "2d.";
-    break;
-  case spv::Dim::Dim3D:
-    dimStr = "3d.";
-    break;
-  case spv::Dim::Cube:
-    dimStr = "cube.";
-    break;
-  case spv::Dim::Rect:
-    dimStr = "rect.";
-    break;
-  case spv::Dim::Buffer:
-    dimStr = "buffer.";
-    break;
-  case spv::Dim::SubpassData:
-    dimStr = "subpass.";
-    break;
-  default:
-    break;
+  // Skip constructing the debug name if we have already done it before.
+  if (!isRegistered) {
+    const char *dimStr = "";
+    switch (dim) {
+    case spv::Dim::Dim1D:
+      dimStr = "1d.";
+      break;
+    case spv::Dim::Dim2D:
+      dimStr = "2d.";
+      break;
+    case spv::Dim::Dim3D:
+      dimStr = "3d.";
+      break;
+    case spv::Dim::Cube:
+      dimStr = "cube.";
+      break;
+    case spv::Dim::Rect:
+      dimStr = "rect.";
+      break;
+    case spv::Dim::Buffer:
+      dimStr = "buffer.";
+      break;
+    case spv::Dim::SubpassData:
+      dimStr = "subpass.";
+      break;
+    default:
+      break;
+    }
+
+    std::string name =
+        std::string("type.") + dimStr + "image" + (isArray ? ".array" : "");
+    theModule.addDebugName(typeId, name);
   }
-  std::string name =
-      std::string("type.") + dimStr + "image" + (isArray ? ".array" : "");
-  theModule.addDebugName(typeId, name);
 
   return typeId;
 }

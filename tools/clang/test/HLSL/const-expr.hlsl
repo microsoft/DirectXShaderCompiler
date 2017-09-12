@@ -350,5 +350,36 @@ void fn_const_eval() {
 //    (UINT)hlsl::IntrinsicOp::IOP_trunc, 2, g_Intrinsics_Args154,
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// ICE.
+void fn_ice() {
+  // Scalar ints.
+  static uint s_One = 1;
+  static uint s_Two = uint(s_One) + 1;
+  float arr_s_One[s_One];    /* expected-error {{variable length arrays are not supported in HLSL}} fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float arr_s_Two[s_Two];    /* expected-error {{variable length arrays are not supported in HLSL}} fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+
+  static const uint sc_One = 1;
+  static const uint sc_Two = uint(sc_One) + 1;
+  float arr_sc_One[sc_One];
+  float arr_sc_Two[sc_Two];
+
+  // Vector ints.
+  static uint1 v_One = 1;
+  static uint1 v_Two = uint1(v_One) + 1;
+  float arr_v_One[v_One];    /* expected-error {{size of array has non-integer type 'uint1'}} fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float arr_v_Two[v_Two];    /* expected-error {{size of array has non-integer type 'uint1'}} fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+
+  static const uint1 vc_One = 1;
+  static const uint1 vc_Two = uint1(vc_One) + 1;
+  float arr_vc_One[vc_One];  /* expected-error {{size of array has non-integer type 'uint1'}} fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+  float arr_vc_Two[vc_Two];  /* expected-error {{size of array has non-integer type 'uint1'}} fxc-error {{X3058: array dimensions must be literal scalar expressions}} */
+
+  // Note: here dxc is different from fxc, where a const integral vector can be used in ICE.
+  // It would be desirable to have this supported.
+  float arr_vc_One[vc_One.x];  /* expected-error {{variable length arrays are not supported in HLSL}} */
+  float arr_vc_Two[vc_Two.x];  /* expected-error {{variable length arrays are not supported in HLSL}} */
+}
+
 void cs_main() {
 }

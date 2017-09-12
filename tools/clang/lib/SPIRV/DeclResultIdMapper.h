@@ -146,7 +146,7 @@ public:
                          llvm::Optional<uint32_t> init);
 
   /// \brief Creates an external-visible variable and returns its <result-id>.
-  uint32_t createExternVar(uint32_t varType, const VarDecl *var);
+  uint32_t createExternVar(const VarDecl *var);
 
   /// \brief Creates a cbuffer/tbuffer from the given decl.
   ///
@@ -177,9 +177,11 @@ public:
   struct DeclSpirvInfo {
     uint32_t resultId;
     spv::StorageClass storageClass;
+    /// Layout rule for this decl.
+    LayoutRule layoutRule = LayoutRule::Void;
     /// Value >= 0 means that this decl is a VarDecl inside a cbuffer/tbuffer
     /// and this is the index; value < 0 means this is just a standalone decl.
-    int indexInCTBuffer;
+    int indexInCTBuffer = -1;
   };
 
   /// \brief Returns the SPIR-V information for the given decl.
@@ -196,9 +198,16 @@ public:
   /// returns a newly assigned <result-id> for it.
   uint32_t getOrRegisterFnResultId(const FunctionDecl *fn);
 
-  /// Returns the storage class for the given expression. The expression is
-  /// expected to be an lvalue. Otherwise this method may panic.
-  spv::StorageClass resolveStorageClass(const Expr *expr) const;
+  /// \brief Returns the associated counter's <result-id> for the given
+  /// {Append|Consume}StructuredBuffer variable.
+  uint32_t getCounterId(const VarDecl *decl);
+
+  /// Returns the storage class for the given expression. If rule is not
+  /// nullptr, also writes the layout rule into it.
+  /// The expression is expected to be an lvalue. Otherwise this method may
+  /// panic.
+  spv::StorageClass resolveStorageInfo(const Expr *expr,
+                                       LayoutRule *rule = nullptr) const;
   spv::StorageClass resolveStorageClass(const Decl *decl) const;
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this
@@ -285,6 +294,8 @@ private:
   llvm::SmallVector<StageVar, 8> stageVars;
   /// Vector of all defined resource variables.
   llvm::SmallVector<ResourceVar, 8> resourceVars;
+  /// Mapping from {Append|Consume}StructuredBuffers to their counter variables
+  llvm::DenseMap<const NamedDecl *, uint32_t> counterVars;
 };
 
 DeclResultIdMapper::DeclResultIdMapper(const hlsl::ShaderModel &model,

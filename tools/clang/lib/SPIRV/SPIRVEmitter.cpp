@@ -110,6 +110,15 @@ bool isFloatOrVecMatOfFloatType(QualType type) {
           hlsl::GetHLSLMatElementType(type)->isFloatingType());
 }
 
+/// Returns true if the given type is a (RW)StructuredBuffer type.
+bool isStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "StructuredBuffer" || name == "RWStructuredBuffer";
+}
+
 bool isSpirvMatrixOp(spv::Op opcode) {
   switch (opcode) {
   case spv::Op::OpMatrixTimesMatrix:
@@ -120,6 +129,32 @@ bool isSpirvMatrixOp(spv::Op opcode) {
     break;
   }
   return false;
+}
+
+/// If expr is a (RW)StructuredBuffer.Load(), returns the object and writes
+/// index. Otherwiser, returns false.
+// TODO: The following doesn't handle Load(int, int) yet. And it is basically a
+// duplicate of doCXXMemberCallExpr.
+const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
+  using namespace hlsl;
+
+  if (const auto *indexing = dyn_cast<CXXMemberCallExpr>(expr)) {
+    const auto *callee = indexing->getDirectCallee();
+    uint32_t opcode = static_cast<uint32_t>(IntrinsicOp::Num_Intrinsics);
+    llvm::StringRef group;
+
+    if (GetIntrinsicOp(callee, opcode, group)) {
+      if (static_cast<IntrinsicOp>(opcode) == IntrinsicOp::MOP_Load) {
+        const auto *object = indexing->getImplicitObjectArgument();
+        if (isStructuredBuffer(object->getType())) {
+          *index = indexing->getArg(0);
+          return indexing->getImplicitObjectArgument();
+        }
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 /// \brief Returns the statement that is the immediate parent AST node of the
@@ -336,10 +371,8 @@ uint32_t SPIRVEmitter::doExpr(const Expr *expr) {
 
 uint32_t SPIRVEmitter::loadIfGLValue(const Expr *expr) {
   const uint32_t result = doExpr(expr);
-  if (expr->isGLValue()) {
-    const uint32_t baseTyId = typeTranslator.translateType(expr->getType());
-    return theBuilder.createLoad(baseTyId, result);
-  }
+  if (expr->isGLValue())
+    return theBuilder.createLoad(getType(expr), result);
 
   return result;
 }
@@ -433,8 +466,6 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 }
 
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
-  const uint32_t varType = typeTranslator.translateType(decl->getType());
-
   // The contents in externally visible variables can be updated via the
   // pipeline. They should be handled differently from file and function scope
   // variables.
@@ -442,6 +473,11 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   // the Private storage class, while function scope variables (normal "local"
   // variables) belongs to the Function storage class.
   if (!decl->isExternallyVisible()) {
+    // Note: cannot move varType outside of this scope because it generates
+    // SPIR-V types without decorations, while external visible variable should
+    // have SPIR-V type with decorations.
+    const uint32_t varType = typeTranslator.translateType(decl->getType());
+
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
@@ -478,11 +514,14 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
           toInitGloalVars.push_back(decl);
         }
       } else {
-        theBuilder.createStore(varId, doExpr(decl->getInit()));
+        LayoutRule rhsLayout = LayoutRule::Void;
+        (void)declIdMapper.resolveStorageInfo(decl->getInit(), &rhsLayout);
+        storeValue(varId, loadIfGLValue(decl->getInit()), decl->getType(),
+                   spv::StorageClass::Function, LayoutRule::Void, rhsLayout);
       }
     }
   } else {
-    (void)declIdMapper.createExternVar(varType, decl);
+    (void)declIdMapper.createExternVar(decl);
   }
 }
 
@@ -1002,9 +1041,10 @@ uint32_t SPIRVEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const auto *base = collectArrayStructIndices(expr, &indices);
 
-  const uint32_t ptrType =
-      theBuilder.getPointerType(typeTranslator.translateType(expr->getType()),
-                                declIdMapper.resolveStorageClass(base));
+  LayoutRule rule = LayoutRule::Void;
+  const auto sc = declIdMapper.resolveStorageInfo(base, &rule);
+  const uint32_t ptrType = theBuilder.getPointerType(
+      typeTranslator.translateType(expr->getType(), rule), sc);
 
   return theBuilder.createAccessChain(ptrType, doExpr(base), indices);
 }
@@ -1014,8 +1054,12 @@ uint32_t SPIRVEmitter::doBinaryOperator(const BinaryOperator *expr) {
 
   // Handle assignment first since we need to evaluate rhs before lhs.
   // For other binary operations, we need to evaluate lhs before rhs.
-  if (opcode == BO_Assign)
-    return processAssignment(expr->getLHS(), doExpr(expr->getRHS()), false);
+  if (opcode == BO_Assign) {
+    LayoutRule rhsLayout = LayoutRule::Void;
+    (void)declIdMapper.resolveStorageInfo(expr->getRHS(), &rhsLayout);
+    return processAssignment(expr->getLHS(), loadIfGLValue(expr->getRHS()),
+                             false, /*lhsPtr*/ 0, rhsLayout);
+  }
 
   // Try to optimize floatMxN * float and floatN * float case
   if (opcode == BO_Mul) {
@@ -1127,8 +1171,7 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
 
     // Using lvalue as rvalue means we need to OpLoad the contents from
     // the parameter/variable first.
-    const uint32_t resultType = typeTranslator.translateType(toType);
-    return theBuilder.createLoad(resultType, fromValue);
+    return theBuilder.createLoad(getType(expr), fromValue);
   }
   case CastKind::CK_NoOp:
     return doExpr(subExpr);
@@ -1292,13 +1335,31 @@ uint32_t SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
 }
 
-uint32_t SPIRVEmitter::processBufferLoad(const Expr *object,
-                                         const Expr *location) {
+uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
+                                                const Expr *location,
+                                                uint32_t constOffset,
+                                                uint32_t varOffset) {
   // Loading for Buffer and RWBuffer translates to an OpImageFetch.
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
-  const uint32_t objectId = doExpr(object);
+  assert(TypeTranslator::isBuffer(type) || TypeTranslator::isRWBuffer(type) ||
+         TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type));
+  const bool doFetch =
+      TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
+  const uint32_t objectId = loadIfGLValue(object);
   const uint32_t locationId = doExpr(location);
+
+  // For Buffers/RWBuffers, the location is just an int, which should be used as
+  // the coordinate argument. Textures require an additional processing.
+  uint32_t coordinate = locationId, lod = 0;
+  if (TypeTranslator::isTexture(type)) {
+    // The location parameter is a vector that consists of both the coordinate
+    // and the mipmap level (via the last vector element). We need to split it
+    // here since the OpImageFetch SPIR-V instruction encodes them as separate
+    // arguments.
+    splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
+  }
+
   const auto sampledType = hlsl::GetHLSLResourceResultType(type);
   QualType elemType = sampledType;
   uint32_t elemCount = 1;
@@ -1318,24 +1379,31 @@ uint32_t SPIRVEmitter::processBufferLoad(const Expr *object,
       elemCount == 1 ? elemTypeId
                      : theBuilder.getVecType(elemTypeId, elemCount);
 
-  // Always need to fetch 4 elements.
+  // OpImageFetch can only fetch a vector of 4 elements. OpImageRead can load a
+  // vector of any size.
   const uint32_t fetchTypeId = theBuilder.getVecType(elemTypeId, 4u);
-  const uint32_t imageFetchResult =
-      theBuilder.createImageFetch(fetchTypeId, objectId, locationId, 0, 0, 0);
+  const uint32_t texel = theBuilder.createImageFetchOrRead(
+      doFetch, doFetch ? fetchTypeId : resultTypeId, objectId, coordinate, lod,
+      constOffset, varOffset);
 
-  // For the case of buffer elements being vec4, there's no need for extraction
-  // and composition.
+  // OpImageRead can load a vector of any size. So we can return the result of
+  // the instruction directly.
+  if (!doFetch) {
+    return texel;
+  }
+
+  // OpImageFetch can only fetch vec4. If the result type is a vec1, vec2, or
+  // vec3, some extra processing (extraction) is required.
   switch (elemCount) {
   case 1:
-    return theBuilder.createCompositeExtract(elemTypeId, imageFetchResult, {0});
+    return theBuilder.createCompositeExtract(elemTypeId, texel, {0});
   case 2:
-    return theBuilder.createVectorShuffle(resultTypeId, imageFetchResult,
-                                          imageFetchResult, {0, 1});
+    return theBuilder.createVectorShuffle(resultTypeId, texel, texel, {0, 1});
   case 3:
-    return theBuilder.createVectorShuffle(resultTypeId, imageFetchResult,
-                                          imageFetchResult, {0, 1, 2});
+    return theBuilder.createVectorShuffle(resultTypeId, texel, texel,
+                                          {0, 1, 2});
   case 4:
-    return imageFetchResult;
+    return texel;
   }
   llvm_unreachable("Element count of a vector must be 1, 2, 3, or 4.");
 }
@@ -1378,7 +1446,7 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
   // the address.
   const uint32_t uintTypeId = theBuilder.getUint32Type();
   const uint32_t ptrType = theBuilder.getPointerType(
-      uintTypeId, declIdMapper.resolveStorageClass(object));
+      uintTypeId, declIdMapper.resolveStorageInfo(object));
   const uint32_t constUint0 = theBuilder.getConstantUint32(0);
 
   if (doStore) {
@@ -1426,6 +1494,88 @@ uint32_t SPIRVEmitter::processByteAddressBufferLoadStore(
     }
   }
   return resultId;
+}
+
+uint32_t
+SPIRVEmitter::processStructuredBufferLoad(const CXXMemberCallExpr *expr) {
+  if (expr->getNumArgs() == 2) {
+    emitError("Load(int, int) unimplemented for (RW)StructuredBuffer");
+    return 0;
+  }
+
+  const auto *buffer = expr->getImplicitObjectArgument();
+  const QualType structType =
+      hlsl::GetHLSLResourceResultType(buffer->getType());
+  const uint32_t ptrType = theBuilder.getPointerType(
+      typeTranslator.translateType(structType, LayoutRule::GLSLStd430),
+      declIdMapper.resolveStorageInfo(buffer));
+
+  const uint32_t zero = theBuilder.getConstantInt32(0);
+  const uint32_t index = doExpr(expr->getArg(0));
+
+  return theBuilder.createAccessChain(ptrType, doExpr(buffer), {zero, index});
+}
+
+uint32_t
+SPIRVEmitter::processACSBufferAppendConsume(const CXXMemberCallExpr *expr) {
+  const bool isAppend = expr->getNumArgs() == 1;
+
+  const uint32_t u32Type = theBuilder.getUint32Type();
+  const uint32_t one = theBuilder.getConstantUint32(1);  // As scope: Device
+  const uint32_t zero = theBuilder.getConstantUint32(0); // As memory sema: None
+
+  const auto *object = expr->getImplicitObjectArgument();
+  const auto *buffer = cast<DeclRefExpr>(object)->getDecl();
+
+  // Calculate the index we should use for appending the value
+  const uint32_t counterVar = declIdMapper.getCounterId(cast<VarDecl>(buffer));
+  const uint32_t counterPtrType = theBuilder.getPointerType(
+      theBuilder.getInt32Type(), spv::StorageClass::Uniform);
+  const uint32_t counterPtr =
+      theBuilder.createAccessChain(counterPtrType, counterVar, {zero});
+  uint32_t index = 0;
+  if (isAppend) {
+    // For append, we add one to the counter.
+    index = theBuilder.createAtomicIAddSub(u32Type, counterPtr, one, zero, one,
+                                           /*isAdd=*/true);
+  } else {
+    // For consume, we substract one from the counter. Note that OpAtomicIAdd
+    // returns the value before the addition; so we need to do substraction
+    // again with OpAtomicIAdd's return value.
+    const auto prevIndex = theBuilder.createAtomicIAddSub(
+        u32Type, counterPtr, one, zero, one, /*isAdd=*/false);
+    index = theBuilder.createBinaryOp(spv::Op::OpISub, u32Type, prevIndex, one);
+  }
+
+  LayoutRule lhsLayout = LayoutRule::Void;
+  const auto lhsSc = declIdMapper.resolveStorageInfo(object, &lhsLayout);
+
+  const auto bufferElemTy = hlsl::GetHLSLResourceResultType(object->getType());
+  const uint32_t bufferElemType =
+      typeTranslator.translateType(bufferElemTy, lhsLayout);
+  // Get the pointer inside the {Append|Consume}StructuredBuffer
+  const uint32_t bufferElemPtrType =
+      theBuilder.getPointerType(bufferElemType, lhsSc);
+  const uint32_t bufferElemPtr = theBuilder.createAccessChain(
+      bufferElemPtrType, declIdMapper.getDeclResultId(buffer), {zero, index});
+
+  if (isAppend) {
+    LayoutRule rhsLayout = LayoutRule::Void;
+    (void)declIdMapper.resolveStorageInfo(expr->getArg(0), &rhsLayout);
+    // Write out the value
+    storeValue(bufferElemPtr, doExpr(expr->getArg(0)), bufferElemTy, lhsSc,
+               lhsLayout, rhsLayout);
+
+    return 0;
+  } else {
+    // Somehow if the element type is not a structure type, the return value
+    // of .Consume() is not labelled as xvalue. That will cause OpLoad
+    // instruction missing. Load directly here.
+    if (bufferElemTy->isStructureType())
+      return bufferElemPtr;
+    else
+      return theBuilder.createLoad(bufferElemType, bufferElemPtr);
+  }
 }
 
 uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
@@ -1564,33 +1714,30 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
       }
 
       const auto *object = expr->getImplicitObjectArgument();
+      const auto *location = expr->getArg(0);
       const auto objectType = object->getType();
+
       if (typeTranslator.isRWByteAddressBuffer(objectType) ||
-          typeTranslator.isByteAddressBuffer(objectType)) {
+          typeTranslator.isByteAddressBuffer(objectType))
         return processByteAddressBufferLoadStore(expr, 1, /*doStore*/ false);
-      }
+
+      if (isStructuredBuffer(objectType))
+        return processStructuredBufferLoad(expr);
+
       if (TypeTranslator::isBuffer(objectType) ||
-          TypeTranslator::isRWBuffer(objectType))
-        return processBufferLoad(expr->getImplicitObjectArgument(),
-                                 expr->getArg(0));
+          TypeTranslator::isRWBuffer(objectType) ||
+          TypeTranslator::isRWTexture(objectType))
+        return processBufferTextureLoad(object, location);
 
-      const uint32_t image = loadIfGLValue(object);
-
-      // The location parameter is a vector that consists of both the coordinate
-      // and the mipmap level (via the last vector element). We need to split it
-      // here since the OpImageFetch SPIR-V instruction encodes them as separate
-      // arguments.
-      const uint32_t location = doExpr(expr->getArg(0));
-      uint32_t coordinate = 0, lod = 0;
-      splitVecLastElement(expr->getArg(0)->getType(), location, &coordinate,
-                          &lod);
-
-      // .Load() has a second optional paramter for offset.
-      uint32_t constOffset = 0, varOffset = 0;
-      handleOffset(expr, 1, &constOffset, &varOffset);
-
-      return theBuilder.createImageFetch(retType, image, coordinate, lod,
-                                         constOffset, varOffset);
+      if (TypeTranslator::isTexture(objectType)) {
+        // .Load() has a second optional paramter for offset.
+        uint32_t constOffset = 0, varOffset = 0;
+        handleOffset(expr, 1, &constOffset, &varOffset);
+        return processBufferTextureLoad(object, location, constOffset,
+                                        varOffset);
+      }
+      emitError("Load() is not implemented for the given object type.");
+      return 0;
     }
     case IntrinsicOp::MOP_Load2: {
       return processByteAddressBufferLoadStore(expr, 2, /*doStore*/ false);
@@ -1613,6 +1760,10 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
     case IntrinsicOp::MOP_Store4: {
       return processByteAddressBufferLoadStore(expr, 4, /*doStore*/ true);
     }
+    case IntrinsicOp::MOP_Append:
+    case IntrinsicOp::MOP_Consume: {
+      return processACSBufferAppendConsume(expr);
+    }
     default:
       emitError("HLSL intrinsic member call unimplemented: %0")
           << callee->getName();
@@ -1626,70 +1777,39 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
-  { // First try to handle vector/matrix indexing
-    const Expr *baseExpr = nullptr;
-    const Expr *index0Expr = nullptr;
-    const Expr *index1Expr = nullptr;
-
-    if (isVecMatIndexing(expr, &baseExpr, &index0Expr, &index1Expr)) {
-      const auto baseType = baseExpr->getType();
-      llvm::SmallVector<uint32_t, 2> indices;
-
-      if (hlsl::IsHLSLMatType(baseType)) {
-        uint32_t rowCount = 0, colCount = 0;
-        hlsl::GetHLSLMatRowColCount(baseType, rowCount, colCount);
-
-        // Collect indices for this matrix indexing
-        if (rowCount > 1) {
-          indices.push_back(doExpr(index0Expr));
-        }
-        // Evalute index1Expr iff it is not nullptr
-        if (colCount > 1 && index1Expr) {
-          indices.push_back(doExpr(index1Expr));
-        }
-      } else { // Indexing into vector
-        if (hlsl::GetHLSLVecSize(baseType) > 1) {
-          indices.push_back(doExpr(index0Expr));
-        }
-      }
-
-      if (indices.size() == 0) {
-        return doExpr(baseExpr);
-      }
-
-      uint32_t base = doExpr(baseExpr);
-      // If we are indexing into a rvalue, to use OpAccessChain, we first need
-      // to create a local variable to hold the rvalue.
-      //
-      // TODO: We can optimize the codegen by emitting OpCompositeExtract if
-      // all indices are contant integers.
-      if (!baseExpr->isGLValue()) {
-        const uint32_t compositeType = typeTranslator.translateType(baseType);
-        const uint32_t tempVar = theBuilder.addFnVar(compositeType, "temp.var");
-        theBuilder.createStore(tempVar, base);
-        base = tempVar;
-      }
-
-      const uint32_t elemType = typeTranslator.translateType(expr->getType());
-      const uint32_t ptrType = theBuilder.getPointerType(
-          elemType, declIdMapper.resolveStorageClass(baseExpr));
-
-      return theBuilder.createAccessChain(ptrType, base, indices);
-    }
-  }
-
   { // Handle Buffer/RWBuffer indexing
     const Expr *baseExpr = nullptr;
     const Expr *indexExpr = nullptr;
 
     if (isBufferIndexing(expr, &baseExpr, &indexExpr)) {
-      return processBufferLoad(baseExpr, indexExpr);
+      return processBufferTextureLoad(baseExpr, indexExpr);
     }
   }
 
-  emitError("unimplemented C++ operator call: %0") << expr->getOperator();
-  expr->dump();
-  return 0;
+  llvm::SmallVector<uint32_t, 4> indices;
+  const Expr *baseExpr = collectArrayStructIndices(expr, &indices);
+
+  uint32_t base = doExpr(baseExpr);
+  if (indices.empty())
+    return base; // For indexing into size-1 vectors and 1xN matrices
+  // If we are indexing into a rvalue, to use OpAccessChain, we first need
+  // to create a local variable to hold the rvalue.
+  //
+  // TODO: We can optimize the codegen by emitting OpCompositeExtract if
+  // all indices are contant integers.
+  if (!baseExpr->isGLValue()) {
+    const uint32_t baseType = typeTranslator.translateType(baseExpr->getType());
+    const uint32_t tempVar = theBuilder.addFnVar(baseType, "temp.var");
+    theBuilder.createStore(tempVar, base);
+    base = tempVar;
+  }
+
+  LayoutRule rule = LayoutRule::Void;
+  const auto sc = declIdMapper.resolveStorageInfo(baseExpr, &rule);
+  const uint32_t ptrType = theBuilder.getPointerType(
+      typeTranslator.translateType(expr->getType(), rule), sc);
+
+  return theBuilder.createAccessChain(ptrType, base, indices);
 }
 
 uint32_t
@@ -1726,7 +1846,7 @@ SPIRVEmitter::doExtMatrixElementExpr(const ExtMatrixElementExpr *expr) {
         indices[i] = theBuilder.getConstantInt32(indices[i]);
 
       const uint32_t ptrType = theBuilder.getPointerType(
-          elemType, declIdMapper.resolveStorageClass(baseExpr));
+          elemType, declIdMapper.resolveStorageInfo(baseExpr));
       if (!indices.empty()) {
         // Load the element via access chain
         elem = theBuilder.createAccessChain(ptrType, base, indices);
@@ -1785,7 +1905,7 @@ SPIRVEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr) {
     // v.xyyz to turn a lvalue v into rvalue.
     if (expr->getBase()->isGLValue()) { // E.g., v.x;
       const uint32_t ptrType = theBuilder.getPointerType(
-          type, declIdMapper.resolveStorageClass(baseExpr));
+          type, declIdMapper.resolveStorageInfo(baseExpr));
       const uint32_t index = theBuilder.getConstantInt32(accessor.Swz0);
       // We need a lvalue here. Do not try to load.
       return theBuilder.createAccessChain(ptrType, doExpr(baseExpr), {index});
@@ -1836,9 +1956,10 @@ uint32_t SPIRVEmitter::doMemberExpr(const MemberExpr *expr) {
   llvm::SmallVector<uint32_t, 4> indices;
   const Expr *base = collectArrayStructIndices(expr, &indices);
 
-  const uint32_t ptrType =
-      theBuilder.getPointerType(typeTranslator.translateType(expr->getType()),
-                                declIdMapper.resolveStorageClass(base));
+  LayoutRule rule = LayoutRule::Void;
+  const auto sc = declIdMapper.resolveStorageInfo(base, &rule);
+  const uint32_t ptrType = theBuilder.getPointerType(
+      typeTranslator.translateType(expr->getType(), rule), sc);
 
   return theBuilder.createAccessChain(ptrType, doExpr(base), indices);
 }
@@ -1903,6 +2024,19 @@ uint32_t SPIRVEmitter::doUnaryOperator(const UnaryOperator *expr) {
       << expr->getOpcodeStr(opcode);
   expr->dump();
   return 0;
+}
+
+uint32_t SPIRVEmitter::getType(const Expr *expr) {
+  LayoutRule rule = LayoutRule::Void;
+  (void)declIdMapper.resolveStorageInfo(expr, &rule);
+  return typeTranslator.translateType(expr->getType(), rule);
+}
+
+uint32_t SPIRVEmitter::getPointerType(const Expr *expr) {
+  LayoutRule rule = LayoutRule::Void;
+  const auto sc = declIdMapper.resolveStorageInfo(expr, &rule);
+  return theBuilder.getPointerType(
+      typeTranslator.translateType(expr->getType(), rule), sc);
 }
 
 spv::Op SPIRVEmitter::translateOp(BinaryOperator::Opcode op, QualType type) {
@@ -2027,8 +2161,9 @@ case BO_##kind : {                                                             \
 }
 
 uint32_t SPIRVEmitter::processAssignment(const Expr *lhs, const uint32_t rhs,
-                                         bool isCompoundAssignment,
-                                         uint32_t lhsPtr) {
+                                         const bool isCompoundAssignment,
+                                         uint32_t lhsPtr,
+                                         LayoutRule rhsLayout) {
   // Assigning to vector swizzling should be handled differently.
   if (const uint32_t result = tryToAssignToVectorElements(lhs, rhs)) {
     return result;
@@ -2037,15 +2172,81 @@ uint32_t SPIRVEmitter::processAssignment(const Expr *lhs, const uint32_t rhs,
   if (const uint32_t result = tryToAssignToMatrixElements(lhs, rhs)) {
     return result;
   }
+  // Assigning to a RWBuffer should be handled differently.
+  if (const uint32_t result = tryToAssignToRWBuffer(lhs, rhs)) {
+    return result;
+  }
 
   // Normal assignment procedure
-  if (lhsPtr == 0)
+  if (!lhsPtr)
     lhsPtr = doExpr(lhs);
 
-  theBuilder.createStore(lhsPtr, rhs);
+  LayoutRule lhsLayout = LayoutRule::Void;
+  const auto lhsSc = declIdMapper.resolveStorageInfo(lhs, &lhsLayout);
+  storeValue(lhsPtr, rhs, lhs->getType(), lhsSc, lhsLayout, rhsLayout);
+
   // Plain assignment returns a rvalue, while compound assignment returns
   // lvalue.
   return isCompoundAssignment ? lhsPtr : rhs;
+}
+
+void SPIRVEmitter::storeValue(const uint32_t lhsPtr, const uint32_t rhsVal,
+                              const QualType valType,
+                              const spv::StorageClass lhsSc,
+                              const LayoutRule lhsLayout,
+                              const LayoutRule rhsLayout) {
+  // If lhs and rhs has the same memory layout, we should be safe to load
+  // from rhs and directly store into lhs and avoid decomposing rhs.
+  // TODO: is this optimization always correct?
+  if (lhsLayout == rhsLayout || typeTranslator.isScalarType(valType) ||
+      typeTranslator.isVectorType(valType) ||
+      typeTranslator.isMxNMatrix(valType)) {
+    theBuilder.createStore(lhsPtr, rhsVal);
+  } else if (const auto *recordType = valType->getAs<RecordType>()) {
+    uint32_t index = 0;
+    for (const auto *decl : recordType->getDecl()->decls()) {
+      // Implicit generated struct declarations should be ignored.
+      if (isa<CXXRecordDecl>(decl) && decl->isImplicit())
+        continue;
+
+      const auto *field = cast<FieldDecl>(decl);
+      assert(field);
+
+      const auto subRhsValType =
+          typeTranslator.translateType(field->getType(), rhsLayout);
+      const auto subRhsVal =
+          theBuilder.createCompositeExtract(subRhsValType, rhsVal, {index});
+      const auto subLhsPtrType = theBuilder.getPointerType(
+          typeTranslator.translateType(field->getType(), lhsLayout), lhsSc);
+      const auto subLhsPtr = theBuilder.createAccessChain(
+          subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(index)});
+
+      storeValue(subLhsPtr, subRhsVal, field->getType(), lhsSc, lhsLayout,
+                 rhsLayout);
+      ++index;
+    }
+  } else if (const auto *arrayType =
+                 astContext.getAsConstantArrayType(valType)) {
+    const auto elemType = arrayType->getElementType();
+    // TODO: handle extra large array size?
+    const auto size =
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+
+    for (uint32_t i = 0; i < size; ++i) {
+      const auto subRhsValType =
+          typeTranslator.translateType(elemType, rhsLayout);
+      const auto subRhsVal =
+          theBuilder.createCompositeExtract(subRhsValType, rhsVal, {i});
+      const auto subLhsPtrType = theBuilder.getPointerType(
+          typeTranslator.translateType(elemType, lhsLayout), lhsSc);
+      const auto subLhsPtr = theBuilder.createAccessChain(
+          subLhsPtrType, lhsPtr, {theBuilder.getConstantUint32(i)});
+
+      storeValue(subLhsPtr, subRhsVal, elemType, lhsSc, lhsLayout, rhsLayout);
+    }
+  } else {
+    emitError("storing value of type %0 unimplemented") << valType;
+  }
 }
 
 uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
@@ -2199,67 +2400,14 @@ bool SPIRVEmitter::isBufferIndexing(const CXXOperatorCallExpr *indexExpr,
     return false;
   const Expr *object = indexExpr->getArg(0);
   const auto objectType = object->getType();
-  if (typeTranslator.isBuffer(objectType) ||
-      typeTranslator.isRWBuffer(objectType)) {
+  if (TypeTranslator::isBuffer(objectType) ||
+      TypeTranslator::isRWBuffer(objectType)) {
     if (base)
       *base = object;
     if (index)
       *index = indexExpr->getArg(1);
     return true;
   }
-  return false;
-}
-
-bool SPIRVEmitter::isVecMatIndexing(const CXXOperatorCallExpr *vecIndexExpr,
-                                    const Expr **base, const Expr **index0,
-                                    const Expr **index1) {
-  // Must be operator[]
-  if (vecIndexExpr->getOperator() != OverloadedOperatorKind::OO_Subscript)
-    return false;
-
-  // Get the base of this outer operator[]
-  const Expr *vecBase = vecIndexExpr->getArg(0);
-  // If the base of the outer operator[] is a vector, try to see if we have
-  // another inner operator[] on a matrix, i.e., two levels of indexing into
-  // the matrix.
-  if (hlsl::IsHLSLVecType(vecBase->getType())) {
-    const auto *matIndexExpr = dyn_cast<CXXOperatorCallExpr>(vecBase);
-
-    if (!matIndexExpr) {
-      // No inner operator[]. So this is just indexing into a vector.
-      *base = vecBase;
-      *index0 = vecIndexExpr->getArg(1);
-      *index1 = nullptr;
-
-      return true;
-    }
-
-    // Must be operator[]
-    if (matIndexExpr->getOperator() != OverloadedOperatorKind::OO_Subscript)
-      return false;
-
-    // Get the base of this inner operator[]
-    const Expr *matBase = matIndexExpr->getArg(0);
-    if (!hlsl::IsHLSLMatType(matBase->getType()))
-      return false;
-
-    *base = matBase;
-    *index0 = matIndexExpr->getArg(1);
-    *index1 = vecIndexExpr->getArg(1);
-
-    return true;
-  }
-
-  // The base of the outside operator[] is not a vector. Try to see whether it
-  // is a matrix. If true, it means we have only one level of indexing.
-  if (hlsl::IsHLSLMatType(vecBase->getType())) {
-    *base = vecBase;
-    *index0 = vecIndexExpr->getArg(1);
-    *index1 = nullptr;
-
-    return true;
-  }
-
   return false;
 }
 
@@ -2535,6 +2683,20 @@ uint32_t SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
   return rhs;
 }
 
+uint32_t SPIRVEmitter::tryToAssignToRWBuffer(const Expr *lhs, uint32_t rhs) {
+  const Expr *baseExpr = nullptr;
+  const Expr *indexExpr = nullptr;
+  if (isBufferIndexing(dyn_cast<CXXOperatorCallExpr>(lhs), &baseExpr,
+                       &indexExpr)) {
+    const uint32_t locId = doExpr(indexExpr);
+    const uint32_t imageId = theBuilder.createLoad(
+        typeTranslator.translateType(baseExpr->getType()), doExpr(baseExpr));
+    theBuilder.createImageWrite(imageId, locId, rhs);
+    return rhs;
+  }
+  return 0;
+}
+
 uint32_t SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
                                                    uint32_t rhs) {
   const auto *lhsExpr = dyn_cast<ExtMatrixElementExpr>(lhs);
@@ -2577,7 +2739,7 @@ uint32_t SPIRVEmitter::tryToAssignToMatrixElements(const Expr *lhs,
       rhsElem = theBuilder.createCompositeExtract(elemTypeId, rhs, {i});
 
     const uint32_t ptrType = theBuilder.getPointerType(
-        elemTypeId, declIdMapper.resolveStorageClass(baseMat));
+        elemTypeId, declIdMapper.resolveStorageInfo(baseMat));
 
     // If the lhs is actually a matrix of size 1x1, we don't need the access
     // chain. base is already the dest pointer.
@@ -2677,7 +2839,8 @@ uint32_t SPIRVEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
 const Expr *SPIRVEmitter::collectArrayStructIndices(
     const Expr *expr, llvm::SmallVectorImpl<uint32_t> *indices) {
   if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
-    const Expr *base = collectArrayStructIndices(indexing->getBase(), indices);
+    const Expr *base = collectArrayStructIndices(
+        indexing->getBase()->IgnoreParenNoopCasts(astContext), indices);
 
     // Append the index of the current level
     const auto *fieldDecl = cast<FieldDecl>(indexing->getMemberDecl());
@@ -2694,6 +2857,42 @@ const Expr *SPIRVEmitter::collectArrayStructIndices(
     const Expr *base = collectArrayStructIndices(thisBase, indices);
     indices->push_back(doExpr(indexing->getIdx()));
     return base;
+  }
+
+  if (const auto *indexing = dyn_cast<CXXOperatorCallExpr>(expr))
+    if (indexing->getOperator() == OverloadedOperatorKind::OO_Subscript) {
+      const Expr *thisBase =
+          indexing->getArg(0)->IgnoreParenNoopCasts(astContext);
+      const auto thisBaseType = thisBase->getType();
+      const Expr *base = collectArrayStructIndices(thisBase, indices);
+
+      // If the base is a StructureType, we need to push an addtional index 0
+      // here. This is because we created an additional OpTypeRuntimeArray
+      // in the structure.
+      if (isStructuredBuffer(thisBaseType))
+        indices->push_back(theBuilder.getConstantInt32(0));
+
+      if ((hlsl::IsHLSLVecType(thisBaseType) &&
+           (hlsl::GetHLSLVecSize(thisBaseType) == 1)) ||
+          typeTranslator.is1x1Matrix(thisBaseType) ||
+          typeTranslator.is1xNMatrix(thisBaseType)) {
+        // If this is a size-1 vector or 1xN matrix, ignore the index.
+      } else {
+        indices->push_back(doExpr(indexing->getArg(1)));
+      }
+      return base;
+    }
+
+  {
+    const Expr *index = nullptr;
+    // TODO: the following is duplicating the logic in doCXXMemberCallExpr.
+    if (const auto *object = isStructuredBufferLoad(expr, &index)) {
+      // For object.Load(index), there should be no more indexing into the
+      // object.
+      indices->push_back(theBuilder.getConstantInt32(0));
+      indices->push_back(doExpr(index));
+      return object;
+    }
   }
 
   // This the deepest we can go. No more array or struct indexing.

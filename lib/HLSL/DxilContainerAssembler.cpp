@@ -139,6 +139,7 @@ private:
   const DxilSignature &m_signature;
   DXIL::TessellatorDomain m_domain;
   bool   m_isInput;
+  bool   m_useMinPrecision;
   size_t m_fixedSize;
   typedef std::pair<const char *, uint32_t> NameOffsetPair;
   typedef llvm::SmallMapVector<const char *, uint32_t, 8> NameOffsetMap;
@@ -192,7 +193,9 @@ private:
     else
       sig.AlwaysReads_Mask = 0;
 
-    sig.MinPrecision = CompTypeToSigMinPrecision(pElement->GetCompType());
+    sig.MinPrecision = m_useMinPrecision
+                           ? CompTypeToSigMinPrecision(pElement->GetCompType())
+                           : DxilProgramSigMinPrecision::Default;
 
     for (unsigned i = 0; i < eltCount; ++i) {
       sig.SemanticIndex = indexVec[i];
@@ -228,8 +231,8 @@ private:
 
 public:
   DxilProgramSignatureWriter(const DxilSignature &signature,
-                             DXIL::TessellatorDomain domain, bool isInput)
-      : m_signature(signature), m_domain(domain), m_isInput(isInput) {
+                             DXIL::TessellatorDomain domain, bool isInput, bool UseMinPrecision)
+      : m_signature(signature), m_domain(domain), m_isInput(isInput), m_useMinPrecision(UseMinPrecision) {
     calcSizes();
   }
 
@@ -281,14 +284,18 @@ public:
 DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind) {
   switch (Kind) {
   case DXIL::SignatureKind::Input:
-    return new DxilProgramSignatureWriter(M.GetInputSignature(),
-      M.GetTessellatorDomain(), true);
+    return new DxilProgramSignatureWriter(
+        M.GetInputSignature(), M.GetTessellatorDomain(), true,
+        !M.m_ShaderFlags.GetUseNativeLowPrecision());
   case DXIL::SignatureKind::Output:
-    return new DxilProgramSignatureWriter(M.GetOutputSignature(),
-      M.GetTessellatorDomain(), false);
+    return new DxilProgramSignatureWriter(
+        M.GetOutputSignature(), M.GetTessellatorDomain(), false,
+        !M.m_ShaderFlags.GetUseNativeLowPrecision());
   case DXIL::SignatureKind::PatchConstant:
-    return new DxilProgramSignatureWriter(M.GetPatchConstantSignature(),
-      M.GetTessellatorDomain(), /*IsInput*/ M.GetShaderModel()->IsDS());
+    return new DxilProgramSignatureWriter(
+        M.GetPatchConstantSignature(), M.GetTessellatorDomain(),
+        /*IsInput*/ M.GetShaderModel()->IsDS(),
+        /*UseMinPrecision*/!M.m_ShaderFlags.GetUseNativeLowPrecision());
   }
   return nullptr;
 }
@@ -806,12 +813,14 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   if (ValMajor == 1 && ValMinor == 0)
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
 
-  DxilProgramSignatureWriter inputSigWriter(pModule->GetInputSignature(),
-                                            pModule->GetTessellatorDomain(),
-                                            /*IsInput*/ true);
-  DxilProgramSignatureWriter outputSigWriter(pModule->GetOutputSignature(),
-                                             pModule->GetTessellatorDomain(),
-                                             /*IsInput*/ false);
+  DxilProgramSignatureWriter inputSigWriter(
+      pModule->GetInputSignature(), pModule->GetTessellatorDomain(),
+      /*IsInput*/ true,
+      /*UseMinPrecision*/ !pModule->m_ShaderFlags.GetUseNativeLowPrecision());
+  DxilProgramSignatureWriter outputSigWriter(
+      pModule->GetOutputSignature(), pModule->GetTessellatorDomain(),
+      /*IsInput*/ false,
+      /*UseMinPrecision*/ !pModule->m_ShaderFlags.GetUseNativeLowPrecision());
   DxilPSVWriter PSVWriter(*pModule);
   DxilContainerWriter_impl writer;
 
@@ -831,8 +840,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   DxilProgramSignatureWriter patchConstantSigWriter(
       pModule->GetPatchConstantSignature(), pModule->GetTessellatorDomain(),
-      /*IsInput*/ pModule->GetShaderModel()->IsDS());
-
+      /*IsInput*/ pModule->GetShaderModel()->IsDS(),
+      /*UseMinPrecision*/ !pModule->m_ShaderFlags.GetUseNativeLowPrecision());
   if (pModule->GetPatchConstantSignature().GetElements().size()) {
     writer.AddPart(DFCC_PatchConstantSignature, patchConstantSigWriter.size(),
                    [&](AbstractMemoryStream *pStream) {

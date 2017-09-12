@@ -524,6 +524,7 @@ public:
   TEST_METHOD(SignTest);
   TEST_METHOD(Int64Test);
   TEST_METHOD(WaveIntrinsicsTest);
+  TEST_METHOD(WaveIntrinsicsDDITest);
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(PartialDerivTest);
 
@@ -1491,6 +1492,26 @@ TEST_F(ExecutionTest, SignTest) {
   VERIFY_ARE_EQUAL(values[5], 1);
   VERIFY_ARE_EQUAL(values[6], 1);
   VERIFY_ARE_EQUAL(values[7], 1);
+}
+
+TEST_F(ExecutionTest, WaveIntrinsicsDDITest) {
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
+  if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
+    return;
+  bool waveSupported = O.WaveOps;
+  UINT laneCountMin = O.WaveLaneCountMin;
+  UINT laneCountMax = O.WaveLaneCountMax;
+  LogCommentFmt(L"WaveOps %i, WaveLaneCountMin %u, WaveLaneCountMax %u", waveSupported, laneCountMin, laneCountMax);
+  VERIFY_IS_TRUE(laneCountMin <= laneCountMax);
+  if (waveSupported) {
+    VERIFY_IS_TRUE(laneCountMin > 0 && laneCountMax > 0);
+  }
+  else {
+    VERIFY_IS_TRUE(laneCountMin == 0 && laneCountMax == 0);
+  }
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsTest) {
@@ -3947,8 +3968,8 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
   // laneIndex is used to identify lane within the wave.
   // Lane ids are not necessarily in same order as thread ids.
   struct PerThreadData {
-      int firstLaneId;
-      int laneIndex;
+      unsigned firstLaneId;
+      unsigned laneIndex;
       int mask;
       T1 input;
       T2 output;
@@ -4058,7 +4079,7 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
         std::vector<T2> outputList(waveData->size());
         // sort inputList and masklist by lane id. input for each lane can be computed for its group index
         for (size_t j = 0, end = waveData->size(); j < end; ++j) {
-          int laneID = waveData->at(j)->laneIndex;
+          unsigned laneID = waveData->at(j)->laneIndex;
           // ensure that each lane ID is unique and within the range
           VERIFY_IS_TRUE(0 <= laneID && laneID < waveData->size());
           VERIFY_IS_TRUE(maskList.at(laneID) == -1);

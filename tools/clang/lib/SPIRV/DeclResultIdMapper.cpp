@@ -77,7 +77,9 @@ uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
           cast<VarDecl>(decl)->getType(),
           // We need to set decorateLayout here to avoid creating SPIR-V
           // instructions for the current type without decorations.
-          /*decorateLayout*/ true);
+          // According to the Vulkan spec, cbuffer should follow standrad
+          // uniform buffer layout, which GLSL std140 rules statisfies.
+          LayoutRule::GLSLStd140);
       return theBuilder.createAccessChain(
           theBuilder.getPointerType(varType, info->storageClass),
           info->resultId, {theBuilder.getConstantInt32(info->indexInCTBuffer)});
@@ -92,7 +94,7 @@ uint32_t DeclResultIdMapper::getDeclResultId(const NamedDecl *decl) {
 uint32_t DeclResultIdMapper::createFnParam(uint32_t paramType,
                                            const ParmVarDecl *param) {
   const uint32_t id = theBuilder.addFnParam(paramType, param->getName());
-  astDecls[param] = {id, spv::StorageClass::Function, -1};
+  astDecls[param] = {id, spv::StorageClass::Function};
 
   return id;
 }
@@ -100,7 +102,7 @@ uint32_t DeclResultIdMapper::createFnParam(uint32_t paramType,
 uint32_t DeclResultIdMapper::createFnVar(uint32_t varType, const VarDecl *var,
                                          llvm::Optional<uint32_t> init) {
   const uint32_t id = theBuilder.addFnVar(varType, var->getName(), init);
-  astDecls[var] = {id, spv::StorageClass::Function, -1};
+  astDecls[var] = {id, spv::StorageClass::Function};
 
   return id;
 }
@@ -109,27 +111,51 @@ uint32_t DeclResultIdMapper::createFileVar(uint32_t varType, const VarDecl *var,
                                            llvm::Optional<uint32_t> init) {
   const uint32_t id = theBuilder.addModuleVar(
       varType, spv::StorageClass::Private, var->getName(), init);
-  astDecls[var] = {id, spv::StorageClass::Private, -1};
+  astDecls[var] = {id, spv::StorageClass::Private};
 
   return id;
 }
 
-uint32_t DeclResultIdMapper::createExternVar(uint32_t varType,
-                                             const VarDecl *var) {
+uint32_t DeclResultIdMapper::createExternVar(const VarDecl *var) {
   auto storageClass = spv::StorageClass::UniformConstant;
+  auto rule = LayoutRule::Void;
+  bool isACSBuffer = false; // Whether its {Append|Consume}StructuredBuffer
 
   // TODO: Figure out other cases where the storage class should be Uniform.
   if (auto *t = var->getType()->getAs<RecordType>()) {
     const llvm::StringRef typeName = t->getDecl()->getName();
-    if (typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer")
+    if (typeName == "StructuredBuffer" || typeName == "RWStructuredBuffer" ||
+        typeName == "ByteAddressBuffer" || typeName == "RWByteAddressBuffer" ||
+        typeName == "AppendStructuredBuffer" ||
+        typeName == "ConsumeStructuredBuffer") {
+      // These types are all translated into OpTypeStruct with BufferBlock
+      // decoration. They should follow standard storage buffer layout,
+      // which GLSL std430 rules statisfies.
       storageClass = spv::StorageClass::Uniform;
+      rule = LayoutRule::GLSLStd430;
+      isACSBuffer =
+          typeName.startswith("Append") || typeName.startswith("Consume");
+    }
   }
 
+  const auto varType = typeTranslator.translateType(var->getType(), rule);
   const uint32_t id = theBuilder.addModuleVar(varType, storageClass,
                                               var->getName(), llvm::None);
-  astDecls[var] = {id, storageClass, -1};
+  astDecls[var] = {id, storageClass, rule};
   resourceVars.emplace_back(id, getResourceBinding(var),
                             var->getAttr<VKBindingAttr>());
+
+  if (isACSBuffer) {
+    // For {Append|Consume}StructuredBuffer, we need to create another variable
+    // for its associated counter.
+    const uint32_t counterType = typeTranslator.getACSBufferCounter();
+    const std::string counterName = "counter.var." + var->getName().str();
+    const uint32_t counterId =
+        theBuilder.addModuleVar(counterType, storageClass, counterName);
+
+    resourceVars.emplace_back(counterId, nullptr, nullptr);
+    counterVars[var] = counterId;
+  }
 
   return id;
 }
@@ -155,13 +181,18 @@ DeclResultIdMapper::createVarOfExplicitLayoutStruct(const DeclContext *decl,
     auto varType = declDecl->getType();
     varType.removeLocalConst();
 
-    fieldTypes.push_back(typeTranslator.translateType(
-        varType, true, declDecl->hasAttr<HLSLRowMajorAttr>()));
+    fieldTypes.push_back(
+        typeTranslator.translateType(varType, LayoutRule::GLSLStd140,
+                                     declDecl->hasAttr<HLSLRowMajorAttr>()));
     fieldNames.push_back(declDecl->getName());
   }
 
   // Get the type for the whole buffer
-  auto decorations = typeTranslator.getLayoutDecorations(decl);
+  // cbuffers are translated into OpTypeStruct with Block decoration. They
+  // should follow standard uniform buffer layout according to the Vulkan spec.
+  // GLSL std140 rules satisfies.
+  auto decorations =
+      typeTranslator.getLayoutDecorations(decl, LayoutRule::GLSLStd140);
   decorations.push_back(Decoration::getBlock(*theBuilder.getSPIRVContext()));
   const uint32_t structType =
       theBuilder.getStructType(fieldTypes, typeName, fieldNames, decorations);
@@ -184,7 +215,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   int index = 0;
   for (const auto *subDecl : decl->decls()) {
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform, index++};
+    // TODO: std140 rules may not suit tbuffers.
+    astDecls[varDecl] = {bufferVar, spv::StorageClass::Uniform,
+                         LayoutRule::GLSLStd140, index++};
   }
   resourceVars.emplace_back(bufferVar, getResourceBinding(decl),
                             decl->getAttr<VKBindingAttr>());
@@ -205,7 +238,9 @@ uint32_t DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
       recordType->getDecl(), structName, decl->getName());
 
   // We register the VarDecl here.
-  astDecls[decl] = {bufferVar, spv::StorageClass::Uniform, -1};
+  // TODO: std140 rules may not suit tbuffers.
+  astDecls[decl] = {bufferVar, spv::StorageClass::Uniform,
+                    LayoutRule::GLSLStd140};
   resourceVars.emplace_back(bufferVar, getResourceBinding(context),
                             decl->getAttr<VKBindingAttr>());
 
@@ -217,19 +252,55 @@ uint32_t DeclResultIdMapper::getOrRegisterFnResultId(const FunctionDecl *fn) {
     return info->resultId;
 
   const uint32_t id = theBuilder.getSPIRVContext()->takeNextId();
-  astDecls[fn] = {id, spv::StorageClass::Function, -1};
+  astDecls[fn] = {id, spv::StorageClass::Function};
 
   return id;
 }
 
-namespace {
-/// A class for resolving the storage class of a given Decl or Expr.
-class StorageClassResolver : public RecursiveASTVisitor<StorageClassResolver> {
-public:
-  explicit StorageClassResolver(const DeclResultIdMapper &mapper)
-      : declIdMapper(mapper), storageClass(spv::StorageClass::Max) {}
+uint32_t DeclResultIdMapper::getCounterId(const VarDecl *decl) {
+  const auto counter = counterVars.find(decl);
+  if (counter != counterVars.end())
+    return counter->second;
+  return 0;
+}
 
-  // For querying the storage class of a remapped decl
+namespace {
+/// A class for resolving the storage info (storage class and memory layout) of
+/// a given Decl or Expr.
+class StorageInfoResolver : public RecursiveASTVisitor<StorageInfoResolver> {
+public:
+  explicit StorageInfoResolver(const DeclResultIdMapper &mapper)
+      : declIdMapper(mapper), baseDecl(nullptr) {}
+
+  bool TraverseMemberExpr(MemberExpr *expr) {
+    // For MemberExpr, the storage info should follow the base.
+    return TraverseStmt(expr->getBase());
+  }
+
+  bool TravereArraySubscriptExpr(ArraySubscriptExpr *expr) {
+    // For ArraySubscriptExpr, the storage info should follow the array object.
+    return TraverseStmt(expr->getBase());
+  }
+
+  bool TraverseCXXOperatorCallExpr(CXXOperatorCallExpr *expr) {
+    // For operator[], the storage info should follow the object.
+    if (expr->getOperator() == OverloadedOperatorKind::OO_Subscript)
+      return TraverseStmt(expr->getArg(0));
+
+    // TODO: the following may not be correct for all other operator calls.
+    for (uint32_t i = 0; i < expr->getNumArgs(); ++i)
+      if (!TraverseStmt(expr->getArg(i)))
+        return false;
+
+    return true;
+  }
+
+  bool TraverseCXXMemberCallExpr(CXXMemberCallExpr *expr) {
+    // For method calls, the storage info should follow the object.
+    return TraverseStmt(expr->getImplicitObjectArgument());
+  }
+
+  // For querying the storage info of a remapped decl
 
   // Semantics may be attached to FunctionDecl, ParmVarDecl, and FieldDecl.
   // We create stage variables for them and we may need to query the storage
@@ -238,7 +309,7 @@ public:
   bool VisitFieldDecl(FieldDecl *decl) { return processDecl(decl); }
   bool VisitParmVarDecl(ParmVarDecl *decl) { return processDecl(decl); }
 
-  // For querying the storage class of a normal decl
+  // For querying the storage info of a normal decl
 
   // Normal decls should be referred in expressions.
   bool VisitDeclRefExpr(DeclRefExpr *expr) {
@@ -246,39 +317,61 @@ public:
   }
 
   bool processDecl(NamedDecl *decl) {
-    const auto *info = declIdMapper.getDeclSpirvInfo(decl);
-    assert(info);
-    if (storageClass == spv::StorageClass::Max) {
-      storageClass = info->storageClass;
+    // Calling C++ methods like operator[] is also represented as DeclRefExpr.
+    if (isa<CXXMethodDecl>(decl))
+      return true;
+
+    if (!baseDecl) {
+      baseDecl = decl;
       return true;
     }
 
-    // Two decls with different storage classes are referenced in this
-    // expression. We should not visit such expression using this class.
-    assert(storageClass == info->storageClass);
+    // Two different decls referenced in the expression: this expression stands
+    // for a derived temporary object, for which case we use the Function
+    // storage class and no layout rules.
+    // Turn baseDecl to nullptr so we return the proper info and stop further
+    // traversing.
+    baseDecl = nullptr;
     return false;
   }
 
-  spv::StorageClass get() const { return storageClass; }
+  spv::StorageClass getStorageClass() const {
+    if (const auto *info = declIdMapper.getDeclSpirvInfo(baseDecl))
+      return info->storageClass;
+
+    // No Decl referenced. This is probably a temporary expression.
+    return spv::StorageClass::Function;
+  }
+
+  LayoutRule getLayoutRule() const {
+    if (const auto *info = declIdMapper.getDeclSpirvInfo(baseDecl))
+      return info->layoutRule;
+
+    // No Decl referenced. This is probably a temporary expression.
+    return LayoutRule::Void;
+  }
 
 private:
   const DeclResultIdMapper &declIdMapper;
-  spv::StorageClass storageClass;
+  const NamedDecl *baseDecl;
 };
 } // namespace
 
 spv::StorageClass
-DeclResultIdMapper::resolveStorageClass(const Expr *expr) const {
-  auto resolver = StorageClassResolver(*this);
+DeclResultIdMapper::resolveStorageInfo(const Expr *expr,
+                                       LayoutRule *rule) const {
+  auto resolver = StorageInfoResolver(*this);
   resolver.TraverseStmt(const_cast<Expr *>(expr));
-  return resolver.get();
+  if (rule)
+    *rule = resolver.getLayoutRule();
+  return resolver.getStorageClass();
 }
 
 spv::StorageClass
 DeclResultIdMapper::resolveStorageClass(const Decl *decl) const {
-  auto resolver = StorageClassResolver(*this);
+  auto resolver = StorageInfoResolver(*this);
   resolver.TraverseDecl(const_cast<Decl *>(decl));
-  return resolver.get();
+  return resolver.getStorageClass();
 }
 
 std::vector<uint32_t> DeclResultIdMapper::collectStageVars() const {

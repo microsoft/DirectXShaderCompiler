@@ -34,7 +34,7 @@ inline void roundToPow2(uint32_t *val, uint32_t pow2) {
 }
 } // anonymous namespace
 
-uint32_t TypeTranslator::translateType(QualType type, bool decorateLayout,
+uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                        bool isRowMajor) {
   // We can only apply row_major to matrices or arrays of matrices.
   if (isRowMajor)
@@ -43,7 +43,7 @@ uint32_t TypeTranslator::translateType(QualType type, bool decorateLayout,
   // Try to translate the canonical type first
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return translateType(canonicalType, decorateLayout, isRowMajor);
+    return translateType(canonicalType, rule, isRowMajor);
 
   // Primitive types
   {
@@ -70,7 +70,7 @@ uint32_t TypeTranslator::translateType(QualType type, bool decorateLayout,
 
   // Typedefs
   if (const auto *typedefType = type->getAs<TypedefType>())
-    return translateType(typedefType->desugar(), decorateLayout, isRowMajor);
+    return translateType(typedefType->desugar(), rule, isRowMajor);
 
   // Reference types
   if (const auto *refType = type->getAs<ReferenceType>()) {
@@ -80,7 +80,7 @@ uint32_t TypeTranslator::translateType(QualType type, bool decorateLayout,
     // We already pass function arguments via pointers to tempoary local
     // variables. So it should be fine to drop the pointer type and treat it
     // as the underlying pointee type here.
-    return translateType(refType->getPointeeType(), decorateLayout, isRowMajor);
+    return translateType(refType->getPointeeType(), rule, isRowMajor);
   }
 
   // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
@@ -126,21 +126,21 @@ uint32_t TypeTranslator::translateType(QualType type, bool decorateLayout,
     // (ClassTemplateSpecializationDecl is a subclass of CXXRecordDecl, which is
     // then a subclass of RecordDecl.) So we need to check them before checking
     // the general struct type.
-    if (const auto id = translateResourceType(type))
+    if (const auto id = translateResourceType(type, rule))
       return id;
 
     // Collect all fields' types and names.
     llvm::SmallVector<uint32_t, 4> fieldTypes;
     llvm::SmallVector<llvm::StringRef, 4> fieldNames;
     for (const auto *field : decl->fields()) {
-      fieldTypes.push_back(translateType(field->getType(), decorateLayout,
+      fieldTypes.push_back(translateType(field->getType(), rule,
                                          field->hasAttr<HLSLRowMajorAttr>()));
       fieldNames.push_back(field->getName());
     }
 
     llvm::SmallVector<const Decoration *, 4> decorations;
-    if (decorateLayout) {
-      decorations = getLayoutDecorations(decl);
+    if (rule != LayoutRule::Void) {
+      decorations = getLayoutDecorations(decl, rule);
     }
 
     return theBuilder.getStructType(fieldTypes, decl->getName(), fieldNames,
@@ -149,15 +149,15 @@ uint32_t TypeTranslator::translateType(QualType type, bool decorateLayout,
 
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
     const uint32_t elemType =
-        translateType(arrayType->getElementType(), decorateLayout, isRowMajor);
+        translateType(arrayType->getElementType(), rule, isRowMajor);
     // TODO: handle extra large array size?
     const auto size =
         static_cast<uint32_t>(arrayType->getSize().getZExtValue());
 
     llvm::SmallVector<const Decoration *, 4> decorations;
-    if (decorateLayout) {
+    if (rule != LayoutRule::Void) {
       uint32_t stride = 0;
-      (void)getAlignmentAndSize(type, &stride, isRowMajor);
+      (void)getAlignmentAndSize(type, rule, isRowMajor, &stride);
       decorations.push_back(
           Decoration::getArrayStride(*theBuilder.getSPIRVContext(), stride));
     }
@@ -168,6 +168,18 @@ uint32_t TypeTranslator::translateType(QualType type, bool decorateLayout,
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
   return 0;
+}
+
+uint32_t TypeTranslator::getACSBufferCounter() {
+  auto &context = *theBuilder.getSPIRVContext();
+  const uint32_t i32Type = theBuilder.getInt32Type();
+
+  llvm::SmallVector<const Decoration *, 4> decorations;
+  decorations.push_back(Decoration::getOffset(context, 0, 0));
+  decorations.push_back(Decoration::getBufferBlock(context));
+
+  return theBuilder.getStructType(i32Type, "type.ACSBuffer.counter", {},
+                                  decorations);
 }
 
 bool TypeTranslator::isScalarType(QualType type, QualType *scalarType) {
@@ -221,6 +233,30 @@ bool TypeTranslator::isRWBuffer(QualType type) {
 bool TypeTranslator::isBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     return rt->getDecl()->getName() == "Buffer";
+  }
+  return false;
+}
+
+bool TypeTranslator::isRWTexture(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "RWTexture1D" || name == "RWTexture1DArray" ||
+        name == "RWTexture2D" || name == "RWTexture2DArray" ||
+        name == "RWTexture3D")
+      return true;
+  }
+  return false;
+}
+
+bool TypeTranslator::isTexture(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    const auto name = rt->getDecl()->getName();
+    if (name == "Texture1D" || name == "Texture1DArray" ||
+        name == "Texture2D" || name == "Texture2DArray" ||
+        name == "Texture2DMS" || name == "Texture2DMSArray" ||
+        name == "TextureCube" || name == "TextureCubeArray" ||
+        name == "Texture3D")
+      return true;
   }
   return false;
 }
@@ -362,7 +398,7 @@ uint32_t TypeTranslator::getComponentVectorType(QualType matrixType) {
 }
 
 llvm::SmallVector<const Decoration *, 4>
-TypeTranslator::getLayoutDecorations(const DeclContext *decl) {
+TypeTranslator::getLayoutDecorations(const DeclContext *decl, LayoutRule rule) {
   const auto spirvContext = theBuilder.getSPIRVContext();
   llvm::SmallVector<const Decoration *, 4> decorations;
   uint32_t offset = 0, index = 0;
@@ -379,7 +415,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl) {
 
     uint32_t memberAlignment = 0, memberSize = 0, stride = 0;
     std::tie(memberAlignment, memberSize) =
-        getAlignmentAndSize(fieldType, &stride, isRowMajor);
+        getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
 
     // Each structure-type member must have an Offset Decoration.
     roundToPow2(&offset, memberAlignment);
@@ -398,7 +434,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl) {
     if (isMxNMatrix(fieldType)) {
       memberAlignment = memberSize = stride = 0;
       std::tie(memberAlignment, memberSize) =
-          getAlignmentAndSize(fieldType, &stride, isRowMajor);
+          getAlignmentAndSize(fieldType, rule, isRowMajor, &stride);
 
       decorations.push_back(
           Decoration::getMatrixStride(*spirvContext, stride, index));
@@ -421,7 +457,7 @@ TypeTranslator::getLayoutDecorations(const DeclContext *decl) {
   return decorations;
 }
 
-uint32_t TypeTranslator::translateResourceType(QualType type) {
+uint32_t TypeTranslator::translateResourceType(QualType type, LayoutRule rule) {
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();
@@ -431,26 +467,72 @@ uint32_t TypeTranslator::translateResourceType(QualType type) {
   { // Texture types
     spv::Dim dim = {};
     bool isArray = {};
-
     if ((dim = spv::Dim::Dim1D, isArray = false, name == "Texture1D") ||
         (dim = spv::Dim::Dim2D, isArray = false, name == "Texture2D") ||
         (dim = spv::Dim::Dim3D, isArray = false, name == "Texture3D") ||
         (dim = spv::Dim::Cube, isArray = false, name == "TextureCube") ||
         (dim = spv::Dim::Dim1D, isArray = true, name == "Texture1DArray") ||
         (dim = spv::Dim::Dim2D, isArray = true, name == "Texture2DArray") ||
+        (dim = spv::Dim::Dim2D, isArray = false, name == "Texture2DMS") ||
+        (dim = spv::Dim::Dim2D, isArray = true, name == "Texture2DMSArray") ||
         // There is no Texture3DArray
         (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
-      if (dim == spv::Dim::Dim1D)
-        theBuilder.requireCapability(spv::Capability::Sampled1D);
+      const auto isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return theBuilder.getImageType(translateType(getElementType(sampledType)),
-                                     dim, /*depth*/ 0, isArray);
+                                     dim, /*depth*/ 0, isArray, isMS);
+    }
+
+    // There is no RWTexture3DArray
+    if ((dim = spv::Dim::Dim1D, isArray = false, name == "RWTexture1D") ||
+        (dim = spv::Dim::Dim2D, isArray = false, name == "RWTexture2D") ||
+        (dim = spv::Dim::Dim3D, isArray = false, name == "RWTexture3D") ||
+        (dim = spv::Dim::Dim1D, isArray = true, name == "RWTexture1DArray") ||
+        (dim = spv::Dim::Dim2D, isArray = true, name == "RWTexture2DArray")) {
+      const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+      const auto format = translateSampledTypeToImageFormat(sampledType);
+      return theBuilder.getImageType(translateType(getElementType(sampledType)),
+                                     dim, /*depth*/ 0, isArray, /*MS*/ 0,
+                                     /*Sampled*/ 2u, format);
     }
   }
 
   // Sampler types
   if (name == "SamplerState" || name == "SamplerComparisonState") {
     return theBuilder.getSamplerType();
+  }
+
+  if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+      name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
+    auto &context = *theBuilder.getSPIRVContext();
+    // StructureBuffer<S> will be translated into an OpTypeStruct with one
+    // field, which is an OpTypeRuntimeArray of OpTypeStruct (S).
+
+    const auto s = hlsl::GetHLSLResourceResultType(type);
+    const uint32_t structType = translateType(s, rule);
+    std::string structName;
+    const auto innerType = hlsl::GetHLSLResourceResultType(type);
+    if (innerType->isStructureType())
+      structName = innerType->getAs<RecordType>()->getDecl()->getName();
+    else
+      structName = getName(innerType);
+
+    llvm::SmallVector<const Decoration *, 4> decorations;
+    // The stride for the runtime array is the size of S.
+    uint32_t size = 0, stride = 0;
+    std::tie(std::ignore, size) =
+        getAlignmentAndSize(s, rule, /*isRowMajor*/ false, &stride);
+    decorations.push_back(Decoration::getArrayStride(context, size));
+    const uint32_t raType =
+        theBuilder.getRuntimeArrayType(structType, decorations);
+
+    decorations.clear();
+    decorations.push_back(Decoration::getOffset(context, 0, 0));
+    if (name == "StructuredBuffer")
+      decorations.push_back(Decoration::getNonWritable(context, 0));
+    decorations.push_back(Decoration::getBufferBlock(context));
+    const std::string typeName = "type." + name.str() + "." + structName;
+    return theBuilder.getStructType(raType, typeName, {}, decorations);
   }
 
   // ByteAddressBuffer types.
@@ -503,8 +585,8 @@ TypeTranslator::translateSampledTypeToImageFormat(QualType sampledType) {
 }
 
 std::pair<uint32_t, uint32_t>
-TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
-                                    const bool isRowMajor) {
+TypeTranslator::getAlignmentAndSize(QualType type, LayoutRule rule,
+                                    const bool isRowMajor, uint32_t *stride) {
   // std140 layout rules:
 
   // 1. If the member is a scalar consuming N basic machine units, the base
@@ -555,10 +637,11 @@ TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
   //     are laid out in order, according to rule (9).
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return getAlignmentAndSize(canonicalType, stride, isRowMajor);
+    return getAlignmentAndSize(canonicalType, rule, isRowMajor, stride);
 
   if (const auto *typedefType = type->getAs<TypedefType>())
-    return getAlignmentAndSize(typedefType->desugar(), stride, isRowMajor);
+    return getAlignmentAndSize(typedefType->desugar(), rule, isRowMajor,
+                               stride);
 
   { // Rule 1
     QualType ty = {};
@@ -585,7 +668,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
     if (isVectorType(type, &elemType, &elemCount)) {
       uint32_t size = 0;
       std::tie(std::ignore, size) =
-          getAlignmentAndSize(elemType, stride, isRowMajor);
+          getAlignmentAndSize(elemType, rule, isRowMajor, stride);
 
       return {(elemCount == 3 ? 4 : elemCount) * size, elemCount * size};
     }
@@ -597,7 +680,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
     if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
       uint32_t alignment = 0, size = 0;
       std::tie(alignment, std::ignore) =
-          getAlignmentAndSize(elemType, stride, isRowMajor);
+          getAlignmentAndSize(elemType, rule, isRowMajor, stride);
 
       // Matrices are treated as arrays of vectors:
       // The base alignment and array stride are set to match the base alignment
@@ -605,7 +688,9 @@ TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
       // up to the base alignment of a vec4.
       const uint32_t vecStorageSize = isRowMajor ? colCount : rowCount;
       alignment *= (vecStorageSize == 3 ? 4 : vecStorageSize);
-      roundToPow2(&alignment, kStd140Vec4Alignment);
+      if (rule == LayoutRule::GLSLStd140) {
+        roundToPow2(&alignment, kStd140Vec4Alignment);
+      }
       *stride = alignment;
       size = (isRowMajor ? rowCount : colCount) * alignment;
 
@@ -621,7 +706,7 @@ TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
     for (const auto *field : structType->getDecl()->fields()) {
       uint32_t memberAlignment = 0, memberSize = 0;
       std::tie(memberAlignment, memberSize) = getAlignmentAndSize(
-          field->getType(), stride, field->hasAttr<HLSLRowMajorAttr>());
+          field->getType(), rule, field->hasAttr<HLSLRowMajorAttr>(), stride);
 
       // The base alignment of the structure is N, where N is the largest
       // base alignment value of any of its members...
@@ -630,8 +715,10 @@ TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
       structSize += memberSize;
     }
 
-    // ... and rounded up to the base alignment of a vec4.
-    roundToPow2(&maxAlignment, kStd140Vec4Alignment);
+    if (rule == LayoutRule::GLSLStd140) {
+      // ... and rounded up to the base alignment of a vec4.
+      roundToPow2(&maxAlignment, kStd140Vec4Alignment);
+    }
     // The base offset of the member following the sub-structure is rounded up
     // to the next multiple of the base alignment of the structure.
     roundToPow2(&structSize, maxAlignment);
@@ -641,13 +728,15 @@ TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
   // Rule 4, 6, 8, and 10
   if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
     uint32_t alignment = 0, size = 0;
-    std::tie(alignment, size) =
-        getAlignmentAndSize(arrayType->getElementType(), stride, isRowMajor);
+    std::tie(alignment, size) = getAlignmentAndSize(arrayType->getElementType(),
+                                                    rule, isRowMajor, stride);
 
-    // The base alignment and array stride are set to match the base alignment
-    // of a single array element, according to rules 1, 2, and 3, and rounded
-    // up to the base alignment of a vec4.
-    roundToPow2(&alignment, kStd140Vec4Alignment);
+    if (rule == LayoutRule::GLSLStd140) {
+      // The base alignment and array stride are set to match the base alignment
+      // of a single array element, according to rules 1, 2, and 3, and rounded
+      // up to the base alignment of a vec4.
+      roundToPow2(&alignment, kStd140Vec4Alignment);
+    }
     // Need to round size up considering stride for scalar types
     roundToPow2(&size, alignment);
     *stride = size; // Use size instead of alignment here for Rule 10
@@ -662,6 +751,48 @@ TypeTranslator::getAlignmentAndSize(QualType type, uint32_t *stride,
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
   return {0, 0};
+}
+
+std::string TypeTranslator::getName(QualType type) {
+  {
+    QualType ty = {};
+    if (isScalarType(type, &ty))
+      if (const auto *builtinType = ty->getAs<BuiltinType>())
+        switch (builtinType->getKind()) {
+        case BuiltinType::Void:
+          return "void";
+        case BuiltinType::Bool:
+          return "bool";
+        case BuiltinType::Int:
+          return "int";
+        case BuiltinType::UInt:
+          return "uint";
+        case BuiltinType::Float:
+          return "float";
+        default:
+          return "";
+        }
+  }
+
+  {
+    QualType elemType = {};
+    uint32_t elemCount = {};
+    if (isVectorType(type, &elemType, &elemCount))
+      return "v" + std::to_string(elemCount) + getName(elemType);
+  }
+
+  {
+    QualType elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
+      return "mat" + std::to_string(rowCount) + "v" + std::to_string(colCount) +
+             getName(elemType);
+  }
+
+  if (const auto *structType = type->getAs<RecordType>())
+    return structType->getDecl()->getName();
+
+  return "";
 }
 
 } // end namespace spirv

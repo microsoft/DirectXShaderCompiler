@@ -101,6 +101,14 @@ private:
   uint32_t doUnaryOperator(const UnaryOperator *expr);
 
 private:
+  /// Returns the proper type for the given expr. This method is used to please
+  /// expressions derived from global resource variables, when we must construct
+  /// the type with correct layout decorations.
+  uint32_t getType(const Expr *expr);
+
+  /// Returns the proper pointer type for the given expr. Similar to the above.
+  uint32_t getPointerType(const Expr *expr);
+
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type);
@@ -108,8 +116,15 @@ private:
   /// Generates the necessary instructions for assigning rhs to lhs. If lhsPtr
   /// is not zero, it will be used as the pointer from lhs instead of evaluating
   /// lhs again.
-  uint32_t processAssignment(const Expr *lhs, const uint32_t rhs,
-                             bool isCompoundAssignment, uint32_t lhsPtr = 0);
+  uint32_t processAssignment(const Expr *lhs, uint32_t rhs,
+                             bool isCompoundAssignment, uint32_t lhsPtr = 0,
+                             LayoutRule rhsLayout = LayoutRule::Void);
+
+  /// Generates SPIR-V instructions to store rhsVal into lhsPtr. This will be
+  /// recursive if valType is a composite type.
+  void storeValue(uint32_t lhsPtr, uint32_t rhsVal, QualType valType,
+                  spv::StorageClass lhsSc, LayoutRule lhsLayout,
+                  LayoutRule rhsLayout);
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs. If lhsResultId is not nullptr, the evaluated
@@ -117,10 +132,9 @@ private:
   /// mandateGenOpcode is not spv::Op::Max, it will used as the SPIR-V opcode
   /// instead of deducing from Clang frontend opcode.
   uint32_t processBinaryOp(const Expr *lhs, const Expr *rhs,
-                           const BinaryOperatorKind opcode,
-                           const uint32_t resultType,
+                           BinaryOperatorKind opcode, uint32_t resultType,
                            uint32_t *lhsResultId = nullptr,
-                           const spv::Op mandateGenOpcode = spv::Op::Max);
+                           spv::Op mandateGenOpcode = spv::Op::Max);
 
   /// Generates SPIR-V instructions to initialize the given variable once.
   void initOnce(std::string varName, uint32_t varPtr, const Expr *varInit);
@@ -134,24 +148,6 @@ private:
   /// * We are not selecting all elements in their original order (essentially
   ///   the original vector, no shuffling needed).
   bool isVectorShuffle(const Expr *expr);
-
-  /// Returns true if the given CXXOperatorCallExpr is indexing into a vector or
-  /// matrix using operator[].
-  /// On success, writes the base vector/matrix into *base, and the indices into
-  /// *index0 and *index1, if there are two levels of indexing. If there is only
-  /// one level of indexing, writes the index into *index0 and nullptr into
-  /// *index1.
-  ///
-  /// matrix [index0] [index1]         vector [index0]
-  /// +-------------+
-  ///  vector                     or
-  /// +----------------------+         +-------------+
-  ///         scalar                        scalar
-  ///
-  /// Assumes base, index0, and index1 are not nullptr.
-  bool isVecMatIndexing(const CXXOperatorCallExpr *vecIndexExpr,
-                        const Expr **base, const Expr **index0,
-                        const Expr **index1);
 
   /// \brief Returns true if the given CXXOperatorCallExpr is indexing into a
   /// Buffer/RWBuffer using operator[].
@@ -204,6 +200,10 @@ private:
   /// are generated.
   uint32_t tryToAssignToMatrixElements(const Expr *lhs, uint32_t rhs);
 
+  /// Tries to emit instructions for assigning to the given RWBuffer object.
+  /// Returns 0 if the trial fails and no instructions are generated.
+  uint32_t tryToAssignToRWBuffer(const Expr *lhs, uint32_t rhs);
+
   /// Processes each vector within the given matrix by calling actOnEachVector.
   /// matrixVal should be the loaded value of the matrix. actOnEachVector takes
   /// three parameters for the current vector: the index, the <type-id>, and
@@ -221,8 +221,8 @@ private:
                                  const BinaryOperatorKind opcode);
 
   /// Collects all indices (SPIR-V constant values) from consecutive MemberExprs
-  /// or ArraySubscriptExprs and writes into indices. Returns the real base
-  /// (the first Expr that is not a MemberExpr or ArraySubscriptExpr).
+  /// or ArraySubscriptExprs or operator[] calls and writes into indices.
+  /// Returns the real base.
   const Expr *
   collectArrayStructIndices(const Expr *expr,
                             llvm::SmallVectorImpl<uint32_t> *indices);
@@ -433,10 +433,21 @@ private:
   uint32_t processByteAddressBufferLoadStore(const CXXMemberCallExpr *,
                                              uint32_t numWords, bool doStore);
 
-  /// \brief Loads one element from the given Buffer/RWBuffer object at the
-  /// given location. The type of the loaded element matches the type in the
-  /// declaration for the (RW)Buffer object.
-  uint32_t processBufferLoad(const Expr *object, const Expr *address);
+  /// \brief Loads one element from the given Buffer/RWBuffer/Texture object at
+  /// the given location. The type of the loaded element matches the type in the
+  /// declaration for the Buffer/Texture object.
+  uint32_t processBufferTextureLoad(const Expr *object, const Expr *address,
+                                    uint32_t constOffset = 0,
+                                    uint32_t varOffst = 0);
+
+  /// \brief Generates an OpAccessChain instruction for the given
+  /// (RW)StructuredBuffer.Load() method call.
+  uint32_t processStructuredBufferLoad(const CXXMemberCallExpr *expr);
+
+  /// \brief Generates SPIR-V instructions for the .Append()/.Consume() call on
+  /// the given {Append|Consume}StructuredBuffer. Returns the <result-id> of
+  /// the loaded value for .Consume; returns zero for .Append().
+  uint32_t processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
 
 private:
   /// \brief Wrapper method to create an error message and report it

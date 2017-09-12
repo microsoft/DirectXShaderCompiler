@@ -223,7 +223,7 @@ public:
     m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
 
     std::unique_ptr<DxilEntrySignature> pSig =
-        llvm::make_unique<DxilEntrySignature>(SM->GetKind());
+        llvm::make_unique<DxilEntrySignature>(SM->GetKind(), M.GetHLModule().GetHLOptions().bUseMinPrecision);
     // EntrySig for shader functions.
     std::unordered_map<llvm::Function *, std::unique_ptr<DxilEntrySignature>>
         DxilEntrySignatureMap;
@@ -239,7 +239,7 @@ public:
         if (m_pHLModule->HasDxilFunctionProps(&F)) {
           DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(&F);
           std::unique_ptr<DxilEntrySignature> pSig =
-              llvm::make_unique<DxilEntrySignature>(props.shaderKind);
+              llvm::make_unique<DxilEntrySignature>(props.shaderKind, m_pHLModule->GetHLOptions().bUseMinPrecision);
           HLSignatureLower sigLower(&F, *m_pHLModule, *pSig);
           sigLower.Run();
           DxilEntrySignatureMap[&F] = std::move(pSig);

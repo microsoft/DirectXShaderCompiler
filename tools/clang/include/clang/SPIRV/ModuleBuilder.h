@@ -144,6 +144,12 @@ public:
   uint32_t createBinaryOp(spv::Op op, uint32_t resultType, uint32_t lhs,
                           uint32_t rhs);
 
+  /// \brief Creates an OpAtomicIAdd or OpAtomicISub instruction with the given
+  /// parameters. Returns the <result-id> for the result.
+  uint32_t createAtomicIAddSub(uint32_t resultType, uint32_t orignalValuePtr,
+                               uint32_t scopeId, uint32_t memorySemanticsId,
+                               uint32_t valueToOp, bool isAdd);
+
   /// \brief Creates SPIR-V instructions for sampling the given image.
   ///
   /// If lod or grad is given a non-zero value, *ExplicitLod variants of
@@ -159,10 +165,17 @@ public:
                              std::pair<uint32_t, uint32_t> grad,
                              uint32_t constOffset, uint32_t varOffset);
 
-  /// \brief Creates SPIR-V instructions for fetching the given image.
-  uint32_t createImageFetch(uint32_t texelType, uint32_t image,
-                            uint32_t coordinate, uint32_t lod,
-                            uint32_t constOffset, uint32_t varOffset);
+  /// \brief Creates SPIR-V instructions for reading a texel from an image. If
+  /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
+  /// OpImageFetch should be used for sampled images. OpImageRead should be used
+  /// for images without a sampler.
+  uint32_t createImageFetchOrRead(bool doImageFetch, uint32_t texelType,
+                                  uint32_t image, uint32_t coordinate,
+                                  uint32_t lod, uint32_t constOffset,
+                                  uint32_t varOffset);
+
+  /// \brief Creates SPIR-V instructions for writing to the given image.
+  void createImageWrite(uint32_t imageId, uint32_t coordId, uint32_t texelId);
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   uint32_t createImageGather(uint32_t texelType, uint32_t imageType,
@@ -289,6 +302,8 @@ public:
                          Type::DecorationSet decorations = {});
   uint32_t getArrayType(uint32_t elemType, uint32_t count,
                         Type::DecorationSet decorations = {});
+  uint32_t getRuntimeArrayType(uint32_t elemType,
+                               Type::DecorationSet decorations = {});
   uint32_t getFunctionType(uint32_t returnType,
                            llvm::ArrayRef<uint32_t> paramTypes);
   uint32_t getImageType(uint32_t sampledType, spv::Dim, uint32_t depth,
