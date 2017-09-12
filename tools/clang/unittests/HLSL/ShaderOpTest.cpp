@@ -1865,14 +1865,6 @@ DXIL::ComponentType GetCompType(LPCWSTR pText, LPCWSTR pEnd) {
   }
 }
 
-void PushBytes(BYTE *val, size_t size, std::vector<BYTE> &V) {
-  BYTE *cur = val;
-  for (size_t i = 0; i < size; ++i) {
-    V.push_back(*cur);
-    ++cur;
-  }
-}
-
 bool GetSign(float x) {
   return std::signbit(x);
 }
@@ -1912,7 +1904,7 @@ uint16_t ConvertFloat32ToFloat16(float x) {
   }
 }
 
-void PushBytesFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType, std::vector<BYTE> &V) {
+void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType, std::vector<BYTE> &V) {
   BYTE *pB;
   if (compType == DXIL::ComponentType::F16 || compType == DXIL::ComponentType::F32) {
     float fVal;
@@ -1939,16 +1931,18 @@ void PushBytesFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType
 
     if (compType == DXIL::ComponentType::F16) {
       uint16_t fp16Val = ConvertFloat32ToFloat16(fVal);
-      PushBytes((BYTE *)&fp16Val, sizeof(uint16_t), V);
+      pB = (BYTE *)&fp16Val;
+      V.insert(V.end(), pB, pB + sizeof(float));
     }
     else {
       pB = (BYTE *)&fVal;
-      PushBytes((BYTE *)&fVal, sizeof(float), V);
+      V.insert(V.end(), pB, pB + sizeof(float));
     }
   }
   else if (compType == DXIL::ComponentType::I32) {
     int val = _wtoi(pText);
-    PushBytes((BYTE *)&val, sizeof(int), V);
+    pB = (BYTE *)&val;
+    V.insert(V.end(), pB, pB + sizeof(int));
   }
   else {
     DXASSERT(false, "Unsupported stream component type : %u", compType);
@@ -2029,7 +2023,7 @@ void ShaderOpParser::ParseResource(IXmlReader *pReader, ShaderOpResource *pResou
         LPCWSTR pEnd = FindByteInitSeparators(pText);
         // Consider looking for prefixes/suffixes to handle bases and types.
         DXIL::ComponentType compType = GetCompType(pText, pEnd);
-        PushBytesFromText(pText, pEnd, compType, V);
+        ParseDataFromText(pText, pEnd, compType, V);
         pText = pEnd;
       }
     }
