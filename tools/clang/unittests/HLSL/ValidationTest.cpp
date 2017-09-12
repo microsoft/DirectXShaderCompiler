@@ -1102,10 +1102,10 @@ TEST_F(ValidationTest, StreamIDOutOfBound) {
 
 TEST_F(ValidationTest, SignatureDataWidth) {
   if (m_ver.SkipDxilVersion(1, 2)) return;
-  std::vector<LPCWSTR> pArguments = { L"-no-min-precision", L"/T", L"ps_6_2" };
+  std::vector<LPCWSTR> pArguments = { L"-no-min-precision" };
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\signature_packing_by_width.hlsl", "ps_6_2",
-      pArguments.data(), 3, nullptr, 0,
+      pArguments.data(), 1, nullptr, 0,
       {"i8 8, i8 0, (![0-9]+), i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
       {"i8 9, i8 0, \\1, i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
       "signature element F at location \\(0, 2\\) size \\(1, 2\\) has data "

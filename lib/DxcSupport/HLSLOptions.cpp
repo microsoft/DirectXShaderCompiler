@@ -237,7 +237,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Entry point is required in arguments only for drivers; APIs take this through an argument.
   // The value should default to 'main', but we let the caller apply this policy.
 
-  opts.TargetProfile = Args.getLastArgValue(OPT_target_profile);
+  if (opts.TargetProfile.empty()) {
+    opts.TargetProfile = Args.getLastArgValue(OPT_target_profile);
+  }
 
   if (opts.IsLibraryProfile()) {
     if (Args.getLastArg(OPT_entrypoint)) {
