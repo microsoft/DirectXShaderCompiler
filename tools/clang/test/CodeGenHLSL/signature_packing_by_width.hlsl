@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 -no-min-precision %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -no-min-precision %s | FileCheck %s
 
 // TODO: Update this file when we introduce i8/i16.
 
