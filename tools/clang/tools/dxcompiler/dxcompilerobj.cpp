@@ -328,6 +328,9 @@ public:
       IFT(UIntToInt(argCount, &argCountInt));
       hlsl::options::MainArgs mainArgs(argCountInt, pArguments, 0);
       hlsl::options::DxcOpts opts;
+      CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
+      // Set target profile before reading options and validate
+      opts.TargetProfile = pUtf8TargetProfile.m_psz;
       bool finished;
       ReadOptsAndValidate(mainArgs, opts, pOutputStream, ppResult, finished);
       if (finished) {
@@ -339,7 +342,6 @@ public:
 
       // Prepare UTF8-encoded versions of API values.
       CW2A pUtf8EntryPoint(pEntryPoint, CP_UTF8);
-      CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
       CW2A utf8SourceName(pSourceName, CP_UTF8);
       const char *pUtf8SourceName = utf8SourceName.m_psz;
       if (pUtf8SourceName == nullptr) {
@@ -350,8 +352,6 @@ public:
           pUtf8SourceName = opts.InputFile.data();
         }
       }
-      // Set target profile.
-      opts.TargetProfile = pUtf8TargetProfile.m_psz;
 
       IFT(msfPtr->RegisterOutputStream(L"output.bc", pOutputStream));
       IFT(msfPtr->CreateStdStreams(m_pMalloc));

@@ -3929,6 +3929,7 @@ TEST_F(CompilerTest, CodeGenSignaturePacking) {
 }
 
 TEST_F(CompilerTest, CodeGenSignaturePackingByWidth) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTestCheck(L"..\\CodeGenHLSL\\signature_packing_by_width.hlsl");
 }
 
@@ -4334,6 +4335,7 @@ TEST_F(CompilerTest, CodeGenLiterals_Mod) {
 }
 
 TEST_F(CompilerTest, CodeGenLiterals_Exact_Precision_Mod) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTest(L"..\\CodeGenHLSL\\literals_exact_precision_Mod.hlsl");
 }
 
