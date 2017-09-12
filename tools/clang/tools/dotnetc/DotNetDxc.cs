@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 
 namespace DotNetDxc
 {
-    enum DxcGlobalOptions : uint
+    public enum DxcGlobalOptions : uint
     {
         DxcGlobalOpt_None = 0x0,
         DxcGlobalOpt_ThreadBackgroundPriorityForIndexing = 0x1,
@@ -29,7 +29,7 @@ namespace DotNetDxc
     }
 
     [Flags]
-    enum DxcValidatorFlags : uint
+    public enum DxcValidatorFlags : uint
     {
         Default = 0,
         InPlaceEdit = 1,
@@ -37,7 +37,7 @@ namespace DotNetDxc
     }
 
     [Flags]
-    enum DxcVersionInfoFlags : uint
+    public enum DxcVersionInfoFlags : uint
     {
         None = 0,
         Debug = 1
@@ -58,7 +58,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("1467b985-288d-4d2a-80c1-ef89c42c40bc")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcCursor
+    public interface IDxcCursor
     {
         IDxcSourceRange GetExtent();
         IDxcSourceLocation GetLocation();
@@ -84,7 +84,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("4f76b234-3659-4d33-99b0-3b0db994b564")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcDiagnostic
+    public interface IDxcDiagnostic
     {
         [return: MarshalAs(UnmanagedType.LPStr)]
         string FormatDiagnostic(DxcDiagnosticDisplayOptions options);
@@ -107,7 +107,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("bb2fca9e-1478-47ba-b08c-2c502ada4895")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcFile
+    public interface IDxcFile
     {
         [return: MarshalAs(UnmanagedType.LPStr)]
         string GetName();
@@ -116,7 +116,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("b1f99513-46d6-4112-8169-dd0d6053f17d")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcIntelliSense
+    public interface IDxcIntelliSense
     {
         IDxcIndex CreateIndex();
         IDxcSourceLocation GetNullLocation();
@@ -132,7 +132,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("937824a0-7f5a-4815-9ba7-7fc0424f4173")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcIndex
+    public interface IDxcIndex
     {
         void SetGlobalOptions(DxcGlobalOptions options);
         DxcGlobalOptions GetGlobalOptions();
@@ -150,7 +150,7 @@ namespace DotNetDxc
     /// </summary>
     [Guid("8e7ddf1c-d7d3-4d69-b286-85fccba1e0cf")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcSourceLocation
+    public interface IDxcSourceLocation
     {
         bool IsEqualTo(IDxcSourceLocation other);
         void GetSpellingLocation(out IDxcFile file, out UInt32 line, out UInt32 col, out UInt32 offset);
@@ -162,7 +162,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("f1359b36-a53f-4e81-b514-b6b84122a13f")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcSourceRange
+    public interface IDxcSourceRange
     {
         bool IsNull();
         IDxcSourceLocation GetStart();
@@ -175,7 +175,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("7f90b9ff-a275-4932-97d8-3cfd234482a2")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcToken
+    public interface IDxcToken
     {
         DxcTokenKind GetKind();
         IDxcSourceLocation GetLocation();
@@ -187,7 +187,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("9677dee0-c0e5-46a1-8b40-3db3168be63d")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcTranslationUnit
+    public interface IDxcTranslationUnit
     {
         IDxcCursor GetCursor();
         void Tokenize(IDxcSourceRange range,
@@ -224,7 +224,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("2ec912fd-b144-4a15-ad0d-1c5439c81e46")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcType
+    public interface IDxcType
     {
         [return: MarshalAs(UnmanagedType.LPStr)]
         string GetSpelling();
@@ -235,7 +235,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("8ec00f98-07d0-4e60-9d7c-5a50b5b0017f")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcUnsavedFile
+    public interface IDxcUnsavedFile
     {
         void GetFileName([MarshalAs(UnmanagedType.LPStr)] out string value);
         void GetContents([MarshalAs(UnmanagedType.LPStr)] out string value);
@@ -245,7 +245,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("A6E82BD2-1FD7-4826-9811-2857E797F49A")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcValidator
+    public interface IDxcValidator
     {
         IDxcOperationResult Validate(IDxcBlob shader, DxcValidatorFlags flags);
     }
@@ -253,7 +253,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcVersionInfo
+    public interface IDxcVersionInfo
     {
         void GetVersion(out UInt32 major, out UInt32 minor);
         DxcVersionInfoFlags GetFlags();
@@ -262,7 +262,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("c012115b-8893-4eb9-9c5a-111456ea1c45")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcRewriter
+    public interface IDxcRewriter
     {
         IDxcRewriteResult RemoveUnusedGlobals(
             IDxcBlobEncoding pSource,
@@ -283,7 +283,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("CEDB484A-D4E9-445A-B991-CA21CA157DC2")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcRewriteResult
+    public interface IDxcRewriteResult
     {
         uint GetStatus();
         IDxcBlobEncoding GetRewrite();
@@ -291,7 +291,7 @@ namespace DotNetDxc
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    struct DXCEncodedText
+    public struct DXCEncodedText
     {
         [MarshalAs(UnmanagedType.LPStr)]
         public string pText;
@@ -300,7 +300,7 @@ namespace DotNetDxc
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    struct DXCDefine
+    public struct DXCDefine
     {
         [MarshalAs(UnmanagedType.LPWStr)]
         public string pName;
@@ -328,7 +328,7 @@ namespace DotNetDxc
 
     public delegate int DxcCreateInstanceFn(ref Guid clsid, ref Guid iid, [MarshalAs(UnmanagedType.IUnknown)] out object instance);
 
-    class DefaultDxcLib
+    public class DefaultDxcLib
     {
         [DllImport(@"dxcompiler.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int DxcCreateInstance(
@@ -343,13 +343,14 @@ namespace DotNetDxc
         }
     }
 
-    class HlslDxcLib
+    public class HlslDxcLib
     {
         private static Guid CLSID_DxcAssembler = new Guid("D728DB68-F903-4F80-94CD-DCCF76EC7151");
         private static Guid CLSID_DxcDiaDataSource = new Guid("CD1F6B73-2AB0-484D-8EDC-EBE7A43CA09F");
         private static Guid CLSID_DxcIntelliSense = new Guid("3047833c-d1c0-4b8e-9d40-102878605985");
         private static Guid CLSID_DxcRewriter = new Guid("b489b951-e07f-40b3-968d-93e124734da4");
         private static Guid CLSID_DxcCompiler = new Guid("73e22d93-e6ce-47f3-b5bf-f0664f39c1b0");
+        private static Guid CLSID_DxcLinker = new Guid("EF6A8087-B0EA-4D56-9E45-D07E1A8B7806");
         private static Guid CLSID_DxcContainerReflection = new Guid("b9f54489-55b8-400c-ba3a-1675e4728b91");
         private static Guid CLSID_DxcLibrary = new Guid("6245D6AF-66E0-48FD-80B4-4D271796748C");
         private static Guid CLSID_DxcOptimizer = new Guid("AE2CD79F-CC22-453F-9B6B-B124E7A5204C");
@@ -401,6 +402,16 @@ namespace DotNetDxc
             object result;
             DxcCreateInstance(ref classId, ref interfaceId, out result);
             return (IDxcCompiler)result;
+        }
+
+        [MethodImplAttribute(MethodImplOptions.NoInlining)]
+        public static IDxcLinker CreateDxcLinker()
+        {
+            Guid classId = CLSID_DxcLinker;
+            Guid interfaceId = typeof(IDxcLinker).GUID;
+            object result;
+            DxcCreateInstance(ref classId, ref interfaceId, out result);
+            return (IDxcLinker)result;
         }
 
         [MethodImplAttribute(MethodImplOptions.NoInlining)]
@@ -479,7 +490,7 @@ namespace DotNetDxc
     }
 
     [Flags]
-    enum DxcCursorKindFlags : uint
+    public enum DxcCursorKindFlags : uint
     {
         None = 0,
         Declaration = 0x1,
@@ -496,7 +507,7 @@ namespace DotNetDxc
     /// <summary>
     /// The kind of language construct in a translation unit that a cursor refers to.
     /// </summary>
-    enum DxcCursorKind : uint
+    public enum DxcCursorKind : uint
     {
         /**
          * \brief A declaration whose specific kind is not exposed via this
@@ -1134,7 +1145,7 @@ namespace DotNetDxc
     };
 
     /// <summary>Describes a kind of token.</summary>
-    enum DxcTokenKind : uint
+    public enum DxcTokenKind : uint
     {
         /// <summary>A token that contains some kind of punctuation.</summary>
         Punctuation = 0,
@@ -1158,7 +1169,7 @@ namespace DotNetDxc
         BuiltInType = 6,
     };
 
-    enum DxcDiagnosticDisplayOptions : uint
+    public enum DxcDiagnosticDisplayOptions : uint
     {
         // Display the source-location information where the diagnostic was located.
         DxcDiagnostic_DisplaySourceLocation = 0x01,
@@ -1181,7 +1192,7 @@ namespace DotNetDxc
         DxcDiagnostic_DisplayCategoryName = 0x20
     };
 
-    enum DxcDiagnosticSeverity
+    public enum DxcDiagnosticSeverity
     {
         // A diagnostic that has been suppressed, e.g., by a command-line option.
         DxcDiagnostic_Ignored = 0,
@@ -1200,7 +1211,7 @@ namespace DotNetDxc
         DxcDiagnostic_Fatal = 4
     };
 
-    enum DxcTranslationUnitFlags : uint
+    public enum DxcTranslationUnitFlags : uint
     {
         // Used to indicate that no special translation-unit options are needed.
         DxcTranslationUnitFlags_None = 0x0,
@@ -1242,7 +1253,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("8BA5FB08-5195-40e2-AC58-0D989C3A0102")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcBlob
+    public interface IDxcBlob
     {
         [PreserveSig]
         unsafe char* GetBufferPointer();
@@ -1253,7 +1264,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("8BA5FB08-5195-40e2-AC58-0D989C3A0102")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcBlobEncoding : IDxcBlob
+    public interface IDxcBlobEncoding : IDxcBlob
     {
         System.UInt32 GetEncoding(out bool unknown, out UInt32 codePage);
     }
@@ -1261,7 +1272,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("CEDB484A-D4E9-445A-B991-CA21CA157DC2")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcOperationResult
+    public interface IDxcOperationResult
     {
         Int32 GetStatus();
         IDxcBlob GetResult();
@@ -1270,7 +1281,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("7f61fc7d-950d-467f-b3e3-3c02fb49187c")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcIncludeHandler
+    public interface IDxcIncludeHandler
     {
         IDxcBlob LoadSource(string fileName);
     }
@@ -1278,7 +1289,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("091f7a26-1c1f-4948-904b-e6e3a8a771d5")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcAssembler
+    public interface IDxcAssembler
     {
         IDxcOperationResult AssembleToContainer(IDxcBlob source);
     }
@@ -1287,7 +1298,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("8c210bf3-011f-4422-8d70-6f9acb8db617")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcCompiler
+    public interface IDxcCompiler
     {
         IDxcOperationResult Compile(IDxcBlob source, string sourceName, string entryPoint, string targetProfile,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType =UnmanagedType.LPWStr)]
@@ -1301,7 +1312,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("d2c21b26-8350-4bdc-976a-331ce6f4c54c")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcContainerReflection
+    public interface IDxcContainerReflection
     {
         void Load(IDxcBlob container);
         uint GetPartCount();
@@ -1316,7 +1327,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("e5204dc7-d18c-4c3c-bdfb-851673980fe7")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcLibrary
+    public interface IDxcLibrary
     {
         void SetMalloc(object malloc);
         IDxcBlob CreateBlobFromBlob(IDxcBlob blob, UInt32 offset, UInt32 length);
@@ -1332,9 +1343,30 @@ namespace DotNetDxc
     }
 
     [ComImport]
+    [Guid("F1B5BE2A-62DD-4327-A1C2-42AC1E1E78E6")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDxcLinker : IDxcCompiler
+    {
+        // Register a library with name to ref it later.
+        int RegisterLibrary(string libName, IDxcBlob library);
+
+        int Link(
+            string entryName,
+            string targetProfile,
+            [MarshalAs(UnmanagedType.LPArray, ArraySubType =UnmanagedType.LPWStr)]
+            string[] libNames,
+            int libCount,
+            [MarshalAs(UnmanagedType.LPArray, ArraySubType =UnmanagedType.LPWStr)]
+            string[] pArguments,
+            int argCount,
+            out IDxcOperationResult result
+            );
+    }
+
+    [ComImport]
     [Guid("AE2CD79F-CC22-453F-9B6B-B124E7A5204C")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcOptimizerPass
+    public interface IDxcOptimizerPass
     {
         [return: MarshalAs(UnmanagedType.LPWStr)]
         string GetOptionName();
@@ -1350,7 +1382,7 @@ namespace DotNetDxc
     [ComImport]
     [Guid("25740E2E-9CBA-401B-9119-4FB42F39F270")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDxcOptimizer
+    public interface IDxcOptimizer
     {
         int GetAvailablePassCount();
         IDxcOptimizerPass GetAvailablePass(int index);
