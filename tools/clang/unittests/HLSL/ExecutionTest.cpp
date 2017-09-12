@@ -528,7 +528,11 @@ public:
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(PartialDerivTest);
 
-  // TODO: Change the priority to 0 once there is a driver that fixes the issue with WaveActive operations
+  BEGIN_TEST_METHOD(CBufferTestHalf)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#CBufferTestHalf")
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
+  END_TEST_METHOD()
+
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveIntTable")
   END_TEST_METHOD()
@@ -584,6 +588,7 @@ public:
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_support;
+  VersionSupportInfo m_ver;
   bool m_ExperimentalModeEnabled = false;
   static const float ClearColor[4];
 
@@ -1119,6 +1124,10 @@ static void SetupComputeValuePattern(std::vector<uint32_t> &values, size_t count
 }
 
 bool ExecutionTest::ExecutionTestClassSetup() {
+  if (!m_support.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_support.Initialize());
+    m_ver.Initialize(m_support);
+  }
   HRESULT hr = EnableExperimentalMode();
   if (FAILED(hr)) {
     LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
@@ -2520,12 +2529,20 @@ struct SMsad4 {
 struct TableParameter {
     LPCWSTR m_name;
     enum TableParameterType {
-        INT,
+        INT8,
+        INT16,
+        INT32,
         UINT,
+        FLOAT,
+        HALF,
         DOUBLE,
         STRING,
         BOOL,
-        INT_TABLE,
+        INT8_TABLE,
+        INT16_TABLE,
+        INT32_TABLE,
+        FLOAT_TABLE,
+        HALF_TABLE,
         DOUBLE_TABLE,
         STRING_TABLE,
         UINT_TABLE,
@@ -2533,16 +2550,24 @@ struct TableParameter {
     };
     TableParameterType m_type;
     bool m_required; // required parameter
-    int m_int;
+    int8_t m_int8;
+    int16_t m_int16;
+    int m_int32;
     unsigned int m_uint;
+    float m_float;
+    uint16_t m_half; // no such thing as half type in c++. Use int16 instead
     double m_double;
     bool m_bool;
     WEX::Common::String m_str;
-    WEX::TestExecution::TestDataArray<int> m_intTable;
-    WEX::TestExecution::TestDataArray<unsigned int> m_uintTable;
-    WEX::TestExecution::TestDataArray<double> m_doubleTable;
-    WEX::TestExecution::TestDataArray<bool> m_boolTable;
-    WEX::TestExecution::TestDataArray<WEX::Common::String> m_StringTable;
+    std::vector<int8_t> m_int8Table;
+    std::vector<int16_t> m_int16Table;
+    std::vector<int> m_int32Table;
+    std::vector<unsigned int> m_uintTable;
+    std::vector<float> m_floatTable;
+    std::vector<uint16_t> m_halfTable; // no such thing as half type in c++
+    std::vector<double> m_doubleTable;
+    std::vector<bool> m_boolTable;
+    std::vector<WEX::Common::String> m_StringTable;
 };
 
 class TableParameterHandler {
@@ -2564,7 +2589,7 @@ public:
 
   void clearTableParameter() {
     for (size_t i = 0; i < m_tableSize; ++i) {
-      m_table[i].m_int = 0;
+      m_table[i].m_int32 = 0;
       m_table[i].m_uint = 0;
       m_table[i].m_double = 0;
       m_table[i].m_bool = false;
@@ -2573,15 +2598,15 @@ public:
   }
 
   template <class T1>
-  WEX::TestExecution::TestDataArray<T1> *GetDataArray(LPCWSTR name) {
+  std::vector<T1> *GetDataArray(LPCWSTR name) {
     return nullptr;
   }
 
   template <>
-  WEX::TestExecution::TestDataArray<int> *GetDataArray(LPCWSTR name) {
+  std::vector<int> *GetDataArray(LPCWSTR name) {
     for (size_t i = 0; i < m_tableSize; ++i) {
       if (_wcsicmp(name, m_table[i].m_name) == 0) {
-        return &(m_table[i].m_intTable);
+        return &(m_table[i].m_int32Table);
       }
     }
     DXASSERT(false, "Invalid Table Parameter Name %s", name);
@@ -2589,7 +2614,29 @@ public:
   }
 
   template <>
-  WEX::TestExecution::TestDataArray<unsigned int> *GetDataArray(LPCWSTR name) {
+  std::vector<int8_t> *GetDataArray(LPCWSTR name) {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      if (_wcsicmp(name, m_table[i].m_name) == 0) {
+        return &(m_table[i].m_int8Table);
+      }
+    }
+    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    return nullptr;
+  }
+
+  template <>
+  std::vector<int16_t> *GetDataArray(LPCWSTR name) {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      if (_wcsicmp(name, m_table[i].m_name) == 0) {
+        return &(m_table[i].m_int16Table);
+      }
+    }
+    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    return nullptr;
+  }
+
+  template <>
+  std::vector<unsigned int> *GetDataArray(LPCWSTR name) {
     for (size_t i = 0; i < m_tableSize; ++i) {
       if (_wcsicmp(name, m_table[i].m_name) == 0) {
         return &(m_table[i].m_uintTable);
@@ -2600,7 +2647,30 @@ public:
   }
 
   template <>
-  WEX::TestExecution::TestDataArray<double> *GetDataArray(LPCWSTR name) {
+  std::vector<float> *GetDataArray(LPCWSTR name) {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      if (_wcsicmp(name, m_table[i].m_name) == 0) {
+        return &(m_table[i].m_floatTable);
+      }
+    }
+    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    return nullptr;
+  }
+
+  // TODO: uin16_t may be used to represent two different types when we introduce uint16
+  template <>
+  std::vector<uint16_t> *GetDataArray(LPCWSTR name) {
+    for (size_t i = 0; i < m_tableSize; ++i) {
+      if (_wcsicmp(name, m_table[i].m_name) == 0) {
+        return &(m_table[i].m_halfTable);
+      }
+    }
+    DXASSERT(false, "Invalid Table Parameter Name %s", name);
+    return nullptr;
+  }
+
+  template <>
+  std::vector<double> *GetDataArray(LPCWSTR name) {
     for (size_t i = 0; i < m_tableSize; ++i) {
       if (_wcsicmp(name, m_table[i].m_name) == 0) {
         return &(m_table[i].m_doubleTable);
@@ -2611,7 +2681,7 @@ public:
   }
 
   template <>
-  WEX::TestExecution::TestDataArray<bool> *GetDataArray(LPCWSTR name) {
+  std::vector<bool> *GetDataArray(LPCWSTR name) {
     for (size_t i = 0; i < m_tableSize; ++i) {
       if (_wcsicmp(name, m_table[i].m_name) == 0) {
         return &(m_table[i].m_boolTable);
@@ -2668,9 +2738,9 @@ static TableParameter UnaryIntOpParameters[] = {
     { L"ShaderOp.Target", TableParameter::STRING, true },
     { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input", TableParameter::INT_TABLE, true },
-    { L"Validation.Expected", TableParameter::INT_TABLE, true },
-    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.Input", TableParameter::INT32_TABLE, true },
+    { L"Validation.Expected", TableParameter::INT32_TABLE, true },
+    { L"Validation.Tolerance", TableParameter::INT32, true },
     { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
@@ -2681,7 +2751,7 @@ static TableParameter UnaryUintOpParameters[] = {
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.Input", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected", TableParameter::UINT_TABLE, true },
-    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.Tolerance", TableParameter::INT32, true },
     { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
@@ -2690,13 +2760,13 @@ static TableParameter BinaryIntOpParameters[] = {
     { L"ShaderOp.Target", TableParameter::STRING, true },
     { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input1", TableParameter::INT_TABLE, true },
-    { L"Validation.Input2", TableParameter::INT_TABLE, true },
-    { L"Validation.Expected1", TableParameter::INT_TABLE, true },
-    { L"Validation.Expected2", TableParameter::INT_TABLE, false },
-    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.Input1", TableParameter::INT32_TABLE, true },
+    { L"Validation.Input2", TableParameter::INT32_TABLE, true },
+    { L"Validation.Expected1", TableParameter::INT32_TABLE, true },
+    { L"Validation.Expected2", TableParameter::INT32_TABLE, false },
+    { L"Validation.Tolerance", TableParameter::INT32, true },
     { L"Validation.NumInput", TableParameter::UINT, true },
-    { L"Validation.NumExpected", TableParameter::INT, true }
+    { L"Validation.NumExpected", TableParameter::INT32, true }
 };
 
 static TableParameter TertiaryIntOpParameters[] = {
@@ -2704,11 +2774,11 @@ static TableParameter TertiaryIntOpParameters[] = {
     { L"ShaderOp.Target", TableParameter::STRING, true },
     { L"ShaderOp.EntryPoint", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
-    { L"Validation.Input1", TableParameter::INT_TABLE, true },
-    { L"Validation.Input2", TableParameter::INT_TABLE, true },
-    { L"Validation.Input3", TableParameter::INT_TABLE, true },
-    { L"Validation.Expected", TableParameter::INT_TABLE, true },
-    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.Input1", TableParameter::INT32_TABLE, true },
+    { L"Validation.Input2", TableParameter::INT32_TABLE, true },
+    { L"Validation.Input3", TableParameter::INT32_TABLE, true },
+    { L"Validation.Expected", TableParameter::INT32_TABLE, true },
+    { L"Validation.Tolerance", TableParameter::INT32, true },
     { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
@@ -2721,10 +2791,9 @@ static TableParameter BinaryUintOpParameters[] = {
     { L"Validation.Input2", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected1", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected2", TableParameter::UINT_TABLE, false },
-    { L"Validation.Tolerance", TableParameter::INT, true },
-
+    { L"Validation.Tolerance", TableParameter::INT32, true },
     { L"Validation.NumInput", TableParameter::UINT, true },
-    { L"Validation.NumExpected", TableParameter::INT, true },
+    { L"Validation.NumExpected", TableParameter::INT32, true },
 };
 
 static TableParameter TertiaryUintOpParameters[] = {
@@ -2736,7 +2805,7 @@ static TableParameter TertiaryUintOpParameters[] = {
     { L"Validation.Input2", TableParameter::UINT_TABLE, true },
     { L"Validation.Input3", TableParameter::UINT_TABLE, true },
     { L"Validation.Expected", TableParameter::UINT_TABLE, true },
-    { L"Validation.Tolerance", TableParameter::INT, true },
+    { L"Validation.Tolerance", TableParameter::INT32, true },
     { L"Validation.NumInput", TableParameter::UINT, true }
 };
 
@@ -2769,20 +2838,20 @@ static TableParameter WaveIntrinsicsActiveIntParameters[] = {
     { L"ShaderOp.Name", TableParameter::STRING, true },
     { L"ShaderOp.Text", TableParameter::STRING, true },
     { L"Validation.NumInputSet", TableParameter::UINT, true },
-    { L"Validation.InputSet1", TableParameter::INT_TABLE, true },
-    { L"Validation.InputSet2", TableParameter::INT_TABLE, false },
-    { L"Validation.InputSet3", TableParameter::INT_TABLE, false },
-    { L"Validation.InputSet4", TableParameter::INT_TABLE, false }
+    { L"Validation.InputSet1", TableParameter::INT32_TABLE, true },
+    { L"Validation.InputSet2", TableParameter::INT32_TABLE, false },
+    { L"Validation.InputSet3", TableParameter::INT32_TABLE, false },
+    { L"Validation.InputSet4", TableParameter::INT32_TABLE, false }
 };
 
 static TableParameter WaveIntrinsicsPrefixIntParameters[] = {
   { L"ShaderOp.Name", TableParameter::STRING, true },
   { L"ShaderOp.Text", TableParameter::STRING, true },
   { L"Validation.NumInputSet", TableParameter::UINT, true },
-  { L"Validation.InputSet1", TableParameter::INT_TABLE, true },
-  { L"Validation.InputSet2", TableParameter::INT_TABLE, false },
-  { L"Validation.InputSet3", TableParameter::INT_TABLE, false },
-  { L"Validation.InputSet4", TableParameter::INT_TABLE, false }
+  { L"Validation.InputSet1", TableParameter::INT32_TABLE, true },
+  { L"Validation.InputSet2", TableParameter::INT32_TABLE, false },
+  { L"Validation.InputSet3", TableParameter::INT32_TABLE, false },
+  { L"Validation.InputSet4", TableParameter::INT32_TABLE, false }
 };
 
 static TableParameter WaveIntrinsicsActiveUintParameters[] = {
@@ -2812,6 +2881,10 @@ static TableParameter WaveIntrinsicsActiveBoolParameters[] = {
   { L"Validation.InputSet1", TableParameter::BOOL_TABLE, true },
   { L"Validation.InputSet2", TableParameter::BOOL_TABLE, false },
   { L"Validation.InputSet3", TableParameter::BOOL_TABLE, false },
+};
+
+static TableParameter CBufferTestHalfParameters[] = {
+  { L"Validation.InputSet", TableParameter::HALF_TABLE, true },
 };
 
 static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
@@ -2918,76 +2991,188 @@ static HRESULT ParseDataToVectorUint(PCWSTR str, unsigned int *ptr, size_t count
 static HRESULT ParseTableRow(TableParameter *table, unsigned int size) {
   for (unsigned int i = 0; i < size; ++i) {
     switch (table[i].m_type) {
-    case TableParameter::INT:
+    case TableParameter::INT8:
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
-                                                           table[i].m_int)) && table[i].m_required) {
+        table[i].m_int32)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int16
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      table[i].m_int8 = (short)(table[i].m_int32);
+      break;
+    case TableParameter::INT16:
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
+        table[i].m_int32)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int16
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      table[i].m_int16 = (short)(table[i].m_int32);
+      break;
+    case TableParameter::INT32:
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
+        table[i].m_int32)) && table[i].m_required) {
         LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
       break;
     case TableParameter::UINT:
-        if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
-            table[i].m_uint)) && table[i].m_required) {
-            LogErrorFmt(L"Failed to get %s", table[i].m_name);
-            return E_FAIL;
-        }
-        break;
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
+        table[i].m_uint)) && table[i].m_required) {
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      break;
     case TableParameter::DOUBLE:
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(
-              table[i].m_name, table[i].m_double)) && table[i].m_required) {
+        table[i].m_name, table[i].m_double)) && table[i].m_required) {
         LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
       break;
     case TableParameter::STRING:
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
-                                                           table[i].m_str)) && table[i].m_required) {
+        table[i].m_str)) && table[i].m_required) {
         LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
       break;
     case TableParameter::BOOL:
-        if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
-            table[i].m_str)) && table[i].m_bool) {
-            LogErrorFmt(L"Failed to get %s", table[i].m_name);
-            return E_FAIL;
-        }
-        break;
-    case TableParameter::INT_TABLE:
-      if (FAILED(WEX::TestExecution::TestData::TryGetValue(
-              table[i].m_name, table[i].m_intTable)) && table[i].m_required) {
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(table[i].m_name,
+        table[i].m_str)) && table[i].m_bool) {
         LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
       break;
-    case TableParameter::UINT_TABLE:
-        if (FAILED(WEX::TestExecution::TestData::TryGetValue(
-            table[i].m_name, table[i].m_uintTable)) && table[i].m_required) {
-            LogErrorFmt(L"Failed to get %s", table[i].m_name);
-            return E_FAIL;
-        }
-        break;
-    case TableParameter::DOUBLE_TABLE:
+    case TableParameter::INT8_TABLE: {
+      WEX::TestExecution::TestDataArray<int> tempTable;
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(
-              table[i].m_name, table[i].m_doubleTable)) && table[i].m_required) {
+        table[i].m_name, tempTable)) && table[i].m_required) {
+
         LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
+      // TryGetValue does not suppport reading from int8
+      table[i].m_int8Table.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        table[i].m_int8Table[j] = (char)tempTable[j];
+      }
       break;
-    case TableParameter::BOOL_TABLE:
+    }
+    case TableParameter::INT16_TABLE: {
+      WEX::TestExecution::TestDataArray<int> tempTable;
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(
-        table[i].m_name, table[i].m_boolTable)) && table[i].m_required) {
+        table[i].m_name, tempTable)) && table[i].m_required) {
         LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
+      // TryGetValue does not suppport reading from int8
+      table[i].m_int16Table.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        table[i].m_int16Table[j] = (int16_t)tempTable[j];
+      }
       break;
-    case TableParameter::STRING_TABLE:
+    }
+    case TableParameter::INT32_TABLE: {
+      WEX::TestExecution::TestDataArray<int> tempTable;
       if (FAILED(WEX::TestExecution::TestData::TryGetValue(
-              table[i].m_name, table[i].m_StringTable)) && table[i].m_required) {
+        table[i].m_name, tempTable)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int8
         LogErrorFmt(L"Failed to get %s", table[i].m_name);
         return E_FAIL;
       }
+      table[i].m_int32Table.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        table[i].m_int32Table[j] = tempTable[j];
+      }
       break;
+    }
+    case TableParameter::UINT_TABLE: {
+      WEX::TestExecution::TestDataArray<unsigned int> tempTable;
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(
+        table[i].m_name, tempTable)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int8
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      table[i].m_uintTable.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        table[i].m_uintTable[j] = tempTable[j];
+      }
+      break;
+    }
+    case TableParameter::FLOAT_TABLE: {
+      WEX::TestExecution::TestDataArray<WEX::Common::String> tempTable;
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(
+        table[i].m_name, tempTable)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int8
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      table[i].m_floatTable.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        ParseDataToFloat(tempTable[j], table[i].m_floatTable[j]);
+      }
+      break;
+    }
+    case TableParameter::HALF_TABLE: {
+      WEX::TestExecution::TestDataArray<WEX::Common::String> tempTable;
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(
+        table[i].m_name, tempTable)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int8
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      table[i].m_halfTable.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        float val;
+        ParseDataToFloat(tempTable[j], val);
+        table[i].m_halfTable[j] = st::ConvertFloat32ToFloat16(val);
+      }
+      break;
+    }
+    case TableParameter::DOUBLE_TABLE: {
+      WEX::TestExecution::TestDataArray<double> tempTable;
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(
+        table[i].m_name, tempTable)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int8
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      table[i].m_doubleTable.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        table[i].m_doubleTable[j] = tempTable[j];
+      }
+      break;
+    }
+    case TableParameter::BOOL_TABLE: {
+      WEX::TestExecution::TestDataArray<bool> tempTable;
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(
+        table[i].m_name, tempTable)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int8
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      table[i].m_boolTable.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        table[i].m_boolTable[j] = tempTable[j];
+      }
+      break;
+    }
+    case TableParameter::STRING_TABLE: {
+      WEX::TestExecution::TestDataArray<WEX::Common::String> tempTable;
+      if (FAILED(WEX::TestExecution::TestData::TryGetValue(
+        table[i].m_name, tempTable)) && table[i].m_required) {
+        // TryGetValue does not suppport reading from int8
+        LogErrorFmt(L"Failed to get %s", table[i].m_name);
+        return E_FAIL;
+      }
+      table[i].m_StringTable.resize(tempTable.GetSize());
+      for (size_t j = 0, end = tempTable.GetSize(); j != end; ++j) {
+        table[i].m_StringTable[j] = tempTable[j];
+      }
+      break;
+    }
     default:
       DXASSERT_NOMSG("Invalid Parameter Type");
     }
@@ -3046,9 +3231,9 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
         return;
     }
 
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input =
+    std::vector<WEX::Common::String> *Validation_Input =
         &(handler.GetTableParamByName(L"Validation.Input")->m_StringTable);
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Expected =
+    std::vector<WEX::Common::String> *Validation_Expected =
         &(handler.GetTableParamByName(L"Validation.Expected")->m_StringTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
@@ -3067,7 +3252,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
           SUnaryFPOp *pPrimitives = (SUnaryFPOp *)Data.data();
           for (size_t i = 0; i < count; ++i) {
             SUnaryFPOp *p = &pPrimitives[i];
-            PCWSTR str = (*Validation_Input)[i % Validation_Input->GetSize()];
+            PCWSTR str = (*Validation_Input)[i % Validation_Input->size()];
             float val;
             VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
             p->input = val;
@@ -3085,7 +3270,7 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
         SUnaryFPOp *p = &pPrimitives[i];
-        LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+        LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
         float val;
         VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
         LogCommentFmt(
@@ -3123,15 +3308,15 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input1 =
+    std::vector<WEX::Common::String> *Validation_Input1 =
         &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input2 =
+    std::vector<WEX::Common::String> *Validation_Input2 =
         &(handler.GetTableParamByName(L"Validation.Input2")->m_StringTable);
 
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Expected1 =
+    std::vector<WEX::Common::String> *Validation_Expected1 =
         &(handler.GetTableParamByName(L"Validation.Expected1")->m_StringTable);
 
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Expected2 =
+    std::vector<WEX::Common::String> *Validation_Expected2 =
         &(handler.GetTableParamByName(L"Validation.Expected2")->m_StringTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
@@ -3149,8 +3334,8 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
         SBinaryFPOp *pPrimitives = (SBinaryFPOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             SBinaryFPOp *p = &pPrimitives[i];
-            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
-            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
+            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->size()];
             float val1, val2;
             VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
             VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
@@ -3172,8 +3357,8 @@ TEST_F(ExecutionTest, BinaryFloatOpTest) {
 
     for (unsigned i = 0; i < count; ++i) {
         SBinaryFPOp *p = &pPrimitives[i];
-        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->GetSize()];
-        LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->GetSize()];
+        LPCWSTR str1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+        LPCWSTR str2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
         float val1, val2;
         VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
         VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
@@ -3216,14 +3401,14 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input1 =
+    std::vector<WEX::Common::String> *Validation_Input1 =
         &(handler.GetTableParamByName(L"Validation.Input1")->m_StringTable);
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input2 =
+    std::vector<WEX::Common::String> *Validation_Input2 =
         &(handler.GetTableParamByName(L"Validation.Input2")->m_StringTable);
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input3 =
+    std::vector<WEX::Common::String> *Validation_Input3 =
         &(handler.GetTableParamByName(L"Validation.Input3")->m_StringTable);
 
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Expected =
+    std::vector<WEX::Common::String> *Validation_Expected =
         &(handler.GetTableParamByName(L"Validation.Expected")->m_StringTable);
 
     LPCWSTR Validation_Type = handler.GetTableParamByName(L"Validation.Type")->m_str;
@@ -3241,9 +3426,9 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
         STertiaryFPOp *pPrimitives = (STertiaryFPOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             STertiaryFPOp *p = &pPrimitives[i];
-            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
-            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
-            PCWSTR str3 = (*Validation_Input3)[i % Validation_Input3->GetSize()];
+            PCWSTR str1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            PCWSTR str2 = (*Validation_Input2)[i % Validation_Input2->size()];
+            PCWSTR str3 = (*Validation_Input3)[i % Validation_Input3->size()];
             float val1, val2, val3;
             VERIFY_SUCCEEDED(ParseDataToFloat(str1, val1));
             VERIFY_SUCCEEDED(ParseDataToFloat(str2, val2));
@@ -3267,7 +3452,7 @@ TEST_F(ExecutionTest, TertiaryFloatOpTest) {
 
     for (unsigned i = 0; i < count; ++i) {
       STertiaryFPOp *p = &pPrimitives[i];
-      LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+      LPCWSTR str = (*Validation_Expected)[i % Validation_Expected->size()];
       float val;
       VERIFY_SUCCEEDED(ParseDataToFloat(str, val));
       LogCommentFmt(L"element #%u, input1 = %10f, input2 = %10f, input3 = %10f, output1 = "
@@ -3306,11 +3491,11 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    WEX::TestExecution::TestDataArray<int> *Validation_Input =
-        &handler.GetTableParamByName(L"Validation.Input")->m_intTable;
-    WEX::TestExecution::TestDataArray<int> *Validation_Expected =
-        &handler.GetTableParamByName(L"Validation.Expected")->m_intTable;
-    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int;
+    std::vector<int> *Validation_Input =
+        &handler.GetTableParamByName(L"Validation.Input")->m_int32Table;
+    std::vector<int> *Validation_Expected =
+        &handler.GetTableParamByName(L"Validation.Expected")->m_int32Table;
+    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
     size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
@@ -3324,7 +3509,7 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
           SUnaryIntOp *pPrimitives = (SUnaryIntOp *)Data.data();
           for (size_t i = 0; i < count; ++i) {
             SUnaryIntOp *p = &pPrimitives[i];
-            int val = (*Validation_Input)[i % Validation_Input->GetSize()];
+            int val = (*Validation_Input)[i % Validation_Input->size()];
             p->input = val;
           }
           // use shader data table
@@ -3340,7 +3525,7 @@ TEST_F(ExecutionTest, UnaryIntOpTest) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
       SUnaryIntOp *p = &pPrimitives[i];
-      int val = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+      int val = (*Validation_Expected)[i % Validation_Expected->size()];
       LogCommentFmt(L"element #%u, input = %11i(0x%08x), output = %11i(0x%08x), "
                     L"expected = %11i(0x%08x)",
                     i, p->input, p->input, p->output, p->output, val, val);
@@ -3376,11 +3561,11 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input =
+    std::vector<unsigned int> *Validation_Input =
         &handler.GetTableParamByName(L"Validation.Input")->m_uintTable;
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Expected =
+    std::vector<unsigned int> *Validation_Expected =
         &handler.GetTableParamByName(L"Validation.Expected")->m_uintTable;
-    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int;
+    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
     size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
@@ -3394,7 +3579,7 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
         SUnaryUintOp *pPrimitives = (SUnaryUintOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             SUnaryUintOp *p = &pPrimitives[i];
-            unsigned int val = (*Validation_Input)[i % Validation_Input->GetSize()];
+            unsigned int val = (*Validation_Input)[i % Validation_Input->size()];
             p->input = val;
         }
         // use shader data table
@@ -3410,7 +3595,7 @@ TEST_F(ExecutionTest, UnaryUintOpTest) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
         SUnaryUintOp *p = &pPrimitives[i];
-        unsigned int val = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+        unsigned int val = (*Validation_Expected)[i % Validation_Expected->size()];
         LogCommentFmt(L"element #%u, input = %11u(0x%08x), output = %11u(0x%08x), "
             L"expected = %11u(0x%08x)",
             i, p->input, p->input, p->output, p->output, val, val);
@@ -3445,17 +3630,17 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    int numExpected = handler.GetTableParamByName(L"Validation.NumExpected")->m_int;
+    int numExpected = handler.GetTableParamByName(L"Validation.NumExpected")->m_int32;
 
-    WEX::TestExecution::TestDataArray<int> *Validation_Input1 =
-        &handler.GetTableParamByName(L"Validation.Input1")->m_intTable;
-    WEX::TestExecution::TestDataArray<int> *Validation_Input2 =
-        &handler.GetTableParamByName(L"Validation.Input2")->m_intTable;
-    WEX::TestExecution::TestDataArray<int> *Validation_Expected1 =
-        &handler.GetTableParamByName(L"Validation.Expected1")->m_intTable;
-    WEX::TestExecution::TestDataArray<int> *Validation_Expected2 =
-        &handler.GetTableParamByName(L"Validation.Expected2")->m_intTable;
-    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int;
+    std::vector<int> *Validation_Input1 =
+        &handler.GetTableParamByName(L"Validation.Input1")->m_int32Table;
+    std::vector<int> *Validation_Input2 =
+        &handler.GetTableParamByName(L"Validation.Input2")->m_int32Table;
+    std::vector<int> *Validation_Expected1 =
+        &handler.GetTableParamByName(L"Validation.Expected1")->m_int32Table;
+    std::vector<int> *Validation_Expected2 =
+        &handler.GetTableParamByName(L"Validation.Expected2")->m_int32Table;
+    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
     size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
@@ -3469,8 +3654,8 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
           SBinaryIntOp *pPrimitives = (SBinaryIntOp *)Data.data();
           for (size_t i = 0; i < count; ++i) {
             SBinaryIntOp *p = &pPrimitives[i];
-            int val1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
-            int val2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
+            int val1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            int val2 = (*Validation_Input2)[i % Validation_Input2->size()];
             p->input1 = val1;
             p->input2 = val2;
           }
@@ -3490,8 +3675,8 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
     if (numExpected == 2) {
         for (unsigned i = 0; i < count; ++i) {
             SBinaryIntOp *p = &pPrimitives[i];
-            int val1 = (*Validation_Expected1)[i % Validation_Expected1->GetSize()];
-            int val2 = (*Validation_Expected2)[i % Validation_Expected2->GetSize()];
+            int val1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+            int val2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
             LogCommentFmt(L"element #%u, input1 = %11i(0x%08x), input2 = "
                 L"%11i(0x%08x), output1 = "
                 L"%11i(0x%08x), expected1 = %11i(0x%08x), output2 = "
@@ -3506,7 +3691,7 @@ TEST_F(ExecutionTest, BinaryIntOpTest) {
     else if (numExpected == 1) {
         for (unsigned i = 0; i < count; ++i) {
             SBinaryIntOp *p = &pPrimitives[i];
-            int val1 = (*Validation_Expected1)[i % Validation_Expected1->GetSize()];
+            int val1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
             LogCommentFmt(L"element #%u, input1 = %11i(0x%08x), input2 = "
                           L"%11i(0x%08x), output = "
                           L"%11i(0x%08x), expected = %11i(0x%08x)", i,
@@ -3547,15 +3732,15 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    WEX::TestExecution::TestDataArray<int> *Validation_Input1 =
-        &handler.GetTableParamByName(L"Validation.Input1")->m_intTable;
-    WEX::TestExecution::TestDataArray<int> *Validation_Input2 =
-        &handler.GetTableParamByName(L"Validation.Input2")->m_intTable;
-    WEX::TestExecution::TestDataArray<int> *Validation_Input3 =
-        &handler.GetTableParamByName(L"Validation.Input3")->m_intTable;
-    WEX::TestExecution::TestDataArray<int> *Validation_Expected =
-        &handler.GetTableParamByName(L"Validation.Expected")->m_intTable;
-    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int;
+    std::vector<int> *Validation_Input1 =
+        &handler.GetTableParamByName(L"Validation.Input1")->m_int32Table;
+    std::vector<int> *Validation_Input2 =
+        &handler.GetTableParamByName(L"Validation.Input2")->m_int32Table;
+    std::vector<int> *Validation_Input3 =
+        &handler.GetTableParamByName(L"Validation.Input3")->m_int32Table;
+    std::vector<int> *Validation_Expected =
+        &handler.GetTableParamByName(L"Validation.Expected")->m_int32Table;
+    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
     size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
@@ -3569,9 +3754,9 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
         STertiaryIntOp *pPrimitives = (STertiaryIntOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             STertiaryIntOp *p = &pPrimitives[i];
-            int val1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
-            int val2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
-            int val3 = (*Validation_Input3)[i % Validation_Input3->GetSize()];
+            int val1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            int val2 = (*Validation_Input2)[i % Validation_Input2->size()];
+            int val3 = (*Validation_Input3)[i % Validation_Input3->size()];
             p->input1 = val1;
             p->input2 = val2;
             p->input3 = val3;
@@ -3590,7 +3775,7 @@ TEST_F(ExecutionTest, TertiaryIntOpTest) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
         STertiaryIntOp *p = &pPrimitives[i];
-        int val1 = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+        int val1 = (*Validation_Expected)[i % Validation_Expected->size()];
         LogCommentFmt(L"element #%u, input1 = %11i(0x%08x), input2 = "
             L"%11i(0x%08x), input3= %11i(0x%08x), output = "
             L"%11i(0x%08x), expected = %11i(0x%08x)",
@@ -3628,17 +3813,17 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    int numExpected = handler.GetTableParamByName(L"Validation.NumExpected")->m_int;
+    int numExpected = handler.GetTableParamByName(L"Validation.NumExpected")->m_int32;
 
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input1 =
+    std::vector<unsigned int> *Validation_Input1 =
         &handler.GetTableParamByName(L"Validation.Input1")->m_uintTable;
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input2 =
+    std::vector<unsigned int> *Validation_Input2 =
         &handler.GetTableParamByName(L"Validation.Input2")->m_uintTable;
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Expected1 =
+    std::vector<unsigned int> *Validation_Expected1 =
         &handler.GetTableParamByName(L"Validation.Expected1")->m_uintTable;
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Expected2 =
+    std::vector<unsigned int> *Validation_Expected2 =
         &handler.GetTableParamByName(L"Validation.Expected2")->m_uintTable;
-    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int;
+    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
     size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
@@ -3652,8 +3837,8 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
         SBinaryUintOp *pPrimitives = (SBinaryUintOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             SBinaryUintOp *p = &pPrimitives[i];
-            unsigned int val1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
-            unsigned int val2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
+            unsigned int val1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            unsigned int val2 = (*Validation_Input2)[i % Validation_Input2->size()];
             p->input1 = val1;
             p->input2 = val2;
         }
@@ -3672,8 +3857,8 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     if (numExpected == 2) {
         for (unsigned i = 0; i < count; ++i) {
             SBinaryUintOp *p = &pPrimitives[i];
-            unsigned int val1 = (*Validation_Expected1)[i % Validation_Expected1->GetSize()];
-            unsigned int val2 = (*Validation_Expected2)[i % Validation_Expected2->GetSize()];
+            unsigned int val1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
+            unsigned int val2 = (*Validation_Expected2)[i % Validation_Expected2->size()];
             LogCommentFmt(L"element #%u, input1 = %11u(0x%08x), input2 = "
                 L"%11u(0x%08x), output1 = "
                 L"%11u(0x%08x), expected1 = %11u(0x%08x), output2 = "
@@ -3688,7 +3873,7 @@ TEST_F(ExecutionTest, BinaryUintOpTest) {
     else if (numExpected == 1) {
         for (unsigned i = 0; i < count; ++i) {
             SBinaryUintOp *p = &pPrimitives[i];
-            unsigned int val1 = (*Validation_Expected1)[i % Validation_Expected1->GetSize()];
+            unsigned int val1 = (*Validation_Expected1)[i % Validation_Expected1->size()];
             LogCommentFmt(L"element #%u, input1 = %11u(0x%08x), input2 = "
                 L"%11u(0x%08x), output = "
                 L"%11u(0x%08x), expected = %11u(0x%08x)", i,
@@ -3729,15 +3914,15 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input1 =
+    std::vector<unsigned int> *Validation_Input1 =
         &handler.GetTableParamByName(L"Validation.Input1")->m_uintTable;
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input2 =
+    std::vector<unsigned int> *Validation_Input2 =
         &handler.GetTableParamByName(L"Validation.Input2")->m_uintTable;
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Input3 =
+    std::vector<unsigned int> *Validation_Input3 =
         &handler.GetTableParamByName(L"Validation.Input3")->m_uintTable;
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Expected =
+    std::vector<unsigned int> *Validation_Expected =
         &handler.GetTableParamByName(L"Validation.Expected")->m_uintTable;
-    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int;
+    int Validation_Tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_int32;
     size_t count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
@@ -3751,9 +3936,9 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
         STertiaryUintOp *pPrimitives = (STertiaryUintOp *)Data.data();
         for (size_t i = 0; i < count; ++i) {
             STertiaryUintOp *p = &pPrimitives[i];
-            unsigned int val1 = (*Validation_Input1)[i % Validation_Input1->GetSize()];
-            unsigned int val2 = (*Validation_Input2)[i % Validation_Input2->GetSize()];
-            unsigned int val3 = (*Validation_Input3)[i % Validation_Input3->GetSize()];
+            unsigned int val1 = (*Validation_Input1)[i % Validation_Input1->size()];
+            unsigned int val2 = (*Validation_Input2)[i % Validation_Input2->size()];
+            unsigned int val3 = (*Validation_Input3)[i % Validation_Input3->size()];
             p->input1 = val1;
             p->input2 = val2;
             p->input3 = val3;
@@ -3772,7 +3957,7 @@ TEST_F(ExecutionTest, TertiaryUintOpTest) {
     WEX::TestExecution::DisableVerifyExceptions dve;
     for (unsigned i = 0; i < count; ++i) {
         STertiaryUintOp *p = &pPrimitives[i];
-        unsigned int val1 = (*Validation_Expected)[i % Validation_Expected->GetSize()];
+        unsigned int val1 = (*Validation_Expected)[i % Validation_Expected->size()];
         LogCommentFmt(L"element #%u, input1 = %11u(0x%08x), input2 = "
             L"%11u(0x%08x), input3 = %11u(0x%08x), output = "
             L"%11u(0x%08x), expected = %11u(0x%08x)", i,
@@ -3809,15 +3994,15 @@ TEST_F(ExecutionTest, DotTest) {
     shader.EntryPoint = EntryPoint.m_psz;
     shader.Text = Text.m_psz;
 
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input1 =
+    std::vector<WEX::Common::String> *Validation_Input1 =
         &handler.GetTableParamByName(L"Validation.Input1")->m_StringTable;
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Input2 =
+    std::vector<WEX::Common::String> *Validation_Input2 =
         &handler.GetTableParamByName(L"Validation.Input2")->m_StringTable;
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_dot2 =
+    std::vector<WEX::Common::String> *Validation_dot2 =
         &handler.GetTableParamByName(L"Validation.dot2")->m_StringTable;
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_dot3 =
+    std::vector<WEX::Common::String> *Validation_dot3 =
         &handler.GetTableParamByName(L"Validation.dot3")->m_StringTable;
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_dot4 =
+    std::vector<WEX::Common::String> *Validation_dot4 =
         &handler.GetTableParamByName(L"Validation.dot4")->m_StringTable;
 
     PCWSTR Validation_type = handler.GetTableParamByName(L"Validation.Type")->m_str;
@@ -3895,13 +4080,13 @@ TEST_F(ExecutionTest, Msad4Test) {
     double tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_double;
     unsigned int count = handler.GetTableParamByName(L"Validation.NumInput")->m_uint;
 
-    WEX::TestExecution::TestDataArray<unsigned int> *Validation_Reference =
+    std::vector<unsigned int> *Validation_Reference =
         &handler.GetTableParamByName(L"Validation.Reference")->m_uintTable;
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Source =
+    std::vector<WEX::Common::String> *Validation_Source =
         &handler.GetTableParamByName(L"Validation.Source")->m_StringTable;
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Accum =
+    std::vector<WEX::Common::String> *Validation_Accum =
         &handler.GetTableParamByName(L"Validation.Accum")->m_StringTable;
-    WEX::TestExecution::TestDataArray<WEX::Common::String> *Validation_Expected =
+    std::vector<WEX::Common::String> *Validation_Expected =
         &handler.GetTableParamByName(L"Validation.Expected")->m_StringTable;
 
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
@@ -4002,8 +4187,7 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
   unsigned int numInputSet = handler.GetTableParamByName(L"Validation.NumInputSet")->m_uint;
 
   // Obtain the list of input lists
-  typedef WEX::TestExecution::TestDataArray<T1> DataArray;
-  std::vector<DataArray*> InputDataList;
+  std::vector<std::vector<T1>*> InputDataList;
   for (unsigned int i = 0;
     i < numInputSet; ++i) {
     std::wstring inputName = L"Validation.InputSet";
@@ -4029,13 +4213,13 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
         PerThreadData *pPrimitives = (PerThreadData*)Data.data();
         // 4 different inputs for each operation test
         size_t index = 0;
-        DataArray *IntList = InputDataList[setIndex];
+        std::vector<T1> *IntList = InputDataList[setIndex];
         while (index < ThreadCount) {
           PerThreadData *p = &pPrimitives[index];
           p->firstLaneId = 0xFFFFBFFF;
           p->laneIndex = 0xFFFFBFFF;
           p->mask = MaskFunctionTable[maskIndex](index);
-          p->input = (*IntList)[index % IntList->GetSize()];
+          p->input = (*IntList)[index % IntList->size()];
           p->output = 0xFFFFBFFF;
           index++;
         }
@@ -4175,6 +4359,57 @@ TEST_F(ExecutionTest, WaveIntrinsicsPrefixUintTest) {
       WaveIntrinsicsPrefixUintParameters,
       sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter),
       /*isPrefix*/ true);
+}
+
+TEST_F(ExecutionTest, CBufferTestHalf) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  // Single operation test at the moment.
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  int tableSize = sizeof(CBufferTestHalfParameters) / sizeof(TableParameter);
+  TableParameterHandler handler(CBufferTestHalfParameters, tableSize);
+  handler.clearTableParameter();
+  VERIFY_SUCCEEDED(ParseTableRow(CBufferTestHalfParameters, tableSize));
+  std::vector<uint16_t> *InputData = handler.GetDataArray<uint16_t>(L"Validation.InputSet");
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "CBufferTestHalf",
+    [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+    VERIFY_IS_TRUE(0 == _stricmp(Name, "CB0"));
+    // use shader from data table.
+    Data.resize(4 * sizeof(uint16_t));
+    for (size_t i = 0; i < 4; ++i) {
+      // pack two halves in 32 bits
+      uint16_t val = (*InputData)[i];
+      Data.at(2*i) = val & 0xff;
+      Data.at(2*i + 1) = val >> 8;
+    }
+  });
+  {
+    MappedData data;
+    test->Test->GetReadBackData("RTarget", &data);
+    const uint16_t *pPixels = (uint16_t *)data.data();
+    uint16_t first = *pPixels;
+    uint16_t second = *(pPixels + 1);
+    uint16_t third = *(pPixels + 2);
+    uint16_t fourth = *(pPixels + 3);
+
+    LogCommentFmt(L"first %f", first);
+    LogCommentFmt(L"second %f", second);
+    LogCommentFmt(L"third %f", third);
+    LogCommentFmt(L"fourth %f", fourth);
+
+    VERIFY_ARE_EQUAL(first, (*InputData)[0]);
+    VERIFY_ARE_EQUAL(second, (*InputData)[1]);
+    VERIFY_ARE_EQUAL(third, (*InputData)[2]);
+    VERIFY_ARE_EQUAL(fourth, (*InputData)[3]);
+  }
 }
 
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
