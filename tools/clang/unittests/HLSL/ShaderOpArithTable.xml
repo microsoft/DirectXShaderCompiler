@@ -3459,4 +3459,34 @@
             </Parameter>
         </Row>
     </Table>
+
+    <Table Id="CBufferTestHalf">
+        <ParameterTypes>
+            <ParameterType Name="Validation.InputSet" Array="true">float</ParameterType>
+        </ParameterTypes>
+        <Row Name="Input1">
+            <Parameter Name="Validation.InputSet">
+                <Value>1.25</Value>
+                <Value>1.75</Value>
+                <Value>1.25</Value>
+                <Value>1.875</Value>
+            </Parameter>
+        </Row>
+        <Row Name="Input2">
+            <Parameter Name="Validation.InputSet">
+                <Value>inf</Value>
+                <Value>-inf</Value>
+                <Value>denorm</Value>
+                <Value>-denorm</Value>
+            </Parameter>
+        </Row>
+        <Row Name="Input3">
+            <Parameter Name="Validation.InputSet">
+                <Value>0</Value>
+                <Value>65504</Value>
+                <Value>-65504</Value>
+                <Value>-1.25</Value>
+            </Parameter>
+       </Row>
+    </Table>
 </Data>
