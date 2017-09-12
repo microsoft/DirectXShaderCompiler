@@ -311,8 +311,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
           << "' for denorm option.";
       return 1;
     }
-    if (opts.TargetProfile.empty() || !opts.TargetProfile.endswith_lower("6_2")) {
+  }
+
+  // Check options only allowed in shader model >= 6.2
+  if (opts.TargetProfile.empty() || !opts.TargetProfile.endswith_lower("6_2")) {
+    if (!opts.FPDenormalMode.empty()) {
       errors << "denorm option is only allowed for shader model 6.2 and above.";
+      return 1;
+    }
+    if (opts.NoMinPrecision) {
+      errors << "no min precision mode is only allowed for shader model 6.2 and above.";
       return 1;
     }
   }
