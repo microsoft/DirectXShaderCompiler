@@ -435,6 +435,54 @@
     ]]>
     </Shader>
   </ShaderOp>
+
+  <ShaderOp Name="CBufferTestHalf" PS="PS" VS="VS" TopologyType="TRIANGLE">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), CBV(b0), DescriptorTable(SRV(t0,numDescriptors=2))</RootSignature>
+    <Resource Name="CB0" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="ByName" TransitionTo="VERTEX_AND_CONSTANT_BUFFER">
+      1.25h, 1.75h, 1.25h, 1.875h
+    </Resource>
+    <Resource Name='VBuffer' Dimension='BUFFER' Flags='ALLOW_UNORDERED_ACCESS' InitialResourceState='COPY_DEST' Init='FromBytes'>
+      1.0f  1.0f 0, 1.0f -1.0f 0.0f, -1.0f -1.0f 0,
+      -1.0f  1.0f 0, 1.0f  1.0f 0.0f, -1.0f -1.0f 0,
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="320" Height="200" Format="R16G16B16A16_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <RootValues>
+      <RootValue ResName="CB0" />
+    </RootValues>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName='POSITION' Format='R32G32B32_FLOAT' AlignedByteOffset='0' />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget" />
+    </RenderTargets>
+    <Shader Name='VS' Target='vs_6_2' EntryPoint='VSMain' Arguments='-no-min-precision' Text="@PS" />
+    <Shader Name='PS' Target='ps_6_2' EntryPoint='PSMain' Arguments='-no-min-precision'>
+      <![CDATA[
+        cbuffer c_buf {
+          half first;
+          half second;
+          half third;
+          half fourth;
+        };
+        struct PSInput {
+         float4 position : SV_POSITION;
+        };
+        PSInput VSMain(float4 position: POSITION) {
+         PSInput result;
+         result.position = position;
+         return result;
+        }
+        float4 PSMain(PSInput input) : SV_TARGET {
+         return float4(first, second, third, fourth);
+        }
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+
   <!--
   TODO: Dynamically index into tables
   -->
