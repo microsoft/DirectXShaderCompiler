@@ -160,7 +160,7 @@ static bool MergeElements(const ElementVec &priorElements,
       priorEl.row != inputEl.row ||
       priorEl.col != inputEl.col ||
       priorEl.kind != inputEl.kind ||
-      priorEl.interpolation != inputEl.interpolation ||
+      // don't care about interpolation since normal signature matching ignores it: priorEl.interpolation != inputEl.interpolation ||
       priorEl.interpretation != inputEl.interpretation) {
       mismatchElementId = inputEl.id;
       return false;
