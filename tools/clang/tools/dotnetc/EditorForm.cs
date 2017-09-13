@@ -1215,6 +1215,11 @@ namespace MainNs
             this.ResetDefaultPasses();
         }
 
+        private static bool IsDisassemblyTokenChar(char c)
+        {
+            return char.IsLetterOrDigit(c) || c == '@' || c == '%' || c == '$';
+        }
+
         private static bool IsTokenLeftBoundary(string text, int i)
         {
             // Whether there is a token boundary between text[i] and text[i-1].
@@ -1222,7 +1227,7 @@ namespace MainNs
             if (i >= text.Length - 1) return true;
             char cPrior = text[i - 1];
             char c = text[i];
-            return !char.IsLetterOrDigit(cPrior) && char.IsLetterOrDigit(c);
+            return !IsDisassemblyTokenChar(cPrior) && IsDisassemblyTokenChar(c);
         }
 
         private static bool IsTokenRightBoundary(string text, int i)
@@ -1231,7 +1236,7 @@ namespace MainNs
             if (i >= text.Length - 1) return true;
             char cPrior = text[i - 1];
             char c = text[i];
-            return char.IsLetterOrDigit(cPrior) && !char.IsLetterOrDigit(c);
+            return IsDisassemblyTokenChar(cPrior) && !IsDisassemblyTokenChar(c);
         }
 
         private static int ColorToCOLORREF(Color value)
@@ -1424,7 +1429,7 @@ namespace MainNs
                 HlslFileVariables fileVars = HlslFileVariables.FromText(this.CodeBox.Text);
                 args = fileVars.Arguments.Where(a => !String.IsNullOrWhiteSpace(a)).ToList();
             }
-            catch(Exception)
+            catch (Exception)
             {
                 args = new List<string>() { "/Od" };
             }
@@ -1435,6 +1440,11 @@ namespace MainNs
                 compiler.Compile(CreateBlobForText("float4 main() : SV_Target { return 0; }"), "hlsl.hlsl", "main", "ps_6_0", args.ToArray(), args.Count, null, 0, null);
             IDxcBlob optDumpBlob = optDumpResult.GetResult();
             string optDumpText = GetStringFromBlob(optDumpBlob);
+            this.AddSelectedPassesFromText(optDumpText, true);
+        }
+
+        private void AddSelectedPassesFromText(string optDumpText, bool replace)
+        {
             List<object> defaultPasses = new List<object>();
             foreach (string line in optDumpText.Split('\n'))
             {
@@ -1479,7 +1489,10 @@ namespace MainNs
                 defaultPasses.Add(passWithValues);
             }
 
-            this.SelectedPassesBox.Items.Clear();
+            if (replace)
+            {
+                this.SelectedPassesBox.Items.Clear();
+            }
             this.SelectedPassesBox.Items.AddRange(defaultPasses.ToArray());
         }
 
@@ -3326,6 +3339,30 @@ namespace MainNs
             sb.Append(": ");
             sb.AppendLine(propertyValue);
             return true;
+        }
+
+        private void PastePassesMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!Clipboard.ContainsText())
+            {
+                MessageBox.Show(this, "The clipboard does not contain pass information.", "Unable to paste passes");
+                return;
+            }
+            string passes = Clipboard.GetText(TextDataFormat.UnicodeText);
+            try
+            {
+                passes = passes.Replace("\r\n", "\n");
+                AddSelectedPassesFromText(passes, false);
+            }
+            catch (Exception ex)
+            {
+                this.HandleException(ex);
+            }
+        }
+
+        private void DeleteAllPassesMenuItem_Click(object sender, EventArgs e)
+        {
+            this.SelectedPassesBox.Items.Clear();
         }
     }
 
