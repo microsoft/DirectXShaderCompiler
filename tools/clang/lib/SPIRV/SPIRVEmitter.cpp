@@ -2290,6 +2290,14 @@ uint32_t SPIRVEmitter::processBinaryOp(const Expr *lhs, const Expr *rhs,
     return processMatrixBinaryOp(lhs, rhs, opcode);
   }
 
+  // Comma operator works differently from other binary operations as there is
+  // no SPIR-V instruction for it. For each comma, we must evaluate lhs and rhs
+  // respectively, and return the results of rhs.
+  if (opcode == BO_Comma) {
+    (void)doExpr(lhs);
+    return doExpr(rhs);
+  }
+
   const spv::Op spvOp = (mandateGenOpcode == spv::Op::Max)
                             ? translateOp(opcode, lhs->getType())
                             : mandateGenOpcode;

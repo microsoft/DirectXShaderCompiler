@@ -122,6 +122,9 @@ TEST_F(FileTest, BinaryOpAssignComposite) {
   runFileTest("binary-op.assign.composite.hlsl");
 }
 
+// For comma binary operator
+TEST_F(FileTest, BinaryOpComma) { runFileTest("binary-op.comma.hlsl"); }
+
 // For arithmetic binary operators
 TEST_F(FileTest, BinaryOpScalarArithmetic) {
   runFileTest("binary-op.arithmetic.scalar.hlsl");
