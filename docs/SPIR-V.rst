@@ -1262,6 +1262,12 @@ Since Texture1D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` i
 is used for translation. If a ``MipLevel`` argument is passed to ``GetDimensions``, it will
 be used as the ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
 
+``.CalculateLevelOfDetail()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture1D is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
+for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
+The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
 
 ``Texture1DArray``
 --------------------------
@@ -1272,6 +1278,13 @@ Since Texture1DArray is represented as ``OpTypeImage``, the ``OpImageQuerySizeLo
 is used for translation. If a ``MipLevel`` argument is present, it will be used as the
 ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
 
+``.CalculateLevelOfDetail()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture1DArray is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
+for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
+The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
+
 ``Texture2D``
 --------------------------
 
@@ -1280,6 +1293,13 @@ is used for translation. If a ``MipLevel`` argument is present, it will be used 
 Since Texture2D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
 is used for translation. If a ``MipLevel`` argument is present, it will be used as the
 ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``.CalculateLevelOfDetail()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture2D is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
+for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
+The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
 
 ``Texture2DArray``
 --------------------------
@@ -1290,6 +1310,13 @@ Since Texture2DArray is represented as ``OpTypeImage``, the ``OpImageQuerySizeLo
 is used for translation. If a ``MipLevel`` argument is present, it will be used as the
 ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
 
+``.CalculateLevelOfDetail()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture2DArray is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
+for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
+The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
+
 ``Texture3D``
 --------------------------
 
@@ -1298,6 +1325,13 @@ is used for translation. If a ``MipLevel`` argument is present, it will be used 
 Since Texture3D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
 is used for translation. If a ``MipLevel`` argument is present, it will be used as the
 ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``.CalculateLevelOfDetail()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture3D is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
+for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
+The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
 
 ``Texture2DMS``
 --------------------------
@@ -1314,6 +1348,26 @@ is used to get the width and the height. Furthermore, ``OpImageQuerySamples`` is
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
 is used to get the width, the height, and the elements. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
+
+``TextureCube``
+--------------------------
+
+``.CalculateLevelOfDetail()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since TextureCube is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
+for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
+The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
+
+``TextureCubeArray``
+--------------------------
+
+``.CalculateLevelOfDetail()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since TextureCubeArray is represented as ``OpTypeImage``, the ``OpImageQueryLod`` instruction is used
+for translation. An ``OpSampledImage`` is created based on the SamplerState passed to the function.
+The resulting sampled image and the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
+The result of ``OpImageQueryLod`` is a float2. The first element contains the mipmap array layer.
 
 ``RWTexture1D``
 --------------------------
