@@ -1061,6 +1061,13 @@ The following intrinsic HLSL functions are currently supported:
 - ``asuint``: converts the component type of a scalar/vector/matrix from float
   or int into uint. Uses ``OpBitcast``. This method currently does not support
   conversion into unsigned integer matrices.
+- ``transpose`` : Transposes the specified matrix. Uses SPIR-V ``OpTranspose``.
+- ``isnan`` : Determines if the specified value is NaN. Uses SPIR-V ``OpIsNan``.
+- ``isinf`` : Determines if the specified value is infinite. Uses SPIR-V ``OpIsInf``.
+- ``isfinite`` : Determines if the specified value is finite. Since ``OpIsFinite``
+  requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and ``OpIsInf``.
+  A given value is finite iff it is not NaN and not infinite.
+- ``fmod`` : Returns the floating-point remainder for division of its arguments. Uses SPIR-V ``OpFMod``.
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1075,17 +1082,23 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``acos``                ``Acos``
 ``asin``                ``Asin``
 ``atan``                ``Atan``
+``atan2``               ``Atan2``
 ``ceil``                ``Ceil``
 ``clamp``               ``SClamp``/``UClamp``/``FClamp``
 ``cos``                 ``Cos``
 ``cosh``                ``Cosh``
-``cross``                ``Cross``
+``cross``               ``Cross``
 ``degrees``             ``Degrees``
+``distance``            ``Distance``
 ``radians``             ``Radian``
 ``determinant``         ``Determinant``
 ``exp``                 ``Exp``
 ``exp2``                ``exp2``
+``firstbithigh``        ``FindSMsb`` / ``FindUMsb``
+``firstbitlow``         ``FindILsb``
 ``floor``               ``Floor``
+``fma``                 ``Fma``
+``frac``                ``Fract``
 ``length``              ``Length``
 ``log``                 ``Log``
 ``log2``                ``Log2``
@@ -1094,15 +1107,19 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``normalize``           ``Normalize``
 ``pow``                 ``Pow``
 ``reflect``             ``Reflect``
+``refract``             ``Refract``
 ``round``               ``Round``
 ``rsqrt``               ``InverseSqrt``
-``step``                ``Step``
+``saturate``            ``FClamp``
 ``sign``                ``SSign``/``FSign``
 ``sin``                 ``Sin``
+``sincos``              ``Sin`` and ``Cos``
 ``sinh``                ``Sinh``
+``smoothstep``          ``SmoothStep``
+``sqrt``                ``Sqrt``
+``step``                ``Step``
 ``tan``                 ``Tan``
 ``tanh``                ``Tanh``
-``sqrt``                ``Sqrt``
 ``trunc``               ``Trunc``
 ======================= ===============================
 
