@@ -125,7 +125,10 @@ static bool CheckFit(ElementVec &elements) {
   packElements.reserve(elements.size());
   for (auto &E : elements)
     packElements.push_back(&E);
-  DxilSignatureAllocator alloc(32);
+  // Since we are putting an upper limit of 4x32 registers regardless of actual element size,
+  // we can just have allocator to use the default behavior.
+  // This should be fixed if we enforce loose upper limit on total number of signature registers based on element size.
+  DxilSignatureAllocator alloc(32, true);
   alloc.SetIgnoreIndexing(true);
   alloc.PackOptimized(packElements, 0, 32);
   for (auto &E : elements) {
@@ -157,7 +160,7 @@ static bool MergeElements(const ElementVec &priorElements,
       priorEl.row != inputEl.row ||
       priorEl.col != inputEl.col ||
       priorEl.kind != inputEl.kind ||
-      priorEl.interpolation != inputEl.interpolation ||
+      // don't care about interpolation since normal signature matching ignores it: priorEl.interpolation != inputEl.interpolation ||
       priorEl.interpretation != inputEl.interpretation) {
       mismatchElementId = inputEl.id;
       return false;

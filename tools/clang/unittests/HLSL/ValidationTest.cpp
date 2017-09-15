@@ -146,6 +146,7 @@ public:
   TEST_METHOD(OutputControlPointIDInPatchConstantFunction);
   TEST_METHOD(GsVertexIDOutOfBound)
   TEST_METHOD(StreamIDOutOfBound)
+  TEST_METHOD(SignatureDataWidth)
   TEST_METHOD(SignatureStreamIDForNonGS)
   TEST_METHOD(TypedUAVStoreFullMask0)
   TEST_METHOD(TypedUAVStoreFullMask1)
@@ -359,42 +360,48 @@ public:
   }
 
   void CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
-                     IDxcBlob **pResultBlob) {
+                     LPCWSTR *pArguments, UINT32 argCount, const DxcDefine *pDefines,
+                     UINT32 defineCount, IDxcBlob **pResultBlob) {
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcOperationResult> pResult;
     CComPtr<IDxcBlob> pProgram;
 
     CA2W shWide(pShaderModel, CP_UTF8);
+
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
-                                        shWide, nullptr, 0, nullptr, 0, nullptr,
-                                        &pResult));
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", shWide,
+                                        pArguments, argCount, pDefines,
+                                        defineCount, nullptr, &pResult));
     CheckOperationResultMsgs(pResult, nullptr, false, false);
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
+  }
+
+  void CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+                     IDxcBlob **pResultBlob) {
+    CompileSource(pSource, pShaderModel, nullptr, 0, nullptr, 0, pResultBlob);
   }
 
   void CompileSource(LPCSTR pSource, LPCSTR pShaderModel,
                      IDxcBlob **pResultBlob) {
     CComPtr<IDxcBlobEncoding> pSourceBlob;
     Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
-    CompileSource(pSourceBlob, pShaderModel, pResultBlob);
+    CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0, pResultBlob);
   }
 
   void DisassembleProgram(IDxcBlob *pProgram, std::string *text) {
     *text = ::DisassembleProgram(m_dllSupport, pProgram);
   }
 
-  void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
-                               llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
-                               llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
+  void RewriteAssemblyCheckMsg(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+    LPCWSTR *pArguments, UINT32 argCount,
+    const DxcDefine *pDefines, UINT32 defineCount,
+    llvm::ArrayRef<LPCSTR> pLookFors,
+    llvm::ArrayRef<LPCSTR> pReplacements,
+    llvm::ArrayRef<LPCSTR> pErrorMsgs,
+    bool bRegex = false) {
     CComPtr<IDxcBlob> pText;
-    CComPtr<IDxcBlobEncoding> pSourceBlob;
-    
-    Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
-
-    RewriteAssemblyToText(pSourceBlob, pShaderModel, pLookFors, pReplacements, &pText, bRegex);
-
+    RewriteAssemblyToText(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, pLookFors, pReplacements, &pText, bRegex);
     CComPtr<IDxcAssembler> pAssembler;
     CComPtr<IDxcOperationResult> pAssembleResult;
     VERIFY_SUCCEEDED(
@@ -409,12 +416,62 @@ public:
     }
   }
 
+  void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
+                               LPCWSTR *pArguments, UINT32 argCount,
+                               const DxcDefine *pDefines, UINT32 defineCount,
+                               llvm::ArrayRef<LPCSTR> pLookFors,
+                               llvm::ArrayRef<LPCSTR> pReplacements,
+                               llvm::ArrayRef<LPCSTR> pErrorMsgs,
+                               bool bRegex = false) {
+    CComPtr<IDxcBlobEncoding> pSourceBlob;
+    Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
+    RewriteAssemblyCheckMsg(pSourceBlob, pShaderModel, pArguments, argCount,
+                            pDefines, defineCount, pLookFors, pReplacements,
+                            pErrorMsgs, bRegex);
+  }
+
+  void RewriteAssemblyCheckMsg(LPCSTR pSource, LPCSTR pShaderModel,
+    llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
+    llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
+    RewriteAssemblyCheckMsg(pSource, pShaderModel, nullptr, 0, nullptr, 0, pLookFors, pReplacements, pErrorMsgs, bRegex);
+  }
+
+  void RewriteAssemblyCheckMsg(LPCWSTR name, LPCSTR pShaderModel,
+    LPCWSTR *pArguments, UINT32 argCount,
+    const DxcDefine *pDefines, UINT32 defCount,
+    llvm::ArrayRef<LPCSTR> pLookFors,
+    llvm::ArrayRef<LPCSTR> pReplacements,
+    llvm::ArrayRef<LPCSTR> pErrorMsgs,
+    bool bRegex = false) {
+    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
+    CComPtr<IDxcLibrary> pLibrary;
+    CComPtr<IDxcBlobEncoding> pSource;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(
+      pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
+    RewriteAssemblyCheckMsg(pSource, pShaderModel,
+      pArguments, argCount, pDefines, defCount, pLookFors,
+      pReplacements, pErrorMsgs, bRegex);
+  }
+
+  void RewriteAssemblyCheckMsg(LPCWSTR name, LPCSTR pShaderModel,
+    llvm::ArrayRef<LPCSTR> pLookFors,
+    llvm::ArrayRef<LPCSTR> pReplacements,
+    llvm::ArrayRef<LPCSTR> pErrorMsgs,
+    bool bRegex = false) {
+    RewriteAssemblyCheckMsg(name, pShaderModel, nullptr, 0, nullptr, 0,
+      pLookFors, pReplacements, pErrorMsgs, bRegex);
+  }
+
   void RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
-                             llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
+                             LPCWSTR *pArguments, UINT32 argCount,
+                             const DxcDefine *pDefines, UINT32 defineCount,
+                             llvm::ArrayRef<LPCSTR> pLookFors,
+                             llvm::ArrayRef<LPCSTR> pReplacements,
                              IDxcBlob **pBlob, bool bRegex = false) {
     CComPtr<IDxcBlob> pProgram;
     std::string disassembly;
-    CompileSource(pSource, pShaderModel, &pProgram);
+    CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines, defineCount, &pProgram);
     DisassembleProgram(pProgram, &disassembly);
     for (unsigned i = 0; i < pLookFors.size(); ++i) {
       LPCSTR pLookFor = pLookFors[i];
@@ -456,33 +513,7 @@ public:
     }
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), pBlob);
   }
-  
-  void RewriteAssemblyCheckMsg(LPCWSTR name, LPCSTR pShaderModel,
-                               llvm::ArrayRef<LPCSTR> pLookFors, llvm::ArrayRef<LPCSTR> pReplacements,
-                               llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
-    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(name);
-    CComPtr<IDxcLibrary> pLibrary;
-    CComPtr<IDxcBlobEncoding> pSource;
-    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    VERIFY_SUCCEEDED(
-        pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
 
-    CComPtr<IDxcBlob> pText;
-
-    RewriteAssemblyToText(pSource, pShaderModel, pLookFors, pReplacements, &pText, bRegex);
-
-    CComPtr<IDxcAssembler> pAssembler;
-    CComPtr<IDxcOperationResult> pAssembleResult;
-    VERIFY_SUCCEEDED(
-        m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-    VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pText, &pAssembleResult));
-    if (!CheckOperationResultMsgs(pAssembleResult, pErrorMsgs, true, bRegex)) {
-      // Assembly succeeded, try validation.
-      CComPtr<IDxcBlob> pBlob;
-      VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pBlob));
-      CheckValidationMsgs(pBlob, pErrorMsgs, bRegex);
-    }
-  }
 
   // compile one or two sources, validate module from 1 with container parts from 2, check messages
   void ReplaceContainerPartsCheckMsgs(LPCSTR pSource1, LPCSTR pSource2, LPCSTR pShaderModel,
@@ -1067,6 +1098,19 @@ TEST_F(ValidationTest, StreamIDOutOfBound) {
       "dx.op.emitStream(i32 97, i8 0)",
       "dx.op.emitStream(i32 97, i8 1)", 
       "expect StreamID between 0 , got 1");
+}
+
+TEST_F(ValidationTest, SignatureDataWidth) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  std::vector<LPCWSTR> pArguments = { L"-no-min-precision" };
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\signature_packing_by_width.hlsl", "ps_6_2",
+      pArguments.data(), 1, nullptr, 0,
+      {"i8 8, i8 0, (![0-9]+), i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
+      {"i8 9, i8 0, \\1, i8 2, i32 1, i8 2, i32 0, i8 0, null}"},
+      "signature element F at location \\(0, 2\\) size \\(1, 2\\) has data "
+      "width that differs from another element packed into the same row.",
+      true);
 }
 
 TEST_F(ValidationTest, SignatureStreamIDForNonGS) {

@@ -15,7 +15,7 @@ namespace dia2
 
     [ComImport]
     [Guid("e6756135-1e65-4d17-8576-610761398c3c")]
-    class DiaDataSource
+    public class DiaDataSource
     {
 
     }
@@ -23,7 +23,7 @@ namespace dia2
     [ComImport]
     [Guid("79F1BB5F-B66E-48e5-B6A9-1545C323CA3D")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaDataSource
+    public interface IDiaDataSource
     {
         [return: MarshalAs(UnmanagedType.BStr)]
         string get_lastError();
@@ -39,7 +39,7 @@ namespace dia2
     [ComImport]
     [Guid("2F609EE1-D1C8-4E24-8288-3326BADCD211")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaSession
+    public interface IDiaSession
     {
         UInt64 get_loadAddress();
         void put_loadAddress(UInt64 value);
@@ -105,7 +105,7 @@ namespace dia2
     [ComImport]
     [Guid("cb787b2f-bd6c-4635-ba52-933126bd2dcd")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaSymbol
+    public interface IDiaSymbol
     {
         UInt32 get_symIndexId();
         UInt32 get_symTag();
@@ -358,7 +358,7 @@ namespace dia2
     [ComImport]
     [Guid("C65C2B0A-1150-4d7a-AFCC-E05BF3DEE81E")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaEnumTables
+    public interface IDiaEnumTables
     {
         void get__NewEnum();
         UInt32 get_Count();
@@ -374,7 +374,7 @@ namespace dia2
     [ComImport]
     [Guid("B388EB14-BE4D-421d-A8A1-6CF7AB057086")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaLineNumber
+    public interface IDiaLineNumber
     {
         IDiaSymbol get_compiland();
         IDiaSourceFile get_sourceFile();
@@ -395,7 +395,7 @@ namespace dia2
     [ComImport]
     [Guid("0CF4B60E-35B1-4c6c-BDD8-854B9C8E3857")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaSectionContrib
+    public interface IDiaSectionContrib
     {
         IDiaSymbol get_compiland();
         uint get_addressSection();
@@ -424,7 +424,7 @@ namespace dia2
     [ComImport]
     [Guid("0775B784-C75B-4449-848B-B7BD3159545B")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaSegment
+    public interface IDiaSegment
     {
         uint get_frame();
         uint get_offset();
@@ -440,7 +440,7 @@ namespace dia2
     [ComImport]
     [Guid("00000100-0000-0000-C000-000000000046")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IEnumUnknown
+    public interface IEnumUnknown
     {
         UInt32 Next(UInt32 count,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.IUnknown, SizeParamIndex = 2)]
@@ -453,7 +453,7 @@ namespace dia2
     [ComImport]
     [Guid("A2EF5353-F5A8-4eb3-90D2-CB526ACB3CDD")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaSourceFile
+    public interface IDiaSourceFile
     {
         uint get_uniqueId();
         [return: MarshalAs(UnmanagedType.BStr)]
@@ -466,7 +466,7 @@ namespace dia2
     [ComImport]
     [Guid("4A59FB77-ABAC-469b-A30B-9ECC85BFEF14")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface IDiaTable // : IEnumUnknown - need to replay vtable
+    public interface IDiaTable // : IEnumUnknown - need to replay vtable
     {
         UInt32 Next(UInt32 count,
             [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.IUnknown, SizeParamIndex = 2)]
@@ -484,7 +484,7 @@ namespace dia2
         object Item(UInt32 index);
     }
 
-    enum SymTagEnum
+    public enum SymTagEnum
     {
         SymTagNull,
         SymTagExe,

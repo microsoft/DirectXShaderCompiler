@@ -22,6 +22,7 @@
 #include "dxc/Support/Global.h"     // OutputDebugBytes
 #include "dxc/Support/Unicode.h"    // IsStarMatchUTF16
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
+#include "dxc/HLSL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
 #include "HLSLTestUtils.h"          // LogCommentFmt
 
@@ -631,6 +632,19 @@ static bool TargetUsesDxil(LPCSTR pText) {
   return (strlen(pText) > 3) && pText[3] >= '6'; // xx_6xx
 }
 
+static void splitWStringIntoVectors(LPWSTR str, wchar_t delim, std::vector<LPWSTR> &list) {
+  if (str) {
+    LPWSTR cur = str;
+    list.push_back(cur);
+    while (*cur != L'\0') {
+      if (*cur == delim) {
+        list.push_back(cur+1);
+        *(cur) = L'\0';
+      }
+      cur++;
+    }
+  }
+}
 void ShaderOpTest::CreateShaders() {
   for (ShaderOpShader &S : m_pShaderOp->Shaders) {
     CComPtr<ID3DBlob> pCode;
@@ -644,13 +658,20 @@ void ShaderOpTest::CreateShaders() {
       CA2W nameW(S.Name, CP_UTF8);
       CA2W entryPointW(S.EntryPoint, CP_UTF8);
       CA2W targetW(S.Target, CP_UTF8);
+      CA2W argumentsW(S.Arguments, CP_UTF8);
+
+      std::vector<LPWSTR> argumentsWList;
+      splitWStringIntoVectors(argumentsW, L' ', argumentsWList);
+
       HRESULT resultCode;
       CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcLibrary, &pLibrary));
       CHECK_HR(pLibrary->CreateBlobWithEncodingFromPinned(
           (LPBYTE)pText, (UINT32)strlen(pText), CP_UTF8, &pTextBlob));
       CHECK_HR(m_pDxcSupport->CreateInstance(CLSID_DxcCompiler, &pCompiler));
       CHECK_HR(pCompiler->Compile(pTextBlob, nameW, entryPointW, targetW,
-                                  nullptr, 0, nullptr, 0, nullptr, &pResult));
+                                  (LPCWSTR *)argumentsWList.data(), argumentsWList.size(),
+                                  nullptr, 0,
+                                  nullptr, &pResult));
       CHECK_HR(pResult->GetStatus(&resultCode));
       if (FAILED(resultCode)) {
         CComPtr<IDxcBlobEncoding> errors;
@@ -1815,6 +1836,119 @@ LPCWSTR FindByteInitSeparators(LPCWSTR pText) {
   return pText;
 }
 
+using namespace hlsl;
+
+DXIL::ComponentType GetCompType(LPCWSTR pText, LPCWSTR pEnd) {
+  // if no prefix shown, use it as a default
+  if (pText == pEnd) return DXIL::ComponentType::F32;
+  // check if suffix starts with (half)
+  if (wcsncmp(pText, L"(half)", 6) == 0) {
+    return DXIL::ComponentType::F16;
+  }
+  switch (*(pEnd - 1)) {
+  case L'h':
+  case L'H':
+    return DXIL::ComponentType::F16;
+  case L'l':
+  case L'L':
+    return DXIL::ComponentType::F64;
+  case L'u':
+  case L'U':
+    return DXIL::ComponentType::U32;
+  case L'i':
+  case L'I':
+    return DXIL::ComponentType::I32;
+  case L'f':
+  case L'F':
+  default:
+    return DXIL::ComponentType::F32;
+  }
+}
+
+bool GetSign(float x) {
+  return std::signbit(x);
+}
+
+int GetMantissa(float x) {
+  int bits = reinterpret_cast<int &>(x);
+  return bits & 0x7fffff;
+}
+
+int GetExponent(float x) {
+  int bits = reinterpret_cast<int &>(x);
+  return (bits >> 23) & 0xff;
+}
+
+
+// Note: This is not a precise float32 to float16 conversion.
+// This function should be used to convert float values read from ShaderOp data that were intended to be used for halves.
+// So special values (nan, denorm, inf) for float32 will map to their corresponding bits in float16,
+// and it will not handle true conversions that spans float16 denorms and float32 non-denorms.
+uint16_t ConvertFloat32ToFloat16(float x) {
+  bool isNeg = GetSign(x);
+  int exp = GetExponent(x);
+  int mantissa = GetMantissa(x);
+  if (isnan(x)) return Float16NaN;
+  if (isinf(x) || exp - 127 > 15) {
+    return isNeg ? Float16NegInf : Float16PosInf;
+  }
+  if (isdenorm(x)) return isNeg ? Float16NegDenorm : Float16PosDenorm;
+  if (exp == 0 && mantissa == 0) return isNeg ? Float16NegZero : Float16PosZero;
+  else {
+    DXASSERT(exp - 127 <= 15, "else invalid float conversion");
+    uint16_t val = 0;
+    val |= isNeg ? 0x8000 : 0;
+    val |= (exp - 127 + 15) << 10; // subtract from float32 exponent bias and add float16 exponent bias
+    val |= mantissa >> 13; // only first 10 significands taken
+    return val;
+  }
+}
+
+void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType, std::vector<BYTE> &V) {
+  BYTE *pB;
+  if (compType == DXIL::ComponentType::F16 || compType == DXIL::ComponentType::F32) {
+    float fVal;
+    size_t wordSize = pEnd - pText;
+    if (wordSize >= 3 && 0 == _wcsnicmp(pEnd - 3, L"nan", 3)) {
+      fVal = NAN;
+    }
+    else if (wordSize >= 4 && 0 == _wcsnicmp(pEnd - 4, L"-inf", 4)) {
+      fVal = -(INFINITY);
+    }
+    else if ((wordSize >= 3 && 0 == _wcsnicmp(pEnd - 3, L"inf", 3)) ||
+               (wordSize >= 4 && 0 == _wcsnicmp(pEnd - 4, L"+inf", 4))) {
+      fVal = INFINITY;
+    }
+    else if (wordSize >= 7 && 0 == _wcsnicmp(pEnd - 7, L"-denorm", 7)) {
+      fVal = -(FLT_MIN / 2);
+    }
+    else if (wordSize >= 6 && 0 == _wcsnicmp(pEnd - 6, L"denorm", 6)) {
+      fVal = (FLT_MIN / 2);
+    }
+    else {
+      fVal = wcstof(pText, nullptr);
+    }
+
+    if (compType == DXIL::ComponentType::F16) {
+      uint16_t fp16Val = ConvertFloat32ToFloat16(fVal);
+      pB = (BYTE *)&fp16Val;
+      V.insert(V.end(), pB, pB + sizeof(float));
+    }
+    else {
+      pB = (BYTE *)&fVal;
+      V.insert(V.end(), pB, pB + sizeof(float));
+    }
+  }
+  else if (compType == DXIL::ComponentType::I32) {
+    int val = _wtoi(pText);
+    pB = (BYTE *)&val;
+    V.insert(V.end(), pB, pB + sizeof(int));
+  }
+  else {
+    DXASSERT(false, "Unsupported stream component type : %u", compType);
+  }
+}
+
 void ShaderOpParser::ParseResource(IXmlReader *pReader, ShaderOpResource *pResource) {
   if (!ReadAtElementName(pReader, L"Resource"))
     return;
@@ -1888,30 +2022,8 @@ void ShaderOpParser::ParseResource(IXmlReader *pReader, ShaderOpResource *pResou
         if (!*pText) continue;
         LPCWSTR pEnd = FindByteInitSeparators(pText);
         // Consider looking for prefixes/suffixes to handle bases and types.
-        float fVal;
-        if (0 == _wcsnicmp(pText, L"nan", 3)) {
-          fVal = NAN;
-        }
-        else if (0 == _wcsnicmp(pText, L"-inf", 4)) {
-          fVal = -(INFINITY);
-        }
-        else if (0 == _wcsnicmp(pText, L"inf", 3) || 0 == _wcsnicmp(pText, L"+inf", 4)) {
-          fVal = INFINITY;
-        }
-        else if (0 == _wcsnicmp(pText, L"-denorm", 7)) {
-          fVal = -(FLT_MIN / 2);
-        }
-        else if (0 == _wcsnicmp(pText, L"denorm", 6)) {
-          fVal = (FLT_MIN / 2);
-        }
-        else {
-          fVal = wcstof(pText, nullptr);
-        }
-        BYTE *pB = (BYTE *)&fVal;
-        for (size_t i = 0; i < sizeof(float); ++i) {
-          V.push_back(*pB);
-          ++pB;
-        }
+        DXIL::ComponentType compType = GetCompType(pText, pEnd);
+        ParseDataFromText(pText, pEnd, compType, V);
         pText = pEnd;
       }
     }
@@ -1926,6 +2038,8 @@ void ShaderOpParser::ParseShader(IXmlReader *pReader, ShaderOpShader *pShader) {
   CHECK_HR(ReadAttrStr(pReader, L"Name", &pShader->Name));
   CHECK_HR(ReadAttrStr(pReader, L"EntryPoint", &pShader->EntryPoint));
   CHECK_HR(ReadAttrStr(pReader, L"Target", &pShader->Target));
+  CHECK_HR(ReadAttrStr(pReader, L"Arguments", &pShader->Arguments))
+
   ReadElementContentStr(pReader, &pShader->Text);
   bool hasText = pShader->Text && *pShader->Text;
   if (hasText) {

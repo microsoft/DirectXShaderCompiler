@@ -583,6 +583,20 @@ if %errorlevel% equ 0 (
   exit /b 1
 )
 
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_2 /no-min-precision 1>nul
+if %errorlevel% neq 0 (
+  echo Failed to compile %script_dir%\smoke.hlsl with /no-min-precision option
+  call :cleanup 2>nul
+  exit /b 1
+)
+
+dxc.exe %script_dir%\smoke.hlsl /Tps_6_1 /no-min-precision 2>nul
+if %errorlevel% equ 0 (
+  echo dxc incorrectly compiled %script_dir%\smoke.hlsl shader model 6.1 with /no-min-precision option
+  call :cleanup 2>nul
+  exit /b 1
+)
+
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
 set spirv_smoke_success=0

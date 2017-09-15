@@ -141,7 +141,7 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM) {
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   DXIL::ShaderKind shaderKind = pSM->GetKind();
-  m_EntrySignature = llvm::make_unique<DxilEntrySignature>(shaderKind);
+  m_EntrySignature = llvm::make_unique<DxilEntrySignature>(shaderKind, !m_ShaderFlags.GetUseNativeLowPrecision());
   m_RootSignature.reset(new RootSignatureHandle());
 }
 
@@ -1298,7 +1298,7 @@ void DxilModule::LoadDxilMetadata() {
       DXIL::ShaderKind shaderKind = m_DxilFunctionPropsMap[F]->shaderKind;
 
       std::unique_ptr<hlsl::DxilEntrySignature> Sig =
-          llvm::make_unique<hlsl::DxilEntrySignature>(shaderKind);
+          llvm::make_unique<hlsl::DxilEntrySignature>(shaderKind, !m_ShaderFlags.GetUseNativeLowPrecision());
 
       m_pMDHelper->LoadDxilSignatures(pSig->getOperand(idx), *Sig);
 

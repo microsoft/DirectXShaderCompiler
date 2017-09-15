@@ -1568,6 +1568,7 @@ class db_dxil(object):
         self.add_valrule_msg("Meta.SignatureOutOfRange", "Signature elements must fit within maximum signature size", "signature element %0 at location (%1,%2) size (%3,%4) is out of range.")
         self.add_valrule_msg("Meta.SignatureIndexConflict", "Only elements with compatible indexing rules may be packed together", "signature element %0 at location (%1,%2) size (%3,%4) has an indexing conflict with another signature element packed into the same row.")
         self.add_valrule_msg("Meta.SignatureIllegalComponentOrder", "Component ordering for packed elements must be: arbitrary < system value < system generated value", "signature element %0 at location (%1,%2) size (%3,%4) violates component ordering rule (arb < sv < sgv).")
+        self.add_valrule_msg("Meta.SignatureDataWidth", "Data width must be identical for all elements packed into the same row.", "signature element %0 at location (%1, %2) size (%3, %4) has data width that differs from another element packed into the same row.")
         self.add_valrule_msg("Meta.IntegerInterpMode", "Interpolation mode on integer must be Constant", "signature element %0 specifies invalid interpolation mode for integer component type.")
         self.add_valrule_msg("Meta.InterpModeInOneRow", "Interpolation mode must be identical for all elements packed into the same row.", "signature element %0 at location (%1,%2) size (%3,%4) has interpolation mode that differs from another element packed into the same row.")
         self.add_valrule("Meta.SemanticCompType", "%0 must be %1")

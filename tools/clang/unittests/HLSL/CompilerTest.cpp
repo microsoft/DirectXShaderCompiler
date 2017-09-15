@@ -692,6 +692,8 @@ public:
   TEST_METHOD(CodeGenSelectObj5)
   TEST_METHOD(CodeGenSelfCopy)
   TEST_METHOD(CodeGenSelMat)
+  TEST_METHOD(CodeGenSignaturePacking)
+  TEST_METHOD(CodeGenSignaturePackingByWidth)
   TEST_METHOD(CodeGenShaderAttr)
   TEST_METHOD(CodeGenShare_Mem_Dbg)
   TEST_METHOD(CodeGenShare_Mem_Phi)
@@ -3922,6 +3924,15 @@ TEST_F(CompilerTest, CodeGenSelMat) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\selMat.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenSignaturePacking) {
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\signature_packing.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenSignaturePackingByWidth) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
+  CodeGenTestCheck(L"..\\CodeGenHLSL\\signature_packing_by_width.hlsl");
+}
+
 TEST_F(CompilerTest, CodeGenShaderAttr) {
   CodeGenTestCheck(L"..\\CodeGenHLSL\\shader_attr.hlsl");
 }
@@ -4324,6 +4335,7 @@ TEST_F(CompilerTest, CodeGenLiterals_Mod) {
 }
 
 TEST_F(CompilerTest, CodeGenLiterals_Exact_Precision_Mod) {
+  if (m_ver.SkipDxilVersion(1, 2)) return;
   CodeGenTest(L"..\\CodeGenHLSL\\literals_exact_precision_Mod.hlsl");
 }
 

@@ -34,6 +34,7 @@ public:
   bool operator==(const CompType &o) const;
 
   Kind GetKind() const;
+  uint8_t GetSizeInBits() const;
 
   static CompType getInvalid();
   static CompType getF16();
