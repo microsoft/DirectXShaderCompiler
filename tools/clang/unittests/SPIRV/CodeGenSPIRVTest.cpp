@@ -225,6 +225,9 @@ TEST_F(FileTest, OpRWStructuredBufferAccess) {
   runFileTest("op.rw-structured-buffer.access.hlsl");
 }
 
+// For RWTexture accessing operator
+TEST_F(FileTest, OpRWTextureAccess) { runFileTest("op.rwtexture.access.hlsl"); }
+
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
 TEST_F(FileTest, CastImplicit2Bool) { runFileTest("cast.2bool.implicit.hlsl"); }
@@ -386,6 +389,7 @@ TEST_F(FileTest, BufferWrite) { runFileTest("buffer.write.hlsl"); }
 
 // For RWTexture methods
 TEST_F(FileTest, RWTextureLoad) { runFileTest("rwtexture.load.hlsl"); }
+TEST_F(FileTest, RWTextureWrite) { runFileTest("rwtexture.write.hlsl"); }
 
 // For intrinsic functions
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }

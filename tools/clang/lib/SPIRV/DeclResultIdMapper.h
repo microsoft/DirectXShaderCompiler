@@ -175,13 +175,19 @@ public:
 public:
   /// The struct containing SPIR-V information of a AST Decl.
   struct DeclSpirvInfo {
+    DeclSpirvInfo(uint32_t result = 0,
+                  spv::StorageClass sc = spv::StorageClass::Function,
+                  LayoutRule lr = LayoutRule::Void, int indexInCTB = -1)
+        : resultId(result), storageClass(sc), layoutRule(lr),
+          indexInCTBuffer(indexInCTB) {}
+
     uint32_t resultId;
     spv::StorageClass storageClass;
     /// Layout rule for this decl.
-    LayoutRule layoutRule = LayoutRule::Void;
+    LayoutRule layoutRule;
     /// Value >= 0 means that this decl is a VarDecl inside a cbuffer/tbuffer
     /// and this is the index; value < 0 means this is just a standalone decl.
-    int indexInCTBuffer = -1;
+    int indexInCTBuffer;
   };
 
   /// \brief Returns the SPIR-V information for the given decl.
