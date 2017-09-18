@@ -1068,6 +1068,10 @@ The following intrinsic HLSL functions are currently supported:
   requires the ``Kernel`` capability, translation is done using ``OpIsNan`` and ``OpIsInf``.
   A given value is finite iff it is not NaN and not infinite.
 - ``fmod`` : Returns the floating-point remainder for division of its arguments. Uses SPIR-V ``OpFMod``.
+- ``countbits`` : Counts the number of bits (per component) in the input integer. Uses SPIR-V ``OpBitCount``.
+- ``reversebits``: Reverses the order of the bits, per component. Uses SPIR-V ``OpBitReverse``.
+- ``clip``: Discards the current pixel if the specified value is less than zero. Uses conditional
+  control flow as well as SPIR-V ``OpKill``.
 
 Using GLSL extended instructions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1075,9 +1079,9 @@ Using GLSL extended instructions
 the following intrinsic HLSL functions are translated using their equivalent
 instruction in the `GLSL extended instruction set <https://www.khronos.org/registry/spir-v/specs/1.0/GLSL.std.450.html>`_.
 
-======================= ===============================
+======================= ===================================
 HLSL Intrinsic Function   GLSL Extended Instruction
-======================= ===============================
+======================= ===================================
 ``abs``                 ``SAbs``/``FAbs``
 ``acos``                ``Acos``
 ``asin``                ``Asin``
@@ -1099,11 +1103,17 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``floor``               ``Floor``
 ``fma``                 ``Fma``
 ``frac``                ``Fract``
+``frexp``               ``FrexpStruct``
+``ldexp``               ``Ldexp``
 ``length``              ``Length``
+``lerp``                ``FMix``
 ``log``                 ``Log``
+``log10``               ``Log2`` (scaled by ``1/log2(10)``)
 ``log2``                ``Log2``
+``mad``                 ``Fma``
 ``max``                 ``SMax``/``UMax``/``FMax``
 ``min``                 ``SMin``/``UMin``/``FMin``
+``modf``                ``ModfStruct``
 ``normalize``           ``Normalize``
 ``pow``                 ``Pow``
 ``reflect``             ``Reflect``

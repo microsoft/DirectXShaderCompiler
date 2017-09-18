@@ -258,14 +258,27 @@ private:
   /// Processes HLSL instrinsic functions.
   uint32_t processIntrinsicCallExpr(const CallExpr *);
 
+  /// Processes the 'clip' intrinsic function. Discards the current pixel if the
+  /// specified value is less than zero.
+  uint32_t processIntrinsicClip(const CallExpr *);
+
   /// Processes the 'clamp' intrinsic function.
   uint32_t processIntrinsicClamp(const CallExpr *);
+
+  /// Processes the 'frexp' intrinsic function.
+  uint32_t processIntrinsicFrexp(const CallExpr *);
+
+  /// Processes the 'modf' intrinsic function.
+  uint32_t processIntrinsicModf(const CallExpr *);
 
   /// Processes the 'mul' intrinsic function.
   uint32_t processIntrinsicMul(const CallExpr *);
 
   /// Processes the 'dot' intrinsic function.
   uint32_t processIntrinsicDot(const CallExpr *);
+
+  /// Processes the 'log10' intrinsic function.
+  uint32_t processIntrinsicLog10(const CallExpr *);
 
   /// Processes the 'all' and 'any' intrinsic functions.
   uint32_t processIntrinsicAllOrAny(const CallExpr *, spv::Op);
