@@ -2023,7 +2023,7 @@ void HLMatrixLowerPass::replaceMatWithVec(Instruction *matInst,
         } else {
           IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(useCall));
           DXASSERT(opcode == IntrinsicOp::IOP_frexp,
-                   "else invalid opcode for mat inst use a none call mat inst");
+                   "otherwise, unexpected opcode with matrix out parameter");
           // NOTE: because out param use copy out semantic, so the operand of
           // out must be temp alloca.
           DXASSERT(isa<AllocaInst>(matInst), "else invalid mat ptr for frexp");
