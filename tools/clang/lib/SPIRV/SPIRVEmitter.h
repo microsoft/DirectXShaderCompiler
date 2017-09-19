@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "dxc/HLSL/DxilShaderModel.h"
+#include "dxc/HlslIntrinsicOp.h"
 #include "spirv/1.0/GLSL.std.450.h"
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
@@ -112,6 +113,10 @@ private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
   spv::Op translateOp(BinaryOperator::Opcode op, QualType type);
+
+  /// Generates SPIR-V instructions for the given normal (non-intrinsic and
+  /// non-operator) standalone or member function call.
+  uint32_t processCall(const CallExpr *expr);
 
   /// Generates the necessary instructions for assigning rhs to lhs. If lhsPtr
   /// is not zero, it will be used as the pointer from lhs instead of evaluating
@@ -280,6 +285,10 @@ private:
   /// construction to generate the resulting matrix.
   uint32_t processIntrinsicUsingGLSLInst(const CallExpr *, GLSLstd450 instr,
                                          bool canOperateOnMatrix);
+
+  /// Processes the given intrinsic member call.
+  uint32_t processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
+                                      hlsl::IntrinsicOp opcode);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -498,11 +507,14 @@ private:
   /// a deterministic order of iterating the queue for finding the next decl
   /// to translate. So we need SetVector here.
   llvm::SetVector<const DeclaratorDecl *> workQueue;
+
   /// <result-id> for the entry function. Initially it is zero and will be reset
   /// when starting to translate the entry function.
   uint32_t entryFunctionId;
   /// The current function under traversal.
   const FunctionDecl *curFunction;
+  /// The SPIR-V function parameter for the current this object.
+  uint32_t curThis;
 
   /// Global variables that should be initialized once at the begining of the
   /// entry function.

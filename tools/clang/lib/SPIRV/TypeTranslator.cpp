@@ -123,6 +123,12 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
     return translateType(refType->getPointeeType(), rule, isRowMajor);
   }
 
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>()) {
+    // The this object in a struct member function is of pointer type.
+    return translateType(ptrType->getPointeeType(), rule, isRowMajor);
+  }
+
   // In AST, vector/matrix types are TypedefType of TemplateSpecializationType.
   // We handle them via HLSL type inspection functions.
 
@@ -207,6 +213,7 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
   }
 
   emitError("Type '%0' is not supported yet.") << type->getTypeClassName();
+  type->dump();
   return 0;
 }
 

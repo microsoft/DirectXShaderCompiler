@@ -309,6 +309,11 @@ TEST_F(FileTest, ControlFlowConditionalOp) { runFileTest("cf.cond-op.hlsl"); }
 TEST_F(FileTest, FunctionCall) { runFileTest("fn.call.hlsl"); }
 TEST_F(FileTest, FunctionInOutParam) { runFileTest("fn.param.inout.hlsl"); }
 
+// For struct methods
+TEST_F(FileTest, StructMethodCallNormal) {
+  runFileTest("method.struct.method.hlsl");
+}
+
 // For semantics
 TEST_F(FileTest, SemanticPositionVS) {
   runFileTest("semantic.position.vs.hlsl");
