@@ -1677,9 +1677,7 @@ Value *TranslateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Constant *exponentShiftConst = ConstantInt::get(i32Ty, 23);
   Constant *mantisaOrConst = ConstantInt::get(i32Ty, 0x3f000000);
   Constant *exponentBiasConst = ConstantInt::get(i32Ty, -(int)0x3f000000);
-  // bool ne = val != 0;
-  Value *notZero = Builder.CreateFCmpUNE(val, hlslOP->GetFloatConst(0));
-  notZero = Builder.CreateZExt(notZero, i32Ty);
+  Constant *zeroVal = hlslOP->GetFloatConst(0);
   // int iVal = asint(val);
   Type *dstTy = i32Ty;
   Type *Ty = val->getType();
@@ -1691,9 +1689,14 @@ Value *TranslateFrexp(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     exponentShiftConst = ConstantVector::getSplat(vecSize, exponentShiftConst);
     mantisaOrConst = ConstantVector::getSplat(vecSize, mantisaOrConst);
     exponentBiasConst = ConstantVector::getSplat(vecSize, exponentBiasConst);
+    zeroVal = ConstantVector::getSplat(vecSize, zeroVal);
   }
 
-  Value *intVal = Builder.CreateBitCast(val, i32Ty);
+  // bool ne = val != 0;
+  Value *notZero = Builder.CreateFCmpUNE(val, zeroVal);
+  notZero = Builder.CreateZExt(notZero, dstTy);
+
+  Value *intVal = Builder.CreateBitCast(val, dstTy);
   // temp = intVal & exponentMask;
   Value *temp = Builder.CreateAnd(intVal, exponentMaskConst);
   // temp = temp + exponentBias;
