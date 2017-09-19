@@ -38,14 +38,16 @@ bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
   // Primitive types
   {
     QualType ty = {};
-    if (isScalarType(type, &ty)) {
-      if (const auto *builtinType = ty->getAs<BuiltinType>()) {
-        const auto kind = builtinType->getKind();
-        return kind == BuiltinType::Short || kind == BuiltinType::UShort ||
-               kind == BuiltinType::Min12Int ||
-               kind == BuiltinType::Min10Float || kind == BuiltinType::Half;
-      }
-    }
+    if (isScalarType(type, &ty))
+      if (const auto *builtinType = ty->getAs<BuiltinType>())
+        switch (builtinType->getKind()) {
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Min10Float:
+        case BuiltinType::Half:
+          return true;
+        }
   }
 
   // Vector & Matrix types could use relaxed precision based on their element

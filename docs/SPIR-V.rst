@@ -87,26 +87,22 @@ Normal scalar types
 in HLSL are relatively easy to handle and can be mapped directly to SPIR-V
 type instructions:
 
-====================================== ================== =========== ====================
-      HLSL                                   SPIR-V       Capability       Decoration
-====================================== ================== =========== ====================
-``bool``                               ``OpTypeBool``
-``int``                                ``OpTypeInt 32 1``
-``min12int``/``min16int``              ``OpTypeInt 32 1``             ``RelexedPrecision``
-``uint``/``dword``                     ``OpTypeInt 32 0``
-``min16uint``                          ``OpTypeInt 32 0``             ``RelexedPrecision``
-``half``/``min16float``/``min10float`` ``OpTypeFloat 32``             ``RelexedPrecision``
-``float``                              ``OpTypeFloat 32``
-``double``                             ``OpTypeFloat 64`` ``Float64``
-====================================== ================== =========== ====================
+================== ================== =========== ====================
+      HLSL               SPIR-V       Capability       Decoration
+================== ================== =========== ====================
+``bool``           ``OpTypeBool``
+``int``            ``OpTypeInt 32 1``
+``uint``/``dword`` ``OpTypeInt 32 0``
+``half``           ``OpTypeFloat 32``             ``RelexedPrecision``
+``float``          ``OpTypeFloat 32``
+``double``         ``OpTypeFloat 64`` ``Float64``
+================== ================== =========== ====================
 
 Please note that ``half`` is translated into 32-bit floating point numbers
 right now because MSDN says that "this data type is provided only for language
 compatibility. Direct3D 10 shader targets map all ``half`` data types to
 ``float`` data types." This may change in the future to map to 16-bit floating
 point numbers (possibly via a command-line option).
-
-Note: ``float`` and ``double`` not implemented yet
 
 Minimal precision scalar types
 ------------------------------
@@ -127,8 +123,6 @@ the corresponding 32-bit scalar types with the ``RelexedPrecision`` decoration:
 ``min12int``   ``OpTypeInt 32 1`` ``RelexedPrecision``
 ``min16uint``  ``OpTypeInt 32 0`` ``RelexedPrecision``
 ============== ================== ====================
-
-Note: not implemented yet
 
 Vectors and matrices
 --------------------

@@ -45,18 +45,18 @@ void main() {
   double doublevar;
 
 // These following variables should use the types already defined above.
-  bool1      boolvar1;
-  int1       intvar1;
-  min16int   m16i1;
-  min12int   m12i1;
-  uint1      uintvar1;
-  dword1     dwordvar1;
-  min16uint  m16u1;
-  float1     floatvar1;
-  half1      halfvar1;
-  min16float m16f1;
-  min10float m10f1;
-  double1    doublevar1;
+  bool1       boolvar1;
+  int1        intvar1;
+  min16int1   m16i1;
+  min12int1   m12i1;
+  uint1       uintvar1;
+  dword1      dwordvar1;
+  min16uint1  m16u1;
+  float1      floatvar1;
+  half1       halfvar1;
+  min16float1 m16f1;
+  min10float1 m10f1;
+  double1     doublevar1;
 
 // CHECK:         %boolvar = OpVariable %_ptr_Function_bool Function
 // CHECK-NEXT:     %intvar = OpVariable %_ptr_Function_int Function
