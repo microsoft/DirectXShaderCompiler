@@ -121,6 +121,11 @@ public:
   /// counts.
   static bool isSpirvAcceptableMatrixType(QualType type);
 
+  /// \brief Returns true if the given type can use relaxed precision
+  /// decoration. Integer and float types with lower than 32 bits can be
+  /// operated on with a relaxed precision.
+  static bool isRelaxedPrecisionType(QualType);
+
   /// \brief Returns the the element type for the given scalar/vector/matrix
   /// type. Returns empty QualType for other cases.
   QualType getElementType(QualType type);
