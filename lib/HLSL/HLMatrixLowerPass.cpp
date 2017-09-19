@@ -217,6 +217,7 @@ private:
   Instruction *MatCastToVec(CallInst *CI);
   Instruction *MatLdStToVec(CallInst *CI);
   Instruction *MatSubscriptToVec(CallInst *CI);
+  Instruction *MatFrExpToVec(CallInst *CI);
   Instruction *MatIntrinsicToVec(CallInst *CI);
   Instruction *TrivialMatUnOpToVec(CallInst *CI);
   // Replace matInst with vecInst on matUseInst.
@@ -460,9 +461,50 @@ Instruction *HLMatrixLowerPass::MatSubscriptToVec(CallInst *CI) {
     return MatIntrinsicToVec(CI);
 }
 
+Instruction *HLMatrixLowerPass::MatFrExpToVec(CallInst *CI) {
+  IRBuilder<> Builder(CI);
+  FunctionType *FT = CI->getCalledFunction()->getFunctionType();
+  Type *RetTy = LowerMatrixType(FT->getReturnType());
+  SmallVector<Type *, 4> params;
+  for (Type *param : FT->params()) {
+    if (!param->isPointerTy()) {
+      params.emplace_back(LowerMatrixType(param));
+    } else {
+      // Lower pointer type for frexp.
+      Type *EltTy = LowerMatrixType(param->getPointerElementType());
+      params.emplace_back(
+          PointerType::get(EltTy, param->getPointerAddressSpace()));
+    }
+  }
+
+  Type *VecFT = FunctionType::get(RetTy, params, false);
+
+  HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+  Function *vecF =
+      GetOrCreateHLFunction(*m_pModule, cast<FunctionType>(VecFT), group,
+                            static_cast<unsigned>(IntrinsicOp::IOP_frexp));
+
+  SmallVector<Value *, 4> argList;
+  auto paramTyIt = params.begin();
+  for (Value *arg : CI->arg_operands()) {
+    Type *Ty = arg->getType();
+    Type *ParamTy = *(paramTyIt++);
+
+    if (Ty != ParamTy)
+      argList.emplace_back(UndefValue::get(ParamTy));
+    else
+      argList.emplace_back(arg);
+  }
+
+  return Builder.CreateCall(vecF, argList);
+}
+
 Instruction *HLMatrixLowerPass::MatIntrinsicToVec(CallInst *CI) {
   IRBuilder<> Builder(CI);
   unsigned opcode = GetHLOpcode(CI);
+
+  if (opcode == static_cast<unsigned>(IntrinsicOp::IOP_frexp))
+    return MatFrExpToVec(CI);
 
   Type *FT = LowerMatrixType(CI->getCalledFunction()->getFunctionType());
 
@@ -1976,7 +2018,26 @@ void HLMatrixLowerPass::replaceMatWithVec(Instruction *matInst,
           hlsl::GetHLOpcodeGroupByName(useCall->getCalledFunction());
       switch (group) {
       case HLOpcodeGroup::HLIntrinsic: {
-        MatIntrinsicReplace(cast<CallInst>(matInst), vecInst, useCall);
+        if (CallInst *matCI = dyn_cast<CallInst>(matInst)) {
+          MatIntrinsicReplace(cast<CallInst>(matInst), vecInst, useCall);
+        } else {
+          IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(useCall));
+          DXASSERT(opcode == IntrinsicOp::IOP_frexp,
+                   "otherwise, unexpected opcode with matrix out parameter");
+          // NOTE: because out param use copy out semantic, so the operand of
+          // out must be temp alloca.
+          DXASSERT(isa<AllocaInst>(matInst), "else invalid mat ptr for frexp");
+          auto it = matToVecMap.find(useCall);
+          DXASSERT(it != matToVecMap.end(),
+                   "else fail to create vec version of useCall");
+          CallInst *vecUseInst = cast<CallInst>(it->second);
+
+          for (unsigned i = 0; i < vecUseInst->getNumArgOperands(); i++) {
+            if (useCall->getArgOperand(i) == matInst) {
+              vecUseInst->setArgOperand(i, vecInst);
+            }
+          }
+        }
       } break;
       case HLOpcodeGroup::HLSelect: {
         MatIntrinsicReplace(cast<CallInst>(matInst), vecInst, useCall);
