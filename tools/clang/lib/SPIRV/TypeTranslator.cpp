@@ -60,7 +60,10 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
         case BuiltinType::Float:
+        case BuiltinType::Half:
           return theBuilder.getFloat32Type();
+        case BuiltinType::Double:
+          return theBuilder.getFloat64Type();
         default:
           emitError("Primitive type '%0' is not supported yet.")
               << builtinType->getTypeClassName();

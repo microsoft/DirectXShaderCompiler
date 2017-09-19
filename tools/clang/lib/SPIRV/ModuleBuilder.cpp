@@ -570,6 +570,21 @@ IMPL_GET_PRIMITIVE_TYPE(Float32)
 
 #undef IMPL_GET_PRIMITIVE_TYPE
 
+#define IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(ty)                            \
+  \
+uint32_t ModuleBuilder::get##ty##Type() {                                      \
+    requireCapability(spv::Capability::ty);                                    \
+    const Type *type = Type::get##ty(theContext);                              \
+    const uint32_t typeId = theContext.getResultIdForType(type);               \
+    theModule.addType(type, typeId);                                           \
+    return typeId;                                                             \
+  \
+}
+
+IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY(Float64)
+
+#undef IMPL_GET_PRIMITIVE_TYPE_WITH_CAPABILITY
+
 uint32_t ModuleBuilder::getVecType(uint32_t elemType, uint32_t elemCount) {
   const Type *type = nullptr;
   switch (elemCount) {
