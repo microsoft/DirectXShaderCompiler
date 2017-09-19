@@ -22,17 +22,21 @@ void main() {
 // CHECK-NEXT:                    OpStore %a1 [[result1]]
   float  a1 = t1[5];
 
+// CHECK-NEXT:    [[pos2:%\d+]] = OpLoad %v2uint %pos2
 // CHECK-NEXT:      [[t2:%\d+]] = OpLoad %type_2d_image %t2
-// CHECK-NEXT:      [[f2:%\d+]] = OpImageFetch %v4int [[t2]] [[cu12]] Lod %uint_0
+// CHECK-NEXT:      [[f2:%\d+]] = OpImageFetch %v4int [[t2]] [[pos2]] Lod %uint_0
 // CHECK-NEXT: [[result2:%\d+]] = OpVectorShuffle %v2int [[f2]] [[f2]] 0 1
 // CHECK-NEXT:                    OpStore %a2 [[result2]]
-  int2   a2 = t2[uint2(1,2)];
+  uint2 pos2 = uint2(1,2);
+  int2    a2 = t2[pos2];
 
+// CHECK-NEXT:    [[pos3:%\d+]] = OpLoad %v3uint %pos3
 // CHECK-NEXT:      [[t3:%\d+]] = OpLoad %type_3d_image %t3
-// CHECK-NEXT:      [[f3:%\d+]] = OpImageFetch %v4uint [[t3]] [[cu123]] Lod %uint_0
+// CHECK-NEXT:      [[f3:%\d+]] = OpImageFetch %v4uint [[t3]] [[pos3]] Lod %uint_0
 // CHECK-NEXT: [[result3:%\d+]] = OpVectorShuffle %v3uint [[f3]] [[f3]] 0 1 2
 // CHECK-NEXT:                    OpStore %a3 [[result3]]
-  uint3  a3 = t3[uint3(1,2,3)];
+  uint3 pos3 = uint3(1,2,3);
+  uint3   a3 = t3[pos3];
 
 // CHECK-NEXT:      [[t4:%\d+]] = OpLoad %type_2d_image_0 %t4
 // CHECK-NEXT:      [[f4:%\d+]] = OpImageFetch %v4float [[t4]] [[cu12]] Sample %uint_0

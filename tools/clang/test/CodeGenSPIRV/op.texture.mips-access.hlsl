@@ -25,9 +25,9 @@ void main() {
 // CHECK-NEXT:                  OpStore %a1 [[val1]]
   float  a1 = t1.mips[1][pos];
 
-// CHECK-NEXT:[[pos2_0:%\d+]] = OpLoad %v2uint %pos2
+// CHECK-NEXT:  [[pos2:%\d+]] = OpLoad %v2uint %pos2
 // CHECK-NEXT:    [[t2:%\d+]] = OpLoad %type_2d_image %t2
-// CHECK-NEXT:    [[f2:%\d+]] = OpImageFetch %v4int [[t2]] [[pos2_0]] Lod %uint_2
+// CHECK-NEXT:    [[f2:%\d+]] = OpImageFetch %v4int [[t2]] [[pos2]] Lod %uint_2
 // CHECK-NEXT:  [[val2:%\d+]] = OpVectorShuffle %v2int [[f2]] [[f2]] 0 1
 // CHECK-NEXT:                  OpStore %a2 [[val2]]
   int2   a2 = t2.mips[2][pos2];
@@ -39,16 +39,16 @@ void main() {
 // CHECK-NEXT:                  OpStore %a3 [[val3]]
   uint3  a3 = t3.mips[3][pos3];
 
-// CHECK-NEXT:[[pos2_1:%\d+]] = OpLoad %v2uint %pos2
 // CHECK-NEXT:    [[t4:%\d+]] = OpLoad %type_1d_image_array %t4
-// CHECK-NEXT:    [[f4:%\d+]] = OpImageFetch %v4float [[t4]] [[pos2_1]] Lod %uint_4
+// CHECK-NEXT:    [[f4:%\d+]] = OpImageFetch %v4float [[t4]] [[cu12]] Lod %uint_4
 // CHECK-NEXT:                  OpStore %a4 [[f4]]
-  float4 a4 = t4.mips[4][pos2];
+  float4 a4 = t4.mips[4][uint2(1,2)];
 
+// CHECK-NEXT:  [[pos0:%\d+]] = OpLoad %uint %pos
 // CHECK-NEXT:[[pos3_1:%\d+]] = OpLoad %v3uint %pos3
 // CHECK-NEXT:    [[t5:%\d+]] = OpLoad %type_2d_image_array %t5
-// CHECK-NEXT:    [[f5:%\d+]] = OpImageFetch %v4int [[t5]] [[pos3_1]] Lod %uint_5
+// CHECK-NEXT:    [[f5:%\d+]] = OpImageFetch %v4int [[t5]] [[pos3_1]] Lod [[pos0]]
 // CHECK-NEXT:  [[val5:%\d+]] = OpVectorShuffle %v3int [[f5]] [[f5]] 0 1 2
 // CHECK-NEXT:                  OpStore %a5 [[val5]]
-  int3   a5 = t5.mips[5][pos3];
+  int3   a5 = t5.mips[pos][pos3];
 }
