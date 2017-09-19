@@ -1156,15 +1156,16 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   case CastKind::CK_LValueToRValue: {
     const uint32_t fromValue = doExpr(subExpr);
     if (isVectorShuffle(subExpr) || isa<ExtMatrixElementExpr>(subExpr) ||
-        isBufferIndexing(dyn_cast<CXXOperatorCallExpr>(subExpr))) {
-      // By reaching here, it means the vector/matrix/Buffer/RWBuffer element
-      // accessing operation is an lvalue. For vector element accessing, if we
-      // generated a vector shuffle for it and trying to use it as a rvalue, we
-      // cannot do the load here as normal. Need the upper nodes in the AST tree
-      // to handle it properly. For matrix element accessing, load should have
-      // already happened after creating access chain for each element.
-      // For (RW)Buffer element accessing, load should have already happened
-      // using OpImageFetch.
+        isBufferRWBufferRWTextureIndexing(
+            dyn_cast<CXXOperatorCallExpr>(subExpr))) {
+      // By reaching here, it means the vector/matrix/Buffer/RWBuffer/RWTexture
+      // element accessing operation is an lvalue. For vector element accessing,
+      // if we generated a vector shuffle for it and trying to use it as a
+      // rvalue, we cannot do the load here as normal. Need the upper nodes in
+      // the AST tree to handle it properly. For matrix element accessing, load
+      // should have already happened after creating access chain for each
+      // element. For (RW)Buffer/RWTexture element accessing, load should have
+      // already happened using OpImageFetch.
 
       return fromValue;
     }
@@ -1777,11 +1778,11 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
-  { // Handle Buffer/RWBuffer indexing
+  { // Handle Buffer/RWBuffer/RWTexture indexing
     const Expr *baseExpr = nullptr;
     const Expr *indexExpr = nullptr;
 
-    if (isBufferIndexing(expr, &baseExpr, &indexExpr)) {
+    if (isBufferRWBufferRWTextureIndexing(expr, &baseExpr, &indexExpr)) {
       return processBufferTextureLoad(baseExpr, indexExpr);
     }
   }
@@ -2173,7 +2174,7 @@ uint32_t SPIRVEmitter::processAssignment(const Expr *lhs, const uint32_t rhs,
     return result;
   }
   // Assigning to a RWBuffer should be handled differently.
-  if (const uint32_t result = tryToAssignToRWBuffer(lhs, rhs)) {
+  if (const uint32_t result = tryToAssignToRWBufferRWTexture(lhs, rhs)) {
     return result;
   }
 
@@ -2390,8 +2391,9 @@ bool SPIRVEmitter::isVectorShuffle(const Expr *expr) {
   return false;
 }
 
-bool SPIRVEmitter::isBufferIndexing(const CXXOperatorCallExpr *indexExpr,
-                                    const Expr **base, const Expr **index) {
+bool SPIRVEmitter::isBufferRWBufferRWTextureIndexing(
+    const CXXOperatorCallExpr *indexExpr, const Expr **base,
+    const Expr **index) {
   if (!indexExpr)
     return false;
 
@@ -2401,7 +2403,8 @@ bool SPIRVEmitter::isBufferIndexing(const CXXOperatorCallExpr *indexExpr,
   const Expr *object = indexExpr->getArg(0);
   const auto objectType = object->getType();
   if (TypeTranslator::isBuffer(objectType) ||
-      TypeTranslator::isRWBuffer(objectType)) {
+      TypeTranslator::isRWBuffer(objectType) ||
+      TypeTranslator::isRWTexture(objectType)) {
     if (base)
       *base = object;
     if (index)
@@ -2683,11 +2686,12 @@ uint32_t SPIRVEmitter::tryToAssignToVectorElements(const Expr *lhs,
   return rhs;
 }
 
-uint32_t SPIRVEmitter::tryToAssignToRWBuffer(const Expr *lhs, uint32_t rhs) {
+uint32_t SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
+                                                      uint32_t rhs) {
   const Expr *baseExpr = nullptr;
   const Expr *indexExpr = nullptr;
-  if (isBufferIndexing(dyn_cast<CXXOperatorCallExpr>(lhs), &baseExpr,
-                       &indexExpr)) {
+  const auto lhsExpr = dyn_cast<CXXOperatorCallExpr>(lhs);
+  if (isBufferRWBufferRWTextureIndexing(lhsExpr, &baseExpr, &indexExpr)) {
     const uint32_t locId = doExpr(indexExpr);
     const uint32_t imageId = theBuilder.createLoad(
         typeTranslator.translateType(baseExpr->getType()), doExpr(baseExpr));
