@@ -142,8 +142,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
     pUAV->SetCompType(CompType::getI32());
     pUAV->SetLowerBound(0);
     pUAV->SetRangeSize(1);
-    pUAV->SetKind(DXIL::ResourceKind::StructuredBuffer);
-    pUAV->SetElementStride(4);
+    pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
 
     auto pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
     pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
@@ -190,7 +189,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
         Constant* One32Arg = HlslOP->GetU32Const(1);
         Constant* One8Arg = HlslOP->GetI8Const(1);
         UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
-        Constant* NumPixelsArg = HlslOP->GetU32Const(NumPixels);
+        Constant* NumPixelsByteOffsetArg = HlslOP->GetU32Const(NumPixels * 4);
 
         // Step 1: Convert SV_POSITION to UINT          
         Value * XAsInt;
@@ -213,7 +212,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
         {
           Constant* RTWidthArg = HlslOP->GetI32Const(RTWidth);
           auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg);
-          Index = Builder.CreateAdd(XAsInt, YOffset);
+          auto Elementoffset = Builder.CreateAdd(XAsInt, YOffset);
+          Index = Builder.CreateMul(Elementoffset, HlslOP->GetU32Const(4));
         }
 
         // Insert the UAV increment instruction:
@@ -221,14 +221,13 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
         Constant* AtomicBinOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
         Constant* AtomicAdd = HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
         {
-          Constant* UndefInt32 = UndefValue::get(Type::getInt32Ty(Ctx));
           (void)Builder.CreateCall(AtomicOpFunc, {
             AtomicBinOpcode,// i32, ; opcode
             HandleForUAV,   // %dx.types.Handle, ; resource handle
             AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
-            Index,          // i32, ; coordinate c0: index in elements
-            Zero32Arg,      // i32, ; coordinate c1: byte offset into element
-            UndefInt32,     // i32, ; coordinate c2 (unused)
+            Index,          // i32, ; coordinate c0: byte offset
+            UndefArg,       // i32, ; coordinate c1 (unused)
+            UndefArg,       // i32, ; coordinate c2 (unused)
             One32Arg        // i32); increment value
           }, "UAVIncResult");
         }
@@ -255,7 +254,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
           }
 
           // Step 2: Update write position ("Index") to second half of the UAV 
-          auto OffsetIndex = Builder.CreateAdd(Index, NumPixelsArg);
+          auto OffsetIndex = Builder.CreateAdd(Index, NumPixelsByteOffsetArg);
 
           // Step 3: Increment UAV value by the weight
           (void)Builder.CreateCall(AtomicOpFunc,{
@@ -263,8 +262,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
             HandleForUAV,   // %dx.types.Handle, ; resource handle
             AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
             OffsetIndex,    // i32, ; coordinate c0: index in elements
-            Zero32Arg,      // i32, ; coordinate c1: byte offset into element
-            Zero32Arg,      // i32, ; coordinate c2 (unused)
+            UndefArg,       // i32, ; coordinate c1 (unused)
+            UndefArg,       // i32, ; coordinate c2 (unused)
             Weight          // i32); increment value
           }, "UAVIncResult2");
         }
