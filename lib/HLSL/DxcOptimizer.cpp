@@ -88,8 +88,8 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilEliminateOutputDynamicIndexingPass(Registry);
     initializeDxilEmitMetadataPass(Registry);
     initializeDxilExpandTrigIntrinsicsPass(Registry);
-    initializeDxilForceEarlyZPass(Registry);
     initializeDxilFinalizeModulePass(Registry);
+    initializeDxilForceEarlyZPass(Registry);
     initializeDxilGenerationPassPass(Registry);
     initializeDxilLegalizeEvalOperationsPass(Registry);
     initializeDxilLegalizeResourceUsePassPass(Registry);
@@ -175,7 +175,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR AlwaysInlinerArgs[] = { "InsertLifetime", "InlineThreshold" };
   static const LPCSTR ArgPromotionArgs[] = { "maxElements" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "Threshold", "Ftor", "bonus-inst-threshold" };
-  static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "force-early-z", "add-pixel-cost", "rt-width", "num-pixels" };
+  static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "force-early-z", "add-pixel-cost", "rt-width", "sv-position-index", "num-pixels" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
@@ -244,7 +244,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR AlwaysInlinerArgs[] = { "Insert @llvm.lifetime intrinsics", "Insert @llvm.lifetime intrinsics" };
   static const LPCSTR ArgPromotionArgs[] = { "None" };
   static const LPCSTR CFGSimplifyPassArgs[] = { "None", "None", "Control the number of bonus instructions (default = 1)" };
-  static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "None", "None", "None", "None" };
+  static const LPCSTR DxilAddPixelHitInstrumentationArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
@@ -365,6 +365,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("sample-profile-max-propagate-iterations")
     ||  S.equals("sroa-random-shuffle-slices")
     ||  S.equals("sroa-strict-inbounds")
+    ||  S.equals("sv-position-index")
     ||  S.equals("unlikely-branch-weight")
     ||  S.equals("unroll-allow-partial")
     ||  S.equals("unroll-count")
