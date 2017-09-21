@@ -211,9 +211,9 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
         Value * Index;
         {
           Constant* RTWidthArg = HlslOP->GetI32Const(RTWidth);
-          auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg);
-          auto Elementoffset = Builder.CreateAdd(XAsInt, YOffset);
-          Index = Builder.CreateMul(Elementoffset, HlslOP->GetU32Const(4));
+          auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg, "YOffset");
+          auto Elementoffset = Builder.CreateAdd(XAsInt, YOffset, "ElementOffset");
+          Index = Builder.CreateMul(Elementoffset, HlslOP->GetU32Const(4), "ByteIndex");
         }
 
         // Insert the UAV increment instruction:
@@ -254,7 +254,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
           }
 
           // Step 2: Update write position ("Index") to second half of the UAV 
-          auto OffsetIndex = Builder.CreateAdd(Index, NumPixelsByteOffsetArg);
+          auto OffsetIndex = Builder.CreateAdd(Index, NumPixelsByteOffsetArg, "OffsetByteIndex");
 
           // Step 3: Increment UAV value by the weight
           (void)Builder.CreateCall(AtomicOpFunc,{
