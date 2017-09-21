@@ -74,6 +74,10 @@ public:
   /// \brief Returns true if the given type is an HLSL Texture type.
   static bool isTexture(QualType);
 
+  /// \brief Returns true if the given type is an HLSL Texture2DMS or
+  /// Texture2DMSArray type.
+  static bool isTextureMS(QualType);
+
   /// \brief Returns true if the given type is an HLSL RWTexture type.
   static bool isRWTexture(QualType);
 

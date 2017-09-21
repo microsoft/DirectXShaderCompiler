@@ -225,8 +225,18 @@ TEST_F(FileTest, OpRWStructuredBufferAccess) {
   runFileTest("op.rw-structured-buffer.access.hlsl");
 }
 
-// For RWTexture accessing operator
+// For Texture/RWTexture accessing operator (operator[])
+TEST_F(FileTest, OpTextureAccess) { runFileTest("op.texture.access.hlsl"); }
 TEST_F(FileTest, OpRWTextureAccess) { runFileTest("op.rwtexture.access.hlsl"); }
+
+// For Texture.mips[][] operator
+TEST_F(FileTest, OpTextureMipsAccess) {
+  runFileTest("op.texture.mips-access.hlsl");
+}
+// For Texture2MD(Array).sample[][] operator
+TEST_F(FileTest, OpTextureSampleAccess) {
+  runFileTest("op.texture.sample-access.hlsl");
+}
 
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
