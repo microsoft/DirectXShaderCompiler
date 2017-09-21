@@ -133,6 +133,14 @@ public:
   /// operated on with a relaxed precision.
   static bool isRelaxedPrecisionType(QualType);
 
+  /// Returns true if the given type will be translated into a SPIR-V image,
+  /// sampler or struct containing images or samplers.
+  static bool isOpaqueType(QualType type);
+
+  /// Returns true if the given type is a struct type who has an opaque field
+  /// (in a recursive away).
+  static bool isOpaqueStructType(QualType tye);
+
   /// \brief Returns the the element type for the given scalar/vector/matrix
   /// type. Returns empty QualType for other cases.
   QualType getElementType(QualType type);

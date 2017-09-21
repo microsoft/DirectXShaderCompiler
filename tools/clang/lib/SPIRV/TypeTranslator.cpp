@@ -61,6 +61,53 @@ bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isOpaqueType(QualType type) {
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    const auto name = recordType->getDecl()->getName();
+
+    if (name == "Texture1D" || name == "RWTexture1D")
+      return true;
+    if (name == "Texture2D" || name == "RWTexture2D")
+      return true;
+    if (name == "Texture2DMS" || name == "RWTexture2DMS")
+      return true;
+    if (name == "Texture3D" || name == "RWTexture3D")
+      return true;
+    if (name == "TextureCube" || name == "RWTextureCube")
+      return true;
+
+    if (name == "Texture1DArray" || name == "RWTexture1DArray")
+      return true;
+    if (name == "Texture2DArray" || name == "RWTexture2DArray")
+      return true;
+    if (name == "Texture2DMSArray" || name == "RWTexture2DMSArray")
+      return true;
+    if (name == "TextureCubeArray" || name == "RWTextureCubeArray")
+      return true;
+
+    if (name == "Buffer" || name == "RWBuffer")
+      return true;
+
+    if (name == "SamplerState" || name == "SamplerComparisonState")
+      return true;
+  }
+  return false;
+}
+
+bool TypeTranslator::isOpaqueStructType(QualType type) {
+  if (isOpaqueType(type))
+    return false;
+
+  if (const auto *recordType = type->getAs<RecordType>())
+    for (const auto *field : recordType->getDecl()->decls())
+      if (const auto *fieldDecl = dyn_cast<FieldDecl>(field))
+        if (isOpaqueType(fieldDecl->getType()) ||
+            isOpaqueStructType(fieldDecl->getType()))
+          return true;
+
+  return false;
+}
+
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                        bool isRowMajor) {
   // We can only apply row_major to matrices or arrays of matrices.
