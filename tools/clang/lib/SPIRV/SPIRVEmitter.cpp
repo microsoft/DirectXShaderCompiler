@@ -186,6 +186,10 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
 }
 
 void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
+  // Stop translating if there are errors in previous compilation stages.
+  if (context.getDiagnostics().hasErrorOccurred())
+    return;
+
   AddRequiredCapabilitiesForShaderModel();
 
   // Addressing and memory model are required in a valid SPIR-V module.
