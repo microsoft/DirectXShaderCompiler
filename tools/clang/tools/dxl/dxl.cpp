@@ -33,7 +33,7 @@ static cl::opt<bool> Help("h", cl::desc("Alias for -help"), cl::Hidden);
 
 static cl::opt<std::string>
     InputFiles(cl::Positional, cl::desc("<input .lib files seperate with ;>"),
-               cl::init("-"));
+               cl::init(""));
 
 static cl::opt<std::string> EntryName("E", cl::desc("Entry function name"),
                                       cl::value_desc("entryfunction"),
@@ -108,7 +108,7 @@ int DxlContext::Link() {
     CComPtr<IDxcBlobEncoding> pErrors;
     IFT(pLinkResult->GetErrorBuffer(&pErrors));
     if (pErrors != nullptr) {
-      printf("link failed - %s.\n",
+      printf("Link failed:\n%s",
              static_cast<char *>(pErrors->GetBufferPointer()));
     }
   }
@@ -135,7 +135,7 @@ int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
     // Parse command line options.
     cl::ParseCommandLineOptions(argc, argv, "dxil linker\n");
 
-    if (InputFiles == "-" || Help) {
+    if (InputFiles == "" || Help) {
       cl::PrintHelpMessage();
       return 2;
     }
