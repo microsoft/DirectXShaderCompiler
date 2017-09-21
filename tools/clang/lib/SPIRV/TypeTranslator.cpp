@@ -34,6 +34,33 @@ inline void roundToPow2(uint32_t *val, uint32_t pow2) {
 }
 } // anonymous namespace
 
+bool TypeTranslator::isRelaxedPrecisionType(QualType type) {
+  // Primitive types
+  {
+    QualType ty = {};
+    if (isScalarType(type, &ty))
+      if (const auto *builtinType = ty->getAs<BuiltinType>())
+        switch (builtinType->getKind()) {
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Min12Int:
+        case BuiltinType::Min10Float:
+        case BuiltinType::Half:
+          return true;
+        }
+  }
+
+  // Vector & Matrix types could use relaxed precision based on their element
+  // type.
+  {
+    QualType elemType = {};
+    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
+      return isRelaxedPrecisionType(elemType);
+  }
+
+  return false;
+}
+
 uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
                                        bool isRowMajor) {
   // We can only apply row_major to matrices or arrays of matrices.
@@ -55,12 +82,25 @@ uint32_t TypeTranslator::translateType(QualType type, LayoutRule rule,
           return theBuilder.getVoidType();
         case BuiltinType::Bool:
           return theBuilder.getBoolType();
+        // int, min16int (short), and min12int are all translated to 32-bit
+        // signed integers in SPIR-V.
         case BuiltinType::Int:
+        case BuiltinType::Short:
+        case BuiltinType::Min12Int:
           return theBuilder.getInt32Type();
+        // uint and min16uint (ushort) are both translated to 32-bit unsigned
+        // integers in SPIR-V.
+        case BuiltinType::UShort:
         case BuiltinType::UInt:
           return theBuilder.getUint32Type();
+        // float, min16float (half), and min10float are all translated to 32-bit
+        // float in SPIR-V.
         case BuiltinType::Float:
+        case BuiltinType::Half:
+        case BuiltinType::Min10Float:
           return theBuilder.getFloat32Type();
+        case BuiltinType::Double:
+          return theBuilder.getFloat64Type();
         default:
           emitError("Primitive type '%0' is not supported yet.")
               << builtinType->getTypeClassName();
