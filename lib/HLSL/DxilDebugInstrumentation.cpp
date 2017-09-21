@@ -430,12 +430,13 @@ Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, Syst
 CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
 {
   // Set up a UAV with structure of a single int
+  unsigned int UAVResourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
   SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(BC.Ctx) };
   llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "PIX_DebugUAV_Type");
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
   pUAV->SetGlobalName("PIX_DebugUAVName");
   pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-  pUAV->SetID(0);
+  pUAV->SetID(UAVResourceHandle);
   pUAV->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
   pUAV->SetSampleCount(1);
   pUAV->SetGloballyCoherent(false);
@@ -447,6 +448,7 @@ CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
   pUAV->SetRW(true);
 
   auto ID = BC.DM.AddUAV(std::move(pUAV));
+  assert(ID == UAVResourceHandle);
 
   BC.DM.m_ShaderFlags.SetEnableRawAndStructuredBuffers(true);
 
@@ -498,14 +500,15 @@ Value * DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, ui
   Constant* AtomicAdd = BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant* Increment = BC.HlslOP->GetU32Const(SpaceInDwords);
+  UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
   auto IncrementForThisInvocation = BC.Builder.CreateMul(Increment, m_OffsetMultiplicand, "IncrementForThisInvocation"); // so inc will be zero for uninteresting invocations
   auto PreviousValue = BC.Builder.CreateCall(AtomicOpFunc, {
     AtomicBinOpcode,// i32, ; opcode
     m_HandleForUAV, // %dx.types.Handle, ; resource handle
     AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
     Zero32Arg,      // i32, ; coordinate c0: index in bytes
-    Zero32Arg,      // i32, ; coordinate c1 (unused)
-    Zero32Arg,      // i32, ; coordinate c2 (unused)
+    UndefArg,       // i32, ; coordinate c1 (unused)
+    UndefArg,       // i32, ; coordinate c2 (unused)
     IncrementForThisInvocation,      // i32); increment value
   }, "UAVIncResult");
 
