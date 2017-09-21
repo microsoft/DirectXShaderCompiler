@@ -1156,8 +1156,8 @@ uint32_t SPIRVEmitter::doCastExpr(const CastExpr *expr) {
   case CastKind::CK_LValueToRValue: {
     const uint32_t fromValue = doExpr(subExpr);
     if (isVectorShuffle(subExpr) || isa<ExtMatrixElementExpr>(subExpr) ||
-        isBufferRWBufferRWTextureIndexing(
-            dyn_cast<CXXOperatorCallExpr>(subExpr))) {
+        isBufferTextureIndexing(dyn_cast<CXXOperatorCallExpr>(subExpr)) ||
+        isTextureMipsSampleIndexing(dyn_cast<CXXOperatorCallExpr>(subExpr))) {
       // By reaching here, it means the vector/matrix/Buffer/RWBuffer/RWTexture
       // element accessing operation is an lvalue. For vector element accessing,
       // if we generated a vector shuffle for it and trying to use it as a
@@ -1336,10 +1336,9 @@ uint32_t SPIRVEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   return theBuilder.createSelect(type, condition, trueBranch, falseBranch);
 }
 
-uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
-                                                const Expr *location,
-                                                uint32_t constOffset,
-                                                uint32_t varOffset) {
+uint32_t SPIRVEmitter::processBufferTextureLoad(
+    const Expr *object, const uint32_t locationId,
+    uint32_t constOffset, uint32_t varOffset, uint32_t lod) {
   // Loading for Buffer and RWBuffer translates to an OpImageFetch.
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
@@ -1347,18 +1346,14 @@ uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
          TypeTranslator::isTexture(type) || TypeTranslator::isRWTexture(type));
   const bool doFetch =
       TypeTranslator::isBuffer(type) || TypeTranslator::isTexture(type);
-  const uint32_t objectId = loadIfGLValue(object);
-  const uint32_t locationId = doExpr(location);
 
-  // For Buffers/RWBuffers, the location is just an int, which should be used as
-  // the coordinate argument. Textures require an additional processing.
-  uint32_t coordinate = locationId, lod = 0;
-  if (TypeTranslator::isTexture(type)) {
-    // The location parameter is a vector that consists of both the coordinate
-    // and the mipmap level (via the last vector element). We need to split it
-    // here since the OpImageFetch SPIR-V instruction encodes them as separate
-    // arguments.
-    splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
+  const uint32_t objectId = loadIfGLValue(object);
+
+  // For Texture2DMS and Texture2DMSArray, Sample must be used rather than Lod.
+  uint32_t sampleNumber = 0;
+  if (TypeTranslator::isTextureMS(type)) {
+    sampleNumber = lod;
+    lod = 0;
   }
 
   const auto sampledType = hlsl::GetHLSLResourceResultType(type);
@@ -1373,7 +1368,7 @@ uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
   } else if (elemType->isUnsignedIntegerType()) {
     elemTypeId = theBuilder.getUint32Type();
   } else {
-    emitError("Unimplemented Buffer type");
+    emitError("Unimplemented Buffer/Texture type");
     return 0;
   }
   const uint32_t resultTypeId =
@@ -1384,8 +1379,8 @@ uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
   // vector of any size.
   const uint32_t fetchTypeId = theBuilder.getVecType(elemTypeId, 4u);
   const uint32_t texel = theBuilder.createImageFetchOrRead(
-      doFetch, doFetch ? fetchTypeId : resultTypeId, objectId, coordinate, lod,
-      constOffset, varOffset);
+      doFetch, doFetch ? fetchTypeId : resultTypeId, objectId, locationId, lod,
+      constOffset, varOffset, /*constOffsets*/ 0, sampleNumber);
 
   // OpImageRead can load a vector of any size. So we can return the result of
   // the instruction directly.
@@ -1631,12 +1626,14 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
       if (opcode == static_cast<uint32_t>(IntrinsicOp::MOP_Sample)) {
         return theBuilder.createImageSample(
             retType, imageType, image, sampler, coordinate, /*bias*/ 0,
-            /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset);
+            /*lod*/ 0, std::make_pair(0, 0), constOffset, varOffset,
+            /*constOffsets*/ 0, /*sampleNumber*/ 0);
       } else {
         return theBuilder.createImageGather(
             retType, imageType, image, sampler, coordinate,
             // .Gather() doc says we return four components of red data.
-            theBuilder.getConstantInt32(0), constOffset, varOffset);
+            theBuilder.getConstantInt32(0), constOffset, varOffset,
+            /*constOffsets*/ 0, /*sampleNumber*/ 0);
       }
     }
     case IntrinsicOp::MOP_SampleBias:
@@ -1672,7 +1669,8 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 
       return theBuilder.createImageSample(
           retType, imageType, image, sampler, coordinate, bias, lod,
-          std::make_pair(0, 0), constOffset, varOffset);
+          std::make_pair(0, 0), constOffset, varOffset, /*constOffsets*/ 0,
+          /*sampleNumber*/ 0);
     }
     case IntrinsicOp::MOP_SampleGrad: {
       // Signature:
@@ -1698,7 +1696,8 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 
       return theBuilder.createImageSample(
           retType, imageType, image, sampler, coordinate, /*bias*/ 0, /*lod*/ 0,
-          std::make_pair(ddx, ddy), constOffset, varOffset);
+          std::make_pair(ddx, ddy), constOffset, varOffset, /*constOffsets*/ 0,
+          /*sampleNumber*/ 0);
     }
     case IntrinsicOp::MOP_Load: {
       // Signature:
@@ -1728,14 +1727,21 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
       if (TypeTranslator::isBuffer(objectType) ||
           TypeTranslator::isRWBuffer(objectType) ||
           TypeTranslator::isRWTexture(objectType))
-        return processBufferTextureLoad(object, location);
+        return processBufferTextureLoad(object, doExpr(location));
 
       if (TypeTranslator::isTexture(objectType)) {
         // .Load() has a second optional paramter for offset.
+        const auto locationId = doExpr(location);
         uint32_t constOffset = 0, varOffset = 0;
+        uint32_t coordinate = 0, lod = 0;
+        // For Texture Load() functions, the location parameter is a vector that
+        // consists of both the coordinate and the mipmap level (via the last
+        // vector element). We need to split it here since the OpImageFetch
+        // SPIR-V instruction encodes them as separate arguments.
+        splitVecLastElement(location->getType(), locationId, &coordinate, &lod);
         handleOffset(expr, 1, &constOffset, &varOffset);
-        return processBufferTextureLoad(object, location, constOffset,
-                                        varOffset);
+        return processBufferTextureLoad(object, coordinate, constOffset,
+                                        varOffset, lod);
       }
       emitError("Load() is not implemented for the given object type.");
       return 0;
@@ -1778,12 +1784,24 @@ uint32_t SPIRVEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
 }
 
 uint32_t SPIRVEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
-  { // Handle Buffer/RWBuffer/RWTexture indexing
+  { // Handle Buffer/RWBuffer/Texture/RWTexture indexing
     const Expr *baseExpr = nullptr;
     const Expr *indexExpr = nullptr;
+    const Expr *lodExpr = nullptr;
 
-    if (isBufferRWBufferRWTextureIndexing(expr, &baseExpr, &indexExpr)) {
-      return processBufferTextureLoad(baseExpr, indexExpr);
+    // For Textures, regular indexing (operator[]) uses slice 0.
+    if (isBufferTextureIndexing(expr, &baseExpr, &indexExpr)) {
+      const uint32_t lod = TypeTranslator::isTexture(baseExpr->getType())
+                               ? theBuilder.getConstantUint32(0)
+                               : 0;
+      return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
+                                      /*constOffset*/ 0, /*varOffset*/ 0, lod);
+    }
+    // .mips[][] or .sample[][] must use the correct slice.
+    if (isTextureMipsSampleIndexing(expr, &baseExpr, &indexExpr, &lodExpr)) {
+      const uint32_t lod = doExpr(lodExpr);
+      return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
+                                      /*constOffset*/ 0, /*varOffset*/ 0, lod);
     }
   }
 
@@ -2173,7 +2191,7 @@ uint32_t SPIRVEmitter::processAssignment(const Expr *lhs, const uint32_t rhs,
   if (const uint32_t result = tryToAssignToMatrixElements(lhs, rhs)) {
     return result;
   }
-  // Assigning to a RWBuffer should be handled differently.
+  // Assigning to a RWBuffer/RWTexture should be handled differently.
   if (const uint32_t result = tryToAssignToRWBufferRWTexture(lhs, rhs)) {
     return result;
   }
@@ -2391,9 +2409,56 @@ bool SPIRVEmitter::isVectorShuffle(const Expr *expr) {
   return false;
 }
 
-bool SPIRVEmitter::isBufferRWBufferRWTextureIndexing(
-    const CXXOperatorCallExpr *indexExpr, const Expr **base,
-    const Expr **index) {
+bool SPIRVEmitter::isTextureMipsSampleIndexing(const CXXOperatorCallExpr *expr,
+                                               const Expr **base,
+                                               const Expr **location,
+                                               const Expr **lod) {
+  if (!expr)
+    return false;
+
+  // <object>.mips[][] consists of an outer operator[] and an inner operator[]
+  const CXXOperatorCallExpr *outerExpr = expr;
+  if (outerExpr->getOperator() != OverloadedOperatorKind::OO_Subscript)
+    return false;
+
+  const Expr *arg0 = outerExpr->getArg(0)->IgnoreParenNoopCasts(astContext);
+  const CXXOperatorCallExpr *innerExpr = dyn_cast<CXXOperatorCallExpr>(arg0);
+
+  // Must have an inner operator[]
+  if (!innerExpr ||
+      innerExpr->getOperator() != OverloadedOperatorKind::OO_Subscript) {
+    return false;
+  }
+
+  const Expr *innerArg0 =
+      innerExpr->getArg(0)->IgnoreParenNoopCasts(astContext);
+  const MemberExpr *memberExpr = dyn_cast<MemberExpr>(innerArg0);
+  if (!memberExpr)
+    return false;
+
+  // Must be accessing the member named "mips" or "sample"
+  const auto &memberName =
+      memberExpr->getMemberNameInfo().getName().getAsString();
+  if (memberName != "mips" && memberName != "sample")
+    return false;
+
+  const Expr *object = memberExpr->getBase();
+  const auto objectType = object->getType();
+  if (!TypeTranslator::isTexture(objectType))
+    return false;
+
+  if (base)
+    *base = object;
+  if (lod)
+    *lod = innerExpr->getArg(1);
+  if (location)
+    *location = outerExpr->getArg(1);
+  return true;
+}
+
+bool SPIRVEmitter::isBufferTextureIndexing(const CXXOperatorCallExpr *indexExpr,
+                                           const Expr **base,
+                                           const Expr **index) {
   if (!indexExpr)
     return false;
 
@@ -2404,6 +2469,7 @@ bool SPIRVEmitter::isBufferRWBufferRWTextureIndexing(
   const auto objectType = object->getType();
   if (TypeTranslator::isBuffer(objectType) ||
       TypeTranslator::isRWBuffer(objectType) ||
+      TypeTranslator::isTexture(objectType) ||
       TypeTranslator::isRWTexture(objectType)) {
     if (base)
       *base = object;
@@ -2691,7 +2757,7 @@ uint32_t SPIRVEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
   const Expr *baseExpr = nullptr;
   const Expr *indexExpr = nullptr;
   const auto lhsExpr = dyn_cast<CXXOperatorCallExpr>(lhs);
-  if (isBufferRWBufferRWTextureIndexing(lhsExpr, &baseExpr, &indexExpr)) {
+  if (isBufferTextureIndexing(lhsExpr, &baseExpr, &indexExpr)) {
     const uint32_t locId = doExpr(indexExpr);
     const uint32_t imageId = theBuilder.createLoad(
         typeTranslator.translateType(baseExpr->getType()), doExpr(baseExpr));
