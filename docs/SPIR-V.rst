@@ -180,7 +180,7 @@ in SPIR-V. For example, for the following HLSL source code:
     ...
   }
 
-There will be there different ``OpTypeStruct`` generated, one for each variable
+There will be three different ``OpTypeStruct`` generated, one for each variable
 defined in the above source code. This is because the ``OpTypeStruct`` for
 both ``myCBuffer`` and ``mySBuffer`` will have layout decorations (``Offset``,
 ``MatrixStride``, ``ArrayStride``, ``RowMajor``, ``ColMajor``). However, their
@@ -260,6 +260,10 @@ There are serveral buffer types in HLSL:
 - ``tbuffer`` and ``TextureBuffer``
 - ``StructuredBuffer`` and ``RWStructuredBuffer``
 - ``AppendStructuredBuffer`` and ``ConsumeStructuredBuffer``
+- ``ByteAddressBuffer`` and ``RWByteAddressBuffer``
+
+Note that ``Buffer`` and ``RWBuffer`` are considered as texture object in HLSL.
+They are listed in the above section.
 
 Please see the following sections for the details of each type. As a summary:
 
@@ -272,6 +276,8 @@ Please see the following sections for the details of each type. As a summary:
 ``RWStructuredBuffer``        Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``AppendStructuredBuffer``    Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 ``ConsumeStructuredBuffer``   Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
+``ByteAddressBuffer``         Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
+``RWByteAddressBuffer``       Storage Buffer      GLSL ``std430``            ``Uniform``        ``BufferBlock``
 =========================== ================== ========================== ==================== =================
 
 To know more about the Vulkan buffer types, please refer to the Vulkan spec
@@ -372,7 +378,8 @@ layout rule used is GLSL ``std430``.
 A variable declared as one of these types will be placed in the ``Uniform``
 storage class. Besides, each variable will have an associated counter variable
 generated. The counter variable will be of ``OpTypeStruct`` type, which only
-contains a 32-bit integer. The counter variable takes its own binding number.
+contains a 32-bit integer. The integer is the total number of elements in the
+buffer. The counter variable takes its own binding number.
 ``.Append()``/``.Consume()`` will use the counter variable as the index and
 adjust it accordingly.
 
@@ -417,6 +424,54 @@ will be translated into
   ; Variables
   %myASbuffer = OpVariable %_ptr_Uniform_type_AppendStructuredBuffer_T Uniform
   %counter_var_myASbuffer = OpVariable %_ptr_Uniform_type_ACSBuffer_counter Uniform
+
+``ByteAddressBuffer`` and ``RWByteAddressBuffer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``ByteAddressBuffer``/``RWByteAddressBuffer`` is treated as storage buffer using
+Vulkan's terminology. It is translated into an ``OpTypeStruct`` containing an
+``OpTypeRuntimeArray`` of 32-bit unsigned integers, with ``BufferBlock``
+decoration.
+
+A variable declared as one of these types will be placed in the ``Uniform``
+storage class.
+
+For example, for the following HLSL source code:
+
+.. code:: hlsl
+
+  ByteAddressBuffer   myBuffer1;
+  RWByteAddressBuffer myBuffer2;
+
+will be translated into
+
+.. code:: spirv
+
+  ; Layout decorations
+
+  OpDecorate %_runtimearr_uint ArrayStride 4
+
+  OpDecorate %type_ByteAddressBuffer BufferBlock
+  OpMemberDecorate %type_ByteAddressBuffer 0 Offset 0
+  OpMemberDecorate %type_ByteAddressBuffer 0 NonWritable
+
+  OpDecorate %type_RWByteAddressBuffer BufferBlock
+  OpMemberDecorate %type_RWByteAddressBuffer 0 Offset 0
+
+  ; Types
+
+  %_runtimearr_uint = OpTypeRuntimeArray %uint
+
+  %type_ByteAddressBuffer = OpTypeStruct %_runtimearr_uint
+  %_ptr_Uniform_type_ByteAddressBuffer = OpTypePointer Uniform %type_ByteAddressBuffer
+
+  %type_RWByteAddressBuffer = OpTypeStruct %_runtimearr_uint
+  %_ptr_Uniform_type_RWByteAddressBuffer = OpTypePointer Uniform %type_RWByteAddressBuffer
+
+  ; Variables
+
+  %myBuffer1 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
+  %myBuffer2 = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
 
 HLSL Variables and Resources
 ============================
@@ -758,6 +813,32 @@ out-of-bound indexing triggers undefined behavior anyway. For example, for a
 ``OpAccessChain ... %mat %uint_0``. Similarly, variable index into a size 1
 vector will also be ignored and the only element will be always returned.
 
+Assignment operators
+--------------------
+
+Assigning to struct object may involve decomposing the source struct object and
+assign each element separately and recursively. This happens when the source
+struct object is of different memory layout from the destination struct object.
+For example, for the following source code:
+
+.. code:: hlsl
+
+  struct S {
+    float    a;
+    float2   b;
+    float2x3 c;
+  };
+
+      ConstantBuffer<S> cbuf;
+  RWStructuredBuffer<S> sbuf;
+
+  ...
+  sbuf[0] = cbuf[0];
+  ...
+
+We need to assign each element because ``ConstantBuffer`` and
+``RWStructuredBuffer`` has different memory layout.
+
 HLSL Control Flows
 ==================
 
@@ -859,34 +940,34 @@ output/builtin variables created according to semantics. For example:
 
   ; Wrapper function starts
 
-  %main    = OpFunction %void None {{%\d+}}
-  {{%\d+}} = OpLabel
+  %main    = OpFunction %void None ...
+  ...      = OpLabel
 
   %param_var_input = OpVariable %_ptr_Function_T Function
 
   ; Load stage input variables and group into the expected composite
 
-  [[inA:%\d+]]     = OpLoad %bool %in_var_A
-  [[inB:%\d+]]     = OpLoad %v2uint %in_var_B
-  [[inC:%\d+]]     = OpLoad %mat2v3float %in_var_C
-  [[inS:%\d+]]     = OpCompositeConstruct %S [[inA]] [[inB]] [[inC]]
-  [[inD:%\d+]]     = OpLoad %int %in_var_D
-  [[inT:%\d+]]     = OpCompositeConstruct %T [[inS]] [[inD]]
-                     OpStore %param_var_input [[inT]]
+  %inA = OpLoad %bool %in_var_A
+  %inB = OpLoad %v2uint %in_var_B
+  %inC = OpLoad %mat2v3float %in_var_C
+  %inS = OpCompositeConstruct %S %inA %inB %inC
+  %inD = OpLoad %int %in_var_D
+  %inT = OpCompositeConstruct %T %inS %inD
+         OpStore %param_var_input %inT
 
-  [[ret:%\d+]]  = OpFunctionCall %T %src_main %param_var_input
+  %ret = OpFunctionCall %T %src_main %param_var_input
 
   ; Extract component values from the composite and store into stage output variables
 
-  [[outS:%\d+]] = OpCompositeExtract %S [[ret]] 0
-  [[outA:%\d+]] = OpCompositeExtract %bool [[outS]] 0
-                  OpStore %out_var_A [[outA]]
-  [[outB:%\d+]] = OpCompositeExtract %v2uint [[outS]] 1
-                  OpStore %out_var_B [[outB]]
-  [[outC:%\d+]] = OpCompositeExtract %mat2v3float [[outS]] 2
-                  OpStore %out_var_C [[outC]]
-  [[outD:%\d+]] = OpCompositeExtract %int [[ret]] 1
-                  OpStore %out_var_D [[outD]]
+  %outS = OpCompositeExtract %S %ret 0
+  %outA = OpCompositeExtract %bool %outS 0
+          OpStore %out_var_A %outA
+  %outB = OpCompositeExtract %v2uint %outS 1
+          OpStore %out_var_B %outB
+  %outC = OpCompositeExtract %mat2v3float %outS 2
+          OpStore %out_var_C %outC
+  %outD = OpCompositeExtract %int %ret 1
+          OpStore %out_var_D %outD
 
   OpReturn
   OpFunctionEnd
@@ -1024,3 +1105,46 @@ HLSL Intrinsic Function   GLSL Extended Instruction
 ``sqrt``                ``Sqrt``
 ``trunc``               ``Trunc``
 ======================= ===============================
+
+HLSL Methods
+============
+
+This section lists how various HLSL methods are mapped.
+
+``AppendStructuredBuffer``
+--------------------------
+
+``.Append()``
+~~~~~~~~~~~~~
+
+The associated counter number will be increased by 1 using ``OpAtomicIAdd``.
+The return value of ``OpAtomicIAdd``, which is the original count number, will
+be used as the index for storing the new element. E.g., for ``buf.Append(vec)``:
+
+.. code:: spirv
+
+  %counter = OpAccessChain %_ptr_Uniform_int %counter_var_buf %uint_0
+    %index = OpAtomicIAdd %uint %counter %uint_1 %uint_0 %uint_1
+      %ptr = OpAccessChain %_ptr_Uniform_v4float %buf %uint_0 %index
+      %val = OpLoad %v4float %vec
+             OpStore %ptr %val
+
+``ConsumeStructuredBuffer``
+---------------------------
+
+``.Consume()``
+~~~~~~~~~~~~~
+
+The associated counter number will be decreased by 1 using ``OpAtomicISub``.
+The return value of ``OpAtomicISub`` minus 1, which is the new count number,
+will be used as the index for reading the new element. E.g., for
+``buf.Consume(vec)``:
+
+.. code:: spirv
+
+  %counter = OpAccessChain %_ptr_Uniform_int %counter_var_buf %uint_0
+     %prev = OpAtomicISub %uint %counter %uint_1 %uint_0 %uint_1
+    %index = OpISub %uint %prev %uint_1
+      %ptr = OpAccessChain %_ptr_Uniform_v4float %buf %uint_0 %index
+      %val = OpLoad %v4float %vec
+             OpStore %ptr %val
