@@ -439,16 +439,23 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Construct the function signature.
   llvm::SmallVector<uint32_t, 4> paramTypes;
 
-  bool isMemberFn = false;
-  // For member function, the first parameter should be the object on which we
-  // are invoking this method.
+  bool isNonStaticMemberFn = false;
   if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
-    isMemberFn = true;
-    const uint32_t valueType = typeTranslator.translateType(
-        memberFn->getThisType(astContext)->getPointeeType());
-    const uint32_t ptrType =
-        theBuilder.getPointerType(valueType, spv::StorageClass::Function);
-    paramTypes.push_back(ptrType);
+    isNonStaticMemberFn = !memberFn->isStatic();
+
+    if (isNonStaticMemberFn) {
+      // For non-static member function, the first parameter should be the
+      // object on which we are invoking this method.
+      const uint32_t valueType = typeTranslator.translateType(
+          memberFn->getThisType(astContext)->getPointeeType());
+      const uint32_t ptrType =
+          theBuilder.getPointerType(valueType, spv::StorageClass::Function);
+      paramTypes.push_back(ptrType);
+    }
+
+    // Prefix the function name with the struct name
+    if (const auto *st = dyn_cast<CXXRecordDecl>(memberFn->getDeclContext()))
+      funcName = st->getName().str() + "." + funcName;
   }
 
   for (const auto *param : decl->params()) {
@@ -461,7 +468,7 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   const uint32_t funcType = theBuilder.getFunctionType(retType, paramTypes);
   theBuilder.beginFunction(funcType, retType, funcName, funcId);
 
-  if (isMemberFn) {
+  if (isNonStaticMemberFn) {
     // Remember the parameter for the this object so later we can handle
     // CXXThisExpr correctly.
     curThis = theBuilder.addFnParam(paramTypes[0], "param.this");
@@ -470,7 +477,8 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Create all parameters.
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
-    (void)declIdMapper.createFnParam(paramTypes[i + isMemberFn], paramDecl);
+    (void)declIdMapper.createFnParam(paramTypes[i + isNonStaticMemberFn],
+                                     paramDecl);
   }
 
   if (decl->hasBody()) {
@@ -1127,20 +1135,23 @@ uint32_t SPIRVEmitter::processCall(const CallExpr *callExpr) {
 
   if (callee) {
     const auto numParams = callee->getNumParams();
-    bool isMemberCall = false;
+    bool isNonStaticMemberCall = false;
 
     llvm::SmallVector<uint32_t, 4> params; // Temporary variables
     llvm::SmallVector<uint32_t, 4> args;   // Evaluated arguments
 
-    // For normal member calls, evaluate the object and pass it as the first
-    // argument.
     if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr)) {
-      isMemberCall = true;
-      const auto *object = memberCall->getImplicitObjectArgument();
-      args.push_back(doExpr(object));
-      // We do not need to create a new temporary variable for the this object.
-      // Use the evaluated argument.
-      params.push_back(args.back());
+      isNonStaticMemberCall =
+          !cast<CXXMethodDecl>(memberCall->getCalleeDecl())->isStatic();
+      if (isNonStaticMemberCall) {
+        // For non-static member calls, evaluate the object and pass it as the
+        // first argument.
+        const auto *object = memberCall->getImplicitObjectArgument();
+        args.push_back(doExpr(object));
+        // We do not need to create a new temporary variable for the this
+        // object. Use the evaluated argument.
+        params.push_back(args.back());
+      }
     }
 
     // Evaluate parameters
@@ -1185,7 +1196,7 @@ uint32_t SPIRVEmitter::processCall(const CallExpr *callExpr) {
     for (uint32_t i = 0; i < numParams; ++i) {
       const auto *param = callee->getParamDecl(i);
       if (param->getAttr<HLSLOutAttr>() || param->getAttr<HLSLInOutAttr>()) {
-        const uint32_t index = i + isMemberCall;
+        const uint32_t index = i + isNonStaticMemberCall;
         const uint32_t typeId = typeTranslator.translateType(param->getType());
         const uint32_t value = theBuilder.createLoad(typeId, params[index]);
         theBuilder.createStore(args[index], value);
