@@ -466,6 +466,8 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
 }
 
 void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
+  uint32_t varId = 0;
+
   // The contents in externally visible variables can be updated via the
   // pipeline. They should be handled differently from file and function scope
   // variables.
@@ -495,7 +497,6 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       constInit = llvm::Optional<uint32_t>(theBuilder.getConstantNull(varType));
     }
 
-    uint32_t varId;
     if (isFileScopeVar)
       varId = declIdMapper.createFileVar(varType, decl, constInit);
     else
@@ -521,7 +522,11 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
       }
     }
   } else {
-    (void)declIdMapper.createExternVar(decl);
+    varId = declIdMapper.createExternVar(decl);
+  }
+
+  if (TypeTranslator::isRelaxedPrecisionType(decl->getType())) {
+    theBuilder.decorate(varId, spv::Decoration::RelaxedPrecision);
   }
 }
 

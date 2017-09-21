@@ -104,8 +104,6 @@ compatibility. Direct3D 10 shader targets map all ``half`` data types to
 ``float`` data types." This may change in the future to map to 16-bit floating
 point numbers (possibly via a command-line option).
 
-Note: ``float`` and ``double`` not implemented yet
-
 Minimal precision scalar types
 ------------------------------
 
@@ -125,8 +123,6 @@ the corresponding 32-bit scalar types with the ``RelexedPrecision`` decoration:
 ``min12int``   ``OpTypeInt 32 1`` ``RelexedPrecision``
 ``min16uint``  ``OpTypeInt 32 0`` ``RelexedPrecision``
 ============== ================== ====================
-
-Note: not implemented yet
 
 Vectors and matrices
 --------------------
