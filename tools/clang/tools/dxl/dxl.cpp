@@ -19,6 +19,8 @@
 #include "dxc/HLSL/DxilContainer.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support//MSFileSystem.h"
+#include "llvm/Support/FileSystem.h"
 #include <dia2.h>
 #include <intsafe.h>
 
@@ -27,16 +29,19 @@ using namespace llvm::opt;
 using namespace dxc;
 using namespace hlsl::options;
 
-static cl::opt<std::string> InputFiles(cl::Positional, cl::Required,
-                                        cl::desc("<input .lib files>"));
+static cl::opt<bool> Help("h", cl::desc("Alias for -help"), cl::Hidden);
+
+static cl::opt<std::string>
+    InputFiles(cl::Positional, cl::desc("<input .lib files seperate with ;>"),
+               cl::init(""));
 
 static cl::opt<std::string> EntryName("E", cl::desc("Entry function name"),
                                       cl::value_desc("entryfunction"),
                                       cl::init("main"));
 
-static cl::opt<std::string> TargetProfile("T", cl::Required,
-                                          cl::desc("Target profile"),
-                                          cl::value_desc("profile"));
+static cl::opt<std::string> TargetProfile("T", cl::desc("Target profile"),
+                                          cl::value_desc("profile"),
+                                          cl::init("ps_6_1"));
 
 static cl::opt<std::string> OutputFilename("Fo",
                                            cl::desc("Override output filename"),
@@ -55,10 +60,10 @@ private:
 public:
   DxlContext(DxcDllSupport &dxcSupport) : m_dxcSupport(dxcSupport) {}
 
-  void Link();
+  int Link();
 };
 
-void DxlContext::Link() {
+int DxlContext::Link() {
   std::string entry = EntryName;
   std::string profile = TargetProfile;
 
@@ -99,18 +104,41 @@ void DxlContext::Link() {
       }
       WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename));
     }
+  } else {
+    CComPtr<IDxcBlobEncoding> pErrors;
+    IFT(pLinkResult->GetErrorBuffer(&pErrors));
+    if (pErrors != nullptr) {
+      printf("Link failed:\n%s",
+             static_cast<char *>(pErrors->GetBufferPointer()));
+    }
   }
+  return status;
 }
 
 using namespace hlsl::options;
 
 int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
   const char *pStage = "Operation";
+  int retVal = 0;
+  if (FAILED(DxcInitThreadMalloc())) return 1;
+  DxcSetThreadMallocOrDefault(nullptr);
   try {
+    llvm::sys::fs::MSFileSystem *msfPtr;
+    IFT(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
+
     pStage = "Argument processing";
 
     // Parse command line options.
     cl::ParseCommandLineOptions(argc, argv, "dxil linker\n");
+
+    if (InputFiles == "" || Help) {
+      cl::PrintHelpMessage();
+      return 2;
+    }
 
     DxcDllSupport dxcSupport;
 
@@ -119,7 +147,7 @@ int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
     DxlContext context(dxcSupport);
 
     pStage = "Linking";
-    context.Link();
+    retVal = context.Link();
   } catch (const ::hlsl::Exception &hlslException) {
     try {
       const char *msg = hlslException.what();
@@ -145,5 +173,5 @@ int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
     return 1;
   }
 
-  return 0;
+  return retVal;
 }

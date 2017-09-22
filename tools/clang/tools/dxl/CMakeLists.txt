@@ -9,6 +9,7 @@ set( LLVM_LINK_COMPONENTS
   HLSL
   dxcsupport
   Option     # option library
+  MSSupport  # for CreateMSFileSystemForDisk
   )
 
 add_clang_executable(dxl
