@@ -77,6 +77,49 @@ enum DebugShaderModifierComponentMask {
   DebugShaderModifierComponent_XYZW = 0xF, // (PIX_TRACE_COMPONENT_X | PIX_TRACE_COMPONENT_Y | PIX_TRACE_COMPONENT_Z | PIX_TRACE_COMPONENT_W),
 };
 
+enum PIX_TRACE_REGISTER_TYPE
+{
+  PIX_TRACE_OUTPUT_NULL_REGISTER = 0,
+  PIX_TRACE_INPUT_REGISTER = 1,
+  PIX_TRACE_INPUT_PRIMITIVE_ID_REGISTER = 2,
+  PIX_TRACE_IMMEDIATE_CONSTANT_BUFFER = 3,
+  PIX_TRACE_TEMP_REGISTER = 4,
+  PIX_TRACE_INDEXABLE_TEMP_REGISTER = 5,
+  PIX_TRACE_OUTPUT_REGISTER = 6,
+  PIX_TRACE_OUTPUT_DEPTH_REGISTER = 7,
+  PIX_TRACE_CONSTANT_BUFFER = 8,
+  PIX_TRACE_IMMEDIATE32 = 9,
+  PIX_TRACE_SAMPLER = 10,
+  PIX_TRACE_RESOURCE = 11,
+  PIX_TRACE_RASTERIZER = 12,
+  PIX_TRACE_OUTPUT_COVERAGE_MASK = 13,
+  PIX_TRACE_STREAM = 14,
+  PIX_TRACE_THIS_POINTER = 15,
+  PIX_TRACE_OUTPUT_CONTROL_POINT_ID_REGISTER = 16,
+  PIX_TRACE_INPUT_FORK_INSTANCE_ID_REGISTER = 17,
+  PIX_TRACE_INPUT_JOIN_INSTANCE_ID_REGISTER = 18,
+  PIX_TRACE_INPUT_CONTROL_POINT_REGISTER = 19,
+  PIX_TRACE_OUTPUT_CONTROL_POINT_REGISTER = 20,
+  PIX_TRACE_INPUT_PATCH_CONSTANT_REGISTER = 21,
+  PIX_TRACE_INPUT_DOMAIN_POINT_REGISTER = 22,
+  PIX_TRACE_UNORDERED_ACCESS_VIEW = 23,
+  PIX_TRACE_THREAD_GROUP_SHARED_MEMORY = 24,
+  PIX_TRACE_INPUT_THREAD_ID_REGISTER = 25,
+  PIX_TRACE_INPUT_THREAD_GROUP_ID_REGISTER = 26,
+  PIX_TRACE_INPUT_THREAD_ID_IN_GROUP_REGISTER = 27,
+  PIX_TRACE_INPUT_COVERAGE_MASK_REGISTER = 28,
+  PIX_TRACE_INPUT_THREAD_ID_IN_GROUP_FLATTENED_REGISTER = 29,
+  PIX_TRACE_INPUT_GS_INSTANCE_ID_REGISTER = 30,
+  PIX_TRACE_OUTPUT_DEPTH_GREATER_EQUAL_REGISTER = 31,
+  PIX_TRACE_OUTPUT_DEPTH_LESS_EQUAL_REGISTER = 32,
+  PIX_TRACE_IMMEDIATE64 = 33,
+  PIX_TRACE_INPUT_CYCLE_COUNTER_REGISTER = 34,
+  PIX_TRACE_INTERFACE_POINTER = 35,
+  PIX_TRACE_OUTPUT_STENCIL_REF = 36,
+  PIX_TRACE_INPUT_INNER_COVERAGE = 37,
+  PIX_TRACE_REGISTER_TYPE_COUNT
+};
+
 struct DebugShaderModifierBufferHeader {
   uint32_t DwordCount;
 };
@@ -430,7 +473,7 @@ Value * DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext & BC, Syst
 CallInst * DxilDebugInstrumentation::addUAV(BuilderContext & BC)
 {
   // Set up a UAV with structure of a single int
-  unsigned int UAVResourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
+  unsigned int UAVResourceHandle = static_cast<unsigned int>(BC.DM.GetUAVs().size());
   SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(BC.Ctx) };
   llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "PIX_DebugUAV_Type");
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
@@ -500,7 +543,7 @@ Value * DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext & BC, ui
   Constant* AtomicAdd = BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
   Constant* Increment = BC.HlslOP->GetU32Const(SpaceInDwords);
-  UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
+  UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
   auto IncrementForThisInvocation = BC.Builder.CreateMul(Increment, m_OffsetMultiplicand, "IncrementForThisInvocation"); // so inc will be zero for uninteresting invocations
   auto PreviousValue = BC.Builder.CreateCall(AtomicOpFunc, {
     AtomicBinOpcode,// i32, ; opcode
@@ -532,8 +575,6 @@ Value * DxilDebugInstrumentation::incrementUAVIndex(BuilderContext & BC, Value *
 
 void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * Index, Value * TheValue)
 {
-  UndefValue* Undefi32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
-
   Function* StoreValue = BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(BC.Ctx));
   Constant* StoreValueOpcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
   Constant* Zero32Arg = BC.HlslOP->GetU32Const(0);
@@ -542,7 +583,7 @@ void DxilDebugInstrumentation::addDebugEntryValue(BuilderContext & BC, Value * I
     StoreValueOpcode, // i32 opcode
     m_HandleForUAV,     // %dx.types.Handle, ; resource handle
     Index,            // i32 c0: index in bytes into UAV
-    Undefi32Arg,      // i32 c1: unused
+    Zero32Arg,        // i32 c1: unused
     TheValue,
     Zero32Arg,        // unused values
     Zero32Arg,        // unused values
@@ -615,31 +656,83 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext & BC, unsigned i
   addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(Inst->getOpcode()));
 }
 
+uint32_t ConvertOperandTypeToTraceRegisterType(Value * operand)
+{
+  switch (operand->getType()->getTypeID())
+  {
+  case Type::TypeID::VoidTyID:
+    return PIX_TRACE_OUTPUT_NULL_REGISTER;
+  case Type::TypeID::HalfTyID:
+  case Type::TypeID::FloatTyID:
+  case Type::TypeID::DoubleTyID:
+  case Type::TypeID::IntegerTyID:
+  case Type::TypeID::FP128TyID:
+    return PIX_TRACE_IMMEDIATE32;
+  case Type::TypeID::LabelTyID:
+  case Type::TypeID::MetadataTyID:
+  case Type::TypeID::FunctionTyID:
+  case Type::TypeID::StructTyID:
+  case Type::TypeID::ArrayTyID:
+  case Type::TypeID::PointerTyID:
+  case Type::TypeID::VectorTyID:
+    return PIX_TRACE_OUTPUT_NULL_REGISTER;
+  }
+  return 0;
+}
+
+
+
 void DxilDebugInstrumentation::recordInputValue(BuilderContext & BC, CallInst * HandleForUAV, Use const & operand)
 {
+  return; //todo
   Value * value = operand.get();
+
+  Type::TypeID ID = operand->getType()->getTypeID();
+
+  switch (ID)
+  {
+  case Type::TypeID::VoidTyID: OutputDebugStringW(BC.M, "VoidTyID     "); break;
+  case Type::TypeID::HalfTyID: OutputDebugStringW(BC.M, "HalfTyID     "); break;
+  case Type::TypeID::FloatTyID: OutputDebugStringW(BC.M, "FloatTyID    "); break;
+  case Type::TypeID::DoubleTyID: OutputDebugStringW(BC.M, "DoubleTyID   "); break;
+  case Type::TypeID::X86_FP80TyID: OutputDebugStringW(BC.M, "X86_FP80TyID "); break;
+  case Type::TypeID::FP128TyID: OutputDebugStringW(BC.M, "FP128TyID    "); break;
+  case Type::TypeID::PPC_FP128TyID: OutputDebugStringW(BC.M, "PPC_FP128TyID"); break;
+  case Type::TypeID::LabelTyID: OutputDebugStringW(BC.M, "LabelTyID    "); break;
+  case Type::TypeID::MetadataTyID: OutputDebugStringW(BC.M, "MetadataTyID "); break;
+  case Type::TypeID::X86_MMXTyID: OutputDebugStringW(BC.M, "X86_MMXTyID  "); break;
+  case Type::TypeID::IntegerTyID: OutputDebugStringW(BC.M, "IntegerTyID  "); break;
+  case Type::TypeID::FunctionTyID: OutputDebugStringW(BC.M, "FunctionTyID "); break;
+  case Type::TypeID::StructTyID: OutputDebugStringW(BC.M, "StructTyID   "); break;
+  case Type::TypeID::ArrayTyID: OutputDebugStringW(BC.M, "ArrayTyID    "); break;
+  case Type::TypeID::PointerTyID: OutputDebugStringW(BC.M, "PointerTyID  "); break;
+  case Type::TypeID::VectorTyID: OutputDebugStringW(BC.M, "VectorTyID   "); break;
+  }
 
   DebugShaderModifierRecordRegister record = {};
   record.Header.Details.PayloadSizeDwords = DebugShaderModifierRecordPayloadSizeDwords(sizeof(record));
   record.Header.Details.Flags = 0;
   record.Header.Details.Type = DebugShaderModifierRecordTypeInputRegister;
-  record.Header.Details.Register = ConvertOperandTypeToTraceRegisterType(operand.GetType());
-  record.Header.Details.Operand = number;
-  record.Header.Details.Mask = ConvertOperandMaskToTraceComponentMask(operand.GetMaskFromComponentLayout());
-  if (operand.GetIndexDimension() >= D3D10_SB_OPERAND_INDEX_1D) { record.Index0 = operand.GetIndexOffset(0); }
-  if (operand.GetIndexDimension() >= D3D10_SB_OPERAND_INDEX_2D) { record.Index1 = operand.GetIndexOffset(1); }
+  record.Header.Details.Register = ConvertOperandTypeToTraceRegisterType(value);
+  record.Header.Details.Operand = 0; // number;
+  record.Header.Details.Mask = 1; // always scalar? ConvertOperandMaskToTraceComponentMask(operand.GetMaskFromComponentLayout());
 
   // Now append the header and UID and payloads
   { //scope for overflow protection
-    UINT numDwords = sizeof(record) / sizeof(DWORD);
-    AutoReserveDebugEntrySpaceWithOverflowProtection reserve(this, numDwords);
+    uint32_t numDwords = sizeof(record) / sizeof(uint32_t);
+    auto RecordStart = reserveDebugEntrySpace(BC, numDwords);
 
-    AppendDebugEntryValue(1, OPERAND::lReg(record.u32Header));
-    AppendDebugEntryValue(1, m_rRegUid);
-    AppendDebugEntryValue(1, OPERAND::lReg(record.Index0));
-    AppendDebugEntryValue(1, OPERAND::lReg(record.Index1));
-    AppendDebugEntryValue(1, OPERAND::lReg(record.Index2));
-    AppendDebugEntryValue(uniqueComponents, value_copy);
+    addDebugEntryValue(BC, RecordStart, BC.HlslOP->GetU32Const(record.Header.u32Header));
+    auto SecondIndex = incrementUAVIndex(BC, RecordStart);
+    addDebugEntryValue(BC, SecondIndex, BC.HlslOP->GetU32Const(0)); //  m_rRegUid
+    auto ThirdIndex = incrementUAVIndex(BC, SecondIndex);
+    addDebugEntryValue(BC, ThirdIndex, BC.HlslOP->GetU32Const(0)); //record.Index0;
+    auto FourthIndex = incrementUAVIndex(BC, ThirdIndex);
+    addDebugEntryValue(BC, FourthIndex, BC.HlslOP->GetU32Const(0)); //record.Index1;
+    auto FifthIndex = incrementUAVIndex(BC, FourthIndex);
+    addDebugEntryValue(BC, FifthIndex, BC.HlslOP->GetU32Const(0)); //record.Index2;
+    auto SixthIndex = incrementUAVIndex(BC, FifthIndex);
+    addDebugEntryValue(BC, SixthIndex, value); 
   }
 
 #if 0
