@@ -1,5 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability ImageQuery
+
 RWTexture1D        <float> t1;
 RWTexture1DArray   <float> t2;
 RWTexture2D        <float> t3;

@@ -1,5 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability ImageQuery
+
 Buffer<uint3> b1;
 RWBuffer<float4> b2;
 

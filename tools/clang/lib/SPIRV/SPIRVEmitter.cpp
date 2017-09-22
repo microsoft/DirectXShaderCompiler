@@ -1383,21 +1383,29 @@ uint32_t SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   const auto *object = expr->getImplicitObjectArgument();
   const auto objectId = loadIfGLValue(object);
   const auto type = object->getType();
-  assert(TypeTranslator::isByteAddressBuffer(type) ||
-         TypeTranslator::isRWByteAddressBuffer(type) ||
-         TypeTranslator::isStructuredBuffer(type));
+  const bool isByteAddressBuffer = TypeTranslator::isByteAddressBuffer(type) ||
+                                   TypeTranslator::isRWByteAddressBuffer(type);
+  const bool isStructuredBuffer = TypeTranslator::isStructuredBuffer(type);
+  assert(isByteAddressBuffer || isStructuredBuffer);
 
   // (RW)ByteAddressBuffers/(RW)StructuredBuffers are represented as a structure
   // with only one member that is a runtime array. We need to perform
   // OpArrayLength on member 0.
   const auto uintType = theBuilder.getUint32Type();
-  const auto arrayLength =
+  uint32_t length =
       theBuilder.createBinaryOp(spv::Op::OpArrayLength, uintType, objectId, 0);
-  theBuilder.createStore(doExpr(expr->getArg(0)), arrayLength);
+  // For (RW)ByteAddressBuffers, GetDimensions() must return the array length
+  // in bytes, but OpArrayLength returns the number of uints in the runtime
+  // array. Therefore we must multiply the results by 4.
+  if (isByteAddressBuffer) {
+    length = theBuilder.createBinaryOp(spv::Op::OpIMul, uintType, length,
+                                       theBuilder.getConstantUint32(4u));
+  }
+  theBuilder.createStore(doExpr(expr->getArg(0)), length);
 
-  // For (RW)StructuredBuffer, the stride of the runtime array (which is the
-  // size of the struct) must also be written to the second argument.
-  if (TypeTranslator::isStructuredBuffer(type)) {
+  if (isStructuredBuffer) {
+    // For (RW)StructuredBuffer, the stride of the runtime array (which is the
+    // size of the struct) must also be written to the second argument.
     uint32_t size = 0, stride = 0;
     std::tie(std::ignore, size) = typeTranslator.getAlignmentAndSize(
         type, LayoutRule::GLSLStd430, /*isRowMajor*/ false, &stride);
@@ -1477,10 +1485,10 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   uint32_t lod = 0;
   if (TypeTranslator::isTexture(type) && !numSamples) {
     if (mipLevel) {
-      // For Texture types when mipLevel argument is used.
+      // For Texture types when mipLevel argument is present.
       lod = doExpr(mipLevel);
     } else {
-      // For Texture types when mipLevel argument is not used.
+      // For Texture types when mipLevel argument is omitted.
       lod = theBuilder.getConstantInt32(0);
     }
   }

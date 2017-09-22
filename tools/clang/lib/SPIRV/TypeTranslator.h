@@ -167,6 +167,13 @@ private:
   /// instructions and returns the <result-id>. Returns 0 on failure.
   uint32_t translateResourceType(QualType type, LayoutRule rule);
 
+  /// \bried For the given sampled type, returns the corresponding image format
+  /// that can be used to create an image object.
+  spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
+
+  /// \brief Returns a string name for the given type.
+  static std::string getName(QualType type);
+
 public:
   /// \brief Returns the alignment and size in bytes for the given type
   /// according to the given LayoutRule.
@@ -183,13 +190,6 @@ public:
                                                     LayoutRule rule,
                                                     bool isRowMajor,
                                                     uint32_t *stride);
-
-  /// \bried For the given sampled type, returns the corresponding image format
-  /// that can be used to create an image object.
-  spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
-
-  /// \brief Returns a string name for the given type.
-  static std::string getName(QualType type);
 
 private:
   ASTContext &astContext;

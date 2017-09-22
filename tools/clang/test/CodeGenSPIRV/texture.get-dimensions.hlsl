@@ -1,5 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability ImageQuery
+
 Texture1D        <float> t1;
 Texture1DArray   <float> t2;
 Texture2D        <float> t3;
