@@ -81,21 +81,21 @@ For more information, see this [Wiki page](https://github.com/Microsoft/DirectXS
 
 ## Making Changes
 
-To make contributions, see the CONTRIBUTING.md file in this project.
+To make contributions, see the [CONTRIBUTING.md](CONTRIBUTING.md) file in this project.
 
 ## Documentation
 
 You can find documentation for this project in the `docs` directory. These contain the original LLVM documentation files, as well as two new files worth nothing:
 
-* HLSLChanges.rst: this is the starting point for how this fork diverges from the original llvm/clang sources
-* DXIL.rst: this file contains the specification for the DXIL format
-* tools/clang/docs/UsingDxc.rst: this file contains a user guide for dxc.exe
+* [HLSLChanges.rst](docs/HLSLChanges.rst): this is the starting point for how this fork diverges from the original llvm/clang sources
+* [DXIL.rst](docs/DXIL.rst): this file contains the specification for the DXIL format
+* [tools/clang/docs/UsingDxc.rst](tools/clang/docs/UsingDxc.rst): this file contains a user guide for dxc.exe
 
 ## License
 
 DirectX Shader Compiler is distributed under the terms of the University of Illinois Open Source License.
 
-See LICENSE.txt and ThirdPartyNotices.txt for details.
+See [LICENSE.txt](LICENSE.TXT) and [ThirdPartyNotices.txt](ThirdPartyNotices.txt) for details.
 
 ## Code of Conduct
 
