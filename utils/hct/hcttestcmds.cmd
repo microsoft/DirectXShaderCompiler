@@ -540,9 +540,9 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
-dxl.exe -T ps_6_1 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc 1>nul
+dxl.exe -T ps_6_0 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc 1>nul
 if %errorlevel% neq 0 (
-  echo Failed to run dxl.exe -T ps_6_1 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc
+  echo Failed to run dxl.exe -T ps_6_0 lib_res_match.dxbc;lib_entry4.dxbc -Fo res_match_entry.dxbc
   call :cleanup 2>nul
   exit /b 1
 )
