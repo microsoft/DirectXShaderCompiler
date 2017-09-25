@@ -59,11 +59,14 @@ public:
   /// integer value. This type will be decorated with BufferBlock.
   uint32_t getACSBufferCounter();
 
+  /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
+  static bool isStructuredBuffer(QualType type);
+
   /// \brief Returns true if the given type is the HLSL ByteAddressBufferType.
-  bool isByteAddressBuffer(QualType type);
+  static bool isByteAddressBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL RWByteAddressBufferType.
-  bool isRWByteAddressBuffer(QualType type);
+  static bool isRWByteAddressBuffer(QualType type);
 
   /// \brief Returns true if the given type is the HLSL Buffer type.
   static bool isBuffer(QualType type);
@@ -164,6 +167,14 @@ private:
   /// instructions and returns the <result-id>. Returns 0 on failure.
   uint32_t translateResourceType(QualType type, LayoutRule rule);
 
+  /// \bried For the given sampled type, returns the corresponding image format
+  /// that can be used to create an image object.
+  spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
+
+  /// \brief Returns a string name for the given type.
+  static std::string getName(QualType type);
+
+public:
   /// \brief Returns the alignment and size in bytes for the given type
   /// according to the given LayoutRule.
 
@@ -179,13 +190,6 @@ private:
                                                     LayoutRule rule,
                                                     bool isRowMajor,
                                                     uint32_t *stride);
-
-  /// \bried For the given sampled type, returns the corresponding image format
-  /// that can be used to create an image object.
-  spv::ImageFormat translateSampledTypeToImageFormat(QualType type);
-
-  /// \brief Returns a string name for the given type.
-  static std::string getName(QualType type);
 
 private:
   ASTContext &astContext;
