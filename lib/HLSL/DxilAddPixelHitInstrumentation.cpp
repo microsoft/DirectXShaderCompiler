@@ -144,10 +144,14 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
     pUAV->SetRangeSize(1);
     pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
 
-    auto pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
-    pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
-    pAnnotation->GetFieldAnnotation(0).SetCompType(hlsl::DXIL::ComponentType::I32);
-    pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
+    auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
+    if (pAnnotation == nullptr)
+    {
+      pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
+      pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
+      pAnnotation->GetFieldAnnotation(0).SetCompType(hlsl::DXIL::ComponentType::I32);
+      pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
+    }
 
     ID = DM.AddUAV(std::move(pUAV));
 
@@ -156,12 +160,12 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
     // Create handle for the newly-added UAV
     Function* CreateHandleOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
     Constant* CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-    Constant* UAVVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::UAV));
+    Constant* UAVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::UAV));
     Constant* MetaDataArg = HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
     Constant* IndexArg = HlslOP->GetU32Const(0); // 
     Constant* FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
     HandleForUAV = Builder.CreateCall(CreateHandleOpFunc,
-    { CreateHandleOpcodeArg, UAVVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_CountUAV_Handle");
+    { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_CountUAV_Handle");
 
     DM.ReEmitDxilResources();
   }
