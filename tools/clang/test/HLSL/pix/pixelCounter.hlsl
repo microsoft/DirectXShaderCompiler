@@ -11,13 +11,9 @@
 // Calculation of offset:
 // CHECK: = mul i32 %YIndex, 16
 // CHECK: = add i32 %XIndex,
-// CHECK: = icmp ugt i32
-
-// Clamp to UAV size:
-// CHECK: %Clamped = select i1 
 
 // Check the write to the UAV was emitted:
-// CHECK: %UAVIncResult = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_CountUAV_Handle, i32 0, i32 %Clamped, i32 0, i32 0, i32 1)
+// CHECK: %UAVIncResult = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_CountUAV_Handle, i32 0, i32 %ByteIndex, i32 undef, i32 undef, i32 1)
 
 float4 main(float4 pos : SV_Position) : SV_Target {
   return pos;

@@ -1358,6 +1358,7 @@ MDTuple *DxilModule::EmitDxilResources() {
 void DxilModule::ReEmitDxilResources() {
   MDTuple *pNewResource = EmitDxilResources();
   m_pMDHelper->UpdateDxilResources(pNewResource);
+  m_pMDHelper->EmitDxilTypeSystem(GetTypeSystem(), m_LLVMUsed);
   const llvm::NamedMDNode *pEntries = m_pMDHelper->GetDxilEntryPoints();
   IFTBOOL(pEntries->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
 

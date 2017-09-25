@@ -720,9 +720,12 @@ void DxilMDHelper::EmitDxilTypeSystem(DxilTypeSystem &TypeSystem, vector<GlobalV
     MDFuncVals.push_back(pMD);
   }
 
+  NamedMDNode *pDxilTypeAnnotationsMD = m_pModule->getNamedMetadata(kDxilTypeSystemMDName);
+  if (pDxilTypeAnnotationsMD != nullptr) {
+    m_pModule->eraseNamedMetadata(pDxilTypeAnnotationsMD);
+  }
+
   if (MDVals.size() > 1) {
-    NamedMDNode *pDxilTypeAnnotationsMD = m_pModule->getNamedMetadata(kDxilTypeSystemMDName);
-    IFTBOOL(pDxilTypeAnnotationsMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
     pDxilTypeAnnotationsMD = m_pModule->getOrInsertNamedMetadata(kDxilTypeSystemMDName);
 
     pDxilTypeAnnotationsMD->addOperand(MDNode::get(m_Ctx, MDVals));

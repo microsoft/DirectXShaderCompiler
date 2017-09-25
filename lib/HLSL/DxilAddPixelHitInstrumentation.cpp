@@ -41,6 +41,7 @@ class DxilAddPixelHitInstrumentation : public ModulePass {
   bool AddPixelCost = false;
   int RTWidth = 1024;
   int NumPixels = 128;
+  int SVPositionIndex = -1;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -69,6 +70,10 @@ void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O)
     else if (0 == option.first.compare("add-pixel-cost"))
     {
       AddPixelCost = atoi(option.second.data()) != 0;
+    }
+    else if (0 == option.first.compare("sv-position-index"))
+    {
+      SVPositionIndex = atoi(option.second.data());
     }
   }
 }
@@ -101,7 +106,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
   // If not present, we add it.
   if ( SV_Position == InputElements.end() ) {
     auto SVPosition = std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-    SVPosition->Initialize("Position", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4, 0, 0);
+    SVPosition->Initialize("Position", hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Linear, 1, 4, SVPositionIndex == -1 ? 0 : SVPositionIndex, 0);
     SVPosition->AppendSemanticIndex(0);
     SVPosition->SetSigPointKind(DXIL::SigPointKind::PSIn);
     SVPosition->SetKind(hlsl::DXIL::SemanticKind::Position);
@@ -116,10 +121,54 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
   auto EntryPointFunction = DM.GetEntryFunction();
 
   auto & EntryBlock = EntryPointFunction->getEntryBlock();
-  bool HaveInsertedUAV = false;
 
   CallInst *HandleForUAV;
+  {
+    IRBuilder<> Builder(DM.GetEntryFunction()->getEntryBlock().getFirstInsertionPt());
+    
+    unsigned int UAVResourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
 
+    // Set up a UAV with structure of a single int
+    SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
+    llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "class.RWStructuredBuffer");
+    std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+    pUAV->SetGlobalName("PIX_CountUAVName");
+    pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
+    pUAV->SetID(UAVResourceHandle);
+    pUAV->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
+    pUAV->SetSampleCount(1);
+    pUAV->SetGloballyCoherent(false);
+    pUAV->SetHasCounter(false);
+    pUAV->SetCompType(CompType::getI32());
+    pUAV->SetLowerBound(0);
+    pUAV->SetRangeSize(1);
+    pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
+
+    auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
+    if (pAnnotation == nullptr)
+    {
+      pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
+      pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
+      pAnnotation->GetFieldAnnotation(0).SetCompType(hlsl::DXIL::ComponentType::I32);
+      pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
+    }
+
+    ID = DM.AddUAV(std::move(pUAV));
+
+    assert(ID == UAVResourceHandle);
+
+    // Create handle for the newly-added UAV
+    Function* CreateHandleOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
+    Constant* CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
+    Constant* UAVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::UAV));
+    Constant* MetaDataArg = HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
+    Constant* IndexArg = HlslOP->GetU32Const(0); // 
+    Constant* FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
+    HandleForUAV = Builder.CreateCall(CreateHandleOpFunc,
+    { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_CountUAV_Handle");
+
+    DM.ReEmitDxilResources();
+  }
   // todo: is it a reasonable assumption that there will be a "Ret" in the entry block, and that these are the only
   // points from which the shader can exit (except for a pixel-kill?)
   auto & Instructions = EntryBlock.getInstList();
@@ -134,42 +183,6 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
         // Start adding instructions right before the Ret:
         IRBuilder<> Builder(ThisInstruction);
 
-        if (!HaveInsertedUAV) {
-
-          // Set up a UAV with structure of a single int
-          SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
-          llvm::StructType *UAVStructTy = llvm::StructType::create(Elements, "PIX_CountUAV_Type");
-          std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
-          pUAV->SetGlobalName("PIX_CountUAVName");
-          pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-          pUAV->SetID(0);
-          pUAV->SetSpaceID((unsigned int)-2); // This is the reserved-for-tools register space
-          pUAV->SetSampleCount(1);
-          pUAV->SetGloballyCoherent(false);
-          pUAV->SetHasCounter(false);
-          pUAV->SetCompType(CompType::getI32());
-          pUAV->SetLowerBound(0);
-          pUAV->SetRangeSize(1);
-          pUAV->SetKind(DXIL::ResourceKind::StructuredBuffer);
-          pUAV->SetElementStride(4);
-
-          ID = DM.AddUAV(std::move(pUAV));
-
-          // Create handle for the newly-added UAV
-          Function* CreateHandleOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-          Constant* CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-          Constant* UAVVArg = HlslOP->GetI8Const(static_cast<std::underlying_type<DxilResourceBase::Class>::type>(DXIL::ResourceClass::UAV));
-          Constant* MetaDataArg = HlslOP->GetU32Const(ID); // position of the metadata record in the corresponding metadata list
-          Constant* IndexArg = HlslOP->GetU32Const(0); // 
-          Constant* FalseArg = HlslOP->GetI1Const(0); // non-uniform resource index: false
-          HandleForUAV = Builder.CreateCall(CreateHandleOpFunc,
-            { CreateHandleOpcodeArg, UAVVArg, MetaDataArg, IndexArg, FalseArg }, "PIX_CountUAV_Handle");
-
-          DM.ReEmitDxilResources();
-
-          HaveInsertedUAV = true;
-        }
-
         // ------------------------------------------------------------------------------------------------------------
         // Generate instructions to increment (by one) a UAV value corresponding to the pixel currently being rendered
         // ------------------------------------------------------------------------------------------------------------
@@ -180,8 +193,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
         Constant* One32Arg = HlslOP->GetU32Const(1);
         Constant* One8Arg = HlslOP->GetI8Const(1);
         UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
-        Constant* NumPixelsArg = HlslOP->GetU32Const(NumPixels);
-        Constant* NumPixelsMinusOneArg = HlslOP->GetU32Const(NumPixels-1);
+        Constant* NumPixelsByteOffsetArg = HlslOP->GetU32Const(NumPixels * 4);
 
         // Step 1: Convert SV_POSITION to UINT          
         Value * XAsInt;
@@ -200,15 +212,12 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
         }
 
         // Step 2: Calculate pixel index
-        Value * ClampedIndex;
+        Value * Index;
         {
           Constant* RTWidthArg = HlslOP->GetI32Const(RTWidth);
-          auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg);
-          auto Index = Builder.CreateAdd(XAsInt, YOffset);
-
-          // Step 3: Clamp to size of UAV to prevent TDR if something goes wrong
-          auto CompareToLimit = Builder.CreateICmpUGT(Index, NumPixelsMinusOneArg);
-          ClampedIndex = Builder.CreateSelect(CompareToLimit, NumPixelsMinusOneArg, Index, "Clamped");
+          auto YOffset = Builder.CreateMul(YAsInt, RTWidthArg, "YOffset");
+          auto Elementoffset = Builder.CreateAdd(XAsInt, YOffset, "ElementOffset");
+          Index = Builder.CreateMul(Elementoffset, HlslOP->GetU32Const(4), "ByteIndex");
         }
 
         // Insert the UAV increment instruction:
@@ -220,9 +229,9 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
             AtomicBinOpcode,// i32, ; opcode
             HandleForUAV,   // %dx.types.Handle, ; resource handle
             AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
-            ClampedIndex,   // i32, ; coordinate c0: index in elements
-            Zero32Arg,      // i32, ; coordinate c1: byte offset into element
-            Zero32Arg,      // i32, ; coordinate c2 (unused)
+            Index,          // i32, ; coordinate c0: byte offset
+            UndefArg,       // i32, ; coordinate c1 (unused)
+            UndefArg,       // i32, ; coordinate c2 (unused)
             One32Arg        // i32); increment value
           }, "UAVIncResult");
         }
@@ -249,7 +258,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
           }
 
           // Step 2: Update write position ("Index") to second half of the UAV 
-          auto OffsetIndex = Builder.CreateAdd(ClampedIndex, NumPixelsArg);
+          auto OffsetIndex = Builder.CreateAdd(Index, NumPixelsByteOffsetArg, "OffsetByteIndex");
 
           // Step 3: Increment UAV value by the weight
           (void)Builder.CreateCall(AtomicOpFunc,{
@@ -257,8 +266,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M)
             HandleForUAV,   // %dx.types.Handle, ; resource handle
             AtomicAdd,      // i32, ; binary operation code : EXCHANGE, IADD, AND, OR, XOR, IMIN, IMAX, UMIN, UMAX
             OffsetIndex,    // i32, ; coordinate c0: index in elements
-            Zero32Arg,      // i32, ; coordinate c1: byte offset into element
-            Zero32Arg,      // i32, ; coordinate c2 (unused)
+            UndefArg,       // i32, ; coordinate c1 (unused)
+            UndefArg,       // i32, ; coordinate c2 (unused)
             Weight          // i32); increment value
           }, "UAVIncResult2");
         }
