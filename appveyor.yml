@@ -24,10 +24,13 @@ build_script:
 test_script:
 - cmd: powershell utils\appveyor\appveyor_test.ps1
 - cmd: call utils\hct\hcttest spirv_only
-    
+
+after_test:
+- cmd: cd build\%CONFIGURATION%\bin
+- cmd: 7z a artifacts.zip d*.exe d*.dll HLSLHost.exe
+
 artifacts:
-- path: build\$(configuration)\bin\*.dll
-- path: build\$(configuration)\bin\*.exe
+- path: build\$(configuration)\bin\artifacts.zip
 
 notifications:
 - provider: GitHubPullRequest
