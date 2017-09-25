@@ -3189,49 +3189,10 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            /*actPerRowForMatrices*/ true);
   }
   case hlsl::IntrinsicOp::IOP_isfinite: {
-    // Since OpIsFinite needs the Kernel capability, translation is instead done
-    // using OpIsNan and OpIsInf:
-    // isFinite = !isNan && !isInf.
-    const auto arg = doExpr(callExpr->getArg(0));
-    const auto returnType = typeTranslator.translateType(callExpr->getType());
-    const auto isNan =
-        theBuilder.createUnaryOp(spv::Op::OpIsNan, returnType, arg);
-    const auto isInf =
-        theBuilder.createUnaryOp(spv::Op::OpIsInf, returnType, arg);
-    const auto isNotNan =
-        theBuilder.createUnaryOp(spv::Op::OpLogicalNot, returnType, isNan);
-    const auto isNotInf =
-        theBuilder.createUnaryOp(spv::Op::OpLogicalNot, returnType, isInf);
-    return theBuilder.createBinaryOp(spv::Op::OpLogicalAnd, returnType,
-                                     isNotNan, isNotInf);
+    return processIntrinsicIsFinite(callExpr);
   }
   case hlsl::IntrinsicOp::IOP_sincos: {
-    // Since there is no sincos equivalent in SPIR-V, we need to perform Sin
-    // once and Cos once. We can reuse existing Sine/Cosine handling by creating
-    // a CallExpr for each.
-    CallExpr *sinExpr =
-        new (astContext) CallExpr(astContext, Stmt::StmtClass::NoStmtClass, {});
-    CallExpr *cosExpr =
-        new (astContext) CallExpr(astContext, Stmt::StmtClass::NoStmtClass, {});
-    sinExpr->setType(callExpr->getArg(0)->getType());
-    cosExpr->setType(callExpr->getArg(0)->getType());
-    sinExpr->setNumArgs(astContext, 1);
-    cosExpr->setNumArgs(astContext, 1);
-    sinExpr->setArg(0, const_cast<Expr *>(callExpr->getArg(0)));
-    cosExpr->setArg(0, const_cast<Expr *>(callExpr->getArg(0)));
-
-    // Perform Sin and store results in argument 1.
-    const uint32_t sin =
-        processIntrinsicUsingGLSLInst(sinExpr, GLSLstd450::GLSLstd450Sin,
-                                      /*actPerRowForMatrices*/ true);
-    theBuilder.createStore(doExpr(callExpr->getArg(1)), sin);
-
-    // Perform Cos and store results in argument 2.
-    const uint32_t cos =
-        processIntrinsicUsingGLSLInst(sinExpr, GLSLstd450::GLSLstd450Cos,
-                                      /*actPerRowForMatrices*/ true);
-    theBuilder.createStore(doExpr(callExpr->getArg(2)), cos);
-    return 0;
+    return processIntrinsicSinCos(callExpr);
   }
   case hlsl::IntrinsicOp::IOP_saturate: {
     return processIntrinsicSaturate(callExpr);
@@ -3639,6 +3600,45 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
 
   return theBuilder.createUnaryOp(spv::Op::OpBitcast, returnTypeId,
                                   doExpr(arg));
+}
+
+uint32_t SPIRVEmitter::processIntrinsicIsFinite(const CallExpr *callExpr) {
+  // Since OpIsFinite needs the Kernel capability, translation is instead done
+  // using OpIsNan and OpIsInf:
+  // isFinite = !(isNan || isInf)
+  const auto arg = doExpr(callExpr->getArg(0));
+  const auto returnType = typeTranslator.translateType(callExpr->getType());
+  const auto isNan =
+      theBuilder.createUnaryOp(spv::Op::OpIsNan, returnType, arg);
+  const auto isInf =
+      theBuilder.createUnaryOp(spv::Op::OpIsInf, returnType, arg);
+  const auto isNanOrInf =
+      theBuilder.createBinaryOp(spv::Op::OpLogicalOr, returnType, isNan, isInf);
+  return theBuilder.createUnaryOp(spv::Op::OpLogicalNot, returnType,
+                                  isNanOrInf);
+}
+
+uint32_t SPIRVEmitter::processIntrinsicSinCos(const CallExpr *callExpr) {
+  // Since there is no sincos equivalent in SPIR-V, we need to perform Sin
+  // once and Cos once. We can reuse existing Sine/Cosine handling functions.
+  CallExpr *sincosExpr =
+      new (astContext) CallExpr(astContext, Stmt::StmtClass::NoStmtClass, {});
+  sincosExpr->setType(callExpr->getArg(0)->getType());
+  sincosExpr->setNumArgs(astContext, 1);
+  sincosExpr->setArg(0, const_cast<Expr *>(callExpr->getArg(0)));
+
+  // Perform Sin and store results in argument 1.
+  const uint32_t sin =
+      processIntrinsicUsingGLSLInst(sincosExpr, GLSLstd450::GLSLstd450Sin,
+                                    /*actPerRowForMatrices*/ true);
+  theBuilder.createStore(doExpr(callExpr->getArg(1)), sin);
+
+  // Perform Cos and store results in argument 2.
+  const uint32_t cos =
+      processIntrinsicUsingGLSLInst(sincosExpr, GLSLstd450::GLSLstd450Cos,
+                                    /*actPerRowForMatrices*/ true);
+  theBuilder.createStore(doExpr(callExpr->getArg(2)), cos);
+  return 0;
 }
 
 uint32_t SPIRVEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
