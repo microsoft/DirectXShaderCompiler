@@ -1272,6 +1272,7 @@ class db_dxil(object):
             {'n':'force-early-z','t':'int','c':1},
             {'n':'add-pixel-cost','t':'int','c':1},
             {'n':'rt-width','t':'int','c':1},
+            {'n':'sv-position-index','t':'int','c':1},
             {'n':'num-pixels','t':'int','c':1}])
         add_pass('hlsl-dxil-constantColor', 'DxilOutputColorBecomesConstant', 'DXIL Constant Color Mod', [
             {'n':'mod-mode','t':'int','c':1},
