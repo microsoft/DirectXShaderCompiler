@@ -263,6 +263,14 @@ bool TypeTranslator::isRWByteAddressBuffer(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "StructuredBuffer" || name == "RWStructuredBuffer";
+}
+
 bool TypeTranslator::isByteAddressBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     return rt->getDecl()->getName() == "ByteAddressBuffer";

@@ -1036,7 +1036,7 @@ The following intrinsic HLSL functions are currently supported:
 - ``dot`` : performs dot product of two vectors, each containing floats or
   integers. If the two parameters are vectors of floats, we use SPIR-V's
   ``OpDot`` instruction to perform the translation. If the two parameters are
-  vectors of integers, we multiply corresponding vector elementes using
+  vectors of integers, we multiply corresponding vector elements using
   ``OpIMul`` and accumulate the results using ``OpIAdd`` to compute the dot
   product.
 - ``mul``: performs multiplications. Each argument may be a scalar, vector,
@@ -1148,3 +1148,159 @@ will be used as the index for reading the new element. E.g., for
       %ptr = OpAccessChain %_ptr_Uniform_v4float %buf %uint_0 %index
       %val = OpLoad %v4float %vec
              OpStore %ptr %val
+
+
+``Buffer``
+--------------------------
+
+``.GetDimensions()``
+~~~~~~~~~~~~~~~~~~~~
+Since Buffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
+``OpImageQuerySize`` is used to perform this operation.
+
+``RWBuffer``
+--------------------------
+
+``.GetDimensions()``
+~~~~~~~~~~~~~~~~~~~~
+Since RWBuffers are represented as ``OpTypeImage`` with dimension of ``Buffer``,
+``OpImageQuerySize`` is used to perform this operation.
+
+``StructuredBuffer``
+--------------------------
+
+``.GetDimensions()``
+~~~~~~~~~~~~~~~~~~~~
+Since StructuredBuffers are represented as a struct with one member that is a
+runtime array of structures, ``OpArrayLength`` is invoked on the runtime array in
+order to find the dimension.
+
+``RWStructuredBuffer``
+--------------------------
+
+``.GetDimensions()``
+~~~~~~~~~~~~~~~~~~~~
+Similar to StructuredBuffers, since RWStructuredBuffers are represented as a struct
+with one member that is a runtime array of structures, ``OpArrayLength`` is invoked
+on the runtime array in order to find the dimension.
+
+``ByteAddressBuffer``
+--------------------------
+
+``.GetDimensions()``
+~~~~~~~~~~~~~~~~~~~~
+Since ByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
+in order to find the number of unsigned integers. This is then multiplied by 4 to find
+the number of bytes.
+
+``RWByteAddressBuffer``
+--------------------------
+
+``.GetDimensions()``
+~~~~~~~~~~~~~~~~~~~~
+Since RWByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
+in order to find the number of unsigned integers. This is then multiplied by 4 to find
+the number of bytes.
+
+``Texture1D``
+--------------------------
+
+``.GetDimensions(width)`` or ``.GetDimensions(MipLevel, width, NumLevels)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture1D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is passed to ``GetDimensions``, it will
+be used as the ``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+
+``Texture1DArray``
+--------------------------
+
+``.GetDimensions(width, elements)`` or ``.GetDimensions(MipLevel, width, elements, NumLevels)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture1DArray is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is present, it will be used as the
+``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture2D``
+--------------------------
+
+``.GetDimensions(width, height)`` or ``.GetDimensions(MipLevel, width, height, NumLevels)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture2D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is present, it will be used as the
+``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture2DArray``
+--------------------------
+
+``.GetDimensions(width, height, elements)`` or ``.GetDimensions(MipLevel, width, height, elements, NumLevels)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture2DArray is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is present, it will be used as the
+``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture3D``
+--------------------------
+
+``.GetDimensions(width, height, depth)`` or ``.GetDimensions(MipLevel, width, height, depth, NumLevels)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture3D is represented as ``OpTypeImage``, the ``OpImageQuerySizeLod`` instruction
+is used for translation. If a ``MipLevel`` argument is present, it will be used as the
+``Lod`` parameter of the query instruction. Otherwise, ``Lod`` of ``0`` be used.
+
+``Texture2DMS``
+--------------------------
+
+``.GetDimensions(width, height, numSamples)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
+is used to get the width and the height. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
+
+``Texture2DMSArray``
+--------------------------
+
+``.GetDimensions(width, height, elements, numSamples)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since Texture2DMS is represented as ``OpTypeImage`` with ``MS`` of ``1``, the ``OpImageQuerySize`` instruction
+is used to get the width, the height, and the elements. Furthermore, ``OpImageQuerySamples`` is used to get the numSamples.
+
+``RWTexture1D``
+--------------------------
+
+``.GetDimensions(width)``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``OpImageQuerySize`` instruction is used to find the width.
+
+``RWTexture1DArray``
+--------------------------
+
+``.GetDimensions(width, elements)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``OpImageQuerySize`` instruction is used to get a uint2. The first element is the width, and the second
+is the elements.
+
+``RWTexture2D``
+--------------------------
+
+``.GetDimensions(width, height)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``OpImageQuerySize`` instruction is used to get a uint2. The first element is the width, and the second
+element is the height.
+
+``RWTexture2DArray``
+--------------------------
+
+``.GetDimensions(width, height, elements)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
+element is the height, and the third is the elements.
+
+``RWTexture3D``
+--------------------------
+
+``.GetDimensions(width, height, depth)``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``OpImageQuerySize`` instruction is used to get a uint3. The first element is the width, the second
+element is the height, and the third element is the depth.
