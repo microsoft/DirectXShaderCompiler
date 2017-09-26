@@ -2787,17 +2787,17 @@ void GenerateDxilGather(CallInst *CI, Function *F,
 
     helper.UpdateOffsetInGatherArgs(gatherArgs, /*sampleIdx*/ 1);
     CallInst *callY = Builder.CreateCall(F, gatherArgs);
-    elt = Builder.CreateExtractValue(callY, (uint64_t)0);
+    elt = Builder.CreateExtractValue(callY, (uint64_t)1);
     retVal = Builder.CreateInsertElement(retVal, elt, 1);
 
     helper.UpdateOffsetInGatherArgs(gatherArgs, /*sampleIdx*/ 2);
     CallInst *callZ = Builder.CreateCall(F, gatherArgs);
-    elt = Builder.CreateExtractValue(callZ, (uint64_t)0);
+    elt = Builder.CreateExtractValue(callZ, (uint64_t)2);
     retVal = Builder.CreateInsertElement(retVal, elt, 2);
 
     helper.UpdateOffsetInGatherArgs(gatherArgs, /*sampleIdx*/ 3);
     CallInst *callW = Builder.CreateCall(F, gatherArgs);
-    elt = Builder.CreateExtractValue(callW, (uint64_t)0);
+    elt = Builder.CreateExtractValue(callW, (uint64_t)3);
     retVal = Builder.CreateInsertElement(retVal, elt, 3);
     // Replace ret val.
     CI->replaceAllUsesWith(retVal);
