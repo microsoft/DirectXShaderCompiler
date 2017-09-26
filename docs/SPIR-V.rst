@@ -1194,6 +1194,14 @@ runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime 
 in order to find the number of unsigned integers. This is then multiplied by 4 to find
 the number of bytes.
 
+``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since ByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, the SPIR-V ``OpAccessChain`` instruction is used with
+the offset passed to the function, and ``OpLoad`` is used to load a 32-bit unsigned integer.
+For ``Load2``, ``Load3``, and ``Load4``, this is done 2, 3, and 4 times, respectively, and
+a vector is constructed with all the resulting values.
+
 ``RWByteAddressBuffer``
 --------------------------
 
@@ -1203,6 +1211,22 @@ Since RWByteAddressBuffers are represented as a struct with one member that is a
 runtime array of unsigned integers, ``OpArrayLength`` is invoked on the runtime array
 in order to find the number of unsigned integers. This is then multiplied by 4 to find
 the number of bytes.
+
+``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since RWByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, the SPIR-V ``OpAccessChain`` instruction is used with
+the offset passed to the function, and ``OpLoad`` is used to load a 32-bit unsigned integer.
+For ``Load2``, ``Load3``, and ``Load4``, this is done 2, 3, and 4 times, respectively, and
+a vector is constructed with all the resulting values.
+
+``.Store()``, ``.Store2()``, ``.Store3()``, ``.Store4()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since RWByteAddressBuffers are represented as a struct with one member that is a
+runtime array of unsigned integers, the SPIR-V ``OpAccessChain`` instruction is used with
+the offset passed to the function, and ``OpStore`` is used to store the given 32-bit 
+unsigned integer. For ``Store2``, ``Store3``, and ``Store4``, this is done 2, 3, and 4 times,
+respectively, to store all the given values.
 
 ``Texture1D``
 --------------------------
