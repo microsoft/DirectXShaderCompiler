@@ -10,6 +10,7 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_DECLRESULTIDMAPPER_H
 #define LLVM_CLANG_LIB_SPIRV_DECLRESULTIDMAPPER_H
 
+#include <tuple>
 #include <vector>
 
 #include "dxc/HLSL/DxilSemantic.h"
@@ -24,6 +25,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
 
+#include "SpirvEvalInfo.h"
 #include "TypeTranslator.h"
 
 namespace clang {
@@ -194,10 +196,10 @@ public:
   /// Returns nullptr if no such decl was previously registered.
   const DeclSpirvInfo *getDeclSpirvInfo(const NamedDecl *decl) const;
 
-  /// \brief Returns the <result-id> for the given decl.
+  /// \brief Returns the information for the given decl.
   ///
   /// This method will panic if the given decl is not registered.
-  uint32_t getDeclResultId(const NamedDecl *decl);
+  SpirvEvalInfo getDeclResultId(const NamedDecl *decl);
 
   /// \brief Returns the <result-id> for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and
@@ -207,14 +209,6 @@ public:
   /// \brief Returns the associated counter's <result-id> for the given
   /// {Append|Consume}StructuredBuffer variable.
   uint32_t getCounterId(const VarDecl *decl);
-
-  /// Returns the storage class for the given expression. If rule is not
-  /// nullptr, also writes the layout rule into it.
-  /// The expression is expected to be an lvalue. Otherwise this method may
-  /// panic.
-  spv::StorageClass resolveStorageInfo(const Expr *expr,
-                                       LayoutRule *rule = nullptr) const;
-  spv::StorageClass resolveStorageClass(const Decl *decl) const;
 
   /// \brief Returns all defined stage (builtin/input/ouput) variables in this
   /// mapper.

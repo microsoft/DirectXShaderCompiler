@@ -16,15 +16,10 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/SPIRV/ModuleBuilder.h"
 
+#include "SpirvEvalInfo.h"
+
 namespace clang {
 namespace spirv {
-
-/// Memory layout rules
-enum class LayoutRule {
-  Void,
-  GLSLStd140,
-  GLSLStd430,
-};
 
 /// The class responsible to translate Clang frontend types into SPIR-V type
 /// instructions.
