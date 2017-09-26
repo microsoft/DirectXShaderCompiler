@@ -519,6 +519,11 @@ public:
   TEST_METHOD(BasicComputeTest);
   TEST_METHOD(BasicTriangleTest);
   TEST_METHOD(BasicTriangleOpTest);
+
+  BEGIN_TEST_METHOD(BasicTriangleOpTestHalf)
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
+  END_TEST_METHOD()
+
   TEST_METHOD(OutOfBoundsTest);
   TEST_METHOD(SaturateTest);
   TEST_METHOD(SignTest);
@@ -595,6 +600,8 @@ public:
   template <class T1, class T2>
   void WaveIntrinsicsActivePrefixTest(
     TableParameter *pParameterList, size_t numParameter, bool isPrefix);
+
+  void BasicTriangleTestSetup(LPCSTR OpName, LPCWSTR FileName);
 
   bool UseDxbc() {
     return GetTestParamBool(L"DXBC");
@@ -2341,7 +2348,7 @@ TEST_F(ExecutionTest, SaturateTest) {
   }
 }
 
-TEST_F(ExecutionTest, BasicTriangleOpTest) {
+void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName, LPCWSTR FileName) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
@@ -2351,7 +2358,7 @@ TEST_F(ExecutionTest, BasicTriangleOpTest) {
   if (!CreateDevice(&pDevice))
     return;
 
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "Triangle", nullptr);
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, ShaderOpName, nullptr);
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
   UINT width = (UINT64)D.Width;
@@ -2359,7 +2366,7 @@ TEST_F(ExecutionTest, BasicTriangleOpTest) {
   test->Test->GetReadBackData("RTarget", &data);
   const uint32_t *pPixels = (uint32_t *)data.data();
   if (SaveImages()) {
-    SavePixelsToFile(pPixels, DXGI_FORMAT_R8G8B8A8_UNORM, 320, 200, L"basic.bmp");
+    SavePixelsToFile(pPixels, DXGI_FORMAT_R8G8B8A8_UNORM, 320, 200, FileName);
   }
   uint32_t top = pPixels[width / 2]; // Top center.
   uint32_t mid = pPixels[width / 2 + width * (height / 2)]; // Middle center.
@@ -2371,6 +2378,15 @@ TEST_F(ExecutionTest, BasicTriangleOpTest) {
   data.reset();
   test.reset();
   ReportLiveObjects();
+
+}
+
+TEST_F(ExecutionTest, BasicTriangleOpTest) {
+  BasicTriangleTestSetup("Triangle", L"basic-triangle.bmp");
+}
+
+TEST_F(ExecutionTest, BasicTriangleOpTestHalf) {
+  BasicTriangleTestSetup("TriangleHalf", L"basic-triangle-half.bmp");
 }
 
 // Rendering two right triangles forming a square and assigning a texture value
