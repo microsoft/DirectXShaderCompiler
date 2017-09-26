@@ -260,11 +260,10 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
 }
 
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID* ppv) {
-  CComPtr<DxcValidator> result = DxcValidator::Alloc(DxcGetThreadMallocNoRef());
-  if (result == nullptr) {
-    *ppv = nullptr;
-    return E_OUTOFMEMORY;
+  try {
+      CComPtr<DxcValidator> result(DxcValidator::Alloc(DxcGetThreadMallocNoRef()));
+      IFROOM(result.p);
+      return result.p->QueryInterface(riid, ppv);
   }
-
-  return result.p->QueryInterface(riid, ppv);
+  CATCH_CPP_RETURN_HRESULT();
 }
