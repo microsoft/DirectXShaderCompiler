@@ -154,7 +154,6 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::SerializeContainer(_Out_ IDxcOper
     HRESULT valHR = S_OK;
     if (m_RequireValidation) {
       CComPtr<IDxcValidator> pValidator;
-      CComPtr<IDxcLibrary> pLibrary;
       IFT(CreateDxcValidator(IID_PPV_ARGS(&pValidator)));
       CComPtr<IDxcOperationResult> pValidationResult;
       IFT(pValidator->Validate(pResult, DxcValidatorFlags_RootSignatureOnly, &pValidationResult));

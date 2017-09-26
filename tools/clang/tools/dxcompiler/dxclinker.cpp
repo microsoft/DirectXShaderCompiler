@@ -262,12 +262,11 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
 HRESULT CreateDxcLinker(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   *ppv = nullptr;
-  CComPtr<DxcLinker> result;
   try {
-    result = DxcLinker::Alloc(DxcGetThreadMallocNoRef());
+    CComPtr<DxcLinker> result(DxcLinker::Alloc(DxcGetThreadMallocNoRef()));
     IFROOM(result.p);
     result->Initialize();
+    return result.p->QueryInterface(riid, ppv);
   }
   CATCH_CPP_RETURN_HRESULT();
-  return result.p->QueryInterface(riid, ppv);
 }

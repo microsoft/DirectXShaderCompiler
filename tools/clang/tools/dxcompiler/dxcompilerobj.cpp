@@ -880,11 +880,10 @@ public:
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {
   *ppv = nullptr;
-  CComPtr<DxcCompiler> result;
   try {
-    result = DxcCompiler::Alloc(DxcGetThreadMallocNoRef());
+    CComPtr<DxcCompiler> result(DxcCompiler::Alloc(DxcGetThreadMallocNoRef()));
     IFROOM(result.p);
+    return result.p->QueryInterface(riid, ppv);
   }
   CATCH_CPP_RETURN_HRESULT();
-  return result.p->QueryInterface(riid, ppv);
 }

@@ -11,6 +11,12 @@
 
 #pragma once
 
+#include "Global.h"
+
+#ifndef _ATL_DECLSPEC_ALLOCATOR
+#define _ATL_DECLSPEC_ALLOCATOR
+#endif
+
 // Forward declarations.
 struct IDxcBlob;
 struct IDxcBlobEncoding;
