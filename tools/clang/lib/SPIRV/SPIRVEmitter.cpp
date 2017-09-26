@@ -3293,6 +3293,12 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
   GLSLstd450 glslOpcode = GLSLstd450Bad;
 
+#define INTRINSIC_SPIRV_OP_CASE(intrinsicOp, spirvOp, doEachVec)               \
+  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
+    return processIntrinsicUsingSpirvInst(callExpr, spv::Op::Op##spirvOp,      \
+                                          doEachVec);                          \
+  } break
+
 #define INTRINSIC_OP_CASE(intrinsicOp, glslOp, doEachVec)                      \
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
     glslOpcode = GLSLstd450::GLSLstd450##glslOp;                               \
@@ -3304,6 +3310,14 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
     glslOpcode = isFloatType ? GLSLstd450::GLSLstd450##glslFloatOp             \
                              : GLSLstd450::GLSLstd450##glslIntOp;              \
+    return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);     \
+  } break
+
+#define INTRINSIC_OP_CASE_SINT_UINT(intrinsicOp, glslSintOp, glslUintOp,       \
+                                    doEachVec)                                 \
+  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
+    glslOpcode = isSintType ? GLSLstd450::GLSLstd450##glslSintOp               \
+                            : GLSLstd450::GLSLstd450##glslUintOp;              \
     return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec);     \
   } break
 
@@ -3341,21 +3355,40 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            GLSLstd450::GLSLstd450SSign,
                                            /*actPerRowForMatrices*/ true);
   }
+  case hlsl::IntrinsicOp::IOP_isfinite: {
+    return processIntrinsicIsFinite(callExpr);
+  }
+  case hlsl::IntrinsicOp::IOP_sincos: {
+    return processIntrinsicSinCos(callExpr);
+  }
+  case hlsl::IntrinsicOp::IOP_saturate: {
+    return processIntrinsicSaturate(callExpr);
+  }
+    INTRINSIC_SPIRV_OP_CASE(transpose, Transpose, false);
+    INTRINSIC_SPIRV_OP_CASE(isinf, IsInf, true);
+    INTRINSIC_SPIRV_OP_CASE(isnan, IsNan, true);
+    INTRINSIC_SPIRV_OP_CASE(fmod, FMod, true);
     INTRINSIC_OP_CASE(round, Round, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
     INTRINSIC_OP_CASE(acos, Acos, true);
     INTRINSIC_OP_CASE(asin, Asin, true);
     INTRINSIC_OP_CASE(atan, Atan, true);
+    INTRINSIC_OP_CASE(atan2, Atan2, true);
     INTRINSIC_OP_CASE(ceil, Ceil, true);
     INTRINSIC_OP_CASE(cos, Cos, true);
     INTRINSIC_OP_CASE(cosh, Cosh, true);
     INTRINSIC_OP_CASE(cross, Cross, false);
     INTRINSIC_OP_CASE(degrees, Degrees, true);
-    INTRINSIC_OP_CASE(radians, Radians, true);
+    INTRINSIC_OP_CASE(distance, Distance, false);
     INTRINSIC_OP_CASE(determinant, Determinant, false);
     INTRINSIC_OP_CASE(exp, Exp, true);
     INTRINSIC_OP_CASE(exp2, Exp2, true);
+    INTRINSIC_OP_CASE_SINT_UINT(firstbithigh, FindSMsb, FindUMsb, false);
+    INTRINSIC_OP_CASE_SINT_UINT(ufirstbithigh, FindSMsb, FindUMsb, false);
+    INTRINSIC_OP_CASE(firstbitlow, FindILsb, false);
     INTRINSIC_OP_CASE(floor, Floor, true);
+    INTRINSIC_OP_CASE(fma, Fma, true);
+    INTRINSIC_OP_CASE(frac, Fract, true);
     INTRINSIC_OP_CASE(length, Length, false);
     INTRINSIC_OP_CASE(log, Log, true);
     INTRINSIC_OP_CASE(log2, Log2, true);
@@ -3365,8 +3398,11 @@ uint32_t SPIRVEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(umin, UMin, true);
     INTRINSIC_OP_CASE(normalize, Normalize, false);
     INTRINSIC_OP_CASE(pow, Pow, true);
+    INTRINSIC_OP_CASE(radians, Radians, true);
     INTRINSIC_OP_CASE(reflect, Reflect, false);
+    INTRINSIC_OP_CASE(refract, Refract, false);
     INTRINSIC_OP_CASE(rsqrt, InverseSqrt, true);
+    INTRINSIC_OP_CASE(smoothstep, SmoothStep, true);
     INTRINSIC_OP_CASE(step, Step, true);
     INTRINSIC_OP_CASE(sin, Sin, true);
     INTRINSIC_OP_CASE(sinh, Sinh, true);
@@ -3733,6 +3769,88 @@ uint32_t SPIRVEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
                                   doExpr(arg));
 }
 
+uint32_t SPIRVEmitter::processIntrinsicIsFinite(const CallExpr *callExpr) {
+  // Since OpIsFinite needs the Kernel capability, translation is instead done
+  // using OpIsNan and OpIsInf:
+  // isFinite = !(isNan || isInf)
+  const auto arg = doExpr(callExpr->getArg(0));
+  const auto returnType = typeTranslator.translateType(callExpr->getType());
+  const auto isNan =
+      theBuilder.createUnaryOp(spv::Op::OpIsNan, returnType, arg);
+  const auto isInf =
+      theBuilder.createUnaryOp(spv::Op::OpIsInf, returnType, arg);
+  const auto isNanOrInf =
+      theBuilder.createBinaryOp(spv::Op::OpLogicalOr, returnType, isNan, isInf);
+  return theBuilder.createUnaryOp(spv::Op::OpLogicalNot, returnType,
+                                  isNanOrInf);
+}
+
+uint32_t SPIRVEmitter::processIntrinsicSinCos(const CallExpr *callExpr) {
+  // Since there is no sincos equivalent in SPIR-V, we need to perform Sin
+  // once and Cos once. We can reuse existing Sine/Cosine handling functions.
+  CallExpr *sincosExpr =
+      new (astContext) CallExpr(astContext, Stmt::StmtClass::NoStmtClass, {});
+  sincosExpr->setType(callExpr->getArg(0)->getType());
+  sincosExpr->setNumArgs(astContext, 1);
+  sincosExpr->setArg(0, const_cast<Expr *>(callExpr->getArg(0)));
+
+  // Perform Sin and store results in argument 1.
+  const uint32_t sin =
+      processIntrinsicUsingGLSLInst(sincosExpr, GLSLstd450::GLSLstd450Sin,
+                                    /*actPerRowForMatrices*/ true);
+  theBuilder.createStore(doExpr(callExpr->getArg(1)), sin);
+
+  // Perform Cos and store results in argument 2.
+  const uint32_t cos =
+      processIntrinsicUsingGLSLInst(sincosExpr, GLSLstd450::GLSLstd450Cos,
+                                    /*actPerRowForMatrices*/ true);
+  theBuilder.createStore(doExpr(callExpr->getArg(2)), cos);
+  return 0;
+}
+
+uint32_t SPIRVEmitter::processIntrinsicSaturate(const CallExpr *callExpr) {
+  const auto *arg = callExpr->getArg(0);
+  const auto argId = doExpr(arg);
+  const auto argType = arg->getType();
+  const uint32_t returnType = typeTranslator.translateType(callExpr->getType());
+  const uint32_t glslInstSetId = theBuilder.getGLSLExtInstSet();
+
+  if (argType->isFloatingType()) {
+    const uint32_t floatZero = getValueZero(argType);
+    const uint32_t floatOne = getValueOne(argType);
+    return theBuilder.createExtInst(returnType, glslInstSetId,
+                                    GLSLstd450::GLSLstd450FClamp,
+                                    {argId, floatZero, floatOne});
+  }
+
+  QualType elemType = {};
+  uint32_t vecSize = 0;
+  if (TypeTranslator::isVectorType(argType, &elemType, &vecSize)) {
+    const uint32_t vecZero = getVecValueZero(elemType, vecSize);
+    const uint32_t vecOne = getVecValueOne(elemType, vecSize);
+    return theBuilder.createExtInst(returnType, glslInstSetId,
+                                    GLSLstd450::GLSLstd450FClamp,
+                                    {argId, vecZero, vecOne});
+  }
+
+  uint32_t numRows = 0, numCols = 0;
+  if (TypeTranslator::isMxNMatrix(argType, &elemType, &numRows, &numCols)) {
+    const uint32_t vecZero = getVecValueZero(elemType, numCols);
+    const uint32_t vecOne = getVecValueOne(elemType, numCols);
+    const auto actOnEachVec = [this, vecZero, vecOne, glslInstSetId](
+                                  uint32_t /*index*/, uint32_t vecType,
+                                  uint32_t curRowId) {
+      return theBuilder.createExtInst(vecType, glslInstSetId,
+                                      GLSLstd450::GLSLstd450FClamp,
+                                      {curRowId, vecZero, vecOne});
+    };
+    return processEachVectorInMatrix(arg, argId, actOnEachVec);
+  }
+
+  emitError("Invalid argument type passed to saturate().");
+  return 0;
+}
+
 uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
   // Import the GLSL.std.450 extended instruction set.
   const uint32_t glslInstSetId = theBuilder.getGLSLExtInstSet();
@@ -3760,6 +3878,50 @@ uint32_t SPIRVEmitter::processIntrinsicFloatSign(const CallExpr *callExpr) {
   return castToInt(floatSignResultId, arg->getType(), returnType);
 }
 
+uint32_t SPIRVEmitter::processIntrinsicUsingSpirvInst(
+    const CallExpr *callExpr, spv::Op opcode, bool actPerRowForMatrices) {
+  const uint32_t returnType = typeTranslator.translateType(callExpr->getType());
+  if (callExpr->getNumArgs() == 1u) {
+    const Expr *arg = callExpr->getArg(0);
+    const uint32_t argId = doExpr(arg);
+
+    // If the instruction does not operate on matrices, we can perform the
+    // instruction on each vector of the matrix.
+    if (actPerRowForMatrices &&
+        TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
+      const auto actOnEachVec = [this, opcode](uint32_t /*index*/,
+                                               uint32_t vecType,
+                                               uint32_t curRowId) {
+        return theBuilder.createUnaryOp(opcode, vecType, {curRowId});
+      };
+      return processEachVectorInMatrix(arg, argId, actOnEachVec);
+    }
+    return theBuilder.createUnaryOp(opcode, returnType, {argId});
+  } else if (callExpr->getNumArgs() == 2u) {
+    const Expr *arg0 = callExpr->getArg(0);
+    const uint32_t arg0Id = doExpr(arg0);
+    const uint32_t arg1Id = doExpr(callExpr->getArg(1));
+    // If the instruction does not operate on matrices, we can perform the
+    // instruction on each vector of the matrix.
+    if (actPerRowForMatrices &&
+        TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
+      const auto actOnEachVec = [this, opcode, arg1Id](uint32_t index,
+                                                       uint32_t vecType,
+                                                       uint32_t arg0RowId) {
+        const uint32_t arg1RowId =
+            theBuilder.createCompositeExtract(vecType, arg1Id, {index});
+        return theBuilder.createBinaryOp(opcode, vecType, arg0RowId, arg1RowId);
+      };
+      return processEachVectorInMatrix(arg0, arg0Id, actOnEachVec);
+    }
+    return theBuilder.createBinaryOp(opcode, returnType, arg0Id, arg1Id);
+  }
+
+  emitError("Unsupported intrinsic function %0.")
+      << cast<DeclRefExpr>(callExpr->getCallee())->getNameInfo().getAsString();
+  return 0;
+}
+
 uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     const CallExpr *callExpr, GLSLstd450 opcode, bool actPerRowForMatrices) {
   // Import the GLSL.std.450 extended instruction set.
@@ -3773,8 +3935,9 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg->getType())) {
-      const auto actOnEachVec = [this, glslInstSetId, opcode](
-          uint32_t /*index*/, uint32_t vecType, uint32_t curRowId) {
+      const auto actOnEachVec = [this, glslInstSetId,
+                                 opcode](uint32_t /*index*/, uint32_t vecType,
+                                         uint32_t curRowId) {
         return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
                                         {curRowId});
       };
@@ -3783,15 +3946,15 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     return theBuilder.createExtInst(returnType, glslInstSetId, opcode, {argId});
   } else if (callExpr->getNumArgs() == 2u) {
     const Expr *arg0 = callExpr->getArg(0);
-    const Expr *arg1 = callExpr->getArg(1);
     const uint32_t arg0Id = doExpr(arg0);
-    const uint32_t arg1Id = doExpr(arg1);
+    const uint32_t arg1Id = doExpr(callExpr->getArg(1));
     // If the instruction does not operate on matrices, we can perform the
     // instruction on each vector of the matrix.
     if (actPerRowForMatrices &&
         TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
-      const auto actOnEachVec = [this, glslInstSetId, opcode, arg1Id](
-          uint32_t index, uint32_t vecType, uint32_t arg0RowId) {
+      const auto actOnEachVec = [this, glslInstSetId, opcode,
+                                 arg1Id](uint32_t index, uint32_t vecType,
+                                         uint32_t arg0RowId) {
         const uint32_t arg1RowId =
             theBuilder.createCompositeExtract(vecType, arg1Id, {index});
         return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
@@ -3801,6 +3964,29 @@ uint32_t SPIRVEmitter::processIntrinsicUsingGLSLInst(
     }
     return theBuilder.createExtInst(returnType, glslInstSetId, opcode,
                                     {arg0Id, arg1Id});
+  } else if (callExpr->getNumArgs() == 3u) {
+    const Expr *arg0 = callExpr->getArg(0);
+    const uint32_t arg0Id = doExpr(arg0);
+    const uint32_t arg1Id = doExpr(callExpr->getArg(1));
+    const uint32_t arg2Id = doExpr(callExpr->getArg(2));
+    // If the instruction does not operate on matrices, we can perform the
+    // instruction on each vector of the matrix.
+    if (actPerRowForMatrices &&
+        TypeTranslator::isSpirvAcceptableMatrixType(arg0->getType())) {
+      const auto actOnEachVec = [this, glslInstSetId, opcode, arg0Id, arg1Id,
+                                 arg2Id](uint32_t index, uint32_t vecType,
+                                         uint32_t arg0RowId) {
+        const uint32_t arg1RowId =
+            theBuilder.createCompositeExtract(vecType, arg1Id, {index});
+        const uint32_t arg2RowId =
+            theBuilder.createCompositeExtract(vecType, arg2Id, {index});
+        return theBuilder.createExtInst(vecType, glslInstSetId, opcode,
+                                        {arg0RowId, arg1RowId, arg2RowId});
+      };
+      return processEachVectorInMatrix(arg0, arg0Id, actOnEachVec);
+    }
+    return theBuilder.createExtInst(returnType, glslInstSetId, opcode,
+                                    {arg0Id, arg1Id, arg2Id});
   }
 
   emitError("Unsupported intrinsic function %0.")

@@ -273,6 +273,15 @@ private:
   /// Processes the 'asfloat', 'asint', and 'asuint' intrinsic functions.
   uint32_t processIntrinsicAsType(const CallExpr *);
 
+  /// Processes the 'saturate' intrinsic function.
+  uint32_t processIntrinsicSaturate(const CallExpr *);
+
+  /// Processes the 'sincos' intrinsic function.
+  uint32_t processIntrinsicSinCos(const CallExpr *);
+
+  /// Processes the 'isFinite' intrinsic function.
+  uint32_t processIntrinsicIsFinite(const CallExpr *);
+
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
   /// result. The HLSL sign function, however, returns an integer. An extra
@@ -289,6 +298,13 @@ private:
   /// Processes the given intrinsic member call.
   uint32_t processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
                                       hlsl::IntrinsicOp opcode);
+
+  /// Processes the given intrinsic function call using the given SPIR-V
+  /// instruction. If the given instruction cannot operate on matrices, it
+  /// performs the instruction on each row of the matrix and uses composite
+  /// construction to generate the resulting matrix.
+  uint32_t processIntrinsicUsingSpirvInst(const CallExpr *, spv::Op,
+                                          bool canOperateOnMatrix);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
