@@ -1196,11 +1196,14 @@ the number of bytes.
 
 ``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since ByteAddressBuffers are represented as a struct with one member that is a
-runtime array of unsigned integers, the SPIR-V ``OpAccessChain`` instruction is used with
-the offset passed to the function, and ``OpLoad`` is used to load a 32-bit unsigned integer.
-For ``Load2``, ``Load3``, and ``Load4``, this is done 2, 3, and 4 times, respectively, and
-a vector is constructed with all the resulting values.
+ByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpLoad`` is
+used to load a 32-bit unsigned integer. For ``Load2``, ``Load3``, and ``Load4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``. After all ``OpLoad`` operations are performed, a vector is
+constructed with all the resulting values.
 
 ``RWByteAddressBuffer``
 --------------------------
@@ -1214,19 +1217,24 @@ the number of bytes.
 
 ``.Load()``, ``.Load2()``, ``.Load3()``, ``.Load4()``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since RWByteAddressBuffers are represented as a struct with one member that is a
-runtime array of unsigned integers, the SPIR-V ``OpAccessChain`` instruction is used with
-the offset passed to the function, and ``OpLoad`` is used to load a 32-bit unsigned integer.
-For ``Load2``, ``Load3``, and ``Load4``, this is done 2, 3, and 4 times, respectively, and
-a vector is constructed with all the resulting values.
+RWByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpLoad`` is
+used to load a 32-bit unsigned integer. For ``Load2``, ``Load3``, and ``Load4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``. After all ``OpLoad`` operations are performed, a vector is
+constructed with all the resulting values.
 
 ``.Store()``, ``.Store2()``, ``.Store3()``, ``.Store4()``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Since RWByteAddressBuffers are represented as a struct with one member that is a
-runtime array of unsigned integers, the SPIR-V ``OpAccessChain`` instruction is used with
-the offset passed to the function, and ``OpStore`` is used to store the given 32-bit 
-unsigned integer. For ``Store2``, ``Store3``, and ``Store4``, this is done 2, 3, and 4 times,
-respectively, to store all the given values.
+RWByteAddressBuffers are represented as a struct with one member that is a runtime array of
+unsigned integers. The ``address`` argument passed to the function is first divided by 4
+in order to find the offset into the array (because each array element is 4 bytes). The
+SPIR-V ``OpAccessChain`` instruction is then used to access that offset, and ``OpStore`` is
+used to store a 32-bit unsigned integer. For ``Store2``, ``Store3``, and ``Store4``, this is
+done 2, 3, and 4 times, respectively. Each time the word offset is incremented by 1 before
+performing ``OpAccessChain``.
 
 ``Texture1D``
 --------------------------
