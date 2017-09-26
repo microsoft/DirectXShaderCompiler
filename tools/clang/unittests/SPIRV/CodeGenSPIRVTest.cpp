@@ -442,13 +442,30 @@ TEST_F(FileTest, IntrinsicsCross) { runFileTest("intrinsics.cross.hlsl"); }
 TEST_F(FileTest, IntrinsicsCeil) { runFileTest("intrinsics.ceil.hlsl"); }
 TEST_F(FileTest, IntrinsicsClamp) { runFileTest("intrinsics.clamp.hlsl"); }
 TEST_F(FileTest, IntrinsicsDegrees) { runFileTest("intrinsics.degrees.hlsl"); }
+TEST_F(FileTest, IntrinsicsDistance) {
+  runFileTest("intrinsics.distance.hlsl");
+}
 TEST_F(FileTest, IntrinsicsRadians) { runFileTest("intrinsics.radians.hlsl"); }
 TEST_F(FileTest, IntrinsicsDeterminant) {
   runFileTest("intrinsics.determinant.hlsl");
 }
 TEST_F(FileTest, IntrinsicsExp) { runFileTest("intrinsics.exp.hlsl"); }
 TEST_F(FileTest, IntrinsicsExp2) { runFileTest("intrinsics.exp2.hlsl"); }
+TEST_F(FileTest, IntrinsicsFirstBitHigh) {
+  runFileTest("intrinsics.firstbithigh.hlsl");
+}
+TEST_F(FileTest, IntrinsicsFirstBitLow) {
+  runFileTest("intrinsics.firstbitlow.hlsl");
+}
 TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
+TEST_F(FileTest, IntrinsicsFma) { runFileTest("intrinsics.fma.hlsl"); }
+TEST_F(FileTest, IntrinsicsFmod) { runFileTest("intrinsics.fmod.hlsl"); }
+TEST_F(FileTest, IntrinsicsFrac) { runFileTest("intrinsics.frac.hlsl"); }
+TEST_F(FileTest, IntrinsicsIsFinite) {
+  runFileTest("intrinsics.isfinite.hlsl");
+}
+TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
+TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog) { runFileTest("intrinsics.log.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog2) { runFileTest("intrinsics.log2.hlsl"); }
@@ -464,13 +481,24 @@ TEST_F(FileTest, IntrinsicsFloatSign) {
 }
 TEST_F(FileTest, IntrinsicsIntSign) { runFileTest("intrinsics.intsign.hlsl"); }
 TEST_F(FileTest, IntrinsicsReflect) { runFileTest("intrinsics.reflect.hlsl"); }
+TEST_F(FileTest, IntrinsicsRefract) { runFileTest("intrinsics.refract.hlsl"); }
+TEST_F(FileTest, IntrinsicsSaturate) {
+  runFileTest("intrinsics.saturate.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSmoothStep) {
+  runFileTest("intrinsics.smoothstep.hlsl");
+}
 TEST_F(FileTest, IntrinsicsStep) { runFileTest("intrinsics.step.hlsl"); }
 TEST_F(FileTest, IntrinsicsSqrt) { runFileTest("intrinsics.sqrt.hlsl"); }
+TEST_F(FileTest, IntrinsicsTranspose) {
+  runFileTest("intrinsics.transpose.hlsl");
+}
 TEST_F(FileTest, IntrinsicsTrunc) { runFileTest("intrinsics.trunc.hlsl"); }
 
 // For intrinsic trigonometric functions
 TEST_F(FileTest, IntrinsicsSin) { runFileTest("intrinsics.sin.hlsl"); }
 TEST_F(FileTest, IntrinsicsCos) { runFileTest("intrinsics.cos.hlsl"); }
+TEST_F(FileTest, IntrinsicsSinCos) { runFileTest("intrinsics.sincos.hlsl"); }
 TEST_F(FileTest, IntrinsicsTan) { runFileTest("intrinsics.tan.hlsl"); }
 TEST_F(FileTest, IntrinsicsSinh) { runFileTest("intrinsics.sinh.hlsl"); }
 TEST_F(FileTest, IntrinsicsCosh) { runFileTest("intrinsics.cosh.hlsl"); }
@@ -478,6 +506,7 @@ TEST_F(FileTest, IntrinsicsTanh) { runFileTest("intrinsics.tanh.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsin) { runFileTest("intrinsics.asin.hlsl"); }
 TEST_F(FileTest, IntrinsicsAcos) { runFileTest("intrinsics.acos.hlsl"); }
 TEST_F(FileTest, IntrinsicsAtan) { runFileTest("intrinsics.atan.hlsl"); }
+TEST_F(FileTest, IntrinsicsAtan2) { runFileTest("intrinsics.atan2.hlsl"); }
 
 // For attributes
 TEST_F(FileTest, AttributeNumThreads) {
