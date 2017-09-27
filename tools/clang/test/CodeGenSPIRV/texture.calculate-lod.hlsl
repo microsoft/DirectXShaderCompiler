@@ -1,5 +1,7 @@
 // Run: %dxc -T ps_6_0 -E main
 
+// CHECK: OpCapability ImageQuery
+
 SamplerState ss : register(s2);
 
 Texture1D        <float>  t1;
