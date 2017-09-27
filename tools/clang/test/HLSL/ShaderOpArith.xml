@@ -456,8 +456,8 @@
       <RenderTarget Name="RTarget" />
     </RenderTargets>
 
-    <!-- <Shader Name="VS" Target="vs_6_2" Arguments="/no-min-precision"> -->
-    <Shader Name="VS" Target="vs_6_0">
+    <Shader Name="VS" Target="vs_6_2" Arguments="/no-min-precision">
+    <!--<Shader Name="VS" Target="vs_6_0"> -->
     <![CDATA[
     struct PSInput {
       half4 position : SV_POSITION;
@@ -474,8 +474,8 @@
     ]]>
     </Shader>
 
-    <!--<Shader Name="PS" Target="ps_6_2" Arguments="/no-min-precision">-->
-    <Shader Name="PS" Target="ps_6_0">
+    <Shader Name="PS" Target="ps_6_2" Arguments="/no-min-precision">
+    <!--<Shader Name="PS" Target="ps_6_0">-->
     <![CDATA[
     struct PSInput {
       half4 position : SV_POSITION;
