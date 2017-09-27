@@ -3445,7 +3445,7 @@ uint32_t SPIRVEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   // All of the above must be a scalar, vector, or matrix with the same
   // component types. Component types can be float or int.
 
-  // The Frexp SPIR-V instruction returns a struct. The first member is the
+  // The ModfStruct SPIR-V instruction returns a struct. The first member is the
   // fractional part and the second member is the integer portion.
   // ModfStruct {
   //   <scalar or vector of float> frac;
@@ -3535,7 +3535,7 @@ uint32_t SPIRVEmitter::processIntrinsicFrexp(const CallExpr *callExpr) {
   // [out]  ret: the calculated mantissa.
   // All of the above must be a scalar, vector, or matrix of *float* type.
 
-  // The Frexp SPIR-V instruction returns a struct. The first
+  // The FrexpStruct SPIR-V instruction returns a struct. The first
   // member is the significand (mantissa) and must be of the same type as the
   // input parameter, and the second member is the exponent and must always be a
   // scalar or vector of 32-bit *integer* type.
@@ -3639,8 +3639,7 @@ uint32_t SPIRVEmitter::processIntrinsicClip(const CallExpr *callExpr) {
   uint32_t elemCount = 0, rowCount = 0, colCount = 0;
   if (TypeTranslator::isScalarType(argType)) {
     const auto zero = getValueZero(argType);
-    const auto cmpType = boolType;
-    condition = theBuilder.createBinaryOp(spv::Op::OpFOrdLessThan, cmpType,
+    condition = theBuilder.createBinaryOp(spv::Op::OpFOrdLessThan, boolType,
                                           argId, zero);
   } else if (TypeTranslator::isVectorType(argType, nullptr, &elemCount)) {
     const auto zero = getValueZero(argType);
@@ -3671,6 +3670,7 @@ uint32_t SPIRVEmitter::processIntrinsicClip(const CallExpr *callExpr) {
     condition = theBuilder.createUnaryOp(spv::Op::OpAny, boolType, results);
   } else {
     emitError("Invalid type passed to clip function.");
+    return 0;
   }
 
   // Then we need to emit the instruction for the conditional branch.
