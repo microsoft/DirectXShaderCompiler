@@ -1396,7 +1396,10 @@ uint32_t SPIRVEmitter::processByteAddressBufferStructuredBufferGetDimensions(
   const auto type = object->getType();
   const bool isByteAddressBuffer = TypeTranslator::isByteAddressBuffer(type) ||
                                    TypeTranslator::isRWByteAddressBuffer(type);
-  const bool isStructuredBuffer = TypeTranslator::isStructuredBuffer(type);
+  const bool isStructuredBuffer =
+      TypeTranslator::isStructuredBuffer(type) ||
+      TypeTranslator::isAppendStructuredBuffer(type) ||
+      TypeTranslator::isConsumeStructuredBuffer(type);
   assert(isByteAddressBuffer || isStructuredBuffer);
 
   // (RW)ByteAddressBuffers/(RW)StructuredBuffers are represented as a structure
@@ -2025,7 +2028,9 @@ uint32_t SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
       return processBufferTextureGetDimensions(expr);
     } else if (TypeTranslator::isByteAddressBuffer(objectType) ||
                TypeTranslator::isRWByteAddressBuffer(objectType) ||
-               TypeTranslator::isStructuredBuffer(objectType)) {
+               TypeTranslator::isStructuredBuffer(objectType) ||
+               TypeTranslator::isAppendStructuredBuffer(objectType) ||
+               TypeTranslator::isConsumeStructuredBuffer(objectType)) {
       return processByteAddressBufferStructuredBufferGetDimensions(expr);
     } else {
       emitError("GetDimensions not implmented for the given type yet.");
