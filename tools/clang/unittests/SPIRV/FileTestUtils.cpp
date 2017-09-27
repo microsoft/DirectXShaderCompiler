@@ -22,7 +22,7 @@ namespace utils {
 bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
                             std::string *generatedSpirvAsm,
                             bool generateHeader) {
-  spvtools::SpirvTools spirvTools(SPV_ENV_UNIVERSAL_1_0);
+  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
   spirvTools.SetMessageConsumer(
       [](spv_message_level_t, const char *, const spv_position_t &,
          const char *message) { fprintf(stdout, "%s\n", message); });
@@ -33,7 +33,7 @@ bool disassembleSpirvBinary(std::vector<uint32_t> &binary,
 }
 
 bool validateSpirvBinary(std::vector<uint32_t> &binary) {
-  spvtools::SpirvTools spirvTools(SPV_ENV_UNIVERSAL_1_0);
+  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_0);
   spirvTools.SetMessageConsumer(
       [](spv_message_level_t, const char *, const spv_position_t &,
          const char *message) { fprintf(stdout, "%s\n", message); });
@@ -134,6 +134,7 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     flags.push_back(L"-T");
     flags.push_back(profile.c_str());
     flags.push_back(L"-spirv");
+    flags.push_back(L"-O0"); // Disable optimization for testing
     flags.push_back(rest.c_str());
 
     IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
