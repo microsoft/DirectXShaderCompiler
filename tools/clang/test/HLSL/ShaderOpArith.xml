@@ -436,6 +436,58 @@
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="TriangleHalf" PS="PS" VS="VS">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes">
+      { {   0.0h,  0.25h , 0.0h, 1.0h }, { 1.0h, 1.0h, 1.0h, 1.0h } },
+      { {  0.25h, -0.25h , 0.0h, 1.0h }, { 1.0h, 1.0h, 1.0h, 1.0h } },
+      { { -0.25h, -0.25h , 0.0h, 1.0h }, { 1.0h, 1.0h, 1.0h, 1.0h } }
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="320" Height="200" Format="R8G8B8A8_UNORM" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R16G16B16A16_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="COLOR" Format="R16G16B16A16_FLOAT" AlignedByteOffset="8" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget" />
+    </RenderTargets>
+
+    <Shader Name="VS" Target="vs_6_2" Arguments="/no-min-precision">
+    <!--<Shader Name="VS" Target="vs_6_0"> -->
+    <![CDATA[
+    struct PSInput {
+      half4 position : SV_POSITION;
+      half4 color : COLOR;
+    };
+    PSInput main(half4 position : POSITION, half4 color : COLOR) {
+      PSInput result;
+      float ratio = 320.0 / 200.0;
+      result.position = position;
+      result.position.y *= ratio;
+      result.color = color;
+      return result;
+    }
+    ]]>
+    </Shader>
+
+    <Shader Name="PS" Target="ps_6_2" Arguments="/no-min-precision">
+    <!--<Shader Name="PS" Target="ps_6_0">-->
+    <![CDATA[
+    struct PSInput {
+      half4 position : SV_POSITION;
+      half4 color : COLOR;
+    };
+    half4 main(PSInput input) : SV_TARGET {
+      return input.color;
+    }
+    ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="CBufferTestHalf" PS="PS" VS="VS" TopologyType="TRIANGLE">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), CBV(b0), DescriptorTable(SRV(t0,numDescriptors=2))</RootSignature>
     <Resource Name="CB0" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="ByName" TransitionTo="VERTEX_AND_CONSTANT_BUFFER">
@@ -481,8 +533,6 @@
       ]]>
     </Shader>
   </ShaderOp>
-
-
   <!--
   TODO: Dynamically index into tables
   -->

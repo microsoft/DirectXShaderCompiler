@@ -1932,7 +1932,7 @@ void ParseDataFromText(LPCWSTR pText, LPCWSTR pEnd, DXIL::ComponentType compType
     if (compType == DXIL::ComponentType::F16) {
       uint16_t fp16Val = ConvertFloat32ToFloat16(fVal);
       pB = (BYTE *)&fp16Val;
-      V.insert(V.end(), pB, pB + sizeof(float));
+      V.insert(V.end(), pB, pB + sizeof(uint16_t));
     }
     else {
       pB = (BYTE *)&fVal;
