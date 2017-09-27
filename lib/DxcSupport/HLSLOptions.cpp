@@ -327,7 +327,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
-  if (Arg *A = Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3)) {
+  if (Arg *A = Args.getLastArg(OPT_O0, OPT_O1, OPT_O2, OPT_O3, OPT_O4)) {
     if (A->getOption().matches(OPT_O0))
       opts.OptLevel = 0;
     if (A->getOption().matches(OPT_O1))
@@ -336,6 +336,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       opts.OptLevel = 2;
     if (A->getOption().matches(OPT_O3))
       opts.OptLevel = 3;
+    if (A->getOption().matches(OPT_O4))
+      opts.OptLevel = 4;
   }
   else
     opts.OptLevel = 3;
