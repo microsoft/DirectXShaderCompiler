@@ -483,6 +483,10 @@ private:
   /// the loaded value for .Consume; returns zero for .Append().
   uint32_t processACSBufferAppendConsume(const CXXMemberCallExpr *expr);
 
+  /// \brief Returns the calculated level-of-detail (a single float value) for
+  /// the given texture. Handles intrinsic HLSL CalculateLevelOfDetail function.
+  uint32_t processTextureLevelOfDetail(const CXXMemberCallExpr *expr);
+
 private:
   /// \brief Queries the given (RW)Buffer/(RW)Texture image in the given expr
   /// for the requested information. Based on the dimension of the image, the

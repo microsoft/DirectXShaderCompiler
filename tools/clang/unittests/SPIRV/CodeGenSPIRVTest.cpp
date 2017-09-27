@@ -371,6 +371,9 @@ TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
 TEST_F(FileTest, TextureGetDimensions) {
   runFileTest("texture.get-dimensions.hlsl");
 }
+TEST_F(FileTest, TextureCalculateLevelOfDetail) {
+  runFileTest("texture.calculate-lod.hlsl");
+}
 TEST_F(FileTest, TextureGather) { runFileTest("texture.gather.hlsl"); }
 TEST_F(FileTest, TextureArrayGather) {
   runFileTest("texture.array.gather.hlsl");
