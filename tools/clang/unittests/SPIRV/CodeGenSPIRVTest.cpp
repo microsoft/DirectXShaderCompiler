@@ -360,6 +360,15 @@ TEST_F(FileTest, SemanticDuplication) {
 TEST_F(FileTest, SemanticDispatchThreadId) {
   runFileTest("semantic.dispatch-thread-id.cs.hlsl");
 }
+TEST_F(FileTest, SemanticGroupID) {
+  runFileTest("semantic.group-id.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupThreadID) {
+  runFileTest("semantic.group-thread-id.cs.hlsl");
+}
+TEST_F(FileTest, SemanticGroupIndex) {
+  runFileTest("semantic.group-index.cs.hlsl");
+}
 
 // For texture methods
 TEST_F(FileTest, TextureSample) { runFileTest("texture.sample.hlsl"); }
