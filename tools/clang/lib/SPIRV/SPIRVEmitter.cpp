@@ -1538,6 +1538,35 @@ SPIRVEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   return 0;
 }
 
+uint32_t
+SPIRVEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr) {
+  // Possible signatures are as follows:
+  // Texture1D(Array).CalculateLevelOfDetail(SamplerState S, float x);
+  // Texture2D(Array).CalculateLevelOfDetail(SamplerState S, float2 xy);
+  // TextureCube(Array).CalculateLevelOfDetail(SamplerState S, float3 xyz);
+  // Texture3D.CalculateLevelOfDetail(SamplerState S, float3 xyz);
+  // Return type is always a single float (LOD).
+  assert(expr->getNumArgs() == 2u);
+  theBuilder.requireCapability(spv::Capability::ImageQuery);
+  const auto *object = expr->getImplicitObjectArgument();
+  const uint32_t objectId = loadIfGLValue(object);
+  const uint32_t samplerState = doExpr(expr->getArg(0));
+  const uint32_t coordinate = doExpr(expr->getArg(1));
+  const uint32_t sampledImageType = theBuilder.getSampledImageType(
+      typeTranslator.translateType(object->getType()));
+  const uint32_t sampledImage = theBuilder.createBinaryOp(
+      spv::Op::OpSampledImage, sampledImageType, objectId, samplerState);
+
+  // The result type of OpImageQueryLod must be a float2.
+  const uint32_t queryResultType =
+      theBuilder.getVecType(theBuilder.getFloat32Type(), 2u);
+  const uint32_t query = theBuilder.createBinaryOp(
+      spv::Op::OpImageQueryLod, queryResultType, sampledImage, coordinate);
+  // The first component of the float2 contains the mipmap array layer.
+  return theBuilder.createCompositeExtract(theBuilder.getFloat32Type(), query,
+                                           {0});
+}
+
 uint32_t SPIRVEmitter::processBufferTextureLoad(const Expr *object,
                                                 const uint32_t locationId,
                                                 uint32_t constOffset,
@@ -2002,6 +2031,9 @@ uint32_t SPIRVEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
       emitError("GetDimensions not implmented for the given type yet.");
       return 0;
     }
+  }
+  case IntrinsicOp::MOP_CalculateLevelOfDetail: {
+    return processTextureLevelOfDetail(expr);
   }
   }
   emitError("HLSL intrinsic member call unimplemented: %0")
