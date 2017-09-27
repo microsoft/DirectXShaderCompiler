@@ -14,6 +14,7 @@
 #include "SPIRVEmitter.h"
 
 #include "dxc/HlslIntrinsicOp.h"
+#include "spirv-tools/optimizer.hpp"
 #include "llvm/ADT/StringExtras.h"
 
 #include "InitListHandler.h"
@@ -148,15 +149,33 @@ const Expr *isStructuredBufferLoad(const Expr *expr, const Expr **index) {
   return nullptr;
 }
 
-/// \brief Returns the statement that is the immediate parent AST node of the
-/// given statement. Returns nullptr if there are no parents nodes.
-const Stmt *getImmediateParent(ASTContext &astContext, const Stmt *stmt) {
-  const auto &parents = astContext.getParents(*stmt);
-  return parents.empty() ? nullptr : parents[0].get<Stmt>();
-}
+bool spirvToolsOptimize(std::vector<uint32_t> *module, std::string *messages) {
+  spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_0);
 
-bool isLoopStmt(const Stmt *stmt) {
-  return isa<ForStmt>(stmt) || isa<WhileStmt>(stmt) || isa<DoStmt>(stmt);
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  optimizer.RegisterPass(spvtools::CreateInlineExhaustivePass());
+  optimizer.RegisterPass(spvtools::CreateLocalAccessChainConvertPass());
+  optimizer.RegisterPass(spvtools::CreateLocalSingleBlockLoadStoreElimPass());
+  optimizer.RegisterPass(spvtools::CreateLocalSingleStoreElimPass());
+  optimizer.RegisterPass(spvtools::CreateInsertExtractElimPass());
+  optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+
+  optimizer.RegisterPass(spvtools::CreateDeadBranchElimPass());
+  optimizer.RegisterPass(spvtools::CreateBlockMergePass());
+  optimizer.RegisterPass(spvtools::CreateLocalMultiStoreElimPass());
+  optimizer.RegisterPass(spvtools::CreateInsertExtractElimPass());
+  optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+
+  optimizer.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass());
+  optimizer.RegisterPass(spvtools::CreateEliminateDeadConstantPass());
+
+  optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+
+  return optimizer.Run(module->data(), module->size(), module);
 }
 
 } // namespace
@@ -171,7 +190,7 @@ SPIRVEmitter::SPIRVEmitter(CompilerInstance &ci,
       theContext(), theBuilder(&theContext),
       declIdMapper(shaderModel, astContext, theBuilder, diags, spirvOptions),
       typeTranslator(astContext, theBuilder, diags), entryFunctionId(0),
-      curFunction(nullptr), curThis(0) {
+      curFunction(nullptr), curThis(0), needsLegalization(false) {
   if (shaderModel.GetKind() == hlsl::ShaderModel::Kind::Invalid)
     emitError("unknown shader module: %0") << shaderModel.GetName();
 }
@@ -230,6 +249,19 @@ void SPIRVEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // Output the constructed module.
   std::vector<uint32_t> m = theBuilder.takeModule();
+
+  const auto optLevel = theCompilerInstance.getCodeGenOpts().OptimizationLevel;
+  if (needsLegalization || optLevel > 0) {
+    if (needsLegalization && optLevel == 0)
+      emitWarning("-O0 ignored since SPIR-V legalization required");
+
+    std::string messages;
+    if (!spirvToolsOptimize(&m, &messages)) {
+      emitFatalError("failed to legalize/optimize SPIR-V: %0") << messages;
+      return;
+    }
+  }
+
   theCompilerInstance.getOutStream()->write(
       reinterpret_cast<const char *>(m.data()), m.size() * 4);
 }
@@ -425,6 +457,10 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     funcId = declIdMapper.getDeclResultId(decl);
   }
 
+  if (!needsLegalization &&
+      TypeTranslator::isOpaqueStructType(decl->getReturnType()))
+    needsLegalization = true;
+
   const uint32_t retType = typeTranslator.translateType(decl->getReturnType());
 
   // Construct the function signature.
@@ -454,6 +490,10 @@ void SPIRVEmitter::doFunctionDecl(const FunctionDecl *decl) {
     const uint32_t ptrType =
         theBuilder.getPointerType(valueType, spv::StorageClass::Function);
     paramTypes.push_back(ptrType);
+
+    if (!needsLegalization &&
+        TypeTranslator::isOpaqueStructType(param->getType()))
+      needsLegalization = true;
   }
 
   const uint32_t funcType = theBuilder.getFunctionType(retType, paramTypes);
@@ -555,6 +595,9 @@ void SPIRVEmitter::doVarDecl(const VarDecl *decl) {
   if (TypeTranslator::isRelaxedPrecisionType(decl->getType())) {
     theBuilder.decorate(varId, spv::Decoration::RelaxedPrecision);
   }
+
+  if (!needsLegalization && TypeTranslator::isOpaqueStructType(decl->getType()))
+    needsLegalization = true;
 }
 
 spv::LoopControlMask SPIRVEmitter::translateLoopAttribute(const Attr &attr) {
