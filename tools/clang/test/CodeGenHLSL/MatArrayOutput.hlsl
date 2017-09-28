@@ -19,20 +19,20 @@
 struct Vertex
 {
     float2x2 pos     : POSITION0;
+    float3x2 t     : T;
 };
 
 struct Interpolants
 {
     float4 pos     : SV_POSITION0;
-    float2x2 p[3] : O;
+    row_major float3x2 p[2] : O;
 };
 
 Interpolants main( Vertex In )
 {
     Interpolants o;
     o.pos = (float4)In.pos;
-    o.p[0] = In.pos*2;
-    o.p[1] = In.pos*3;
-    o.p[2] = In.pos*4;
+    o.p[0] = In.t*2;
+    o.p[1] = In.t*3;
     return o;
 }
