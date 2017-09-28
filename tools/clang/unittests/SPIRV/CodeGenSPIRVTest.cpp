@@ -432,6 +432,9 @@ TEST_F(FileTest, RWTextureGetDimensions) {
 }
 
 // For intrinsic functions
+TEST_F(FileTest, IntrinsicsCountBits) {
+  runFileTest("intrinsics.countbits.hlsl");
+}
 TEST_F(FileTest, IntrinsicsDot) { runFileTest("intrinsics.dot.hlsl"); }
 TEST_F(FileTest, IntrinsicsMul) { runFileTest("intrinsics.mul.hlsl"); }
 TEST_F(FileTest, IntrinsicsAll) { runFileTest("intrinsics.all.hlsl"); }
@@ -444,6 +447,7 @@ TEST_F(FileTest, IntrinsicsAbs) { runFileTest("intrinsics.abs.hlsl"); }
 TEST_F(FileTest, IntrinsicsCross) { runFileTest("intrinsics.cross.hlsl"); }
 TEST_F(FileTest, IntrinsicsCeil) { runFileTest("intrinsics.ceil.hlsl"); }
 TEST_F(FileTest, IntrinsicsClamp) { runFileTest("intrinsics.clamp.hlsl"); }
+TEST_F(FileTest, IntrinsicsClip) { runFileTest("intrinsics.clip.hlsl"); }
 TEST_F(FileTest, IntrinsicsDegrees) { runFileTest("intrinsics.degrees.hlsl"); }
 TEST_F(FileTest, IntrinsicsDistance) {
   runFileTest("intrinsics.distance.hlsl");
@@ -464,15 +468,21 @@ TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
 TEST_F(FileTest, IntrinsicsFma) { runFileTest("intrinsics.fma.hlsl"); }
 TEST_F(FileTest, IntrinsicsFmod) { runFileTest("intrinsics.fmod.hlsl"); }
 TEST_F(FileTest, IntrinsicsFrac) { runFileTest("intrinsics.frac.hlsl"); }
+TEST_F(FileTest, IntrinsicsFrexp) { runFileTest("intrinsics.frexp.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsFinite) {
   runFileTest("intrinsics.isfinite.hlsl");
 }
 TEST_F(FileTest, IntrinsicsIsInf) { runFileTest("intrinsics.isinf.hlsl"); }
 TEST_F(FileTest, IntrinsicsIsNan) { runFileTest("intrinsics.isnan.hlsl"); }
 TEST_F(FileTest, IntrinsicsLength) { runFileTest("intrinsics.length.hlsl"); }
+TEST_F(FileTest, IntrinsicsLdexp) { runFileTest("intrinsics.ldexp.hlsl"); }
+TEST_F(FileTest, IntrinsicsLerp) { runFileTest("intrinsics.lerp.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog) { runFileTest("intrinsics.log.hlsl"); }
+TEST_F(FileTest, IntrinsicsLog10) { runFileTest("intrinsics.log10.hlsl"); }
 TEST_F(FileTest, IntrinsicsLog2) { runFileTest("intrinsics.log2.hlsl"); }
 TEST_F(FileTest, IntrinsicsMin) { runFileTest("intrinsics.min.hlsl"); }
+TEST_F(FileTest, IntrinsicsModf) { runFileTest("intrinsics.modf.hlsl"); }
+TEST_F(FileTest, IntrinsicsMad) { runFileTest("intrinsics.mad.hlsl"); }
 TEST_F(FileTest, IntrinsicsMax) { runFileTest("intrinsics.max.hlsl"); }
 TEST_F(FileTest, IntrinsicsNormalize) {
   runFileTest("intrinsics.normalize.hlsl");
@@ -485,6 +495,9 @@ TEST_F(FileTest, IntrinsicsFloatSign) {
 TEST_F(FileTest, IntrinsicsIntSign) { runFileTest("intrinsics.intsign.hlsl"); }
 TEST_F(FileTest, IntrinsicsReflect) { runFileTest("intrinsics.reflect.hlsl"); }
 TEST_F(FileTest, IntrinsicsRefract) { runFileTest("intrinsics.refract.hlsl"); }
+TEST_F(FileTest, IntrinsicsReverseBits) {
+  runFileTest("intrinsics.reversebits.hlsl");
+}
 TEST_F(FileTest, IntrinsicsSaturate) {
   runFileTest("intrinsics.saturate.hlsl");
 }
