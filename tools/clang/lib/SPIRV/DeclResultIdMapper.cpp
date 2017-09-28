@@ -763,6 +763,27 @@ uint32_t DeclResultIdMapper::createSpirvStageVar(StageVar *stageVar,
     return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
                                          BuiltIn::GlobalInvocationId);
   }
+  case hlsl::Semantic::Kind::GroupID: {
+    // GroupID semantic is only valid for compute shaders, and it is always an
+    // input.
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+                                         BuiltIn::WorkgroupId);
+  }
+  case hlsl::Semantic::Kind::GroupThreadID: {
+    // GroupThreadID semantic is only valid for compute shaders, and it is
+    // always an input.
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+                                         BuiltIn::LocalInvocationId);
+  }
+  case hlsl::Semantic::Kind::GroupIndex: {
+    // GroupIndex semantic is only valid for compute shaders, and it is
+    // always an input.
+    stageVar->setIsSpirvBuiltin();
+    return theBuilder.addStageBuiltinVar(type, spv::StorageClass::Input,
+                                         BuiltIn::LocalInvocationIndex);
+  }
   default:
     emitError("semantic %0 unimplemented yet")
         << stageVar->getSemantic()->GetName();
