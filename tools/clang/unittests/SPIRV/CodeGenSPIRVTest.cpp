@@ -402,8 +402,14 @@ TEST_F(FileTest, StructuredBufferGetDimensions) {
 TEST_F(FileTest, AppendStructuredBufferAppend) {
   runFileTest("method.append-structured-buffer.append.hlsl");
 }
+TEST_F(FileTest, AppendStructuredBufferGetDimensions) {
+  runFileTest("method.append-structured-buffer.get-dimensions.hlsl");
+}
 TEST_F(FileTest, ConsumeStructuredBufferConsume) {
   runFileTest("method.consume-structured-buffer.consume.hlsl");
+}
+TEST_F(FileTest, ConsumeStructuredBufferGetDimensions) {
+  runFileTest("method.consume-structured-buffer.get-dimensions.hlsl");
 }
 
 // For ByteAddressBuffer methods

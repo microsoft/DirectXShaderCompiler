@@ -1156,6 +1156,12 @@ be used as the index for storing the new element. E.g., for ``buf.Append(vec)``:
       %val = OpLoad %v4float %vec
              OpStore %ptr %val
 
+``.GetDimensions()``
+~~~~~~~~~~~~~~~~~~~~
+Since AppendStructuredBuffers are represented as a struct with one member that is a
+runtime array, ``OpArrayLength`` is invoked on the runtime array in order to find the
+number of elements. The stride is also calculated based on GLSL ``std430`` as explained above.
+
 ``ConsumeStructuredBuffer``
 ---------------------------
 
@@ -1176,6 +1182,11 @@ will be used as the index for reading the new element. E.g., for
       %val = OpLoad %v4float %vec
              OpStore %ptr %val
 
+``.GetDimensions()``
+~~~~~~~~~~~~~~~~~~~~
+Since ConsumeStructuredBuffers are represented as a struct with one member that is a
+runtime array, ``OpArrayLength`` is invoked on the runtime array in order to find the
+number of elements. The stride is also calculated based on GLSL ``std430`` as explained above.
 
 ``Buffer``
 --------------------------
