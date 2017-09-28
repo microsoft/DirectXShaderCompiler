@@ -310,6 +310,22 @@ bool TypeTranslator::isRWByteAddressBuffer(QualType type) {
   return false;
 }
 
+bool TypeTranslator::isAppendStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "AppendStructuredBuffer";
+}
+
+bool TypeTranslator::isConsumeStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "ConsumeStructuredBuffer";
+}
+
 bool TypeTranslator::isStructuredBuffer(QualType type) {
   const auto *recordType = type->getAs<RecordType>();
   if (!recordType)
