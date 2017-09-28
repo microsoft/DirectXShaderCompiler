@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 //  This file defines a struct containing SPIR-V information from evaluating
-//  Clang AST tree.
+//  a Clang AST node.
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,7 +26,7 @@ enum class LayoutRule {
   GLSLStd430,
 };
 
-/// Struct contains SPIR-V information from evaluating a Clang AST tree.
+/// Struct contains SPIR-V information from evaluating a Clang AST node.
 ///
 /// We need to report more information than just the <result-id> for SPIR-V:
 /// * Constness: enables generating SPIR-V constant instructions
@@ -34,7 +34,7 @@ enum class LayoutRule {
 /// * Layout rule: for getting correct (pointer) types
 /// * Relaxed precision: for emitting PrelaxedPrecision decoration
 ///
-/// For most cases, the evaluation result of a Clang AST tree will just be
+/// For most cases, the evaluation result of a Clang AST node will just be
 /// a SPIR-V <result-id> that is not a constant, with storage class Function,
 /// layout rule Void, and not relaxed precision.
 ///
@@ -52,7 +52,7 @@ enum class LayoutRule {
 ///
 /// This struct has utilities to allow implicit constructing from or converting
 /// to a uint32_t value (for <result-id>) since that's the most commonly used
-/// information out of evaluating a Clang AST tree. When doing such construction
+/// information out of evaluating a Clang AST node. When doing such construction
 /// or conversion, all other information are defaulted to what are meaningful
 /// for a function temporary variable.
 struct SpirvEvalInfo {
